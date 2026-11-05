@@ -1,7 +1,7 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
 import { mapNode } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answerNext, service } from "../stories/host.ts"
 import { AccessibilityPanel } from "./AccessibilityPanel.tsx"
@@ -55,8 +55,27 @@ export const Checking: Story = {
     // Checked already while Storybook runs: checks again, as slowly.
     const again = panel.queryByRole("button", { name: "Check again" })
     if (again) await userEvent.click(again)
-    await panel.findByText("Checking every state and mode", undefined, slowly)
+    // The first check, or checking again with the last check's findings faded below.
+    await panel.findByText(/^Checking (every state and mode|again)$/, undefined, slowly)
     // Only this check is slow; later requests answer as usual.
+    service.latency = 150
+  }
+}
+
+/**
+ * Checking again, with the service taking its time: the last check's findings stay, faded, under a note that it's
+ * checking, so the panel doesn't empty while it works.
+ */
+export const CheckingAgain: Story = {
+  loaders: [checking("Pricing")],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    const [again] = await panel.findAllByRole("button", { name: "Check again" }, slowly)
+    await panel.findAllByText("Text contrast is too low", undefined, slowly)
+    service.latency = 10 * 60 * 1000
+    await userEvent.click(again!)
+    await panel.findByText("Checking again", undefined, slowly)
+    await expect(panel.getByText("Text contrast is too low")).toBeVisible()
     service.latency = 150
   }
 }
@@ -130,7 +149,74 @@ export const RuleCollapsed: Story = {
   }
 }
 
-/** The design changed after its check, here its headline's text: a note says so, with a button to check again. */
+/**
+ * A contrast failure with its fix: the project's token closest to the text's color that passes in every frame, drawn on
+ * the same background, with the ratio it reaches. Apply colors the layer's text with it as one undoable step, then
+ * checks the design again, since only a check shows the fix worked. The stand-in service finds the same failure again.
+ */
+export const ContrastFix: Story = {
+  loaders: [checking("Pricing")],
+  play: async ({ canvasElement }) => {
+    await checkAgain(canvasElement, "Text contrast is too low")
+    const panel = within(canvasElement)
+    const [apply] = panel.getAllByRole("button", { name: "Apply" })
+    await userEvent.click(apply!)
+    await panel.findByText("Checking again", undefined, slowly)
+    const root = example().store.getEntry(design("Pricing"))!.container.root
+    await expect(JSON.stringify(root)).toContain('"foreground":"foreground"')
+    // Checked after the change, so it's not out of date.
+    await waitFor(() => expect(panel.queryByText("Checking again")).toBeNull(), slowly)
+    await expect(panel.queryByText("This screen changed after it was checked.")).toBeNull()
+  }
+}
+
+/** A contrast failure no token fixes, since none of the project's colors pass on its background: it says so. */
+export const NoPassingToken: Story = {
+  loaders: [checking("Pricing")],
+  play: ({ canvasElement }) =>
+    checkAgain(canvasElement, /None of the project.s colors pass/, () =>
+      answerNext("accessibility.check", async (_, real) => {
+        const result = (await real()) as { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
+        return {
+          ...result,
+          findings: result.findings.map((finding) =>
+            finding.contrast
+              ? {
+                  ...finding,
+                  detail: "#a3a3a3 on #737373 is 1.9:1, and 14px text needs 4.5:1.",
+                  contrast: {
+                    ...finding.contrast,
+                    foreground: "#a3a3a3",
+                    background: "#737373",
+                    ratio: 1.9,
+                    fix: "none"
+                  }
+                }
+              : finding
+          )
+        }
+      })
+    )
+}
+
+/**
+ * The note at the panel's foot in German, about 40% longer than English, as a stand-in for a translation: it wraps to
+ * four lines, and the findings still scroll above it.
+ */
+export const LongNote: Story = {
+  loaders: [checking("Dashboard")],
+  play: async ({ canvasElement }) => {
+    await checkAgain(canvasElement, "Button has no name")
+    const note = await within(canvasElement).findByText(/^Automated checks miss some issues/)
+    note.textContent =
+      "Automatische Prüfungen übersehen manche Probleme. Probieren Sie es zusätzlich mit einer Tastatur und einem Bildschirmleseprogramm aus."
+  }
+}
+
+/**
+ * The design changed after its check, here its headline's text: a warning says so with Check again, the findings
+ * fade since they may be wrong now, and the refresh button gets a dot.
+ */
 export const OutOfDate: Story = {
   loaders: [checking("Sign in")],
   play: async ({ canvasElement }) => {

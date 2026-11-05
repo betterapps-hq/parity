@@ -1,16 +1,24 @@
+import { z } from "zod"
 import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
 import type { ComponentSource, ProjectConfig } from "./project.ts"
 import type { ComponentRenderStatus } from "./render-status.ts"
 import type { RenderNode } from "./render.ts"
 import type { TokenCategory } from "./token-types.ts"
 
-/** The parts of a project's package.json that adapters use to detect a stack. */
-export interface PackageManifest {
-  name?: string
-  dependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
-  scripts?: Record<string, string>
-}
+const packageVersions = z.record(z.string(), z.string())
+
+/**
+ * The parts of a project's package.json that adapters use to detect a stack. It's someone else's file, so the fields
+ * Parity doesn't read pass through unchecked.
+ */
+export const packageManifest = z.looseObject({
+  name: z.string().optional(),
+  dependencies: packageVersions.optional(),
+  devDependencies: packageVersions.optional(),
+  scripts: z.record(z.string(), z.string()).optional()
+})
+
+export type PackageManifest = z.infer<typeof packageManifest>
 
 /**
  * Mounts components of one UI framework (React, Vue, Svelte…).

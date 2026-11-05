@@ -1,6 +1,8 @@
+import { nonBlankString } from "@parity-app/core/schema"
+
 /** Declared caller names are displayed verbatim apart from surrounding whitespace. */
 function declaredName(value: unknown): string | undefined {
-  return typeof value === "string" ? value.trim() || undefined : undefined
+  return nonBlankString.safeParse(value).data
 }
 
 /** Reserve the session suffix inside the desktop boundary's 80-character caller-id limit. */

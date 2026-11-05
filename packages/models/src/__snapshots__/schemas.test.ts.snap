@@ -1,0 +1,593 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`lens model JSON Schemas > keeps links's schema as published 1`] = `
+{
+  "$id": "urn:parity:model:links:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+    },
+    "links": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "minLength": 1,
+                "type": "string",
+              },
+              "kind": {
+                "enum": [
+                  "screen",
+                  "route",
+                  "operation",
+                  "table",
+                ],
+                "type": "string",
+              },
+            },
+            "required": [
+              "kind",
+              "id",
+            ],
+            "type": "object",
+          },
+          "source": {
+            "enum": [
+              "drawn",
+              "trace",
+              "code",
+            ],
+            "type": "string",
+          },
+          "to": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "minLength": 1,
+                "type": "string",
+              },
+              "kind": {
+                "enum": [
+                  "screen",
+                  "route",
+                  "operation",
+                  "table",
+                ],
+                "type": "string",
+              },
+            },
+            "required": [
+              "kind",
+              "id",
+            ],
+            "type": "object",
+          },
+        },
+        "required": [
+          "from",
+          "to",
+          "source",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
+    "version": {
+      "const": 1,
+      "type": "number",
+    },
+  },
+  "required": [
+    "version",
+    "links",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`lens model JSON Schemas > keeps operations's schema as published 1`] = `
+{
+  "$id": "urn:parity:model:operations:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+    },
+    "operations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string",
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string",
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "boolean",
+                    },
+                    {
+                      "additionalProperties": {},
+                      "propertyNames": {
+                        "type": "string",
+                      },
+                      "type": "object",
+                    },
+                  ],
+                },
+                "status": {
+                  "maximum": 599,
+                  "minimum": 100,
+                  "type": "integer",
+                },
+              },
+              "type": "object",
+            },
+            "type": "array",
+          },
+          "extensions": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "pattern": "^x-",
+              "type": "string",
+            },
+            "type": "object",
+          },
+          "http": {
+            "additionalProperties": false,
+            "properties": {
+              "method": {
+                "enum": [
+                  "get",
+                  "put",
+                  "post",
+                  "delete",
+                  "options",
+                  "head",
+                  "patch",
+                  "trace",
+                  "query",
+                ],
+                "type": "string",
+              },
+              "path": {
+                "format": "starts_with",
+                "pattern": "^\\/.*",
+                "type": "string",
+              },
+            },
+            "required": [
+              "method",
+              "path",
+            ],
+            "type": "object",
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "input": {
+            "anyOf": [
+              {
+                "type": "boolean",
+              },
+              {
+                "additionalProperties": {},
+                "propertyNames": {
+                  "type": "string",
+                },
+                "type": "object",
+              },
+            ],
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "boolean",
+              },
+              {
+                "additionalProperties": {},
+                "propertyNames": {
+                  "type": "string",
+                },
+                "type": "object",
+              },
+            ],
+          },
+          "summary": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "id",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
+    "version": {
+      "const": 1,
+      "type": "number",
+    },
+  },
+  "required": [
+    "version",
+    "operations",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`lens model JSON Schemas > keeps routes's schema as published 1`] = `
+{
+  "$defs": {
+    "Route": {
+      "additionalProperties": false,
+      "properties": {
+        "children": {
+          "items": {
+            "$ref": "#/$defs/Route",
+          },
+          "type": "array",
+        },
+        "file": {
+          "type": "string",
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "layout": {
+          "type": "boolean",
+        },
+        "path": {
+          "format": "starts_with",
+          "pattern": "^\\/.*",
+          "type": "string",
+        },
+      },
+      "required": [
+        "id",
+        "path",
+      ],
+      "type": "object",
+    },
+  },
+  "$id": "urn:parity:model:routes:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+    },
+    "routes": {
+      "items": {
+        "$ref": "#/$defs/Route",
+      },
+      "type": "array",
+    },
+    "version": {
+      "const": 1,
+      "type": "number",
+    },
+  },
+  "required": [
+    "version",
+    "routes",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`lens model JSON Schemas > keeps scenarios's schema as published 1`] = `
+{
+  "$id": "urn:parity:model:scenarios:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+    },
+    "scenarios": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "responses": {
+            "additionalProperties": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {},
+                "status": {
+                  "maximum": 599,
+                  "minimum": 100,
+                  "type": "integer",
+                },
+              },
+              "required": [
+                "body",
+              ],
+              "type": "object",
+            },
+            "propertyNames": {
+              "minLength": 1,
+              "type": "string",
+            },
+            "type": "object",
+          },
+          "state": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "id",
+          "name",
+          "responses",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
+    "version": {
+      "const": 1,
+      "type": "number",
+    },
+  },
+  "required": [
+    "version",
+    "scenarios",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`lens model JSON Schemas > keeps tables's schema as published 1`] = `
+{
+  "$id": "urn:parity:model:tables:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+    },
+    "dialect": {
+      "enum": [
+        "sqlite",
+        "postgres",
+        "mysql",
+        "sqlserver",
+      ],
+      "type": "string",
+    },
+    "enums": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "schema": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "values": {
+            "items": {
+              "type": "string",
+            },
+            "type": "array",
+          },
+        },
+        "required": [
+          "name",
+          "values",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
+    "tables": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "comment": {
+                  "type": "string",
+                },
+                "default": {
+                  "type": "string",
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "nullable": {
+                  "type": "boolean",
+                },
+                "type": {
+                  "type": "string",
+                },
+              },
+              "required": [
+                "name",
+                "type",
+                "nullable",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+          "comment": {
+            "type": "string",
+          },
+          "foreignKeys": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "columns": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "minItems": 1,
+                  "type": "array",
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "onDelete": {
+                  "enum": [
+                    "no action",
+                    "restrict",
+                    "cascade",
+                    "set null",
+                    "set default",
+                  ],
+                  "type": "string",
+                },
+                "onUpdate": {
+                  "enum": [
+                    "no action",
+                    "restrict",
+                    "cascade",
+                    "set null",
+                    "set default",
+                  ],
+                  "type": "string",
+                },
+                "references": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "columns": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string",
+                      },
+                      "minItems": 1,
+                      "type": "array",
+                    },
+                    "schema": {
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "table": {
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "table",
+                    "columns",
+                  ],
+                  "type": "object",
+                },
+              },
+              "required": [
+                "columns",
+                "references",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+          "indexes": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "columns": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "minItems": 1,
+                  "type": "array",
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "unique": {
+                  "type": "boolean",
+                },
+              },
+              "required": [
+                "name",
+                "columns",
+                "unique",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+          "kind": {
+            "enum": [
+              "table",
+              "view",
+            ],
+            "type": "string",
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "primaryKey": {
+            "items": {
+              "minLength": 1,
+              "type": "string",
+            },
+            "minItems": 1,
+            "type": "array",
+          },
+          "schema": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "name",
+          "kind",
+          "columns",
+          "indexes",
+          "foreignKeys",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
+    "version": {
+      "const": 1,
+      "type": "number",
+    },
+  },
+  "required": [
+    "version",
+    "dialect",
+    "tables",
+  ],
+  "type": "object",
+}
+`;

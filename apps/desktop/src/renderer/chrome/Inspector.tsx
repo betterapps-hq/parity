@@ -24,7 +24,7 @@ export function Inspector() {
       <TabsContent value="modes" className="min-h-0 overflow-x-hidden overflow-y-auto">
         <ModesPanel />
       </TabsContent>
-      <TabsContent value="accessibility" className="min-h-0 overflow-x-hidden overflow-y-auto">
+      <TabsContent value="accessibility" className="flex min-h-0 flex-col overflow-hidden">
         <AccessibilityPanel />
       </TabsContent>
     </SidePanel>

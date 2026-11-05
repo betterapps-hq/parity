@@ -24,7 +24,7 @@ import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
 import { type BoardRest, boardDormant } from "./frame-sleep.ts"
 import { setBoardSized } from "./free-space.ts"
-import { holdCursor } from "./held-cursor.ts"
+import { followPress, gestures } from "./gesture.ts"
 import { clearSnaps, snapPosition } from "./snap.ts"
 import { useTitleLayer } from "./title-layer.tsx"
 
@@ -177,8 +177,8 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
 
   /**
    * Selects the design and drags it by its title, like a frame's name in Figma, along with every other selected
-   * design. Shift adds it to the selection or takes it out. The move is one undo step, saved on release; Escape puts
-   * the designs back where they were and saves nothing.
+   * design. Shift adds it to the selection or takes it out. The move is one undo step, saved when the drag ends; Escape
+   * puts the designs back where they were and saves nothing (see `gestures.titleDrag`).
    */
   const dragByTitle = (event: ReactPointerEvent) => {
     event.stopPropagation()
@@ -204,9 +204,6 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
     )
     const origin = origins.get(key) ?? { x: shape.x, y: shape.y }
     const others = new Set(moving.map(shapeIdFor))
-    let moved = false
-    let releaseCursor: (() => void) | undefined
-    designDrag.active = true
     const place = (dx: number, dy: number) =>
       editor.run(
         () => {
@@ -221,59 +218,39 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
         },
         { history: "ignore" }
       )
-    const move = (moveEvent: PointerEvent) => {
-      const point = editor.screenToPage({ x: moveEvent.clientX, y: moveEvent.clientY })
-      const free = { x: origin.x + point.x - start.x, y: origin.y + point.y - start.y }
-      // It locks to the edges and centers of the designs around it; Ctrl or Cmd moves freely.
-      const snapping = snaps(moveEvent, getPreferences().snapping)
-      const next = snapping ? snapPosition(editor, shape.id, free, others) : free
-      if (!snapping) clearSnaps(editor)
-      const dx = next.x - origin.x
-      const dy = next.y - origin.y
-      moved ||= Math.abs(dx) >= 1 || Math.abs(dy) >= 1
-      // The title has the pointer captured, so it's given the cursor too, besides the layer over the window.
-      if (moved && !releaseCursor) {
-        const release = holdCursor("grabbing")
+    followPress(gestures.titleDrag, session.store, event, {
+      cursor: "grabbing",
+      start() {
+        designDrag.active = true
+        // The title has the pointer captured, so it's given the cursor too, besides the layer over the window.
         target.style.cursor = "grabbing"
-        releaseCursor = () => {
-          release()
-          target.style.cursor = ""
-        }
+      },
+      move(moveEvent) {
+        const point = editor.screenToPage({ x: moveEvent.clientX, y: moveEvent.clientY })
+        const free = { x: origin.x + point.x - start.x, y: origin.y + point.y - start.y }
+        // It locks to the edges and centers of the designs around it; Ctrl or Cmd moves freely.
+        const snapping = snaps(moveEvent, getPreferences().snapping)
+        const next = snapping ? snapPosition(editor, shape.id, free, others) : free
+        if (!snapping) clearSnaps(editor)
+        place(next.x - origin.x, next.y - origin.y)
+      },
+      end(kept) {
+        clearSnaps(editor)
+        target.style.cursor = ""
+        if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId)
+        // Put back while the canvas still knows the move is the title's, so it isn't saved.
+        if (!kept) place(0, 0)
+        designDrag.active = false
+        if (!kept) return
+        const positions = new Map(
+          [...origins.keys()].flatMap((candidate) => {
+            const found = editor.getShape(shapeIdFor(candidate))
+            return found ? [[candidate, { x: found.x, y: found.y }] as const] : []
+          })
+        )
+        moveDesigns(session, positions, `Move ${session.store.designsLabel(positions.keys())}`)
       }
-      place(dx, dy)
-    }
-    const stop = () => {
-      clearSnaps(editor)
-      designDrag.active = false
-      releaseCursor?.()
-      target.removeEventListener("pointermove", move)
-      target.removeEventListener("pointerup", end)
-      target.removeEventListener("pointercancel", end)
-      window.removeEventListener("keydown", onKey, true)
-    }
-    const onKey = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key !== "Escape") return
-      keyEvent.preventDefault()
-      keyEvent.stopImmediatePropagation()
-      stop()
-      if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId)
-      place(0, 0)
-    }
-    const end = () => {
-      stop()
-      if (!moved) return
-      const positions = new Map(
-        [...origins.keys()].flatMap((candidate) => {
-          const found = editor.getShape(shapeIdFor(candidate))
-          return found ? [[candidate, { x: found.x, y: found.y }] as const] : []
-        })
-      )
-      moveDesigns(session, positions, `Move ${session.store.designsLabel(positions.keys())}`)
-    }
-    target.addEventListener("pointermove", move)
-    target.addEventListener("pointerup", end)
-    target.addEventListener("pointercancel", end)
-    window.addEventListener("keydown", onKey, true)
+    })
   }
 
   if (!entry) {

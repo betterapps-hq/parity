@@ -1,4 +1,10 @@
-import { type CanvasDocument, type ContainerSpec, defaultModeSettings, type ModeSettings } from "@parity-app/core"
+import {
+  type CanvasDocument,
+  type ContainerSpec,
+  defaultModeSettings,
+  type ModeSettings,
+  parseCanvasDocument
+} from "@parity-app/core"
 import { type Token, type TokenChange, writeTokenChanges } from "@parity-app/tokens"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { addDesign, changeDesign, mergeAgentChanges, moveDesign } from "./design-changes.ts"
@@ -659,5 +665,52 @@ describe("the merged project file", () => {
     })
     history = taken(recordChange(history, "Edit modes", { ...history.current, modes: custom }))
     expect(mergedDocument(history).modes).toEqual(custom)
+  })
+
+  it("holds every file's canvas objects and links once each, and the main file's sources", () => {
+    const users = { kind: "table", ref: "public.users", position: { x: 0, y: 0 } } as const
+    const route = { kind: "route", ref: "/users/:id", position: { x: 400, y: 0 } } as const
+    const reads = {
+      id: "l1",
+      type: "reads",
+      from: { kind: "operation", ref: "getUser" },
+      to: { kind: "table", ref: "public.users" }
+    } as const
+    const shows = {
+      id: "l2",
+      type: "shows",
+      from: { kind: "screen", ref: "home" },
+      to: { kind: "route", ref: "/users/:id" }
+    } as const
+    const history = openDesigns(
+      [
+        {
+          path: "app.par",
+          document: { version: 3, containers: [], objects: [users], links: [reads], sources: { data: "migrations" } }
+        },
+        {
+          path: "more.par",
+          document: {
+            version: 3,
+            containers: [],
+            objects: [{ ...users, position: { x: 9, y: 9 } }, route],
+            links: [{ ...reads, type: "writes" }, shows],
+            sources: { data: "drizzle" }
+          }
+        }
+      ],
+      defaultModeSettings,
+      "app.par"
+    )
+    const merged = mergedDocument(history)
+    expect(merged).toEqual({
+      version: 3,
+      containers: [],
+      objects: [users, route],
+      links: [reads, shows],
+      sources: { data: "migrations" }
+    })
+    const written = JSON.stringify(merged)
+    expect(parseCanvasDocument(JSON.parse(written))).toEqual(merged)
   })
 })

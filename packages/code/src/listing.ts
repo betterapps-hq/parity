@@ -191,6 +191,27 @@ export function filesChanged(
 }
 
 /**
+ * The files read again after the project's config changed, for `filesChanged` to sort the list afresh as discovery
+ * sorts it on opening: every file the config includes now, with those the list came from, so components in files it
+ * now leaves out are removed and those in files it newly includes are added. Ids stay as in `filesChanged`, libraries'
+ * and workspace packages' components aren't touched, and exports only the type checker decided wait for it again, as
+ * on opening.
+ */
+export async function rediscoveredFiles(
+  root: string,
+  renderer: RendererAdapter,
+  tsconfig: ProjectTsconfig,
+  uiKit: string | undefined,
+  sources: Record<string, ComponentSource>
+): Promise<Map<string, ParsedComponent[] | undefined>> {
+  const { files } = await appFiles(root, renderer, tsconfig)
+  const listed = Object.values(sources)
+    .filter((source) => !source.library)
+    .map((source) => source.path)
+  return readChangedFiles(root, renderer, files, uiKit, [...files, ...listed])
+}
+
+/**
  * The app's files that import one of `changed`, by a relative path or a tsconfig alias. The type checker reads them
  * again with the changed files, since what a file exports can depend on what it imports.
  */

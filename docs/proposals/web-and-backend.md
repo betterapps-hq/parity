@@ -47,7 +47,8 @@ and writing back after that. Tests, coverage, the gaps report and performance wa
 - **Canvas objects and links.** `.par` gains kinds for tables, operations and routes, and typed links between them, such
   as screen → route → operation → table. The models themselves are read from the project every time and never copied
   into `.par`. It keeps only what a person decides: where objects sit on the canvas, a link drawn by hand, or a choice
-  between two sources.
+  between two sources. Its keys are `objects`, `links` and `sources`, set out in
+  [decisions.md](../decisions.md#app-lenses) (PAR-16).
 - **Defined models.** Each lens's model (tables, operations, routes, scenarios, links) is a versioned JSON Schema, as
   `.lib.par` is today, so adapters and agents target the model rather than Parity's code. They stay private until you
   decide to open them up.

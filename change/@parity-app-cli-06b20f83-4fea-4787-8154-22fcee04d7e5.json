@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "An unknown state now says calls take a state's id, lists each id beside its name, and points a state's name to its id",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

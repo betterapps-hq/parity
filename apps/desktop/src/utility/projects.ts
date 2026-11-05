@@ -9,7 +9,8 @@ import {
   type ComponentList,
   type ComponentListStep,
   configInputs,
-  nextComponentList
+  nextComponentList,
+  rediscoveredFiles
 } from "@parity-app/code"
 import {
   type BuilderAdapter,
@@ -689,18 +690,26 @@ function isConfigInput(project: OpenProject, file: string): boolean {
 }
 
 /**
- * Reads props and the type check again after a config input changed. The type checker makes the project's program
- * again from the config as it is now (see `utility/props-worker.ts`), so the answers match a project opened afresh.
+ * Sorts the app's sources again, then reads props and the type check again, after a config input changed. Components
+ * in files the config now leaves out drop off the list and those in files it newly includes join it, as on opening.
+ * The type checker makes the project's program again from the config as it is now (see `utility/props-worker.ts`), so
+ * the answers match a project opened afresh.
  */
 async function rereadConfig(project: OpenProject, changed: () => void): Promise<void> {
   const { root } = project.info
   const tsconfig = readTsconfig(root)
   await followConfig(project, changed, tsconfig)
   if (projects.get(root) !== project) return
-  console.log(`[service] ${project.info.name}'s config or dependencies changed, so props are read again`)
+  console.log(`[service] ${project.info.name}'s config or dependencies changed, so its components are found again`)
+  const read = await rediscoveredFiles(root, project.renderer, tsconfig, project.uiKit, project.list.sources)
   // The files discovery gives the checker, so never the entry that mounts the app, which the guest must not import.
   const files = await checkedAppFiles(root, project.renderer, tsconfig)
-  project.components = inferProps(root, project.list.sources, files)
+  if (projects.get(root) !== project) return
+  const step = nextComponentList(project.list, { kind: "filesRead", read })
+  takeList(project, step, files)
+  const added = Object.keys(step.guest.add).length
+  const removed = step.guest.drop.length
+  if (added > 0 || removed > 0) console.log(`[service]   ${added} components added, ${removed} left out`)
   if (files.length > 0) {
     await checkTypes(project, files)
     return
@@ -809,13 +818,18 @@ export async function correctComponents({
 }
 
 /**
- * Takes the next component list into the project, serves it to the builder, so a guest loaded later has it, reads the
- * props it needs, and tells the windows once they're read.
+ * Takes the next component list into the project, serves it to the builder, so a guest loaded later has it, and reads
+ * the props it needs, with `files` read too when every component's are.
  */
-async function settle(project: OpenProject, step: ComponentListStep, label?: string): Promise<void> {
+function takeList(project: OpenProject, step: ComponentListStep, files?: string[]): void {
   project.list = step.list
   project.session.setComponents(step.list.sources)
-  readProps(project, step)
+  readProps(project, step, files)
+}
+
+/** Takes the next component list into the project, and tells the windows once its props are read. */
+async function settle(project: OpenProject, step: ComponentListStep, label?: string): Promise<void> {
+  takeList(project, step)
   const components = await project.components
   const added = Object.keys(step.guest.add).length
   const removed = step.guest.drop.length

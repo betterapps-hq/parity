@@ -57,6 +57,7 @@ import {
   withFreshIds
 } from "@parity-app/core"
 import { componentComposition, type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
+import { contrastFix } from "@parity-app/tokens"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import { describeLayoutFinding, layoutFindings } from "./overflow.ts"
 import type {
@@ -67,10 +68,12 @@ import type {
   DiscardedNode,
   DiscardedPatches,
   ExecResult,
+  FrameContrast,
   Problem,
   Screenshot,
   TokenChange
 } from "./types.ts"
+import { groupWarnings, type Warning, type WarningCategory, warningLine } from "./warnings.ts"
 
 interface Located {
   path: string
@@ -191,7 +194,8 @@ export class AgentWorkspace {
   private modesChanged = false
   private readonly tokenChanges: TokenChange[] = []
   readonly output: string[] = []
-  readonly warnings: string[] = []
+  /** What the call found worth fixing, by category; `result` groups them. */
+  private readonly found: Warning[] = []
   readonly screenshots: Screenshot[] = []
   readonly created: Record<string, string> = {}
   /** What each `Replace` threw away, reported so the agent can put back what it still wants. */
@@ -258,7 +262,10 @@ export class AgentWorkspace {
     }
   }
 
-  result(): Pick<ExecResult, "changes" | "created" | "output" | "warnings" | "screenshots" | "discarded"> {
+  result(): Pick<
+    ExecResult,
+    "changes" | "created" | "output" | "warnings" | "warningGroups" | "screenshots" | "discarded"
+  > {
     this.flush()
     for (const path of this.changed) {
       const document = this.documents.get(path)!
@@ -271,6 +278,7 @@ export class AgentWorkspace {
       }
       this.lint(document)
     }
+    const groups = groupWarnings([...this.found, ...this.overlapWarnings()])
     return {
       changes: {
         designs: [...this.changed].flatMap((path) => this.designChanges(path)),
@@ -281,7 +289,8 @@ export class AgentWorkspace {
       },
       created: this.created,
       output: this.output,
-      warnings: [...new Set([...this.warnings, ...this.overlapWarnings()])],
+      warnings: groups.map(warningLine),
+      warningGroups: groups,
       ...(this.discarded.length > 0 ? { discarded: this.discarded } : {}),
       screenshots: this.screenshots
     }
@@ -590,7 +599,7 @@ export class AgentWorkspace {
       const turned = turnInto(found, update.kind, this.modes)
       container = turned.design
       const lost = describeDropped(turned.dropped)
-      if (lost) this.warnings.push(`${found.name} is a frame now. ${lost}`)
+      if (lost) this.warn("kind_changed", `${found.name} is a frame now. ${lost}`)
     }
     const frame = container.kind === "frame"
     const viewKeys = (["mode", "showModes", "state", "allStates"] as const).filter((name) => update[name] !== undefined)
@@ -927,7 +936,7 @@ export class AgentWorkspace {
       viewport: size.viewport,
       scale,
       capture: look === "screenshot",
-      ...(look === "accessibility" ? { audit: true } : {}),
+      ...(look === "accessibility" ? { audit: true, colorTokens: this.colorTokens().map((token) => token.name) } : {}),
       tokens: this.tokenValues()
     })
     return { container, state, mode, frame }
@@ -1002,7 +1011,11 @@ export class AgentWorkspace {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "screenshot", scale)
         if (frame.error)
-          this.warnings.push(`${container.name} (${state.name}, ${mode.name}) failed to render: ${frame.error}`)
+          this.warn(
+            "render_failed",
+            `failed to render: ${frame.error}`,
+            `${container.name} (${state.name}, ${mode.name})`
+          )
         if (!frame.png) continue
         this.screenshots.push({
           design: container.id,
@@ -1018,21 +1031,33 @@ export class AgentWorkspace {
     return count
   }
 
+  private colorTokens() {
+    return this.snapshot.tokens.filter((token) => token.category === "color")
+  }
+
   /**
    * What axe-core finds in each frame, one finding per node, in the frame's own size and at 1x. Automated checks catch
-   * only some issues, so an empty list isn't a pass.
+   * only some issues, so an empty list isn't a pass. Each contrast failure carries its fix from the project's tokens.
    */
   private async accessibility(reference: string, options: MatrixOptions = {}): Promise<AccessibilityFinding[]> {
     const { container } = this.findDesign(reference)
     const names = nodeNames(container, this.designName)
     const found: AccessibilityFinding[] = []
+    const contrast: FrameContrast[] = []
+    // Each contrast failure on a layer of this design, with what its frame measured.
+    const inFrame = new Map<AccessibilityFinding, FrameContrast>()
     for (const state of this.statesFor(container, options.state)) {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "accessibility")
         if (frame.error) {
-          this.warnings.push(`${container.name} (${state.name}, ${mode.name}) failed to render: ${frame.error}`)
+          this.warn(
+            "render_failed",
+            `failed to render: ${frame.error}`,
+            `${container.name} (${state.name}, ${mode.name})`
+          )
           continue
         }
+        if (frame.contrast) contrast.push(frame.contrast)
         const seen = new Set<string>()
         for (const { nodes, ...issue } of frame.issues ?? []) {
           for (const { id, ...about } of nodes) {
@@ -1042,12 +1067,52 @@ export class AgentWorkspace {
             const once = `${issue.rule}\n${name ? node : ""}`
             if (seen.has(once)) continue
             seen.add(once)
-            found.push({ state: state.id, mode: mode.id, ...issue, ...(name ? { node, name } : {}), ...about })
+            const finding = { state: state.id, mode: mode.id, ...issue, ...(name ? { node, name } : {}), ...about }
+            found.push(finding)
+            if (finding.contrast && frame.contrast && id === node) inFrame.set(finding, frame.contrast)
           }
         }
       }
     }
+    this.addContrastFixes(container, inFrame, contrast)
     return found
+  }
+
+  /**
+   * Gives each contrast failure the token closest to its text's color that passes in every frame the layer's text was
+   * measured in, failing or passing, so fixing one frame doesn't break another. A layer whose text takes its color
+   * from inside it, such as a component's own classes, or from inside an instance, gets none, since coloring the layer
+   * wouldn't reach it.
+   */
+  private addContrastFixes(
+    container: ContainerSpec,
+    inFrame: Map<AccessibilityFinding, FrameContrast>,
+    frames: FrameContrast[]
+  ): void {
+    const preferred = new Set(
+      this.colorTokens()
+        .filter((token) => token.source === "semantic")
+        .map((token) => token.name)
+    )
+    const fixes = new Map<string, ReturnType<typeof contrastFix> | "unreachable">()
+    for (const [finding, frame] of inFrame) {
+      const node = finding.node!
+      if (!fixes.has(node)) {
+        const readings = frames.flatMap((each) => {
+          const reading = each.texts.find((text) => text.id === node)
+          return reading ? [{ ...reading, tokens: each.tokens }] : []
+        })
+        const reachable =
+          locateNode(container.root, node)?.node.type !== "instance" && readings.every((reading) => reading.follows)
+        fixes.set(node, reachable ? contrastFix(readings, { preferred }) : "unreachable")
+      }
+      const fix = fixes.get(node)
+      if (fix === "unreachable") continue
+      finding.contrast = {
+        ...finding.contrast!,
+        fix: fix ? { token: fix.token, color: frame.tokens[fix.token]!, ratio: Math.min(...fix.ratios) } : "none"
+      }
+    }
   }
 
   private statesFor(container: ContainerSpec, option: string | string[] | undefined): StateSpec[] {
@@ -1115,7 +1180,7 @@ export class AgentWorkspace {
   }
 
   /** Warnings for boards this call created, changed or moved that now overlap another. */
-  private overlapWarnings(): string[] {
+  private overlapWarnings(): Warning[] {
     const ids = new Set(this.boards().flatMap((board) => (this.touched.has(board.key) ? [board.id] : [])))
     return this.overlaps()
       .filter(({ designs }) => designs.some((id) => ids.has(id)))
@@ -1124,8 +1189,14 @@ export class AgentWorkspace {
         const what = titleOnly
           ? `is too close to ${names[1]} (${designs[1]}): a title would cover the other board`
           : `overlaps ${names[1]} (${designs[1]}) by ${size}`
-        return `${names[0]} (${designs[0]}) ${what}. Leave at least ${titleBand} between boards for titles. Move one clear with UpdateDesign(id, { x, y }); FindEmptySpace finds space and Overlaps() lists every overlap.`
+        const message = `${names[0]} (${designs[0]}) ${what}. Leave at least ${titleBand} between boards for titles. Move one clear with UpdateDesign(id, { x, y }); FindEmptySpace finds space and Overlaps() lists every overlap.`
+        return { category: "overlap" as const, message }
       })
+  }
+
+  /** Notes a finding for the result, with the node or frame it's about kept apart from what to do. */
+  private warn(category: WarningCategory, message: string, at?: string): void {
+    this.found.push({ category, message, ...(at === undefined ? {} : { at }) })
   }
 
   private findEmptySpace(options: SpaceOptions): { x: number; y: number } {
@@ -1396,12 +1467,14 @@ export class AgentWorkspace {
       const prop = info.props.find((candidate) => candidate.name === name)
       if (!prop) {
         if (!name.startsWith("data-"))
-          this.warnings.push(`${where}: ${component} has no prop "${name}". Check Props("${component}").`)
+          this.warn("unknown_prop", `${component} has no prop "${name}". Check Props("${component}").`, where)
         continue
       }
       if (prop.kind === "enum" && value !== undefined && !prop.options?.includes(value as string)) {
-        this.warnings.push(
-          `${where}: ${component} ${name} is one of ${prop.options?.map((option) => JSON.stringify(option)).join(", ")}, not ${JSON.stringify(value)}`
+        this.warn(
+          "invalid_option",
+          `${component} ${name} is one of ${prop.options?.map((option) => JSON.stringify(option)).join(", ")}, not ${JSON.stringify(value)}`,
+          where
         )
       }
     }
@@ -1417,15 +1490,17 @@ export class AgentWorkspace {
     for (const container of document.containers) {
       const check = (node: DesignNode, where: string) => {
         if (node.type === "instance" && !library.has(node.design)) {
-          this.warnings.push(`${where}: no component design "${node.design}"`)
+          this.warn("unknown_component_design", `no component design "${node.design}"`, where)
         }
         if (
           node.type === "component" &&
           !components.has(node.component) &&
           !icons.some((prefix) => node.component.startsWith(prefix))
         ) {
-          this.warnings.push(
-            `${where}: "${node.component}" isn't one of the project's components; it renders as a placeholder. Check Components().`
+          this.warn(
+            "unknown_component",
+            `"${node.component}" isn't one of the project's components; it renders as a placeholder. Check Components().`,
+            where
           )
         }
         if (node.type === "component" && this.inserted.has(node.id)) this.checkProps(node.component, node.props, where)
@@ -1433,12 +1508,14 @@ export class AgentWorkspace {
           for (const name of tokenStyleKeys) {
             const value = style?.[name]
             if (value && !known(name, value))
-              this.warnings.push(`${where}: ${name} "${value}" isn't a token. Use a name from GetTokens().`)
+              this.warn("not_a_token", `${name} "${value}" isn't a token. Use a name from GetTokens().`, where)
           }
           for (const [name, value] of lengthTokens(style)) {
             if (!tokens.has(value)) {
-              this.warnings.push(
-                `${where}: ${name} "${value}" isn't a length token. Use a spacing step (a number) instead.`
+              this.warn(
+                "not_a_length_token",
+                `${name} "${value}" isn't a length token. Use a spacing step (a number) instead.`,
+                where
               )
             }
           }
@@ -1449,7 +1526,7 @@ export class AgentWorkspace {
           node.type === "layout" &&
           childEntries(node).some((entry) => entry.nodes.length > 1)
         ) {
-          this.warnings.push(`${where}: name layouts that group things, so the layers tree reads well`)
+          this.warn("unnamed_layout", "name layouts that group things, so the layers tree reads well", where)
         }
         for (const entry of childEntries(node))
           for (const child of entry.nodes) check(child, `${container.id}/${child.id}`)
@@ -1460,7 +1537,11 @@ export class AgentWorkspace {
           for (const name of tokenStyleKeys) {
             const value = patch.style?.[name]
             if (value && !known(name, value))
-              this.warnings.push(`${container.id} state ${state.id}/${nodeId}: ${name} "${value}" isn't a token`)
+              this.warn(
+                "not_a_token",
+                `${name} "${value}" isn't a token`,
+                `${container.id} state ${state.id}/${nodeId}`
+              )
           }
         }
       }

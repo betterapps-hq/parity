@@ -3,8 +3,9 @@
 Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-app/project` (PAR-6), and
 `@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. `@parity-app/tokens` holds reading,
 editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32), drop
-rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. The rule and the first items are in
-[decisions.md](../decisions.md) and in Linear's Package boundaries stream.
+rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. `@parity-app/models` holds the lens
+models (PAR-15), on 2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and in Linear's
+Package boundaries stream.
 
 ## In one line
 
@@ -76,7 +77,7 @@ when it's spread through UI code. Today:
 - **The edge is where Node and React belong:** the CLI, `@parity-app/libgen`, the agent runtime, the adapters
   (`renderer-react`, the only package with React, `builder-vite` and `styles-tailwind`) and the fixtures.
 - **Dependencies point one way:** the app uses packages, no package imports Electron, tldraw or the app, and core
-  imports nothing.
+  imports nothing but zod, which checks the data Parity didn't make (PAR-588).
 - **Each package's tests run in Vitest without Electron.** They may use Node to set up files. A rule that changes gets a
   test where it lives.
 - **The guard is mechanical.** pnpm already stops a package importing what its `package.json` doesn't declare, and
@@ -103,10 +104,10 @@ This is the one you expect to iterate on most, so it gets the clearest boundary.
   It's still kept by the app's worker, `utility/props-worker.ts`, until PAR-603 moves it here.
 - **The component list is worked out in one step.** `nextComponentList` in
   [component-list.ts](../../packages/code/src/component-list.ts) takes an open project's list and what happened: the
-  project opened, a saved detection was found, the type checker read files, the parse read changed files, or the person
-  changed their corrections. It returns the next list with the exports the checker left out, which components need
-  props, what a guest is given and takes back, and which files to read next. The project service keeps one list per
-  project and does the reading (PAR-566).
+  project opened, a saved detection was found, the type checker read files, the parse read changed files (every file,
+  after a config change), or the person changed their corrections. It returns the next list with the exports the checker
+  left out, which components need props, what a guest is given and takes back, and which files to read next. The project
+  service keeps one list per project and does the reading (PAR-566).
 - **Pure functions over text and designs:** `generate(design) → files`, `readBack(file, design) → changes`,
   `drift(design, file, hash) → changes`. Files come in and go out as data; the service reads and writes them.
 - **The review model is data:** each change has a direction (design to code, or code to design), what it touches, and

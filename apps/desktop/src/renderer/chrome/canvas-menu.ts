@@ -66,17 +66,27 @@ export interface MenuTarget {
 /**
  * The menu for a right-click: over a design, Figma's canvas menu as far as Parity's commands go, for the selection,
  * which the right-click has already made (see `rightClickSelection`); on the canvas around designs (`target`
- * undefined), Paste here, Select all and Zoom to fit. Items for layers only (Paste to replace, the order, Wrap in
- * layout and Hide) are left out with designs selected, and Go to the main component unless an instance is. Each is
- * unavailable when the menubar's would be, and, for layers inside an instance, when it can't act on them: Copy,
- * Duplicate, the order, Wrap in layout and Hide. Paste over and Paste to replace stay, and say why they can't.
+ * undefined), New screen, New component and Insert, then Paste here, then Select all and Zoom to fit, which have
+ * nothing to act on when the canvas holds no design and none of its `notes`. Items for layers only (Paste to replace,
+ * the order, Wrap in layout and Hide) are left out with designs selected, and Go to the main component unless an
+ * instance is. Each is unavailable when the menubar's would be, and, for layers inside an instance, when it can't act
+ * on them: Copy, Duplicate, the order, Wrap in layout and Hide. Paste over and Paste to replace stay, and say why they
+ * can't.
  */
 export function canvasMenu(
   target: MenuTarget | undefined,
   selection: Selection,
-  entries: readonly ContainerEntry[]
+  entries: readonly ContainerEntry[],
+  notes = 0
 ): MenuEntry[] {
-  if (!target) return sections([[item("pasteHere", true)], [item("selectAll", true), item("zoomToFit", true)]])
+  if (!target) {
+    const something = entries.length > 0 || notes > 0
+    return sections([
+      [item("newScreen", true), item("newComponent", true), item("insert", true, "Insert…")],
+      [item("pasteHere", true)],
+      [item("selectAll", something), item("zoomToFit", something)]
+    ])
+  }
   const entry = selection.design ? entries.find((candidate) => candidate.key === selection.design) : undefined
   const ids = entry ? selectedNodes(selection) : []
   const root = entry?.container.root

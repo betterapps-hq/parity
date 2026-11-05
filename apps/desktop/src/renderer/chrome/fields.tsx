@@ -39,10 +39,12 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState
 } from "react"
 import { ProjectContext } from "../canvas/context.ts"
+import { GestureRun } from "../canvas/gesture.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { Hint } from "./Hint.tsx"
 import {
@@ -314,20 +316,13 @@ export function NumberField({
   const store = useContext(ProjectContext)?.store
   const target = useContext(FieldTarget)
   /**
-   * The gesture a run of Up and Down presses, or a scrub, is in, and what it edits. A run lasts while only Up and Down
-   * are pressed on one target: typing, Enter, Escape, leaving the field, scrubbing or the target changing ends it.
+   * The run of Up and Down presses, or the scrub, the field's edits are in, keyed by its target (see `GestureRun`). A
+   * run lasts while only Up and Down are pressed on one target: typing, Enter, Escape, leaving the field, scrubbing or
+   * the target changing ends it.
    */
-  const gesture = useRef<string | undefined>(undefined)
-  const gestureTarget = useRef(target)
-  const endGesture = () => {
-    if (gesture.current) store?.endGesture(gesture.current)
-    gesture.current = undefined
-  }
-  const beginGesture = () => {
-    if (gestureTarget.current !== target) endGesture()
-    gestureTarget.current = target
-    return (gesture.current ??= store?.beginGesture())
-  }
+  const presses = useMemo(() => (store ? new GestureRun(store) : undefined), [store])
+  const endGesture = () => presses?.end()
+  const beginGesture = () => presses?.gesture(target)
   const input = useRef<HTMLInputElement>(null)
   const messageId = useId()
   const [state, setState] = useState(initialFieldState)
@@ -434,19 +429,15 @@ export function NumberField({
   // A preview doesn't outlive its field, as when the selection changes while typing, and neither does a run of steps.
   const cancel = useRef(onCancel)
   cancel.current = onCancel
-  const ending = useRef(endGesture)
-  ending.current = endGesture
   useEffect(
     () => () => {
       if (previewing.current) cancel.current?.()
-      ending.current()
     },
     []
   )
+  useEffect(() => () => presses?.end(), [presses])
   // A run ends as its target changes, so its step takes nothing more, as well as at the next press.
-  useEffect(() => {
-    if (gestureTarget.current !== target) ending.current()
-  }, [target])
+  useEffect(() => presses?.select(target), [presses, target])
 
   const scrub = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return
@@ -476,7 +467,7 @@ export function NumberField({
       dispatch({ type: "scrubEnd" })
       if (commit && steps !== 0) {
         const { update: final, summary } = editFor(undefined, steps)
-        onCommit(final, gesture.current)
+        onCommit(final, beginGesture())
         previewing.current = false
         dispatch({ type: "committed", note: summary() })
       } else run({ type: "cancel" })

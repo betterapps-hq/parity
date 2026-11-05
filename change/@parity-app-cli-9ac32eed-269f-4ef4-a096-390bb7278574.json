@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Problems names the node that overflows, what it overflows (the frame or the ancestor that clips it), both boxes and the pixels past each edge; Measure gives each node's parent and the state and mode it drew",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Open a project with no Parity file on a Home screen that draws the app's / page on desktop and mobile",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -6,19 +6,31 @@
  * network, so the app's renderer can use it too.
  */
 
+import { jsonText } from "@parity-app/core/schema"
+import { z } from "zod"
+
 /** The registry entry's format. A copy whose entry is newer than the CLI reading it says so instead of being guessed at. */
 export const registryVersion = 1
 
-/** How to reach one running copy: what it writes to its registry entry. */
-export interface CopyEntry {
-  version: number
-  url: string
-  token: string
+/** How to reach one running copy: what it writes to its registry entry. A number an entry lacks reads as 0. */
+const copyEntry = z.object({
+  version: z.number().catch(0),
+  url: z.string(),
+  token: z.string(),
   /** The app's main process, which names the copy and its entry. A service the app restarts is the same copy. */
-  app: number
+  app: z.number(),
   /** When the copy started, in milliseconds since the epoch. A project open in two copies goes to the older one. */
-  startedAt: number
-}
+  startedAt: z.number().catch(0)
+})
+
+export type CopyEntry = z.infer<typeof copyEntry>
+
+/** An entry's text. The file from before the registry names the app's main process `pid`. */
+const entryText = jsonText(
+  copyEntry
+    .extend({ app: z.number().optional().catch(undefined), pid: z.number().optional().catch(undefined) })
+    .transform(({ app, pid, ...entry }): CopyEntry => ({ ...entry, app: app ?? pid ?? 0 }))
+)
 
 /** What a copy says about itself when asked, live, so it can't go stale the way a file would. */
 export interface CopyReport<T extends RoutedTab = RoutedTab> {
@@ -46,27 +58,7 @@ export const activeTab = "active"
 
 /** Reads a registry entry's text, or nothing when it isn't one. A file from before the registry stands for its copy. */
 export function readCopyEntry(text: string | undefined): CopyEntry | undefined {
-  if (text === undefined) return undefined
-  let value: unknown
-  try {
-    value = JSON.parse(text)
-  } catch {
-    return undefined
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
-  const fields = new Map<string, unknown>(Object.entries(value))
-  const [version, url, token, app, pid, startedAt] = ["version", "url", "token", "app", "pid", "startedAt"].map((key) =>
-    fields.get(key)
-  )
-  if (typeof url !== "string" || typeof token !== "string") return undefined
-  const number = (field: unknown) => (typeof field === "number" ? field : undefined)
-  return {
-    version: number(version) ?? 0,
-    url,
-    token,
-    app: number(app) ?? number(pid) ?? 0,
-    startedAt: number(startedAt) ?? 0
-  }
+  return entryText.safeParse(text).data
 }
 
 /**

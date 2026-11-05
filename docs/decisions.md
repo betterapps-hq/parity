@@ -738,6 +738,13 @@ recommended answer to each of its questions.
   included, and any lockfile name appearing in the folders `findLockfiles` searches (`lockfileFolders`,
   `changesLockfiles`), and reads props and the type check again a moment after one changes, so the answers match a
   project opened afresh. The saved detection needs nothing more: its fingerprint already changes with them.
+- **A config change sorts the app's sources again, as opening does.** My call (PAR-492): `rediscoveredFiles` reads every
+  file the config includes now, and the files the list came from, through `filesChanged`, so components in files it
+  leaves out are removed, those in files it newly includes are added, and the rest keep their ids. Exports only the type
+  checker decided lose `as` and wait for it again, which the full type check that follows gives back, so the list
+  matches a fresh open. Libraries' and workspace packages' components aren't touched, and the person's corrections are
+  applied after, so an export they included stays even when its file is left out. The UI kit folder isn't looked for
+  again; that still takes reopening.
 - **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
   files about half a second after the last change, so added, renamed and deleted components show at once, and the type
   checker then reads only those files and the files that import them, since an export's type can come from an import. A
@@ -1474,6 +1481,11 @@ recommended answer to each of its questions.
   settings might not be there."
 - **Agents call `Accessibility(design, { state, mode })`,** which returns one finding per layer and frame, with the
   rule, its impact, axe's help link and what's wrong, plus the measured colours for contrast failures.
+- **Contrast failures suggest a fix from the project's tokens (PAR-21).** My call: the closest token, in OKLab, that
+  passes in every frame the text was measured in, passing frames too; semantic tokens before the palette; and no fix
+  where coloring the layer wouldn't reach the text, such as inside an instance or a component's own classes. Apply
+  checks the design again at once. You approved the design in Storybook on 2026-11-05, with the impact tally in four
+  columns, the note pinned to the panel's foot, and an out-of-date check shown in amber with its findings faded.
 - **Show tab order** numbers the selected design's tab stops on the canvas, in every frame, joined in the order Tab
   visits them. Positive `tabindex` comes first, then document order; hidden, disabled and inert elements are skipped, as
   is every radio button in a group but one.
@@ -2512,6 +2524,19 @@ A lens is a view of one layer of an app, such as its routes, data, API, permissi
   system keychain.
 - **The second example is a Buildkit scaffolder project,** once the scaffolder can make one. You said: "I don't know if
   scaffolder is ready, but yeah, that's the preferred route."
+- **`.par` keeps canvas objects, hand-drawn links and lens sources, and none of the models** (PAR-16). You approved this
+  shape on 2026-11-05. All three keys are optional, so the format stays at version 3, and core's `document.ts` parses
+  them with the rest of `.par`.
+  - **`objects`** places a table, operation or route on the canvas: its `kind`, its `ref` and its `position`. The ref is
+    the model's own key: `schema.table` for a table, the operation's id, or the route's URL pattern. Each is placed
+    once. One whose model is gone stays in the file, shown as missing, until the person removes it.
+  - **`links`** are typed, and each type joins set kinds: `shows` goes from a screen to a route, `calls` from a screen,
+    route or component to an operation, and `reads` and `writes` from an operation to a table. A screen or component end
+    is the design's id. Any other pairing is rejected when the file opens. Only links drawn by hand are saved; links
+    from code or traces are read each time.
+  - **`sources`** names the adapter or standard the `data`, `api` or `routes` lens reads, and is written only when the
+    person switches from the one Parity picked.
+  - **Save a copy** keeps every file's objects and links, each once, and the main file's sources.
 
 ## Extensions
 
@@ -3651,8 +3676,20 @@ migrated to zod should absolutely be done. If there are some remaining, we need 
 found about 70 hand-written parsers, checks and unchecked casts. Each one that can move to zod has an issue, listed
 below. My calls on how they move:
 
-- **zod 4 comes from the pnpm catalog, at 4.6.7,** the version the MCP SDK already installs. PAR-588 adds it to
-  `@parity-app/core`, with the helpers the other issues use.
+- **zod 4 comes from the pnpm catalog, at 4.6.7,** the version the MCP SDK already installs. PAR-15 put it in the
+  catalog for the lens models, and PAR-588 adds it to `@parity-app/core` and the agent, with the helpers the other
+  issues use. The CLI and the desktop app declare it too, since `vp pack` and `scripts/dev.ts` bundle Parity's packages
+  but leave zod to load from their own `node_modules`.
+- **Core's helpers are in `@parity-app/core/schema`,** which `@parity-app/core` exports too (PAR-588):
+  - `parseData(schema, value, at?)` returns what the schema reads, or throws `TypeError` with the first problem as
+    `/json/pointer: message`, in `validate.ts`'s words. `at` is where the value sits in a larger one.
+  - `parseInput(schema, value, at?)` throws `CodedError` with `invalid_input` instead. Its `field` is the pointer
+    without the leading slash, which the CLI and MCP report as the error's `path`.
+  - `plainObject`, `nonBlankString` (trimmed) and `finiteNumber` are the shared pieces, and `jsonText(schema)` parses
+    JSON text, then checks it with the schema.
+  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type.
+  - A read that returns nothing when the data is malformed calls the schema's own `safeParse(value).data`, as
+    `readErrorDetails`, `readCopyEntry`, the caller-name helpers and the agent registry's settings do.
 - **A schema is the check and the type.** Types come from `z.infer`, not from an interface kept beside the check.
   - Files Parity owns (`.par`, `.lib.par`, edits) use strict objects, so an unknown key is still an error.
   - Third-party JSON (package manifests, tool configs, npm and GitHub responses) uses loose objects that read only the
@@ -3682,7 +3719,8 @@ below. My calls on how they move:
     reads.
 - **No zod in a project's page.** The project's own Vite bundles the guest (`renderer-react/src/guest.ts`), which
   evaluates decorator values on every frame. Values are checked once, when their library file loads (PAR-594). The
-  guest's evaluator stays hand-written, typed from the schema (PAR-572).
+  guest's evaluator stays hand-written, typed from the schema (PAR-572). `guest.test.ts` follows what the guest imports,
+  through Parity's packages, and fails if it reaches zod.
 - **MCP's input schemas come from zod** through `z.toJSONSchema`, and `tools/list` keeps its 12 KiB budget (PAR-510).
 - **Token files stay lenient.** A malformed token is skipped and reported rather than failing its file, since a strict
   check would refuse files that load today (PAR-591).
@@ -3712,15 +3750,119 @@ Four issues from the architecture review build on these:
 - PAR-572 checks decorator values with PAR-594's grammar.
 - PAR-573 reads manifests through PAR-588's schema.
 
+## Agent warnings come grouped, with a category and severity (PAR-460)
+
+A large insertion used to return a warning per unnamed layout, each a sentence with the place in front. Now each finding
+comes once, with a count and every place:
+
+- **Grouped by category and message.** Findings that say the same thing go together, whatever node they're on. A
+  repeated finding at the same place counts once. Different props or tokens stay apart, since each needs its own fix.
+- **Stable categories, three severities.** `error` is a render that failed, because a screenshot or check is missing for
+  that frame. `suggestion` is a name for the layers tree. Everything else is a `warning`. Groups are sorted by severity,
+  then kept in the order found.
+- **`warnings` stays, beside `warningGroups`.** As with PAR-472's coded errors, an older CLI and text-only clients keep
+  reading lines, now one per group in the same order. A CLI talking to an older app reads every line as a warning. The
+  CLI's schema names the categories in prose, not as an enum, so it doesn't import the agent package for them.
+- **The place is kept apart from the message,** a node's `design/node` path where there is one, so an agent can act on
+  every place without parsing. Overlaps and kind changes name their boards in the message and have no place.
+- **No automatic names.** As the issue said, Parity doesn't name layers or require unique names; it only reports.
+
+## New screen, New component and the empty canvas are built (PAR-546)
+
+PAR-546 builds what PAR-541 designed and PAR-560 kept (above), as editor.md's "New screen, New component and the empty
+canvas" describes. The exploration's stories now sit beside the stories of the components that draw them, and the
+exploration is gone. My calls:
+
+- **One rule covers every way something lands with no design to go into,** not only a drop: a component or image clicked
+  in the Components panel or picked in the insert picker with nothing selected makes a screen too, in the middle of the
+  view, where pasted layers and the picker's layouts already went. Before, a layout made a screen there and a component
+  was refused, which is the disagreement the audit found.
+- **The name is what's in it:** one layer as Layers names it, a component without its library; several images Images, as
+  dropped files already were; several other layers the first one's name and how many more ("Nav and 6 more"), so the
+  name still says what's inside. With nothing in it, "Untitled screen", as New screen names one.
+- **The screen is selected, not what's in it,** as a paste and a dropped image already did, so what happened is what's
+  shown. Its undo step names what landed: "Paste layer" or "Paste 7 layers" (it was "Paste layers" for any number), and
+  an item's own, "Add Badge".
+- **One situation, one message.** An item dropped over a design where there's no layout says "There's no layout here to
+  drop into", as files do, where it said "Drop it inside a screen or component, onto one of its layouts". The insert
+  picker, with a design selected that has nowhere for an item, says what the Components panel says, "Select a layout, or
+  a layer to add it after".
+- **Search actions' word matching takes each typed word in any order,** so "fit zoom" finds Zoom to fit, which matching
+  the whole text against the start of a word wouldn't. A name that starts with what's typed comes first.
+- **New screen from the canvas menu doesn't move the view,** since it's made where the pointer was. The keys, the
+  menubar, Search actions and Layers' + make it right of everything and zoom to it, as the + did.
+- **Enter and Space on Layers' + or an empty row make one.** The tree's own keys skip buttons outside its rows, where
+  Enter used to rename the selected row and the button never ran.
+- **Storybook's stand-in project service answers `frames.stored`** with no bitmap, as the real one does on a first
+  launch. It answered nothing, which failed the canvas menu's stories once a frame slept.
+
+Left for later: a screen made with nothing selected can land over a design in the middle of the view, as pasted layers
+always could, and a component in a new screen fills its width, where the proposal says it should keep its own.
+
+## Lens models are zod schemas with versioned JSON Schemas (PAR-15)
+
+The data, API, routes, scenarios and links lenses each have a model in `@parity-app/models`, before any lens reads into
+it. You approved zod for it on 2026-11-05, which PAR-578 had already chosen for data Parity didn't make. My calls:
+
+- **zod is the source, and the JSON Schema comes from it.** Each model is a zod schema that lens code checks with
+  `parseTables`, `parseOperations`, `parseRoutes`, `parseScenarios` and `parseLinks`. `lensModelJsonSchema(name)` writes
+  it out with `z.toJSONSchema` for adapters and agents to target, so there's one copy to keep, not a schema file and a
+  parser beside it. This package adds zod to the catalog, ahead of PAR-588.
+- **Each document says its version,** as `.lib.par` does: `"version": 1`. A change that would reject a document the
+  version accepts gets a new version. Snapshots of each model's JSON Schema show any change to it in review.
+- **The schemas stay private.** Their ids are `urn:parity:model:<name>:<version>`, which name them without publishing
+  them anywhere, and the package is private.
+- **Objects are strict,** since Parity owns these models: an unknown field is an error, reported as
+  `/json/pointer: message` in a `TypeError`, as `.par` and `.lib.par` files report theirs.
+- **The models are what each lens's design needs and no more:**
+  - Tables hold the database family, and each table's columns (type as the database names it, whether it can be null,
+    default as SQL), primary key, indexes and foreign keys, with Postgres's enums. A key or index naming a column the
+    table lacks is an error.
+  - Operations hold an id, an input and output schema kept as written, errors, a method and OpenAPI path when it's HTTP,
+    and `x-` fields, which mark server functions. Ids are unique.
+  - Routes are a tree, each with its full path as a URL pattern's pathname, the file that draws it and whether it's a
+    layout. Ids are unique across the tree.
+  - Scenarios hold a name, the design state they fill, and each operation's response by operation id, with an HTTP
+    status for errors.
+  - Links join a screen, route, operation or table to another, and say whether a person drew it, a trace showed it or
+    the code calls it. Any kind may link to any other, since "screen → route → operation → table" is an example, not a
+    rule.
+
+## Canvas gestures share one lifecycle (PAR-568)
+
+The architecture review of 2026-11-04 found each canvas drag rebuilding what surrounds the history's gesture and
+checkpoint, so a fix reached one copy and missed the others: in a0d0e80 a field's run and a nudge run had the same bug,
+fixed twice. Now `canvas/gesture.ts` follows every drag and every run (see editor.md, Cursors and Escape during a
+gesture). My calls:
+
+- **Each gesture's policy is one entry in one table** (`gestures`): what Escape does, and what the pointer cancelled or
+  the window losing focus does, each keep, revert or cancel. The table is what the tests drive, so every gesture's
+  Escape and blur are checked side by side.
+- **The window losing focus is cut short, as a cancelled pointer is.** Each gesture keeps what its pointercancel already
+  did: a resize keeps what it wrote, a title drag saves the designs where they are, and layer drags and a box call
+  themselves off. Before, a title drag and a box didn't hear the window losing focus at all (PAR-583).
+- **Every press waits the same 4 screen pixels before it's a drag.** A title drag used to start after 1 page pixel, and
+  a frame's handle at once; both now wait as layer drags and boxes did. A layer's resize handle still checks the 4
+  pixels along its own axes too, so a pointer moving across them changes nothing.
+- **The undo gesture, the checkpoint and the cursor start with the drag,** not at the press, so a click on a handle
+  begins nothing. A revert writes only when the design changed, since reverting writes its file again.
+- **Runs are keyed by the selection's `selectionKey`,** one `GestureRun` for arrow presses on the canvas and for Up and
+  Down in a field. A nudge run follows the selection while it lasts; a field's follows its `FieldTarget`.
+- **tldraw's own drag of a board stays tldraw's,** ending when tldraw stops translating, since tldraw follows that
+  pointer, not Parity.
+
 ## One step works out the component list (PAR-566)
 
 The order that keeps the component list current was written four times in the project service, and the copies disagreed.
-`nextComponentList` in `@parity-app/code` now takes the list and an event and returns the next list, and every path goes
-through it. My calls:
+PAR-492 then added a fifth, for a config change. `nextComponentList` in `@parity-app/code` now takes the list and an
+event and returns the next list, and every path goes through it. My calls:
 
 - **Five events, not four.** Opening takes two: `discovered` gives discovery's list with the person's corrections, whose
   fingerprint finds a saved detection, and `restored` takes that in. The rest are `checked`, `filesRead` and
   `corrected`.
+- **A config change is a `filesRead` event.** `rediscoveredFiles`, which was `rediscoveredSources`, now returns the
+  files it read, every one the config includes and those the list came from, and the step sorts them as it does any
+  files read again (PAR-492).
 - **Every event applies the person's corrections last,** so they outlast each pass of detection, as before.
 - **Ids taken off the list are let go before new ones are given.** The whole-app check already did this. The check after
   files changed added first, so a new component that took a removed id was deleted. That settles PAR-581's order;

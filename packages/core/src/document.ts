@@ -24,7 +24,74 @@ export interface CanvasDocument {
   notes?: NoteSpec[]
   /** Where the person corrected which exports are components. Unset while detection gets them right. */
   detection?: DetectionCorrections
+  /** Where the person put tables, operations and routes on the canvas. The models are read from the project. */
+  objects?: CanvasObjectSpec[]
+  /** Links the person drew by hand. Links found in code or traces are read each time and never saved. */
+  links?: LinkSpec[]
+  /** The source each lens reads, where the person switched from the one Parity picked. */
+  sources?: LensSources
 }
+
+/**
+ * Something from a lens's model placed on the canvas. Only where it sits is saved: the table, operation or route itself
+ * is read from the project each time, by `ref`, its own key in that model. One whose model is gone stays, shown as
+ * missing, until the person removes it.
+ */
+export interface CanvasObjectSpec {
+  kind: CanvasObjectKind
+  /** A table as `schema.table`, an operation by its id, a route by its URL pattern. */
+  ref: string
+  position: { x: number; y: number }
+}
+
+export type CanvasObjectKind = (typeof canvasObjectKinds)[number]
+
+export const canvasObjectKinds = ["table", "operation", "route"] as const
+
+/** One end of a link: a canvas object by its kind and ref, or a screen or component design by its id. */
+export interface LinkEnd {
+  kind: LinkEndKind
+  ref: string
+}
+
+export type LinkEndKind = (typeof linkEndKinds)[number]
+
+export const linkEndKinds = ["screen", "component", ...canvasObjectKinds] as const
+
+/** A typed link between two ends, such as a screen that shows a route or an operation that reads a table. */
+export interface LinkSpec {
+  id: string
+  type: LinkType
+  from: LinkEnd
+  to: LinkEnd
+}
+
+export type LinkType = keyof typeof linkTypes
+
+/** Each type of link, and the kinds it may join, from and to. */
+export const linkTypes = {
+  /** A screen shown at a route's URL. */
+  shows: { from: ["screen"], to: ["route"] },
+  /** A screen, route or component that calls an operation. */
+  calls: { from: ["screen", "route", "component"], to: ["operation"] },
+  /** An operation that reads a table. */
+  reads: { from: ["operation"], to: ["table"] },
+  /** An operation that writes to a table. */
+  writes: { from: ["operation"], to: ["table"] }
+} as const satisfies Record<string, { from: readonly LinkEndKind[]; to: readonly LinkEndKind[] }>
+
+/** Whether a link of this type may join these two kinds. */
+export function linkAllowed(type: LinkType, from: LinkEndKind, to: LinkEndKind): boolean {
+  const allowed: { from: readonly LinkEndKind[]; to: readonly LinkEndKind[] } = linkTypes[type]
+  return allowed.from.includes(from) && allowed.to.includes(to)
+}
+
+/** The adapter or standard each lens reads, by its id, where the person chose it. */
+export type LensSources = Partial<Record<Lens, string>>
+
+export type Lens = (typeof lenses)[number]
+
+export const lenses = ["data", "api", "routes"] as const
 
 /** One of the app's exports, by its file relative to the project root and its export name (`default` for a default). */
 export interface ComponentRef {
@@ -399,7 +466,7 @@ export function walkNodes(node: DesignNode, visit: (node: DesignNode, depth: num
 export function parseCanvasDocument(value: unknown): CanvasDocument {
   const document = expectObject(value, "")
   if (document.version !== 3) throw new TypeError("/version: expected 3")
-  expectKnownKeys(document, ["version", "containers", "notes", "modes", "detection"], "")
+  expectKnownKeys(document, ["version", "containers", "notes", "modes", "detection", "objects", "links", "sources"], "")
   return compact({
     version: 3 as const,
     containers: expectArray(document.containers, "/containers").map((item, index) =>
@@ -409,8 +476,71 @@ export function parseCanvasDocument(value: unknown): CanvasDocument {
     notes: optional(document.notes, (value) =>
       expectArray(value, "/notes").map((item, index) => parseNote(item, `/notes/${index}`))
     ),
-    detection: optional(document.detection, (value) => parseDetection(value, "/detection"))
+    detection: optional(document.detection, (value) => parseDetection(value, "/detection")),
+    objects: optional(document.objects, (value) => parseObjects(value, "/objects")),
+    links: optional(document.links, (value) => parseLinks(value, "/links")),
+    sources: optional(document.sources, (value) => parseSources(value, "/sources"))
   })
+}
+
+function parsePosition(value: unknown, path: string): { x: number; y: number } {
+  const position = expectObject(value, path)
+  expectKnownKeys(position, ["x", "y"], path)
+  return { x: expectNumber(position.x, `${path}/x`), y: expectNumber(position.y, `${path}/y`) }
+}
+
+function parseObjects(value: unknown, path: string): CanvasObjectSpec[] {
+  const placed = new Set<string>()
+  return expectArray(value, path).map((item, index) => {
+    const at = `${path}/${index}`
+    const object = expectObject(item, at)
+    expectKnownKeys(object, ["kind", "ref", "position"], at)
+    const kind = expectOneOf(object.kind, canvasObjectKinds, `${at}/kind`)
+    const ref = expectString(object.ref, `${at}/ref`)
+    const key = JSON.stringify([kind, ref])
+    if (placed.has(key)) throw new TypeError(`${at}: the ${kind} "${ref}" is already on the canvas`)
+    placed.add(key)
+    return { kind, ref, position: parsePosition(object.position, `${at}/position`) }
+  })
+}
+
+function parseLinkEnd(value: unknown, path: string): LinkEnd {
+  const end = expectObject(value, path)
+  expectKnownKeys(end, ["kind", "ref"], path)
+  return { kind: expectOneOf(end.kind, linkEndKinds, `${path}/kind`), ref: expectString(end.ref, `${path}/ref`) }
+}
+
+function parseLinks(value: unknown, path: string): LinkSpec[] {
+  const ids = new Set<string>()
+  const types = Object.keys(linkTypes) as LinkType[]
+  return expectArray(value, path).map((item, index) => {
+    const at = `${path}/${index}`
+    const link = expectObject(item, at)
+    expectKnownKeys(link, ["id", "type", "from", "to"], at)
+    const id = expectString(link.id, `${at}/id`)
+    if (ids.has(id)) throw new TypeError(`${at}/id: duplicate link id "${id}"`)
+    ids.add(id)
+    const type = expectOneOf(link.type, types, `${at}/type`)
+    const from = parseLinkEnd(link.from, `${at}/from`)
+    const to = parseLinkEnd(link.to, `${at}/to`)
+    if (!linkAllowed(type, from.kind, to.kind)) {
+      const { from: froms, to: tos } = linkTypes[type]
+      throw new TypeError(
+        `${at}: a ${type} link goes from ${froms.join(" or ")} to ${tos.join(" or ")}, not ${from.kind} to ${to.kind}`
+      )
+    }
+    return { id, type, from, to }
+  })
+}
+
+function parseSources(value: unknown, path: string): LensSources {
+  const sources = expectObject(value, path)
+  expectKnownKeys(sources, lenses, path)
+  const chosen: LensSources = {}
+  for (const lens of lenses) {
+    if (sources[lens] !== undefined) chosen[lens] = expectString(sources[lens], `${path}/${lens}`)
+  }
+  return chosen
 }
 
 function parseDetection(value: unknown, path: string): DetectionCorrections {

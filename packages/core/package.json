@@ -7,6 +7,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./errors": "./src/errors.ts",
-    "./fixtures": "./src/fixtures.ts"
+    "./fixtures": "./src/fixtures.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "dependencies": {
+    "zod": "catalog:"
   }
 }

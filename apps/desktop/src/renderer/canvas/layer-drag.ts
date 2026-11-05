@@ -7,8 +7,7 @@ import { layersSelection, selectedNodes } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
-import { onGestureEnd } from "./gesture-end.ts"
-import { holdCursor } from "./held-cursor.ts"
+import { type Drag, followPress, gestures } from "./gesture.ts"
 import { frameAt, frameScale, type Point } from "./hit.ts"
 import { shiftInsets } from "./insets.ts"
 import { kindColors } from "./kinds.tsx"
@@ -42,12 +41,11 @@ export function getDragView(): DragView | undefined {
   return view
 }
 
-/** How far, in screen pixels, the pointer goes before a press becomes a drag. */
-const threshold = 4
-
 /**
  * Follows a press on selected layers. It becomes a drag once the pointer moves; released before that, `onClick` runs
- * instead. Escape cancels a drag, and so does the pointer being cancelled or the window losing focus.
+ * instead. Escape cancels a drag, and so does the pointer being cancelled or the window losing focus: in a layout
+ * nothing has moved yet, and an absolutely placed layer goes back (see `gestures.layerDrag` and
+ * `gestures.absoluteDrag`).
  */
 export function pressLayers(
   session: ProjectSession,
@@ -81,74 +79,55 @@ export function pressLayers(
     primary &&
     boardReader(entry.container, { state, viewport })(primary).style?.position === "absolute"
   const origin = area.getBoundingClientRect()
-  let dragging = false
-  /** The drag's gesture, from when it starts to the drop, so what it writes is one undo step. */
-  let gesture: string | undefined
   let target: MoveTarget | undefined
-  let delta = { x: 0, y: 0 }
 
   let preview: DropPreview | undefined
   // Targets are found in the layouts as they were when the drag began, not as the preview reflows them.
   const layouts = new DragLayouts()
   let placed: ReturnType<typeof followAbsolute>
-  let releaseCursor: (() => void) | undefined
 
-  const restore = () => {
-    for (const element of elements) element.style.opacity = ""
-    preview?.end()
-    view = undefined
-    releaseCursor?.()
-  }
-  const onMove = (event: PointerEvent) => {
-    delta = { x: event.clientX - start.clientX, y: event.clientY - start.clientY }
-    if (!dragging) {
-      if (Math.hypot(delta.x, delta.y) < threshold) return
-      dragging = true
-      const begun = session.store.beginGesture()
-      gesture = begun
-      releaseCursor = holdCursor("grabbing")
-      if (absolute) placed = followAbsolute(session, area, entry, ids[0]!, host, begun)
+  followPress(absolute ? gestures.absoluteDrag : gestures.layerDrag, session.store, start, {
+    design: absolute ? entry.key : undefined,
+    cursor: "grabbing",
+    start(drag) {
+      if (absolute) placed = followAbsolute(session, area, entry, ids[0]!, host, drag)
       else {
         layouts.measure(host, entry.container.root)
         preview = new DropPreview(elements)
       }
-    }
-    event.preventDefault()
-    if (absolute) {
-      placed?.move(delta, event)
-      view = {}
-      return
-    }
-    const ghost = {
-      x: union.left + delta.x - origin.left,
-      y: union.top + delta.y - origin.top,
-      w: union.right - union.left,
-      h: union.bottom - union.top
-    }
-    const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids, layouts)
-    target = found?.target
-    // The layouts reflow around a copy of the layers where they'd land; the line is only for when they can't.
-    const shown = found ? preview!.show(found.host, found.target, found.siblings) : (preview!.clear(), false)
-    view = {
-      ghost,
-      ...(found && !shown
-        ? { line: { ...found.line, x: found.line.x - origin.left, y: found.line.y - origin.top } }
-        : {})
-    }
-  }
-  window.addEventListener("pointermove", onMove, true)
-  // Released, it drops; Escape, the pointer cancelled or the window losing focus calls it off.
-  onGestureEnd(window, (how) => {
-    const drop = how === "release"
-    window.removeEventListener("pointermove", onMove, true)
-    restore()
-    if (!dragging) {
-      if (drop) onClick()
-      return
-    }
-    if (absolute) placed?.end(drop)
-    else if (drop && target) moveLayers(session, entry, ids, target, gesture)
-    if (gesture) session.store.endGesture(gesture)
+    },
+    move(event) {
+      const delta = { x: event.clientX - start.clientX, y: event.clientY - start.clientY }
+      if (absolute) {
+        placed?.move(delta, event)
+        view = {}
+        return
+      }
+      const ghost = {
+        x: union.left + delta.x - origin.left,
+        y: union.top + delta.y - origin.top,
+        w: union.right - union.left,
+        h: union.bottom - union.top
+      }
+      const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids, layouts)
+      target = found?.target
+      // The layouts reflow around a copy of the layers where they'd land; the line is only for when they can't.
+      const shown = found ? preview!.show(found.host, found.target, found.siblings) : (preview!.clear(), false)
+      view = {
+        ghost,
+        ...(found && !shown
+          ? { line: { ...found.line, x: found.line.x - origin.left, y: found.line.y - origin.top } }
+          : {})
+      }
+    },
+    // Dropped, layers in a layout move; an absolutely placed layer has moved already.
+    end(kept, drag) {
+      preview?.end()
+      view = undefined
+      placed?.end()
+      if (kept && !absolute && target) moveLayers(session, entry, ids, target, drag.gesture)
+    },
+    click: onClick
   })
 }
 
@@ -282,8 +261,8 @@ function followAbsolute(
   entry: ContainerEntry,
   id: string,
   host: HTMLElement,
-  gesture: string
-): { move(delta: Point, held: { ctrlKey: boolean; metaKey: boolean }): void; end(drop: boolean): void } | undefined {
+  drag: Drag
+): { move(delta: Point, held: { ctrlKey: boolean; metaKey: boolean }): void; end(): void } | undefined {
   const { store, editor } = session
   const current = session.selection.get()
   const unit = spacingUnit(session.tokens.get())
@@ -297,15 +276,10 @@ function followAbsolute(
   // Screen pixels per pixel of the design.
   const scale = frameScale(host) * (editor?.getZoomLevel() ?? 1)
   const snapping = LayerSnapping.measure(editor, host, entry.container, id, scale)
-  const checkpoint = store.checkpoint(entry.key, gesture)
   const halfSteps = (px: number) => Math.round((px / unit) * 2) / 2
   const exactly = (px: number) => Math.round(px * 2) / 2 / unit
   let written: NodeStyle = {}
 
-  const takeBack = () => {
-    if (checkpoint && Object.keys(written).length > 0) store.revert(checkpoint)
-    written = {}
-  }
   return {
     move(delta, held) {
       const free = { x: delta.x / scale, y: delta.y / scale }
@@ -315,20 +289,22 @@ function followAbsolute(
         snapped?.locked[axis] && from ? exactly(snapped.box[axis] - from[axis]) : halfSteps(free[axis])
       const { change } = shiftInsets(style, along("x"), along("y"), drawn)
       if (JSON.stringify(change) === JSON.stringify(written)) return
-      // A side moved back to where it began goes back to what was written, which only the checkpoint has.
-      if (Object.keys(written).some((side) => !(side in change))) takeBack()
+      // A side moved back to where it began goes back to what was written, which only the drag's checkpoint has.
+      if (Object.keys(written).some((side) => !(side in change))) {
+        drag.revert()
+        written = {}
+      }
       if (Object.keys(change).length === 0) return
       written = change
       store.updateContainer(
         entry.key,
         "Move layer",
         (container) => editNode(container, boardTarget(container, state.id), id, { style: change }),
-        { gesture }
+        { gesture: drag.gesture }
       )
     },
-    end(drop) {
+    end() {
       snapping?.clear()
-      if (!drop) takeBack()
     }
   }
 }

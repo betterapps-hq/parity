@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, fireEvent, userEvent, within } from "storybook/test"
+import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { designsSelection, layersSelection } from "../selection.ts"
 import {
@@ -17,6 +17,7 @@ import { workspace } from "../workspace.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { AppMenu } from "./AppMenu.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
+import { formatKeys } from "./keys.ts"
 import { setLayout } from "./layout.ts"
 import { setPreferences } from "./preferences.ts"
 
@@ -60,13 +61,26 @@ const pricingSelected = async () => {
   example().selection.set({ design: design("Pricing") })
 }
 
-/** File with a design selected: opening projects, saving, exporting it or every design, closing the tab and exiting. */
+/**
+ * File with a design selected: New screen and New component first, with their keys (PAR-546), then opening projects,
+ * saving, exporting it or every design, closing the tab and exiting.
+ */
 export const File: Story = {
   loaders: [pricingSelected],
   play: async () => {
     await frameDesigns("Pricing")
     await openMenu("File")
+    await expectNewItemsFirst()
   }
+}
+
+/** The open menu starts with New screen and New component, available, each with its keys. */
+async function expectNewItemsFirst(): Promise<void> {
+  const [first, second] = within(body().getByRole("menu")).getAllByRole("menuitem")
+  await expect(first).toHaveTextContent(`New screen${formatKeys("Ctrl Alt N")}`)
+  await expect(second).toHaveTextContent(`New component${formatKeys("Ctrl Alt Shift N")}`)
+  await expect(first).not.toHaveAttribute("data-disabled")
+  await expect(second).not.toHaveAttribute("data-disabled")
 }
 
 /** File with every project closed: saving, exporting and closing a tab are unavailable. */
@@ -201,12 +215,17 @@ export const ViewWithPanelsHidden: Story = {
   }
 }
 
-/** Object with nothing selected: everything but Insert unavailable, and a hint saying what to select. */
+/**
+ * Object with nothing selected: New screen, New component and Insert are what can be done (PAR-546), the rest is
+ * unavailable, and a hint says what to select for it, in the glossary's words.
+ */
 export const ObjectWithNothingSelected: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
     await openMenu("Object")
+    await expectNewItemsFirst()
+    await expect(unavailable(["Insert…", "Wrap in layout"])).toEqual({ "Insert…": false, "Wrap in layout": true })
   }
 }
 
@@ -396,6 +415,27 @@ export const SearchActions: Story = {
     await frameDesigns("Pricing", "Dashboard")
     openDialog("actions")
     await enter(await body().findByRole("combobox"), "zoom")
+  }
+}
+
+/**
+ * Search actions searched for "new": New screen and New component, with their keys, in the Object group. It matches the
+ * start of words, so nothing with n, e and w scattered through its name comes up (PAR-546).
+ */
+export const SearchActionsForNew: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    openDialog("actions")
+    await enter(await body().findByRole("combobox"), "new")
+    const dialog = await body().findByRole("dialog", { name: "Search actions" })
+    await waitFor(() =>
+      expect(
+        within(dialog)
+          .getAllByRole("option")
+          .map((option) => option.textContent)
+      ).toEqual([`New screen${formatKeys("Ctrl Alt N")}`, `New component${formatKeys("Ctrl Alt Shift N")}`])
+    )
   }
 }
 

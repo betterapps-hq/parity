@@ -15,6 +15,7 @@ import { clearBitmapCache, exportImages } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { getPreferences, setPreferences } from "./preferences.ts"
+import { matchWords } from "./word-match.ts"
 
 interface Item extends Action {
   id: string
@@ -42,7 +43,10 @@ const extras: Item[] = [
   { id: "about", group: "Help", label: "About Parity", run: () => openDialog("about") }
 ]
 
-/** Every action by name, as Figma's actions menu: Ctrl+K or Ctrl+/, or Help > Search actions. */
+/**
+ * Every action by name, as Figma's actions menu: Ctrl+K or Ctrl+/, or Help > Search actions. What's typed matches the
+ * start of words in a name or its group (`matchWords`).
+ */
 export function ActionsSearch() {
   const open = useOpenDialog() === "actions"
   const [query, setQuery] = useState("")
@@ -69,7 +73,7 @@ export function ActionsSearch() {
       title="Search actions"
       description="Search for an action to run"
     >
-      <Command>
+      <Command filter={matchWords}>
         <CommandInput value={query} onValueChange={setQuery} placeholder="Search actions" />
         <CommandList className="max-h-96">
           <CommandEmpty>No action matches.</CommandEmpty>

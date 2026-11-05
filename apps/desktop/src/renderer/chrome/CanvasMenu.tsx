@@ -14,15 +14,16 @@ import { CheckIcon } from "lucide-react"
 import { type ComponentProps, type ReactElement, useEffect, useRef, useState } from "react"
 import { pasteAtPointer } from "../canvas/clipboard.ts"
 import { useProject } from "../canvas/context.ts"
-import { onGestureEnd } from "../canvas/gesture-end.ts"
+import { onGestureEnd } from "../canvas/gesture.ts"
 import { hitTest, type Point, selectedIn, underPoint } from "../canvas/hit.ts"
 import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { pickLayer } from "../canvas/pick.ts"
-import { useContainerEntries } from "../design-store.ts"
+import { useContainerEntries, useNotes } from "../design-store.ts"
 import { type Selection, useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
+import { createDesign } from "./create.ts"
 import { formatKeys } from "./keys.ts"
 
 type TriggerProps = ComponentProps<typeof ContextMenuTrigger>
@@ -46,7 +47,8 @@ interface Press {
 /**
  * The canvas's right-click menu, around the canvas area. A right-click on a design selects what's under the pointer
  * first, unless that's inside the selection, then lists what can be done with the selection, each item with its keys
- * from the keymap (see `canvasMenu`). On the canvas around designs it offers Paste here, Select all and Zoom to fit.
+ * from the keymap (see `canvasMenu`). On the canvas around designs it offers New screen and New component, made where
+ * it was right-clicked, Insert, Paste here, Select all and Zoom to fit.
  * While interacting, right-clicks are the designs', and nothing opens. A right-click on the canvas while it's open opens
  * it again at the new point, as in Figma.
  *
@@ -146,7 +148,8 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
       }}
     >
       <ContextMenuTrigger ref={setArea} onContextMenu={onContextMenu} render={children} />
-      <ContextMenuContent className="w-60" aria-label="Canvas">
+      {/* As wide as its longest item, so New component and its keys stay on one line. */}
+      <ContextMenuContent className="min-w-60 [&_[role=menuitem]]:whitespace-nowrap" aria-label="Canvas">
         {opened && <MenuItems opened={opened} />}
       </ContextMenuContent>
     </ContextMenu>
@@ -168,7 +171,8 @@ function MenuItems({ opened }: { opened: Opened }) {
   const session = useProject()
   const selection = useSelection(session.selection)
   const entries = useContainerEntries(session.store)
-  return canvasMenu(opened.target, selection, entries).map((entry, index) => {
+  const notes = useNotes(session.store)
+  return canvasMenu(opened.target, selection, entries, notes.length).map((entry, index) => {
     if (entry.kind === "separator") return <ContextMenuSeparator key={`line-${index}`} />
     if (entry.kind === "select-layer") {
       return opened.target ? (
@@ -230,9 +234,12 @@ function SelectLayer({ label, choices, target }: { label: string; choices: Layer
   )
 }
 
+/** Runs an item: Paste here, New screen and New component where the menu opened, and the rest as the menubar does. */
 function run(session: ProjectSession, action: MenuAction, point: Point): void {
   if (action === "pasteHere") void pasteAtPointer(session, point)
-  else void actions[action].run()
+  else if ((action === "newScreen" || action === "newComponent") && session.editor) {
+    createDesign(session, action === "newScreen" ? "screen" : "component", session.editor.screenToPage(point))
+  } else void actions[action].run()
 }
 
 /**

@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Bundles the editor's new rule for the screen a project with no Parity file opens on, which the CLI doesn't use",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
