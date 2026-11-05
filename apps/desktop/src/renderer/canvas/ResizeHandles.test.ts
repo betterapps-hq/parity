@@ -99,7 +99,8 @@ describe("a resize handle's hint", { timeout: 20_000 }, () => {
     // The top handle, dragged up towards its own hint, which used to keep it open over the resize.
     await hover(250, 200)
     await page.mouse.down()
-    expect(await hints()).toBe(0)
+    // The press closes the hint at once, but Base UI takes the popup out a frame later.
+    await expect.poll(hints, { timeout: 1_000 }).toBe(0)
     // Over the hint itself.
     for (const y of [195, 185]) await page.mouse.move(250, y)
     expect(await hints()).toBe(0)
