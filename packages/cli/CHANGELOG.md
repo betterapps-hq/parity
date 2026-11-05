@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 11:30:13 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 11:44:07 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.6.1
+
+Thu, 05 Nov 2026 11:44:07 GMT
+
+### Patches
+
+- Layers' Hide in and Show in name the variant option the change goes to, not the state (ajcraswell@gmail.com)
 
 ## 0.6.0
 
