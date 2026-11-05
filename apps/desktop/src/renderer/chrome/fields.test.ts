@@ -113,7 +113,7 @@ beforeAll(async () => {
     })
   )
   await page.goto("http://parity.test/")
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { includeComponent, linkAllowed, parseCanvasDocument } from "./document.ts"
+import { includeComponent, linkAllowed, parseCanvasDocument, parseDesignNode } from "./document.ts"
 
 const toaster = { path: "src/components/ui/sonner.tsx", export: "Toaster" }
 const price = { path: "src/promo.tsx", export: "PromoPrice" }
@@ -115,6 +115,23 @@ describe("canvas objects, links and sources in a project file", () => {
   it("choose a source for the data, API and routes lenses only", () => {
     expect(() => parseCanvasDocument({ ...file, sources: { flags: "openfeature" } })).toThrow("/sources/flags")
     expect(() => parseCanvasDocument({ ...file, sources: { api: 3 } })).toThrow("/sources/api: expected a string")
+  })
+})
+
+describe("a design's layers", () => {
+  it("each have an id of their own, in slots too", () => {
+    const title = { type: "text", id: "title", text: "Plans" }
+    const card = { type: "component", id: "card", component: "Card", slots: { header: [title] } }
+    const page = { type: "layout", id: "page", children: [title, card] }
+    expect(() => parseDesignNode(page, "node")).toThrow('node/children/1/slots/header/0/id: duplicate node id "title"')
+  })
+})
+
+describe("a project file's modes", () => {
+  it("are checked where they sit in the file", () => {
+    expect(() => parseCanvasDocument({ version: 3, containers: [], modes: { version: 2 } })).toThrow(
+      "/modes/version: expected 1"
+    )
   })
 })
 

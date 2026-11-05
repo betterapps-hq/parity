@@ -3720,6 +3720,8 @@ below. My calls on how they move:
     without the leading slash, which the CLI and MCP report as the error's `path`.
   - `plainObject`, `nonBlankString` (trimmed) and `finiteNumber` are the shared pieces, and `jsonText(schema)` parses
     JSON text, then checks it with the schema.
+  - `fileObject(shape)` is an object in a file Parity owns (PAR-589). It's strict, and it leaves out a key set to
+    `undefined`, as `validate.ts`'s `compact` did, so what the window saves from memory reads as it would from the file.
   - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type. PAR-573
     added the fields its package reader needs.
   - A read that returns nothing when the data is malformed calls the schema's own `safeParse(value).data`, as
@@ -3733,6 +3735,18 @@ below. My calls on how they move:
 - **Errors read as they do now.** A failed check throws `TypeError` with `/json/pointer: message`, as `validate.ts`
   does, so people and tests see the same messages. Agent input throws `CodedError` with `invalid_input` and the pointer
   as its `path` (PAR-472).
+- **`.par` files are zod schemas (PAR-589).** `parseCanvasDocument`, `parseDesignNode`, `parseNodePatch` and
+  `parseModeSettings` check with them, and the types of `document.ts` and the mode settings come from `z.infer`.
+  - The node tree is a discriminated union on `type`. Each type of node extends one base schema, since spreading the
+    base's shape loses the recursive type.
+  - Rules that span fields are refinements, each reported at the field at fault: node ids used twice, patch keys that
+    name no node, what a frame may hold, a variant's options, links' ends and mode values. A refinement runs after the
+    fields it reads pass their own checks, so a file with several problems can report a different one first.
+  - Positions of designs and notes are strict too, as canvas objects' already were.
+  - A few messages say more than before. A length that's neither a number nor a string says
+    `expected a number or a string`, padding names its three forms, and a problem in a file's modes points inside
+    `/modes`.
+  - `validate.ts` is left only for `library.ts`, until PAR-594.
 - **Everything that crosses into Parity is checked:**
   - project and library files
   - the clipboard, drag payloads and saved preferences
@@ -3961,6 +3975,16 @@ Called on 2026-11-04, for your approval in Storybook:
 - **The rule moved to `@parity-app/editor`** (`canvas-labels.ts`), taking the board's or frame's width with the zoom, as
   packages hold the editor's logic; the canvas keeps applying it to each label's style.
 
+## Make component checks every variant option (PAR-493)
+
+Called on 2026-11-05. Make component's before-and-after check now renders the design in each option of each variant
+param, not only the option its board shows, as it already did for every state and viewport. Each option is checked with
+the other params as the board shows them, rather than every combination of options: an option that changes nothing
+inside the part on its own changes nothing there beside another that doesn't either, and the checks grow with the number
+of options rather than their product. A refusal for an option the board doesn't show names it after the state and
+viewport. A variant's change inside the part isn't caught earlier with its own advice, as a state's is; the render check
+refuses it.
+
 ## Width and Height make room for their value (PAR-496)
 
 Called on 2026-11-05, for your approval in Storybook. A 96 by 48 layer showed "9" and "4" in the Size section. Both
@@ -4170,3 +4194,23 @@ My calls:
   A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
 - **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
 - **The client IDs go in the code,** since they're public. The API key never ships in the app.
+
+## Parity's own telemetry goes to Sentry, on by default
+
+The plan is [proposals/product-telemetry.md](proposals/product-telemetry.md), and the work is the Product telemetry
+stream in Linear. You set its direction on 2026-11-05, after a first draft that kept everything local unless people
+opted in: "we actually need to log the telemetry to the Sentry service. The app is still in development and not
+released, so all of our testers expect to have the telemetry collected. Mostly it's agents running test passes, so we
+need to default on." The aim is that agents "capture traces and replays so the agents can file bugs, pick them up, and
+address issues with actual context."
+
+- **Sentry receives it:** errors, crashes, traces, structured events and replays, through `@sentry/electron` in the app
+  and `@sentry/node` in the CLI. Adding both is approved with this direction.
+- **On by default, at its fullest level, everywhere Parity runs,** development and CI included, each tagged with its
+  environment. Settings and `PARITY_TELEMETRY` turn it down or off; unit tests leave it off.
+- **Names, paths, values and messages are sent as written.** My call: secrets are still scrubbed (keys, tokens,
+  passwords, `.env` values), since a leaked key is never what makes a bug findable.
+- **Session Replay records the editor window unmasked,** every session while testers and agents are few.
+- **The CLI sends too, at the same level, read from the same setting.** My call, since agents drive Parity through it
+  and their calls are half of each trace.
+- **All of this is revisited before the first public release,** in its own Backlog issue.
