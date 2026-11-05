@@ -71,4 +71,18 @@ describe("Nova's sidebar and its provider", () => {
     expect(markup).toContain('data-slot="sidebar-wrapper"')
     expect(markup).toContain('data-slot="sidebar-menu"')
   })
+
+  it("draws a menu item with isActive in Nova's own active style (PAR-457)", () => {
+    const button = (isActive: boolean) =>
+      renderToStaticMarkup(
+        React.createElement(
+          nova.SidebarProvider,
+          null,
+          React.createElement(nova.SidebarMenuButton, { isActive }, "Dashboard")
+        )
+      )
+    // Nova styles `data-active` (`data-active:bg-sidebar-accent`); Parity only passes the prop.
+    expect(button(true)).toMatch(/data-slot="sidebar-menu-button"[^>]*data-active=""/)
+    expect(button(false)).not.toContain('data-active=""')
+  })
 }, 60_000)

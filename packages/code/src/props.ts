@@ -24,7 +24,7 @@ export function inferProps(
   const fileOf = (source: ComponentSource) => resolve(root, source.declaration ?? source.path)
   const checker = program.getTypeChecker()
   const result: Record<string, ComponentInfo> = {}
-  const variantsByFile = new Map<string, Variants>()
+  const variantsByFile = new Map<string, { variants: Variants; implementation: ts.SourceFile }>()
   const tsconfig = readTsconfig(root)
   const importOf = (source: ComponentSource) =>
     source.library ? source.path : importAlias(root, tsconfig, source.path)
@@ -32,13 +32,15 @@ export function inferProps(
   for (const [name, source] of Object.entries(components)) {
     const file = program.getSourceFile(fileOf(source))
     if (!file) continue
-    let variants = variantsByFile.get(file.fileName)
-    if (!variants) {
-      variants = cvaVariants(implementationOf(file))
-      variantsByFile.set(file.fileName, variants)
+    let parsed = variantsByFile.get(file.fileName)
+    if (!parsed) {
+      const implementation = implementationOf(file)
+      parsed = { variants: cvaVariants(implementation), implementation }
+      variantsByFile.set(file.fileName, parsed)
     }
+    const { variants, implementation } = parsed
     try {
-      const read = componentProps(checker, file, source.export, variants)
+      const read = componentProps(checker, file, source.export, variants, implementation)
       const from = importOf(source)
       if (read) {
         const { props, takesStyle } = read
@@ -108,7 +110,8 @@ function componentProps(
   checker: ts.TypeChecker,
   file: ts.SourceFile,
   exportName: string,
-  variants: Variants
+  variants: Variants,
+  implementation: ts.SourceFile
 ): { props: ComponentProp[]; takesStyle?: boolean } | undefined {
   const moduleSymbol = checker.getSymbolAtLocation(file)
   if (!moduleSymbol) return undefined
@@ -120,7 +123,10 @@ function componentProps(
   // A component that takes no props takes no style either.
   if (!parameter) return signature ? { props: [], takesStyle: false } : { props: [] }
   const propsType = checker.getTypeOfSymbolAtLocation(parameter, file)
-  const defaults = destructuredDefaults(symbol)
+  // A library's declarations drop the defaults its compiled JavaScript destructures, so they're read from there.
+  const defaults = file.isDeclarationFile
+    ? destructuredDefaults(functionNamed(implementation, symbol.name))
+    : destructuredDefaults(symbol.valueDeclaration)
   const takesStyle = declaresStyle(checker, propsType)
   const toVoidElement = passesToVoidElement(checker, propsType, file)
 
@@ -136,20 +142,25 @@ function componentProps(
     const declared = declaration?.getSourceFile().fileName ?? ""
     const classified = classify(checker, type, declaration, prop.name)
     const { kind } = classified
+    // A cva variant of the same name is this prop's only when its options are the prop's: one file can hold a
+    // `variant` for each of its components, as Nova's sidebar.js does for the menu button but not the Sidebar.
+    const variant = variants.get(prop.name)
+    const isVariant = !!variant && sameOptions(variant.options, classified)
     // cva lists a variant's options in the order its author wrote them; the checker's union order is arbitrary.
-    const options = variants.has(prop.name)
-      ? (variants.get(prop.name)?.options ?? classified.options)
-      : classified.options
+    const options = isVariant ? variant.options : classified.options
     let group: PropGroup = "html"
-    if (variants.has(prop.name)) group = "variant"
+    if (isVariant) group = "variant"
     else if (declared && !declared.includes("/node_modules/")) group = "own"
+    // What the file declaring a library's component adds to the props it passes on, as Nova's `isActive` on a button's
+    // attributes. A slot keeps its own rule below: `root` is the component itself.
+    else if (declared === file.fileName && !classified.slot) group = "own"
     // A slot that takes content is one of the component's own parts, wherever it's declared; its root is the component.
     else if (classified.slot && kind === "node" && prop.name !== "root") group = "own"
     else if (prop.name.startsWith("aria-")) group = "aria"
     else if (kind === "function" && /^on[A-Z]/.test(prop.name)) group = "event"
     const entry: ComponentProp = { name: prop.name, kind, group }
     if (options) entry.options = options
-    const fallback = defaults.get(prop.name) ?? variants.get(prop.name)?.default
+    const fallback = defaults.get(prop.name) ?? (isVariant ? variant.default : undefined)
     if (fallback !== undefined) entry.default = fallback
     if (!(prop.flags & ts.SymbolFlags.Optional)) entry.required = true
     if (group === "variant" || group === "own") {
@@ -321,10 +332,31 @@ function cvaVariants(file: ts.SourceFile): Variants {
   return found
 }
 
+/** Whether a cva variant's options are a prop's: always, unless the prop's type is a set of other values. */
+function sameOptions(options: string[], prop: { kind: PropKind; options?: (string | number | boolean)[] }): boolean {
+  if (prop.kind !== "enum" || !prop.options) return true
+  const own = new Set(prop.options.map(String))
+  return own.size === options.length && options.every((option) => own.has(option))
+}
+
+/** A function or a variable holding one, declared at the top of a file under this name. */
+function functionNamed(file: ts.SourceFile, name: string): ts.Node | undefined {
+  for (const statement of file.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) return statement
+    if (ts.isVariableStatement(statement)) {
+      const found = statement.declarationList.declarations.find(
+        (declaration) => ts.isIdentifier(declaration.name) && declaration.name.text === name
+      )
+      if (found) return found
+    }
+  }
+  return undefined
+}
+
 /** Defaults the component gives props as it destructures them: `function Button({ size = "default", ...props })`. */
-function destructuredDefaults(symbol: ts.Symbol): Map<string, Literal> {
+function destructuredDefaults(found: ts.Node | undefined): Map<string, Literal> {
   const defaults = new Map<string, Literal>()
-  let declaration: ts.Node | undefined = symbol.valueDeclaration
+  let declaration: ts.Node | undefined = found
   if (declaration && ts.isVariableDeclaration(declaration)) declaration = declaration.initializer
   // forwardRef(...) and memo(...) wrap the function that does the destructuring.
   while (declaration && ts.isCallExpression(declaration)) declaration = declaration.arguments[0]
