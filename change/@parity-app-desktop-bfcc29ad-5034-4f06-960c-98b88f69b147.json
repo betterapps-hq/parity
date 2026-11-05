@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Find installed packages and their entries one way, so a library's types under exports, named re-exports and the registry's newest file read the same in the app, libgen and parity lib check",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

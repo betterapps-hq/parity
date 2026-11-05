@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { discoverProject, parseJsonc } from "./index.ts"
+import { discoverProject } from "./index.ts"
 
 const renderer = {
   componentExtensions: [".tsx"],
@@ -367,11 +367,5 @@ describe("storybook", () => {
   it("is missing when there's no Storybook config", async () => {
     await write("src/components/ui/button.tsx", "export function Button() {}")
     expect((await discoverProject(root, renderer)).storybook).toBeUndefined()
-  })
-})
-
-describe("parseJsonc", () => {
-  it("keeps comment markers inside strings", () => {
-    expect(parseJsonc('{ "paths": { "@/*": ["./src/*"], }, // done\n }')).toEqual({ paths: { "@/*": ["./src/*"] } })
   })
 })

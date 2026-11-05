@@ -38,19 +38,12 @@ export interface CheckReport {
  */
 export async function runCheck(library: string | undefined, options: CheckOptions): Promise<void> {
   if (!library) throw new Error("parity lib check <library> [--tab t] [--mode m]")
-  const { applyLibraryEdits, componentNode, generateId, librarySource, parseLibraryEdits, withLibraryContext } =
-    await import("@parity-app/core")
-  const { registryDir, registryEntries } = await import("@parity-app/registry")
-  const entry = (await registryEntries()).find((item) => item.manifest.id === library)
+  const { componentNode, generateId, librarySource, withLibraryContext } = await import("@parity-app/core")
+  const { newestEntries, registryDir } = await import("@parity-app/registry")
+  // The file the app uses for the library's newest version, with its hand edits, as the app reads it.
+  const entry = (await newestEntries()).find((item) => item.manifest.id === library)
   if (!entry) throw new Error(`The registry has no library "${library}"`)
-  let manifest: LibraryManifest = entry.manifest
-  if (manifest.edits) {
-    const edits =
-      typeof manifest.edits === "string"
-        ? parseLibraryEdits(JSON.parse(await readFile(join(dirname(entry.path), manifest.edits), "utf8")))
-        : manifest.edits
-    manifest = applyLibraryEdits(manifest, edits).manifest
-  }
+  const manifest: LibraryManifest = entry.manifest
   const list = manifest.components?.list ?? {}
   const names = Object.keys(list).filter((name) => list[name]!.visual !== false)
   const id = (name: string) => `${library}/${name}`
