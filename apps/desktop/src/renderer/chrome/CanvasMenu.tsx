@@ -1,6 +1,3 @@
-import { isInnerPath } from "@parity-app/core"
-import { CheckIcon } from "lucide-react"
-import { type MouseEvent as ReactMouseEvent, type ReactElement, useEffect, useRef, useState } from "react"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -11,7 +8,10 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger
-} from "@/components/ui/context-menu"
+} from "@buildkitgg/shadcn-baseui-kit"
+import { isInnerPath } from "@parity-app/core"
+import { CheckIcon } from "lucide-react"
+import { type ComponentProps, type ReactElement, useEffect, useRef, useState } from "react"
 import { pasteAtPointer } from "../canvas/clipboard.ts"
 import { useProject } from "../canvas/context.ts"
 import { hitTest, type Point, selectedIn, underPoint } from "../canvas/hit.ts"
@@ -22,6 +22,9 @@ import { type Selection, useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
+import { formatKeys } from "./keys.ts"
+
+type TriggerProps = ComponentProps<typeof ContextMenuTrigger>
 
 /** Where the menu opened: the pointer, and the design under it, if any. */
 interface Opened {
@@ -69,9 +72,13 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     return () => area.removeEventListener("pointerdown", onPointerDown, { capture: true })
   }, [area, session])
 
-  const onContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
+  const onContextMenu: TriggerProps["onContextMenu"] = (event) => {
     // tldraw keeps the system's menu from a right-click on the canvas; its own event follows when the button comes up.
-    if (event.defaultPrevented) return
+    // The menu would open for either, so the first is kept from it.
+    if (event.defaultPrevented) {
+      event.preventBaseUIHandler()
+      return
+    }
     // From the pointer, the press this right-click began with, which a release from elsewhere doesn't have; from the
     // keyboard, there's none.
     const pressed = event.button === 2 ? press.current : undefined
@@ -80,6 +87,7 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     if (session.selection.getTool() === "interact" || !from || !onCanvas(from)) {
       // Nothing opens: not from a control drawn on the canvas, nor while interacting.
       event.preventDefault()
+      event.preventBaseUIHandler()
       return
     }
     const point = { x: event.clientX, y: event.clientY }
@@ -95,14 +103,13 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
 
   return (
     <ContextMenu
+      disabled={interacting}
       onOpenChange={(open) => {
         // Select layer outlines the layer an entry names; nothing stays outlined once the menu closes.
         if (!open) session.selection.setHover(undefined)
       }}
     >
-      <ContextMenuTrigger asChild ref={setArea} disabled={interacting} onContextMenu={onContextMenu}>
-        {children}
-      </ContextMenuTrigger>
+      <ContextMenuTrigger ref={setArea} onContextMenu={onContextMenu} render={children} />
       <ContextMenuContent className="w-60" aria-label="Canvas">
         {opened && <MenuItems opened={opened} />}
       </ContextMenuContent>
@@ -126,10 +133,10 @@ function MenuItems({ opened }: { opened: Opened }) {
       <ContextMenuItem
         key={entry.action}
         disabled={!entry.enabled}
-        onSelect={() => run(session, entry.action, opened.point)}
+        onClick={() => run(session, entry.action, opened.point)}
       >
         {entry.label}
-        {entry.keys && <ContextMenuShortcut>{entry.keys}</ContextMenuShortcut>}
+        {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
       </ContextMenuItem>
     )
   })
@@ -153,7 +160,7 @@ function SelectLayer({ label, choices, target }: { label: string; choices: Layer
             key={choice.id}
             onFocus={() => outline(choice)}
             onBlur={() => outline(undefined)}
-            onSelect={() =>
+            onClick={() =>
               selection.set(
                 choice.whole ? { design: target.design } : { design: target.design, node: choice.id, ...frame }
               )

@@ -1,4 +1,20 @@
 import {
+  Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  ToggleGroup,
+  ToggleGroupItem,
+  Kbd
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   BookOpen,
   ChevronRight,
   Columns3,
@@ -14,14 +30,9 @@ import {
   Type
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Input } from "@/components/ui/input"
-import { Kbd } from "@/components/ui/kbd"
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Hint } from "../../chrome/Hint.tsx"
 import { useHoverCard } from "../../chrome/hover-card.ts"
+import { formatKeys } from "../../chrome/keys.ts"
 import { ComponentPreview, KindIcon, stateWords } from "./component-art.tsx"
 import { components, groupTitles, type PreviewState, type SampleComponent } from "./preview-data.ts"
 
@@ -105,13 +116,13 @@ function ComponentItem({
     )
   return (
     <Popover open={hover.open} onOpenChange={hover.setOpen} modal={false}>
-      <PopoverAnchor asChild>{item}</PopoverAnchor>
+      <PopoverTrigger render={item} onClick={(event) => event.preventBaseUIHandler()} />
       <PopoverContent
         side="right"
         align="start"
         sideOffset={14}
         className="w-[320px] p-0"
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        initialFocus={false}
         onPointerEnter={hover.stay}
         onPointerLeave={hover.leave}
       >
@@ -167,12 +178,11 @@ export function ComponentsPanel({
       <div className="flex items-center justify-between px-3 pt-2">
         <span className="text-[11px] text-muted-foreground">{shown.length} components</span>
         <ToggleGroup
-          type="single"
           variant="outline"
           size="sm"
           spacing={0}
-          value={view}
-          onValueChange={(value) => value && setView(value as ComponentsView)}
+          value={[view]}
+          onValueChange={([value]) => value && setView(value as ComponentsView)}
           aria-label="Show components as"
         >
           {(
@@ -183,7 +193,7 @@ export function ComponentsPanel({
             ] as const
           ).map(([value, label, Icon]) => (
             <Hint key={value} label={label}>
-              <ToggleGroupItem value={value} aria-label={label} className="h-6 w-7 aria-checked:bg-muted">
+              <ToggleGroupItem value={value} aria-label={label} className="h-6 w-7">
                 <Icon className="size-3.5" />
               </ToggleGroupItem>
             </Hint>
@@ -466,11 +476,11 @@ export function InsertPicker({ highlighted = "Project card", query }: { highligh
         {detail}
         <div className="flex items-center gap-3 border-t px-3 py-2 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
-            <Kbd>Enter</Kbd> Insert
+            <Kbd>{formatKeys("Enter")}</Kbd> Insert
           </span>
           <span className="flex items-center gap-1">
-            <Kbd>↑</Kbd>
-            <Kbd>↓</Kbd> Move
+            <Kbd>{formatKeys("↑")}</Kbd>
+            <Kbd>{formatKeys("↓")}</Kbd> Move
           </span>
           <span className="ml-auto">Or drag onto a design</span>
         </div>

@@ -1,10 +1,10 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * For you: a digest, as the start page's For you is. Everything waiting on you is one line with its one or two actions
  * on it, so you can answer most of it from here, and what happened in your projects since you were last here follows
  * close under it. Your teammates and agents, and where to jump back in, are at the side.
  */
 import { AtSign, Eye, GitMerge, MessageSquare, Package, Sparkles, UserPlus } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { type ActivityKind, me } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
 import { ActivityRow, ActivityText } from "../start-page-parts.tsx"

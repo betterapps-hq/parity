@@ -1,3 +1,4 @@
+import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
 import {
   Accessibility,
   Component,
@@ -9,7 +10,6 @@ import {
   Smile
 } from "lucide-react"
 import type { ReactNode } from "react"
-import { TabsContent } from "@/components/ui/tabs"
 import { AccessibilityPanel } from "../../chrome/AccessibilityPanel.tsx"
 import { ComponentsPanel, IconsPanel, ImagesPanel } from "../../chrome/AssetsPanel.tsx"
 import { ModesPanel } from "../../chrome/ModesPanel.tsx"

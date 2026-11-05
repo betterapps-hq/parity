@@ -1,6 +1,5 @@
+import { Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-
 type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {
   /** What it says. Nothing shows without it. */
   label: ReactNode
@@ -21,19 +20,17 @@ type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {
 }
 
 /**
- * A tooltip, where a native `title` would draw the browser's own instead of Parity's. Anything an `asChild` trigger
- * passes it reaches the element, so it can sit inside a popover or context menu trigger.
+ * A tooltip, where a native `title` would draw the browser's own instead of Parity's. Anything a trigger rendering it
+ * passes it reaches the element, so it can be a popover or context menu trigger's `render`.
  *
- * The tooltip takes over the element's `data-state`, so what it wraps mustn't style by that: toggles style by
- * `aria-pressed` or `aria-checked`, and popover triggers by `aria-expanded`.
+ * The tooltip marks the element `data-popup-open` while it shows, as popover and menu triggers do while theirs are
+ * open, so what it wraps styles its open popover by `aria-expanded`.
  */
 export function Hint({ label, detail, side, wait, hidden, open, onOpenChange, children, ...trigger }: HintProps) {
   const says = label !== undefined && label !== null && label !== false && label !== ""
   return (
-    <Tooltip delayDuration={wait ? 500 : undefined} open={open} onOpenChange={onOpenChange}>
-      <TooltipTrigger asChild {...trigger}>
-        {children}
-      </TooltipTrigger>
+    <Tooltip open={open} onOpenChange={onOpenChange}>
+      <TooltipTrigger delay={wait ? 500 : undefined} {...trigger} render={children} />
       {says && !hidden && (
         <TooltipContent side={side} className={`wrap-anywhere ${detail ? "flex-col items-start gap-0.5" : ""}`}>
           {label}

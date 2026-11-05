@@ -1,4 +1,19 @@
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   boardLayout,
   boardRoot,
   changeCount,
@@ -27,23 +42,6 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 import { stopEventPropagation } from "tldraw"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger
-} from "@/components/ui/context-menu"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../chrome/designs.ts"
 import { Hint } from "../chrome/Hint.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
@@ -234,7 +232,7 @@ function TitleBar({ showControls, children }: { showControls: boolean; children:
 function TitleControls({ children }: { children: ReactNode }) {
   return (
     <div
-      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-data-[state=open]:flex @max-[22rem]:hidden!"
+      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex @max-[22rem]:hidden!"
       // Enter and the arrows on its menus open them, rather than going to the canvas (see shortcuts.ts).
       data-canvas-control
       onPointerDown={stopEventPropagation}
@@ -302,35 +300,37 @@ function TitleButton({
   }
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <Hint label={`${container.name}, in ${entry.path}`} detail="Double-click to rename." wait>
-          <button
-            type="button"
-            tabIndex={selected ? 0 : -1}
-            onPointerDown={onPointerDown}
-            onContextMenu={stopEventPropagation}
-            onDoubleClick={(event) => {
-              event.stopPropagation()
-              setRenaming(true)
-            }}
-            className="flex min-w-0 cursor-default items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-foreground/90 hover:text-foreground"
-            style={color ? { color } : undefined}
-          >
-            {icon}
-            <span className="truncate">{container.name}</span>
-          </button>
-        </Hint>
-      </ContextMenuTrigger>
+      <ContextMenuTrigger
+        render={
+          <Hint label={`${container.name}, in ${entry.path}`} detail="Double-click to rename." wait>
+            <button
+              type="button"
+              tabIndex={selected ? 0 : -1}
+              onPointerDown={onPointerDown}
+              onContextMenu={stopEventPropagation}
+              onDoubleClick={(event) => {
+                event.stopPropagation()
+                setRenaming(true)
+              }}
+              className="flex min-w-0 cursor-default items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-foreground/90 hover:text-foreground"
+              style={color ? { color } : undefined}
+            >
+              {icon}
+              <span className="truncate">{container.name}</span>
+            </button>
+          </Hint>
+        }
+      />
       <ContextMenuContent className="w-52" onPointerDown={stopEventPropagation}>
-        <ContextMenuItem onSelect={() => setRenaming(true)}>Rename</ContextMenuItem>
-        <ContextMenuItem onSelect={() => duplicateDesign(session, entry)}>Duplicate</ContextMenuItem>
+        <ContextMenuItem onClick={() => setRenaming(true)}>Rename</ContextMenuItem>
+        <ContextMenuItem onClick={() => duplicateDesign(session, entry)}>Duplicate</ContextMenuItem>
         <ContextMenuItem
-          onSelect={() => setDesignKind(session, entry, container.kind === "component" ? "screen" : "component")}
+          onClick={() => setDesignKind(session, entry, container.kind === "component" ? "screen" : "component")}
         >
           {container.kind === "component" ? "Make it a screen" : "Make it a component"}
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem variant="destructive" onSelect={() => deleteDesign(session, entry)}>
+        <ContextMenuItem variant="destructive" onClick={() => deleteDesign(session, entry)}>
           Delete
         </ContextMenuItem>
       </ContextMenuContent>
@@ -345,7 +345,7 @@ function focusAndSelect(element: HTMLInputElement | null): void {
 }
 
 const menuTrigger =
-  "flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent data-[state=open]:bg-accent"
+  "flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent aria-expanded:bg-accent"
 
 /**
  * Which option of each variant the board shows. Edits on the board in its base state go to the options picked here,
@@ -374,8 +374,8 @@ function VariantMenu({
         {variants.map(([name, param], index) => (
           <div key={name}>
             {index > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel>{name}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={choices[name]} onValueChange={(option) => onSelect(name, option)}>
+            <DropdownMenuRadioGroup value={choices[name]} onValueChange={(option: string) => onSelect(name, option)}>
+              <DropdownMenuLabel>{name}</DropdownMenuLabel>
               {(param.options ?? []).map((option) => (
                 <DropdownMenuRadioItem key={option.id} value={option.id}>
                   <span className="flex-1 truncate">{option.name}</span>
@@ -415,8 +415,8 @@ function StateMenu({
         <ChevronDown className="size-3.5 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>State</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={allStates ? "" : active} onValueChange={onSelect}>
+          <DropdownMenuLabel>State</DropdownMenuLabel>
           {states.map((state, index) => {
             const changes = changeCount(state)
             return (

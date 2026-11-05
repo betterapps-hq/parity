@@ -1,4 +1,32 @@
 import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Command as CommandRoot,
+  CommandShortcut,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+  Menubar,
+  MenubarContent,
+  MenubarGroup,
+  MenubarItem,
+  MenubarLabel,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarSub,
+  MenubarSubContent,
+  MenubarSubTrigger,
+  MenubarTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   Diamond,
   EyeOff,
   FileInput,
@@ -15,38 +43,7 @@ import {
   Unlink,
   X
 } from "lucide-react"
-import { type MouseEvent as ReactMouseEvent, type ReactElement, type ReactNode, useState } from "react"
-import {
-  Command as CommandRoot,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandShortcut
-} from "@/components/ui/command"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuTrigger
-} from "@/components/ui/context-menu"
-import {
-  Menubar,
-  MenubarContent,
-  MenubarItem,
-  MenubarLabel,
-  MenubarMenu,
-  MenubarSeparator,
-  MenubarShortcut,
-  MenubarSub,
-  MenubarSubContent,
-  MenubarSubTrigger,
-  MenubarTrigger
-} from "@/components/ui/menubar"
+import { type ComponentProps, type ReactElement, type ReactNode, useState } from "react"
 import { pasteAtPointer } from "../../canvas/clipboard.ts"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon } from "../../canvas/kinds.tsx"
@@ -54,7 +51,7 @@ import { actions } from "../../chrome/actions.ts"
 import { closeDialog, useOpenDialog } from "../../chrome/app-dialogs.ts"
 import { activeSession, exit, exportImages } from "../../chrome/commands.ts"
 import { type Command, groups, keymap } from "../../chrome/keymap.ts"
-import { isMac } from "../../chrome/keys.ts"
+import { formatKeys, isMac } from "../../chrome/keys.ts"
 import { useRecentProjects, workspace } from "../../workspace.ts"
 import { useCanvasEmpty } from "./CanvasStart.tsx"
 import { keysOf, makeNew, startKeymap } from "./commands.ts"
@@ -67,10 +64,10 @@ const mac = isMac()
  */
 export function StartMenubar() {
   return (
-    <Menubar className="mr-2 mb-1.5 shrink-0" aria-label="Application">
+    <Menubar className="mr-2 mb-1.5 shrink-0 border-0" aria-label="Application">
       <MenubarMenu>
         <MenubarTrigger>File</MenubarTrigger>
-        <MenubarContent>
+        <MenubarContent className="w-auto">
           <FileItems />
         </MenubarContent>
       </MenubarMenu>
@@ -78,7 +75,7 @@ export function StartMenubar() {
       <Unchanged name="View" />
       <MenubarMenu>
         <MenubarTrigger>Object</MenubarTrigger>
-        <MenubarContent>
+        <MenubarContent className="w-auto">
           <ObjectItems />
         </MenubarContent>
       </MenubarMenu>
@@ -98,13 +95,13 @@ function NewItems() {
   const session = activeSession()
   return (
     <>
-      <MenubarItem disabled={!session} onSelect={() => session && makeNew(session, "screen")}>
+      <MenubarItem disabled={!session} onClick={() => session && makeNew(session, "screen")}>
         <DesignIcon kind="screen" /> {startKeymap.newScreen.label}
-        <MenubarShortcut>{keysOf("newScreen")}</MenubarShortcut>
+        <MenubarShortcut>{formatKeys(keysOf("newScreen"))}</MenubarShortcut>
       </MenubarItem>
-      <MenubarItem disabled={!session} onSelect={() => session && makeNew(session, "component")}>
+      <MenubarItem disabled={!session} onClick={() => session && makeNew(session, "component")}>
         <DesignIcon kind="component" /> {startKeymap.newComponent.label}
-        <MenubarShortcut>{keysOf("newComponent")}</MenubarShortcut>
+        <MenubarShortcut>{formatKeys(keysOf("newComponent"))}</MenubarShortcut>
       </MenubarItem>
     </>
   )
@@ -117,10 +114,10 @@ function Item({ command, icon: Icon, children }: { command: Command; icon?: type
     <MenubarItem
       inset={Icon ? undefined : true}
       disabled={action.available?.() === false}
-      onSelect={() => void action.run()}
+      onClick={() => void action.run()}
     >
       {Icon && <Icon />} {children ?? keymap[command].label}
-      <MenubarShortcut>{keymap[command].keys[0]}</MenubarShortcut>
+      <MenubarShortcut>{formatKeys(keymap[command].keys[0])}</MenubarShortcut>
     </MenubarItem>
   )
 }
@@ -144,9 +141,13 @@ function FileItems() {
           <History /> Open recent
         </MenubarSubTrigger>
         <MenubarSubContent className="max-w-96 min-w-64">
-          {recent.length === 0 && <MenubarLabel>Nothing opened yet</MenubarLabel>}
+          {recent.length === 0 && (
+            <MenubarGroup>
+              <MenubarLabel>Nothing opened yet</MenubarLabel>
+            </MenubarGroup>
+          )}
           {recent.map((root) => (
-            <MenubarItem key={root} onSelect={() => void workspace.open(root)} className="flex-col items-start gap-0">
+            <MenubarItem key={root} onClick={() => void workspace.open(root)} className="flex-col items-start gap-0">
               <span>{root.split(/[\\/]/).findLast(Boolean) ?? root}</span>
               <span className="text-xs wrap-anywhere text-muted-foreground">{root}</span>
             </MenubarItem>
@@ -159,18 +160,18 @@ function FileItems() {
         Save a copy…
       </Item>
       <MenubarSeparator />
-      <MenubarItem disabled={!session?.selection.get().design} onSelect={() => void exportImages("selection")}>
+      <MenubarItem disabled={!session?.selection.get().design} onClick={() => void exportImages("selection")}>
         <Images /> Export selected design…
-        <MenubarShortcut>{keymap.exportSelection.keys[0]}</MenubarShortcut>
+        <MenubarShortcut>{formatKeys(keymap.exportSelection.keys[0])}</MenubarShortcut>
       </MenubarItem>
-      <MenubarItem disabled={designs === 0} onSelect={() => void exportImages("all")}>
+      <MenubarItem disabled={designs === 0} onClick={() => void exportImages("all")}>
         <Images /> Export all designs…
       </MenubarItem>
       <MenubarSeparator />
       <Item command="closeTab" icon={X} />
       {!mac && (
-        <MenubarItem onSelect={exit}>
-          <LogOut /> Exit <MenubarShortcut>Alt F4</MenubarShortcut>
+        <MenubarItem onClick={exit}>
+          <LogOut /> Exit <MenubarShortcut>{formatKeys("Alt F4")}</MenubarShortcut>
         </MenubarItem>
       )}
     </>
@@ -200,9 +201,11 @@ function ObjectItems() {
       <MenubarSeparator />
       <Item command="hide" icon={EyeOff} />
       {!current.design && !current.note && (
-        <MenubarLabel className="flex items-center gap-1.5 font-normal">
-          <SquareDashed className="size-3.5" /> Select layers, a screen or a component to act on them
-        </MenubarLabel>
+        <MenubarGroup>
+          <MenubarLabel className="flex items-center gap-1.5 font-normal">
+            <SquareDashed className="size-3.5" /> Select layers, a screen or a component to act on them
+          </MenubarLabel>
+        </MenubarGroup>
       )}
     </>
   )
@@ -223,9 +226,12 @@ interface Point {
 export function StartCanvasMenu({ children }: { children: ReactElement }) {
   const session = useProject()
   const [at, setAt] = useState<Point>()
-  const onContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
+  const onContextMenu: ComponentProps<typeof ContextMenuTrigger>["onContextMenu"] = (event) => {
     // tldraw keeps the system's menu from a right-click on the canvas, and sends its own when the button comes up.
-    if (event.defaultPrevented) return
+    if (event.defaultPrevented) {
+      event.preventBaseUIHandler()
+      return
+    }
     const { editor } = session
     const from = event.target
     const onCanvas =
@@ -241,15 +247,14 @@ export function StartCanvasMenu({ children }: { children: ReactElement }) {
       })
     if (session.selection.getTool() === "interact" || !onCanvas || overDesign) {
       event.preventDefault()
+      event.preventBaseUIHandler()
       return
     }
     setAt(point)
   }
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild onContextMenu={onContextMenu}>
-        {children}
-      </ContextMenuTrigger>
+      <ContextMenuTrigger onContextMenu={onContextMenu} render={children} />
       <ContextMenuContent className="min-w-60 [&_[role=menuitem]]:whitespace-nowrap" aria-label="Canvas">
         {at && <CanvasItems at={at} />}
       </ContextMenuContent>
@@ -262,28 +267,28 @@ function CanvasItems({ at }: { at: Point }) {
   const empty = useCanvasEmpty()
   return (
     <>
-      <ContextMenuItem onSelect={() => makeNew(session, "screen", at)}>
+      <ContextMenuItem onClick={() => makeNew(session, "screen", at)}>
         {startKeymap.newScreen.label}
-        <ContextMenuShortcut>{keysOf("newScreen")}</ContextMenuShortcut>
+        <ContextMenuShortcut>{formatKeys(keysOf("newScreen"))}</ContextMenuShortcut>
       </ContextMenuItem>
-      <ContextMenuItem onSelect={() => makeNew(session, "component", at)}>
+      <ContextMenuItem onClick={() => makeNew(session, "component", at)}>
         {startKeymap.newComponent.label}
-        <ContextMenuShortcut>{keysOf("newComponent")}</ContextMenuShortcut>
+        <ContextMenuShortcut>{formatKeys(keysOf("newComponent"))}</ContextMenuShortcut>
       </ContextMenuItem>
-      <ContextMenuItem onSelect={() => void actions.insert.run()}>
+      <ContextMenuItem onClick={() => void actions.insert.run()}>
         Insert…
-        <ContextMenuShortcut>{keymap.insert.keys[0]}</ContextMenuShortcut>
+        <ContextMenuShortcut>{formatKeys(keymap.insert.keys[0])}</ContextMenuShortcut>
       </ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem onSelect={() => void pasteAtPointer(session, at)}>Paste here</ContextMenuItem>
+      <ContextMenuItem onClick={() => void pasteAtPointer(session, at)}>Paste here</ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem disabled={empty} onSelect={() => void actions.selectAll.run()}>
+      <ContextMenuItem disabled={empty} onClick={() => void actions.selectAll.run()}>
         {keymap.selectAll.label}
-        <ContextMenuShortcut>{keymap.selectAll.keys[0]}</ContextMenuShortcut>
+        <ContextMenuShortcut>{formatKeys(keymap.selectAll.keys[0])}</ContextMenuShortcut>
       </ContextMenuItem>
-      <ContextMenuItem disabled={empty} onSelect={() => void actions.zoomToFit.run()}>
+      <ContextMenuItem disabled={empty} onClick={() => void actions.zoomToFit.run()}>
         {keymap.zoomToFit.label}
-        <ContextMenuShortcut>{keymap.zoomToFit.keys[0]}</ContextMenuShortcut>
+        <ContextMenuShortcut>{formatKeys(keymap.zoomToFit.keys[0])}</ContextMenuShortcut>
       </ContextMenuItem>
     </>
   )
@@ -362,7 +367,7 @@ export function StartActionsSearch({ initialQuery = "" }: { initialQuery?: strin
                     }}
                   >
                     {item.label}
-                    {item.keys && <CommandShortcut>{item.keys}</CommandShortcut>}
+                    {item.keys && <CommandShortcut>{formatKeys(item.keys)}</CommandShortcut>}
                   </CommandItem>
                 ))}
             </CommandGroup>

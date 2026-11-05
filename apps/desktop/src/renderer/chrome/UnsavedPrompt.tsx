@@ -1,13 +1,13 @@
-import { useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle
-} from "@/components/ui/dialog"
+} from "@buildkitgg/shadcn-baseui-kit"
+import { useRef, useState } from "react"
 import { useUnsavedQuestion } from "./unsaved.ts"
 
 /** Names projects as a sentence does: "a and b", "a, b, and c". */
@@ -28,10 +28,7 @@ export function UnsavedPrompt() {
         showCloseButton={false}
         className="sm:max-w-md"
         // Save is what's usually meant, so Enter does it.
-        onOpenAutoFocus={(event) => {
-          event.preventDefault()
-          saveRef.current?.focus()
-        }}
+        initialFocus={saveRef}
       >
         <DialogHeader>
           <DialogTitle>Save changes to {subject}?</DialogTitle>

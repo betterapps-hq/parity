@@ -1,8 +1,8 @@
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Component } from "lucide-react"
 import type { ReactNode } from "react"
 import { expect, fireEvent, fn, userEvent, within } from "storybook/test"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { kindColors } from "../canvas/kinds.tsx"
 import { ComponentMenu } from "./ComponentMenu.tsx"
 
@@ -35,15 +35,17 @@ function Opened({ name, children }: { name: string; children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background p-6 text-foreground">
       <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <button
-            type="button"
-            className="flex h-7 w-60 items-center gap-2 rounded-md pr-8 pl-8 text-left text-sm hover:bg-accent"
-          >
-            <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-            {name}
-          </button>
-        </ContextMenuTrigger>
+        <ContextMenuTrigger
+          render={
+            <button
+              type="button"
+              className="flex h-7 w-60 items-center gap-2 rounded-md pr-8 pl-8 text-left text-sm hover:bg-accent"
+            >
+              <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
+              {name}
+            </button>
+          }
+        />
         <ContextMenuContent className="w-auto min-w-56 whitespace-nowrap">{children}</ContextMenuContent>
       </ContextMenu>
     </div>

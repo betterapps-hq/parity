@@ -178,14 +178,6 @@ export default defineConfig({
         }
       },
       {
-        files: ["apps/desktop/src/renderer/components/ui/**"],
-        rules: {
-          "jsx-a11y/prefer-tag-over-role": "off",
-          "jsx-a11y/click-events-have-key-events": "off",
-          "jsx-a11y/no-noninteractive-element-interactions": "off"
-        }
-      },
-      {
         // Every package is pure unless a later entry names it. `node:` on every builtin keeps the patterns whole.
         files: ["packages/**"],
         rules: {

@@ -1,3 +1,4 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * The org's admin pages that charging per seat needs: members and their seats, billing, plans and security. Only
  * editors pay; viewing and commenting are free. The plans are Figma's at half the price. A seat request is approved
@@ -23,7 +24,6 @@ import {
   UserPlus
 } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
 import { me, type Person, people } from "../explore-data.ts"
 import { Avatar, GitHubMark } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"

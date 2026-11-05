@@ -1,3 +1,23 @@
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  ToggleGroup,
+  ToggleGroupItem,
+  Kbd
+} from "@buildkitgg/shadcn-baseui-kit"
 /**
  * Making a new project: from a template on a stack, or from something that exists already. Templates come from the
  * Scaffolder's catalog, so each one starts from a stack and asks only what's left.
@@ -16,15 +36,7 @@ import {
   Search
 } from "lucide-react"
 import { type ReactNode, useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Kbd } from "@/components/ui/kbd"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { formatKeys } from "../../chrome/keys.ts"
 import { me } from "../explore-data.ts"
 import { AzureDevOpsMark, GitHubMark } from "../parts.tsx"
 import {
@@ -349,7 +361,7 @@ function SlotSelect({
 }) {
   return (
     <Field label={label} htmlFor={id}>
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value} onValueChange={(next) => next && onChange(next)}>
         <SelectTrigger id={id} className="w-full">
           <SelectValue />
         </SelectTrigger>
@@ -527,7 +539,14 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
           </Field>
           <Field label="Where it lives" htmlFor="new-project-org">
             <div className="flex gap-2">
-              <Select value={org} onValueChange={(value) => setOrg(value as OrgId)}>
+              <Select
+                items={Object.values(organizations).map((candidate) => ({
+                  value: candidate.id,
+                  label: candidate.name
+                }))}
+                value={org}
+                onValueChange={(value) => value && setOrg(value)}
+              >
                 <SelectTrigger id="new-project-org" className="w-36">
                   <SelectValue />
                 </SelectTrigger>
@@ -562,7 +581,7 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
                   <label
                     key={candidate.id}
                     htmlFor={`audience-${candidate.id}`}
-                    className="flex cursor-pointer flex-col gap-1.5 rounded-lg border p-3 transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-(--parity) has-[[data-state=checked]]:bg-(--parity)/5"
+                    className="flex cursor-pointer flex-col gap-1.5 rounded-lg border p-3 transition-colors hover:bg-muted/40 has-[[data-checked]]:border-(--parity) has-[[data-checked]]:bg-(--parity)/5"
                   >
                     <span className="flex items-start gap-2">
                       <RadioGroupItem id={`audience-${candidate.id}`} value={candidate.id} className="mt-px" />
@@ -582,10 +601,9 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
                 {stack.id === "spawnkit" ? "Renderer" : "Rendering"}
               </span>
               <ToggleGroup
-                type="single"
                 variant="outline"
-                value={mode}
-                onValueChange={(value) => value && setMode(value)}
+                value={[mode]}
+                onValueChange={([value]) => value && setMode(value)}
                 aria-labelledby="new-project-mode"
                 className="w-fit"
               >
@@ -959,7 +977,7 @@ function FromFolder() {
         <span>
           <span className="font-medium text-foreground">Choose a folder</span> or drop one here
         </span>
-        <Kbd>Ctrl O</Kbd>
+        <Kbd>{formatKeys("Ctrl O")}</Kbd>
       </button>
       <section className="flex flex-col gap-1">
         <h4 className="px-2 pb-1 text-xs font-medium text-muted-foreground">Recent folders</h4>

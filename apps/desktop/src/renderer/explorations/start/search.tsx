@@ -1,9 +1,3 @@
-/**
- * Search, from Ctrl K or the start page's field: designs, projects, components, people, templates and commands in one
- * list, with the matching part of each name marked.
- */
-import { Component, CreditCard, FolderOpen, type LucideIcon, Plus, Settings, UserPlus, Users } from "lucide-react"
-import { useState } from "react"
 import {
   Command,
   CommandDialog,
@@ -12,9 +6,16 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandShortcut
-} from "@/components/ui/command"
-import { Kbd } from "@/components/ui/kbd"
+  CommandShortcut,
+  Kbd
+} from "@buildkitgg/shadcn-baseui-kit"
+/**
+ * Search, from Ctrl K or the start page's field: designs, projects, components, people, templates and commands in one
+ * list, with the matching part of each name marked.
+ */
+import { Component, CreditCard, FolderOpen, type LucideIcon, Plus, Settings, UserPlus, Users } from "lucide-react"
+import { useState } from "react"
+import { formatKeys } from "../../chrome/keys.ts"
 import { me, people } from "../explore-data.ts"
 import { Avatar, GitHubMark } from "../parts.tsx"
 import { projects, stack, templates } from "./data.ts"
@@ -231,7 +232,7 @@ export function SearchPalette({
                 >
                   {command.mark ? <GitHubMark size={16} /> : <command.icon />}
                   <Highlight text={command.label} query={query} />
-                  {command.shortcut && <CommandShortcut>{command.shortcut}</CommandShortcut>}
+                  {command.shortcut && <CommandShortcut>{formatKeys(command.shortcut)}</CommandShortcut>}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -239,13 +240,13 @@ export function SearchPalette({
         </CommandList>
         <footer className="flex items-center gap-4 border-t px-3 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <Kbd>Enter</Kbd> Open
+            <Kbd>{formatKeys("Enter")}</Kbd> Open
           </span>
           <span className="flex items-center gap-1.5">
-            <Kbd>Ctrl Enter</Kbd> Open in a new tab
+            <Kbd>{formatKeys("Ctrl Enter")}</Kbd> Open in a new tab
           </span>
           <span className="ml-auto flex items-center gap-1.5">
-            <Kbd>Esc</Kbd> Close
+            <Kbd>{formatKeys("Esc")}</Kbd> Close
           </span>
         </footer>
       </Command>

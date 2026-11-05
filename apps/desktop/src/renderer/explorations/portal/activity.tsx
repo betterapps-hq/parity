@@ -1,3 +1,4 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * The org's activity: what every team, person and agent in Kestrel did, newest first, with the designs it touched.
  * Filters narrow it to your teams or the people you follow. Things only for you (mentions, review requests, seat
@@ -5,7 +6,6 @@
  */
 import { Download, GitMerge, Hand, Package } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { AgentBadge } from "../../agent/AgentPointer.tsx"
 import { Avatar } from "../parts.tsx"

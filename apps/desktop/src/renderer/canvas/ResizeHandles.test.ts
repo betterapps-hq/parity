@@ -12,7 +12,7 @@ const errors: string[] = []
 const entry = `
 import { createElement } from "react"
 import { createRoot } from "react-dom/client"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { ResizeHandles } from "./ResizeHandles.tsx"
 
 let root

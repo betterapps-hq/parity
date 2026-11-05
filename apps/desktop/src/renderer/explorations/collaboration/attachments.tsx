@@ -1,3 +1,4 @@
+import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@buildkitgg/shadcn-baseui-kit"
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,8 +14,6 @@ import {
   X
 } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { accent, MiniScreen } from "../parts.tsx"
 import type { Attachment } from "./collab-data.ts"
 

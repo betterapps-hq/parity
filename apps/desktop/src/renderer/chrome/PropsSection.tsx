@@ -1,4 +1,16 @@
 import {
+  Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   type ComponentInfo,
   type ComponentProp,
   type DesignNode,
@@ -8,9 +20,6 @@ import {
 } from "@parity-app/core"
 import { Plus, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   ChoiceInput,
   Field,
@@ -263,11 +272,13 @@ function AddProp({
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-xs" aria-label="Add a prop">
-          <Plus />
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button variant="ghost" size="icon-xs" aria-label="Add a prop">
+            <Plus />
+          </Button>
+        }
+      />
       <PopoverContent className="w-72 p-0" align="end">
         <Command>
           <CommandInput placeholder="Search props" value={search} onValueChange={setSearch} className="h-8 text-xs" />

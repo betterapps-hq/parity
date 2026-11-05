@@ -1,4 +1,14 @@
 import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Label,
+  Switch
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   addState,
   changeCount,
   duplicateState,
@@ -12,16 +22,6 @@ import {
 } from "@parity-app/core"
 import { Copy, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors, layerLabel, NodeIcon } from "../canvas/kinds.tsx"
 import { activeState } from "../canvas/view.ts"
@@ -176,25 +176,27 @@ function StateRow({
       )}
       {summary && <span className="shrink-0 px-1 text-xs text-muted-foreground">{summary}</span>}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label={`${state.name} actions`}
-            className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label={`${state.name} actions`}
+              className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
+            >
+              <MoreHorizontal />
+            </Button>
+          }
+        />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onRename}>
+          <DropdownMenuItem onClick={onRename}>
             <Pencil /> Rename
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onDuplicate}>
+          <DropdownMenuItem onClick={onDuplicate}>
             <Copy /> Duplicate
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" disabled={!onDelete} onSelect={onDelete}>
+          <DropdownMenuItem variant="destructive" disabled={!onDelete} onClick={onDelete}>
             <Trash2 /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>

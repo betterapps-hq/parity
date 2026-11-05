@@ -1,8 +1,6 @@
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, Copy, X } from "lucide-react"
 import { type ReactElement, type ReactNode, useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-
 /** How long a copy says how it went, in milliseconds. */
 const settles = 1500
 
@@ -107,34 +105,36 @@ export function CopyButton({
   if (done) outcome = status.ok ? "copied" : "failed"
   return (
     <Tooltip open={hovered || done} onOpenChange={setHovered}>
-      <TooltipTrigger asChild>
-        <Button
-          variant={variant}
-          size={children ? "sm" : "icon-sm"}
-          aria-label={label}
-          data-copied={outcome}
-          className={className}
-          onClick={() => copy(text)}
-        >
-          <span className="grid place-items-center *:col-start-1 *:row-start-1 *:transition-[opacity,scale] motion-reduce:*:transition-none">
-            <Copy className={`duration-150 ${done ? "scale-50 opacity-0" : ""}`} />
-            {/* The check springs in a little past full size, so the change catches the eye. */}
-            <Check
-              className={`text-(--process-running) duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${done && status.ok ? "" : "scale-50 opacity-0"}`}
-            />
-            <X
-              className={`text-destructive duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${done && !status.ok ? "" : "scale-50 opacity-0"}`}
-            />
-          </span>
-          {children && (
-            // Both words take the same cell, so the button keeps its width when one turns into the other.
-            <span className="grid *:col-start-1 *:row-start-1">
-              <span className={copied ? "invisible" : undefined}>{children}</span>
-              <span className={copied ? undefined : "invisible"}>Copied</span>
+      <TooltipTrigger
+        render={
+          <Button
+            variant={variant}
+            size={children ? "sm" : "icon-sm"}
+            aria-label={label}
+            data-copied={outcome}
+            className={className}
+            onClick={() => copy(text)}
+          >
+            <span className="grid place-items-center *:col-start-1 *:row-start-1 *:transition-[opacity,scale] motion-reduce:*:transition-none">
+              <Copy className={`duration-150 ${done ? "scale-50 opacity-0" : ""}`} />
+              {/* The check springs in a little past full size, so the change catches the eye. */}
+              <Check
+                className={`text-(--process-running) duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${done && status.ok ? "" : "scale-50 opacity-0"}`}
+              />
+              <X
+                className={`text-destructive duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${done && !status.ok ? "" : "scale-50 opacity-0"}`}
+              />
             </span>
-          )}
-        </Button>
-      </TooltipTrigger>
+            {children && (
+              // Both words take the same cell, so the button keeps its width when one turns into the other.
+              <span className="grid *:col-start-1 *:row-start-1">
+                <span className={copied ? "invisible" : undefined}>{children}</span>
+                <span className={copied ? undefined : "invisible"}>Copied</span>
+              </span>
+            )}
+          </Button>
+        }
+      />
       <TooltipContent>{done ? <Outcome status={status} text={text} /> : label}</TooltipContent>
       <Announce status={status} />
     </Tooltip>
@@ -171,9 +171,7 @@ export function CopyOnClick({
   const says = status !== undefined || hint !== undefined
   return (
     <Tooltip open={says && (hovered || status !== undefined)} onOpenChange={setHovered}>
-      <TooltipTrigger asChild onClick={() => copy(text)}>
-        {children}
-      </TooltipTrigger>
+      <TooltipTrigger onClick={() => copy(text)} render={children} />
       <TooltipContent side={side} className={!status && detail ? "flex-col items-start gap-0.5" : undefined}>
         {status ? (
           <Outcome status={status} text={text} />
