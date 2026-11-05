@@ -17,7 +17,9 @@ instance follows.
 - Read its props with `Props("Badge")`. Variants and sizes come with their options; use those values exactly. A prop the
   component doesn't declare comes back as a warning.
 - Compose the parts the way the library intends: `Tabs` holds a `TabsList` of `TabsTrigger`s and one `TabsContent` per
-  trigger; `Table` holds `TableHeader` and `TableBody`, each with `TableRow`s of cells.
+  trigger; `Table` holds `TableHeader` and `TableBody`, each with `TableRow`s of cells. `Props("nova/Sidebar")` says
+  what a part goes inside in `composition.parents`, here the `SidebarProvider` it needs, and what goes inside it in
+  `composition.holds`. Start from `composition.example.node`, which already has its parents, when they aren't there.
 - Put children where they go. `slots.children` is what goes between the component's tags. Other slots, when a component
   takes nodes as props, are named after the prop.
 

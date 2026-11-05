@@ -1,5 +1,5 @@
 import { type AgentHooks, type AgentSnapshot, execute } from "@parity-app/agent"
-import { type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
+import { type ComponentSource, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
 import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
 import { readSkill, skillFiles } from "./skills.ts"
@@ -86,6 +86,21 @@ const designs: ContainerSpec[] = [
   }
 ]
 
+const nova = (name: string, fields: Partial<ComponentSource> = {}): [string, ComponentSource] => [
+  `nova/${name}`,
+  { path: "@buildkitgg/shadcn-baseui-nova", export: name, library: "nova", ...fields }
+]
+const novaSidebar: Record<string, ComponentSource> = Object.fromEntries([
+  nova("SidebarProvider", { visual: false, sample: { children: [{ component: "nova/Sidebar" }] } }),
+  nova("Sidebar", { parents: ["nova/SidebarProvider"], sample: { children: [{ component: "nova/SidebarContent" }] } }),
+  nova("SidebarContent", { parents: ["nova/SidebarProvider", "nova/Sidebar"] }),
+  nova("SidebarMenu", { parents: ["nova/SidebarProvider", "nova/Sidebar"] }),
+  nova("SidebarMenuItem", { parents: ["nova/SidebarProvider", "nova/Sidebar", "nova/SidebarMenu"] }),
+  nova("SidebarMenuButton", {
+    parents: ["nova/SidebarProvider", "nova/Sidebar", "nova/SidebarMenu", "nova/SidebarMenuItem"]
+  })
+])
+
 function project(tab: string): AgentSnapshot {
   return {
     tab,
@@ -99,14 +114,10 @@ function project(tab: string): AgentSnapshot {
       "Input",
       "Label",
       "Skeleton",
-      // Nova's sidebar and the provider its parts need, as the shadcn example lists them.
-      "nova/Sidebar",
-      "nova/SidebarContent",
-      "nova/SidebarMenu",
-      "nova/SidebarMenuButton",
-      "nova/SidebarMenuItem",
-      "nova/SidebarProvider"
+      ...Object.keys(novaSidebar)
     ],
+    // Nova's sidebar parts as discovery lists them, with the parents and samples `Props().composition` reads.
+    sources: novaSidebar,
     iconSets: [{ id: "lucide", name: "Lucide", package: "lucide-react", version: "0.500.0" }],
     tokens: [
       { name: "background", category: "color", source: "semantic", values: { default: "white", dark: "black" } },

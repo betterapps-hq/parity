@@ -2282,8 +2282,9 @@ components, so designs and agents can put the parts inside it. Only the Componen
 browsing leave it out; a search by its name finds it.
 
 - **Agents** see it in `Components()` and `parity components`, and compose with it like any component: a
-  `nova/SidebarProvider` node with the sidebar in its `children` slot. A part placed without it shows in `Problems` as a
-  render error that names the provider.
+  `nova/SidebarProvider` node with the sidebar in its `children` slot, or `Props()`'s `composition` example (PAR-454),
+  which places a part inside its parents. A part placed without it shows in `Problems` as a render error that names the
+  provider.
 - **Inserting a part** from the panel puts it inside its parents, the provider included, with the provider's sample.
 
 Code: `findLibraries` in `packages/project/src/libraries.ts`, which keeps a `visual: false` component with its `parents`
@@ -3365,6 +3366,21 @@ transport contract test covers two names sharing more than 80 prefix characters.
 through the otherwise transparent overlay, so the full hover title is reachable without blocking the rest of the canvas.
 The cursor component was checked in Storybook with a long name; its text and title remain intact and its visible width
 is bounded with ellipsis.
+
+### What a component goes inside (PAR-454)
+
+`Props(component)`, `parity props` and `get_props` return the component's `composition` with its props, and before they
+are read: its role (a `provider` that draws nothing, a `wrapper` other parts go inside, or a `component`), the parents
+it goes inside (`listed` with their chain and where the library learned it, `none`, or `unknown` with why), the parts it
+holds, its slots by the key a node holds them under, and an example node `Insert` takes as it is. The example is the
+tree the Components panel draws for the component, and its status is the canvas's render status: `drawn`, `failing` with
+why, or `untried`. The CLI prints it after the props, with the example as JSON.
+
+`packages/editor/src/composition.test.ts` covers a Nova-shaped sidebar (its provider before inserting, provider, wrapper
+and component roles, optional parents), parents that are unknown until a project component draws or that a provider
+error names, slots from props and from samples, and a stable example. `packages/agent/src/run.test.ts` reads Sidebar's
+provider through `Props` and inserts the example. `packages/cli/src/operations.test.ts` checks that the CLI and MCP give
+the same composition and text.
 
 ### Structured results and coded errors (PAR-472)
 

@@ -134,9 +134,28 @@ Print(Get((node, at) => (node.type === "component" && node.component === "Button
 source: variants with their options (`variant`, `size`), its own props, and with `{ all: true }` the attributes it
 passes to its element. A prop that isn't listed, or a variant value outside its options, comes back as a warning.
 
-A library's providers draw nothing of their own, so the Components panel leaves them out, but `Components()` lists them,
-because the parts inside them throw without them. Nova's `Sidebar` parts go inside `nova/SidebarProvider`; one placed
-without it shows in `Problems` as a render error that names the provider.
+Its `composition` says what it needs around it and holds, before you insert it:
+
+- `role` is `provider` for one that draws nothing and gives the parts inside it their context (`SidebarProvider`),
+  `wrapper` for one other parts go inside (`Sidebar`), and `component` otherwise.
+- `parents` is `listed`, with the `chain` it goes inside, outermost first, and where its library learned that; `none`;
+  or `unknown`, with the `reason`, such as a project component that hasn't drawn yet or an error asking for a provider.
+  An `optional` parent is left out when the ones outside it are already there.
+- `holds` lists the parts that go directly inside it, and `slots` the `key` each slot's layers go under.
+- `example.node` is the component inside its parents with its sample, as the Assets panel inserts it and the Components
+  panel draws it. `example.status` is `drawn` once the component has drawn on the canvas, `failing` with a `reason`, or
+  `untried`.
+
+```js
+// A sidebar goes inside its provider: insert the example, then fill it in.
+const { composition } = Props("nova/Sidebar")
+Print(composition.parents.chain.map((parent) => parent.component))
+const sidebar = Insert("settings/Content", composition.example.node)
+```
+
+Writing the layers yourself works the same way. A provider draws nothing of its own, so the Components panel leaves it
+out, but `Components()` lists it, since the parts inside it throw without it. A part placed without its provider shows
+in `Problems` as a render error that names it.
 
 ```js
 // A Nova sidebar, inside the provider its parts need.

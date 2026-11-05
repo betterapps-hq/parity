@@ -56,7 +56,7 @@ import {
   unknownReference,
   withFreshIds
 } from "@parity-app/core"
-import { type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
+import { componentComposition, type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import type {
   AccessibilityFinding,
@@ -1306,7 +1306,8 @@ export class AgentWorkspace {
 
   /**
    * A component's props as inferred from its source: variants with their options, own props, and (with `all`) the
-   * attributes it passes through to its element.
+   * attributes it passes through to its element. With them, its composition: the parents it needs, the parts it holds,
+   * its slots, and an example `Insert` takes as it is.
    */
   private componentProps(component: string, options: { all?: boolean } = {}) {
     if (!this.snapshot.components.includes(component)) {
@@ -1318,12 +1319,24 @@ export class AgentWorkspace {
         "component"
       )
     }
+    const { component: _component, ...composition } = componentComposition(component, {
+      sources: this.snapshot.sources ?? {},
+      props: this.snapshot.props,
+      ...(this.snapshot.renderStatus ? { renderStatus: this.snapshot.renderStatus } : {})
+    })
     const info = this.snapshot.props[component]
-    if (!info) return { component, known: false, props: [] }
+    if (!info) return { component, known: false, props: [], composition }
     const props = info.props.filter(
       (prop) => options.all || ((prop.group === "variant" || prop.group === "own") && prop.kind !== "function")
     )
-    return { component, path: info.path, ...(info.import ? { import: info.import } : {}), known: true, props }
+    return {
+      component,
+      path: info.path,
+      ...(info.import ? { import: info.import } : {}),
+      known: true,
+      props,
+      composition
+    }
   }
 
   /** One of the project's icon sets' icons, read from the project's own copy of the set. */
