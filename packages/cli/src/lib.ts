@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import type { GenerateReport as Report } from "@parity-app/libgen"
+import { z } from "zod"
 import { readAppErrors } from "./check.ts"
 
 export interface LibOptions {
@@ -79,17 +80,13 @@ export async function runLib(packageName: string | undefined, options: LibOption
   // The file being replaced, for what changed and the hand edits it keeps.
   const existing = target
     ? await readFile(target, "utf8").then(
-        (text) => JSON.parse(text) as unknown,
+        (text): unknown => JSON.parse(text),
         () => undefined
       )
     : undefined
   if (!options.range) {
-    const read = generated.manifest.package as PackageVersions | undefined
-    const range =
-      read &&
-      keptRange(existing, read, (versions) =>
-        covers({ package: versions } as Parameters<typeof covers>[0], read.version)
-      )
+    const read = packageVersions.safeParse(generated.manifest.package).data
+    const range = read && keptRange(existing, read, (versions) => covers({ package: versions }, read.version))
     if (range) generated.manifest.package = { ...read, range }
   }
   let only: "all" | "new" | string[]
@@ -116,11 +113,12 @@ export async function runLib(packageName: string | undefined, options: LibOption
   else console.log(`Wrote ${relative(process.cwd(), target) || target}\n${describeReport(report)}`)
 }
 
-interface PackageVersions {
-  name: string
-  version: string
-  range: string
-}
+/** The package a library file describes: the version read, and the range of versions the file covers. */
+const packageVersions = z.looseObject({ name: z.string(), version: z.string(), range: z.string() })
+type PackageVersions = z.output<typeof packageVersions>
+
+/** The range a file being written over has, which it keeps while that still covers the version read. */
+const writtenRange = z.looseObject({ package: z.looseObject({ range: z.string() }) })
 
 /**
  * The range a file being written over keeps: its own, while it still covers the version just read, so a range widened
@@ -131,8 +129,8 @@ export function keptRange(
   read: PackageVersions,
   covers: (versions: PackageVersions) => boolean
 ): string | undefined {
-  const range = (existing as { package?: { range?: unknown } } | undefined)?.package?.range
-  if (typeof range !== "string" || range === read.range) return undefined
+  const range = writtenRange.safeParse(existing).data?.package.range
+  if (range === undefined || range === read.range) return undefined
   return covers({ ...read, range }) ? range : undefined
 }
 

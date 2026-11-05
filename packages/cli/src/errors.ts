@@ -1,21 +1,25 @@
-import { CodedError, type ErrorCode, errorCodes, errorDetails } from "@parity-app/core/errors"
+import { CodedError, errorCodes, errorDetails } from "@parity-app/core/errors"
+import { z } from "zod"
 
 /**
  * A failed call, the same in CLI `--json` and MCP `structuredContent`: a stable code to branch on, the message people
- * read, whether the same request can succeed when sent again, the input at fault, and what to use instead.
+ * read, whether the same request can succeed when sent again, the input at fault, and what to use instead. What each
+ * field means is in the CLI's README and the skill, too.
  */
-export interface OperationError {
-  code: ErrorCode
-  message: string
+export const failure = z.object({
+  code: z.enum(errorCodes),
+  message: z.string(),
   /** Whether sending the same request again, unchanged, can succeed: the app was starting, or edits collided. */
-  retryable: boolean
+  retryable: z.boolean(),
   /** A JSON pointer to the input at fault, such as `/design` or `/edits/0/find`, in the operation's field names. */
-  path?: string
+  path: z.string().optional(),
   /** Valid ids to use instead of an unknown or ambiguous one, closest first, at most 20. */
-  alternatives?: string[]
+  alternatives: z.array(z.string()).optional(),
   /** A failed snippet's id: retry it with `editId` and `edits` instead of sending it again. */
-  editId?: string
-}
+  editId: z.string().optional()
+})
+
+export type OperationError = z.output<typeof failure>
 
 /** A request field that isn't valid, rejected before anything reaches the app. */
 export function invalidInput(field: string | undefined, message: string): CodedError {
@@ -47,18 +51,4 @@ export function renamePath(error: OperationError, names: Record<string, string>)
   const [, first = "", ...rest] = error.path.split("/")
   if (!Object.hasOwn(names, first)) return error
   return { ...error, path: ["", names[first], ...rest].join("/") }
-}
-
-/** The error's schema. What each field means is in the CLI's README and the skill, to keep every tool's schema small. */
-export const operationErrorSchema = {
-  type: "object",
-  properties: {
-    code: { type: "string", enum: [...errorCodes] },
-    message: { type: "string" },
-    retryable: { type: "boolean" },
-    path: { type: "string" },
-    alternatives: { type: "array", items: { type: "string" } },
-    editId: { type: "string" }
-  },
-  required: ["code", "message", "retryable"]
 }

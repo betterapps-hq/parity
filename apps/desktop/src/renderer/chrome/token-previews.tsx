@@ -1,7 +1,7 @@
 // What each kind of token looks like: a drawing from the token's own value, in a box of any size, so no frame renders
 // for it. The Tokens panel's rows and tiles draw with these. docs/proposals/previews.md has the design.
 
-import { type PreviewKind, substituteReferences, tokenReferences, unclosedInValue } from "@parity-app/tokens"
+import type { PreviewKind } from "@parity-app/tokens"
 import { px } from "../lengths.ts"
 
 export { px }
@@ -989,65 +989,6 @@ export function spacingPx(value: string): number {
     .map((side) => px(side))
     .filter((side) => Number.isFinite(side))
   return sides.length > 0 ? Math.max(...sides) : Number.NaN
-}
-
-const valueChecks: Partial<
-  Record<PreviewKind, [property: string, noun: string, example: string, wrap?: (value: string) => string]>
-> = {
-  color: ["color", "color", "oklch(0.6 0.2 250) or #2563eb"],
-  gradient: ["background-image", "gradient", "linear-gradient(#fff, #000)"],
-  "type-style": ["font", "font shorthand", "600 1rem/1.5 Inter, sans-serif"],
-  // Padding takes one to four lengths, as a spacing token may (`4px 8px`), and no negative ones, as width doesn't.
-  spacing: ["padding", "length", "1rem or 16px"],
-  radius: ["border-radius", "radius", "0.5rem or 8px"],
-  "border-width": ["border-width", "border width", "1px"],
-  border: ["border", "border", "1px solid"],
-  shadow: ["box-shadow", "shadow", "0 4px 6px rgb(0 0 0 / 0.1)"],
-  "inset-shadow": ["box-shadow", "shadow", "inset 0 2px 4px rgb(0 0 0 / 0.05)"],
-  "drop-shadow": ["filter", "drop shadow", "0 4px 4px rgb(0 0 0 / 0.15)", (value) => `drop-shadow(${value})`],
-  "text-shadow": ["text-shadow", "text shadow", "0 1px 2px rgb(0 0 0 / 0.2)"],
-  font: ["font-family", "list of fonts", "'Inter', sans-serif"],
-  "font-size": ["font-size", "font size", "1rem or 16px"],
-  "font-weight": ["font-weight", "font weight", "400 or 600"],
-  leading: ["line-height", "line height", "1.5"],
-  tracking: ["letter-spacing", "letter spacing", "-0.025em"],
-  opacity: ["opacity", "opacity", "0.5"],
-  blur: ["filter", "blur", "8px", (value) => `blur(${value})`],
-  "backdrop-blur": ["filter", "blur", "8px", (value) => `blur(${value})`],
-  perspective: ["perspective", "perspective", "500px"],
-  aspect: ["aspect-ratio", "ratio", "16 / 9"],
-  duration: ["transition-duration", "duration", "200ms"],
-  easing: ["transition-timing-function", "easing", "cubic-bezier(0.4, 0, 0.2, 1)"],
-  animation: ["animation", "animation", "fade-in 150ms ease-out"],
-  "z-index": ["z-index", "whole number", "1400"],
-  breakpoint: ["width", "length", "48rem"],
-  container: ["width", "length", "28rem"],
-  cursor: ["cursor", "cursor", "pointer"]
-}
-
-/**
- * Why a value can't be this kind of token, in words, or nothing when it can. `CSS.supports` alone isn't enough: the
- * browser closes whatever is left open at the end of a value, so it takes `calc(var(--radius) * 2.6` as complete, and
- * any value holding `var()` passes, since a variable can't be checked until it's known. So brackets and quotes are
- * checked first, each `var()` must name a token, and the value is checked with every reference replaced by what
- * `lookup` says its token comes to (undefined for a token there isn't).
- */
-export function valueProblem(
-  kind: PreviewKind,
-  value: string,
-  lookup: (name: string) => string | undefined
-): string | undefined {
-  const text = value.trim()
-  if (!text) return "Enter a value."
-  const open = unclosedInValue(text)
-  if (open) return open
-  const missing = tokenReferences(text).find((name) => lookup(name) === undefined)
-  if (missing) return `There's no token named ${missing}.`
-  const check = valueChecks[kind]
-  if (!check) return undefined
-  const [property, noun, example, wrap] = check
-  const resolved = substituteReferences(text, lookup)
-  return CSS.supports(property, wrap ? wrap(resolved) : resolved) ? undefined : `That isn't a ${noun}. Try ${example}.`
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { openingSelection, textSizing, withTextSizing, wordAt } from "./text-editing.ts"
+import { openingSelection, textSizing, textSizingKeys, withTextSizing, wordAt } from "./text-editing.ts"
 
 const text = "Start free, then upgrade when you need more seats."
 const word = (range: { start: number; end: number }) => text.slice(range.start, range.end)
@@ -122,6 +122,22 @@ describe("withTextSizing", () => {
       grow: false
     })
     expect(withTextSizing({ grow: true }, "auto-height", measured)).toEqual({ width: undefined, height: undefined })
+  })
+
+  it("writes only the keys Resizing resets, so a reset in a state leaves nothing behind", () => {
+    // A state's style before the switch, with a value Resizing doesn't own.
+    const state = { foreground: "red" }
+    const design = { width: 40, height: 10, grow: true }
+    for (const sizing of ["auto-width", "auto-height", "fixed"] as const) {
+      for (const column of [false, true]) {
+        const edited = { ...state, ...withTextSizing(design, sizing, measured, { explicit: true, column }) }
+        const reset = Object.fromEntries(
+          Object.entries(edited).filter(([key]) => !(textSizingKeys as readonly string[]).includes(key))
+        )
+        expect(reset).toEqual(state)
+      }
+    }
+    expect(withTextSizing(design, "auto-width", measured, { explicit: true })).toHaveProperty("grow", false)
   })
 
   it("lands each mode where textSizing reads it back", () => {

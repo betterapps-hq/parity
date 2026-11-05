@@ -1,11 +1,12 @@
 import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { type AgentHooks, type AgentSnapshot, execute } from "@parity-app/agent"
+import { replies } from "@parity-app/agent/contracts"
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { describeExec } from "./client.ts"
 import { type ExecReply, execResponse, executeRequest, structuredExec } from "./execute.ts"
-import { fixtureTab, processTests, toolReply, transportFixture } from "./transport-fixture.ts"
+import { emptyState, fixtureTab, processTests, toolReply, transportFixture } from "./transport-fixture.ts"
 
 const success: ExecReply = {
   ok: true,
@@ -35,6 +36,7 @@ function expectRequests(params: Record<string, unknown>) {
 describe("execute transport contract", processTests, () => {
   it("omits undeclared CLI ids so long names remain distinct at the desktop boundary", async () => {
     const prefix = "Harness ".repeat(16)
+    fixture.response = { result: emptyState(fixtureTab) }
     for (const suffix of ["One", "Two"]) {
       const cli = await run(["state"], "", { PARITY_AGENT_NAME: prefix + suffix, PARITY_AGENT_ID: undefined })
       expect(cli.code).toBe(0)
@@ -287,12 +289,12 @@ describe("execute transport contract", processTests, () => {
       throw new Error("Measure rendered before checking its options")
     }
     const code = `await Measure("signup", { state: "all" })`
-    // The reply as the app builds it from the agent's result.
+    // The reply as the app builds it from the agent's result, which the CLI's check takes.
     const { changes: _changes, ...result } = await execute({ label: "Measure", code }, project, {
       presence: () => undefined,
       render
     })
-    const reply: ExecReply = { ...result, applied: false, screenshots: [] }
+    const reply = replies.exec.parse({ ...result, applied: false, screenshots: [] })
     fixture.response = { result: reply }
     const [cli, json, protocol] = await Promise.all([
       run(["exec"], code),

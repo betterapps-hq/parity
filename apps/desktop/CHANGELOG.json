@@ -2,6 +2,144 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 22:59:52 GMT",
+      "version": "0.12.1",
+      "tag": "@parity-app/desktop_v0.12.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f1d2fcc0a8672ed8370ccb39192483416368958a",
+            "comment": "Component previews draw dialogs, popovers, menus and closed content open, and say when a component draws nothing of its own"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b225f0f5103dda83684552f0dc4ed5f9818f7ddd",
+            "comment": "The sleeping end-to-end test compares frame sizes zoomed out, since boards grow there with their screen-pixel gutter"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 05 Nov 2026 22:43:02 GMT",
+      "version": "0.12.0",
+      "tag": "@parity-app/desktop_v0.12.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4ae68c497ab7138293d2ed1de90a24b39d0e5134",
+            "comment": "get_app_state marks the project's first mode primary; it marked none before."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "63fd726bf2d61055477e8d1482d056a497465606",
+            "comment": "Make component is refused when any variant option, shown on the board or not, would change the part"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4e0e11805f6ca0e8aa128667e1c9c702fe7f0aaa",
+            "comment": "Build the Layers row menu from the command registry, so its Hide acts in the state the selection was picked in, and take the toolbar's and Wrap in layout's labels and keys from the keymap"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "81cba2eae297d4ccd2dccc3fdb3506224a313bec",
+            "comment": "Resetting a text layer's Resizing in a state now clears the grow its switch set, as well as width and height"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b8ccf6e057d727797cbda2437d82a33daef4e68e",
+            "comment": "Point to problems in a project file more exactly: a length that is neither a number nor a string, padding of the wrong form, and mistakes in its modes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "90fccc45b5c8d03c119d216564b2ade20a080899",
+            "comment": "State labels shrink as board titles do when zoomed out, and hide only when their row is too short on screen to hold them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "23afc8e354eb177a456f37023460811b990efbc0",
+            "comment": "An export taken back off the component list now stays listed only if detection lists it, and keeps its mark while it's still listed by hand."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "bacd63128aa83f21e0d4a88b8a6d5f034cd85cb7",
+            "comment": "Zoomed far out, board titles clip to their board and hide once it's under 24 pixels wide on screen, and state labels and mode captions hide before titles do"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ef4c83640f64ede1cfa297168fbe730c37914eb6",
+            "comment": "rem in frames follows the project's html font size, as in Chrome, so a project with html { font-size: 62.5% } gets 10px to the rem"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d6c5e9a6be276c1be0b4f12ec3fcbe963081a565",
+            "comment": "Show the whole value in the inspector's Width and Height fields, at every panel width"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fc7684c546ceac7058a43bb2e9ec5c38bd1af263",
+            "comment": "Waking a project's frames after a code change no longer makes React report \"Maximum update depth exceeded\""
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fae45843ab66376cf7b0f10a8d793cdf4e80df6d",
+            "comment": "Component previews are drawn in the project's mode that matches Parity's light or dark theme, and each theme's pictures are kept"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dd57116032424bb776391941fe4dbdef1b55b643",
+            "comment": "Component previews no longer show a stray scrollbar when part of a component reaches past its box"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6661ad5276b8cc0b620e5ee9e5c7d76ea98bfeeb",
+            "comment": "A board's gutter, caption band and space between previews keep their screen size up close, and shrink with the canvas past 40%"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d9b684096d932166234a50f51a3440476f29616b",
+            "comment": "Home and new tabs show each project's picture: its first screens as last saved, taken from the canvas when it opens and after each save, flipping through them on hover"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2e793945d1c7dd50ae43aa84f060bdbe94e864ad",
+            "comment": "Check what a token edit may write (valueProblem, loopProblem, builtOn, checkTokenEdit), with CSS.supports passed in"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4491e7c9988d43f215d97655bf4a6936424978d4",
+            "comment": "Reopening's tests wait for the kept list to be read rather than a fixed 20ms"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 20:31:21 GMT",
       "version": "0.11.1",
       "tag": "@parity-app/desktop_v0.11.1",

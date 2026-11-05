@@ -2,9 +2,9 @@ import { type LabelKind, labelLook } from "@parity-app/editor"
 import { type RefObject, useMemo } from "react"
 import { useZoomStyle } from "./zoom-style.ts"
 
-function follow(kind: LabelKind, fit: boolean, width: number | undefined) {
+function follow(kind: LabelKind, fit: boolean, width: number | undefined, height: number | undefined) {
   return (style: CSSStyleDeclaration, zoom: number) => {
-    const { scale, opacity } = labelLook(kind, zoom, width)
+    const { scale, opacity } = labelLook(kind, zoom, { width, height })
     style.transform = `scale(${scale / zoom})`
     if (fit) style.width = `${(100 * zoom) / scale}%`
     style.opacity = opacity < 1 ? `${opacity}` : ""
@@ -17,14 +17,15 @@ function follow(kind: LabelKind, fit: boolean, width: number | undefined) {
  * Keeps a label on the canvas sized and faded for the zoom, as `labelLook` says, from the corner its transform origin
  * names. Every label on a board goes through here, so they all agree. With `fit`, it's also as wide on screen as the
  * element it's placed in, so a long label truncates instead of running past what it labels; place it at that element's
- * left edge. `width` is how wide what it labels is on the canvas, so it hides once that's too narrow on screen.
+ * left edge. `width` and `height` are how much room what it labels has on the canvas, so it hides once that's too
+ * small on screen.
  */
 export function useCanvasLabel(
   ref: RefObject<HTMLElement | null>,
   kind: LabelKind,
-  { fit = false, width }: { fit?: boolean; width?: number } = {}
+  { fit = false, width, height }: { fit?: boolean; width?: number; height?: number } = {}
 ): void {
   // Made again only when what it follows changes, since the zoom style applies it afresh each time it's new.
-  const apply = useMemo(() => follow(kind, fit, width), [kind, fit, width])
+  const apply = useMemo(() => follow(kind, fit, width, height), [kind, fit, width, height])
   useZoomStyle(ref, apply)
 }

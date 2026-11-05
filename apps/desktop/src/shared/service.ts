@@ -11,6 +11,9 @@ export interface PreviewPictures {
   height: number
 }
 
+/** What drawing a preview gave: its pictures, nothing to see (PAR-517), or why its component didn't draw. */
+export type PreviewDrawn = { pictures: PreviewPictures } | { empty: true } | { error: string }
+
 /** Requests the project service sends to the main process, which owns the offscreen windows and every console. */
 export interface MainMethods {
   /**
@@ -20,12 +23,13 @@ export interface MainMethods {
   render: { params: { job: RenderJob; capture: boolean }; result: { frame?: RenderedFrame; png?: string } }
   /**
    * Draws a component preview offscreen, after every canvas and agent job waiting, and crops it to the element `crop`
-   * names (PAR-207). Gives its pictures, or `error`, why its component couldn't be drawn. It fails when the offscreen
-   * window couldn't finish it, which a later try may not hit.
+   * names (PAR-207). Gives its pictures; or `empty`, when its picture showed nothing but the page (PAR-517); or
+   * `error`, why its component couldn't be drawn. It fails when the offscreen window couldn't finish it, which a later
+   * try may not hit.
    */
   preview: {
     params: { job: RenderJob; crop: string; priority: "visible" | "idle" }
-    result: { pictures: PreviewPictures } | { error: string }
+    result: PreviewDrawn
   }
   /** What code from a project's builder at `origin` wrote to the console, forgotten once read when `clear` is set. */
   console: { params: { origin: string; clear: boolean }; result: ConsoleEntry[] }

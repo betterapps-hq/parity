@@ -170,6 +170,47 @@ export function resolveModes(settings: ModeSettings): ResolvedMode[] {
   return settings.modes.map((mode) => resolveMode(settings, mode))
 }
 
+/** Light or dark, as Parity's own theme and a mode's theme option are. */
+export type Appearance = "light" | "dark"
+
+/**
+ * Whether a mode is light or dark, by its theme options: dark when one's id, name or class is the word "dark" (shadcn's
+ * `dark` class, a "Dark" option), light otherwise. Nothing for a mode without a theme variable.
+ */
+export function modeAppearance(mode: Pick<ResolvedMode, "options">): Appearance | undefined {
+  const themes = mode.options.filter(({ variable }) => variable.kind === "theme")
+  if (themes.length === 0) return undefined
+  const dark = themes.some(({ option }) =>
+    [option.id, option.name, option.className ?? ""].some((word) => /\bdark\b/i.test(word))
+  )
+  return dark ? "dark" : "light"
+}
+
+/**
+ * The mode component previews are drawn in, matching Parity's own light or dark theme (PAR-521): the primary mode when
+ * it matches or the project has no theme to match, else the first mode that matches with the primary mode's other
+ * options (its viewport and locale), else the first that matches with its viewport, else the first that matches at
+ * all, else the primary mode.
+ */
+export function previewMode(modes: readonly ResolvedMode[], appearance: Appearance): ResolvedMode | undefined {
+  const primary = modes[0]
+  if (!primary) return undefined
+  const theirs = modeAppearance(primary)
+  if (theirs === undefined || theirs === appearance) return primary
+  const matching = modes.filter((mode) => modeAppearance(mode) === appearance)
+  const others = (mode: ResolvedMode) =>
+    mode.options
+      .filter(({ variable }) => variable.kind !== "theme")
+      .map(({ variable, option }) => `${variable.id}=${option.id}`)
+      .join("&")
+  return (
+    matching.find((mode) => others(mode) === others(primary)) ??
+    matching.find((mode) => mode.viewport === primary.viewport) ??
+    matching[0] ??
+    primary
+  )
+}
+
 /** A short, unique id for a new mode or option, derived from its name. */
 export function uniqueId(name: string, taken: Iterable<string>): string {
   const base =

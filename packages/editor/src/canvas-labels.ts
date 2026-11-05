@@ -1,11 +1,13 @@
+import { boardLayoutAt, shrinkBelow } from "@parity-app/core"
+
 /**
  * How the labels on a board follow the canvas zoom: its design's title, the labels beside its states and the captions
  * above its frames. The canvas applies these to each label's style as the zoom changes.
  */
 
 /**
- * What a label on the canvas is, which decides how it follows the zoom. A name, such as a design's title, is how a
- * board is found, so it shows at any zoom while there's room for it. Detail, such as a state's label or a frame's
+ * What a label on the canvas is, which decides how it follows the zoom. A name, such as a design's title or a state's
+ * label, is how a board or a row is found, so it shows at any zoom while there's room for it. Detail, such as a frame's
  * caption, only helps up close, so it fades out at a distance instead of crowding the boards around it.
  */
 export type LabelKind = "name" | "detail"
@@ -18,18 +20,25 @@ export interface LabelLook {
   opacity: number
 }
 
-/** Past this zoom, labels shrink with the canvas instead of keeping their screen size. */
-const shrinkBelow = 0.4
+/**
+ * How much room what a label names has on the canvas, in page pixels: how wide it is, and for a label beside it rather
+ * than above, how tall (see `stateLabelSpace`).
+ */
+export interface LabelRoom {
+  width?: number
+  height?: number
+}
+
 /** The smallest a name gets, as a share of its screen size. */
 const smallestName = 0.6
 /** Detail has faded out by this zoom, from `shrinkBelow`. */
 const detailGone = 0.25
 
 /**
- * Below this many screen pixels wide, what a label names is too narrow to read anything beside it, so the label hides
- * rather than reading as a stray mark above or beside it.
+ * Below this many screen pixels across, what a label names is too small to read anything beside it, so the label hides
+ * rather than reading as a stray mark above or beside it, or piling onto the label next to it.
  */
-export const narrowestLabelled = 24
+export const smallestLabelled = 24
 
 /**
  * How large a label draws, as a share of its screen size, and how opaque, at a zoom. Up close, every label keeps its
@@ -37,14 +46,31 @@ export const narrowestLabelled = 24
  * labels instead of growing over the boards around it: a name down to 60%, while detail fades as it shrinks and is gone
  * at 25%.
  *
- * `width` is how wide what it labels is on the canvas, in page pixels: the board for its title and state labels, the
- * frame for a caption. Once that's narrower than `narrowestLabelled` on screen, the label hides. A board's detail is
- * measured by the board or a frame inside it, so it never shows once the board's name has gone.
+ * `room` is how much room what it labels has on the canvas: the board's width for its title, the board's width and
+ * the space beside its row for a state's label, the frame's width for a caption. Once either side is under `smallestLabelled`
+ * on screen, the label hides. A board's state labels and captions are measured by the board or a frame inside it, so
+ * they never show once the board's name has gone, and a state's label shows only while there's that much space below
+ * it before the next row's label, so the labels of a board's rows don't pile onto each other.
  */
-export function labelLook(kind: LabelKind, zoom: number, width?: number): LabelLook {
+export function labelLook(kind: LabelKind, zoom: number, room: LabelRoom = {}): LabelLook {
   const shrunk = Math.min(1, zoom / shrinkBelow)
-  const roomy = width === undefined || width * zoom >= narrowestLabelled
+  const roomy = [room.width, room.height].every((side) => side === undefined || side * zoom >= smallestLabelled)
   if (kind === "name") return { scale: Math.max(smallestName, shrunk), opacity: roomy ? 1 : 0 }
   const faded = Math.min(1, Math.max(0, (zoom - detailGone) / (shrinkBelow - detailGone)))
   return { scale: shrunk, opacity: roomy ? faded : 0 }
+}
+
+/**
+ * How much height a state's label has beside its row of the every-state grid, in page pixels: from its top to where the
+ * next row's label starts, past the dashed line between rows. A row's label starts at the top of its frames, `height`
+ * tall, but the first row's at the top of the caption band above them. The last row gets the same, so a board's rows are
+ * measured alike. A label with its count of changes is 36 pixels tall at screen size and about 22 shrunk to 60%, so one
+ * shown with at least `smallestLabelled` of this on screen never reaches the next.
+ *
+ * The board's gutter is taken at 40%, the size it keeps on the canvas from there out (see `boardLayoutAt`). That's
+ * exact where a label can be short of space; closer in, the line between rows alone is 73 pixels on screen.
+ */
+export function stateLabelSpace(height: number, captioned: boolean): number {
+  const { caption, rowDivider } = boardLayoutAt(shrinkBelow)
+  return (captioned ? caption : 0) + height + rowDivider.before + rowDivider.line + rowDivider.after
 }

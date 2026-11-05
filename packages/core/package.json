@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./errors": "./src/errors.ts",
     "./fixtures": "./src/fixtures.ts",
+    "./props": "./src/props.ts",
     "./schema": "./src/schema.ts"
   },
   "dependencies": {
