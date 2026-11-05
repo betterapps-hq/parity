@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "rem in frames follows the project's html font size, as in Chrome, so a project with html { font-size: 62.5% } gets 10px to the rem",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

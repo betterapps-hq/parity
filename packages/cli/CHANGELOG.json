@@ -2,6 +2,91 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 22:43:16 GMT",
+      "version": "0.7.0",
+      "tag": "@parity-app/cli_v0.7.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "90fccc45b5c8d03c119d216564b2ade20a080899",
+            "comment": "State labels shrink as board titles do when zoomed out, and hide only when their row is too short on screen to hold them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "63fd726bf2d61055477e8d1482d056a497465606",
+            "comment": "Make component is refused when any variant option, shown on the board or not, would change the part"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6661ad5276b8cc0b620e5ee9e5c7d76ea98bfeeb",
+            "comment": "A board's gutter, caption band and space between previews keep their screen size up close, and shrink with the canvas past 40%"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "23afc8e354eb177a456f37023460811b990efbc0",
+            "comment": "An export taken back off the component list now stays listed only if detection lists it, and keeps its mark while it's still listed by hand."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b8ccf6e057d727797cbda2437d82a33daef4e68e",
+            "comment": "Point to problems in a project file more exactly: a length that is neither a number nor a string, padding of the wrong form, and mistakes in its modes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "bacd63128aa83f21e0d4a88b8a6d5f034cd85cb7",
+            "comment": "Zoomed far out, board titles clip to their board and hide once it's under 24 pixels wide on screen, and state labels and mode captions hide before titles do"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "81cba2eae297d4ccd2dccc3fdb3506224a313bec",
+            "comment": "Resetting a text layer's Resizing in a state now clears the grow its switch set, as well as width and height"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4ae68c497ab7138293d2ed1de90a24b39d0e5134",
+            "comment": "get_app_state marks the project's first mode primary; it marked none before."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "fae45843ab66376cf7b0f10a8d793cdf4e80df6d",
+            "comment": "Component previews are drawn in the project's mode that matches Parity's light or dark theme, and each theme's pictures are kept"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ef4c83640f64ede1cfa297168fbe730c37914eb6",
+            "comment": "rem in frames follows the project's html font size, as in Chrome, so a project with html { font-size: 62.5% } gets 10px to the rem"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4491e7c9988d43f215d97655bf4a6936424978d4",
+            "comment": "CLI transport tests ignore a closed stdin pipe instead of failing the run"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2e793945d1c7dd50ae43aa84f060bdbe94e864ad",
+            "comment": "Check what a token edit may write (valueProblem, loopProblem, builtOn, checkTokenEdit), with CSS.supports passed in"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 20:31:29 GMT",
       "version": "0.6.3",
       "tag": "@parity-app/cli_v0.6.3",

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Component previews are drawn in the project's mode that matches Parity's light or dark theme, and each theme's pictures are kept",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
