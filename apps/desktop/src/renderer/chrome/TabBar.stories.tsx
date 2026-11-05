@@ -7,7 +7,8 @@ import {
   never,
   openAlso,
   openProjects,
-  sessionAt
+  sessionAt,
+  tooltip
 } from "../stories/fixtures.tsx"
 import { answering, roots } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
@@ -148,6 +149,6 @@ export const OpenProjectTooltip: Story = {
   play: async () => {
     const body = within(document.body)
     await userEvent.hover(body.getByRole("button", { name: "Open project" }))
-    await waitFor(() => expect(body.getByRole("tooltip")).toHaveTextContent("Open project"))
+    await waitFor(() => expect(tooltip()).toHaveTextContent("Open project"))
   }
 }

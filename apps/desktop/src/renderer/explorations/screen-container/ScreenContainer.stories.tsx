@@ -133,7 +133,11 @@ export const EditingAnotherState: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Sign in")
-      example().store.updateView(key, (view) => ({ ...view, state: "wrong-password", allStates: false }))
+      example().store.updateView(key, "Show Wrong password", (view) => ({
+        ...view,
+        state: "wrong-password",
+        allStates: false
+      }))
       return { design: key }
     })
   ]

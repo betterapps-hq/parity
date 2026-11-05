@@ -1,7 +1,6 @@
+import { Button, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import { Field, SwitchInput, TextInput } from "./fields.tsx"
 import { PanelColumn } from "./inspector-stories.tsx"
 import { PanelSection } from "./PanelSection.tsx"

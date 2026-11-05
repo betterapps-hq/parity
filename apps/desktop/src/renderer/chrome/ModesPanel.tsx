@@ -1,4 +1,21 @@
 import {
+  Badge,
+  Button,
+  CommandGroup,
+  CommandItem,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   type ModeSettings,
   type ModeSpec,
   type ModeVariable,
@@ -20,18 +37,6 @@ import {
   X
 } from "lucide-react"
 import { useMemo } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { CommandGroup, CommandItem } from "@/components/ui/command"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useProject } from "../canvas/context.ts"
 import { useModeSettings } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
@@ -211,20 +216,22 @@ function ModeCard({ mode, settings, primary, onChange, onMakePrimary, onDuplicat
         />
         {primary && <Badge variant="secondary">Primary</Badge>}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-xs" aria-label={`${mode.name} actions`}>
-              <MoreHorizontal />
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="icon-xs" aria-label={`${mode.name} actions`}>
+                <MoreHorizontal />
+              </Button>
+            }
+          />
           <DropdownMenuContent align="end">
-            <DropdownMenuItem disabled={primary} onSelect={onMakePrimary}>
+            <DropdownMenuItem disabled={primary} onClick={onMakePrimary}>
               <Crown /> Make primary
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onDuplicate}>
+            <DropdownMenuItem onClick={onDuplicate}>
               <Copy /> Duplicate
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" disabled={!onDelete} onSelect={onDelete}>
+            <DropdownMenuItem variant="destructive" disabled={!onDelete} onClick={onDelete}>
               <Trash2 /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -256,22 +263,31 @@ interface VariableSelectProps {
 }
 
 function VariableSelect({ icon, variable, value, onChange }: VariableSelectProps) {
+  // Each option as the list shows it, which the closed select shows too.
+  const items = variable.options.map((option) => ({
+    value: option.id,
+    label: (
+      <>
+        {variable.kind === "viewport" && <ViewportIcon option={option} className="text-muted-foreground" />}
+        {option.name}
+        <OptionDetails option={option} />
+      </>
+    )
+  }))
   return (
     <>
       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {icon}
         {variable.name}
       </span>
-      <Select value={value} onValueChange={onChange}>
+      <Select items={items} value={value} onValueChange={(next) => next && onChange(next)}>
         <SelectTrigger size="sm" className="w-full min-w-0 overflow-hidden" aria-label={variable.name}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {variable.options.map((option) => (
-            <SelectItem key={option.id} value={option.id}>
-              {variable.kind === "viewport" && <ViewportIcon option={option} className="text-muted-foreground" />}
-              {option.name}
-              <OptionDetails option={option} />
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
             </SelectItem>
           ))}
         </SelectContent>

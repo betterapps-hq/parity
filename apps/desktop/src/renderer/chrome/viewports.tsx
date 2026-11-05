@@ -1,4 +1,15 @@
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   type DeviceKind,
   deviceForWidth,
   devicePresets,
@@ -11,10 +22,7 @@ import {
 } from "@parity-app/core"
 import { type Token } from "@parity-app/tokens"
 import { Laptop, Monitor, type LucideProps, Smartphone, Tablet } from "lucide-react"
-import { type ReactNode, useState } from "react"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-
+import { type ReactElement, type ReactNode, useState } from "react"
 const deviceIcons = { phone: Smartphone, tablet: Tablet, laptop: Laptop, desktop: Monitor }
 
 /** A viewport's icon: the device it says it is, or the one its width suggests. */
@@ -140,7 +148,7 @@ export function ViewportPicker({
   onPick
 }: {
   groups: PresetGroup[]
-  trigger: ReactNode
+  trigger: ReactElement
   /** Items above the sizes, like a blank mode. */
   extra?: (close: () => void) => ReactNode
   onPick: (preset: ViewportPreset) => void
@@ -149,7 +157,7 @@ export function ViewportPicker({
   const close = () => setOpen(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverTrigger render={trigger} />
       <PopoverContent className="w-80 p-0" align="end">
         <Command>
           <CommandInput placeholder="Search sizes and devices" className="h-8 text-xs" />

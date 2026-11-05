@@ -17,7 +17,7 @@ const errors: string[] = []
 const entry = `
 import { createElement as h, useState } from "react"
 import { createRoot } from "react-dom/client"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { ProjectContext } from "../canvas/context.ts"
 import { Field, FieldTarget, NumberField } from "./fields.tsx"
 
@@ -66,7 +66,6 @@ export function start() {
 `
 
 beforeAll(async () => {
-  const renderer = fileURLToPath(new URL("..", import.meta.url))
   const chrome = fileURLToPath(new URL(".", import.meta.url))
   const bundle = await build({
     stdin: { contents: entry, resolveDir: chrome, loader: "tsx", sourcefile: "entry.tsx" },
@@ -76,7 +75,6 @@ beforeAll(async () => {
     globalName: "fields",
     platform: "browser",
     jsx: "automatic",
-    alias: { "@": renderer.replace(/[\\/]$/, "") },
     define: { "process.env.NODE_ENV": '"development"' }
   })
   browser = await chromium.launch({ channel: "chrome", headless: true })
