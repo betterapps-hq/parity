@@ -282,6 +282,7 @@ export const windowMethods = Object.keys({
   "agent.presence": true,
   "agent.open": true,
   "agent.iconNames": true,
+  "agent.supports": true,
   "project.fileChanged": true,
   "project.componentsChanged": true,
   "project.guestMoved": true

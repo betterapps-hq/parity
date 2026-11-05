@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The agent's supports query reaches the window again, now that the window lists it among its methods (PAR-565)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
