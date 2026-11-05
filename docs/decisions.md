@@ -1659,6 +1659,10 @@ recommended answer to each of its questions.
   words. Slides, shaders, SVG drawing and image generation are future features (the Future features stream in Linear),
   so the skill leaves them out. Keep it current: a new agent function or tool needs its line in `execute.md` or
   `SKILL.md`, and its examples must run.
+- **Every `js` example in the skill runs in a test** (PAR-23): `packages/cli/src/skill-examples.test.ts` runs each one
+  through `execute` against an example project with every design and node the examples name, a file's examples in one
+  tab so globals carry over. It fails on an error or a warning, except warnings that boards overlap, which depend on
+  where the project's boards sit. A new example that names a design the project lacks needs it added there.
 - **Parity is design-system first, so it has no style archetypes.** A project's look comes from its own components and
   tokens, or from a design system library it adds. Pen's ready-made styles aren't copied, and the skill never suggests
   one. PAR-140, which proposed them, was dropped; its ID isn't reused.
