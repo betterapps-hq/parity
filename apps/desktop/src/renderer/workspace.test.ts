@@ -39,19 +39,26 @@ const loaded = { guest: {}, sheet: {}, tokens: [] }
 
 let opens: Array<(value: ProjectInfo) => void>
 let closes: string[]
+/** The projects whose pictures the service was told to keep, each time it was told. */
+let picturesKept: string[][]
 
 beforeEach(() => {
   opens = []
   closes = []
+  picturesKept = []
   guest.loads.length = 0
   guest.failures.length = 0
   guest.released.length = 0
   vi.stubGlobal("window", {
     canvasHost: {
-      request: (method: string, params: { projectId?: string }) => {
+      request: (method: string, params: { projectId?: string; roots?: string[] }) => {
         if (method === "project.open") return new Promise((resolve) => opens.push(resolve))
         if (method === "project.close") {
           closes.push(params.projectId!)
+          return Promise.resolve(undefined)
+        }
+        if (method === "pictures.keepOnly") {
+          picturesKept.push(params.roots!)
           return Promise.resolve(undefined)
         }
         // Nothing else the tab asks for answers, as nothing the test checks waits on it.
@@ -413,6 +420,18 @@ describe("Home and new tabs", () => {
     ])
     later.star(info.root, false)
     expect(later.getProjects()).toEqual([])
+  })
+
+  it("lets go of a project's picture once the start page stops listing it (PAR-607)", async () => {
+    vi.stubGlobal("localStorage", memoryStorage())
+    const workspace = new Workspace()
+    await openFully(workspace)
+    expect(picturesKept.at(-1)).toEqual([info.root])
+    workspace.star(info.root, true)
+    workspace.forgetRecent(info.root)
+    expect(picturesKept.at(-1)).toEqual([info.root])
+    workspace.star(info.root, false)
+    expect(picturesKept.at(-1)).toEqual([])
   })
 
   it("starts with no notes when the saved ones can't be read", () => {

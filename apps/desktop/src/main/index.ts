@@ -116,6 +116,8 @@ function startService(): UtilityProcess {
       // Frame bitmaps and component previews are kept in the app's own data, so an installed Parity never writes them
       // into a project.
       PARITY_BITMAP_DIR: bitmapFolder(),
+      // Projects' pictures for the start page, kept apart from the bitmaps so clearing that cache leaves them (PAR-607).
+      PARITY_PICTURE_DIR: join(app.getPath("userData"), "pictures"),
       // Names this copy's entry in the agent registry, so a restarted service writes the same one, and says how long
       // the copy has been running: a project open in two copies goes to the older (PAR-514).
       PARITY_APP_PID: String(process.pid),
