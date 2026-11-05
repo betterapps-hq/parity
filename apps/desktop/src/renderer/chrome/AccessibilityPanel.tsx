@@ -220,7 +220,7 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
  */
 function changedSince(check: Check, container: ContainerSpec, modes: ModeSettings): boolean {
   const shown = (settings: ModeSettings, design: ContainerSpec) => {
-    const { main, beside } = shownModes(settings, design.view)
+    const { main, beside } = shownModes(settings, design)
     return [main, ...beside].map((mode) => mode.id).join(" ")
   }
   return (
@@ -248,7 +248,7 @@ function TabOrderSwitch() {
 function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Check, { status: "done" }> }) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const groups = groupFindings(check.findings)
-  const shown = shownModes(check.modes, check.container.view)
+  const shown = shownModes(check.modes, check.container)
   const modes = [shown.main, ...shown.beside]
   const modeName = (id: string) => modes.find((mode) => mode.id === id)?.name ?? id
   const stateName = (id: string) => check.container.states.find((state) => state.id === id)?.name ?? id

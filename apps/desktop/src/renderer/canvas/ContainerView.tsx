@@ -327,7 +327,7 @@ function TitleButton({
         <ContextMenuItem
           onClick={() => setDesignKind(session, entry, container.kind === "component" ? "screen" : "component")}
         >
-          {container.kind === "component" ? "Make it a screen" : "Make it a component"}
+          {container.kind === "component" ? "Convert to screen" : "Convert to component"}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => deleteDesign(session, entry)}>

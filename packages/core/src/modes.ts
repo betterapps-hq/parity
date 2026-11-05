@@ -1,4 +1,5 @@
 import { type DeviceKind, deviceKinds } from "./devices.ts"
+import type { ContainerSpec } from "./document.ts"
 import {
   compact,
   expectArray,
@@ -135,13 +136,15 @@ export function modeGlobals(mode: Pick<ResolvedMode, "options">): Record<string,
 
 /**
  * The modes a design shows: its main frame's (its own pick, else the project's primary mode), and the ones beside it
- * in project order.
+ * in project order. A frame shows the primary mode alone.
  */
 export function shownModes(
   settings: ModeSettings,
-  view: { mode?: string; modes?: string[] } | undefined
+  design: Pick<ContainerSpec, "kind" | "view">
 ): { main: ResolvedMode; beside: ResolvedMode[]; all: ResolvedMode[] } {
   const all = resolveModes(settings)
+  if (design.kind === "frame") return { main: all[0]!, beside: [], all }
+  const { view } = design
   const main = all.find((mode) => mode.id === view?.mode) ?? all[0]!
   const beside = new Set(view?.modes ?? [])
   return { main, beside: all.filter((mode) => mode !== main && beside.has(mode.id)), all }

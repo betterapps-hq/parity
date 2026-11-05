@@ -10,7 +10,7 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { ContainerKind } from "@parity-app/core"
-import { kindName, kindTitle } from "@parity-app/editor"
+import { kindName, kindTitle, turnInto } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
@@ -110,10 +110,11 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
             value={[container.kind ?? "screen"]}
             onValueChange={([value]) =>
               value &&
-              store.updateContainer(key, value === "component" ? "Make component" : "Make screen", (current) => ({
-                ...current,
-                kind: value as ContainerKind
-              }))
+              store.updateContainer(
+                key,
+                value === "component" ? "Convert to component" : "Convert to screen",
+                (current) => turnInto(current, value as ContainerKind, store.getModes()).design
+              )
             }
           >
             <ToggleGroupItem value="screen" className="h-6 px-2 text-xs">

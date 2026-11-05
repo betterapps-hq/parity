@@ -21,6 +21,7 @@ import {
   findRepeats,
   findState,
   frameGeometry,
+  type FrameSize,
   frameSize,
   shownModes,
   generateId,
@@ -51,6 +52,7 @@ import {
   unknownReference,
   withFreshIds
 } from "@parity-app/core"
+import { type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import type {
   AccessibilityFinding,
@@ -298,8 +300,8 @@ export class AgentWorkspace {
         states: container.states.map((state) => ({ id: state.id, name: state.name })),
         showing: {
           state: container.view?.state ?? container.states[0]!.id,
-          mode: shownModes(this.modes, container.view).main.id,
-          beside: shownModes(this.modes, container.view).beside.map((mode) => mode.id)
+          mode: shownModes(this.modes, container).main.id,
+          beside: shownModes(this.modes, container).beside.map((mode) => mode.id)
         },
         nodes: nodeIds(container.root).size
       }
@@ -400,7 +402,7 @@ export class AgentWorkspace {
   private shownLayer(reference: string, options: GetOptions) {
     const found = this.findLayer(reference)
     const { container } = found
-    const mode = options.mode ? this.frameMode(options.mode) : shownModes(this.modes, container.view).main
+    const mode = this.designMode(container, options.mode)
     const context: EvalContext = {
       state: this.shownState(container, options.state),
       viewport: mode.viewport,
@@ -477,33 +479,41 @@ export class AgentWorkspace {
 
   private createDesign(spec: DesignInput): string {
     if (!spec || typeof spec.name !== "string")
-      throw new TypeError("CreateDesign({ name, kind?, file?, x?, y?, root? })")
+      throw new TypeError("CreateDesign({ name, kind?, file?, x?, y?, root?, width?, height? })")
+    const kind = spec.kind ?? "screen"
     const taken = this.all().map((entry) => entry.container.id)
     const id = uniqueId(spec.name, taken)
     const path = spec.file ?? this.snapshot.mainDocument
     if (!path.endsWith(".par")) throw new Error(`Project files end in .par, not ${path}`)
+    const size = frameSizeInput(spec, kind, spec.name)
     const ids = new Set<string>()
-    const root = spec.root
-      ? this.prepareNode(spec.root, ids)
-      : this.prepareNode(
-          {
-            type: "layout",
-            name: "Page",
-            style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
-            children: []
-          },
-          ids
-        )
-    const place =
-      spec.x === undefined || spec.y === undefined ? this.findEmptySpace({ width: 1400, height: 1000 }) : undefined
-    const container: ContainerSpec = {
+    // Without a root, a frame starts as the editor starts one, and anything else as a page.
+    const page = {
+      type: "layout",
+      name: "Page",
+      style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
+      children: []
+    }
+    const root =
+      !spec.root && kind === "frame"
+        ? newDesign("frame", [], { x: 0, y: 0 }).root
+        : this.prepareNode(spec.root ?? page, ids)
+    if (kind === "frame" && root.type !== "layout") {
+      throw new CodedError("A frame's root is a layout", { code: "invalid_input", field: "root" })
+    }
+    const design: ContainerSpec = {
       id,
       name: spec.name,
-      kind: spec.kind ?? "screen",
-      position: { x: spec.x ?? place!.x, y: spec.y ?? place!.y },
+      kind,
+      position: { x: spec.x ?? 0, y: spec.y ?? 0 },
       root,
-      states: [{ id: "default", name: spec.baseState ?? "Default" }]
+      states: [{ id: "default", name: spec.baseState ?? "Default" }],
+      ...(size ? { size } : {})
     }
+    // A frame's board is as big as the frame; other designs get room for a page.
+    const room = kind === "frame" ? estimateSize(design, this.modes) : { width: 1400, height: 1000 }
+    const place = spec.x === undefined || spec.y === undefined ? this.findEmptySpace(room) : undefined
+    const container = place ? { ...design, position: { x: spec.x ?? place.x, y: spec.y ?? place.y } } : design
     const document = this.documents.get(path) ?? { version: 3, containers: [] }
     this.documents.set(path, { ...document, containers: [...document.containers, container] })
     this.changed.add(path)
@@ -513,7 +523,24 @@ export class AgentWorkspace {
   }
 
   private updateDesign(reference: string, update: DesignUpdate): void {
-    const { path, container } = this.findDesign(reference)
+    const { path, container: found } = this.findDesign(reference)
+    let container = found
+    if (update.kind && update.kind !== (found.kind ?? "screen")) {
+      const turned = turnInto(found, update.kind, this.modes)
+      container = turned.design
+      const lost = describeDropped(turned.dropped)
+      if (lost) this.warnings.push(`${found.name} is a frame now. ${lost}`)
+    }
+    const frame = container.kind === "frame"
+    const viewKeys = (["mode", "showModes", "state", "allStates"] as const).filter((name) => update[name] !== undefined)
+    if (frame && viewKeys.length > 0) {
+      const message = `${container.name} is a frame, shown only in the primary mode and its one state`
+      throw new CodedError(`${message}, so it takes no ${viewKeys.join(" or ")}.`, {
+        code: "invalid_input",
+        field: viewKeys[0]
+      })
+    }
+    const size = frameSizeInput(update, container.kind ?? "screen", container.name, container.size)
     const modeIds = new Set(this.modes.modes.map((mode) => mode.id))
     for (const mode of [...(update.showModes ?? []), ...(update.mode ? [update.mode] : [])]) {
       if (!modeIds.has(mode)) {
@@ -523,7 +550,7 @@ export class AgentWorkspace {
       }
     }
     if (update.state) findState(container, update.state)
-    const main = update.mode ?? shownModes(this.modes, container.view).main.id
+    const main = update.mode ?? shownModes(this.modes, container).main.id
     const primary = this.modes.modes[0]?.id
     const from = container.position
     const to = { x: update.x ?? from.x, y: update.y ?? from.y }
@@ -533,15 +560,19 @@ export class AgentWorkspace {
     const next: ContainerSpec = {
       ...container,
       ...(update.name ? { name: update.name } : {}),
-      ...(update.kind ? { kind: update.kind } : {}),
       position: to,
-      view: {
-        ...container.view,
-        ...(update.mode ? { mode: update.mode === primary ? undefined : update.mode } : {}),
-        modes: (update.showModes ?? container.view?.modes ?? []).filter((mode) => mode !== main),
-        ...(update.state ? { state: update.state } : {}),
-        ...(update.allStates === undefined ? {} : { allStates: update.allStates })
-      }
+      ...(size ? { size } : {}),
+      ...(frame
+        ? {}
+        : {
+            view: {
+              ...container.view,
+              ...(update.mode ? { mode: update.mode === primary ? undefined : update.mode } : {}),
+              modes: (update.showModes ?? container.view?.modes ?? []).filter((mode) => mode !== main),
+              ...(update.state ? { state: update.state } : {}),
+              ...(update.allStates === undefined ? {} : { allStates: update.allStates })
+            }
+          })
     }
     this.setContainer(path, next, undefined, undefined, !onlyMoved)
   }
@@ -790,6 +821,21 @@ export class AgentWorkspace {
     return mode
   }
 
+  /** The mode a design is drawn in: the one named, else its main one. A frame is drawn only in the primary mode. */
+  private designMode(container: ContainerSpec, modeId: string | undefined): ResolvedMode {
+    const main = shownModes(this.modes, container).main
+    if (!modeId) return main
+    const mode = this.frameMode(modeId)
+    if (container.kind === "frame" && mode.id !== main.id) {
+      throw new CodedError(`${container.name} is a frame, drawn only in the primary mode, ${main.id}.`, {
+        code: "invalid_input",
+        field: "mode",
+        alternatives: [main.id]
+      })
+    }
+    return mode
+  }
+
   /** Renders a frame, showing the agent at work: `look` says what it's for, which also decides what's captured. */
   private async render(
     reference: string,
@@ -799,7 +845,7 @@ export class AgentWorkspace {
   ) {
     const { path, container } = this.findDesign(reference)
     const state = this.shownState(container, options.state)
-    const viewportMode = options.mode ? this.frameMode(options.mode) : shownModes(this.modes, container.view).main
+    const viewportMode = this.designMode(container, options.mode)
     // The frame and its window as the canvas draws them, so a frame measured or captured here matches the live one.
     const size = frameGeometry(container, viewportMode)
     const mode = { ...viewportMode, width: size.width }
@@ -920,12 +966,12 @@ export class AgentWorkspace {
   }
 
   private modesFor(container: ContainerSpec, option: string | string[] | undefined): ResolvedMode[] {
-    const modes = resolveModes(this.modes)
-    if (option === "all") return modes
-    const shown = shownModes(this.modes, container.view)
+    const shown = shownModes(this.modes, container)
+    // Every mode a frame can be drawn in is its one.
+    if (option === "all") return container.kind === "frame" ? [shown.main] : shown.all
     if (option === "shown") return [shown.main, ...shown.beside]
     const ids = option === undefined ? [shown.main.id] : [option].flat()
-    return ids.map((id) => this.frameMode(id))
+    return ids.map((id) => this.designMode(container, id))
   }
 
   /**
@@ -1332,13 +1378,20 @@ interface DesignInput {
   y?: number
   root?: unknown
   baseState?: string
+  /** A frame's own size, in pixels. */
+  width?: number
+  height?: number
 }
 
 interface DesignUpdate {
   name?: string
+  /** Becoming a frame drops what a frame doesn't have, and says so in the call's warnings. */
   kind?: ContainerKind
   x?: number
   y?: number
+  /** A frame's own size, in pixels. */
+  width?: number
+  height?: number
   /** The main frame's mode. */
   mode?: string
   /** Modes shown beside the main frame. */
@@ -1543,8 +1596,51 @@ function expectObject(value: unknown, where: string): Values {
 
 /** The size of a board the canvas hasn't drawn: its shown frames, laid out as the canvas lays them out. */
 function estimateSize(container: ContainerSpec, modes: ModeSettings): { width: number; height: number } {
-  const { main, beside } = shownModes(modes, container.view)
+  const { main, beside } = shownModes(modes, container)
   return boardSize(container, [main, ...beside])
+}
+
+/**
+ * A frame's size from the `width` and `height` a call gives, over the size it has; none when it gives neither. Only a
+ * frame takes them, since screens and components size their frames per viewport.
+ */
+function frameSizeInput(
+  input: { width?: unknown; height?: unknown },
+  kind: ContainerKind,
+  name: string,
+  current: FrameSize = {}
+): FrameSize | undefined {
+  const given = (["width", "height"] as const).filter((side) => input[side] !== undefined)
+  if (given.length === 0) return undefined
+  if (kind !== "frame") {
+    throw new CodedError(`${name} is a ${kind}; only a frame takes a width and height.`, {
+      code: "invalid_input",
+      field: given[0]
+    })
+  }
+  const size: FrameSize = { ...current }
+  for (const side of given) {
+    const value = input[side]
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+      throw new CodedError(`A frame's ${side} is a number of pixels above 0.`, { code: "invalid_input", field: side })
+    }
+    size[side] = value
+  }
+  return size
+}
+
+/** What becoming a frame left behind, in a sentence for each kind of thing, or none when nothing went. */
+function describeDropped(dropped: DroppedParts): string | undefined {
+  const lines = [
+    ["States", dropped.states.map((state) => state.name)],
+    ["Modes", dropped.modes],
+    ["Params", dropped.params],
+    ["Variants", dropped.variants]
+  ] as const
+  const said = lines
+    .filter(([, names]) => names.length > 0)
+    .map(([what, names]) => `${what} dropped: ${names.join(", ")}.`)
+  return said.length > 0 ? said.join(" ") : undefined
 }
 
 function overlaps(start: number, size: number, otherStart: number, otherSize: number): boolean {

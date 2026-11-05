@@ -1,8 +1,29 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 02:15:39 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 03:41:17 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.4.0
+
+Thu, 05 Nov 2026 03:41:17 GMT
+
+### Minor changes
+
+- Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API
+  (ajcraswell@gmail.com)
+
+## 0.3.1
+
+Thu, 05 Nov 2026 02:45:34 GMT
+
+### Patches
+
+- Turn a prop off in one state when the base design has it on, and reset it from the inspector (ajcraswell@gmail.com)
+- Preview number props on the canvas while typing or scrubbing, round Opacity to whole percentages, and name Mixed+8 in
+  the note on what differs across selected layers (ajcraswell@gmail.com)
+- Keep frame bitmaps and component previews as lossless WebP, about 40% smaller than the PNGs they replace, with the
+  same pixels (ajcraswell@gmail.com)
 
 ## 0.3.0
 

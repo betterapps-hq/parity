@@ -1,8 +1,46 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 02:13:33 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 05:14:33 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.7.1
+
+Thu, 05 Nov 2026 05:14:33 GMT
+
+### Patches
+
+- The insert picker takes the keys as soon as it opens, and is gone as soon as it closes, so Escape straight after /
+  closes it and the next click reaches the canvas. (ajcraswell@gmail.com)
+
+## 0.7.0
+
+Thu, 05 Nov 2026 03:41:00 GMT
+
+### Minor changes
+
+- Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Menus say Convert to component and Convert to screen for changing a design's kind, and undo names the change the same
+  way (ajcraswell@gmail.com)
+
+## 0.6.1
+
+Thu, 05 Nov 2026 02:45:21 GMT
+
+### Patches
+
+- Paste here goes into a component's slots, keeps a stretched copy's right and bottom, and a right-click while the
+  canvas menu is open opens it again there; the menubar greys what can't act on a layer inside an instance
+  (ajcraswell@gmail.com)
+- Preview number props on the canvas while typing or scrubbing, round Opacity to whole percentages, and name Mixed+8 in
+  the note on what differs across selected layers (ajcraswell@gmail.com)
+- Keep frame bitmaps and component previews as lossless WebP, about 40% smaller than the PNGs they replace, with the
+  same pixels (ajcraswell@gmail.com)
+- Turn a prop off in one state when the base design has it on, and reset it from the inspector (ajcraswell@gmail.com)
 
 ## 0.6.0
 

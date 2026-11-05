@@ -47,8 +47,8 @@ GetModes(design?): { settings, variables, viewports, modes, designs }   // modes
 Selection(): { design?, node?, mode? }           // what the person has selected
 
 // Designs
-CreateDesign({ name, kind?, root?, x?, y?, file?, baseState? }): string   // returns the new design's id
-UpdateDesign(design, { name?, kind?, x?, y?, mode?, showModes?, state?, allStates? }): void
+CreateDesign({ name, kind?, root?, x?, y?, width?, height?, file?, baseState? }): string   // the new design's id
+UpdateDesign(design, { name?, kind?, x?, y?, width?, height?, mode?, showModes?, state?, allStates? }): void
 DeleteDesign(design): void
 
 // Nodes
@@ -95,8 +95,8 @@ by its id alone when only one design has that id. Names aren't unique, so prefer
 
 ### Designs
 
-Lists every design with its `id`, `name`, `kind` (`screen` or `component`), `states`, and `showing`: the state on the
-canvas, the main mode and the modes beside it. Start here to find ids.
+Lists every design with its `id`, `name`, `kind` (`screen`, `component` or `frame`), `states`, and `showing`: the state
+on the canvas, the main mode and the modes beside it. Start here to find ids.
 
 ### Get
 
@@ -175,11 +175,27 @@ foreground colours. Without `x` and `y` it goes into empty space. `kind: "compon
 screens place as instances; most component designs come from `ExtractComponent` instead, because that also gives them
 params.
 
+`kind: "frame"` makes a frame, the light kind for sketching an idea before it's a screen or a component: an empty padded
+layout, drawn once at its own `width` and `height` in the project's primary mode. A frame has one state, no params and
+no modes beside it, and no code is written from it, so `AddState`, `showModes` or another `mode` on one fail with
+`invalid_input`. Turn it into a screen or a component when it needs them.
+
+```js
+const sketch = CreateDesign({ name: "Sketch", kind: "frame", width: 480, height: 320 })
+Insert(sketch, { type: "text", tag: "h2", text: "Pricing ideas" })
+await Screenshot(sketch)
+UpdateDesign(sketch, { kind: "screen" }) // keeps its layers, and its size in the primary viewport
+```
+
 ### UpdateDesign
 
 Renames or moves a design, or changes how it's shown: `mode` sets the main frame's mode, `showModes` the modes beside
 it, `state` the state on the canvas, and `allStates: true` shows every state in its own row. None of these change the
-design itself.
+design itself. `width` and `height` resize a frame.
+
+`kind` turns a design into another kind. Turned into a frame, a design keeps its layers as its board drew them in the
+base state, with its params' values filled in, and drops its other states, the modes beside it, its params and its
+variants; the call's warnings say what went.
 
 ## Nodes
 

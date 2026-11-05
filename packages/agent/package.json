@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",
+    "@parity-app/editor": "workspace:*",
     "@parity-app/icons": "workspace:*",
     "@parity-app/tokens": "workspace:*"
   }

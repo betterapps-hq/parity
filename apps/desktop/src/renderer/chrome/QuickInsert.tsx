@@ -4,7 +4,6 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogPortal,
   DialogTitle,
   InputGroup,
   InputGroupAddon,
@@ -179,14 +178,17 @@ export function QuickInsert() {
     })
     return () => cancelIdleCallback(ready)
   }, [info])
+  // The picker is in the page only while it's open. Base UI keeps a closed dialog and its backdrop until it has seen
+  // the closing animation end, a frame or two after its 100ms, and the backdrop took the clicks meant for the canvas
+  // until then: in a window in the background, where frames come about once a second, for over a second (PAR-554).
+  // The list left the moment the picker closed, so the animation only faded out the backdrop and an empty box.
+  if (!session) return null
   return (
     // Not modal: a modal dialog locks the page's scrolling, hides everything else from screen readers and stops the
     // pointer on the body, which restyled all of the window's 6,000 elements to open it, 100 to 150ms of the 400ms the
-    // picker took (PAR-178). The backdrop takes the clicks outside instead, and the search field keeps Tab.
-    <Dialog open={isOpen && !!session} onOpenChange={setOpen} modal={false}>
-      <DialogPortal>
-        <div aria-hidden className="fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs" />
-      </DialogPortal>
+    // picker took (PAR-178). The kit's backdrop, which Base UI draws for a dialog that isn't modal too, takes the clicks
+    // outside instead, and the search field keeps Tab.
+    <Dialog open onOpenChange={setOpen} modal={false}>
       <DialogContent
         className="top-1/3 max-w-xl translate-y-0 gap-0 overflow-hidden rounded-xl! p-0"
         showCloseButton={false}
@@ -195,7 +197,7 @@ export function QuickInsert() {
           <DialogTitle>Insert</DialogTitle>
           <DialogDescription>Search for a layer, component or icon to insert</DialogDescription>
         </DialogHeader>
-        {session && <InsertList session={session} />}
+        <InsertList session={session} />
       </DialogContent>
     </Dialog>
   )
@@ -324,6 +326,11 @@ function InsertList({ session }: { session: ProjectSession }) {
             aria-autocomplete="list"
             aria-activedescendant={current === undefined ? undefined : optionId(current)}
             aria-label="Insert a layer, component or icon"
+            // The field takes the keys as it opens. Base UI moves focus into a dialog a frame later, and until then the
+            // canvas had the keys: Escape selected the parent and left the picker open, in a window in the background
+            // for up to a second (PAR-554).
+            // oxlint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
             onKeyDown={onKeyDown}

@@ -1,5 +1,5 @@
 import { type ContainerKind, uniqueId } from "@parity-app/core"
-import { designGap, freeSpotBeside, kindName } from "@parity-app/editor"
+import { designGap, freeSpotBeside, kindName, turnInto } from "@parity-app/editor"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { bringIntoView, takenBounds } from "../canvas/free-space.ts"
 import type { ContainerEntry } from "../design-store.ts"
@@ -48,10 +48,12 @@ export function duplicateDesign(session: ProjectSession, entry: ContainerEntry):
 }
 
 export function setDesignKind(session: ProjectSession, entry: ContainerEntry, kind: ContainerKind): void {
-  session.store.updateContainer(entry.key, kind === "component" ? "Make component" : "Make screen", (container) => ({
-    ...container,
-    kind
-  }))
+  const { store } = session
+  store.updateContainer(
+    entry.key,
+    kind === "component" ? "Convert to component" : "Convert to screen",
+    (container) => turnInto(container, kind, store.getModes()).design
+  )
 }
 
 export function deleteDesign(session: ProjectSession, entry: ContainerEntry): void {

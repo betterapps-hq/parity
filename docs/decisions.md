@@ -3404,3 +3404,51 @@ My calls:
   their look off `aria-pressed`.
 - **Open triggers style by `aria-expanded`,** which Base UI sets on every menu, popover and select trigger, where Radix
   set `data-state="open"`; a closing popup is `[data-closed]` for the canvas's shortcuts.
+
+## Frames are a third, light kind of design (PAR-539)
+
+Decision 1 of PAR-537 adds frames beside screens and components, and decision 6 keeps them out of code. They're now in
+the file and the packages, with no UI yet: PAR-540 designs their look and tools in Storybook, and PAR-545 builds them in
+the app. My calls:
+
+- **A frame is `kind: "frame"`, and its size is `size`.** `frames` stays a screen's and a component's sizes per
+  viewport. A frame has one size, `{ width?, height? }` in pixels, whatever the project's viewports are, so it doesn't
+  move when the modes change. Without a width it's as wide as the primary mode, and without a height as tall as its
+  content, as a screen's main preview is. `frameSize` gives a frame that size in every mode. A frame that hugs its text
+  (decision 4) is PAR-545's to add.
+- **The file checks what a frame holds.** Its root is a layout and it has one state, with no patches of its own; it has
+  no `params`, `view` or `frames`, and no other kind has a `size`. There's no route to refuse, since screens have none
+  in the file yet; when routes land, a frame takes none.
+- **One mode and one state, decided in core.** `shownModes` takes the design rather than its view and gives a frame the
+  primary mode alone, so the canvas, the accessibility checks, `GetModes`, `Designs()` and agents' renders draw it once.
+  With one state there's nothing else to show. The editor's `tidyView` keeps no view on a frame, so the state and mode
+  controls a frame's board still has until PAR-545 change nothing. Core's `addState`, `duplicateState` and `addVariant`
+  refuse a frame with `invalid_input`.
+- **Becoming a frame keeps what the board showed.** `turnInto` in `@parity-app/editor` (`kinds.ts`) keeps a design's
+  layers as its first state drew them, with the variant options shown and bound values filled in, since its params and
+  their bindings go, as a paste into a design without the param does (PAR-464). Responsive patches stay on the layers.
+  It takes the size it was drawn at in the primary mode, puts a root that isn't a layout inside one, and returns what it
+  dropped (its other states, the modes it showed besides the primary one, its params and its variants), for the app to
+  say before it does it. A frame becoming a screen or a component drops nothing, and its size becomes its preview's in
+  the primary viewport, so it shows as it did. A screen and a component still become each other by their kind alone. The
+  app's two kind switches go through `turnInto` already, so a frame in the file can't become a component with a `size`.
+- **Inside another design, a frame is a layout.** `frameAsLayout` is its root layout, named after it, with its size as a
+  width and height in spacing steps on the half step, as typed lengths land. `pasteFramesInto` and `moveFrameInto` paste
+  and move it in with fresh ids; designs that aren't all frames don't paste inside, since a screen or a component
+  doesn't go inside another design.
+- **Never written to code.** Nothing writes designs to code or checks them for drift yet, so the rule lives on
+  `ContainerKind` and here: whatever writes screens and components to code, and the drift review, leaves frames out.
+- **Agents read and write frames.** `CreateDesign({ kind: "frame", width, height })` makes one, in empty space for its
+  own size. `UpdateDesign` takes `width` and `height` for a frame and refuses them on the other kinds, and its `kind`
+  goes through `turnInto`, saying what was dropped in the call's warnings. A frame refuses `mode`, `showModes`, `state`
+  and `allStates`, and renders only in the primary mode: `mode: "all"` is that one, and another mode is `invalid_input`
+  naming it. `@parity-app/agent` now depends on `@parity-app/editor`, which is pure, for `turnInto` and `newDesign`.
+
+## "Convert to" changes what a design is (PAR-553)
+
+Andrew decided on 2026-11-04, in PAR-540: "We should say "Convert to" and you're right, it should be changed
+everywhere." So the item that turns a screen into a component, or a component back into a screen, reads "Convert to
+component" or "Convert to screen" in the canvas menu, the Object menu and a board title's menu, rather than "Make it a
+component" or "Make it a screen". Undo names the change the same way, whether it came from those menus or the Design
+tab's Screen and Component toggle, where it said "Make component" and "Make screen". Make component keeps its name for
+turning layers into a new component.

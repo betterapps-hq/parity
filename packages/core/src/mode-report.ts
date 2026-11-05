@@ -116,7 +116,7 @@ function modeReport(mode: ResolvedMode, primary: boolean): ModeReport {
  * it, and, with `frames`, each of those frames' size and window.
  */
 export function designModes(settings: ModeSettings, design: ContainerSpec, frames = false): DesignModes {
-  const shown = shownModes(settings, design.view)
+  const shown = shownModes(settings, design)
   const state = design.view?.state ?? design.states[0]!.id
   return {
     id: design.id,

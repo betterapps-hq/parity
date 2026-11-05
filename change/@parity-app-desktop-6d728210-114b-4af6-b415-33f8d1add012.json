@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep frame bitmaps and component previews as lossless WebP, about 40% smaller than the PNGs they replace, with the same pixels",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

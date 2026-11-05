@@ -299,8 +299,8 @@ menubar's command. The Layers panel's menu is unchanged.
   and Go to the main component; Hide. Labels are the menubar's, except that Go to names the main component ("Go to Plan
   card"), Hide reads Show when every selected layer is hidden as the board shows it in the state being edited (the
   variant shown, the state and the params it binds, as Hide itself reads them, PAR-486), and Make component, with a
-  design selected on its own, reads "Make it a component", or "Make it a screen" on a component. Paste here has no keys.
-  Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
+  design selected on its own, reads "Convert to component", or "Convert to screen" on a component. Paste here has no
+  keys. Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
 - **With designs selected**, what's only for layers is left out: Paste to replace, the order, Wrap in layout and Hide.
   Go to the main component is there only with an instance selected.
 - **Unavailable** items are greyed: the order and Make component with several layers selected, Make component with
@@ -474,6 +474,14 @@ each under its source. A search ranks across sources instead, each row saying wh
   in the search (`nova badge`), which puts it first. The row's text, which a screen reader reads, names every source,
   but the source buttons themselves are for the pointer: no key moves between them. Icons are searched once two letters
   are typed, up to 48 a set, after the components.
+- **It takes the keys as it opens, and is gone as it closes** (PAR-554). The search field has focus as the picker
+  appears, so Escape or a search typed straight after `/` reaches it, not the canvas. Escape, a click outside or an
+  insert takes the picker out of the page at once, with no closing animation, so a click straight after lands on the
+  canvas. Base UI moves focus into a dialog a frame after it opens, and keeps a closed one, backdrop and all, until it
+  sees the closing animation end, a frame or two after its 100ms. Before this, in a window in the background, where
+  frames come about once a second, Escape went to the canvas, which selected the parent and left the picker open, and
+  the backdrop took the next click. The list already left the moment the picker closed, so the animation only faded out
+  the backdrop and an empty box.
 - **The Components panel** searches the same way: in each source, families with the best matches first and the best
   matches first in each, hidden components only when a word of the search is in their name. Browsing, each source lists
   what the picker hides last, under a heading saying what it is ("Providers and app plumbing", "Internal parts and
@@ -485,7 +493,7 @@ What made it slow, measured on the example in an isolated copy on 2026-10-30, fr
   draws only the rows in view, with `@tanstack/react-virtual`, so it costs the same for 10 components or 600.
 - **The dialog was modal.** A modal Radix dialog locks the page's scrolling and stops the pointer on the body, which
   restyled all of the window's 6,000 elements, about 100ms (it showed as Radix's animation check and the scroll lock's
-  `clientWidth`). The picker is a non-modal dialog with a backdrop of its own, which takes clicks outside and closes it.
+  `clientWidth`). The picker is a non-modal dialog. Its backdrop, the kit's, takes clicks outside and closes it.
 - **The list was rebuilt on every open,** and so were the icon sets, whose names the guest lists in 40 to 50ms. Both are
   kept per project until its components, libraries or component designs change, and built while the window is idle after
   a project opens or its components change, so even the first `/` finds them ready.
@@ -504,11 +512,12 @@ Tests:
   order; hidden ones left out, found by name, not by folder, and ranked after the rest when only partly named; Badge
   once with both sources, the project's first; a search naming a source; two components of one name in one source, and a
   design and a component of one name, kept apart; and the audit's searches.
-- `apps/desktop/e2e/inserting.e2e.ts` (5), end to end (PAR-202): opening seven times, the fastest under 100ms and the
-  median under 150ms (25 to 50ms on a quiet machine); the browsing order, read a screen at a time; "badge" finding
-  Badge, AvatarBadge and SidebarMenuBadge only, Badge with the UI kit and Shadcn Nova; App and ThemeProvider left out of
-  a folder search and found by name, and Dialog's overlay after every dialog part placed; and Enter inserting the UI
-  kit's Badge, and the Shadcn Nova source inserting Nova's.
+- `apps/desktop/e2e/inserting.e2e.ts` (6), end to end (PAR-202): opening seven times, the fastest under 100ms and the
+  median under 150ms (25 to 50ms on a quiet machine); Escape straight after opening closing the picker with the design
+  still selected, and a click straight after selecting a layer (PAR-554); the browsing order, read a screen at a time;
+  "badge" finding Badge, AvatarBadge and SidebarMenuBadge only, Badge with the UI kit and Shadcn Nova; App and
+  ThemeProvider left out of a folder search and found by name, and Dialog's overlay after every dialog part placed; and
+  Enter inserting the UI kit's Badge, and the Shadcn Nova source inserting Nova's.
 - `chrome/QuickInsert.stories.tsx`: Open, Searching, FoundInTwoPlaces, SearchedByName, SearchingIcons, NoResults and
   NothingToInsertInto.
 

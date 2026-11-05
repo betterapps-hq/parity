@@ -2,6 +2,77 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 05:14:33 GMT",
+      "version": "0.7.1",
+      "tag": "@parity-app/desktop_v0.7.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "df633d4eb3ba64b7afdcb333ae62d720726540df",
+            "comment": "The insert picker takes the keys as soon as it opens, and is gone as soon as it closes, so Escape straight after / closes it and the next click reaches the canvas."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 05 Nov 2026 03:41:00 GMT",
+      "version": "0.7.0",
+      "tag": "@parity-app/desktop_v0.7.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2bd53d75e9ea2316c010258b392b04f1c8b313c2",
+            "comment": "Menus say Convert to component and Convert to screen for changing a design's kind, and undo names the change the same way"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "892d47dc7132ac4659696e300090c4cb78c231fe",
+            "comment": "Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 05 Nov 2026 02:45:21 GMT",
+      "version": "0.6.1",
+      "tag": "@parity-app/desktop_v0.6.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1e37806559191d64c27d248e7dc490a42376a1ab",
+            "comment": "Paste here goes into a component's slots, keeps a stretched copy's right and bottom, and a right-click while the canvas menu is open opens it again there; the menubar greys what can't act on a layer inside an instance"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "54a9d3335e5709f23c7cd5cc7d77e31cb67d2a0b",
+            "comment": "Preview number props on the canvas while typing or scrubbing, round Opacity to whole percentages, and name Mixed+8 in the note on what differs across selected layers"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d41bcf05fd325ec6857273bc5ee9b097b16239c5",
+            "comment": "Keep frame bitmaps and component previews as lossless WebP, about 40% smaller than the PNGs they replace, with the same pixels"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5c64b357af6fda3c48933698944e2e8190dd7557",
+            "comment": "Turn a prop off in one state when the base design has it on, and reset it from the inspector"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 02:13:33 GMT",
       "version": "0.6.0",
       "tag": "@parity-app/desktop_v0.6.0",
