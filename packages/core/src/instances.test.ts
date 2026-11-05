@@ -6,6 +6,7 @@ import {
   boardTarget,
   deleteNode,
   editNode,
+  editTargetName,
   findNode,
   nodeOnBoard,
   removeVariantOption,
@@ -409,30 +410,42 @@ describe("hiding a layer in a state", () => {
     expect(toggleHidden(shown, "loading", ["falling"]).states[1]?.overrides).toBeUndefined()
   })
 
+  // The badge with its Quiet tone shown, which hides its label.
+  const quiet: ContainerSpec = {
+    ...badge,
+    params: {
+      ...badge.params,
+      tone: {
+        type: "variant",
+        options: [
+          { id: "neutral", name: "Neutral" },
+          { id: "quiet", name: "Quiet", overrides: { label: { hidden: true } } }
+        ]
+      }
+    },
+    view: { variants: { tone: "quiet" } }
+  }
+  const pressed = { ...quiet, states: [quiet.states[0]!, { id: "pressed", name: "Pressed" }] }
+
   it("reads what the state and the variant shown hide", () => {
     const loading = {
       ...card,
       states: [card.states[0]!, { id: "loading", name: "Loading", overrides: { body: { hidden: true } } }]
     }
     expect(toggleHidden(loading, "loading", ["body"]).states[1]?.overrides).toBeUndefined()
-    const quiet: ContainerSpec = {
-      ...badge,
-      params: {
-        ...badge.params,
-        tone: {
-          type: "variant",
-          options: [
-            { id: "neutral", name: "Neutral" },
-            { id: "quiet", name: "Quiet", overrides: { label: { hidden: true } } }
-          ]
-        }
-      },
-      view: { variants: { tone: "quiet" } }
-    }
     const shown = toggleHidden(quiet, "default", ["label"])
     expect(shown.params?.tone?.options?.[1]?.overrides).toBeUndefined()
     // Another state shows it over the variant, so its change is kept.
-    const pressed = { ...quiet, states: [quiet.states[0]!, { id: "pressed", name: "Pressed" }] }
     expect(toggleHidden(pressed, "pressed", ["label"]).states[1]?.overrides).toEqual({ label: { hidden: false } })
+  })
+
+  it("names where Show and Hide land: the variant option shown, or the state", () => {
+    // In the base state, Quiet takes the change, so it's named rather than the state (PAR-497).
+    expect(editTargetName(quiet, boardTarget(quiet, "default"))).toBe("Quiet")
+    // Another state takes it over the variant.
+    expect(editTargetName(pressed, boardTarget(pressed, "pressed"))).toBe("Pressed")
+    // With the default option shown, the base state takes it.
+    const neutral = { ...quiet, view: { variants: { tone: "neutral" } } }
+    expect(editTargetName(neutral, boardTarget(neutral, "default"))).toBe(quiet.states[0]!.name)
   })
 })

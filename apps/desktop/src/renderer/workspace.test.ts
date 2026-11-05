@@ -20,7 +20,7 @@ vi.mock("./guest.ts", () => ({
   previewToken: () => undefined
 }))
 
-const { Workspace } = await import("./workspace.ts")
+const { homeTab, Workspace } = await import("./workspace.ts")
 
 const info = {
   id: "/projects/app",
@@ -66,12 +66,25 @@ afterEach(() => vi.unstubAllGlobals())
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe("starting the workspace", () => {
-  it("leaves a fresh install on the welcome page", () => {
+  it("leaves a fresh install on Home", () => {
     vi.stubGlobal("localStorage", { getItem: () => null })
     const workspace = new Workspace()
     workspace.restore()
     expect(opens).toHaveLength(0)
     expect(workspace.getTabs()).toEqual([])
+    expect(workspace.isHomeActive()).toBe(true)
+  })
+
+  it("stays on Home when that's where the window was, reopening the tabs behind it", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) =>
+        key === "parity.workspace" ? JSON.stringify({ roots: [info.root], active: homeTab }) : null
+    })
+    const workspace = new Workspace()
+    workspace.restore()
+    expect(opens).toHaveLength(1)
+    expect(workspace.getTabs()[0]?.id).toBe(info.root)
+    expect(workspace.isHomeActive()).toBe(true)
   })
 
   it("opens the project requested by the dev runner", () => {
@@ -320,6 +333,93 @@ describe("a tab closed while its project opens", () => {
     expect(closes).toEqual([])
     await workspace.close(info.id)
     expect(closes).toEqual([info.id])
+  })
+})
+
+// docs/editor.md, The start page: Home and new tabs, and what the window remembers about each project (PAR-605).
+
+/** Storage that keeps what's set, as the window's does. */
+function memoryStorage(): Pick<Storage, "getItem" | "setItem"> {
+  const items = new Map<string, string>()
+  return { getItem: (key) => items.get(key) ?? null, setItem: (key, value) => void items.set(key, value) }
+}
+
+/** Opens the test's project and lets it finish. */
+async function openFully(workspace: InstanceType<typeof Workspace>): Promise<void> {
+  const opening = workspace.open(info.root)
+  opens.at(-1)!(info)
+  await settle()
+  guest.loads.at(-1)!(loaded)
+  await opening
+}
+
+describe("Home and new tabs", () => {
+  it("opens a project picked in a new tab in that tab, where the new tab was", () => {
+    const workspace = new Workspace()
+    workspace.newTab()
+    const [first] = workspace.getTabs()
+    workspace.newTab()
+    workspace.activate(first!.id)
+    void workspace.open(info.root)
+    expect(workspace.getTabs().map((tab) => tab.id)).toEqual([info.root, "new-2"])
+    expect(workspace.getActiveId()).toBe(info.root)
+  })
+
+  it("switches to a project that's already open, closing the new tab it was picked from", async () => {
+    vi.stubGlobal("localStorage", memoryStorage())
+    const workspace = new Workspace()
+    await openFully(workspace)
+    workspace.newTab()
+    await workspace.open(info.root)
+    expect(workspace.getTabs().map((tab) => tab.id)).toEqual([info.id])
+    expect(workspace.getActiveId()).toBe(info.id)
+  })
+
+  it("opens a project in a tab of its own from Home", () => {
+    const workspace = new Workspace()
+    workspace.newTab()
+    workspace.activate(homeTab)
+    void workspace.open(info.root)
+    expect(workspace.getTabs().map((tab) => tab.id)).toEqual(["new-1", info.root])
+  })
+
+  it("shows Home once the last tab closes", async () => {
+    const workspace = new Workspace()
+    workspace.newTab()
+    expect(workspace.isHomeActive()).toBe(false)
+    await workspace.close("new-1")
+    expect(workspace.isHomeActive()).toBe(true)
+  })
+
+  it("leaves new tabs out of the tabs agents see", () => {
+    const workspace = new Workspace()
+    void workspace.open(info.root)
+    workspace.newTab()
+    expect(workspace.summaries().map((tab) => tab.id)).toEqual([info.root])
+  })
+
+  it("remembers when a project opened, and keeps a starred one after it leaves the recent list", async () => {
+    vi.stubGlobal("localStorage", memoryStorage())
+    const workspace = new Workspace()
+    await openFully(workspace)
+    expect(workspace.getProjects()).toEqual([
+      { root: info.root, name: "app", opened: expect.any(Number), starred: false, recent: true }
+    ])
+    workspace.star(info.root, true)
+    workspace.forgetRecent(info.root)
+    const later = new Workspace()
+    expect(later.getProjects()).toEqual([
+      { root: info.root, name: "app", opened: expect.any(Number), starred: true, recent: false }
+    ])
+    later.star(info.root, false)
+    expect(later.getProjects()).toEqual([])
+  })
+
+  it("starts with no notes when the saved ones can't be read", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => (key === "parity.projects" ? JSON.stringify({ "/a": { starred: "yes" } }) : null)
+    })
+    expect(new Workspace().getProjects()).toEqual([])
   })
 })
 
