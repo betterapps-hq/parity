@@ -83,25 +83,44 @@ Electron package, `@workos/authkit-electron`, but it's at 0.1.2, needs `@workos-
 
 ## The screens
 
-From the Sign in stories:
+From the Sign in stories, which work as one prototype (PAR-614). The calls behind them are in
+[decisions.md](../decisions.md#the-rest-of-signing-in-is-designed-par-614).
 
 | Story                                               | Used                                                                                     |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Centered form                                       | The sign-in screen (your call)                                                           |
+| Centered form                                       | The sign-in screen (your call), and the same in a dialog from the title bar              |
 | Live canvas                                         | No. It's the same form beside a showcase                                                 |
 | Email first, with its single sign-on and code steps | No. The browser does these steps, and typing the code into Parity needs WorkOS's API key |
 | Waiting for browser                                 | After any button                                                                         |
+| Browser never hands back                            | After 30 seconds of waiting                                                              |
+| Sign in canceled                                    | When the browser hands back `access_denied`                                              |
+| Sign in failed                                      | When the browser hands back another error, or trading the code fails                     |
+| Account refused                                     | When WorkOS turns the account down                                                       |
+| Single sign on required                             | When the account's organization requires its single sign-on                              |
 | Session ended                                       | When a refresh is refused                                                                |
 | Choose organization                                 | Once Parity's service can list organizations (PAR-616)                                   |
+| Signed out                                          | Home after skipping the sign-in screen                                                   |
+| After signing out                                   | Home after Sign out                                                                      |
+| No organization                                     | Signed in, in no organization yet                                                        |
+| Signed in until quit                                | Signed in where `safeStorage` has no keyring                                             |
+| Browser after handing back, and after a problem     | The page a `pnpm dev` copy's loopback serves                                             |
+| AuthKit pages                                       | WorkOS's branding settings, and AuthKit's pages in them (PAR-611)                        |
 
 - **The account menu is the start page's:** the avatar at the end of the title bar, with the person's name, their
-  organization and role, and Sign out. The built start page left it out until sign-in exists (decisions.md, "The start
-  page is built"). Home's organization switcher shows the session's organization.
+  organization and role, and Sign out. Someone in no organization sees their email instead. The built start page left it
+  out until sign-in exists (decisions.md, "The start page is built"). Home's organization switcher shows the session's
+  organization, or Personal alone.
 - **Signing in is optional** (your call). The first launch shows the sign-in screen, and "Open a folder on this computer
-  without signing in" goes to Home and is remembered. Signed out, the account spot in the title bar offers Sign in.
-  Nothing that works on local folders asks anyone to sign in.
-- **Still to design** (PAR-614): the account spot when nobody's signed in, and Waiting for browser when sign-in fails,
-  is turned down, or never comes back.
+  without signing in" opens the folder picker over Home and is remembered. Nothing that works on local folders asks
+  anyone to sign in.
+- **Signed out, the account spot is an outline of an avatar,** whose menu offers Sign in and keeps agents, settings and
+  help. For you and the organization switcher offer Sign in too, and Home lists every project on this computer under
+  Personal. Sign in opens the sign-in screen in a dialog over Home.
+- **Waiting for browser ends with a session or says what happened:** canceled, an error, an account WorkOS turned down,
+  or an organization that requires single sign-on. Each says what to do next, and nothing open changes. It never stops
+  waiting on its own.
+- **Without a keyring,** a toast after signing in and a line in the account menu say Parity keeps you signed in only
+  until it quits.
 
 ## What needs a server
 

@@ -4200,3 +4200,57 @@ address issues with actual context."
 - **The CLI sends too, at the same level, read from the same setting.** My call, since agents drive Parity through it
   and their calls are half of each trace.
 - **All of this is revisited before the first public release,** in its own Backlog issue.
+
+## The rest of signing in is designed (PAR-614)
+
+You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
+Parity/Explorations/Sign in, and the screens they settle are in
+[proposals/sign-in.md](proposals/sign-in.md#the-screens). My calls:
+
+- **The stories are one prototype,** each starting at a different point, as the start page's are. The browser can't be
+  driven from a story, so while Parity waits, a panel marked Prototype plays it: sign in, cancel there, hit an error, or
+  use an account WorkOS turns down. The sign-in screen and Waiting for browser now work too.
+- **Signed out, the account spot is an outline of an avatar** that opens the same menu, with Sign in where your name
+  goes. Agents, settings and help stay in it, since none of them needs an account; Sign out goes. There's no Sign in
+  button in the title bar, so it doesn't nag, but Home offers it twice more: in For you, and in the organization
+  switcher's menu. The inbox is left out until you sign in.
+- **Sign in from the title bar opens the sign-in screen in a dialog over Home,** without the link to skip it. Waiting
+  and what went wrong show in the same dialog, and only Cancel, Escape or its close button end it.
+- **"Open a folder on this computer without signing in" opens the folder picker,** as it says, over Home, which stays if
+  the picker is closed.
+- **Signing out asks nothing.** Open tabs stay, and a toast says "You're signed out" and that projects on this computer
+  stay open.
+- **Signed out, Home is Personal, listing every project on this computer,** as the built start page does now, since
+  Parity can't tell which organization a folder belongs to. It leaves out people's presence and what they did, which
+  come through an organization, and keeps what agents on this computer did.
+- **Someone in no organization yet** sees their email in the account menu where the organization and role go. Home's
+  switcher has Personal alone, and its menu offers New organization (PAR-616) but not Invite people, which needs an
+  organization. For you and the inbox only show what comes from organizations you're in.
+- **Waiting for browser never gives up on its own,** since the person may still be signing in. After 30 seconds it says
+  what to do if the page didn't open or opened in the wrong browser, and Open it again becomes the main button. Cancel
+  goes back to the ways in, or closes the dialog.
+- **Sign-in can end four ways without a session,** each saying what to do next. Nothing open changes in any of them.
+  - Canceled in the browser (`access_denied`): Try again, or Choose another way.
+  - An error, handed back or from trading the code: "Parity couldn't sign you in", with Try again and Details that hold
+    what WorkOS said, to copy for help.
+  - WorkOS turns the account down: it's named, with Choose another way and Details.
+  - The organization requires single sign-on (`sso_required`, or `organization_authentication_methods_required`):
+    Continue with single sign-on opens the browser at it. WorkOS's answer names neither the organization nor its
+    identity provider, so the screen doesn't either.
+- **A `pnpm dev` copy's loopback answers once the code is traded,** so its page can say whether that worked: "You're
+  signed in to Parity" or "Parity couldn't sign you in", and that the tab can be closed. It's plain HTML with no
+  scripts, light or dark as the system is, and says nothing about which copy it came from (your call). `handBackHtml` in
+  the exploration is the page. Installed apps hand back through `parity://`, where the browser shows its own prompt.
+- **Without a keyring, a toast says so once,** right after signing in: "You're signed in until you quit Parity", with
+  What to do. The account menu keeps saying it under your name, and both open a dialog that explains and names GNOME
+  Keyring and KWallet. The sign-in screen says nothing beforehand, since most people never meet it.
+- **AuthKit's pages take the app's look through WorkOS's branding,** the same in the sandbox and production (PAR-611):
+  - Global styles: display name Parity; the app icon as the logo icon and logo, since there's no wordmark; its small
+    drawing as the favicon; a 10-pixel corner radius.
+  - Colors, light then dark: page background `#FFFFFF` and `#0A0A0A`, buttons `#171717` and `#E5E5E5` with text
+    `#FAFAFA` and `#171717`, the app's own, and links `#5432E6` and `#8A74FF`, from the mark.
+  - AuthKit styles: the system's appearance, Geist, the logo icon only, a centered page titled "Sign in to Parity", the
+    Last used badge, and legal links once Parity has them.
+  - Custom CSS: the sign-in screen's glow on `.ak-Background`.
+- **New wording uses "sign in" as a verb,** as the writing guide asks, so the new screens say "Parity couldn't sign you
+  in" rather than calling it a sign-in.
