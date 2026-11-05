@@ -531,9 +531,7 @@ function InstanceSection({
   if (!design) {
     return (
       <PanelSection title="Instance">
-        <p className="px-1 text-xs text-destructive">
-          The component design &quot;{node.design}&quot; doesn&apos;t exist.
-        </p>
+        <p className="px-1 text-xs text-destructive">The component &quot;{node.design}&quot; doesn&apos;t exist.</p>
       </PanelSection>
     )
   }
@@ -700,7 +698,7 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
     entry.container.params?.[target.variant.param]?.options?.find((option) => option.id === target.variant!.option)
   const variantOnly = !base && variant && state.id === entry.container.states[0]!.id
   let changes = "changes only this state"
-  if (base) changes = "changes the design"
+  if (base) changes = "changes every state"
   else if (variantOnly) changes = `changes only the ${variant.name} variant`
   return (
     <div
@@ -715,7 +713,8 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
       <Select
         value={state.id}
         onValueChange={(id) => {
-          store.updateView(entry.key, (view) => ({ ...view, state: id }))
+          const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
+          store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
       >

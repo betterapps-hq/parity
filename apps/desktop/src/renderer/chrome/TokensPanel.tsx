@@ -1,6 +1,6 @@
 import { type ModeSettings } from "@parity-app/core"
 import { defaultValues, type PreviewKind, previewKind, type Token, tokenReferences } from "@parity-app/tokens"
-import { type LibraryToken, matchDescribed, type TokenChange } from "@parity-app/tokens"
+import { type LibraryToken, matchDescribed, type TokenWrite } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Check, LayoutGrid, List, Search, X } from "lucide-react"
 import {
@@ -461,7 +461,7 @@ function panelItems({
     items.push({
       type: "note",
       key: "note described only",
-      text: "A .lib.par describes these, but no custom property in the stylesheet matches them, so frames can't use them."
+      text: "A .lib.par describes these, but no custom property in the stylesheet matches them, so previews can't use them."
     })
     for (const token of unmatched) {
       items.push({ type: "described", key: `described ${token.library}:${token.path}`, token })
@@ -779,7 +779,7 @@ function Detail({ entry }: { entry: Kinded }) {
 }
 
 /** The tokens a save couldn't write, by name: one, or how many. */
-function failedNames(changes: readonly TokenChange[]): string {
+function failedNames(changes: readonly TokenWrite[]): string {
   const names = [...new Set(changes.map((change) => change.name))]
   return names.length === 1 ? names[0]! : `${names.length} tokens`
 }

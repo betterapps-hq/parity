@@ -51,7 +51,7 @@ async function enter(field: HTMLElement, text: string): Promise<void> {
   await fireEvent.input(field, { target: { value: text } })
 }
 
-/** A source's heading, by its title, as in `Component designs`; clicking it opens or closes the source. */
+/** A source's heading, by its title, as in `Local components`; clicking it opens or closes the source. */
 function source(canvasElement: HTMLElement, title: string): HTMLElement {
   return within(canvasElement).getByRole("button", { name: new RegExp(`^${title} \\d+$`) })
 }
@@ -69,7 +69,7 @@ export const AllSources: Story = { loaders: [openComponents] }
 export const ProjectComponents: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Component designs"))
+    await userEvent.click(source(canvasElement, "Local components"))
     await userEvent.click(source(canvasElement, "shadcn-vite"))
     await waitFor(() => expect(source(canvasElement, "shadcn-vite")).toHaveAttribute("aria-expanded", "true"))
   }
@@ -95,7 +95,7 @@ export const Pages: Story = {
     }
   ],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Component designs"))
+    await userEvent.click(source(canvasElement, "Local components"))
     await userEvent.click(source(canvasElement, "UI kit"))
     await userEvent.click(source(canvasElement, "Pages"))
     await waitFor(() => expect(source(canvasElement, "Pages")).toHaveAttribute("aria-expanded", "true"))
@@ -106,7 +106,7 @@ export const Pages: Story = {
 export const LibraryComponents: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Component designs"))
+    await userEvent.click(source(canvasElement, "Local components"))
   }
 }
 
@@ -199,7 +199,7 @@ export const ListedByHand: Story = {
 export const ComponentMenu: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Component designs"))
+    await userEvent.click(source(canvasElement, "Local components"))
     const kit = source(canvasElement, "UI kit").closest("section")!
     const button = within(kit as HTMLElement).getByRole("button", { name: "Button" })
     const box = button.getBoundingClientRect()
@@ -224,7 +224,7 @@ export const FailingToDraw: Story = {
     }
   ],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Component designs"))
+    await userEvent.click(source(canvasElement, "Local components"))
     const [card] = await within(canvasElement).findAllByLabelText("Fails to draw")
     await userEvent.hover(card!.closest("button")!)
     const about = await within(document.body).findByRole("dialog", undefined, { timeout: 3000 })
@@ -240,7 +240,9 @@ export const AddingWithNothingSelected: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Stat card" }))
-    const toast = await within(document.body).findByText("Select a design or layer first, or drag it onto a design")
+    const toast = await within(document.body).findByText(
+      "Select a screen, component or layer first, or drag it onto one"
+    )
     await userEvent.hover(toast)
   }
 }
@@ -260,7 +262,7 @@ export const StorybookLink: Story = {
     )
   ],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Component designs"))
+    await userEvent.click(source(canvasElement, "Local components"))
   }
 }
 
@@ -269,7 +271,7 @@ export const OpeningStorybook: Story = {
   loaders: [openComponents],
   beforeEach: keepingLinks,
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Component designs"))
+    await userEvent.click(source(canvasElement, "Local components"))
     service.latency = forever
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Open Button in Storybook" }))
     await within(document.body).findByText("Opening Storybook…")
@@ -326,7 +328,7 @@ export const LibraryStylesMissing: Story = {
     }
   ],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Component designs"))
+    await userEvent.click(source(canvasElement, "Local components"))
   }
 }
 

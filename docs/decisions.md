@@ -96,6 +96,14 @@ still need your call.
   button is Apply, with a line saying Save writes it to the stylesheet. Don't save writes nothing. A failed write names
   the token and the file in the save notice, the status bar and the Tokens panel, where its row is marked and a banner
   offers Try again; a stylesheet changed since it was read fails the same way.
+- **Save takes out a token value that's been undone back to nothing** (PAR-420): a value given to a theme that had none
+  (a dark `--radius`), saved and then undone, is written as a `TokenWrite` without a value, rather than as an empty
+  value, so a value that's empty on purpose can't be mistaken for one taken out. `writeTokenChanges` takes the
+  declaration out of every block that would hold it (the theme's `.dark` and `[data-theme="dark"]` alike, but no `:root`
+  under `@media`), with its line, and a rule left with nothing in it goes too, with one of the blank lines around it, so
+  a value Save added in a new block leaves the file as it was. A rule that keeps only a comment stays, and so do the
+  at-rules around one taken out, which Save never adds. The frames' overrides are unchanged: compared with the CSS the
+  canvas loaded, so the render window is assumed to have loaded the same CSS.
 - **Closing a tab or quitting with unsaved changes asks** Save, Don't save or Cancel, with Save focused so Enter does
   it. Quitting with several projects unsaved asks once, with Save all.
 - **Changes from outside reload as one undoable step.** That covers agents, git and text editors. A file with unsaved
@@ -3196,6 +3204,26 @@ You chose these on 2026-11-04 from the new-user audit
   out (`detection.include`, "List it") stays, as you didn't ask for that to go.
 - **A project file with an `exclude` list still opens.** It's read and dropped, so the next save leaves it out, rather
   than the file failing to open over a list no version reads now.
+
+## The labels that follow the glossary (PAR-538)
+
+Calls made on 2026-11-04 while renaming the editor's labels to the glossary above, for you to approve in the pull
+request's Storybook preview:
+
+- **The modes menu offers "Only Desktop Light", by the mode's name,** rather than the issue's "Only this one", which
+  says nothing beside Show all. The inspector's Modes section already said "Only Desktop Light". The preview a board
+  shows first is marked "Shown first", and the others offer Show first.
+- **The first state shows its name alone.** With Base gone, the state menu, the every-state grid's labels and the States
+  section show no tag beside the first state rather than a count of changes, and a field's reset says "Reset to
+  Default", or whatever the first state is called.
+- **A label names the kind when it knows it,** counted for several ("Delete 2 components", "Move 3 screens and
+  components", screens first), and says "screen or component" when it can't. Export stays short in the File menu (Export
+  selected…, Export all…), and Interact is "Interact with previews".
+- **A screen's icon is lucide's AppWindow,** which reads as a window of the app.
+- **The Components panel calls the project's own components Local components,** as Figma's assets do, and a library's
+  ready-made ones Ready-made components, so neither is "Component designs".
+- **Left as they were:** the explorations under `apps/desktop/src/renderer/explorations/`, which are design sketches;
+  the agent tools' and `packages/core`'s messages ("No component design"), which agents read; and "Pasted" (PAR-546).
 
 ## Starting on an empty canvas is one visible step (PAR-541)
 

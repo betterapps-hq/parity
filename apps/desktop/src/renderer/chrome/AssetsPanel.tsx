@@ -63,7 +63,7 @@ import { hasStories, openInStorybook } from "./storybook.ts"
 /** Adds an item where the selection is, or says what to select first. */
 function addAtSelection(session: ProjectSession, item: InsertItem): void {
   if (!session.selection.get().design) {
-    toast.info("Select a design or layer first, or drag it onto a design")
+    toast.info("Select a screen, component or layer first, or drag it onto one")
     return
   }
   if (!insertAtSelection(session, item)) toast.info("Select a layout, or a layer to add it after")
@@ -211,7 +211,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
   if (designs.length > 0) {
     list.push({
       id: "designs",
-      title: "Component designs",
+      title: "Local components",
       icon: <Diamond className="size-3.5" style={{ color: kindColors.component }} />,
       origin: "design",
       families: [
@@ -236,7 +236,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
     const designed: Family[] = offered.length
       ? [
           {
-            name: "Component designs",
+            name: "Ready-made components",
             heading: true,
             items: offered.map((design) => ({
               key: design.id,
@@ -735,7 +735,9 @@ export function IconsPanel() {
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-10 text-center text-sm text-muted-foreground">
         <Smile className="size-6" />
-        <p>Add an icon library to drop icons into designs. They render with the project&apos;s own copy.</p>
+        <p>
+          Add an icon library to drop icons into screens and components. They render with the project&apos;s own copy.
+        </p>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => void installLibrary(session, { id: "lucide", name: "Lucide" })}>
             <Plus /> Add Lucide

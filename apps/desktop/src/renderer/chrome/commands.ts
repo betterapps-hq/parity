@@ -115,15 +115,16 @@ export async function exportImages(scope: "selection" | "all", session = activeS
   let designs: string[] = selected ? [selected] : []
   if (scope === "all") designs = store.getEntries().map((entry) => entry.key)
   if (designs.length === 0) {
-    toast.info(scope === "all" ? "There are no designs to export" : "Select a design to export it")
+    toast.info(
+      scope === "all" ? "There are no screens or components to export" : "Select a screen or component to export it"
+    )
     return
   }
   const folder = await window.canvasHost.pickFolder("Export images to")
   if (!folder) return
   const scale = getPreferences().exportScale
-  const progress = toast.loading(
-    designs.length === 1 ? "Exporting the design…" : `Exporting ${designs.length} designs…`
-  )
+  const named = designs.length === 1 ? store.getEntry(designs[0]!)?.container.name : undefined
+  const progress = toast.loading(`Exporting ${named ?? store.designsLabel(designs)}…`)
   try {
     // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
     const { files, warnings } = await window.canvasHost.request("designs.export", {
@@ -138,7 +139,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
       action: files[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(files[0]!) } : undefined
     })
     if (warnings.length > 0)
-      toast.warning("Some frames had problems", {
+      toast.warning("Some previews had problems", {
         description: warnings.join("\n"),
         // One warning to a line.
         classNames: { description: "whitespace-pre-line" }

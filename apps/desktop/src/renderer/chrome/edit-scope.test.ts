@@ -30,14 +30,14 @@ describe("the note above edits that change the design", () => {
 
   it("names the state being edited", () => {
     expect(baseDesignNote(pricing, pricing.states[1]!, "File, alt text and fit")).toBe(
-      "File, alt text and fit change the design in every state, not only Monthly."
+      "File, alt text and fit change every state, not only Monthly."
     )
   })
 
   it("names the variant the board shows", () => {
     const large = { ...pricing, view: { variants: { size: "large" } } }
     expect(baseDesignNote(large, large.states[0]!, "Its state, Reset all, Swap and Detach")).toBe(
-      "Its state, Reset all, Swap and Detach change the design in every variant, not only Large."
+      "Its state, Reset all, Swap and Detach change every variant, not only Large."
     )
   })
 })

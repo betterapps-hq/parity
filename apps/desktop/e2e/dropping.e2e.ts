@@ -116,7 +116,7 @@ describe("dropping image files", () => {
     const { screen, page } = await app.showEmptyCanvas()
     const before = await app.designs()
     const shown = await app.dropFiles([files.svg], screen, async () => {
-      await expect.poll(() => hint().innerText()).toBe("New design with the image")
+      await expect.poll(() => hint().innerText()).toBe("New screen with the image")
       return app.page.locator("[data-drop-corner]").count()
     })
     expect(shown).toBe(1)

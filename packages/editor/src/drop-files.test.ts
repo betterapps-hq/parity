@@ -108,8 +108,8 @@ describe("what a drop says and is called", () => {
   it("says beside the pointer what a drop there does", () => {
     expect(dropHint(1, "layout")).toBe("Add the image here")
     expect(dropHint(2, "layout")).toBe("Add 2 images here")
-    expect(dropHint(1, "canvas")).toBe("New design with the image")
-    expect(dropHint(3, "canvas")).toBe("New design with 3 images")
+    expect(dropHint(1, "canvas")).toBe("New screen with the image")
+    expect(dropHint(3, "canvas")).toBe("New screen with 3 images")
     expect(dropHint(1, "none")).toBe("Drop onto a layout, or onto the empty canvas")
     expect(dropHint(0, "layout")).toBe("Only PNG, JPEG, GIF, WebP or SVG images can be dropped")
   })

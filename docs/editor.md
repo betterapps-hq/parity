@@ -312,7 +312,7 @@ menubar's command. The Layers panel's menu is unchanged.
   at an entry, or reaching it with the arrow keys, outlines its layer in the frame that was right-clicked; choosing it
   selects it there, and choosing the design selects the design.
 - **Paste here** pastes what's on the clipboard where the pointer was, whatever's selected, as one undo step ("Paste
-  layer here", "Paste design here"), and selects the copies.
+  layer here", "Paste screen here"), and selects the copies.
   - Designs go on the canvas with their top left at the pointer, sitting as they sat together. Notes do the same.
   - Layers, text and images go into the deepest of the design's own layouts under the pointer, in the frame there, at
     the slot under the pointer, where a dragged layer would land (`slotAt`). A hidden layer isn't a slot. A layout
@@ -1657,6 +1657,10 @@ decisions.md's "Saving is explicit" sets out.
   in place, but nothing is written until Save. Don't save, when closing a tab or quitting, leaves the stylesheet as it
   was. With Save automatically on, token values are written about 300ms after the edit, as files are.
 - **Undo after a save** puts the value back on the canvas, and the next Save writes the value the stylesheet had before.
+  A value given to a theme that had none (a dark `--radius`), saved and then undone, is taken out of the stylesheet
+  again by the next Save (PAR-420), from every block of that theme that declares it, and a block left empty goes with
+  it, so a value Save added in a new `.dark` leaves the file as it was. Frames drawn offscreen stop drawing it once it's
+  undone, without a reopen.
 - **Clean again.** A file is clean whenever it's back to what was saved: by undoing, as before, and now also by changing
   it back. Turning Show every state on and off again, or showing another state and then the base one, leaves the file
   clean, also when the file wrote its view out in full (`"allStates": false`, the base state's id). A view is kept tidy:
@@ -1671,8 +1675,8 @@ decisions.md's "Saving is explicit" sets out.
   here too, counts as applied. A design the call created conflicts when one with its id was added here, and modes the
   call set conflict when they changed here since. Any conflict refuses the whole call: nothing changes, not its other
   designs or its tokens either, and the agent is told which designs, or that the modes, conflicted.
-- **The token editor** says this before anything changes: "Every frame shows it at once. Saving the project writes it to
-  src/index.css, and Undo takes it back." Its button is Apply.
+- **The token editor** says this before anything changes: "Every preview shows it at once. Saving the project writes it
+  to src/index.css, and Undo takes it back." Its button is Apply.
 - **A theme's value goes where the stylesheet keeps it** (PAR-468): the preview and the save find a theme's blocks by
   the rules the Tokens tab read it with (`themeOfSelector` in `packages/tokens/src/policy.ts`), so `dark` is `.dark`,
   `[data-theme="dark"]` or `html.dark` alike. Every block that declares the token gets the new value, so a later
@@ -1694,20 +1698,22 @@ the package's `token-edits.ts` (`withTokenEdits`, which keeps the value each tok
 the design store its writer; `workspace.ts` makes one per guest, so a guest loaded again shows the unsaved values too.
 The agent's call is `agent/handlers.ts` (`apply`), the panel `chrome/TokensPanel.tsx`. Saving writes the values into the
 stylesheet with `writeTokenChanges` in `packages/tokens/src/stylesheet.ts`, which `saveTokens` in
-`apps/desktop/src/utility/projects.ts` applies as a project edit.
+`apps/desktop/src/utility/projects.ts` applies as a project edit. A `TokenWrite` without a value is a value taken out,
+which `writeTokenChanges` hands to `removeCustomProperty` there.
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (45 with the gestures below): undo and redo with their labels; each change
+- `packages/editor/src/history.test.ts` (46 with the gestures below): undo and redo with their labels; each change
   without a gesture a step of its own; the 200-step limit; what a board shows left alone by Undo and not recorded; token
   edits undone, redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value
-  written back after undoing past a save; a failed write naming the token and the file and clearing on success; several
-  tokens failing together; Save starting again after a failed write was undone back to the file being saved; an agent's
-  call as one step; undoing a merged call back to just before it, keeping an edit made during it; the modes a call set
-  undone with its designs; Show every state off again leaving the file clean; another state and back from a file with
-  its view written out in full; a file that differs in more than its view staying unsaved until undone; and files
-  changed on disk taken as saved, unless they have unsaved changes; and no token override left once an edit is undone
-  (PAR-465).
+  written back after undoing past a save; a dark `--radius` saved, undone and saved again, through the real writer,
+  leaving the stylesheet as it was and no override for offscreen frames once undone ("take a value a theme didn't have
+  out of the stylesheet", PAR-420); a failed write naming the token and the file and clearing on success; several tokens
+  failing together; Save starting again after a failed write was undone back to the file being saved; an agent's call as
+  one step; undoing a merged call back to just before it, keeping an edit made during it; the modes a call set undone
+  with its designs; Show every state off again leaving the file clean; another state and back from a file with its view
+  written out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk
+  taken as saved, unless they have unsaved changes; and no token override left once an edit is undone (PAR-465).
 - `packages/editor/src/design-changes.test.ts` (14): changing, moving, adding and deleting designs, and notes; merging
   an agent's call: two calls changing different designs in one file both kept, the person's edit to another design kept,
   a design changed on both sides refused by name with nothing applied, tokens included ("refuses a design changed by
@@ -1718,27 +1724,40 @@ Tests:
 - `packages/agent/src/run.test.ts` (2 of its 29): a call gives each design it changed, created or deleted with the
   design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
   `editId`.
-- `apps/desktop/src/renderer/design-store.test.ts` (11 of its 20): Save writing the files and the stylesheet, saving
-  automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, and
-  library designs never written.
-- `packages/tokens/src/stylesheet.test.ts` (11 of its 14): a value replaced in place, keeping comments and formatting; a
-  theme's own declaration; a missing one added at the block's indentation, or in a new block; no match on a prefix or a
-  nested block; a semantic token written to the root and a theme's value to its class; a theme scale token to the
-  `@theme` block that declares it, else a new one; a token the stylesheet doesn't declare added to the root; a theme
-  written to its `[data-theme="dark"]` block ("by attribute as much as by class"); a `:root` inside a media query left
-  alone; and both `.dark` and `[data-theme="dark"]` written, read back as the new value ("writes every block").
+- `apps/desktop/src/renderer/design-store.test.ts` (12 of its 21): Save writing the files and the stylesheet, saving
+  automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, library
+  designs never written, and a dark `--radius` undone after a save written to the stylesheet without a value.
+- `packages/tokens/src/stylesheet.test.ts` (15 of its 18): taking a value out (PAR-420): one added to an existing block
+  taken out again, leaving the stylesheet as it was; a block left empty taken out with it, a new `.dark` or `@theme`
+  block leaving the file as it was, between other rules and on one line too; every block of the theme losing the
+  declaration and keeping the rest; and a longer name, a nested block and a `:root` inside a media query left alone,
+  with nothing to take out leaving the file as it is. Writing: a value replaced in place, keeping comments and
+  formatting; a theme's own declaration; a missing one added at the block's indentation, or in a new block; no match on
+  a prefix or a nested block; a semantic token written to the root and a theme's value to its class; a theme scale token
+  to the `@theme` block that declares it, else a new one; a token the stylesheet doesn't declare added to the root; a
+  theme written to its `[data-theme="dark"]` block ("by attribute as much as by class"); a `:root` inside a media query
+  left alone; and both `.dark` and `[data-theme="dark"]` written, read back as the new value ("writes every block").
 - `apps/desktop/src/renderer/guest.test.ts` (3 of its 6), in Chrome: `previewToken` editing a theme by class and by
   attribute, adding a value a theme lacks with the selector it already uses, and leaving a `prefers-color-scheme` block
   alone when previewing the default.
 - `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, and the
   same CSS read alike by libgen and the app.
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
-  wasn't there, the token list with edits, and the overrides offscreen frames get (PAR-465).
+  wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
+  get (PAR-465).
 - `apps/desktop/src/renderer/tokens-store.test.ts` (3), in Chrome: an edit previewed in the stylesheet in both themes,
   undo and redo taking it back and forth, Save writing it; a theme value taken out again on undo, with no preview left
   for frames drawn elsewhere; and a guest loaded again showing, then saving, an unsaved edit.
 - `chrome/TokensPanel.stories.tsx`: ReferenceToAnotherToken (an edit is one undo step, unsaved) and SaveFails (the
   panel's message and the marked row), both played in Storybook on 2026-10-29.
+
+Taking a value out was checked in an isolated copy of the app on a copy of the example project on 2026-11-04: a dark
+`--radius` set with `SetTokens` from `parity exec`, saved with Ctrl+S, undone with Ctrl+Z (`parity status` then named
+`radius dark` unsaved) and saved again left `src/index.css` byte for byte as it was. Gap: frames drawn offscreen are
+right when the render window loaded the guest before the first save, as it does when the canvas opens zoomed out to
+bitmaps. A render window that first loads the guest after a save starts from the saved CSS, while the overrides are
+still worked out against the CSS the canvas loaded, so an edit undone back past that save, a value taken out or put
+back, shows the saved value there until the project reopens.
 
 ### One undo step per gesture (PAR-441)
 
@@ -1771,13 +1790,13 @@ reaches the store through `StyleSections.tsx`'s `fieldEdits`, `LayerPanel.tsx`, 
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (10 of its 45), without Electron: a drag, a resize, a scrub and a run of arrow
+- `packages/editor/src/history.test.ts` (10 of its 46), without Electron: a drag, a resize, a scrub and a run of arrow
   presses, each with five-second pauses between its changes, as one step labelled by its first change, undone to where
   it began with the file clean, and redone; a gesture that changes nothing adding no step; one that comes back where it
   began leaving none, and going on from there starting its step again; one that comes back keeping what Redo had, which
   a gesture ended elsewhere doesn't; another change, an undo or the gesture's end ending its step; two gestures' changes
   kept apart; and a file reloaded mid-gesture as a step of its own, between the gesture's.
-- `apps/desktop/src/renderer/design-store.test.ts` (2 of its 20): a gesture's changes five seconds apart as one step
+- `apps/desktop/src/renderer/design-store.test.ts` (2 of its 21): a gesture's changes five seconds apart as one step
   until it ends, and each gesture its own id; and a live drag written as an absolutely placed layer's is, taking a side
   back to the checkpoint mid-drag, as one step, and as none once Escape reverts it. Its checkpoint tests are under
   "Resize handles".
@@ -1795,7 +1814,7 @@ tldraw's drag of a board isn't covered.
 
 ### Edits in the state and variant shown (PAR-164)
 
-The inspector's Editing control says where edits go: in the base state ("Editing Monthly changes the design") they
+The inspector's Editing control says where edits go: in the base state ("Editing Monthly changes every state") they
 change the design; in another state, or with a variant other than the default shown on a component's board, they're kept
 as that state's or variant's changes ("changes only this state", "changes only the Large variant").
 
@@ -1881,9 +1900,6 @@ icon, and Ctrl+Shift+H on Falling showed it and turned `showFalling`'s default o
 Yearly and $24 in Monthly; the notes showed in Yearly and not in Monthly; and 12 typed in a number param with no default
 gave the number 12. Known limits:
 
-- A value given to a theme that had none (a dark `--radius`), saved, then undone, has nothing Save can write: the canvas
-  takes it out, but the stylesheet keeps it until it's removed by hand. Frames drawn offscreen (bitmaps, agents'
-  renders, exports) no longer keep it: see "Offscreen frames draw what the canvas draws" below.
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
 
 ## Tokens
@@ -2096,7 +2112,7 @@ have taken; and they keep it as files change, the checker adds one and the perso
 ### A library's component designs in the Components panel (PAR-125)
 
 The component designs in a dependency's `.lib.par` canvas show in that library's section of the Components panel, under
-"Component designs", before its components. Screens on the library's canvas aren't listed; they're the author's own
+"Ready-made components", before its components. Screens on the library's canvas aren't listed; they're the author's own
 showcase.
 
 - **They're named by the library:** `settings-row` is `nova/settings-row`, so it never clashes with the project's own
@@ -2116,7 +2132,7 @@ screens left out). `packages/project/src/index.test.ts` (1: a dependency's canva
 `apps/desktop/src/renderer/design-store.test.ts` (1: a project design reaches a library design it places, which isn't an
 entry and isn't saved). Gaps: the panel's section has no automated test. It was checked in an isolated copy of the app
 on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen: the library's section
-listed the design under Component designs and left the screen out.
+listed the design under Ready-made components and left the screen out.
 
 ### Placing a library's design, linked or detached (PAR-126)
 
@@ -2769,6 +2785,43 @@ above.
 
 How the app's window holds the canvas and the panels around it.
 
+### One word for each thing (PAR-538)
+
+The editor's labels, menus, hints, toasts and undo labels use the glossary in [decisions.md](decisions.md), "Starting
+from scratch, and what things are called (PAR-537)":
+
+- **A thing on the canvas is a screen or a component,** never a design. A label that knows which says so ("Rename
+  screen", "Delete 2 components", "Move 3 screens and components"); one that can't says both ("Select a screen or
+  component on the canvas or in Layers", "Next screen or component"). The inspector's Design tab keeps its name. A menu
+  item that acts on any selection stays short: Export selected…, Export all….
+- **A mode's tile on a board is a preview:** "Drag to resize this preview", "Resize preview", "Show beside the first
+  preview", the modes menu's Previews, "Some previews had problems" after an export, and "12 previews checked" in the
+  Accessibility tab. Frames a second, and the accessibility rule about HTML frames, are still frames.
+- **Main is only a main component.** The preview a board shows first is "Shown first", and the modes menu offers Show
+  first and Only Desktop Light (the mode's own name), as the inspector's Modes section does. The project's first mode is
+  still Primary.
+- **The first state is named, never Base.** The state menu, the state labels beside the every-state grid and the States
+  section show its name alone, without a count of changes; a field's reset says "Reset to Default", or the first state's
+  own name; and the Editing control says "changes every state".
+- **Undoing a view change has no step, but its label says what changed** ("Show Dark", "Show every state"), for anything
+  that lists it later.
+- **A screen's icon is lucide's AppWindow,** a window with its title bar, and a component's is still Component. The
+  status bar says how many components are in code ("587 components in code"), the screen inspector's section that finds
+  repeated parts is Repeated parts, and the Components panel lists the project's own as Local components and a library's
+  ready-made ones as Ready-made components.
+
+Code: `kindName`, `kindTitle` and `kindsName` in `packages/editor/src/kind-names.ts` name screens and components for a
+label; `DesignStore.designsLabel` names selected ones by key, and `modeNames` in
+`apps/desktop/src/renderer/canvas/view.ts` names modes.
+
+Tests: `packages/editor/src/kind-names.test.ts` (3: one by kind, several of one kind, a mix with screens first),
+`packages/editor/src/drop-files.test.ts` ("New screen with the image"),
+`apps/desktop/src/renderer/chrome/edit-scope.test.ts` ("change every state"). End to end,
+`apps/desktop/e2e/keyboard.e2e.ts` (the View menu and the Keyboard shortcuts dialog), `selecting.e2e.ts` ("Move
+screen"), `dropping.e2e.ts` and `inserting.e2e.ts` (Local components). The stories that show these labels are the modes
+menu, the inspector's Design tab, the States section, the board and the status bar. Gaps: the strings themselves are
+checked by reading them, not by tests, as [conventions.md](conventions.md) says of prose.
+
 ### Installed app updates (PAR-160)
 
 Windows NSIS and Linux AppImage installations check GitHub Releases on startup and through Help > Check for updates.
@@ -2980,7 +3033,7 @@ Tests:
   set leaves it out; only a guest's stylesheet takes overrides; and a set that threw partway doesn't stop the one before
   it being laid over again.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 3): `previews()` empty once an edit is undone.
-- `apps/desktop/src/renderer/design-store.test.ts` (1 of its 18): the library designs the snapshot carries.
+- `apps/desktop/src/renderer/design-store.test.ts` (1 of its 21): the library designs the snapshot carries.
 
 Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by reading; the end-to-end tests run in
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs

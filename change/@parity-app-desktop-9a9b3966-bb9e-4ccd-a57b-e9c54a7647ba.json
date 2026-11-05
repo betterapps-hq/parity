@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Labels use one word for each thing: screens and components rather than designs, previews for a board's per-mode tiles, Show first rather than Main, and the first state's own name rather than Base",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

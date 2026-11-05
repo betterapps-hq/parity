@@ -249,7 +249,7 @@ export const ShowsComponents: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    await userEvent.click(statusBar().getByRole("button", { name: /components$/ }))
+    await userEvent.click(statusBar().getByRole("button", { name: /components in code$/ }))
     await expect(await body().findByRole("tab", { name: /Components/, selected: true })).toBeVisible()
   }
 }

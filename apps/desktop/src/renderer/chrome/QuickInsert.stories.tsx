@@ -94,6 +94,6 @@ export const NothingToInsertInto: Story = {
   play: async () => {
     await openWith("badge")()
     await userEvent.keyboard("{Enter}")
-    await holdToast("Select a design or a layout to insert into")
+    await holdToast("Select a screen, component or layout to insert into")
   }
 }

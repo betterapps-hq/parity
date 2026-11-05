@@ -57,6 +57,9 @@ interface FieldProps {
 
 const MixedContext = createContext(false)
 
+/** The first state's name, which a field's reset goes back to: Default unless it's been renamed. */
+export const FirstStateName = createContext("Default")
+
 /**
  * What the number fields inside edit, as a key that changes when that does: the selection, for the inspector (see
  * `selectionKey`). A field keeps focus while the selection changes under it, so a run of its Up and Down presses ends
@@ -93,6 +96,7 @@ const MessageContext = createContext<((id: string, message: FieldMessage | undef
  * the row.
  */
 export function Field({ label, hint, changed, mixed = false, onReset, children }: FieldProps) {
+  const firstState = useContext(FirstStateName)
   const scrubs = useRef(new Set<Scrub>())
   const [scrub, setScrub] = useState<Scrub>()
   const register = useCallback((added: Scrub) => {
@@ -140,12 +144,12 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
         </ScrubContext>
       </div>
       {changed && onReset ? (
-        <Hint label="Reset to the base design">
+        <Hint label={`Reset to ${firstState}`}>
           <button
             type="button"
             onClick={onReset}
             className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label={`Reset ${label} to the base design`}
+            aria-label={`Reset ${label} to ${firstState}`}
           >
             <RotateCcw className="size-3" />
           </button>

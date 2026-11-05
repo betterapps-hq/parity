@@ -9,6 +9,7 @@ import {
   toggleHidden,
   withFreshIds
 } from "@parity-app/core"
+import { kindName } from "@parity-app/editor"
 import { ChevronRight, EyeOff, FileWarning, Plus, MonitorSmartphone, PenLine, StickyNote } from "lucide-react"
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useState } from "react"
 import {
@@ -541,7 +542,10 @@ type Session = ReturnType<typeof useProject>
 
 function rename(session: Session, row: Row, name: string): void {
   if (!row.node) {
-    session.store.updateContainer(row.design.key, "Rename design", (container) => ({ ...container, name }))
+    session.store.updateContainer(row.design.key, `Rename ${kindName(row.design.container.kind)}`, (container) => ({
+      ...container,
+      name
+    }))
     return
   }
   const nodeId = row.node.id
