@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Draw a component that puts its style on an element inside it in a div that takes the style, so a size applies to the whole component",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

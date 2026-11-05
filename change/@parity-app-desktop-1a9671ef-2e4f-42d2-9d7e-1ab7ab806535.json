@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Distance labels on the canvas sit beside the measuring line, in black, so the line shows even between layers a few pixels apart",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

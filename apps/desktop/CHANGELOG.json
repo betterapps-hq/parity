@@ -2,6 +2,41 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 06:17:53 GMT",
+      "version": "0.8.0",
+      "tag": "@parity-app/desktop_v0.8.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "bd30a35224f70fe6f4e0f53dc5c3998b2ef7a72f",
+            "comment": "Distance labels on the canvas sit beside the measuring line, in black, so the line shows even between layers a few pixels apart"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "034d60dcd208ceafea5b9d283c5e5bb4b6139dca",
+            "comment": "Draw the canvas sharp once the zoom settles, rather than leaving it blurry after zooming in from far out"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dc8bb321bcd559d93f9f97d594d5f7a88cb65ac4",
+            "comment": "The inspector's rows end at one right edge, with a field's reset arrow beside it"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "32313f69129e82d8ca5d65e4cba022f41b70e549",
+            "comment": "Draw a component that puts its style on an element inside it in a div that takes the style, so a size applies to the whole component"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 05:14:33 GMT",
       "version": "0.7.1",
       "tag": "@parity-app/desktop_v0.7.1",

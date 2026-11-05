@@ -1,8 +1,25 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 05:14:33 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 06:17:53 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.8.0
+
+Thu, 05 Nov 2026 06:17:53 GMT
+
+### Minor changes
+
+- Draw a component that puts its style on an element inside it in a div that takes the style, so a size applies to the
+  whole component (ajcraswell@gmail.com)
+
+### Patches
+
+- Distance labels on the canvas sit beside the measuring line, in black, so the line shows even between layers a few
+  pixels apart (ajcraswell@gmail.com)
+- Draw the canvas sharp once the zoom settles, rather than leaving it blurry after zooming in from far out
+  (ajcraswell@gmail.com)
+- The inspector's rows end at one right edge, with a field's reset arrow beside it (ajcraswell@gmail.com)
 
 ## 0.7.1
 
