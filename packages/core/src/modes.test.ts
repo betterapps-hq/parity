@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vite-plus/test"
-import { defaultModeSettings, parseModeSettings, resolveModes, uniqueId } from "./modes.ts"
+import {
+  defaultModeSettings,
+  type ModeSettings,
+  modeAppearance,
+  parseModeSettings,
+  previewMode,
+  type ResolvedMode,
+  resolveModes,
+  uniqueId,
+  type VariableOption
+} from "./modes.ts"
 
 describe("default modes", () => {
   it("are desktop light, desktop dark, tablet light and mobile light", () => {
@@ -28,6 +38,57 @@ describe("parseModeSettings", () => {
     const settings = structuredClone(defaultModeSettings) as unknown as { modes: { values: object }[] }
     settings.modes[0]!.values = { theme: "sepia" }
     expect(() => parseModeSettings(settings)).toThrow('/modes/0/values/theme: "sepia" is not an option of Theme')
+  })
+})
+
+describe("previewMode", () => {
+  const named = (settings: ModeSettings, appearance: "light" | "dark") =>
+    previewMode(resolveModes(settings), appearance)?.id
+
+  it("is the primary mode when it matches, else the matching one with its other options", () => {
+    expect(named(defaultModeSettings, "light")).toBe("desktop-light")
+    expect(named(defaultModeSettings, "dark")).toBe("desktop-dark")
+  })
+
+  it("keeps the primary mode's viewport over a matching mode listed first", () => {
+    const settings: ModeSettings = {
+      ...defaultModeSettings,
+      modes: [
+        { id: "desktop-light", name: "Desktop Light", values: { viewport: "desktop", theme: "light" } },
+        { id: "mobile-dark", name: "Mobile Dark", values: { viewport: "mobile", theme: "dark" } },
+        {
+          id: "desktop-dark-ar",
+          name: "Desktop Dark Arabic",
+          values: { viewport: "desktop", theme: "dark", locale: "ar" }
+        }
+      ]
+    }
+    expect(named(settings, "dark")).toBe("desktop-dark-ar")
+    // With no other mode on its viewport, the first that matches.
+    settings.modes.pop()
+    expect(named(settings, "dark")).toBe("mobile-dark")
+  })
+
+  it("is the primary mode when none matches or the project has no theme", () => {
+    const lightOnly = { ...defaultModeSettings, modes: [defaultModeSettings.modes[0]!, defaultModeSettings.modes[2]!] }
+    expect(named(lightOnly, "dark")).toBe("desktop-light")
+    const noTheme: ModeSettings = {
+      version: 1,
+      variables: defaultModeSettings.variables.filter((variable) => variable.kind !== "theme"),
+      modes: [{ id: "desktop", name: "Desktop", values: { viewport: "desktop" } }]
+    }
+    expect(named(noTheme, "dark")).toBe("desktop")
+    expect(named({ ...noTheme, modes: [] }, "dark")).toBeUndefined()
+  })
+
+  it("reads a mode as dark by its theme option's id, name or class", () => {
+    const theme = (option: VariableOption): ResolvedMode["options"] => [
+      { variable: { id: "theme", name: "Theme", kind: "theme", options: [option] }, option }
+    ]
+    expect(modeAppearance({ options: theme({ id: "night", name: "Night", className: "theme-dark" }) })).toBe("dark")
+    expect(modeAppearance({ options: theme({ id: "dark-blue", name: "Midnight" }) })).toBe("dark")
+    expect(modeAppearance({ options: theme({ id: "darkest", name: "Darkest" }) })).toBe("light")
+    expect(modeAppearance({ options: [] })).toBeUndefined()
   })
 })
 

@@ -6,73 +6,13 @@ import {
   type NodeStyle,
   type NoteSpec
 } from "@parity-app/core"
-import type { Flow } from "@parity-app/editor"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import { SelectionStore } from "../selection.ts"
-import { arrowOf, type Drawn, nudgeLayers, nudgeSelection, reorder, reorderStep } from "./nudge.ts"
+import { nudgeSelection } from "./nudge.ts"
 
-const row: Flow = { direction: "row", wraps: false, reversed: false, linesReversed: false }
-const column: Flow = { direction: "column", wraps: false, reversed: false, linesReversed: false }
-
-describe("the arrow keys", () => {
-  it("knows the arrow keys", () => {
-    expect(arrowOf("ArrowLeft")).toBe("left")
-    expect(arrowOf("ArrowDown")).toBe("down")
-    expect(arrowOf("Enter")).toBeUndefined()
-  })
-})
-
-describe("how far an arrow moves a layer in a layout", () => {
-  it("moves one place along a row or column, and not across it", () => {
-    expect(reorderStep(row, "left")).toBe(-1)
-    expect(reorderStep(row, "right")).toBe(1)
-    expect(reorderStep(row, "up")).toBeUndefined()
-    expect(reorderStep(column, "up")).toBe(-1)
-    expect(reorderStep(column, "down")).toBe(1)
-    expect(reorderStep(column, "left")).toBeUndefined()
-  })
-
-  it("follows the layout's order on screen when it's reversed", () => {
-    expect(reorderStep({ ...row, reversed: true }, "right")).toBe(-1)
-    expect(reorderStep({ ...column, reversed: true }, "up")).toBe(1)
-  })
-
-  it("moves a row's worth of places up or down a grid", () => {
-    const grid: Flow = { direction: "row", wraps: true, reversed: false, linesReversed: false, stride: 3 }
-    expect(reorderStep(grid, "right")).toBe(1)
-    expect(reorderStep(grid, "down")).toBe(3)
-    expect(reorderStep(grid, "up")).toBe(-3)
-  })
-})
-
-describe("reordering", () => {
-  const children = (...ids: string[]) => ids.map((id) => ({ id, inFlow: !id.startsWith("x") }))
-
-  it("moves a layer one place, and leaves one at the end where it is", () => {
-    expect(reorder(children("a", "b", "c"), new Set(["a"]), 1)).toEqual(["b", "a", "c"])
-    expect(reorder(children("a", "b", "c"), new Set(["c"]), 1)).toEqual(["a", "b", "c"])
-    expect(reorder(children("a", "b", "c"), new Set(["a"]), -1)).toEqual(["a", "b", "c"])
-  })
-
-  it("moves several layers together, and stops them all at the end", () => {
-    expect(reorder(children("a", "b", "c", "d"), new Set(["b", "c"]), 1)).toEqual(["a", "d", "b", "c"])
-    expect(reorder(children("a", "b", "c", "d"), new Set(["a", "c"]), 1)).toEqual(["b", "a", "d", "c"])
-    expect(reorder(children("a", "b", "c"), new Set(["b", "c"]), 1)).toEqual(["a", "b", "c"])
-  })
-
-  it("steps over absolutely placed and hidden layers, which keep their place in the list", () => {
-    expect(reorder(children("a", "x1", "b", "c"), new Set(["a"]), 1)).toEqual(["b", "x1", "a", "c"])
-  })
-
-  it("moves a row down a grid only when there's a row below", () => {
-    expect(reorder(children("a", "b", "c", "d", "e"), new Set(["a"]), 3)).toEqual(["b", "c", "d", "a", "e"])
-    expect(reorder(children("a", "b", "c", "d", "e"), new Set(["c"]), 3)).toEqual(["a", "b", "c", "d", "e"])
-    expect(reorder(children("a", "b", "c", "d", "e"), new Set(["e"]), -3)).toEqual(["a", "e", "b", "c", "d"])
-  })
-})
-
-// Moving an absolutely placed layer by its insets is `shiftInsets`, tested in insets.test.ts.
+// The rules nudging follows, how far each arrow moves what, are `@parity-app/editor`'s, tested in move-resize.test.ts.
+// These are the presses on the real stores: what's selected moving, and each run of presses as one undo step.
 
 const text = (id: string, extra: { style?: NodeStyle } = {}): DesignNode => ({ type: "text", id, text: id, ...extra })
 
@@ -99,75 +39,8 @@ function card(): ContainerSpec {
   }
 }
 
-const nothingDrawn: Drawn = { flow: () => undefined, insets: () => undefined }
 const order = (container: ContainerSpec, parent = "root") =>
   (findNode(container.root, parent) as Extract<DesignNode, { type: "layout" }>).children.map((child) => child.id)
-
-describe("nudging a design's layers", () => {
-  const base = card().states[0]!
-
-  it("reorders a layer along its layout, and leaves it across", () => {
-    const right = nudgeLayers(card(), ["save"], base, "right", false, nothingDrawn).container
-    expect(order(right, "actions")).toEqual(["cancel", "save"])
-    const down = nudgeLayers(card(), ["save"], base, "down", false, nothingDrawn).container
-    expect(order(down, "actions")).toEqual(["save", "cancel"])
-    expect(order(nudgeLayers(card(), ["title"], base, "up", false, nothingDrawn).container)).toEqual([
-      "title",
-      "actions",
-      "badge",
-      "body",
-      "stat"
-    ])
-  })
-
-  it("moves one place with Shift too, and steps over absolutely placed layers", () => {
-    // The badge is placed absolutely, so it keeps its place in the list while the title passes the body.
-    const moved = nudgeLayers(card(), ["title"], base, "down", true, nothingDrawn).container
-    expect(order(moved)).toEqual(["actions", "body", "badge", "title", "stat"])
-  })
-
-  it("steps over a layer the state hides", () => {
-    const loading = card().states[1]!
-    const moved = nudgeLayers(card(), ["title"], loading, "down", false, nothingDrawn).container
-    expect(order(moved)).toEqual(["actions", "stat", "badge", "body", "title"])
-  })
-
-  it("follows the layout as the frame draws it, as a viewport can turn a row into a column", () => {
-    const drawn: Drawn = { flow: (layer) => (layer === "save" ? column : undefined), insets: () => undefined }
-    const moved = nudgeLayers(card(), ["save"], base, "down", false, drawn).container
-    expect(order(moved, "actions")).toEqual(["cancel", "save"])
-  })
-
-  it("moves an absolutely placed layer a step, or ten with Shift", () => {
-    const step = nudgeLayers(card(), ["badge"], base, "right", false, nothingDrawn).container
-    expect(findNode(step.root, "badge")?.style).toEqual({ position: "absolute", top: 2, left: 3 })
-    const ten = nudgeLayers(card(), ["badge"], base, "up", true, nothingDrawn).container
-    expect(findNode(ten.root, "badge")?.style).toEqual({ position: "absolute", top: -8, left: 2 })
-  })
-
-  it("moves an absolutely placed layer in the state being edited only", () => {
-    const loading = card().states[1]!
-    const moved = nudgeLayers(card(), ["badge"], loading, "down", false, nothingDrawn).container
-    expect(findNode(moved.root, "badge")?.style?.top).toBe(2)
-    expect(moved.states[1]?.overrides?.badge).toEqual({ style: { top: 3 } })
-  })
-
-  it("names a token it couldn't move by", () => {
-    const container = card()
-    const badge = findNode(container.root, "badge")!
-    badge.style = { position: "absolute", top: "header", left: 2 }
-    expect(nudgeLayers(container, ["badge"], base, "down", false, nothingDrawn).blocked).toEqual({
-      layer: "badge",
-      side: "top",
-      token: "header"
-    })
-  })
-
-  it("leaves layers inside instances where they are", () => {
-    const container = card()
-    expect(nudgeLayers(container, ["stat/value"], base, "up", false, nothingDrawn).container).toBe(container)
-  })
-})
 
 const note: NoteSpec = { id: "note-1", text: "Remember", position: { x: 0, y: 0 } }
 

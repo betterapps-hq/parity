@@ -1,8 +1,9 @@
-import { guestChanges } from "@parity-app/core"
+import { finiteNumber, guestChanges, jsonText, parseData } from "@parity-app/core"
 import { openingDesigns } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
+import { z } from "zod"
 import type { ProjectInfo, TabSummary } from "../shared/protocol.ts"
 import { getPreferences } from "./chrome/preferences.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
@@ -10,6 +11,7 @@ import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { SelectionStore } from "./selection.ts"
+import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
 import { TokenStore } from "./tokens-store.ts"
 
 /** Everything one open project needs: its info from the service, its components and styles, and its stores. */
@@ -39,7 +41,12 @@ export interface Tab {
   /** While loading: what opening does, in order, and which of them it's doing now. */
   progress?: { steps: string[]; current: number }
   session?: ProjectSession
+  /** A new tab, which shows the start page until a project opens in it. */
+  blank?: boolean
 }
+
+/** The Home tab's id. It's pinned first in the tab strip and can't be closed, so it's never in the list of tabs. */
+export const homeTab = "home"
 
 /** One open or reopen of a tab's project, which closing the tab abandons. */
 interface Attempt {
@@ -55,14 +62,22 @@ export function isPlaceholder(id: string): boolean {
 
 const storageKey = "parity.workspace"
 const recentKey = "parity.recent"
+const notesKey = "parity.projects"
 const recentLimit = 10
 
-/** The open project tabs. Each tab is one project with its own builder, guest and canvas. */
+/**
+ * The open tabs. Each is one project with its own builder, guest and canvas, or a new tab waiting for one. Home sits
+ * before them all: it shows when `activeId` is `homeTab`, or when no tab has it.
+ */
 export class Workspace {
   private tabs: readonly Tab[] = []
   private recent: readonly string[] = loadRecent()
+  /** When each project last opened and whether it's starred, by folder. */
+  private notes: Readonly<Record<string, ProjectNote>> = loadNotes()
+  private projects: readonly KnownProject[] = knownProjects(this.recent, this.notes)
   private activeId: string | undefined
   private nextPlaceholder = 1
+  private nextBlank = 1
   /**
    * Opens and reopens in flight, by the id of the tab they load into. Closing that tab marks its open abandoned, so
    * that open, and only that one, closes its project once the service has it.
@@ -87,8 +102,15 @@ export class Workspace {
   getActive = () => this.getTab(this.activeId)
   /** Projects opened before, most recent first. */
   getRecent = () => this.recent
+  /** The projects the start page lists: the recent ones, then starred ones that aren't. */
+  getProjects = () => this.projects
+  /** Whether Home is showing: it's chosen, or no tab is. */
+  isHomeActive = () => this.activeId === homeTab || !this.getTab(this.activeId)
 
-  /** Reopens the tabs from last time, or the dev runner's requested project. A fresh install shows the welcome page. */
+  /**
+   * Reopens the tabs from last time, or the dev runner's requested project, on Home if that's where the window was. A
+   * fresh install shows Home.
+   */
   restore(): void {
     let saved: { roots?: string[]; active?: string } = {}
     try {
@@ -97,24 +119,44 @@ export class Workspace {
       // A corrupt entry just means starting fresh.
     }
     const roots = saved.roots?.filter(Boolean) ?? []
+    // Set first, so the projects reopening behind it don't take its place.
+    if (saved.active === homeTab) this.activeId = homeTab
     if (roots.length === 0) {
       if (window.canvasHost.initialProject) void this.open(window.canvasHost.initialProject)
     } else {
       for (const root of roots) void this.open(root, root === saved.active)
-      if (!roots.includes(saved.active ?? "")) this.activate(this.tabs[0]?.id)
+      if (saved.active !== homeTab && !roots.includes(saved.active ?? "")) this.activate(this.tabs[0]?.id)
     }
   }
 
-  /** Opens a project in a new tab, or switches to its tab when it's already open. */
+  /** Opens a new tab at the end of the strip, showing the start page until a project opens in it. */
+  newTab(): void {
+    const tab: Tab = { id: `new-${this.nextBlank++}`, title: "New tab", status: "ready", blank: true }
+    this.update([...this.tabs, tab])
+    this.activate(tab.id)
+  }
+
+  /**
+   * Opens a project in a new tab, or switches to its tab when it's already open. Opened from a new tab, it opens in
+   * that tab instead; one that's already open elsewhere closes the new tab it was picked from.
+   */
   async open(root: string | undefined, activate = true): Promise<Tab> {
+    const active = this.getActive()
+    const into = activate && active?.blank ? active.id : undefined
     const existing = root ? this.getTab(root) : undefined
     if (existing) {
+      if (into) this.closeNow(into)
       if (activate) this.activate(existing.id)
       return existing
     }
     const placeholder = root ?? `opening-${this.nextPlaceholder++}`
     const opening: Tab = { id: placeholder, title: root ? basename(root) : "Opening…", status: "loading" }
-    this.update([...this.tabs, opening])
+    if (into) {
+      this.update(this.tabs.map((tab) => (tab.id === into ? opening : tab)))
+      this.activeId = placeholder
+    } else {
+      this.update([...this.tabs, opening])
+    }
     const attempt = this.startAttempt(placeholder)
     if (activate || !this.activeId) this.activate(placeholder)
     this.setProgress(placeholder, ["Starting the project's builder", "Loading its components"], 0)
@@ -363,9 +405,18 @@ export class Workspace {
     if (failed) throw failed.reason
   }
 
+  /** Takes a project off the recent list, or every project when none is given. Starred ones stay starred. */
   forgetRecent(root?: string): void {
     this.recent = root ? this.recent.filter((candidate) => candidate !== root) : []
     this.saveRecent()
+  }
+
+  /** Stars a project, so the start page keeps it under Starred, or unstars it. */
+  star(root: string, starred: boolean): void {
+    const { opened } = this.notes[root] ?? {}
+    const note: ProjectNote = { ...(opened === undefined ? {} : { opened }), ...(starred ? { starred } : {}) }
+    this.notes = { ...this.notes, [root]: note }
+    this.saveNotes()
   }
 
   activate(id: string | undefined): void {
@@ -405,16 +456,19 @@ export class Workspace {
     this.replace(id, { ...tab, session: { ...tab.session, editor } })
   }
 
+  /** The tabs with a project in them, as agents see them. */
   summaries(): TabSummary[] {
-    return this.tabs.map((tab) => ({
-      id: tab.id,
-      name: tab.title,
-      root: tab.session?.info.root ?? tab.id,
-      active: tab.id === this.activeId,
-      status: tab.status,
-      ...(tab.message && tab.status === "error" ? { error: tab.message } : {}),
-      designs: tab.session?.store.getEntries().length ?? 0
-    }))
+    return this.tabs
+      .filter((tab) => !tab.blank)
+      .map((tab) => ({
+        id: tab.id,
+        name: tab.title,
+        root: tab.session?.info.root ?? tab.id,
+        active: tab.id === this.activeId,
+        status: tab.status,
+        ...(tab.message && tab.status === "error" ? { error: tab.message } : {}),
+        designs: tab.session?.store.getEntries().length ?? 0
+      }))
   }
 
   /** Moves a loading tab on to one of its steps. Its message says that step, for the tab's tooltip. */
@@ -497,20 +551,53 @@ export class Workspace {
 
   private remember(root: string): void {
     this.recent = [root, ...this.recent.filter((candidate) => candidate !== root)].slice(0, recentLimit)
+    this.notes = { ...this.notes, [root]: { ...this.notes[root], opened: Date.now() } }
     this.saveRecent()
   }
 
+  /** Saves the recent list, and the notes on what's still listed. */
   private saveRecent(): void {
     try {
       localStorage.setItem(recentKey, JSON.stringify(this.recent))
     } catch {
       // Storage can be unavailable; the list then just isn't remembered.
     }
+    this.saveNotes()
+  }
+
+  /** Saves the notes on projects the start page still lists, so ones it forgot don't pile up. */
+  private saveNotes(): void {
+    this.notes = Object.fromEntries(
+      Object.entries(this.notes).filter(([root, note]) => note.starred || this.recent.includes(root))
+    )
+    try {
+      localStorage.setItem(notesKey, JSON.stringify(this.notes))
+    } catch {
+      // Storage can be unavailable; the notes then just aren't remembered.
+    }
+    this.projects = knownProjects(this.recent, this.notes)
+    // A project's picture goes with it (PAR-607).
+    void window.canvasHost
+      .request("pictures.keepOnly", { roots: this.projects.map(({ root }) => root) })
+      .catch(() => undefined)
     this.notify()
   }
 
   private notify(): void {
     for (const listener of this.listeners) listener()
+  }
+}
+
+const savedNotes = jsonText(
+  z.record(z.string(), z.object({ opened: finiteNumber.optional(), starred: z.literal(true).optional() }))
+)
+
+/** What the window keeps about each project. Notes it can't read are dropped, as a corrupt recent list is. */
+function loadNotes(): Record<string, ProjectNote> {
+  try {
+    return parseData(savedNotes, localStorage.getItem(notesKey) ?? "{}")
+  } catch {
+    return {}
   }
 }
 
@@ -651,4 +738,12 @@ export function useActiveTabId(): string | undefined {
 
 export function useRecentProjects(): readonly string[] {
   return useSyncExternalStore(workspace.subscribe, workspace.getRecent)
+}
+
+export function useKnownProjects(): readonly KnownProject[] {
+  return useSyncExternalStore(workspace.subscribe, workspace.getProjects)
+}
+
+export function useHomeActive(): boolean {
+  return useSyncExternalStore(workspace.subscribe, workspace.isHomeActive)
 }

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 import type { StylesAdapter, ThemeVariable } from "@parity-app/core"
-import { installedPackage, packageEntry } from "./installed.ts"
+import { findPackage, packageEntry } from "@parity-app/project"
 
 interface TailwindNode {
   __unstable__loadDesignSystem(
@@ -31,12 +31,17 @@ export const tailwindStyles: StylesAdapter = {
   }
 }
 
+/**
+ * The project's own `@tailwindcss/node`, found as Node would find it from the project, never through NODE_PATH, which
+ * pnpm's bin shims point at Parity's own copy.
+ */
 async function loadTailwindNode(root: string): Promise<TailwindNode> {
   // `@tailwindcss/node` is usually a dependency of the project's Tailwind plugin rather than of the project itself.
   for (const via of [undefined, "@tailwindcss/vite", "@tailwindcss/postcss", "@tailwindcss/cli"]) {
-    const from = via ? installedPackage(root, via) : root
-    const dir = from && installedPackage(from, "@tailwindcss/node")
-    if (dir) return (await import(pathToFileURL(packageEntry(dir, "@tailwindcss/node")).href)) as TailwindNode
+    const from = via ? (await findPackage(root, via))?.dir : root
+    const tailwind = from && (await findPackage(from, "@tailwindcss/node"))
+    const entry = tailwind && packageEntry(tailwind, "runtime")
+    if (entry) return (await import(pathToFileURL(entry).href)) as TailwindNode
   }
   throw new Error(`Tailwind's @tailwindcss/node is not installed in ${root}`)
 }

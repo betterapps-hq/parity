@@ -2,9 +2,10 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   collectCustomProperties,
   prepareCanvasCss,
+  resetCustomProperties,
   rewriteMedia,
-  rewriteSheetViewportUnits,
-  rewriteViewportUnits
+  rewriteFrameUnits,
+  rewriteSheetFrameUnits
 } from "./css.ts"
 
 const options = { baseUrl: "http://localhost:5555/" }
@@ -88,11 +89,11 @@ describe("prepareCanvasCss", () => {
 
   it("measures viewport units against the frame", () => {
     const css =
-      ".a { height: 100vh; min-height: 100svh; width: calc(100vw - 2rem); margin-left: -50vw; max-height: calc(100dvh - 6rem); }"
+      ".a { height: 100vh; min-height: 100svh; width: calc(100vw - 2px); margin-left: -50vw; max-height: calc(100dvh - 6px); }"
     expect(prepareCanvasCss(css, options).scoped).toBe(
       ".a { height: calc(100 * var(--canvas-vh, 1vh)); min-height: calc(100 * var(--canvas-vh, 1svh)); " +
-        "width: calc(calc(100 * var(--canvas-vw, 1vw)) - 2rem); margin-left: calc(-50 * var(--canvas-vw, 1vw)); " +
-        "max-height: calc(calc(100 * var(--canvas-vh, 1dvh)) - 6rem); }"
+        "width: calc(calc(100 * var(--canvas-vw, 1vw)) - 2px); margin-left: calc(-50 * var(--canvas-vw, 1vw)); " +
+        "max-height: calc(calc(100 * var(--canvas-vh, 1dvh)) - 6px); }"
     )
     expect(prepareCanvasCss(".a { font-size: 2.5vmin; }", options).scoped).toBe(
       ".a { font-size: calc(2.5 * min(var(--canvas-vw, 1vw), var(--canvas-vh, 1vh))); }"
@@ -107,22 +108,94 @@ describe("prepareCanvasCss", () => {
     )
   })
 
-  it("rewrites a viewport length once, however often it's asked", () => {
-    const once = rewriteViewportUnits("calc(100vh - 2rem) 5vmax")
-    expect(rewriteViewportUnits(once)).toBe(once)
-    const style = "translate(10px, 2px) rotate(1turn)"
-    expect(rewriteViewportUnits(style)).toBe(style)
+  it("rewrites a viewport length or rem once, however often it's asked", () => {
+    const once = rewriteFrameUnits("calc(100vh - 2rem) 5vmax")
+    expect(once).toBe(
+      "calc(calc(100 * var(--canvas-vh, 1vh)) - calc(2 * var(--canvas-rem, 1rem))) " +
+        "calc(5 * max(var(--canvas-vw, 1vw), var(--canvas-vh, 1vh)))"
+    )
+    expect(rewriteFrameUnits(once)).toBe(once)
+    const style = "translate(10px, 2px) rotate(1turn) 1em"
+    expect(rewriteFrameUnits(style)).toBe(style)
   })
 
-  it("rewrites the declarations of rules added at run time, not their selectors", () => {
-    const css = ".h-\\[100vh\\]{height:50vh}@media (min-width: 40rem){.a:hover{min-height:100dvh;width:1vw}}"
-    expect(rewriteSheetViewportUnits(css)).toBe(
+  it("rewrites the declarations of rules added at run time, not their selectors or media queries", () => {
+    const css =
+      ".h-\\[100vh\\]{height:50vh}@media (min-width: 40rem){.a:hover{min-height:100dvh;width:1vw;padding:.5rem}}"
+    expect(rewriteSheetFrameUnits(css)).toBe(
       ".h-\\[100vh\\]{height:calc(50 * var(--canvas-vh, 1vh))}@media (min-width: 40rem){.a:hover{" +
-        "min-height:calc(100 * var(--canvas-vh, 1dvh));width:calc(1 * var(--canvas-vw, 1vw))}}"
+        "min-height:calc(100 * var(--canvas-vh, 1dvh));width:calc(1 * var(--canvas-vw, 1vw));" +
+        "padding:calc(.5 * var(--canvas-rem, 1rem))}}"
     )
-    expect(rewriteSheetViewportUnits(rewriteSheetViewportUnits(css))).toBe(rewriteSheetViewportUnits(css))
-    expect(rewriteSheetViewportUnits('.a { content: "{"; height: 10vh }')).toBe(
+    expect(rewriteSheetFrameUnits(rewriteSheetFrameUnits(css))).toBe(rewriteSheetFrameUnits(css))
+    expect(rewriteSheetFrameUnits('.a { content: "{"; height: 10vh }')).toBe(
       '.a { content: "{"; height: calc(10 * var(--canvas-vh, 1vh)) }'
+    )
+  })
+
+  it("measures rem against the frame's root font, in declarations and custom properties", () => {
+    const css = ":root { --spacing: 0.25rem; } .a { margin: -1.5rem 2rem; width: calc(var(--spacing) * 4); }"
+    expect(prepareCanvasCss(css, options).scoped).toBe(
+      ":host { --spacing: calc(0.25 * var(--canvas-rem, 1rem)); } .a { margin: calc(-1.5 * var(--canvas-rem, 1rem)) " +
+        "calc(2 * var(--canvas-rem, 1rem)); width: calc(var(--spacing) * 4); }"
+    )
+  })
+
+  it("leaves rem in selectors, strings, urls and queries alone", () => {
+    const css =
+      '.mt-\\[1rem\\] { content: "1rem"; background: url(/x-1rem.png); } @media (width >= 40rem) { .a { top: 0 } }' +
+      " @container card (width > 20rem) { .b { top: 0 } }"
+    expect(prepareCanvasCss(css, options).scoped).toBe(
+      '.mt-\\[1rem\\] { content: "1rem"; background: url(http://localhost:5555/x-1rem.png); } ' +
+        "@container canvas-viewport (width >= 40rem) { .a { top: 0 } } @container card (width > 20rem) { .b { top: 0 } }"
+    )
+  })
+
+  it("works out a relative root font size from a browser's default", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+    expect(scoped("html { font-size: 62.5%; }")).toBe(":host { font-size: calc(62.5 / 100 * 16px); }")
+    expect(scoped(":root{font-size:1.25rem}")).toBe(":host {font-size:calc(1.25 * 16px)}")
+    expect(scoped("html { font-size: clamp(1em, 1em + 1vw, 1.5em) !important; }")).toBe(
+      ":host { font-size: clamp(calc(1 * 16px), calc(1 * 16px) + calc(1 * var(--canvas-vw, 1vw)), " +
+        "calc(1.5 * 16px)) !important; }"
+    )
+    expect(scoped("@media (min-width: 1200px) { html { font-size: 75%; } }")).toBe(
+      "@container canvas-viewport (min-width: 1200px) { :host { font-size: calc(75 / 100 * 16px); } }"
+    )
+    expect(scoped("html { @media (min-width: 1200px) { font-size: 75%; } }")).toBe(
+      ":host { @container canvas-viewport (min-width: 1200px) { font-size: calc(75 / 100 * 16px); } }"
+    )
+  })
+
+  it("leaves the font size of everything but the root, and the root's other lengths, as they are", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+    expect(scoped("body { font-size: 62.5%; } .a { font-size: 1.2em; }")).toBe(
+      "[data-canvas-body] { font-size: 62.5%; } .a { font-size: 1.2em; }"
+    )
+    expect(scoped("html { --root-font-size: 50%; line-height: 1.5em; font-size: larger; }")).toBe(
+      ":host { --root-font-size: 50%; line-height: 1.5em; font-size: larger; }"
+    )
+  })
+
+  it("keeps lengths as the project wrote them when asked, as tokens are read", () => {
+    const css =
+      "html { font-size: 62.5%; --spacing: 0.25rem; --header: 10vh; } @media (width >= 40rem) { .a { top: 1rem } }"
+    expect(prepareCanvasCss(css, { ...options, units: false }).scoped).toBe(
+      ":host { font-size: 62.5%; --spacing: 0.25rem; --header: 10vh; } " +
+        "@container canvas-viewport (width >= 40rem) { .a { top: 1rem } }"
+    )
+  })
+
+  it("splits a rule for the root and other elements, so only the root's font size changes", () => {
+    expect(prepareCanvasCss("html, body, .a:is(.b, .c) { font-size: 62.5%; }", options).scoped).toBe(
+      ":host { font-size: calc(62.5 / 100 * 16px); } [data-canvas-body], .a:is(.b, .c) { font-size: 62.5%; }"
+    )
+    expect(prepareCanvasCss(":root, :host { font-size: 50%; }", options).scoped).toBe(
+      ":host, :host { font-size: calc(50 / 100 * 16px); }"
+    )
+    // Without a font size to work out, the rule stays whole, as theme rules such as `:root, body` are read whole.
+    expect(prepareCanvasCss("html, body { --c: red; margin: 1rem; }", options).scoped).toBe(
+      ":host, [data-canvas-body] { --c: red; margin: calc(1 * var(--canvas-rem, 1rem)); }"
     )
   })
 
@@ -169,5 +242,21 @@ describe("collectCustomProperties", () => {
 
   it("skips declarations outside any rule", () => {
     expect(collectCustomProperties("--a: 1;")).toEqual([])
+  })
+})
+
+describe("resetCustomProperties", () => {
+  it("sets each custom property to initial", () => {
+    expect(resetCustomProperties(["--background", "--tl-zoom"])).toBe("--background: initial; --tl-zoom: initial;")
+  })
+
+  it("leaves out names that aren't custom properties", () => {
+    expect(resetCustomProperties(["color", "--", "-webkit-box", "--a"])).toBe("--a: initial;")
+  })
+
+  it("escapes characters that would end the name, so it can't set another property", () => {
+    expect(resetCustomProperties(["--a:b", "--c d;", "--é_1"])).toBe(
+      String.raw`--a\3a b: initial; --c\20 d\3b : initial; --é_1: initial;`
+    )
   })
 })

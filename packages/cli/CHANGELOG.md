@@ -1,8 +1,59 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 10:01:58 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 20:31:29 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.6.3
+
+Thu, 05 Nov 2026 20:31:29 GMT
+
+### Patches
+
+- Find installed packages and their entries one way, so a library's types under exports, named re-exports and the
+  registry's newest file read the same in the app, libgen and parity lib check (ajcraswell@gmail.com)
+- Frames no longer pick up Parity's own CSS variables: a variable the project uses but never defines takes its fallback,
+  as in Chrome (ajcraswell@gmail.com)
+- Components that set their own size, and library parts whose examples give them no text, are inserted without their
+  name cut off inside them (ajcraswell@gmail.com)
+
+## 0.6.2
+
+Thu, 05 Nov 2026 12:23:39 GMT
+
+### Patches
+
+- Leave out malformed tokens in a library's DTCG files, and note why, instead of reading them as broken CSS
+  (ajcraswell@gmail.com)
+
+## 0.6.1
+
+Thu, 05 Nov 2026 11:44:07 GMT
+
+### Patches
+
+- Layers' Hide in and Show in name the variant option the change goes to, not the state (ajcraswell@gmail.com)
+
+## 0.6.0
+
+Thu, 05 Nov 2026 11:30:13 GMT
+
+### Minor changes
+
+- Agent overlap warnings tell board collisions (overlap) from a title too close (title_clearance), say whether sizes are
+  measured or estimated, and count crowded boards a call didn't touch (canvas_overlaps) (ajcraswell@gmail.com)
+
+## 0.5.1
+
+Thu, 05 Nov 2026 11:11:43 GMT
+
+### Patches
+
+- List an export you put on the component list straight away, and keep a new component that takes a removed one's id
+  when files change (ajcraswell@gmail.com)
+- Measure explains that it lays out one frame when given a list, "all" or "shown", and lists the state or mode ids it
+  takes (ajcraswell@gmail.com)
+- Check registry entries, caller names and the app's error details with zod (ajcraswell@gmail.com)
 
 ## 0.5.0
 

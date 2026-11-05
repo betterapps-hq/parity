@@ -6,6 +6,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 import { operations } from "./operations.ts"
+import { compileCache, processTests } from "./transport-fixture.ts"
 
 /**
  * The CLI against two running copies of the app, each with its own project open (PAR-514): every call reaches the copy
@@ -89,6 +90,7 @@ function run(args: string[], cwd = tmpdir(), input?: string) {
       cwd,
       env: {
         ...process.env,
+        ...compileCache,
         PARITY_AGENT_FILE: undefined,
         PARITY_AGENT_DIR: registry,
         HOME: registry,
@@ -96,6 +98,8 @@ function run(args: string[], cwd = tmpdir(), input?: string) {
       },
       stdio: ["pipe", "pipe", "pipe"]
     })
+    // A process that exits before reading its input closes the pipe; its code and output say what happened.
+    child.stdin.on("error", () => undefined)
     child.stdin.end(input ?? "")
     let stdout = ""
     let stderr = ""
@@ -122,33 +126,36 @@ async function tool(name: string, input: Record<string, unknown>, cwd = tmpdir()
   return reply?.result?.structuredContent
 }
 
-describe("routing between copies", () => {
+describe("routing between copies", processTests, () => {
   it("routes MCP tools exactly as the CLI routes commands", async () => {
-    await tool("get_app_state", { tab: "blog" })
-    await tool("get_app_state", { tab: "active" })
+    await Promise.all([tool("get_app_state", { tab: "blog" }), tool("get_app_state", { tab: "active" })])
     expect(person.requests).toEqual([])
     expect(session.requests).toEqual([
       { method: "state", params: { tab: blog } },
       { method: "state", params: { tab: blog } }
     ])
-    const cli = JSON.parse((await run(["tabs"])).stdout) as unknown
-    expect(await tool("get_tabs", {})).toEqual(cli)
-    expect(await tool("get_app_state", { tab: "docs" })).toEqual(
-      JSON.parse((await run(["state", "--tab", "docs"])).stdout)
-    )
+    const [tabs, listed, state, unknown] = await Promise.all([
+      run(["tabs"]),
+      tool("get_tabs", {}),
+      run(["state", "--tab", "docs"]),
+      tool("get_app_state", { tab: "docs" })
+    ])
+    expect(listed).toEqual(JSON.parse(tabs.stdout))
+    expect(unknown).toEqual(JSON.parse(state.stdout))
   })
 
   it("sends each call to the copy that has its project open", async () => {
-    expect((await run(["state", "--tab", "shop"])).code).toBe(0)
-    expect((await run(["state", "--tab", blog])).code).toBe(0)
+    const codes = await Promise.all([run(["state", "--tab", "shop"]), run(["state", "--tab", blog])])
+    expect(codes.map((result) => result.code)).toEqual([0, 0])
     expect(person.requests).toEqual([{ method: "state", params: { tab: shop } }])
     expect(session.requests).toEqual([{ method: "state", params: { tab: blog } }])
   })
 
   it("sends --tab active to the copy focused last, and lists every copy's projects", async () => {
-    expect((await run(["state", "--tab", "active"])).code).toBe(0)
+    const [state, tabs] = await Promise.all([run(["state", "--tab", "active"]), run(["tabs"])])
+    expect(state.code).toBe(0)
     expect(session.requests).toEqual([{ method: "state", params: { tab: blog } }])
-    const listed = JSON.parse((await run(["tabs"])).stdout) as { tabs: { id: string; active: boolean }[] }
+    const listed = JSON.parse(tabs.stdout) as { tabs: { id: string; active: boolean }[] }
     expect(listed.tabs.map((tab) => [tab.id, tab.active])).toEqual([
       [shop, false],
       [blog, true]

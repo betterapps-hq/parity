@@ -266,7 +266,8 @@ function isRecord(value: unknown): value is PreviewRecord {
 }
 
 /** Writes a file beside its name and then renames it, so a reader never finds half of it. */
-async function writeWhole(file: string, contents: Uint8Array): Promise<void> {
+/** Writes a file beside its name and then renames it, so a reader never finds half a file. */
+export async function writeWhole(file: string, contents: Uint8Array): Promise<void> {
   const partial = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.partial`
   try {
     await mkdir(join(file, ".."), { recursive: true })

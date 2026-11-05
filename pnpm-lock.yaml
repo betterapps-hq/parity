@@ -453,6 +453,12 @@ importers:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
 
+  packages/account:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
   packages/agent:
     dependencies:
       '@parity-app/core':
@@ -571,6 +577,9 @@ importers:
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
+      '@parity-app/registry':
+        specifier: workspace:*
+        version: link:../registry
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
@@ -655,12 +664,18 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/project':
+        specifier: workspace:*
+        version: link:../project
 
   packages/tokens:
     dependencies:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
 packages:
 

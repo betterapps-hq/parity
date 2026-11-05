@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
 import { packageManifest } from "./adapters.ts"
 import { CodedError, errorDetails } from "./errors.ts"
-import { finiteNumber, jsonText, nonBlankString, parseData, parseInput, plainObject } from "./schema.ts"
+import { fileObject, finiteNumber, jsonText, nonBlankString, parseData, parseInput, plainObject } from "./schema.ts"
 
 function thrown(run: () => unknown): unknown {
   try {
@@ -55,6 +55,11 @@ describe("parseData", () => {
     expect(() => parseData(either, { kind: "ratio", ratio: "16/9" })).toThrow("/ratio: expected a number")
   })
 
+  it("passes over an option for another type of value, however few issues it has", () => {
+    const length = z.union([z.string(), z.object({ value: z.number(), unit: z.string() })])
+    expect(() => parseData(length, { value: "1" })).toThrow("/value: expected a number")
+  })
+
   it("keeps a message the schema gives itself", () => {
     expect(() => parseData(z.object({ id: z.string("expected the design's id") }), {})).toThrow(
       "/id: expected the design's id"
@@ -73,6 +78,16 @@ describe("parseInput", () => {
   })
 })
 
+describe("fileObject", () => {
+  it("refuses keys it doesn't know, and leaves out keys set to undefined, as JSON does", () => {
+    const size = fileObject({ width: finiteNumber.optional(), height: finiteNumber.optional() })
+    expect(() => parseData(size, { width: 400, depth: 2 })).toThrow("/depth: unknown property")
+    const read = parseData(size, { width: 400, height: undefined })
+    expect(read).toEqual({ width: 400 })
+    expect(read).not.toHaveProperty("height")
+  })
+})
+
 describe("jsonText", () => {
   it("parses JSON text, then checks it", () => {
     const entry = jsonText(z.object({ port: z.number() }))
@@ -87,5 +102,16 @@ describe("packageManifest", () => {
     const manifest = { name: "app", dependencies: { react: "^19.0.0" }, private: true }
     expect(parseData(packageManifest, manifest)).toEqual(manifest)
     expect(() => parseData(packageManifest, { scripts: { dev: 1 } })).toThrow("/scripts/dev: expected a string")
+  })
+
+  it("reads exports as Node writes them: subpaths, nested conditions, fallback lists and private paths", () => {
+    const exports = {
+      ".": { types: "./dist/index.d.ts", import: { node: "./dist/node.js", default: "./dist/index.js" } },
+      "./styles/*": ["./dist/*.css", "./src/*.css"],
+      "./internal/*": null
+    }
+    expect(parseData(packageManifest, { exports }).exports).toEqual(exports)
+    expect(parseData(packageManifest, { exports: "./index.js" }).exports).toBe("./index.js")
+    expect(() => parseData(packageManifest, { exports: { ".": { import: 1 } } })).toThrow("/exports")
   })
 })

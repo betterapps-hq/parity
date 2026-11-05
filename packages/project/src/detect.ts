@@ -13,6 +13,7 @@ import { LOCKS } from "package-manager-detector/constants"
 import { detect } from "package-manager-detector/detect"
 import semver from "semver"
 import { nearestLockfiles } from "./lockfile.ts"
+import { findPackage } from "./packages.ts"
 import { storybookConfig } from "./storybook.ts"
 
 /** A tool Parity runs or renders with, the packages it comes in, and when each of its majors came out. */
@@ -136,9 +137,10 @@ async function detectTool(
   const file = builder?.config ?? (await tool.config?.(root, pkg))
   const config = file ? { config: file } : {}
   for (const name of new Set([...tool.packages, ...dependencies])) {
-    const installed = await installedPackage(root, name)
-    if (!installed) continue
-    return toolDetection(tool, installed.version, { from: installed.from, ...config }, today)
+    const installed = await findPackage(root, name).catch(() => undefined)
+    const version = installed?.manifest.version
+    if (!installed || !version) continue
+    return toolDetection(tool, version, { from: toPosix(relative(root, installed.installedAt)), ...config }, today)
   }
   if (builder?.version) return toolDetection(tool, builder.version, config, today)
   const range = dependencies.map((dependency) => declared[dependency]).find(Boolean)
@@ -206,20 +208,6 @@ function label(tool: Tool, major: number): string {
 
 function month(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
-}
-
-/**
- * An installed package's folder and version, found the way Node finds packages: in `node_modules` here or in a folder
- * above. It reads the package's own `package.json`, which a package's `exports` may not let `require.resolve` reach.
- */
-async function installedPackage(root: string, name: string): Promise<{ from: string; version: string } | undefined> {
-  for (let folder = resolve(root); ; folder = dirname(folder)) {
-    const directory = join(folder, "node_modules", name)
-    const manifest = (await readJson(join(directory, "package.json"))) as { version?: unknown } | undefined
-    if (typeof manifest?.version === "string")
-      return { from: toPosix(relative(root, directory)), version: manifest.version }
-    if (dirname(folder) === folder) return undefined
-  }
 }
 
 const agentNames: Record<string, string> = {

@@ -118,6 +118,15 @@ export interface ServiceMethods {
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: undefined; result: undefined }
   /**
+   * Keeps a project's picture for the start page (PAR-607), in place of the one before. Each frame is cut to the top of
+   * its window and given back as it's kept.
+   */
+  "pictures.store": { params: { root: string; picture: ProjectPicture }; result: ProjectPicture }
+  /** The pictures kept for these projects, by root. A project with none kept isn't in it. */
+  "pictures.read": { params: { roots: string[] }; result: Record<string, ProjectPicture> }
+  /** Lets go of the pictures of every project but these, the ones the start page still lists. */
+  "pictures.keepOnly": { params: { roots: string[] }; result: undefined }
+  /**
    * What's kept of components' previews for the code their jobs draw (PAR-207): each one's key and, when it's made
    * for that key, its pictures; else the latest one made before, to show while it's made again. Nothing is drawn.
    */
@@ -538,6 +547,34 @@ export interface PreviewImage {
   /** The large picture's size, in pixels; the thumbnail has its shape. */
   width: number
   height: number
+}
+
+/** One frame in a project's picture: its bitmap, and its mode as the board's caption names it. */
+export interface PictureFrame {
+  /** The bitmap as a data URL: a WebP, or a PNG where the service couldn't encode one. */
+  src: string
+  /** The mode's name, such as Mobile. */
+  mode: string
+  /** The frame's width and its window's height, in its own CSS pixels: the picture shows the top of the frame. */
+  width: number
+  height: number
+}
+
+/** A screen in a project's picture: its main frame, and the phone frame beside it where its board shows one. */
+export interface PictureScreen {
+  name: string
+  main: PictureFrame
+  phone?: PictureFrame
+}
+
+/**
+ * A project's picture for the start page (PAR-607): its first few screens as the canvas last drew them once saved, so a
+ * card can show the first and flip through the rest.
+ */
+export interface ProjectPicture {
+  /** When it was taken, in milliseconds since 1970. */
+  taken: number
+  screens: PictureScreen[]
 }
 
 /** What's kept of a component's preview for its code as it's drawn now. */

@@ -9,6 +9,7 @@ import { handleConsoleResult } from "./console.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
+import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
 import { lookupPreviews, makePreview } from "./previews.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import {
@@ -80,6 +81,9 @@ const handlers: Handlers = {
     return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
   },
   "frames.clearStored": clearBitmaps,
+  "pictures.store": ({ root, picture }) => storePicture(root, picture),
+  "pictures.read": ({ roots }) => readPictures(roots),
+  "pictures.keepOnly": ({ roots }) => keepOnlyPictures(roots),
   "previews.lookup": async ({ previews }) => ({ previews: await lookupPreviews(previews) }),
   "previews.make": ({ preview, priority }) => makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),

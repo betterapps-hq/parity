@@ -27,7 +27,7 @@ import {
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
-import { kindTitle } from "@parity-app/editor"
+import { kindTitle, stateLabelSpace } from "@parity-app/editor"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
@@ -35,7 +35,9 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type Ref,
+  type RefObject,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -47,10 +49,11 @@ import { Hint } from "../chrome/Hint.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { useLibrary, useModeSettings } from "../design-store.ts"
+import { frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { useProject } from "./context.ts"
-import { drawnHeight, useFirstDrawWaits, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
+import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
@@ -89,6 +92,8 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
   const rows = allStates ? container.states : [active]
   const columns = [primary, ...companions]
   const color = designColor(container.kind)
+  // How wide the board is on the canvas, which its labels hide by once it's too narrow on screen.
+  const width = title?.width
 
   const stateName = (id: string) => container.states.find((state) => state.id === id)?.name ?? id
   const selectState = (state: string) =>
@@ -97,7 +102,7 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
     store.updateView(key, `Show ${modeNames(all, shown)}`, (view) => withShownModes(view, main, shown, all))
 
   const titleBar = (
-    <TitleBar showControls={hovered || isSelected}>
+    <TitleBar showControls={hovered || isSelected} width={width}>
       <TitleButton
         entry={entry}
         selected={isSelected}
@@ -164,6 +169,7 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
                 state={state}
                 base={index === 0}
                 offset={index > 0 ? boardLayout.rowDivider.after : 0}
+                boardWidth={width}
                 tabbable={isSelected}
                 onSelect={() => selectState(state.id)}
               />
@@ -210,14 +216,23 @@ const dividerStyle: CSSProperties = {
 }
 
 /**
- * Sits above the board, as wide on screen as the board, and follows the zoom as a name does (see labels.ts): at screen
- * size up close, then shrinking down to 60%, so names don't swamp the boards they name. The name always shows; the
- * controls only while the board is hovered or selected, or one of their menus is open, and there's room for them, so
- * a canvas of designs stays quiet.
+ * Sits above the board, as wide on screen as the board, and follows the zoom as a name does (see `labelLook`): at
+ * screen size up close, then shrinking down to 60%, so names don't swamp the boards they name. The name is clipped to
+ * the board's width, and shows until the board is too narrow on screen to read it; the controls only while the board
+ * is hovered or selected, or one of their menus is open, and there's room for them, so a canvas of designs stays quiet.
  */
-function TitleBar({ showControls, children }: { showControls: boolean; children: ReactNode }) {
+function TitleBar({
+  showControls,
+  width,
+  children
+}: {
+  showControls: boolean
+  /** How wide the board is on the canvas. */
+  width: number | undefined
+  children: ReactNode
+}) {
   const ref = useRef<HTMLDivElement>(null)
-  useCanvasLabel(ref, "name", { fit: true })
+  useCanvasLabel(ref, "name", { fit: true, width })
   return (
     <div
       ref={ref}
@@ -312,7 +327,7 @@ function TitleButton({
                 event.stopPropagation()
                 setRenaming(true)
               }}
-              className="flex min-w-0 cursor-default items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-foreground/90 hover:text-foreground"
+              className="flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 text-sm font-medium text-foreground/90 hover:text-foreground"
               style={color ? { color } : undefined}
             >
               {icon}
@@ -439,27 +454,32 @@ function StateMenu({
 }
 
 /**
- * Names a row in the every-state grid, to the left of the board. It's detail (see labels.ts), so it fades out when
- * zoomed far out instead of spilling onto the boards beside it. A design with one state has no label: its title and
- * state menu already name the only state there is.
+ * Names a row in the every-state grid, to the left of the board. It's a name (see `labelLook`), so zoomed out it
+ * shrinks as the board's title does and stays, while there's space on screen below it before the next row's label: a
+ * short row's label hides rather than piling onto the next one. It hides with the title once the board is too narrow on
+ * screen. A design with one state has no label: its title and state menu already name the only state there is.
  */
 function StateLabel({
   state,
   base,
   offset,
+  boardWidth,
   tabbable,
   onSelect
 }: {
   state: StateSpec
   base: boolean
   offset: number
+  /** How wide the board is on the canvas. */
+  boardWidth: number | undefined
   /** In the tab order, as it is while its design is selected (see TitleButton). */
   tabbable: boolean
   onSelect: () => void
 }) {
   const changes = changeCount(state)
   const ref = useRef<HTMLButtonElement>(null)
-  useCanvasLabel(ref, "detail")
+  const height = useLabelSpace(ref, offset)
+  useCanvasLabel(ref, "name", { width: boardWidth, height })
   return (
     <Hint label={`Show only ${state.name}`} wait>
       <button
@@ -482,12 +502,29 @@ function StateLabel({
 }
 
 /**
- * Names a frame's mode above it. It's detail (see labels.ts): at screen size up close, as wide on screen as the frame,
- * and fading out when zoomed far out. Its place in the board's layout stays the same at any zoom.
+ * How much height a state's label has on the canvas, down to the next row's label (see `stateLabelSpace`), with its top
+ * `offset` into its row. A frame that grows with its content sets its row's height, so the row is measured.
  */
-function FrameCaption({ children }: { children: ReactNode }) {
+function useLabelSpace(label: RefObject<HTMLElement | null>, offset: number): number | undefined {
+  const [height, setHeight] = useState<number>()
+  useLayoutEffect(() => {
+    const row = label.current?.closest<HTMLElement>(".state-row")
+    if (!row) return undefined
+    const observer = new ResizeObserver(() => setHeight(stateLabelSpace(row.offsetHeight, offset)))
+    observer.observe(row)
+    return () => observer.disconnect()
+  }, [label, offset])
+  return height
+}
+
+/**
+ * Names a frame's mode above it. It's detail (see `labelLook`): at screen size up close, as wide on screen as the
+ * frame, and fading out when zoomed far out, or once the frame is too narrow on screen. Its place in the board's layout
+ * stays the same at any zoom.
+ */
+function FrameCaption({ width, children }: { width: number; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
-  useCanvasLabel(ref, "detail", { fit: true })
+  useCanvasLabel(ref, "detail", { fit: true, width })
   return (
     <figcaption
       className="relative"
@@ -562,6 +599,8 @@ const FrameTile = memo(function FrameTile({
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
   const shows = useFrameShows(session, tree, mode, frame, scale)
   const { key } = shows
+  // The first row's frames are what the project's picture shows (PAR-607).
+  useFirstRowFrame(session.id, entry.key, mode.id, shows, caption)
   // Whether the frame is holding off drawing its design for its bitmap, which then needn't wait to be captured.
   const holding = useRef(false)
   // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.
@@ -596,7 +635,7 @@ const FrameTile = memo(function FrameTile({
       data-primary={primary}
     >
       {caption && (
-        <FrameCaption>
+        <FrameCaption width={frame.width * scale}>
           <button
             type="button"
             tabIndex={tabbable ? 0 : -1}
@@ -629,7 +668,7 @@ const FrameTile = memo(function FrameTile({
             ...(selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : {}),
             // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has
             // noted its size.
-            ...(height === undefined ? {} : { "--frame-height": `${height}px` })
+            ...(height === undefined ? {} : { [frameHeightProperty]: `${height}px` })
           } as CSSProperties
         }
         data-bitmap={shown ? "" : undefined}

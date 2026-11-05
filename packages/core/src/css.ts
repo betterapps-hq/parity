@@ -11,6 +11,42 @@ export const bodyAttribute = "data-canvas-body"
 export const viewportWidthProperty = "--canvas-vw"
 export const viewportHeightProperty = "--canvas-vh"
 
+/**
+ * The custom property `rem` is rewritten to: in a frame, the project's root font size, not Parity's. A frame sets it
+ * from `rootFontSizeProperty`, a length registered so that `1em` on the frame's root becomes that root's font size.
+ */
+export const remProperty = "--canvas-rem"
+export const rootFontSizeProperty = "--canvas-root-font-size"
+
+/** A browser's default font size, `medium`, which a page's root font size is relative to. */
+const mediumFontSize = 16
+
+/**
+ * Declarations that set each custom property to `initial`, the guaranteed-invalid value, so an element doesn't inherit
+ * it and `var(--name, fallback)` takes its fallback, as where nothing defines it. A frame's root takes these for the
+ * custom properties Parity's own page defines around it, which would otherwise inherit into the frame. Names that
+ * aren't custom properties are left out, and characters a name can't hold as they are are escaped, so a name never
+ * reads as a different declaration.
+ */
+export function resetCustomProperties(names: Iterable<string>): string {
+  const declarations: string[] = []
+  for (const name of names) {
+    if (!name.startsWith("--") || name.length === 2) continue
+    declarations.push(`--${escapeIdentifier(name.slice(2))}: initial;`)
+  }
+  return declarations.join(" ")
+}
+
+/** Escapes what can't stand as it is in the rest of an identifier: a character other than a letter, digit, `-` or `_`. */
+function escapeIdentifier(text: string): string {
+  let escaped = ""
+  for (const char of text) {
+    const code = char.codePointAt(0)!
+    escaped += /[\w-]/.test(char) || code >= 0x80 ? char : `\\${code.toString(16)} `
+  }
+  return escaped
+}
+
 export interface CanvasCss {
   /** Adopted by every rendered mode's shadow root. */
   scoped: string
@@ -21,6 +57,11 @@ export interface CanvasCss {
 export interface PrepareCssOptions {
   /** Origin that serves the project's assets; root-relative `url()`s are made absolute against it. */
   baseUrl: string
+  /**
+   * Whether lengths a frame measures differently from Parity's page (viewport units, `rem` and the root's font size)
+   * are rewritten, as they are for drawing. Tokens are read with `false`, so they keep the values the project wrote.
+   */
+  units?: boolean
 }
 
 /**
@@ -28,7 +69,10 @@ export interface PrepareCssOptions {
  *
  * - viewport media queries become container queries, so each mode responds to its own width, not the window's
  * - viewport units (`vw`, `vh`, `svh`, `dvh`, `vmin` and the rest) become the frame's, through custom properties
- * - `:root` and `html` become `:host`, and `body` becomes the mode's body element
+ * - `rem` becomes the frame's root font size, through a custom property
+ * - `:root` and `html` become `:host`, and `body` becomes the mode's body element; the root's font size, when it's
+ *   relative (`62.5%`, `1.2em`, `1.25rem`), is worked out from a browser's default, since around a frame's root is
+ *   Parity's canvas, not a browser's defaults
  * - `@property` and `@font-face` move to the document, because shadow roots ignore them
  * - root-relative `url()`s point at the project's server instead of the canvas UI
  */
@@ -154,29 +198,87 @@ function findStringEnd(css: string, start: number): number {
   return css.length
 }
 
-function serialize(nodes: CssNode[], options: PrepareCssOptions, globals: string[]): string {
+/**
+ * Serializes rules for a frame. `root` says the declarations are the root's: in a rule for `:root` or `html`, or in an
+ * at-rule inside one.
+ */
+function serialize(nodes: CssNode[], options: PrepareCssOptions, globals: string[], root = false): string {
   let output = ""
   for (const node of nodes) {
     if (node.kind === "text") {
-      output += rewriteViewportUnits(rewriteUrls(node.text, options.baseUrl))
+      const text = rewriteUrls(node.text, options.baseUrl)
+      if (options.units === false) output += text
+      else output += rewriteFrameUnits(root ? rewriteRootFontSize(text) : text)
       continue
     }
     const prelude = node.prelude.trim()
-    const body = serialize(node.children, options, globals)
-    if (/^@(property|font-face)\b/i.test(prelude)) {
-      globals.push(`${prelude} {${body}}`)
+    const leading = node.prelude.slice(0, node.prelude.length - node.prelude.trimStart().length)
+    if (prelude.startsWith("@")) {
+      const body = serialize(node.children, options, globals, root)
+      if (/^@(property|font-face)\b/i.test(prelude)) globals.push(`${prelude} {${body}}`)
+      else output += `${leading}${/^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude} {${body}}`
       continue
     }
-    const leading = node.prelude.slice(0, node.prelude.length - node.prelude.trimStart().length)
-    output += `${leading}${rewritePrelude(prelude)} {${body}}`
+    const selector = rewriteSelector(prelude)
+    const selectors = splitSelectorList(selector)
+    const roots = selectors.filter((part) => rootSelector.test(part))
+    if (roots.length === 0) {
+      output += `${leading}${selector} {${serialize(node.children, options, globals)}}`
+      continue
+    }
+    const rootBody = serialize(node.children, options, globals, true)
+    const others = selectors.filter((part) => !rootSelector.test(part))
+    const otherBody = others.length > 0 ? serialize(node.children, options, globals) : rootBody
+    // A rule for the root and other elements at once, as `html, body`, is split when the root's font size changes, so
+    // only the root's does.
+    if (rootBody === otherBody) output += `${leading}${selector} {${rootBody}}`
+    else output += `${leading}${roots.join(", ")} {${rootBody}} ${others.join(", ")} {${otherBody}}`
   }
   return output
 }
 
-function rewritePrelude(prelude: string): string {
-  if (/^@media\b/i.test(prelude)) return rewriteMedia(prelude)
-  if (prelude.startsWith("@")) return prelude
-  return rewriteSelector(prelude)
+/** A selector for the frame's root alone, as `:root` and `html` become: `:host`, or `:host(.dark)`. */
+const rootSelector = /^:host(?:\([^()]*\))?$/
+
+/** A selector list's selectors, split at commas outside parentheses, brackets and strings, each trimmed. */
+function splitSelectorList(list: string): string[] {
+  const selectors: string[] = []
+  let depth = 0
+  let start = 0
+  for (let index = 0; index < list.length; index++) {
+    const char = list[index]!
+    if (char === "\\") index++
+    else if (char === '"' || char === "'") index = findStringEnd(list, index) - 1
+    else if (char === "(" || char === "[") depth++
+    else if (char === ")" || char === "]") depth = Math.max(0, depth - 1)
+    else if (char === "," && depth === 0) {
+      selectors.push(list.slice(start, index).trim())
+      start = index + 1
+    }
+  }
+  selectors.push(list.slice(start).trim())
+  return selectors
+}
+
+/** A `font-size` declaration's value, not a custom property's whose name ends in `font-size`. */
+const fontSizeDeclaration = /(^|[;\s])(font-size\s*:)([^;]*)/gi
+/** A percentage, or a length in `em` or `rem`, not inside a word or another number. */
+const relativeFontLength = /(^|[^\w.-])(-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?)(%|r?em)(?![\w-])/g
+
+/**
+ * Works out a relative root font size as a browser does for a page's root, from its default font size: a percentage
+ * or `em`, since the root's parent would be Parity's canvas, and `rem`, which in the root's own font size means the
+ * default. `larger`, `smaller` and the `font` shorthand are left as they are.
+ */
+function rewriteRootFontSize(text: string): string {
+  return text.replace(fontSizeDeclaration, (_match, before: string, property: string, value: string) => {
+    const absolute = value.replace(relativeFontLength, (_length, start: string, number: string, unit: string) =>
+      unit === "%"
+        ? `${start}calc(${number} / 100 * ${mediumFontSize}px)`
+        : `${start}calc(${number} * ${mediumFontSize}px)`
+    )
+    return `${before}${property}${absolute}`
+  })
 }
 
 const widthFeature =
@@ -205,23 +307,25 @@ function rewriteSelector(selector: string): string {
     .replace(/(^|[\s,>+~(])body(?![\w-])/g, `$1[${bodyAttribute}]`)
 }
 
-/** A number with a viewport unit, not inside a word (`img-100vw`) or another number. */
-const viewportLength = /(^|[^\w.-])(-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?)([sld]?)(vw|vh|vi|vb|vmin|vmax)(?![\w-])/g
-/** Text without this has no viewport length in it, as most of what styles are set to doesn't. */
-const maybeViewportLength = /\d[sld]?v/
+/** A number with a viewport unit or `rem`, not inside a word (`img-100vw`) or another number. */
+const frameLength = /(^|[^\w.-])(-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?)(?:([sld]?)(vw|vh|vi|vb|vmin|vmax)|rem)(?![\w-])/g
+/** Text without this has no viewport length or `rem` in it, as most of what styles are set to doesn't. */
+const maybeFrameLength = /\d(?:[sld]?v|rem)/
 /** Strings, urls and lengths already rewritten, whose contents aren't lengths to rewrite. */
 const literal = new RegExp(
-  String.raw`"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|url\([^)]*\)|var\((?:${viewportWidthProperty}|${viewportHeightProperty}),[^)]*\)`,
+  String.raw`"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|url\([^)]*\)|var\((?:${viewportWidthProperty}|${viewportHeightProperty}|${remProperty}),[^)]*\)`,
   "g"
 )
 
 /**
- * Rewrites viewport lengths in declarations to the frame's viewport, falling back to the real unit where a frame doesn't
- * set the properties: `100svh` becomes `calc(100 * var(--canvas-vh, 1svh))`. Inline and block units are taken as
- * horizontal writing, as almost every page is. Rewriting again changes nothing.
+ * Rewrites the lengths in declarations that a frame measures differently from Parity's page, falling back to the real
+ * unit where a frame doesn't set the properties. Viewport lengths measure the frame's viewport: `100svh` becomes
+ * `calc(100 * var(--canvas-vh, 1svh))`, inline and block units taken as horizontal writing, as almost every page is.
+ * `rem` measures the frame's root font: `1.6rem` becomes `calc(1.6 * var(--canvas-rem, 1rem))`. Rewriting again
+ * changes nothing.
  */
-export function rewriteViewportUnits(text: string): string {
-  if (!maybeViewportLength.test(text)) return text
+export function rewriteFrameUnits(text: string): string {
+  if (!maybeFrameLength.test(text)) return text
   let output = ""
   let last = 0
   for (const match of text.matchAll(literal)) {
@@ -235,25 +339,28 @@ export function rewriteViewportUnits(text: string): string {
 const sheetToken = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\/|url\([^)]*\)|[{};]/g
 
 /**
- * Rewrites viewport lengths in a stylesheet's declarations, as {@link rewriteViewportUnits} does, and leaves its
- * selectors and at-rules' preludes alone, so `.h-[100vh]` still matches. For rules added while the project runs, which
- * aren't parsed as its stylesheets are.
+ * Rewrites viewport lengths and `rem` in a stylesheet's declarations, as {@link rewriteFrameUnits} does, and leaves its
+ * selectors and at-rules' preludes alone, so `.h-[100vh]` still matches and `@media (width >= 40rem)` still counts a
+ * browser's default font to the rem, as a media query does. For rules added while the project runs, which aren't
+ * parsed as its stylesheets are.
  */
-export function rewriteSheetViewportUnits(css: string): string {
-  if (!maybeViewportLength.test(css)) return css
+export function rewriteSheetFrameUnits(css: string): string {
+  if (!maybeFrameLength.test(css)) return css
   let output = ""
   let start = 0
   for (const { 0: token, index } of css.matchAll(sheetToken)) {
     if (token !== "{" && token !== "}" && token !== ";") continue
     const text = css.slice(start, index)
-    output += (token === "{" ? text : rewriteViewportUnits(text)) + token
+    output += (token === "{" ? text : rewriteFrameUnits(text)) + token
     start = index + 1
   }
-  return output + rewriteViewportUnits(css.slice(start))
+  return output + rewriteFrameUnits(css.slice(start))
 }
 
 function rewriteLengths(text: string): string {
-  return text.replace(viewportLength, (_match, before: string, number: string, kind: string, unit: string) => {
+  return text.replace(frameLength, (_match, before: string, number: string, kind?: string, unit?: string) => {
+    // Without a viewport unit, the length is in rem.
+    if (kind === undefined || unit === undefined) return `${before}calc(${number} * var(${remProperty}, 1rem))`
     const width = `var(${viewportWidthProperty}, 1${kind}vw)`
     const height = `var(${viewportHeightProperty}, 1${kind}vh)`
     let one: string

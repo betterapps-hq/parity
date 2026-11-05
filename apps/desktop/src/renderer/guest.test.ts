@@ -46,7 +46,7 @@ beforeAll(async () => {
   // @ts-expect-error The bundle's global.
   if (!(await page.evaluate(() => typeof guest === "object")))
     throw new Error(`The page didn't load: ${errors.join(",")}`)
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()
@@ -73,9 +73,9 @@ describe("token overrides on an offscreen frame's stylesheet", () => {
       return { compiled, first, none, other, again: text(sheet) }
     })
     expect(sheets.first).toContain("--primary: red")
-    expect(sheets.first).toContain(".dark { --radius: 1rem; }")
+    expect(sheets.first).toContain(".dark { --radius: calc(1 * var(--canvas-rem, 1rem)); }")
     expect(sheets.none).toBe(sheets.compiled)
-    expect(sheets.other).not.toContain("--radius: 1rem")
+    expect(sheets.other).not.toContain(".dark { --radius")
     expect(sheets.other).not.toContain("--primary: red")
     expect(sheets.again).toBe(sheets.first)
   })
@@ -160,6 +160,17 @@ describe("previewToken", () => {
   it("adds a value a theme lacks with the selector that theme already uses", async () => {
     const css = `:host { --c: #fff; --d: 1px; } [data-theme="dark"] { --c: #000; }`
     expect((await previewed(css, "d", "dark", "2px")).at(-1)).toBe('[data-theme="dark"] { --d: 2px; }')
+  })
+
+  it("measures rem and viewport units in the value against the frame, as the compiled CSS's are", async () => {
+    const css = `:host { --space: 4px; } .dark { --c: #000; }`
+    expect(await previewed(css, "space", "default", "0.5rem")).toEqual([
+      ":host { --space: calc(0.5 * var(--canvas-rem, 1rem)); }",
+      ".dark { --c: #000; }"
+    ])
+    expect((await previewed(css, "header", "dark", "10vh")).at(-1)).toBe(
+      ".dark { --header: calc(10 * var(--canvas-vh, 1vh)); }"
+    )
   })
 
   it("leaves a prefers-color-scheme block alone when previewing the default", async () => {

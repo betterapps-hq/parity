@@ -26,6 +26,59 @@ describe("inserting a library part", () => {
     expect(cascader.type === "component" && cascader.slots).toBeUndefined()
   })
 
+  it("gives no name to a component that sets its own size, where it would be cut off (PAR-518)", () => {
+    const avatar = componentNode("Avatar", { ...takesChildren, fixedSize: true }, new Set())
+    expect(avatar.type === "component" && avatar.props).toBeFalsy()
+    // Text given on purpose still goes in.
+    const given = componentNode("Avatar", { ...takesChildren, fixedSize: true }, new Set(), { children: "AB" })
+    expect(given.type === "component" && given.props).toEqual({ children: "AB" })
+  })
+
+  it("leaves the name out of a part whose sample gives it no children, as a Separator's (PAR-518)", () => {
+    const sources = { "acme/Separator": source({ sample: { props: { orientation: "vertical" } } }) }
+    const taken = new Set<string>()
+    const placed = withLibraryContext(componentNode("acme/Separator", takesChildren, taken), sources, [], taken)
+    expect(placed.type === "component" && placed.props).toEqual({ orientation: "vertical" })
+  })
+
+  it("gives a part without a sample the children its library's other samples give it, else its name (PAR-518)", () => {
+    const sources = {
+      "acme/Marker": source({
+        sample: {
+          children: [
+            { component: "acme/MarkerIcon", children: [] },
+            { component: "acme/MarkerContent", children: ["Running tests"] }
+          ]
+        }
+      }),
+      "acme/MarkerIcon": source({ parents: ["acme/Marker"] }),
+      "acme/MarkerContent": source({ parents: ["acme/Marker"] }),
+      "acme/Group": source({ sample: { props: { trigger: { $element: [{ component: "acme/GroupCount" }] } } } }),
+      "acme/GroupCount": source(),
+      "acme/Badge": source(),
+      // Another library's sample says nothing about acme's parts.
+      "other/Panel": source({ library: "other", sample: { children: [{ component: "acme/Badge", children: [] }] } })
+    }
+    const taken = new Set<string>()
+    const insert = (name: string) => withLibraryContext(componentNode(name, takesChildren, taken), sources, [], taken)
+    const inside = (node: DesignNode) => (node.type === "component" ? node.slots?.children?.[0] : undefined)
+    // An icon's box, given elements the sample can't show, holds nothing.
+    const icon = inside(insert("acme/MarkerIcon"))
+    expect(icon?.type === "component" && [icon.component, icon.props, icon.slots]).toEqual([
+      "acme/MarkerIcon",
+      undefined,
+      undefined
+    ])
+    const content = inside(insert("acme/MarkerContent"))
+    expect(content?.type === "component" && content.slots?.children?.map(shape)).toEqual(["Running tests"])
+    // Used without children, in a prop's elements.
+    const count = insert("acme/GroupCount")
+    expect(count.type === "component" && [count.props, count.slots]).toEqual([undefined, undefined])
+    // Used nowhere in its library: its name.
+    const badge = insert("acme/Badge")
+    expect(badge.type === "component" && badge.props).toEqual({ children: "Badge" })
+  })
+
   it("takes the text a sample gives as a prop over the name, but not over text set on purpose", () => {
     const sources = {
       "acme/Highlight": {

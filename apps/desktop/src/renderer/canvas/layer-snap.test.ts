@@ -8,7 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 let browser: Browser
 let page: Page
 
-const entry = `export { LayerSnapping } from "./layer-snap.ts"`
+const entry = `export { LayerSnapping } from "./layer-snap.ts"
+export { snapLayer } from "@parity-app/editor"`
 
 /**
  * A design whose Events layout is placed absolutely, with a border, holding a Review slot; and two cards, components
@@ -86,7 +87,7 @@ beforeAll(async () => {
       ${card("plain", "")}
     </div>`
   })
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()
@@ -100,7 +101,8 @@ function moved(layer: string, by: number) {
       // @ts-expect-error The bundle's global.
       const measured = snapping.LayerSnapping.measure(undefined, host, container, layer, 0.5)
       const from = measured.box
-      const snapped = measured.snap({ ...from, x: from.x + by }, { ctrlKey: false, metaKey: false })
+      // @ts-expect-error The bundle's global.
+      const snapped = snapping.snapLayer({ ...from, x: from.x + by }, measured.scene, 0.5)
       return { from: from.x, x: snapped.box.x, locked: snapped.locked.x }
     },
     { container, layer, by }

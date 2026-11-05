@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Home and new tabs show each project's picture: its first screens as last saved, taken from the canvas when it opens and after each save, flipping through them on hover",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

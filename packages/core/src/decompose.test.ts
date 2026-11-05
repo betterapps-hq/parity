@@ -97,7 +97,7 @@ describe("extractComponent", () => {
     expect(() => extractComponent(changed, ["row-a", "row-j", "row-s"], options)).toThrow("Renamed state changes")
   })
 
-  it("checks against the variant option the board shows", () => {
+  it("checks against every variant option, the one the board shows first", () => {
     const density = (overrides: Record<string, NodePatch>): ContainerSpec => ({
       ...design,
       params: {
@@ -116,11 +116,43 @@ describe("extractComponent", () => {
     expect(() => extractComponent(badge, ["row-a", "row-j", "row-s"], options)).toThrow(
       "Extracting would change how Team looks (Default, desktop)"
     )
+    // With Comfortable shown, Compact still would change, so it's refused, naming the option (PAR-493).
     const comfortable = { ...badge, view: { variants: { density: "comfortable" } } }
-    expect(() => extractComponent(comfortable, ["row-a", "row-j", "row-s"], options)).not.toThrow()
-    // A change outside the part shows the same either way.
+    expect(() => extractComponent(comfortable, ["row-a", "row-j", "row-s"], options)).toThrow(
+      "Extracting would change how Team looks (Default, desktop, Compact)"
+    )
+    // A change outside the part shows the same either way, whichever option the board shows.
     const title = density({ title: { text: "People" } })
     expect(() => extractComponent(title, ["row-a", "row-j", "row-s"], options)).not.toThrow()
+    const titleUnshown = { ...title, view: { variants: { density: "comfortable" } } }
+    expect(() => extractComponent(titleUnshown, ["row-a", "row-j", "row-s"], options)).not.toThrow()
+  })
+
+  it("checks each option of every variant param, with the others as the board shows them", () => {
+    // Two params, the board showing each one's first option. Bold, not shown, sets Avery's name in bold inside the part;
+    // Compact changes only the title, outside it.
+    const twoParams: ContainerSpec = {
+      ...design,
+      params: {
+        density: {
+          type: "variant",
+          options: [
+            { id: "comfortable", name: "Comfortable" },
+            { id: "compact", name: "Compact", overrides: { title: { text: "People" } } }
+          ]
+        },
+        weight: {
+          type: "variant",
+          options: [
+            { id: "plain", name: "Plain" },
+            { id: "bold", name: "Bold", overrides: { "a-name": { style: { weight: 700 } } } }
+          ]
+        }
+      }
+    }
+    expect(() => extractComponent(twoParams, ["row-a", "row-j", "row-s"], options)).toThrow(
+      "Extracting would change how Team looks (Default, desktop, Bold)"
+    )
   })
 
   it("checks against the defaults of the params the design binds", () => {

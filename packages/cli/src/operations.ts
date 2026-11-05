@@ -252,8 +252,42 @@ const stateSchema = object(
     tab: tabSchema,
     selection: object({ design: string, node: string, mode: string }, ["design", "node", "mode"]),
     designs: { type: "array", items: designSchema },
-    overlaps: { type: "array", items: object({ designs: strings, names: strings }) },
-    modes: { type: "array", items: object({ id: string, name: string, width: { type: "number" }, primary: boolean_ }) },
+    overlaps: {
+      type: "array",
+      description:
+        "Every pair of boards on the canvas that's too close, as execute's Overlaps() lists them. A pair with " +
+        "titleOnly doesn't collide: the lower board's title covers the upper one.",
+      items: object(
+        {
+          designs: strings,
+          names: strings,
+          width: { ...number, description: "How far they share, title band included." },
+          height: number,
+          titleOnly: {
+            ...boolean_,
+            description: "Only the lower board's title covers the other; the boards are clear."
+          },
+          estimated: {
+            ...boolean_,
+            description: "One isn't drawn yet, so its size is estimated from its frames. Absent: both measured."
+          }
+        },
+        ["width", "height", "titleOnly", "estimated"]
+      )
+    },
+    modes: {
+      type: "array",
+      description: "The project's modes, primary first.",
+      items: object({
+        id: string,
+        name: string,
+        width: { type: "number" },
+        primary: {
+          ...boolean_,
+          description: "The project's first mode: every design's main frame unless it picks another. Only one is."
+        }
+      })
+    },
     components: strings,
     tokens: object({ count: integer, semantic: strings, themeCategories: strings }),
     viewport: { type: "object" },

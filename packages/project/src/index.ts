@@ -8,11 +8,11 @@ import {
   libraryId,
   libraryManifestExtension,
   type PackageManifest,
+  parseJsonc,
   parseLibraryManifest,
   type ProjectConfig,
   type RendererAdapter
 } from "@parity-app/core"
-import { parseJsonc } from "./jsonc.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { findStorybook } from "./storybook.ts"
 import { field, shadcnConfig, stylesWith } from "./styles.ts"
@@ -50,8 +50,19 @@ export {
 } from "./preview-key.ts"
 export { detectionFingerprint, fingerprintInputs } from "./fingerprint.ts"
 export { changesLockfiles, findLockfiles, lockfileFolders } from "./lockfile.ts"
-export { parseJsonc } from "./jsonc.ts"
-export { installedPackage, type LibraryDefinition, libraryCatalog, withStylesImport } from "./libraries.ts"
+export { type LibraryDefinition, libraryCatalog, withStylesImport } from "./libraries.ts"
+export {
+  type EntryUse,
+  type ExportedComponent,
+  exportedComponents,
+  findPackage,
+  type InstalledPackage,
+  type PackageFolder,
+  packageEntry,
+  packageStylesheet,
+  readPackage,
+  splitSpecifier
+} from "./packages.ts"
 export { parseStoryFile } from "./storybook.ts"
 export { type AppStyles, findStyles, readStylesheet } from "./styles.ts"
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
@@ -94,7 +105,7 @@ export async function discoverProject(
   if (own) {
     try {
       const manifest = parseLibraryManifest(parseJsonc(await readFile(join(root, own), "utf8")))
-      const described = await describedTokens(root, join(root, own), manifest)
+      const described = await describedTokens(root, join(root, own), manifest, notes)
       if (described) tokens.unshift(described)
       namespace = libraryId(manifest, pkg.name ?? basename(root))
       notes.push(`a library, described by ${own}, whose components are named like ${namespace}/Button`)

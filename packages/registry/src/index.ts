@@ -1,8 +1,16 @@
 import { existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
-import { dirname, join } from "node:path"
-import { type LibraryManifest, libraryManifestExtension, parseLibraryManifest } from "@parity-app/core"
+import { dirname, join, resolve } from "node:path"
+import {
+  applyLibraryEdits,
+  type LibraryEdits,
+  type LibraryManifest,
+  libraryManifestExtension,
+  parseJsonc,
+  parseLibraryEdits,
+  parseLibraryManifest
+} from "@parity-app/core"
 import semver from "semver"
 
 /**
@@ -56,7 +64,7 @@ async function readEntries(dir: string): Promise<RegistryEntry[]> {
       if (!manifest.package) throw new TypeError("/package: a registry file names the package it describes")
       entries.push({ file, path, manifest })
     } catch (error) {
-      console.warn(`Skipping registry file ${file}: ${error instanceof Error ? error.message : String(error)}`)
+      console.warn(`Skipping registry file ${file}: ${errorText(error)}`)
     }
   }
   return entries
@@ -85,6 +93,54 @@ export async function registryEntryFor(
     })
     .sort((a, b) => compareGenerated(b.manifest, a.manifest))[0]
   return older && { ...older, older: true }
+}
+
+/**
+ * The newest file for each package the registry describes, by the version it was made from, with its hand edits
+ * applied. A file whose edits can't be read is used as it is, with a warning.
+ */
+export async function newestEntries(dir?: string): Promise<RegistryEntry[]> {
+  const newest = new Map<string, RegistryEntry>()
+  for (const entry of await registryEntries(dir)) {
+    const name = entry.manifest.package!.name
+    const current = newest.get(name)
+    if (!current || compareGenerated(entry.manifest, current.manifest) > 0) newest.set(name, entry)
+  }
+  return Promise.all(
+    [...newest.values()].map(async (entry) => {
+      try {
+        return { ...entry, manifest: (await withEdits(entry.path, entry.manifest)).manifest }
+      } catch (error) {
+        console.warn(`Using registry file ${entry.file} without its edits: ${errorText(error)}`)
+        return entry
+      }
+    })
+  )
+}
+
+/**
+ * A library file at `path` with its hand edits applied: its own `edits`, or the shared file it names beside it. Edits
+ * for exports it doesn't have are its `orphans`, reported rather than dropped silently. Throws when the edits can't be
+ * read.
+ */
+export async function withEdits(
+  path: string,
+  manifest: LibraryManifest
+): Promise<{ manifest: LibraryManifest; orphans: string[] }> {
+  if (manifest.edits === undefined) return { manifest, orphans: [] }
+  return applyLibraryEdits(manifest, await readLibraryEdits(manifest.edits, dirname(path)))
+}
+
+/**
+ * Hand edits as a library file writes them: inline, or the path of a shared file, which is read from `from` and may
+ * have comments.
+ */
+export async function readLibraryEdits(edits: unknown, from: string): Promise<LibraryEdits> {
+  return parseLibraryEdits(typeof edits === "string" ? parseJsonc(await readFile(resolve(from, edits), "utf8")) : edits)
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 /** Whether a manifest describes this version of its package. A manifest without a range covers every version. */

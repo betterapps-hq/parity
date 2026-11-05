@@ -135,12 +135,14 @@ beforeAll(async () => {
         client: document.documentElement.clientWidth })`
     })
   )
-  // Inside the canvas, text is 12px with an 18px line height, in its own font and color scheme, and unselectable.
+  // Inside the canvas, text is 12px with an 18px line height, in its own font and color scheme, and unselectable. Parity
+  // defines shadcn's variables, from its stylesheet and inline, as tldraw sets its zoom.
   await page.route("http://parity.test/", (route) =>
     route.fulfill({
       contentType: "text/html",
-      body: `<div style="font: 12px/18px monospace; letter-spacing: 1px; color: red; color-scheme: dark;
-        user-select: none; pointer-events: none"><div id="host"></div></div><iframe></iframe><div id="frames"></div>
+      body: `<style>:root { --background: red; --border: 3px }</style>
+        <div style="font: 12px/18px monospace; letter-spacing: 1px; color: red; color-scheme: dark;
+        user-select: none; pointer-events: none; --tl-zoom: 2; --frame-height: 40px"><div id="host"></div></div><iframe></iframe><div id="frames"></div>
         <script src="http://project.test/frame.js"></script><script src="http://parity.test/parity.js"></script>`
     })
   )
@@ -148,7 +150,7 @@ beforeAll(async () => {
   // @ts-expect-error The bundle's global.
   if (!(await page.evaluate(() => typeof frame === "object")))
     throw new Error(`The page didn't load: ${errors.join(",")}`)
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()
@@ -211,6 +213,58 @@ describe("a frame's root", () => {
   })
 })
 
+describe("a frame's custom properties", () => {
+  /** A box's background and border with the project's stylesheet, in a frame and on a fresh page. */
+  async function box(projectCss: string) {
+    const html = '<div class="box"></div>'
+    await frameWith(projectCss, html)
+    return page.evaluate(
+      ({ projectCss, html }) => {
+        const document_ = document.querySelector("iframe")!.contentDocument!
+        document_.open()
+        document_.write(`<!doctype html><style>${projectCss}</style>${html}`)
+        document_.close()
+        const read = (element: Element) => {
+          const style = getComputedStyle(element)
+          return {
+            background: style.backgroundColor,
+            border: style.borderTopWidth,
+            zoom: style.getPropertyValue("--tl-zoom")
+          }
+        }
+        const host = document.querySelector("#host")!
+        return {
+          frame: read(host.shadowRoot!.querySelector(".box")!),
+          page: read(document_.querySelector(".box")!),
+          hostHeight: getComputedStyle(host).getPropertyValue("--frame-height")
+        }
+      },
+      { projectCss, html }
+    )
+  }
+
+  const usesFallbacks = ".box { background: var(--background, rgb(0, 128, 0)); border: var(--border, 1px) solid }"
+
+  it("takes a variable's fallback where the project never defines it, as Chrome does, not Parity's value", async () => {
+    const { frame, page } = await box(usesFallbacks)
+    expect(frame).toEqual(page)
+    expect(frame).toEqual({ background: "rgb(0, 128, 0)", border: "1px", zoom: "" })
+  })
+
+  it("keeps the height the canvas holds a frame at on its host, for the canvas's own rules", async () => {
+    const { hostHeight } = await box(usesFallbacks)
+    expect(hostHeight).toBe("40px")
+  })
+
+  it("takes the project's own values, from its root and from a layer", async () => {
+    const { frame, page } = await box(
+      `${usesFallbacks} :root { --background: rgb(0, 0, 255) } @layer base { html { --border: 2px } }`
+    )
+    expect(frame).toEqual(page)
+    expect(frame).toMatchObject({ background: "rgb(0, 0, 255)", border: "2px" })
+  })
+})
+
 describe("a frame's body", () => {
   /** Where a heading's top is in a frame and on a fresh page, and the frame body's margin and height. */
   async function heading(projectCss: string, hostStyle = "") {
@@ -270,6 +324,82 @@ describe("a frame's viewport", () => {
       return { width: box.width, height: box.height }
     })
     expect(size).toEqual({ width: 195, height: 211 })
+  })
+})
+
+describe("a frame's rem", () => {
+  const html =
+    '<div class="box">Text</div><p class="spaced"></p><div class="inline" style="width: 5rem; height: 1rem"></div>'
+
+  /**
+   * The sizes of a few elements with the project's stylesheet, in a frame on the canvas's 12px text and on a fresh page,
+   * with a rule the project's code adds as it runs. Parity's own root keeps the 16px it had.
+   */
+  async function sizes(projectCss: string) {
+    await frameWith(projectCss, html)
+    return page.evaluate(
+      ({ projectCss, html }) => {
+        const added = ".added { width: 3rem; height: 3rem }"
+        const document_ = document.querySelector("iframe")!.contentDocument!
+        document_.open()
+        document_.write(`<!doctype html><style>${projectCss} ${added}</style>${html}<div class="added"></div>`)
+        document_.close()
+        const shadow = document.querySelector("#host")!.shadowRoot!
+        const sheet = new CSSStyleSheet()
+        sheet.insertRule(added)
+        shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, sheet]
+        const target = shadow.querySelector("[data-canvas-body] > div")!
+        target.insertAdjacentHTML("beforeend", '<div class="added"></div>')
+        const read = (root: ParentNode) =>
+          Object.fromEntries(
+            [".box", ".spaced", ".inline", ".added"].map((selector) => {
+              const element = root.querySelector(selector)!
+              const box = element.getBoundingClientRect()
+              return [selector, `${box.width}x${box.height} ${getComputedStyle(element).fontSize}`]
+            })
+          )
+        return {
+          frame: read(shadow),
+          page: read(document_),
+          parity: getComputedStyle(document.documentElement).fontSize
+        }
+      },
+      { projectCss, html }
+    )
+  }
+
+  const boxes = `.box { width: 10rem; height: 2.4rem; font-size: 1.6rem; padding: .5rem }
+    :root { --spacing: 0.25rem } .spaced { width: calc(var(--spacing) * 40); height: 1px; margin: 0 }`
+
+  it("measures the project's root font, as Chrome does, when the project sets one", async () => {
+    const { frame, page, parity } = await sizes(`html { font-size: 62.5% } ${boxes}`)
+    expect(frame).toEqual(page)
+    expect(frame).toEqual({
+      ".box": "110x34 16px",
+      ".spaced": "100x1 10px",
+      ".inline": "50x10 10px",
+      ".added": "30x30 10px"
+    })
+    expect(parity).toBe("16px")
+  })
+
+  it("measures a browser's 16px when the project sets none", async () => {
+    const { frame, page } = await sizes(boxes)
+    expect(frame).toEqual(page)
+    expect(frame[".spaced"]).toBe("160x1 16px")
+  })
+
+  it("follows a root font size in pixels, em or rem, or in a media query that isn't a width", async () => {
+    for (const root of [
+      "html { font-size: 20px }",
+      "html { font-size: 1.25em }",
+      ":root { font-size: 1.25rem }",
+      "html { font-size: 50% } @media screen { html { font-size: 125% } }"
+    ]) {
+      const { frame, page } = await sizes(`${root} ${boxes}`)
+      expect(frame).toEqual(page)
+      expect(frame[".spaced"]).toBe("200x1 20px")
+    }
   })
 })
 

@@ -25,7 +25,7 @@ import { losslessWebp } from "./webp.ts"
  */
 
 /** Goes up when what's kept changes, so pictures made the old way aren't shown. */
-const previewFormat = 2
+const previewFormat = 3
 
 /** What each file imports, by the snapshot it's read in: the code a guest draws doesn't change under it. */
 const imports = new WeakMap<CodeSnapshot, Map<string, Promise<string[]>>>()

@@ -1,10 +1,10 @@
 import { Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
-import { FolderOpen, LoaderCircle, Plus, TriangleAlert, X } from "lucide-react"
+import { House, LoaderCircle, Plus, TriangleAlert, X } from "lucide-react"
 import { useEffect, useRef, useSyncExternalStore } from "react"
 import type { DesignStore } from "../design-store.ts"
-import { type Tab, useActiveTabId, useTabs, workspace } from "../workspace.ts"
+import { homeTab, type Tab, useActiveTabId, useHomeActive, useTabs, workspace } from "../workspace.ts"
 import { AppMenu } from "./AppMenu.tsx"
-import { openProjectFolder } from "./commands.ts"
+import { openNewTab } from "./commands.ts"
 import { Hint } from "./Hint.tsx"
 import { formatKeys } from "./keys.ts"
 
@@ -83,8 +83,40 @@ function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
   )
 }
 
+/** Home, pinned first: just its icon, and it can't be closed. */
+function HomeTab() {
+  const selected = useHomeActive()
+  return (
+    <Hint
+      label={
+        <>
+          Home <Kbd>{formatKeys("Alt Home")}</Kbd>
+        </>
+      }
+      side="bottom"
+    >
+      <div
+        role="tab"
+        tabIndex={0}
+        aria-label="Home"
+        aria-selected={selected}
+        onPointerDown={(event) => event.button === 0 && workspace.activate(homeTab)}
+        onKeyDown={(event) => (event.key === "Enter" || event.key === " ") && workspace.activate(homeTab)}
+        className={`relative grid h-8 w-10 shrink-0 place-items-center rounded-t-lg border border-b-0 outline-none focus-visible:ring-2 focus-visible:ring-ring [-webkit-app-region:no-drag] ${
+          selected
+            ? "bg-background text-foreground"
+            : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+        }`}
+      >
+        <House className="size-4" />
+        {selected && <span className="absolute inset-x-0 -bottom-px h-px bg-background" />}
+      </div>
+    </Hint>
+  )
+}
+
 /**
- * The app's menus, then open projects as tabs. The strip doubles as the window's title bar; the system's window buttons
+ * The app's menus, then Home and the open tabs. The strip doubles as the window's title bar; the system's window buttons
  * sit at its end.
  */
 export function TabBar() {
@@ -104,9 +136,10 @@ export function TabBar() {
         mac ? "pl-20" : "pl-2"
       } pr-[150px]`}
       role="tablist"
-      aria-label="Projects"
+      aria-label="Tabs"
     >
       <AppMenu />
+      <HomeTab />
       {/* Tabs shrink to their minimum width first, then the strip scrolls; a mouse wheel scrolls it sideways. */}
       <div
         ref={strip}
@@ -124,8 +157,8 @@ export function TabBar() {
           render={
             <button
               type="button"
-              onClick={() => void openProjectFolder()}
-              aria-label="Open project"
+              onClick={openNewTab}
+              aria-label="New tab"
               className="mb-1 ml-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground [-webkit-app-region:no-drag]"
             >
               <Plus className="size-4" />
@@ -133,7 +166,7 @@ export function TabBar() {
           }
         />
         <TooltipContent>
-          <FolderOpen className="size-3.5" /> Open project <Kbd>{formatKeys("Ctrl O")}</Kbd>
+          New tab <Kbd>{formatKeys("Ctrl T")}</Kbd>
         </TooltipContent>
       </Tooltip>
     </div>

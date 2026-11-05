@@ -1580,6 +1580,22 @@ recommended answer to each of its questions.
   against a fresh page's, and the render sweep (PAR-211) is to compare whole frames with Chrome. On screen at 100%, a
   phone and a desktop frame were also captured and compared with Chrome pixel by pixel: same size and place, with only
   text antialiasing differing (the canvas draws text in grayscale, and Chrome with ClearType's colored edges).
+- **Parity's own custom properties stay out of frames** (PAR-157). Custom properties inherit into a shadow root, and
+  `all: initial` leaves them alone, so a frame inherited every variable Parity's page defines. shadcn's names are
+  Parity's too: a project using `var(--border, 1px)` without defining `--border` got Parity's border instead of its
+  fallback, which Chrome gives it. A frame's root now sets each custom property that reaches its host to `initial`, as
+  if nothing defined it, in the same lowest layer as `all: initial`, so the project's own definitions, in any layer or
+  none, still win, as do the viewport properties set on the host. My calls:
+  - **The names are read from the computed style of the element around the host** as each frame is prepared, which lists
+    every custom property reaching it: Parity's stylesheets, tldraw's, and inline ones such as tldraw's zoom. Collecting
+    them from Parity's stylesheets instead would miss the inline ones. The list sits in the sheet every frame shares and
+    only grows, since setting a property nothing passes down changes nothing; the sheet is written again only when a
+    name is new, normally for the first frame alone.
+  - **A variable Parity's page first defines after a frame is prepared** reaches that frame until it's prepared again,
+    as it is when its environment changes or it wakes. Parity's page defines its variables before the canvas draws.
+  - **Registered properties can't be kept out.** `@property` is the document's, shared by Parity and every project, so a
+    name Parity registers with an initial value has that value in frames, where on the project's own page it would be
+    undefined. Shadow roots ignore `@property`, so there's no per-frame registration to put in its place.
 - **Frames have square corners and cut nothing off,** at your request, since a browser's viewport doesn't round its
   corners. Only a frame with a device height clips, below that height, where a browser would scroll; a frame that grows
   with its content shows all of it, shadows and popups included.
@@ -1604,6 +1620,36 @@ recommended answer to each of its questions.
     rewritten as rules are added, in any stylesheet. Outside a frame the custom properties aren't set, so the units
     still measure Parity's window there.
   - Only declarations are rewritten, so a selector such as `.h-[100vh]` still matches. Rewriting twice changes nothing.
+- **`rem` measures the project's root font** (PAR-156). In a shadow root `rem` reads the document's root, Parity's, so a
+  project with `html { font-size: 62.5% }` got 16px to the rem in frames where Chrome gives it 10px. Two things were
+  wrong: `rem` measured Parity's root, and the root's own `62.5%` was of the canvas's 12px text, since a frame's root
+  sits in Parity's page rather than at the top of one. My calls:
+  - **`rem` in the project's CSS is rewritten,** as viewport units are and in the same places (its stylesheets, inline
+    styles, `<style>` text and rules added while it runs): `1.6rem` becomes `calc(1.6 * var(--canvas-rem, 1rem))`.
+    Custom properties are rewritten too, since Tailwind's `--spacing: 0.25rem` is used everywhere. Queries are left
+    alone: `rem` in a media query counts a browser's default 16px, not the root's font.
+  - **The frame's root sets `--canvas-rem` to its font size,** whatever the project's rules make it, read through a
+    length Parity registers (`--canvas-root-font-size: 1em`), since `1em` in an ordinary custom property would measure
+    each element that uses it. A size worked out once, when the frame is prepared, would miss a theme or mode that
+    changes the root's font; through the cascade it follows them.
+  - **A relative root font size counts from a browser's 16px,** as on a page: `62.5%` and `em` in a `:root` or `html`
+    rule's `font-size` become `calc()`s of 16px, and so does `rem`, which in the root's own font size means the default.
+    A rule for the root and other elements at once, as `html, body`, is split when it sets a font size, so only the
+    root's changes.
+  - **Tokens keep the values the project wrote.** They used to be read from the CSS prepared for frames, so a token in
+    `vh` already read as a `calc()`, and with `rem` rewritten, Tailwind's and shadcn's spacing, text and radius would
+    have too. They're now read from the CSS with selectors mapped and lengths as written (`units: false`). What frames
+    draw is rewritten instead: a token's previewed value, and the values of the styling framework's theme that the
+    compiled CSS left out.
+  - **Not covered:** a root font size in a width media query, since those become container queries the root asks rather
+    than answers (a container can't query itself), so it applies in no frame; `larger`, `smaller` or the `font`
+    shorthand on the root; a root font size from a variable holding a percentage, or holding `rem`, which makes a cycle
+    with `--canvas-rem` and leaves the root at the canvas's font size; and a root font set by CSS-in-JS, whose added
+    rules aren't mapped onto the root. The editor's own rem (Fields count 16px to the rem, and a spacing step is
+    `--spacing` at 16px to the rem) is unchanged.
+  - **Rejected:** setting Parity's own root to the project's font size, which would resize Parity's interface and can't
+    serve two projects at once; converting `rem` to pixels when the CSS is prepared, which misses themes, modes and
+    token previews that change the root's font; and iframes, as for viewport units.
 - **A frame's body has a browser's 8px margin,** in the lowest layer, so a reset such as Tailwind's preflight still
   removes it (CAN-25). The size container that the project's rewritten media queries ask is the frame's root rather than
   its body. A container lays out on its own, as a page's root does, so on the body it kept a first heading's margin from
@@ -2405,7 +2451,9 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - The canvas passes measures in and applies what comes back. It keeps measuring frames (`DragLayouts`), finding the
     frame under the pointer, the pointer handling and the drop preview, `measureHere`, and moving an absolutely placed
     layer by its insets, whose rule (`shiftInsets`) stays with nudging in the app. For snapping it keeps reading
-    tldraw's boxes, the View menu's preference, Ctrl to move freely and drawing the guides.
+    tldraw's boxes, the View menu's preference, Ctrl to move freely and drawing the guides. You reopened the
+    `shiftInsets` call on 2026-11-04: it's in `@parity-app/editor` now, with the rest of moving, resizing and nudging
+    (PAR-577, below).
   - A frame's layouts' flows are read when the frame is measured, with the boxes, so `dropTargetAt` takes only data.
     Before, the flow of the layout found was read from its computed style at each pointer move. Showing a copy doesn't
     change a layout's display or direction, so drops land where they did.
@@ -2494,6 +2542,11 @@ A lens is a view of one layer of an app, such as its routes, data, API, permissi
 - **Standards first, then adapters.** You decided this: "We focus on standards first, then adapters/plugins." Each lens
   works from its standard before any adapter for a particular tool is built. Web apps and their backends come first; the
   plan is [proposals/web-and-backend.md](proposals/web-and-backend.md).
+- **The editor and code viewing come before every other lens** (PAR-609). You decided this on 2026-11-05: "We need to
+  improve the new user experience and editor experience before we begin taking in lens work. The editor and code viewing
+  is the first and most important lens. Until that experience is great, it doesn't matter to add other lenses." So the
+  lenses below wait, in their order, at Low priority in Linear, and PAR-17 to PAR-19, which read schemas and keep
+  database keys, stay in Backlog.
 - **Lens priority: databases, the API, routes and mock data, then telemetry.** You set this order: "1) Databases 2)
   API 3) Telemetry", then placed the rest: "Routes and mock data should come before telemetry, right after the API."
   Mock data includes the scenarios that fill designs. Telemetry means OpenTelemetry from the running app: traces linking
@@ -3697,7 +3750,10 @@ below. My calls on how they move:
     without the leading slash, which the CLI and MCP report as the error's `path`.
   - `plainObject`, `nonBlankString` (trimmed) and `finiteNumber` are the shared pieces, and `jsonText(schema)` parses
     JSON text, then checks it with the schema.
-  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type.
+  - `fileObject(shape)` is an object in a file Parity owns (PAR-589). It's strict, and it leaves out a key set to
+    `undefined`, as `validate.ts`'s `compact` did, so what the window saves from memory reads as it would from the file.
+  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type. PAR-573
+    added the fields its package reader needs.
   - A read that returns nothing when the data is malformed calls the schema's own `safeParse(value).data`, as
     `readErrorDetails`, `readCopyEntry`, the caller-name helpers and the agent registry's settings do.
 - **A schema is the check and the type.** Types come from `z.infer`, not from an interface kept beside the check.
@@ -3709,6 +3765,18 @@ below. My calls on how they move:
 - **Errors read as they do now.** A failed check throws `TypeError` with `/json/pointer: message`, as `validate.ts`
   does, so people and tests see the same messages. Agent input throws `CodedError` with `invalid_input` and the pointer
   as its `path` (PAR-472).
+- **`.par` files are zod schemas (PAR-589).** `parseCanvasDocument`, `parseDesignNode`, `parseNodePatch` and
+  `parseModeSettings` check with them, and the types of `document.ts` and the mode settings come from `z.infer`.
+  - The node tree is a discriminated union on `type`. Each type of node extends one base schema, since spreading the
+    base's shape loses the recursive type.
+  - Rules that span fields are refinements, each reported at the field at fault: node ids used twice, patch keys that
+    name no node, what a frame may hold, a variant's options, links' ends and mode values. A refinement runs after the
+    fields it reads pass their own checks, so a file with several problems can report a different one first.
+  - Positions of designs and notes are strict too, as canvas objects' already were.
+  - A few messages say more than before. A length that's neither a number nor a string says
+    `expected a number or a string`, padding names its three forms, and a problem in a file's modes points inside
+    `/modes`.
+  - `validate.ts` is left only for `library.ts`, until PAR-594.
 - **Everything that crosses into Parity is checked:**
   - project and library files
   - the clipboard, drag payloads and saved preferences
@@ -3733,7 +3801,20 @@ below. My calls on how they move:
   through Parity's packages, and fails if it reaches zod.
 - **MCP's input schemas come from zod** through `z.toJSONSchema`, and `tools/list` keeps its 12 KiB budget (PAR-510).
 - **Token files stay lenient.** A malformed token is skipped and reported rather than failing its file, since a strict
-  check would refuse files that load today (PAR-591).
+  check would refuse files that load today (PAR-591). Each of the 12 registry libraries with tokens read the same before
+  and after, with nothing skipped. My calls:
+  - Each `$type`'s `$value` is a schema in `tokens/src/dtcg-values.ts`, checked once aliases are followed. Any value can
+    be a string instead, CSS read as written, since libgen writes CSS where DTCG has no form for it.
+  - The parts Parity filled in when they were missing stay optional: a shadow's offsets, blur, spread and inset, and a
+    typography's weight, line height and letter spacing. A dimension takes any CSS unit, since libgen writes `em`.
+  - A token malformed in one context is left out of that context only. A malformed set, modifier or step of a resolver's
+    resolution order is left out too. A broken alias still fails the file.
+  - Each skip is reported once. `readDesignTokens` passes it to its caller, and project discovery adds it to the
+    project's notes, as `acme.lib.par: skipped radius (/$value: expected a string or an object)`. The Tokens panel
+    doesn't show these yet.
+  - A stroke style's dash pattern is written as `dashed`, since a CSS border can't draw one.
+  - `parseData` passes over a union's options for another type of value, so a malformed shadow reports its bad part
+    rather than `expected a string`.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
@@ -3861,6 +3942,23 @@ gesture). My calls:
 - **tldraw's own drag of a board stays tldraw's,** ending when tldraw stops translating, since tldraw follows that
   pointer, not Parity.
 
+## Agents tell board collisions from title clearance, and a call's warnings from an audit (PAR-462)
+
+An agent read an execute call with no overlap warnings as a tidy canvas, and a title too close as boards on top of each
+other. The two checks already differed, and `Overlaps()` already marked `titleOnly` and `estimated`; this makes what
+they mean, and what each check covers, plain:
+
+- **Two categories for a call's own boards.** `overlap` is two boards colliding; `title_clearance` is boards that are
+  clear, but so close that the lower one's title covers the upper. Both are warnings, and both stay limited to boards
+  the call created, changed or moved, as before.
+- **The rest of the canvas is counted, not listed.** When boards the call didn't touch are too close, one
+  `canvas_overlaps` suggestion says how many pairs and points to `Overlaps()`. A call that only reads therefore doesn't
+  look like a clean canvas, without repeating every old overlap on every call.
+- **Measured or estimated, in words.** A warning says "measured" when the canvas drew both boards, and otherwise names
+  the board that isn't drawn yet. `Overlaps()` keeps `titleOnly` and `estimated` as they were, with no new fields, and
+  `state`'s schema now describes them. Real sizes for undrawn boards remain PAR-279's, and the 1400 × 1000 room a new
+  screen is placed with isn't treated as a placement bug: it's placed right of every board.
+
 ## One step works out the component list (PAR-566)
 
 The order that keeps the component list current was written four times in the project service, and the copies disagreed.
@@ -3920,3 +4018,391 @@ kept on disk). My calls in fixing it:
   reason: a provider, a part whose sample holds nothing, or content that couldn't be opened. It follows the Previews
   exploration's States story (an eye-off icon and "Draws nothing of its own" on the muted fill), which designs it.
   Previews made before are made again once, as `previewFormat` went up to 2.
+
+## Component previews follow Parity's light or dark theme (PAR-521)
+
+Previews were all drawn in the project's first mode, light on the example, so in Parity's dark theme they were white
+boxes (see editor.md, Component previews, made offscreen and kept on disk). My calls in fixing it:
+
+- **One mode at a time, the one matching the theme, not both.** The issue allowed drawing both and showing the matching
+  one. Drawing both would double the idle pass's work and the disk for a theme most people don't switch, so the window
+  draws only the matching one, and a switch draws the rest then. The key covers the mode, so both are kept once made and
+  a switch back draws nothing.
+- **Dark is read from the mode's theme options, by the word.** Modes don't say light or dark, so a mode is dark when a
+  theme option's id, name or class is the word "dark": shadcn's `dark` class, a "Dark" option, `theme-dark`. A project
+  whose dark theme is called something else ("Night", "Midnight") is drawn in its first mode, as before.
+- **The matching mode keeps the first mode's other options.** Desktop Dark is picked over a Mobile Dark listed before
+  it, so a preview changes in theme only, not in viewport or locale.
+- **The card's box takes the page's color from the picture.** It was white, the light page; a dark picture in it showed
+  a white frame round its own dark page. Nothing in the window says what the page's color is in that mode, and the
+  picture's corner is that page, so the box draws the picture's first pixel scaled past its size as its background,
+  which needs no stored color and no decoding in script.
+- **Switching themes shows the other theme's picture, dimmed, until its own is made.** The index keeps one latest key a
+  component, so a switch to a theme not drawn yet shows the last picture as updating, as after an edit, rather than
+  nothing; switching back shows the kept one at once.
+
+## Zoomed far out, a board's labels hide once it's too narrow (PAR-151)
+
+Called on 2026-11-04, for your approval in Storybook:
+
+- **The frame the issue names is the board.** A title is clipped to its board's width on screen and hides when the board
+  is under 24 screen pixels wide; a mode caption goes by its own frame's width, and a state label by its board's. One
+  threshold for all three means detail never outlasts the title: a frame is never wider than its board.
+- **Hidden at the line, not faded towards it.** The zoom moves in steps far out (1%, 2.5%, 5%, 10%), so a fade between
+  them would rarely show. At 24 pixels or wider, a title shows, however little of its name fits.
+- **The icon is clipped with the name,** by the title's button, rather than the title dropping to its icon alone. The
+  rename field isn't clipped, so renaming a narrow board up close still shows the whole field.
+- **The rule moved to `@parity-app/editor`** (`canvas-labels.ts`), taking the board's or frame's width with the zoom, as
+  packages hold the editor's logic; the canvas keeps applying it to each label's style.
+
+## Make component checks every variant option (PAR-493)
+
+Called on 2026-11-05. Make component's before-and-after check now renders the design in each option of each variant
+param, not only the option its board shows, as it already did for every state and viewport. Each option is checked with
+the other params as the board shows them, rather than every combination of options: an option that changes nothing
+inside the part on its own changes nothing there beside another that doesn't either, and the checks grow with the number
+of options rather than their product. A refusal for an option the board doesn't show names it after the state and
+viewport. A variant's change inside the part isn't caught earlier with its own advice, as a state's is; the render check
+refuses it.
+
+## Width and Height make room for their value (PAR-496)
+
+Called on 2026-11-05, for your approval in Storybook. A 96 by 48 layer showed "9" and "4" in the Size section. Both
+width and font played a part: the length field shared its row with a 92px Fixed, Fill or Hug list, a token button and
+`px`, leaving it about 9px for the value before PAR-552 widened rows and 17px at 300 pixels after it, and nothing at the
+narrowest 260. Its text was also 14px rather than the 12px it asks for, since the UI kit's input turns to 14px from the
+`md` breakpoint and the field's `text-xs` didn't override that. Now every number field's value is 12px, and when the
+Size row is narrower than 176px (an inspector under about 310 pixels) the list goes under the length rather than beside
+it, so the row is taller there instead of the value being cut. Shrinking the list or dropping `px` wouldn't have made
+room for four digits at 260 pixels. Padding, Margin, Min, Max and insets keep two lengths to a row and still clip at the
+narrowest; they're left for another issue.
+
+## A correction taken back leaves the list to detection (PAR-581, PAR-604)
+
+An export the person took back off the component list stayed listed when the parse couldn't decide it, as
+`export const Menu = MenuPrimitive.Root`: reading its file again kept its `included` mark, and the type checker skips
+marked components. My calls:
+
+- **The mark follows the person's list.** `correctedSources` takes the mark off any component whose export is no longer
+  in `include`, every time it runs. Nothing else sets or clears it, so the mark always says whether the person listed
+  it.
+- **One taken back stays listed until the checker reads its file.** It's left as any export the parse can't decide is
+  after files change, so the checker confirms or drops it in the check that follows the read. Dropping it at once would
+  take it off the canvas and put it back when the checker does recognise it.
+- **An export still on the person's list keeps its mark** through files being read again, so it doesn't drop off and
+  come back.
+- **PAR-581 needed only its test.** PAR-566's step already lets removed ids go before new components get theirs, so a
+  component the checker finds keeps an id it took off the list in the same check.
+
+## A component's name goes in only where it fits (PAR-518)
+
+A component that takes children is inserted with its name as text, so it isn't an empty box. The preview survey found
+parts whose box has a fixed size showing it cut off: "Avata", "C", "Marke", the end of "AttachmentAction". Nothing in a
+component's props says how big its box is, so my calls:
+
+- **A component's own classes say whether it sets its size.** The props reader looks at the classes on the outermost
+  element a component returns, in a project's source or a library's compiled JavaScript, and marks it `fixedSize` for a
+  width (`size-8`, `w-10`, `w-(--sidebar-width)`), a height under a line of text (`h-px`, under 16 pixels) or
+  `@container`, whose width doesn't come from what's inside. Classes for the element's own states (`data-horizontal:`)
+  count; ones it takes from a parent (`group-*:`) or gives what's inside (`[&_svg]:`) don't. It reads Tailwind's names
+  only, which is what shadcn and the libraries Parity ships are written in; a component styled another way keeps its
+  name. Measuring the drawn label instead would take a second draw for every preview and an edit after every insert.
+- **A library's samples decide its parts' children.** A part with a sample gets what the sample gives, and no name when
+  it gives none: its examples use a Separator, a Checkbox or an icon button without text. Before, only a sample that
+  spelled out children replaced the name. A part without a sample of its own takes the children the first of its
+  library's other samples to use it gives it, which for MarkerIcon and AttachmentMedia is none (elements the sample
+  can't show, their icons). Only the label changes; a part's props still come from its own sample.
+- **A part no sample shows keeps its name,** as do the project's own components that don't set their size, since the
+  name is still the best sign of what was placed. ItemSeparator and SidebarSeparator wrap nova's Separator, whose
+  classes are on the Separator, not theirs, so they still show a cut name; reading through to the component a part
+  returns would cover them.
+- **A narrow Card stays narrow.** nova's Card in its preview is a narrow column because its CardHeader is a
+  `@container`, which takes no width from its text in a preview drawn at the width of its content. That's the preview's
+  width, not a name, and isn't changed here.
+
+## Hide in and Show in name where the change lands (PAR-497)
+
+Called on 2026-11-05, for your approval in Storybook. The Layers row's menu said "Show in Default" for a layer that the
+variant option shown on the board hides, though the change goes to that option. It now names whatever takes the change,
+as `boardTarget` decides it: the option shown, in the base state, whether or not that option is what hides the layer;
+any other state, since a state takes changes over the variant. Core's `editTargetName` gives the name, so the menu and
+the inspector's note ("change every variant, not only Large") read it the same way.
+
+## The start page is built: Home and new tabs (PAR-605)
+
+You asked on 2026-11-05 to build the start page's Home and New tab from the explorations (Parity/Explorations/Start
+page), with whatever Parity can't do yet stubbed. My calls:
+
+- **Home is a tab pinned first in the strip,** an icon only, which can't be closed. It shows when it's chosen, and
+  whenever no tab is, so closing the last tab lands there, and a fresh install starts there. The window remembers
+  whether it was on Home and comes back to it, reopening the saved tabs behind it.
+- **Home's shortcut is Alt+Home,** which browsers use for their home page; the exploration's Ctrl+Shift+H already runs
+  Hide or show. Ctrl+Tab and Ctrl+Shift+Tab go round with Home first.
+- **The strip's + and Ctrl+T open a new tab,** at the end of the strip, rather than the folder picker. A project opened
+  from it, by its cards, Open, the File menu or search, opens in that tab. A project that's already open elsewhere is
+  switched to, and the new tab it was picked from closes, since a project opens once. New tabs aren't saved, and agents
+  don't see them: with Home or a new tab showing, a call that names no tab says no project tab is active.
+- **A project is named by its folder,** as File > Open recent names it, and its card says when it was last opened. The
+  window keeps that time and whether it's starred beside the recent list (`parity.projects` in local storage, checked
+  with zod as it's read). Starred keeps a project after it leaves the recent list; All projects is the recent and
+  starred ones together.
+- **Ctrl+K finds your projects as well as actions,** so the start page's search does something real. Projects come first
+  on Home and in a new tab, and last in a project.
+- **What can't work yet is in place and says so.** Each project's picture is a placeholder, a board and a phone in a
+  color of its own with its initial, until Parity keeps a render of each project. For you says nothing needs you, and
+  Shared with you is empty. New project and New project from this wait on the scaffolder (PAR-284) and offer to open a
+  folder instead; cloning, Copy link, Invite people and New organization say they aren't ready yet. The organization
+  switcher shows Personal alone. The exploration's inbox and account in the title bar, and people working in a project
+  right now, are left out until they exist.
+- **Home names the page and, in a project, its first screen.** A project with no `.par` file still opens on a Home
+  screen (PAR-561). The two don't meet: the page is a tab in the window's strip, and the screen is on a project's
+  canvas.
+
+## Projects' pictures are taken from the canvas's bitmaps when saved (PAR-607)
+
+You asked on 2026-11-05 for a picture of each project's interface on the start page, and suggested taking it again
+whenever the project is saved. The start page now shows each project's first screens as last saved (see editor.md, The
+start page). My calls:
+
+- **Taken from the bitmaps the canvas already has,** not drawn again. Every frame on the canvas has one, kept on disk or
+  captured a second after it settles (PAR-158), so a picture costs no offscreen render. The frames in each board's first
+  row note what they show, so the picture reads the same bitmaps. They're a quarter of the frame's size, 320 pixels
+  across for a 1280 desktop frame: sharp at a card's size on a 1x screen, a little soft in Home's Continue picture on a
+  2x one.
+- **Two seconds after the project opens and after each save,** once the canvas has drawn the frames and has every bitmap
+  it's waiting for, so its own come first. A run of saves, as with Save automatically, takes one. A picture is never
+  taken with edits unsaved; it waits for the next save. Opening covers projects not saved since this landed, as the
+  issue asks.
+- **Screens with a phone frame beside them first,** up to five, then the rest, each in Layers' order. The issue's
+  picture is a desktop frame with the phone beside it, which a screen showing both gives; in the example the first
+  screen in Layers is Button, a design without a kind, which is a single button in a desktop window. Components and
+  frames aren't pictured. The phone is the first mode beside the main one whose viewport is a phone, by its device or
+  else by being under 600 wide. A board that shows none is pictured by its main frame, and one whose main frame is a
+  phone shows it alone in the middle.
+- **One JSON file per project in app data, not in the bitmap cache.** It's `<userData>/pictures`, which main gives the
+  service as `PARITY_PICTURE_DIR`. The cache's 30-day and 200 MB sweeps would drop the pictures of projects Home still
+  lists, and Clear bitmap cache would blank Home. One file holds the whole picture, its frames as data URLs, so a reader
+  never finds half of one; the example's five screens come to 72 KB. Each frame is cut to the top of its window before
+  it's kept, as that's all a picture shows. A picture goes when the start page stops listing its project: the window
+  tells the service which projects it lists whenever its notes change.
+- **Drawn as the canvas draws a board,** each frame the shape of its window, or shorter where the frame is, on the
+  placeholder's backdrop in the project's own colors. Cards flip through the screens as the exploration's do, the
+  picture split into as many strips across as there are screens. Home's Continue picture names the frames instead, as
+  the canvas's titles do, and doesn't flip.
+
+## Moving, resizing and nudging are one editor module (PAR-577)
+
+Resizing a layer ran through five places in two packages, and the overlay's `startResize` had to call them in the right
+order. PAR-33 had left moving an absolutely placed layer by its insets with nudging in the app (see Packages, above).
+You reopened that call on 2026-11-04, since resizing needs both halves in a fixed order. Now `move-resize.ts` in
+`@parity-app/editor` holds the rules, and the canvas measures and writes (see editor.md, Resize handles). Nothing people
+see changes. My calls:
+
+- **One file, not one per gesture.** Insets, resizing a layer or a frame, dragging an absolutely placed layer and
+  nudging share their rounding, which sizes a handle changes, and how a layer's insets move. Where handles go
+  (`handles.ts`) and snapping (`snap.ts`) stay files of their own, which the module calls. `resizeStart`, which reads a
+  layer as the board shows it, moved from `handles.ts` into the module.
+- **The canvas measures, the module decides.** For a layer, the overlay measures its box, its parent's inside and, for
+  one placed absolutely, where its sides are drawn and what it snaps to. For each pointer move, `layerResize` gives the
+  style and where its edges snapped: snapped edges taken exactly, Shift on a corner not snapping, and `grow` taken away.
+  `frameResize` takes the frame's box and gives its size, and double-clicks are `layerSizeReset` and `frameSizeReset`.
+  The overlay still chooses what to measure from the style the board shows, since an absolutely placed layer's insets
+  and siblings cost layout reads that a layer in a layout doesn't need.
+- **`LayerSnapping` measures and shows; it no longer snaps.** `absoluteDrag` and `layerResize` call `snapLayer` with
+  what it measured and give back where the layer locked, which its `show` draws, or clears when nothing locked. Its
+  Chrome test calls `snapLayer` with what it measured.
+- **One half-pixel rule.** A snapped resize and a snapped drag went to the half pixel in two ways, one counting pixels
+  and one counting steps (PAR-551). Both use one rule now, in steps, and so do the half steps an inset moves in.
+- **The 4-pixel drag threshold is the editor's.** `resizeGesture` needs it and the canvas's gesture lifecycle (PAR-568)
+  imports it, so it's still written once.
+- **A frame snaps back by the fill distance.** A frame's width and content height came back within 6 screen pixels, a
+  number the overlay called `snapDistance`, though snapping a layer goes by 8. It's `fillDistance` now, the distance a
+  layer's edge fills by.
+- **The tests moved as they were.** The insets, resize and nudge tests, and `resizeStart`'s from `handles.test.ts`, are
+  in `move-resize.test.ts`, with one fixture renamed so they can share a file. The app's `nudge.test.ts` keeps the
+  presses on the real stores. Resizing a frame, the double-click resets, `grow`, a resize's snapped edges and the drag
+  have tests from boxes now.
+
+## Installed packages are read one way (PAR-573)
+
+The architecture review of 2026-11-04 found that finding an installed package and the file it points to was written
+three to five ways, and the copies disagreed. One reader in `@parity-app/project`, `packages.ts`, now does it for the
+project's discovery, libgen, the Tailwind adapter and `parity lib check`, and the old copies are gone. My calls:
+
+- **The reader is a set of functions over a package's folder and manifest.** `findPackage` looks in `node_modules` from
+  a folder up, as Node does, follows pnpm's links and never uses NODE_PATH. `readPackage` reads a folder's manifest.
+  `packageEntry(pkg, use, subpath)` gives the file an entry point leads to for `types`, `runtime`, `source` or `style`,
+  `packageStylesheet` the stylesheet a project imports, and `exportedComponents` what a module exports through both
+  kinds of re-export. The Tailwind adapter now depends on `@parity-app/project` for them, as the edge may depend on
+  readers.
+- **Manifests are read through core's `packageManifest`,** which gains the fields the reader needs: `version`,
+  `exports`, `types`, `typings`, `module`, `main`, `style` and `workspaces`. PAR-597 adds the rest. A manifest that
+  isn't JSON, or has a field of the wrong type, throws with the file and the JSON pointer:
+  - Discovery leaves that package out and says why in its notes.
+  - Detection treats it as not installed.
+  - A workspace skips it, as package managers do.
+- **Conditions are tried in the order each use wants them,** as every copy did, rather than the order the package writes
+  them:
+  - Declarations: `types`, `import`, `default`, `require`.
+  - The module Node imports: `node`, `import`, `default`.
+  - Source: `source`, `types`, `import`, `default`.
+  - A stylesheet: `style`, `import`, `default`.
+- **The rest of `exports` is read as Node reads it:** patterns (`./icons/*`, the longest prefix first), `null` for a
+  private path, fallback lists and conditions written for the one entry point. Without an entry in `exports`, the older
+  fields are read, and declarations beside the module (`dist/index.d.ts` for `dist/index.js`), as TypeScript reads them.
+- **A built file is traced to its source by its path.** The build folders at the start of the path (`dist`, `build`,
+  `lib`, `out`, `esm` and `cjs`) become `src`, so `dist/esm/card.js` was built from `src/card.tsx`. Before, a build
+  folder's name anywhere counted, so a workspace package whose `main` was `src/lib/index.ts` was read from
+  `src/index.ts` when it had one, and not at all when it didn't.
+- **Re-exports follow JavaScript's rules.** `export *` doesn't bring a module's default export, and
+  `export { default as Dialog }` brings it under its new name. A library's declarations now follow `export { A } from`
+  as well as `export *`, which only the workspace copy did.
+- **The Tailwind adapter loads `@tailwindcss/node` through its `import` condition,** since it loads it with `import()`.
+  It used the `require` one, which is what `createRequire` resolved to. The theme reads the same.
+- **Hand edits are read one way, in `@parity-app/registry`:** `withEdits` and `readLibraryEdits`. A shared edits file
+  may have comments, as discovery and libgen allowed; `parity lib check` read it as plain JSON. `parseJsonc` moved to
+  core so the registry can use it.
+- **The registry picks each package's newest file by semver,** with its hand edits applied (`newestEntries`). The
+  library catalog compared versions as text, so 10.0.0 came before 9.5.0, and `parity lib check` took the first file
+  with the library's id by file name.
+- **Buildkit's presets no longer name `tailwind.css`.** It's the first of the usual stylesheet names in their `exports`,
+  so it's found as any package's stylesheet is.
+- **PAR-587's case now works.** A library's components come from its declarations found in `exports` too, so a package
+  whose types are only there lists them. PAR-587 adds its test.
+
+## Signing in goes through WorkOS in the browser (PAR-610)
+
+You asked on 2026-11-05 for Google, GitHub and Microsoft sign-in through WorkOS, chosen for its organization support.
+The design is in [proposals/sign-in.md](proposals/sign-in.md), and the work is PAR-611 to PAR-616. Your calls, each
+taking my recommendation:
+
+- **The sign-in screen is the Centered form story.** AuthKit, in the browser, sends a work email to its company's single
+  sign-on or a code by email. The Email first stories have the code typed into Parity, which needs WorkOS's API key and
+  so a server.
+- **Parity talks to WorkOS itself, with no new library:** a public client with PKCE, on `fetch` and zod, in a new
+  `@parity-app/account` package. `@workos/authkit-electron` was passed over: it's at 0.1.2, needs an older
+  `@workos-inc/node` than Better Apps uses, and brings `electron-store` and its own React provider.
+- **Signing in is optional.** Nothing that works on local folders asks for it.
+
+My calls:
+
+- **Installed apps hand back through `parity://auth/callback` on WorkOS's production environment, and `pnpm dev` copies
+  through a loopback port on the sandbox,** since several copies run at once and only an installed app gets the scheme.
+  A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
+- **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
+- **The client IDs go in the code,** since they're public. The API key never ships in the app.
+
+## Signing in is data in and data out in `@parity-app/account` (PAR-613)
+
+The package holds sign-in's logic, with no Electron, files or network, as [proposals/sign-in.md](proposals/sign-in.md)
+sets out. Main passes in `fetch` and keeps what it returns. My calls:
+
+- **A refresh sends only the client ID,** as WorkOS's own browser client, `authkit-js`, does for its public clients. The
+  AuthKit reference lists `client_secret` as required for a refresh, so PAR-612 checks it against the sandbox along with
+  switching organization.
+- **WorkOS's answers end in one of three ways:** a session, refused, or unavailable. 408, 429, a 5xx, a failed request
+  or an answer without a user and tokens is unavailable, and a refresh tries again after 5 seconds, doubling to 5
+  minutes. Any other refusal ends the session, and the person signs in again. `authkit-js` draws the same line.
+- **Main refreshes a minute before the access token expires,** or halfway through its life when that's later. WorkOS's
+  tokens last 5 minutes, so that's every 4.
+- **Main reads the access token without checking its signature.** It comes straight from WorkOS over HTTPS, and main
+  only reads who it names and when it expires. Parity's service checks signatures against WorkOS's keys (PAR-615).
+- **The link the browser hands back is refused when it isn't the redirect URI or its `state` is missing or another
+  sign-in's,** so a copy of Parity that didn't start the sign-in passes it on. `access_denied` reads as declined, and
+  any other `error` as failed, with WorkOS's description.
+- **The package returns codes, not text.** The screens word what happened (PAR-614).
+- **PKCE and `state` use Web Crypto,** a global in Node and Electron, so the package stays pure. Each is 32 random
+  bytes, base64url-encoded, and the challenge is S256, the only method WorkOS takes.
+
+## Parity's own telemetry goes to Sentry, on by default
+
+The plan is [proposals/product-telemetry.md](proposals/product-telemetry.md), and the work is the Product telemetry
+stream in Linear. You set its direction on 2026-11-05, after a first draft that kept everything local unless people
+opted in: "we actually need to log the telemetry to the Sentry service. The app is still in development and not
+released, so all of our testers expect to have the telemetry collected. Mostly it's agents running test passes, so we
+need to default on." The aim is that agents "capture traces and replays so the agents can file bugs, pick them up, and
+address issues with actual context."
+
+- **Sentry receives it:** errors, crashes, traces, structured events and replays, through `@sentry/electron` in the app
+  and `@sentry/node` in the CLI. Adding both is approved with this direction.
+- **On by default, at its fullest level, everywhere Parity runs,** development and CI included, each tagged with its
+  environment. Settings and `PARITY_TELEMETRY` turn it down or off; unit tests leave it off.
+- **Names, paths, values and messages are sent as written.** My call: secrets are still scrubbed (keys, tokens,
+  passwords, `.env` values), since a leaked key is never what makes a bug findable.
+- **Session Replay records the editor window unmasked,** every session while testers and agents are few.
+- **The CLI sends too, at the same level, read from the same setting.** My call, since agents drive Parity through it
+  and their calls are half of each trace.
+- **All of this is revisited before the first public release,** in its own Backlog issue.
+
+## The rest of signing in is designed (PAR-614)
+
+You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
+Parity/Explorations/Sign in, and the screens they settle are in
+[proposals/sign-in.md](proposals/sign-in.md#the-screens). My calls:
+
+- **The stories are one prototype,** each starting at a different point, as the start page's are. The browser can't be
+  driven from a story, so while Parity waits, a panel marked Prototype plays it: sign in, cancel there, hit an error, or
+  use an account WorkOS turns down. The sign-in screen and Waiting for browser now work too.
+- **Signed out, the account spot is an outline of an avatar** that opens the same menu, with Sign in where your name
+  goes. Agents, settings and help stay in it, since none of them needs an account; Sign out goes. There's no Sign in
+  button in the title bar, so it doesn't nag, but Home offers it twice more: in For you, and in the organization
+  switcher's menu. The inbox is left out until you sign in.
+- **Sign in from the title bar opens the sign-in screen in a dialog over Home,** without the link to skip it. Waiting
+  and what went wrong show in the same dialog, and only Cancel, Escape or its close button end it.
+- **"Open a folder on this computer without signing in" opens the folder picker,** as it says, over Home, which stays if
+  the picker is closed.
+- **Signing out asks nothing.** Open tabs stay, and a toast says "You're signed out" and that projects on this computer
+  stay open.
+- **Signed out, Home is Personal, listing every project on this computer,** as the built start page does now, since
+  Parity can't tell which organization a folder belongs to. It leaves out people's presence and what they did, which
+  come through an organization, and keeps what agents on this computer did.
+- **Someone in no organization yet** sees their email in the account menu where the organization and role go. Home's
+  switcher has Personal alone, and its menu offers New organization (PAR-616) but not Invite people, which needs an
+  organization. For you and the inbox only show what comes from organizations you're in.
+- **Waiting for browser never gives up on its own,** since the person may still be signing in. After 30 seconds it says
+  what to do if the page didn't open or opened in the wrong browser, and Open it again becomes the main button. Cancel
+  goes back to the ways in, or closes the dialog.
+- **Sign-in can end four ways without a session,** each saying what to do next. Nothing open changes in any of them.
+  - Canceled in the browser (`access_denied`): Try again, or Choose another way.
+  - An error, handed back or from trading the code: "Parity couldn't sign you in", with Try again and Details that hold
+    what WorkOS said, to copy for help.
+  - WorkOS turns the account down: it's named, with Choose another way and Details.
+  - The organization requires single sign-on (`sso_required`, or `organization_authentication_methods_required`):
+    Continue with single sign-on opens the browser at it. WorkOS's answer names neither the organization nor its
+    identity provider, so the screen doesn't either.
+- **A `pnpm dev` copy's loopback answers once the code is traded,** so its page can say whether that worked: "You're
+  signed in to Parity" or "Parity couldn't sign you in", and that the tab can be closed. It's plain HTML with no
+  scripts, light or dark as the system is, and says nothing about which copy it came from (your call). `handBackHtml` in
+  the exploration is the page. Installed apps hand back through `parity://`, where the browser shows its own prompt.
+- **Without a keyring, a toast says so once,** right after signing in: "You're signed in until you quit Parity", with
+  What to do. The account menu keeps saying it under your name, and both open a dialog that explains and names GNOME
+  Keyring and KWallet. The sign-in screen says nothing beforehand, since most people never meet it.
+- **AuthKit's pages take the app's look through WorkOS's branding,** the same in the sandbox and production (PAR-611):
+  - Global styles: display name Parity; the app icon as the logo icon and logo, since there's no wordmark; its small
+    drawing as the favicon; a 10-pixel corner radius.
+  - Colors, light then dark: page background `#FFFFFF` and `#0A0A0A`, buttons `#171717` and `#E5E5E5` with text
+    `#FAFAFA` and `#171717`, the app's own, and links `#5432E6` and `#8A74FF`, from the mark.
+  - AuthKit styles: the system's appearance, Geist, the logo icon only, a centered page titled "Sign in to Parity", the
+    Last used badge, and legal links once Parity has them.
+  - Custom CSS: the sign-in screen's glow on `.ak-Background`.
+- **New wording uses "sign in" as a verb,** as the writing guide asks, so the new screens say "Parity couldn't sign you
+  in" rather than calling it a sign-in.
+
+## State labels shrink as titles do, beside rows tall enough to hold them (PAR-155)
+
+Called on 2026-11-04, for your approval in Storybook. Built on PAR-151's rule, which had state labels fade out by 25% as
+captions do:
+
+- **A state's label is a name now,** shrinking to 60% as a board's title does rather than fading, since it's how a row
+  is found on a board showing every state. Captions stay detail and still fade.
+- **It hides once it has under 24 screen pixels before the next row's label,** the line titles hide at, measured from
+  its top to where the next row's label starts, past the dashed line between rows. A label is 36 pixels tall at screen
+  size and about 22 at 60%, and that space is never under 98 page pixels, so a label that shows can't reach the next
+  one. Measuring only the row beside it would hide a component's lower rows at 25% while its first row, which also holds
+  the captions, kept its label. The last row is measured the same way. A row of component boards at 5% shows no state
+  labels, since their rows have a few pixels each; a screen's rows keep theirs.
+- **Rows are measured, not worked out.** A frame that grows with its content sets its row's height, which only the
+  layout knows, so each label watches its row with a `ResizeObserver`, as the board does for its own size.
+- **A label isn't clipped to the gap beside its board.** At 60% a screen's state label can reach over the board to its
+  left when zoomed far out, since how far away that board is isn't known to the label. The example's boards are 400
+  apart. Keeping labels to that gap would be its own change.

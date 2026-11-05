@@ -17,7 +17,8 @@ const named = new WeakSet<DesignNode>()
 
 /**
  * A new node for a component, ready to show something: required props get their default or first option, and a
- * component that takes children gets its own name as text, so it isn't an empty box, unless `given` has its own.
+ * component that takes children gets its own name as text, so it isn't an empty box, unless `given` has its own or the
+ * component sets its own size (`fixedSize`), where the name would be cut off ("Avata").
  */
 export function componentNode(
   component: string,
@@ -35,7 +36,9 @@ export function componentNode(
     else if (prop.kind === "string") props[prop.name] = prop.name
   }
   const labelled =
-    !("children" in given) && info?.props.some((prop) => prop.name === "children" && prop.kind === "node")
+    !("children" in given) &&
+    !info?.fixedSize &&
+    info?.props.some((prop) => prop.name === "children" && prop.kind === "node")
   if (labelled) props.children = component.split("/").at(-1) ?? component
   const node: DesignNode = {
     type: "component",
@@ -119,12 +122,14 @@ export function withLibraryContext(
     }
   }
   let placed: DesignNode = node
-  const sample = source.sample
+  // A part without a sample of its own is labelled as its library's other samples use it, in place of its name.
+  const sample = source.sample ?? (named.has(node) ? usedIn(node.component, sources) : undefined)
   if (sample) {
-    // Text the sample gives as a prop (Chakra's `Highlight`) stands in for the label a new node is named with, though
-    // not for one set on purpose, even one that reads the same.
+    // A library that shows how a part is used says what it holds: the text or parts its sample gives, as children or a
+    // prop (Chakra's `Highlight`), or nothing, as a Separator or an icon's box holds. So the label a new node is named
+    // with goes, though not text set on purpose, even text that reads the same.
     const given = { ...node.props }
-    if (sample.props && "children" in sample.props && named.has(node)) delete given.children
+    if (named.has(node)) delete given.children
     const { props, slots } = held({ ...sample.props, ...given }, sample.children)
     // Children the sample spells out stand in for the text label, and none (`[]`, an input's) leave it out.
     if (sample.children) delete props.children
@@ -189,6 +194,43 @@ export function withLibraryContext(
     const children = inside(1, sources[chain[0]!]?.sample?.children)
     return outer.type === "component" ? { ...outer, slots: { ...outer.slots, children } } : outer
   }
+}
+
+/**
+ * How a part with no sample of its own is used in its library's other samples: with the children the first use gives it,
+ * or none when it's used without any (`<MarkerIcon />`) or with elements the sample can't show (an icon, `[]`).
+ * Undefined when no sample uses it.
+ */
+function usedIn(component: string, sources: Record<string, ComponentSource>): ComponentSample | undefined {
+  const find = (children: SampleChild[] | undefined): Exclude<SampleChild, string | SampleRender> | undefined => {
+    for (const child of children ?? []) {
+      if (typeof child === "string") continue
+      if (isSampleRender(child)) {
+        const found = find(child.$render)
+        if (found) return found
+        continue
+      }
+      if (child.component === component) return child
+      const found = find(child.children) ?? find(elementProps(child.props))
+      if (found) return found
+    }
+    return undefined
+  }
+  const library = sources[component]?.library
+  for (const source of Object.values(sources)) {
+    if (source.library !== library || !source.sample) continue
+    const found = find(source.sample.children) ?? find(elementProps(source.sample.props))
+    if (found) return { children: found.children ?? [] }
+  }
+  return undefined
+}
+
+/** The elements and render functions a sample gives as props' values, as children are. */
+function elementProps(props: Record<string, unknown> | undefined): SampleChild[] {
+  return Object.values(props ?? {}).flatMap((value): SampleChild[] => {
+    if (isSampleRender(value)) return [value]
+    return isSampleElement(value) ? value.$element : []
+  })
 }
 
 /**
