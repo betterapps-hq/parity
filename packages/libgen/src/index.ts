@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, join, resolve, sep } from "node:path"
@@ -14,11 +13,19 @@ import {
   type LibraryManifest,
   libraryManifestExtension,
   type ParentSignal,
-  parseLibraryEdits,
   parseLibraryManifest,
   type TokenCategory
 } from "@parity-app/core"
-import { findStyles, installedPackage, parseJsonc, readStylesheet } from "@parity-app/project"
+import {
+  findPackage,
+  findStyles,
+  packageEntry,
+  packageStylesheet,
+  readPackage,
+  readStylesheet,
+  splitSpecifier
+} from "@parity-app/project"
+import { readLibraryEdits } from "@parity-app/registry"
 import ts from "typescript"
 import { type AnatomyCheck, checkAnatomy, readAnatomy } from "./anatomy.ts"
 import {
@@ -132,15 +139,6 @@ export interface GeneratedLibrary {
   report: GenerateReport
 }
 
-interface PackageJson {
-  name?: string
-  version?: string
-  types?: string
-  typings?: string
-  style?: string
-  exports?: unknown
-}
-
 /**
  * Describes a component library, an icon set or an app as a `.lib.par`: its components found with the type
  * checker, its tokens wherever it keeps them, written as DTCG in Parity's categories, its breakpoints, its icons' shape
@@ -152,10 +150,10 @@ export async function generateLibrary(options: GenerateOptions): Promise<Generat
 
 async function describePackage(options: GenerateOptions, importName: string): Promise<GeneratedLibrary> {
   const root = resolve(options.root)
-  const dir = await installedPackage(root, importName)
-  if (!dir)
+  const installed = await findPackage(root, importName)
+  if (!installed)
     throw new Error(`${importName} isn't installed in ${root}. Install it with the project's package manager first.`)
-  const pkg = JSON.parse(await readFile(join(dir, "package.json"), "utf8")) as PackageJson
+  const { dir, manifest: pkg } = installed
   const name = pkg.name ?? importName
   const version = pkg.version ?? "0.0.0"
   const preset: Preset | undefined = presets[name]
@@ -163,7 +161,11 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
 
   const iconImport = preset?.icons?.import
   const componentImport = iconImport ?? preset?.components
-  const entry = typesEntry(dir, pkg, componentImport ? subpath(componentImport, name) : ".")
+  const entry = packageEntry(
+    installed,
+    "types",
+    componentImport ? splitSpecifier(componentImport).subpath : "."
+  )?.replaceAll("\\", "/")
   if (!entry) notes.push("No type declarations were found, so no components could be read.")
   const scan: ComponentReport = entry
     ? findComponents({ entries: [entry], root })
@@ -175,10 +177,9 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
   const isIcons = preset?.icons !== undefined || looksLikeIcons(scan)
 
   const tokens = new Map<string, CollectedToken>()
-  const styles = preset?.styles ?? stylesheetOf(dir, pkg)
-  if (styles) {
-    for (const token of cssTokens(await readStylesheet(exportedFile(dir, pkg, styles)))) tokens.set(token.var, token)
-  }
+  const styles = preset?.styles ?? packageStylesheet(installed)
+  const stylesheet = styles && packageEntry(installed, "style", styles)
+  if (stylesheet) for (const token of cssTokens(await readStylesheet(stylesheet))) tokens.set(token.var, token)
   let breakpoints: LibraryBreakpoint[] | undefined
   if (preset?.theme) {
     try {
@@ -229,7 +230,10 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
     if (!dataIcons) {
       // Styles kept in modules of their own, as Heroicons keeps `16/solid` beside `24/outline`.
       const load = loader(root, dir)
-      const entries = typeof pkg.exports === "object" && pkg.exports !== null ? Object.keys(pkg.exports) : []
+      const entries =
+        typeof pkg.exports === "object" && pkg.exports !== null && !Array.isArray(pkg.exports)
+          ? Object.keys(pkg.exports)
+          : []
       const modules = await styleModules(name, entries, iconImport ?? name, load, await iconDrawer(load))
       if (modules) {
         const main = Object.keys(modules).find((style) => modules[style] === (iconImport ?? name))!
@@ -408,11 +412,7 @@ export async function reviseLibrary(
   const edits = options.edits ?? kept
   if (edits !== undefined) {
     manifest.edits = edits
-    const resolved = parseLibraryEdits(
-      typeof edits === "string"
-        ? parseJsonc(await readFile(resolve(options.editsBase ?? options.root, edits), "utf8"))
-        : edits
-    )
+    const resolved = await readLibraryEdits(edits, resolve(options.editsBase ?? options.root))
     const { orphans } = applyLibraryEdits(parseLibraryManifest(manifest), resolved)
     if (orphans.length > 0) report.orphanEdits = orphans
   }
@@ -506,7 +506,7 @@ const appExtensions = [".tsx", ".jsx"]
 
 async function describeApp(options: GenerateOptions): Promise<GeneratedLibrary> {
   const root = resolve(options.root)
-  const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as PackageJson
+  const pkg = (await readPackage(root))?.manifest ?? {}
   const notes: string[] = []
   // The same configs and files project detection reads: references followed, tests and build output left out.
   const tsconfig = readTsconfig(root)
@@ -563,8 +563,8 @@ async function describeApp(options: GenerateOptions): Promise<GeneratedLibrary> 
 export async function appManifestPath(root: string): Promise<string> {
   const existing = (await readdir(root)).find((file) => file.endsWith(libraryManifestExtension))
   if (existing) return join(root, existing)
-  const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as PackageJson
-  return join(root, `${(pkg.name ?? basename(root)).replace(/^@[^/]+\//, "")}${libraryManifestExtension}`)
+  const name = (await readPackage(root))?.manifest.name ?? basename(root)
+  return join(root, `${name.replace(/^@[^/]+\//, "")}${libraryManifestExtension}`)
 }
 
 /**
@@ -636,58 +636,6 @@ function looksLikeIcons(scan: ComponentReport): boolean {
 function defaultRange(version: string): string {
   const [major = "0", minor = "0"] = version.split(/[.-]/)
   return major === "0" ? `^0.${minor}.0` : `^${major}.0.0`
-}
-
-function subpath(specifier: string, packageName: string): string {
-  return specifier === packageName ? "." : `.${specifier.slice(packageName.length)}`
-}
-
-/** The type declarations for one of a package's entry points, from `exports`, else `types`, else `index.d.ts`. */
-function typesEntry(dir: string, pkg: PackageJson, entry: string): string | undefined {
-  const exported =
-    typeof pkg.exports === "object" && pkg.exports !== null ? (pkg.exports as Record<string, unknown>) : {}
-  const condition = (value: unknown): string | undefined => {
-    if (typeof value === "string") return /\.d\.[cm]?ts$/.test(value) ? value : undefined
-    if (typeof value !== "object" || value === null) return undefined
-    const record = value as Record<string, unknown>
-    for (const key of ["types", "import", "default", "require"]) {
-      const found = condition(record[key])
-      if (found) return found
-    }
-    return undefined
-  }
-  const candidates = [
-    condition(exported[entry]),
-    entry === "." ? (pkg.types ?? pkg.typings) : undefined,
-    entry === "." ? "index.d.ts" : `${entry.slice(2)}/index.d.ts`,
-    entry === "." ? undefined : `${entry.slice(2)}.d.ts`
-  ]
-  for (const candidate of candidates) {
-    if (candidate && existsSync(join(dir, candidate))) return join(dir, candidate).replaceAll("\\", "/")
-  }
-  return undefined
-}
-
-/** The stylesheet a project imports to use a package: its `style` field, else the CSS its `exports` list first. */
-function stylesheetOf(dir: string, pkg: PackageJson): string | undefined {
-  if (pkg.style && existsSync(join(dir, pkg.style))) return pkg.style
-  const exported = typeof pkg.exports === "object" && pkg.exports !== null ? Object.keys(pkg.exports) : []
-  const css = exported.filter((key) => key.endsWith(".css")).map((key) => key.slice(2))
-  const preferred = ["tailwind.css", "styles.css", "style.css", "index.css", "theme.css"]
-  const pick = preferred.find((name) => css.includes(name)) ?? css[0]
-  if (!pick) return undefined
-  const target = (pkg.exports as Record<string, unknown>)[`./${pick}`]
-  const file = typeof target === "string" ? target : (target as Record<string, unknown> | undefined)?.default
-  return typeof file === "string" && existsSync(join(dir, file)) ? pick : undefined
-}
-
-/** The file an export such as `tailwind.css` points at: `dist/tailwind.css` for Buildkit's styles. */
-function exportedFile(dir: string, pkg: PackageJson, specifier: string): string {
-  const exported =
-    typeof pkg.exports === "object" && pkg.exports !== null ? (pkg.exports as Record<string, unknown>) : {}
-  const target = exported[`./${specifier}`]
-  const file = typeof target === "string" ? target : (target as Record<string, unknown> | undefined)?.default
-  return join(dir, typeof file === "string" ? file : specifier)
 }
 
 /** A DTCG token file the package ships, if it has one in the format; Buildkit's `tokens.json` isn't yet. */
@@ -842,22 +790,7 @@ function resolveRequire(from: string, specifier: string): string | undefined {
 
 /** An ESM-only package's entry, from the `import` condition of its `exports`, which `require` can't see. */
 async function resolveImport(from: string, specifier: string): Promise<string | undefined> {
-  const name = specifier.startsWith("@") ? specifier.split("/").slice(0, 2).join("/") : specifier.split("/")[0]!
-  const dir = await installedPackage(from, name)
-  if (!dir) return undefined
-  const pkg = JSON.parse(await readFile(join(dir, "package.json"), "utf8")) as PackageJson & { module?: string }
-  const exported =
-    typeof pkg.exports === "object" && pkg.exports !== null ? (pkg.exports as Record<string, unknown>) : {}
-  const pick = (value: unknown): string | undefined => {
-    if (typeof value === "string") return /\.d\.[cm]?ts$/.test(value) ? undefined : value
-    if (typeof value !== "object" || value === null) return undefined
-    const record = value as Record<string, unknown>
-    for (const key of ["node", "import", "default"]) {
-      const found = pick(record[key])
-      if (found) return found
-    }
-    return undefined
-  }
-  const file = pick(exported[subpath(specifier, name)]) ?? (specifier === name ? pkg.module : undefined)
-  return file ? join(dir, file) : undefined
+  const { name, subpath } = splitSpecifier(specifier)
+  const installed = await findPackage(from, name)
+  return installed && packageEntry(installed, "runtime", subpath)
 }

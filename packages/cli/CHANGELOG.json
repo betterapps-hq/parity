@@ -2,6 +2,33 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 20:31:29 GMT",
+      "version": "0.6.3",
+      "tag": "@parity-app/cli_v0.6.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ab286c70b804c10629873a0e8255681897c23fdb",
+            "comment": "Find installed packages and their entries one way, so a library's types under exports, named re-exports and the registry's newest file read the same in the app, libgen and parity lib check"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dac2b7249249eb03c1262d3335d44cd194be365a",
+            "comment": "Frames no longer pick up Parity's own CSS variables: a variable the project uses but never defines takes its fallback, as in Chrome"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d9a2174aa54105b3801d59b1e427dfc12232b8ef",
+            "comment": "Components that set their own size, and library parts whose examples give them no text, are inserted without their name cut off inside them"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 12:23:39 GMT",
       "version": "0.6.2",
       "tag": "@parity-app/cli_v0.6.2",
