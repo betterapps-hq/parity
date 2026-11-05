@@ -2866,6 +2866,20 @@ app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
 
+## Token value checks live in `@parity-app/tokens` (PAR-569)
+
+My calls: what a token edit may write is decided in `packages/tokens/src/checks.ts`, not in the token detail, so the
+agent's `SetTokens` can refuse what the detail refuses (PAR-584).
+
+- `checkTokenEdit` takes the token, its values, the drafts and how to read other tokens in a theme, and gives each
+  theme's problem, whether all pass, and the smallest changes: the themes whose trimmed value differs. A loop is checked
+  before the value's kind, as before.
+- The browser's `CSS.supports` is passed in as `supports`, so the package runs without a DOM and its tests use a
+  stand-in. What a reference comes to is passed in too, since the app's `comesTo` measures a spacing step's pixels in
+  the browser.
+- `builtOn` gives the tokens a token is built on in a theme, a scale step's base first, which the panel had written
+  inline.
+
 ## A mode's theme class also sets the theme's attribute (PAR-22)
 
 My call: a frame whose mode adds a theme's class also gets the attribute the project's stylesheet switches that theme on
