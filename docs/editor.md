@@ -388,13 +388,13 @@ Tests:
 - `apps/desktop/e2e/menus.e2e.ts` (7), end to end with the system's right button (PAR-202): a right-click on a
   `MemberRow` selects it and lists its items in order, with their keys and the lines between groups, and Duplicate runs
   as one undo step; Ctrl+Z pressed at once after Duplicate, with focus still in the closing menu, undoes it (PAR-424,
-  which fails without the fix); a right-click on the next row while the menu is open selects that row and moves the menu
-  as far as the pointer moved, one menu still, whose Duplicate acts on that row (PAR-419); with a layer inside the Users
-  card selected by Ctrl and a click, the menubar's Edit greys Copy and Duplicate and its Object greys Wrap in layout,
-  the order and Hide or show (PAR-419); from a stat card, Select layer lists Dashboard, Main, Content, Stats and Users
-  card with Main checked, and picks the card; Paste here below the lede in Pricing's Hero pastes the copied headline at
-  that slot, from the stand-in clipboard, as "Paste layer here", and Undo takes it out; and in Interact a right-click
-  reaches the design and no menu opens.
+  which fails without the fix); a right-click on the next row, left of the open menu, selects that row and moves the
+  menu as far as the pointer moved, one menu still, whose Duplicate acts on that row (PAR-419); with a layer inside the
+  Users card selected by Ctrl and a click, the menubar's Edit greys Copy and Duplicate and its Object greys Wrap in
+  layout, the order and Hide or show (PAR-419); from a stat card, Select layer lists Dashboard, Main, Content, Stats and
+  Users card with Main checked, and picks the card; Paste here below the lede in Pricing's Hero pastes the copied
+  headline at that slot, from the stand-in clipboard, as "Paste layer here", and Undo takes it out; and in Interact a
+  right-click reaches the design and no menu opens.
 
 Gaps: the end-to-end test covers the right button, opening the menu again, the menubar for a layer inside an instance,
 Select layer, Paste here into a layout and Interact. Panning with the right button, Paste here into an absolutely placed

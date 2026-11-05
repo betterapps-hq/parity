@@ -78,16 +78,18 @@ describe("right-click menus", () => {
   it("opens again at the new point when right-clicked while it's open, as Figma does", async () => {
     await app.show("Members", 1)
     const ada = await app.box("Members", "ada")
-    const first = { x: ada.x + ada.width * 0.25, y: center(ada).y }
+    const first = { x: ada.x + ada.width * 0.6, y: center(ada).y }
     await app.rightClick(first)
     await expect.poll(() => menu().count()).toBe(1)
     const opened = (await menu().boundingBox())!
-    // The next row, further right: the press reaches the canvas, rather than only closing the menu.
+    // The next row, further left, clear of the menu, which opens right of the pointer and below it: the press reaches
+    // the canvas, rather than only closing the menu.
     const lin = await app.box("Members", "lin")
-    const second = { x: lin.x + lin.width * 0.75, y: center(lin).y }
+    const second = { x: lin.x + lin.width * 0.1, y: center(lin).y }
+    expect(second.x).toBeLessThan(opened.x)
     await app.rightClick(second)
     await expect.poll(async () => (await app.selection()).node).toBe("lin")
-    // It moved as far right as the pointer did, and there's still the one menu.
+    // It moved as far as the pointer did, and there's still the one menu.
     const moved = async () => Math.abs(((await menu().boundingBox())?.x ?? Infinity) - opened.x - (second.x - first.x))
     await expect.poll(moved).toBeLessThan(2)
     expect(await menu().count()).toBe(1)
