@@ -191,26 +191,24 @@ export function filesChanged(
 }
 
 /**
- * The list after the project's config changed, sorted afresh as discovery sorts it on opening: every file the config
- * includes now is read again, with those the list came from, so components in files it now leaves out are `removed`
- * and those in files it newly includes are `added`. Ids stay as in `filesChanged`, libraries' and workspace packages'
- * components aren't touched, and exports only the type checker decided wait for it again, as on opening. The person's
- * corrections are applied after, as after any pass of detection.
+ * The files read again after the project's config changed, for `filesChanged` to sort the list afresh as discovery
+ * sorts it on opening: every file the config includes now, with those the list came from, so components in files it
+ * now leaves out are removed and those in files it newly includes are added. Ids stay as in `filesChanged`, libraries'
+ * and workspace packages' components aren't touched, and exports only the type checker decided wait for it again, as
+ * on opening.
  */
-export async function rediscoveredSources(
+export async function rediscoveredFiles(
   root: string,
   renderer: RendererAdapter,
   tsconfig: ProjectTsconfig,
   uiKit: string | undefined,
-  sources: Record<string, ComponentSource>,
-  namespace?: string
-): Promise<{ sources: Record<string, ComponentSource>; added: string[]; removed: string[] }> {
+  sources: Record<string, ComponentSource>
+): Promise<Map<string, ParsedComponent[] | undefined>> {
   const { files } = await appFiles(root, renderer, tsconfig)
   const listed = Object.values(sources)
     .filter((source) => !source.library)
     .map((source) => source.path)
-  const read = await readChangedFiles(root, renderer, files, uiKit, [...files, ...listed])
-  return filesChanged(sources, read, namespace)
+  return readChangedFiles(root, renderer, files, uiKit, [...files, ...listed])
 }
 
 /**

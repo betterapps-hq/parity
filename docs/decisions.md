@@ -738,10 +738,10 @@ recommended answer to each of its questions.
   included, and any lockfile name appearing in the folders `findLockfiles` searches (`lockfileFolders`,
   `changesLockfiles`), and reads props and the type check again a moment after one changes, so the answers match a
   project opened afresh. The saved detection needs nothing more: its fingerprint already changes with them.
-- **A config change sorts the app's sources again, as opening does.** My call (PAR-492): `rediscoveredSources` reads
-  every file the config includes now, and the files the list came from, through `filesChanged`, so components in files
-  it leaves out are removed, those in files it newly includes are added, and the rest keep their ids. Exports only the
-  type checker decided lose `as` and wait for it again, which the full type check that follows gives back, so the list
+- **A config change sorts the app's sources again, as opening does.** My call (PAR-492): `rediscoveredFiles` reads every
+  file the config includes now, and the files the list came from, through `filesChanged`, so components in files it
+  leaves out are removed, those in files it newly includes are added, and the rest keep their ids. Exports only the type
+  checker decided lose `as` and wait for it again, which the full type check that follows gives back, so the list
   matches a fresh open. Libraries' and workspace packages' components aren't touched, and the person's corrections are
   applied after, so an export they included stays even when its file is left out. The UI kit folder isn't looked for
   again; that still takes reopening.
@@ -3668,6 +3668,16 @@ ids and picks none. The ids a name points to lead `alternatives`, ahead of the r
 details finds them. The code stays `unknown_state`, since the reference isn't a state id at all, rather than
 `ambiguous_reference`, which is for references that match more than one valid thing.
 
+## Measure stays one frame, and says so (PAR-461)
+
+`Measure` returns one frame's layout, while `Screenshot`, `Problems` and `Accessibility` take a list of states or modes,
+`"all"` or `"shown"`. Given one of those, Measure used to look the word up as a state and fail with `unknown_state` on
+`"all"`. It now fails first, before anything renders, with `invalid_input` on `state` or `mode`. The message says it
+lays out one frame, to call it once for each frame, that the checks take several, and lists the ids it takes: each
+state's id beside its name, or the modes (only the primary mode for a frame), which also fill `alternatives`. Its result
+keeps its shape and there's no Measure over many frames; each layout already names its state and mode, so a loop keeps
+them apart. A Measure over many frames waits until agents need one.
+
 ## Data Parity didn't make is checked with zod (PAR-578)
 
 Asked how PAR-565's channel module should check request params, by hand as core's `validate.ts` does or with zod, you
@@ -3827,6 +3837,78 @@ it. You approved zod for it on 2026-11-05, which PAR-578 had already chosen for 
   - Links join a screen, route, operation or table to another, and say whether a person drew it, a trace showed it or
     the code calls it. Any kind may link to any other, since "screen → route → operation → table" is an example, not a
     rule.
+
+## Canvas gestures share one lifecycle (PAR-568)
+
+The architecture review of 2026-11-04 found each canvas drag rebuilding what surrounds the history's gesture and
+checkpoint, so a fix reached one copy and missed the others: in a0d0e80 a field's run and a nudge run had the same bug,
+fixed twice. Now `canvas/gesture.ts` follows every drag and every run (see editor.md, Cursors and Escape during a
+gesture). My calls:
+
+- **Each gesture's policy is one entry in one table** (`gestures`): what Escape does, and what the pointer cancelled or
+  the window losing focus does, each keep, revert or cancel. The table is what the tests drive, so every gesture's
+  Escape and blur are checked side by side.
+- **The window losing focus is cut short, as a cancelled pointer is.** Each gesture keeps what its pointercancel already
+  did: a resize keeps what it wrote, a title drag saves the designs where they are, and layer drags and a box call
+  themselves off. Before, a title drag and a box didn't hear the window losing focus at all (PAR-583).
+- **Every press waits the same 4 screen pixels before it's a drag.** A title drag used to start after 1 page pixel, and
+  a frame's handle at once; both now wait as layer drags and boxes did. A layer's resize handle still checks the 4
+  pixels along its own axes too, so a pointer moving across them changes nothing.
+- **The undo gesture, the checkpoint and the cursor start with the drag,** not at the press, so a click on a handle
+  begins nothing. A revert writes only when the design changed, since reverting writes its file again.
+- **Runs are keyed by the selection's `selectionKey`,** one `GestureRun` for arrow presses on the canvas and for Up and
+  Down in a field. A nudge run follows the selection while it lasts; a field's follows its `FieldTarget`.
+- **tldraw's own drag of a board stays tldraw's,** ending when tldraw stops translating, since tldraw follows that
+  pointer, not Parity.
+
+## Agents tell board collisions from title clearance, and a call's warnings from an audit (PAR-462)
+
+An agent read an execute call with no overlap warnings as a tidy canvas, and a title too close as boards on top of each
+other. The two checks already differed, and `Overlaps()` already marked `titleOnly` and `estimated`; this makes what
+they mean, and what each check covers, plain:
+
+- **Two categories for a call's own boards.** `overlap` is two boards colliding; `title_clearance` is boards that are
+  clear, but so close that the lower one's title covers the upper. Both are warnings, and both stay limited to boards
+  the call created, changed or moved, as before.
+- **The rest of the canvas is counted, not listed.** When boards the call didn't touch are too close, one
+  `canvas_overlaps` suggestion says how many pairs and points to `Overlaps()`. A call that only reads therefore doesn't
+  look like a clean canvas, without repeating every old overlap on every call.
+- **Measured or estimated, in words.** A warning says "measured" when the canvas drew both boards, and otherwise names
+  the board that isn't drawn yet. `Overlaps()` keeps `titleOnly` and `estimated` as they were, with no new fields, and
+  `state`'s schema now describes them. Real sizes for undrawn boards remain PAR-279's, and the 1400 × 1000 room a new
+  screen is placed with isn't treated as a placement bug: it's placed right of every board.
+
+## One step works out the component list (PAR-566)
+
+The order that keeps the component list current was written four times in the project service, and the copies disagreed.
+PAR-492 then added a fifth, for a config change. `nextComponentList` in `@parity-app/code` now takes the list and an
+event and returns the next list, and every path goes through it. My calls:
+
+- **Five events, not four.** Opening takes two: `discovered` gives discovery's list with the person's corrections, whose
+  fingerprint finds a saved detection, and `restored` takes that in. The rest are `checked`, `filesRead` and
+  `corrected`.
+- **A config change is a `filesRead` event.** `rediscoveredFiles`, which was `rediscoveredSources`, now returns the
+  files it read, every one the config includes and those the list came from, and the step sorts them as it does any
+  files read again (PAR-492).
+- **Every event applies the person's corrections last,** so they outlast each pass of detection, as before.
+- **Ids taken off the list are let go before new ones are given.** The whole-app check already did this. The check after
+  files changed added first, so a new component that took a removed id was deleted. That settles PAR-581's order;
+  PAR-581 still adds its test.
+- **The service keeps one list per project.** The project's info, the builder's start options and the service no longer
+  share one object changed in place. The info the windows get, and the options a restarted builder gets, are made from
+  the list when they're needed. A project's info now always carries `leftOut`, empty until the type checker has read the
+  app.
+- **What a guest is given and takes back is `guestChanges`, in core.** The windows can't load `@parity-app/code`, which
+  brings TypeScript and Node, and core already declares the `Guest` that does the giving. Each guest works it out from
+  what it last had: the canvas's from the list it last heard, the offscreen renderer's from each guest's last job. The
+  service doesn't send its own step's changes, since a window that reloads, or hears two changes out of order, would
+  drift from its guest. The offscreen renderer now gives a guest only what changed since its last job, rather than
+  everything every time, which the guest ignored anyway.
+- **After a type check, only the components it added or moved have their props read.** The check after files changed
+  used to read every component's props again, straight after the parse's pass had read them all.
+- **An export the person puts on the list shows at once,** before its file is read again. One they take back off waits
+  for the read, as before. PAR-604 is the case where it stays listed after that.
+- **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
 
 ## The start page is built: Home and new tabs (PAR-605)
 

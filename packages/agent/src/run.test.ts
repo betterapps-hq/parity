@@ -357,7 +357,14 @@ Print(JSON.stringify(Overlaps("signup")))`
     expect(JSON.parse(result.output[0]!)).toEqual([
       { designs: ["signup", "pricing"], names: ["Sign up", "Pricing"], width: 800, height: 760, estimated: true }
     ])
-    expect(result.warnings).toContainEqual(expect.stringContaining("Sign up (signup) overlaps Pricing (pricing)"))
+    expect(result.warningGroups).toContainEqual(
+      expect.objectContaining({
+        category: "overlap",
+        message: expect.stringContaining(
+          "Sign up (signup) and Pricing (pricing) overlap by 800x760 (estimated, as Pricing isn't drawn yet)"
+        )
+      })
+    )
   })
 
   it("counts a board's title as part of it", async () => {
@@ -371,16 +378,66 @@ Print(JSON.stringify(Overlaps("below")))`
       hooks()
     )
     expect(JSON.parse(result.output[0]!)).toMatchObject([{ designs: ["signup", "below"], titleOnly: true }])
-    expect(result.warnings).toContainEqual(expect.stringContaining("is too close to"))
+    expect(result.warningGroups).toContainEqual(
+      expect.objectContaining({
+        category: "title_clearance",
+        message: expect.stringContaining(
+          "The title of Below (below) would cover Sign up (signup): the boards are clear, but Below starts less than 160 below it"
+        )
+      })
+    )
   })
 
-  it("doesn't warn about overlaps the call didn't touch", async () => {
+  it("says measured when both boards were drawn", async () => {
+    const base = snapshot()
+    const document = base.documents[0]!.document
+    document.containers.push({ ...document.containers[0]!, id: "copy", name: "Copy", position: { x: 2000, y: 0 } })
+    base.bounds["app.par#copy"] = { x: 2000, y: 0, width: 1400, height: 900 }
+    const result = await execute({ label: "Nudge", code: `UpdateDesign("copy", { x: 1300, y: 0 })` }, base, hooks())
+    expect(result.warningGroups).toEqual([
+      expect.objectContaining({
+        category: "overlap",
+        severity: "warning",
+        message: expect.stringContaining("Sign up (signup) and Copy (copy) overlap by 100x1060 (measured)")
+      })
+    ])
+  })
+
+  it("doesn't call a crowded canvas clear when the call moved nothing", async () => {
+    const base = snapshot()
+    const document = base.documents[0]!.document
+    document.containers.push(
+      { ...document.containers[0]!, id: "copy", name: "Copy", position: { x: 100, y: 100 } },
+      { ...document.containers[0]!, id: "under", name: "Under", position: { x: 0, y: 1000 } }
+    )
+    const result = await execute({ label: "Look", code: `Print(Overlaps().length)` }, base, hooks())
+    // Copy collides with Sign up, and Under's title crowds both.
+    expect(result.output).toEqual(["3"])
+    expect(result.warningGroups).toEqual([
+      {
+        category: "canvas_overlaps",
+        severity: "suggestion",
+        message:
+          "3 other pairs of boards overlap or crowd a title on the canvas. This call didn't create, change or move them, so they aren't listed here; Overlaps() lists every one.",
+        count: 1,
+        at: []
+      }
+    ])
+  })
+
+  it("warns only about the boards the call moved, and counts the rest", async () => {
     const base = snapshot()
     const document = base.documents[0]!.document
     document.containers.push({ ...document.containers[0]!, id: "copy", name: "Copy", position: { x: 100, y: 100 } })
-    const result = await execute({ label: "Look", code: `Print(Overlaps().length)` }, base, hooks())
-    expect(result.output).toEqual(["1"])
-    expect(result.warnings.filter((warning) => warning.includes("overlaps"))).toEqual([])
+    const result = await execute(
+      { label: "Add", code: `CreateDesign({ name: "Pricing", x: 0, y: 1000 })` },
+      base,
+      hooks()
+    )
+    // Pricing's title crowds Sign up, and its estimated board reaches Copy. Copy on Sign up was there already.
+    const boards = result.warningGroups.filter((group) => group.category !== "not_a_token")
+    expect(boards.map((group) => group.category)).toEqual(["title_clearance", "overlap", "canvas_overlaps"])
+    expect(boards[2]!.message).toMatch(/^1 other pair of boards overlaps or crowds a title/)
   })
 
   it("estimates a board the canvas hasn't drawn from its frames' sizes", async () => {
@@ -425,6 +482,7 @@ Print(JSON.stringify(Overlaps()))`
       { designs: ["signup", "below"], titleOnly: true, estimated: true },
       { designs: ["signup", "beside"], width: 83, estimated: true }
     ])
+    expect(result.warnings).toContainEqual(expect.stringContaining("estimated, as Sign up and Below aren't drawn yet"))
   })
 
   it("prefers the size a board was drawn at to an estimate", async () => {
@@ -1339,6 +1397,59 @@ describe("coded failures", () => {
     )
     expect(byId.error).toBeUndefined()
     expect(byId.changes.designs[0]!.after!.states[1]).toEqual({ id: "loading", name: "Waiting" })
+  })
+
+  it("explains that Measure draws one frame when given a list, all or shown, before rendering (PAR-461)", async () => {
+    const base = snapshot()
+    base.documents[0]!.document.containers[0]!.states = [
+      { id: "default", name: "Default" },
+      { id: "loading", name: "Busy" }
+    ]
+    const modes = resolveModes(base.modes).map((mode) => mode.id)
+    const calls = [
+      { option: `{ state: "all" }`, field: "state", given: '"all"', ids: ["default", "loading"] },
+      { option: `{ state: ["default", "loading"] }`, field: "state", given: "a list", ids: ["default", "loading"] },
+      { option: `{ mode: "all" }`, field: "mode", given: '"all"', ids: modes },
+      { option: `{ mode: "shown" }`, field: "mode", given: '"shown"', ids: modes },
+      { option: `{ mode: [${JSON.stringify(modes[0])}] }`, field: "mode", given: "a list", ids: modes }
+    ]
+    for (const { option, field, given, ids } of calls) {
+      const rendered: unknown[] = []
+      const code = `await Measure("signup", ${option})`
+      const result = await execute({ label: "Try", code }, base, {
+        ...hooks(),
+        render: async (job) => (rendered.push(job), hooks().render(job))
+      })
+      expect({ code, error: result.error, details: result.details, rendered }).toEqual({
+        code,
+        error:
+          `Measure lays out one frame, so ${field} takes one ${field} id, not ${given}. To compare ${field}s, call ` +
+          `Measure once for each; Problems, Screenshot and Accessibility take ` +
+          (field === "state"
+            ? 'a list or "all". States in Sign up: default (Default), loading (Busy).'
+            : `a list, "shown" or "all". Modes: ${modes.join(", ")}.`) +
+          " (line 1, column 7)",
+        details: { code: "invalid_input", retryable: false, field, alternatives: ids },
+        rendered: []
+      })
+    }
+    // One state and one mode still measure, as do the checks that take a matrix.
+    const single = await execute(
+      {
+        label: "Try",
+        code: `const layout = await Measure("signup", { state: "loading", mode: ${JSON.stringify(modes[0])} })
+Print(layout.state, layout.mode)
+await Problems("signup", { state: "all", mode: "all" })`
+      },
+      base,
+      hooks()
+    )
+    expect(single.error).toBeUndefined()
+    // A frame takes only the primary mode, so that's all it lists.
+    base.documents[0]!.document.containers[0]!.kind = "frame"
+    const frame = await execute({ label: "Try", code: `await Measure("signup", { mode: "all" })` }, base, hooks())
+    expect(frame.error).toContain(`Sign up is a frame, drawn only in the primary mode, ${modes[0]}.`)
+    expect(frame.details?.alternatives).toEqual([modes[0]])
   })
 
   it("throws coded errors for a retry it can't patch, before running anything", async () => {

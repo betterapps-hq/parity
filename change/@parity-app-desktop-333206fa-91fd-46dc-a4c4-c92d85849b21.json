@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Check registry entries, caller names and the app's error details with zod",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,11 +1,10 @@
 // The offscreen render window's page. The main process asks it to draw one frame, measures it, and captures it, so
 // agents can lay out and screenshot any state in any mode without touching the person's canvas.
 import type { AccessibilityIssue, ContrastDetail, ContrastReading, FrameContrast } from "@parity-app/agent"
-import { type RenderNode, renderedComponents } from "@parity-app/core"
+import { guestChanges, type RenderNode, renderedComponents } from "@parity-app/core"
 import { frameAttributes } from "@parity-app/tokens"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
-import { componentsGone } from "../shared/render-job.ts"
 import {
   drawnNodeIds,
   findNodeElement,
@@ -70,11 +69,12 @@ window.canvasRender = async (job) => {
     const attributes = frameAttributes(job.mode, loaded.themeAttributes)
     const target = prepareFrame(host, loaded.sheet, { ...job.mode, attributes, viewport })
     const tree = job.tree as RenderNode[]
+    // A job that carries no components says nothing about them.
     if (job.components) {
       // Ones whose source went away are taken back first, so a frame using one draws as the canvas's does.
-      const gone = componentsGone(givenComponents.get(job.guestUrl), job.components)
-      if (gone.length > 0) loaded.guest.removeComponents?.(gone)
-      loaded.guest.addComponents?.(job.components)
+      const { add, drop } = guestChanges(givenComponents.get(job.guestUrl) ?? {}, job.components)
+      if (drop.length > 0) loaded.guest.removeComponents?.(drop)
+      loaded.guest.addComponents?.(add)
       givenComponents.set(job.guestUrl, job.components)
     }
     const handle = loaded.guest.mount(target, tree, {

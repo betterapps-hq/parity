@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Agent overlap warnings tell board collisions (overlap) from a title too close (title_clearance), say whether sizes are measured or estimated, and count crowded boards a call didn't touch (canvas_overlaps)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

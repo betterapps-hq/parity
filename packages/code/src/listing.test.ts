@@ -1,8 +1,9 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { ComponentSource, RendererAdapter } from "@parity-app/core"
+import type { RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import { type ComponentList, nextComponentList } from "./component-list.ts"
 import {
   checkedAppFiles,
   checkedChanges,
@@ -15,7 +16,7 @@ import {
   leftOutChanges,
   type ParsedComponent,
   readChangedFiles,
-  rediscoveredSources
+  rediscoveredFiles
 } from "./listing.ts"
 import { importAlias, readTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
@@ -431,29 +432,33 @@ describe("the config changing while open", () => {
   /** The list a fresh open makes, before the type checker. */
   const fresh = async () =>
     componentIds((await findAppComponents(root, renderer, readTsconfig(root), undefined, [])).found)
-  const rediscover = (sources: Record<string, ComponentSource>) =>
-    rediscoveredSources(root, renderer, readTsconfig(root), undefined, sources)
+  /** The list after the config changed, as the project service works it out. */
+  const rediscover = async (list: ComponentList) =>
+    nextComponentList(list, {
+      kind: "filesRead",
+      read: await rediscoveredFiles(root, renderer, readTsconfig(root), undefined, list.sources)
+    })
 
   it("matches a fresh open after include is widened, then narrowed", async () => {
     await write("tsconfig.json", '{ "include": ["src/components"] }')
     await write("src/components/button.tsx", "export function Button() {}")
     await write("src/pages/home.tsx", "export function Home() {}\nexport const Shell = Layout.Shell")
     const library = { path: "../packages/ui/src/card.tsx", export: "Card", library: "ui", lazy: true }
-    let sources: Record<string, ComponentSource> = { ...(await fresh()), "ui/Card": library }
+    let list: ComponentList = { sources: { ...(await fresh()), "ui/Card": library }, leftOut: [] }
 
     await write("tsconfig.json", '{ "include": ["src"] }')
-    const widened = await rediscover(sources)
-    expect(widened.added).toEqual(["Home"])
-    expect(widened.sources).toEqual({ ...(await fresh()), "ui/Card": library })
-    sources = widened.sources
+    const widened = await rediscover(list)
+    expect(Object.keys(widened.guest.add)).toEqual(["Home"])
+    expect(widened.list.sources).toEqual({ ...(await fresh()), "ui/Card": library })
+    list = widened.list
 
     await write("tsconfig.json", '{ "include": ["src/components"] }')
-    const narrowed = await rediscover(sources)
-    expect(narrowed.removed).toEqual(["Home"])
-    expect(narrowed.sources).toEqual({ ...(await fresh()), "ui/Card": library })
+    const narrowed = await rediscover(list)
+    expect(narrowed.guest.drop).toEqual(["Home"])
+    expect(narrowed.list.sources).toEqual({ ...(await fresh()), "ui/Card": library })
   })
 
-  it("drops what the person included from a file now left out, for their corrections to put back", async () => {
+  it("keeps what the person included from a file now left out, through their corrections", async () => {
     await write("tsconfig.json", '{ "include": ["src"] }')
     await write("src/access.tsx", "export const ForAdmins = Gate.Admins")
     await write("src/components/button.tsx", "export function Button() {}")
@@ -461,9 +466,9 @@ describe("the config changing while open", () => {
     const sources = correctedSources(await fresh(), corrections)
 
     await write("tsconfig.json", '{ "include": ["src/components"] }')
-    const narrowed = await rediscover(sources)
-    expect(narrowed.removed).toEqual(["ForAdmins"])
-    expect(correctedSources(narrowed.sources, corrections)).toEqual(sources)
+    const narrowed = await rediscover({ sources, leftOut: [], corrections })
+    expect(narrowed.list.sources).toEqual(sources)
+    expect(narrowed.guest).toEqual({ add: {}, drop: [] })
   })
 })
 

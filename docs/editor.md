@@ -710,8 +710,8 @@ follow it. Escape takes the move back, leaving nothing to undo, and a drag that 
 This is the same rule nudging uses, one function for both. Code: `shiftInsets` in
 `apps/desktop/src/renderer/canvas/insets.ts`; `canvas/layer-drag.ts` (`followAbsolute`) reads where the sides are drawn
 with `frameDrawn` (`canvas/nudge.ts`), rounds the drag to half steps, and writes each move in the drag's gesture, one
-undo step (PAR-441), taking them back to a checkpoint (`DesignStore.checkpoint` and `revert`) on Escape or when the
-layer comes back to where it began.
+undo step (PAR-441), taking them back to the drag's checkpoint (`Drag.revert`, from `canvas/gesture.ts`'s `followPress`)
+on Escape or when the layer comes back to where it began.
 
 Tests: `canvas/insets.test.ts`, moving: by the side it's placed from, both sides of a stretched layer (the Review slot),
 negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn (a negative side
@@ -765,9 +765,10 @@ Code: `apps/desktop/src/renderer/canvas/resize.ts` (`edgeAxes`, and `resizeGestu
 the style for each pointer position), `canvas/insets.ts` (`resizeInsets`), `packages/editor/src/handles.ts`
 (`handleBoxes`, where each handle goes, and `resizeStart`, what a resize reads, `@parity-app/editor`),
 `canvas/ResizeHandles.tsx` (the handles and their hint, which `chrome/Hint.tsx` lets a caller open and close), and
-`canvas/CanvasOverlay.tsx` (`startResize` measures the layer, its parent and its drawn insets, and writes the style;
-`drag` follows the pointer in one gesture, holds the cursor, and on Escape reverts the store to a checkpoint taken when
-the drag began, with `DesignStore.checkpoint` and `revert` in `design-store.ts`).
+`canvas/CanvasOverlay.tsx` (`startResize` measures the layer, its parent and its drawn insets, and writes the style).
+`canvas/gesture.ts`'s `followPress` follows the pointer in one gesture, holds the cursor, and on Escape reverts the
+store to a checkpoint taken when the drag began, with `DesignStore.checkpoint` and `revert` in `design-store.ts` (see
+"Cursors and Escape during a gesture").
 
 Tests:
 
@@ -801,10 +802,10 @@ Tests:
   handle 24px, pauses a second and a half, drags on to 48px, and takes it all back with one undo (PAR-441).
 
 Gaps: a frame's own handles (a design's width and height) aren't covered by these tests, Escape on them included, which
-goes through the same `drag`. A resize writes as the pointer moves, all of it one undo step however long it pauses
-(PAR-441, see "One undo step per gesture"). Checked in the app on 2026-10-30, in a copy on its own ports: the handles
-above and below New project at 50%, the arrows over the design 90px below the handle, and Escape leaving the button as
-it was.
+goes through the same `followPress`. A resize writes as the pointer moves, all of it one undo step however long it
+pauses (PAR-441, see "One undo step per gesture"). Checked in the app on 2026-10-30, in a copy on its own ports: the
+handles above and below New project at 50%, the arrows over the design 90px below the handle, and Escape leaving the
+button as it was.
 
 ### Empty layouts (PAR-193)
 
@@ -844,30 +845,66 @@ While layers are dragged, a design is dragged by its title or a handle resizes, 
 wherever the pointer goes: grabbing for a drag, the handle's arrows for a resize. With the text tool, the canvas shows
 the text cursor. Escape cancels each of these drags.
 
+- **One lifecycle for every drag** (PAR-568). A resize, layers dragged in a layout, an absolutely placed layer dragged,
+  designs dragged by a title and a box drawn on a frame's background all follow a press the same way. It becomes a drag
+  once the pointer has gone 4 screen pixels, and only then begins its undo step, takes its checkpoint and holds its
+  cursor, so a click begins none of them. The release keeps what the drag did. Escape, the pointer being cancelled and
+  the window losing focus each do what the gesture's policy says:
+
+  | Gesture                       | Escape                  | Pointer cancelled or window loses focus |
+  | ----------------------------- | ----------------------- | --------------------------------------- |
+  | Resize                        | takes it all back       | keeps it                                |
+  | Layers dragged in a layout    | calls it off            | calls it off                            |
+  | An absolutely placed layer    | takes it back           | takes it back                           |
+  | Designs dragged by a title    | puts them back          | saves them where they are               |
+  | A box on a frame's background | puts the selection back | puts the selection back                 |
+
+  Taking back reverts the design to the checkpoint from when the drag began, leaving nothing to undo. A drag that's
+  called off has written nothing, since it writes only when it's kept, and puts back what it showed: the drop preview,
+  the designs on the canvas, the selection. Before PAR-568, a title drag and a box ended through listeners of their own
+  and didn't hear the window losing focus.
+
 - **Why it needed a layer of its own.** The cursor used to be set on the page's body, which showed only where nothing
   else set one: over the canvas tldraw sets its own cursor on everything it draws, and a title sets `default`. Now a
   transparent layer over the whole window holds the cursor for as long as the gesture lasts. The gestures follow the
-  pointer through window listeners or pointer capture and find what's under it by layout boxes, so the layer takes
-  nothing from them, and nothing under it reacts to hovering meanwhile.
+  pointer through window listeners and find what's under it by layout boxes, so the layer takes nothing from them, and
+  nothing under it reacts to hovering meanwhile.
 - **The text tool** gives tldraw's canvas the browser's text cursor, by a rule more specific than tldraw's own, which
   takes the cursor of tldraw's tool, always Select or Hand here.
 - **Escape on a design dragged by its title** puts every dragged design back where it was, saves nothing and adds no
-  undo step, and leaves the design selected. Escape on a layer drag already put everything back (CAN-47); on a resize
-  it's described above.
+  undo step, and leaves the design selected.
 
-Code: `apps/desktop/src/renderer/canvas/held-cursor.ts` (`holdCursor`), used by `canvas/layer-drag.ts`,
-`canvas/CanvasOverlay.tsx` (`drag`) and `canvas/ContainerShapeUtil.tsx` (`dragByTitle`, which gives the title the cursor
-too, since it has the pointer captured); the text tool's rule is in `apps/desktop/src/renderer/styles.css`.
+Code: `apps/desktop/src/renderer/canvas/gesture.ts`: `followPress` follows a press, `gestures` holds each gesture's
+policy, `dragThreshold` is the 4 pixels, `holdCursor` the layer, and `onGestureEnd` hears how a gesture ends, as the
+right-click menu does too. The gestures are `canvas/CanvasOverlay.tsx` (`startResize`), `canvas/layer-drag.ts`
+(`pressLayers` and `followAbsolute`), `canvas/ContainerShapeUtil.tsx` (`dragByTitle`, which gives the title the cursor
+too, since it has the pointer captured) and `canvas/select-box.ts` (`pressBackground`). The text tool's rule is in
+`apps/desktop/src/renderer/styles.css`.
 
-Tests: end to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (5), reading the cursor of the element the browser finds
-under the pointer: grabbing while a stat card is dragged; grabbing while Dashboard is dragged by its title, on the title
-and 200px off it; the arrows 80px below New project's right handle mid-resize, and not after; the text cursor over the
-stat cards with the text tool; and Dashboard's title dragged 160px, then Escape, leaving its board and its position as
-they were with nothing to undo. Each failed before PAR-193.
+Tests:
+
+- `canvas/gesture.test.ts`, without Electron, driving `followPress` with a plain `EventTarget` for the window and a
+  `DesignStore`: a press released short of 4 pixels is a click, with no undo step begun and no cursor held; the undo
+  step, checkpoint and cursor begin once, as the press becomes a drag, and at the release the cursor goes, the step ends
+  and nothing is left listening; Escape before the drag only ends it; a drag takes back what it wrote mid-drag and goes
+  on in the same step; and Escape after a drag that wrote nothing leaves the file alone. For each of the five gestures,
+  writing as the app's does (as the pointer moves, or once when kept): Escape leaves nothing to undo and the file clean;
+  the window losing focus ends it as the table says, what it keeps being one undo step; and the release keeps it as one
+  step. Also `onGestureEnd` (4): a gesture ending once, at the release, a cancelled pointer, the window losing focus or
+  Escape, with nothing left listening after; Escape kept from going further, other keys let by; giving up without
+  ending; and one gesture's end left to it when another follows.
+- End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (5), reading the cursor of the element the browser finds under
+  the pointer: grabbing while a stat card is dragged; grabbing while Dashboard is dragged by its title, on the title and
+  200px off it; the arrows 80px below New project's right handle mid-resize, and not after; the text cursor over the
+  stat cards with the text tool; and Dashboard's title dragged 160px, then Escape, leaving its board and its position as
+  they were with nothing to undo. Each failed before PAR-193.
 
 Gaps: what the system draws can't be read through the DevTools protocol, so the tests read the cursor the page asks for
 at the pointer. Whether Chrome takes a captured title's cursor or the layer's doesn't matter, since both are grabbing.
-Dragging a board by its background is tldraw's, with tldraw's own cursor, and Escape there is tldraw's too.
+The window losing focus is tested on the lifecycle, not end to end; PAR-583 checks it in the app. Checked on 2026-11-05
+in Storybook's app window, with the pointer, Escape and the window's blur sent by script: each of the five drags ended
+by Escape, by blur and by a release, as the table says, and a title drag with the real pointer. Dragging a board by its
+background is tldraw's, with tldraw's own cursor, and Escape there is tldraw's too.
 
 ### Snapping a dragged design (PAR-33)
 
@@ -929,8 +966,8 @@ marks; `lockedEdgeMoves` says how far a resize's locked edges moved. `apps/deskt
 which is its containing block, shows the guides and marks as tldraw's snap indicators and keeps the distances for
 `canvas/CanvasOverlay.tsx` to draw; the gesture clears them when it ends. `canvas/layer-drag.ts` (`followAbsolute`)
 moves the layer by them, and `CanvasOverlay.tsx`'s `startResize` passes a resize's locked edges to `resizeGesture`
-(`canvas/resize.ts`), which `resizeInsets` (`canvas/insets.ts`) takes exactly. Both gestures hear how they end through
-`canvas/gesture-end.ts` (`onGestureEnd`).
+(`canvas/resize.ts`), which `resizeInsets` (`canvas/insets.ts`) takes exactly. Both gestures end through
+`canvas/gesture.ts` (`followPress`), which tells them whichever way they end.
 
 Tests:
 
@@ -946,9 +983,7 @@ Tests:
   border, in the frame's own pixels; a badge in a transformed component's slot snapping to the component's box; and one
   in a slot of a component that isn't positioned snapping to the root its insets count from, not to the component's
   edge.
-- `canvas/gesture-end.test.ts` (4): a gesture ending once, at the release, a cancelled pointer, the window losing focus
-  or Escape, with nothing left listening after; Escape kept from going further, other keys let by; giving up without
-  ending; and one gesture's end left to it when another follows.
+- `canvas/gesture.test.ts`: how a gesture ends, under "Cursors and Escape during a gesture", above.
 - `apps/desktop/e2e/moving.e2e.ts` (5), end to end, on the Review slot at 100%: dragged 6px down it stays, with spacing
   marks over three gaps, a guide and the 32px distance during the drag, and nothing to undo or shown after; dragged 36px
   down it's at top 48 during the drag and after, and Undo puts it back; with Ctrl it's at 49, with nothing shown; Escape
@@ -1287,7 +1322,8 @@ reads a layout's flow, through `@parity-app/editor`'s `flowOf` with its children
 placed layer's insets for dragging too), `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of
 Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and
 `canvas/shortcuts.ts`, which passes the key event to the action and keeps the other arrows from tldraw. A run's gesture
-is `runGesture` in `nudge.ts`, which knows a selection by `selectionKey` (`selection.ts`).
+is `runGesture` in `nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the selection's `selectionKey`
+(`selection.ts`).
 
 Tests:
 
@@ -1638,10 +1674,10 @@ Code:
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
   leaving, Escape, steps and scrubs, and the effects it asks for.
 - `chrome/fields.tsx`: `NumberField`, which runs those effects, handles keys and scrubbing, and begins and ends the
-  gesture a run of steps or a scrub commits in (`runEnders` says what ends a run, and `FieldTarget`, which
-  `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits), `NumberInput`, and `Field`,
-  whose label scrubs a lone field and which shows what its fields say under the row. `NumberValueInput` is a prop's or
-  param's number, which works its edits out from the value as it was before a preview.
+  gesture a run of steps or a scrub commits in, a `GestureRun` from `canvas/gesture.ts` (`runEnders` says what ends a
+  run, and `FieldTarget`, which `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits),
+  `NumberInput`, and `Field`, whose label scrubs a lone field and which shows what its fields say under the row.
+  `NumberValueInput` is a prop's or param's number, which works its edits out from the value as it was before a preview.
 - `chrome/StyleSections.tsx`: each style field's rules and how its edit reads and writes each layer's own style
   (`fieldEdits`), with `LengthInput` and `CompactNumber`. `StyleEditor` takes values, or a function of each layer's
   style, and has `preview` and `endPreview`. `chrome/PropsSection.tsx` has the number props, which
@@ -2008,15 +2044,17 @@ field. Time plays no part, so a slow drag with long pauses is still one step, an
 
 - **How a gesture says so.** Its source begins a gesture when it starts, passes it with each change it makes, and ends
   it when it's over. The changes join one step while it's the latest, labelled by the first of them (Undo resize layer).
-- **Where each begins and ends.** A resize runs from the press on a handle to the release, or to Escape, which takes it
-  all back; the pointer cancelled or the window losing focus ends it as a release does. A layer drag runs from the move
-  past the threshold to the drop; an absolutely placed layer writes as it moves, and Escape takes that back too, as do
-  the pointer cancelled and the window losing focus. A design or note dragged by its board is tldraw's translate, from
-  its first move until tldraw stops translating; dragged by its title, it writes once on release. A scrub runs from the
-  press on the label to the release. A run of arrow presses on the canvas lasts while the same layers, designs or note
-  stay selected, in whatever order, and nothing else changes: another edit, an undo or a redo, or selecting something
-  else, also back to what it was, ends it. In a field, typing, Enter, Escape, leaving the field, scrubbing it or another
-  selection ends a run of Up and Down.
+- **Where each begins and ends.** A resize, a layer drag and a design dragged by its title begin their gesture as the
+  press becomes a drag, 4 pixels from where it was pressed, and end it however the drag ends, as "Cursors and Escape
+  during a gesture" sets out (PAR-568). A resize writes as it moves, and Escape takes it all back. A layer drag in a
+  layout writes on the drop; an absolutely placed layer writes as it moves, and Escape takes that back too, as do the
+  pointer cancelled and the window losing focus. Dragged by its title, a design writes once, when the drag ends. A
+  design or note dragged by its board is tldraw's translate, from its first move until tldraw stops translating. A scrub
+  runs from the press on the label to the release. A run of arrow presses on the canvas lasts while the same layers,
+  designs or note stay selected, in whatever order, and nothing else changes: another edit, an undo or a redo, or
+  selecting something else, also back to what it was, ends it. In a field, typing, Enter, Escape, leaving the field,
+  scrubbing it or another selection ends a run of Up and Down. Both kinds of run are a `GestureRun`, keyed by the
+  selection's `selectionKey`, so a press on another selection starts a run of its own.
 - **Gestures that change nothing.** A gesture that changes nothing adds no step, and one that comes back where it began,
   such as a drag back to its start or a nudge there and back, leaves none, with the file clean again and Redo as it was
   before the gesture.
@@ -2024,10 +2062,12 @@ field. Time plays no part, so a slow drag with long pauses is still one step, an
   changes after it make a second step. The agent's work stays out of the gesture's undo.
 
 Code: `packages/editor/src/history.ts` (`recordChange` with the `gesture` option, `endGesture`, and `checkpoint` and
-`revertTo` by gesture) and `apps/desktop/src/renderer/design-store.ts` (`beginGesture`, `endGesture`). The sources are
-`canvas/CanvasOverlay.tsx` (`drag`, for resize handles), `canvas/layer-drag.ts`, `canvas/CanvasEditor.tsx` (tldraw's
-translate), `canvas/nudge.ts` (`runGesture`) and `chrome/fields.tsx` (`NumberField`'s runs and scrubs), whose gesture
-reaches the store through `StyleSections.tsx`'s `fieldEdits`, `LayerPanel.tsx`, `MultiPanel.tsx` and `PropsSection.tsx`.
+`revertTo` by gesture) and `apps/desktop/src/renderer/design-store.ts` (`beginGesture`, `endGesture`). The canvas's
+drags and runs begin and end theirs through `canvas/gesture.ts`: `followPress` for resize handles
+(`canvas/CanvasOverlay.tsx`), layer drags (`canvas/layer-drag.ts`) and title drags (`canvas/ContainerShapeUtil.tsx`),
+and `GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `chrome/fields.tsx` (`NumberField`'s runs and
+scrubs), whose gesture reaches the store through `StyleSections.tsx`'s `fieldEdits`, `LayerPanel.tsx`, `MultiPanel.tsx`
+and `PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
 
 Tests:
 
@@ -2041,6 +2081,11 @@ Tests:
   until it ends, and each gesture its own id; and a live drag written as an absolutely placed layer's is, taking a side
   back to the checkpoint mid-drag, as one step, and as none once Escape reverts it. Its checkpoint tests are under
   "Resize handles".
+- `apps/desktop/src/renderer/canvas/gesture.test.ts`, without Electron: for each of the canvas's five drags, Escape
+  leaving nothing to undo, the window losing focus ending it as its policy says, and the release keeping it as one step
+  (under "Cursors and Escape during a gesture"); and a run, one gesture for presses on one selection, another for a
+  press on another, ended as the selection changes and going on while the same one is selected again, following the
+  selection only while it lasts.
 - `apps/desktop/src/renderer/canvas/nudge.test.ts` and `chrome/fields.test.ts`: the runs and the scrub, under "Nudging"
   and "Typing, stepping and scrubbing".
 - End to end, each pausing longer than the one-second window the history used to group by: `moving.e2e.ts`, New project
@@ -2404,14 +2449,16 @@ Save writes into the file's `canvas`, refers to `nova/Button` and works unchange
   plain names. A file that can't be read leaves them plain too, and the project's notes say why.
 
 Code: `componentIds`, `filesChanged`, `checkedChanges` and `correctedSources` in `packages/code/src/listing.ts`, which
-take the namespace; `discoverProject` in `packages/project/src/index.ts`, which reads it (`ProjectConfig.namespace`);
-`libraryId` in `packages/core/src/library.ts`; the project service in `apps/desktop/src/utility/projects.ts`, which
-passes it on as files change.
+take the namespace; `nextComponentList` in `packages/code/src/component-list.ts`, which keeps it with the list;
+`discoverProject` in `packages/project/src/index.ts`, which reads it (`ProjectConfig.namespace`); `libraryId` in
+`packages/core/src/library.ts`; the project service in `apps/desktop/src/utility/projects.ts`, which starts the list
+with it.
 
 Tests: `packages/code/src/listing.test.ts` (2: ids start with the namespace, including qualified ones and ids libraries
 have taken; and they keep it as files change, the checker adds one and the person lists one).
-`packages/project/src/index.test.ts` (1: a library's own components are named by its `id`, else by its package's name).
-`packages/core/src/library.test.ts` (1: `libraryId`).
+`packages/code/src/component-list.test.ts` (1: what the type checker adds in a library's own project is named by the
+library). `packages/project/src/index.test.ts` (1: a library's own components are named by its `id`, else by its
+package's name). `packages/core/src/library.test.ts` (1: `libraryId`).
 
 ### A library's component designs in the Components panel (PAR-125)
 
@@ -2601,37 +2648,43 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
   `key`. The live frame follows size and previewed tokens by itself, so a token preview doesn't draw every frame's React
   tree again.
 - **The guest's code revision** goes up only when `addComponents` changes where a component comes from: a component
-  given again from the same file, as each type-checker pass and each offscreen render does, changes nothing, and its
-  module isn't loaded again. One revision covers the project, so a component that moves redraws every frame and retakes
-  every bitmap, one at a time in the background; frames whose design doesn't use it draw the same as before. That's rare
-  next to saves, which don't change it. A component's own boundary also counts its moves, so one that failed starts over
-  when it comes from a new file rather than keeping its error.
+  given again from the same file changes nothing, and its module isn't loaded again. One revision covers the project, so
+  a component that moves redraws every frame and retakes every bitmap, one at a time in the background; frames whose
+  design doesn't use it draw the same as before. That's rare next to saves, which don't change it. A component's own
+  boundary also counts its moves, so one that failed starts over when it comes from a new file rather than keeping its
+  error.
 - **The offscreen renderer gets the components too.** The bitmap job carries the components the guest was given since it
   loaded, as agents' renders already did, so a frame using one isn't drawn offscreen without it.
 - **A component whose source went away is taken back, on both sides** (PAR-487). When the type checker no longer finds a
   component the guest was given, the canvas's guest takes it back (`removeComponents`): one it loaded with is drawn as
   it loaded again, one it was only given is no longer a component, and the revision goes up so frames and bitmaps draw
-  again. The offscreen renderer remembers what each guest's last job carried and takes back what a later job drops
-  (`componentsGone`), so a bitmap or an agent's render doesn't keep drawing it from the old file. Before, the offscreen
-  window only ever added. Edits to a component's code or CSS don't need a new bitmap key: the guest's dev server runs
-  without HMR, so neither the canvas nor the offscreen window picks them up until the project's guest loads again at a
-  new address, which changes every key (see decisions.md on PAR-422 and PAR-165).
+  again. The offscreen renderer remembers what each guest's last job carried and takes back what a later job drops, so a
+  bitmap or an agent's render doesn't keep drawing it from the old file. Before, the offscreen window only ever added.
+  Both work out what to give and take back with core's `guestChanges` (PAR-566): the canvas's guest from the list it
+  last had, the offscreen renderer's from what each guest's last job carried, so it gives only what changed since. Edits
+  to a component's code or CSS don't need a new bitmap key: the guest's dev server runs without HMR, so neither the
+  canvas nor the offscreen window picks them up until the project's guest loads again at a new address, which changes
+  every key (see decisions.md on PAR-422 and PAR-165).
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in
 `canvas/ContainerView.tsx`, which passes `drawn` to `ModeView`'s `shows`; `revision`, `addComponents` and
-`removeComponents` in `packages/renderer-react/src/guest.ts`, declared on `Guest` in `packages/core/src/adapters.ts`.
+`removeComponents` in `packages/renderer-react/src/guest.ts`, declared on `Guest` in `packages/core/src/adapters.ts`;
+`guestChanges` in `packages/core/src/guest-changes.ts`, which `setSources` in `renderer/workspace.ts` and
+`renderer/render.ts` call.
 
 Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
 moved or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back
 added components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't
-given, and adds one given again). `apps/desktop/src/shared/render-job.test.ts` (2 for `componentsGone`: what an earlier
-job gave and this one dropped, and nothing before any job or for a job carrying none).
-`apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
-`shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
-Gaps: that `FrameTile`'s keys follow the revision, and that the bitmap job carries the added components, have no test of
-their own; both were checked by reading `useFrameShows`. That `setSources` and `render.ts` call `removeComponents` was
-checked by reading them. A component moving in the running app wasn't tried, since it means changing the example's
-files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
+given, and adds one given again). `packages/core/src/guest-changes.test.ts` (6 for `guestChanges`: one new to the list,
+one gone, one moved, everything to a guest given nothing yet, nothing when every component stays where it was, and
+nothing when only what else the list says about one changes). `apps/desktop/src/renderer/ModeView.test.ts` (2: a
+component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
+and one that failed draws from its new file instead of its error). Gaps: that `FrameTile`'s keys follow the revision,
+and that the bitmap job carries the added components, have no test of their own; both were checked by reading
+`useFrameShows`. That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying
+no components changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it
+means changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
+`addComponents` on.
 
 ### Bitmaps kept between sessions (PAR-158)
 
@@ -3677,18 +3730,34 @@ its id, ignoring case and spaces; a shared name listing both ids; a former name 
 `packages/agent/src/run.test.ts` ("asks for a state's id in every call that takes one": the same message and
 alternatives from each call, a shared name, and the id working).
 
+### Measure draws one frame (PAR-461)
+
+`Measure` takes one state id and one mode id. A list, `"all"` or `"shown"`, which `Screenshot`, `Problems` and
+`Accessibility` take, fails before anything renders with `invalid_input` on `state` or `mode`. The message says Measure
+lays out one frame, to call it once for each, and that the checks take several, then lists the design's states as
+`id (name)` or its modes; a frame lists only the primary mode. `alternatives` gives those ids. The CLI and MCP show the
+same text and structured error. The execute skill shows a loop over a design's states and shown modes that keeps each
+layout with the state and mode it reports.
+
+Implementation: `expectOneFrame` in `packages/agent/src/workspace.ts`, called by `measure`.
+
+Tests: `packages/agent/src/run.test.ts` ("explains that Measure draws one frame": each of `"all"`, a list and `"shown"`
+for state and mode, with nothing rendered; one state and mode still measuring; a frame listing only its primary mode).
+`packages/cli/src/execute.test.ts` ("explains Measure's single frame the same way in both transports": the agent's error
+as CLI text, `--json` and MCP). `packages/cli/src/skill-examples.test.ts` runs the skill's loop.
+
 ### Warnings grouped by what they found (PAR-460)
 
 An execute call's findings are grouped: one per category and message, with how many places it was found and which.
 `warningGroups` gives each group's stable `category` (`render_failed`, `unknown_component`, `unknown_component_design`,
-`unknown_prop`, `invalid_option`, `not_a_token`, `not_a_length_token`, `overlap`, `kind_changed`, `unnamed_layout`), its
-`severity`, its `message`, its `count` and `at`, which lists every place as a `design/node` path or frame. Errors come
-first, then warnings, then suggestions, each in the order found. A render that failed is an error. A new unnamed layout
-that groups things is a suggestion, reported only for layouts the call added. `warnings` keeps one line per group: the
-place and message for one place, and for several the count, the first five and how many more
-(`12 places (home/a, …, home/e and 7 more): name layouts…`). The CLI and MCP text list the lines under "Render
-failures", "Warnings" and "Suggestions". A copy of the app without groups has every line read as a warning. Nothing is
-named or renamed for the agent.
+`unknown_prop`, `invalid_option`, `not_a_token`, `not_a_length_token`, `overlap`, `title_clearance`, `canvas_overlaps`,
+`kind_changed`, `unnamed_layout`), its `severity`, its `message`, its `count` and `at`, which lists every place as a
+`design/node` path or frame. Errors come first, then warnings, then suggestions, each in the order found. A render that
+failed is an error. A new unnamed layout that groups things is a suggestion, reported only for layouts the call added.
+`warnings` keeps one line per group: the place and message for one place, and for several the count, the first five and
+how many more (`12 places (home/a, …, home/e and 7 more): name layouts…`). The CLI and MCP text list the lines under
+"Render failures", "Warnings" and "Suggestions". A copy of the app without groups has every line read as a warning.
+Nothing is named or renamed for the agent.
 
 Implementation: `packages/agent/src/warnings.ts` (categories and severities, `groupWarnings`, `warningLine`);
 `packages/agent/src/workspace.ts` (`warn`, and the groups in `result`); `packages/cli/src/execute.ts` (the field and its
@@ -3700,6 +3769,26 @@ finding repeats there; categories and messages kept apart, errors first and sugg
 already there left out, two unknown props, a token, and a render failure first). `packages/cli/src/client.test.ts`
 (headings by severity; lines from an app without groups). `packages/cli/src/execute.test.ts` (groups in `--json` and
 structured content).
+
+### Board collisions and title clearance (PAR-462)
+
+`Overlaps()` checks every board on the canvas and lists each pair that's too close: a collision when the boards overlap,
+or `titleOnly` when they're clear but the lower one starts less than 160 below the upper, so its title covers it.
+`estimated` marks a pair where a board isn't drawn yet and is sized from its frames; without it both sizes are as the
+canvas drew them. `state` returns the same list. An execute call's warnings cover only the boards it created, changed or
+moved: `overlap` for a collision, `title_clearance` for a title too close, each saying "measured" or naming the board
+that isn't drawn yet. Pairs the call didn't touch are counted in one `canvas_overlaps` suggestion that points to
+`Overlaps()`, so a call that only reads doesn't make a crowded canvas look clear. The skill's canvas section shows an
+audit with `Overlaps()` and placing a board with `FindEmptySpace({ width, height })`.
+
+Implementation: `packages/agent/src/workspace.ts` (`overlaps`, `overlapWarnings`), `packages/agent/src/warnings.ts` (the
+categories), `packages/cli/src/operations.ts` (`state`'s overlap schema) and `execute.ts` (the categories' description).
+
+Tests: `packages/agent/src/run.test.ts` ("shows a move as a drag…": a collision with an estimated board; "counts a
+board's title as part of it": title clearance; "says measured when both boards were drawn"; "estimates an undrawn
+board's height…": both boards named when neither is drawn; "doesn't call a crowded canvas clear when the call moved
+nothing": a read on a canvas with three crowded pairs; "warns only about the boards the call moved, and counts the
+rest"). `packages/cli/src/skill-examples.test.ts` runs the audit example.
 
 ### Which copy of the app a call reaches (PAR-514)
 

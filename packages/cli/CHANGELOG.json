@@ -2,6 +2,33 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 11:11:43 GMT",
+      "version": "0.5.1",
+      "tag": "@parity-app/cli_v0.5.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6442c27c837a6b3ad58cf4d6d001bc1f74dadfad",
+            "comment": "List an export you put on the component list straight away, and keep a new component that takes a removed one's id when files change"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1617e29cf5dd4bce918a3ad8525143c16be059a0",
+            "comment": "Measure explains that it lays out one frame when given a list, \"all\" or \"shown\", and lists the state or mode ids it takes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "33c34a92c79de67eb0d73a961b40f9acc7087594",
+            "comment": "Check registry entries, caller names and the app's error details with zod"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 10:01:58 GMT",
       "version": "0.5.0",
       "tag": "@parity-app/cli_v0.5.0",
