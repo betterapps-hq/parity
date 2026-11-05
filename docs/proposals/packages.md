@@ -4,8 +4,9 @@ Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-
 `@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. `@parity-app/tokens` holds reading,
 editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32), drop
 rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. `@parity-app/models` holds the lens
-models (PAR-15), and `@parity-app/editor` moving, resizing and nudging (PAR-577), on 2026-11-05. The rule and the first
-items are in [decisions.md](../decisions.md) and in Linear's Package boundaries stream.
+models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577), and `@parity-app/project` the one reader
+of installed packages (PAR-573), on 2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and
+in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -140,6 +141,21 @@ itself with Beachball.
   components and stories, `.parity/` files, and later migrations, handlers, route files and recipes.
 - **This moves the diff-first part of PAR-293 into the foundations,** because components need it before any lens does.
   Writing back from the lenses (migrations, handlers, route files) keeps its place at the end of the order you set.
+
+### Installed packages, in `@parity-app/project` and `@parity-app/registry`
+
+Built in PAR-573 (2026-11-05). Finding an installed package and the files it leads to was written three to five ways,
+and the copies disagreed.
+
+- **One reader in [packages.ts](../../packages/project/src/packages.ts)** finds a package as Node does, reads its
+  manifest through core's `packageManifest`, picks an entry point's file for types, the module Node imports, source or a
+  stylesheet, traces a built file back to its source and follows both kinds of re-export. Its test is one temporary
+  folder holding every shape of package it reads.
+- **Discovery, detection, workspace packages, libgen and the Tailwind adapter use it.** libgen's loader keeps Node's own
+  `createRequire` for CommonJS, and its icon types keep TypeScript's own resolver.
+- **The registry owns hand edits and which file is newest:** `withEdits` and `readLibraryEdits` read a library file's
+  edits, which discovery, libgen and `parity lib check` share, and `newestEntries` gives each package's newest file by
+  semver, with its edits applied, for the library catalog and `parity lib check`.
 
 ### `@parity-app/editor`
 

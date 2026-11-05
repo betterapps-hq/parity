@@ -47,6 +47,7 @@ import { Hint } from "../chrome/Hint.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { useLibrary, useModeSettings } from "../design-store.ts"
+import { frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { useProject } from "./context.ts"
@@ -631,7 +632,7 @@ const FrameTile = memo(function FrameTile({
             ...(selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : {}),
             // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has
             // noted its size.
-            ...(height === undefined ? {} : { "--frame-height": `${height}px` })
+            ...(height === undefined ? {} : { [frameHeightProperty]: `${height}px` })
           } as CSSProperties
         }
         data-bitmap={shown ? "" : undefined}

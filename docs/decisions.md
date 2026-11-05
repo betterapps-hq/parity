@@ -1580,6 +1580,22 @@ recommended answer to each of its questions.
   against a fresh page's, and the render sweep (PAR-211) is to compare whole frames with Chrome. On screen at 100%, a
   phone and a desktop frame were also captured and compared with Chrome pixel by pixel: same size and place, with only
   text antialiasing differing (the canvas draws text in grayscale, and Chrome with ClearType's colored edges).
+- **Parity's own custom properties stay out of frames** (PAR-157). Custom properties inherit into a shadow root, and
+  `all: initial` leaves them alone, so a frame inherited every variable Parity's page defines. shadcn's names are
+  Parity's too: a project using `var(--border, 1px)` without defining `--border` got Parity's border instead of its
+  fallback, which Chrome gives it. A frame's root now sets each custom property that reaches its host to `initial`, as
+  if nothing defined it, in the same lowest layer as `all: initial`, so the project's own definitions, in any layer or
+  none, still win, as do the viewport properties set on the host. My calls:
+  - **The names are read from the computed style of the element around the host** as each frame is prepared, which lists
+    every custom property reaching it: Parity's stylesheets, tldraw's, and inline ones such as tldraw's zoom. Collecting
+    them from Parity's stylesheets instead would miss the inline ones. The list sits in the sheet every frame shares and
+    only grows, since setting a property nothing passes down changes nothing; the sheet is written again only when a
+    name is new, normally for the first frame alone.
+  - **A variable Parity's page first defines after a frame is prepared** reaches that frame until it's prepared again,
+    as it is when its environment changes or it wakes. Parity's page defines its variables before the canvas draws.
+  - **Registered properties can't be kept out.** `@property` is the document's, shared by Parity and every project, so a
+    name Parity registers with an initial value has that value in frames, where on the project's own page it would be
+    undefined. Shadow roots ignore `@property`, so there's no per-frame registration to put in its place.
 - **Frames have square corners and cut nothing off,** at your request, since a browser's viewport doesn't round its
   corners. Only a frame with a device height clips, below that height, where a browser would scroll; a frame that grows
   with its content shows all of it, shadows and popups included.
@@ -2496,6 +2512,11 @@ A lens is a view of one layer of an app, such as its routes, data, API, permissi
 - **Standards first, then adapters.** You decided this: "We focus on standards first, then adapters/plugins." Each lens
   works from its standard before any adapter for a particular tool is built. Web apps and their backends come first; the
   plan is [proposals/web-and-backend.md](proposals/web-and-backend.md).
+- **The editor and code viewing come before every other lens** (PAR-609). You decided this on 2026-11-05: "We need to
+  improve the new user experience and editor experience before we begin taking in lens work. The editor and code viewing
+  is the first and most important lens. Until that experience is great, it doesn't matter to add other lenses." So the
+  lenses below wait, in their order, at Low priority in Linear, and PAR-17 to PAR-19, which read schemas and keep
+  database keys, stay in Backlog.
 - **Lens priority: databases, the API, routes and mock data, then telemetry.** You set this order: "1) Databases 2)
   API 3) Telemetry", then placed the rest: "Routes and mock data should come before telemetry, right after the API."
   Mock data includes the scenarios that fill designs. Telemetry means OpenTelemetry from the running app: traces linking
@@ -3699,7 +3720,8 @@ below. My calls on how they move:
     without the leading slash, which the CLI and MCP report as the error's `path`.
   - `plainObject`, `nonBlankString` (trimmed) and `finiteNumber` are the shared pieces, and `jsonText(schema)` parses
     JSON text, then checks it with the schema.
-  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type.
+  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type. PAR-573
+    added the fields its package reader needs.
   - A read that returns nothing when the data is malformed calls the schema's own `safeParse(value).data`, as
     `readErrorDetails`, `readCopyEntry`, the caller-name helpers and the agent registry's settings do.
 - **A schema is the check and the type.** Types come from `z.infer`, not from an interface kept beside the check.
@@ -3925,6 +3947,32 @@ event and returns the next list, and every path goes through it. My calls:
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
 
+## A component's name goes in only where it fits (PAR-518)
+
+A component that takes children is inserted with its name as text, so it isn't an empty box. The preview survey found
+parts whose box has a fixed size showing it cut off: "Avata", "C", "Marke", the end of "AttachmentAction". Nothing in a
+component's props says how big its box is, so my calls:
+
+- **A component's own classes say whether it sets its size.** The props reader looks at the classes on the outermost
+  element a component returns, in a project's source or a library's compiled JavaScript, and marks it `fixedSize` for a
+  width (`size-8`, `w-10`, `w-(--sidebar-width)`), a height under a line of text (`h-px`, under 16 pixels) or
+  `@container`, whose width doesn't come from what's inside. Classes for the element's own states (`data-horizontal:`)
+  count; ones it takes from a parent (`group-*:`) or gives what's inside (`[&_svg]:`) don't. It reads Tailwind's names
+  only, which is what shadcn and the libraries Parity ships are written in; a component styled another way keeps its
+  name. Measuring the drawn label instead would take a second draw for every preview and an edit after every insert.
+- **A library's samples decide its parts' children.** A part with a sample gets what the sample gives, and no name when
+  it gives none: its examples use a Separator, a Checkbox or an icon button without text. Before, only a sample that
+  spelled out children replaced the name. A part without a sample of its own takes the children the first of its
+  library's other samples to use it gives it, which for MarkerIcon and AttachmentMedia is none (elements the sample
+  can't show, their icons). Only the label changes; a part's props still come from its own sample.
+- **A part no sample shows keeps its name,** as do the project's own components that don't set their size, since the
+  name is still the best sign of what was placed. ItemSeparator and SidebarSeparator wrap nova's Separator, whose
+  classes are on the Separator, not theirs, so they still show a cut name; reading through to the component a part
+  returns would cover them.
+- **A narrow Card stays narrow.** nova's Card in its preview is a narrow column because its CardHeader is a
+  `@container`, which takes no width from its text in a preview drawn at the width of its content. That's the preview's
+  width, not a name, and isn't changed here.
+
 ## Hide in and Show in name where the change lands (PAR-497)
 
 Called on 2026-11-05, for your approval in Storybook. The Layers row's menu said "Show in Default" for a layer that the
@@ -4027,3 +4075,72 @@ see changes. My calls:
   in `move-resize.test.ts`, with one fixture renamed so they can share a file. The app's `nudge.test.ts` keeps the
   presses on the real stores. Resizing a frame, the double-click resets, `grow`, a resize's snapped edges and the drag
   have tests from boxes now.
+
+## Installed packages are read one way (PAR-573)
+
+The architecture review of 2026-11-04 found that finding an installed package and the file it points to was written
+three to five ways, and the copies disagreed. One reader in `@parity-app/project`, `packages.ts`, now does it for the
+project's discovery, libgen, the Tailwind adapter and `parity lib check`, and the old copies are gone. My calls:
+
+- **The reader is a set of functions over a package's folder and manifest.** `findPackage` looks in `node_modules` from
+  a folder up, as Node does, follows pnpm's links and never uses NODE_PATH. `readPackage` reads a folder's manifest.
+  `packageEntry(pkg, use, subpath)` gives the file an entry point leads to for `types`, `runtime`, `source` or `style`,
+  `packageStylesheet` the stylesheet a project imports, and `exportedComponents` what a module exports through both
+  kinds of re-export. The Tailwind adapter now depends on `@parity-app/project` for them, as the edge may depend on
+  readers.
+- **Manifests are read through core's `packageManifest`,** which gains the fields the reader needs: `version`,
+  `exports`, `types`, `typings`, `module`, `main`, `style` and `workspaces`. PAR-597 adds the rest. A manifest that
+  isn't JSON, or has a field of the wrong type, throws with the file and the JSON pointer:
+  - Discovery leaves that package out and says why in its notes.
+  - Detection treats it as not installed.
+  - A workspace skips it, as package managers do.
+- **Conditions are tried in the order each use wants them,** as every copy did, rather than the order the package writes
+  them:
+  - Declarations: `types`, `import`, `default`, `require`.
+  - The module Node imports: `node`, `import`, `default`.
+  - Source: `source`, `types`, `import`, `default`.
+  - A stylesheet: `style`, `import`, `default`.
+- **The rest of `exports` is read as Node reads it:** patterns (`./icons/*`, the longest prefix first), `null` for a
+  private path, fallback lists and conditions written for the one entry point. Without an entry in `exports`, the older
+  fields are read, and declarations beside the module (`dist/index.d.ts` for `dist/index.js`), as TypeScript reads them.
+- **A built file is traced to its source by its path.** The build folders at the start of the path (`dist`, `build`,
+  `lib`, `out`, `esm` and `cjs`) become `src`, so `dist/esm/card.js` was built from `src/card.tsx`. Before, a build
+  folder's name anywhere counted, so a workspace package whose `main` was `src/lib/index.ts` was read from
+  `src/index.ts` when it had one, and not at all when it didn't.
+- **Re-exports follow JavaScript's rules.** `export *` doesn't bring a module's default export, and
+  `export { default as Dialog }` brings it under its new name. A library's declarations now follow `export { A } from`
+  as well as `export *`, which only the workspace copy did.
+- **The Tailwind adapter loads `@tailwindcss/node` through its `import` condition,** since it loads it with `import()`.
+  It used the `require` one, which is what `createRequire` resolved to. The theme reads the same.
+- **Hand edits are read one way, in `@parity-app/registry`:** `withEdits` and `readLibraryEdits`. A shared edits file
+  may have comments, as discovery and libgen allowed; `parity lib check` read it as plain JSON. `parseJsonc` moved to
+  core so the registry can use it.
+- **The registry picks each package's newest file by semver,** with its hand edits applied (`newestEntries`). The
+  library catalog compared versions as text, so 10.0.0 came before 9.5.0, and `parity lib check` took the first file
+  with the library's id by file name.
+- **Buildkit's presets no longer name `tailwind.css`.** It's the first of the usual stylesheet names in their `exports`,
+  so it's found as any package's stylesheet is.
+- **PAR-587's case now works.** A library's components come from its declarations found in `exports` too, so a package
+  whose types are only there lists them. PAR-587 adds its test.
+
+## Signing in goes through WorkOS in the browser (PAR-610)
+
+You asked on 2026-11-05 for Google, GitHub and Microsoft sign-in through WorkOS, chosen for its organization support.
+The design is in [proposals/sign-in.md](proposals/sign-in.md), and the work is PAR-611 to PAR-616. Your calls, each
+taking my recommendation:
+
+- **The sign-in screen is the Centered form story.** AuthKit, in the browser, sends a work email to its company's single
+  sign-on or a code by email. The Email first stories have the code typed into Parity, which needs WorkOS's API key and
+  so a server.
+- **Parity talks to WorkOS itself, with no new library:** a public client with PKCE, on `fetch` and zod, in a new
+  `@parity-app/account` package. `@workos/authkit-electron` was passed over: it's at 0.1.2, needs an older
+  `@workos-inc/node` than Better Apps uses, and brings `electron-store` and its own React provider.
+- **Signing in is optional.** Nothing that works on local folders asks for it.
+
+My calls:
+
+- **Installed apps hand back through `parity://auth/callback` on WorkOS's production environment, and `pnpm dev` copies
+  through a loopback port on the sandbox,** since several copies run at once and only an installed app gets the scheme.
+  A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
+- **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
+- **The client IDs go in the code,** since they're public. The API key never ships in the app.
