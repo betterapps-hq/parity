@@ -1,8 +1,41 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 03:41:17 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 10:01:58 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.5.0
+
+Thu, 05 Nov 2026 10:01:58 GMT
+
+### Minor changes
+
+- Execute results group warnings by category and message, with a severity, a count and every place, and the text lists
+  them under render failures, warnings and suggestions (ajcraswell@gmail.com)
+- Suggest the project's color token that fixes each contrast failure, and apply it in one click (ajcraswell@gmail.com)
+- Props reports a component's composition: the parents or provider it goes inside, the parts it holds, its slots and an
+  example to insert (PAR-454) (ajcraswell@gmail.com)
+- Problems names the node that overflows, what it overflows (the frame or the ancestor that clips it), both boxes and
+  the pixels past each edge; Measure gives each node's parent and the state and mode it drew (ajcraswell@gmail.com)
+- Execute results list the responsive, state and variant patches each Replace discarded, in discarded and under
+  Discarded by Replace (PAR-455) (ajcraswell@gmail.com)
+- New screen and New component in the File and Object menus, the canvas menu, Search actions and Layers, and what lands
+  on the empty canvas makes a screen named after it (PAR-546) (ajcraswell@gmail.com)
+- A project file keeps tables, operations and routes placed on the canvas, typed links drawn by hand, and the source
+  each lens reads (PAR-16) (ajcraswell@gmail.com)
+
+### Patches
+
+- An unknown state now says calls take a state's id, lists each id beside its name, and points a state's name to its id
+  (ajcraswell@gmail.com)
+- List the props a library's component declares beside its element's attributes, such as Nova's isActive, as its own,
+  with their defaults (ajcraswell@gmail.com)
+- Take radius-full, Tailwind's rounded-full, in the radius field, and list it with GetTokens as a keyword
+  (ajcraswell@gmail.com)
+- A tsconfig change while a project is open sorts the app's sources again, so components it now leaves out drop off the
+  list (PAR-492) (ajcraswell@gmail.com)
+- Frames in a theme's mode get the attribute the stylesheet switches it on with, so [data-theme=dark] themes show in
+  Dark frames (ajcraswell@gmail.com)
 
 ## 0.4.0
 

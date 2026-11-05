@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A tsconfig change while a project is open sorts the app's sources again, so components it now leaves out drop off the list (PAR-492)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
