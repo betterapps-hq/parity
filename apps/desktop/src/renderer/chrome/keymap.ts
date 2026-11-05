@@ -48,6 +48,8 @@ export const keymap = {
   pasteStyle: { group: "Edit", label: "Paste style", keys: ["Ctrl Alt V"] },
   rename: { group: "Edit", label: "Rename", keys: ["Ctrl R", "F2"] },
 
+  newScreen: { group: "Object", label: "New screen", keys: ["Ctrl Alt N"] },
+  newComponent: { group: "Object", label: "New component", keys: ["Ctrl Alt Shift N"] },
   insert: { group: "Object", label: "Insert", keys: ["/", "Shift I"] },
   wrap: { group: "Object", label: "Wrap in layout", keys: ["Ctrl G", "Ctrl Alt G", "Shift A"] },
   unwrap: { group: "Object", label: "Unwrap layout", keys: ["Ctrl Shift G", "Alt Shift A", "Ctrl Backspace"] },

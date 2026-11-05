@@ -6,7 +6,6 @@ import {
   copyDesigns,
   copyLayers,
   copyNotes,
-  designOfLayers,
   designsAt,
   isParityCopy,
   isSvgMarkup,
@@ -34,6 +33,7 @@ import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
 import { bringIntoView, bringIntoViewOnceSized, takenBounds } from "./free-space.ts"
 import { hitTest, type Point } from "./hit.ts"
+import { addScreenOfLayers, viewCenter } from "./new-screen.ts"
 import { measureHere } from "./paste-here.ts"
 import { frameViewport } from "./view.ts"
 
@@ -478,7 +478,7 @@ export function placeLayers(
   const { store, selection, components } = session
   const place = selectedPasteTarget(session)
   if (!place) {
-    pasteAsNewDesign(session, nodes)
+    pasteAsNewDesign(session, nodes, undefined, label)
     return undefined
   }
   const { entry, target, frame } = place
@@ -497,15 +497,17 @@ export function placeLayers(
   return { design: entry.key, ids: copies, frame }
 }
 
-/** Layers pasted with nothing to paste them into become a new screen, in the middle of the view unless placed `at`. */
-function pasteAsNewDesign(session: ProjectSession, nodes: DesignNode[], at = viewCenter(session)): void {
-  const { store, selection } = session
-  const design = designOfLayers(
-    nodes,
-    store.getEntries().map((entry) => entry.container.id),
-    at
-  )
-  selection.set({ design: store.addContainer(store.mainPath, design, "Paste layers") })
+/**
+ * Layers pasted with nothing to paste them into land on the canvas, so they make a new screen named after them, in the
+ * middle of the view unless placed `at` (PAR-546).
+ */
+function pasteAsNewDesign(
+  session: ProjectSession,
+  nodes: DesignNode[],
+  at = viewCenter(session),
+  label?: string
+): void {
+  addScreenOfLayers(session, nodes, at, label ?? (nodes.length === 1 ? "Paste layer" : `Paste ${nodes.length} layers`))
 }
 
 function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], sameProject: boolean): void {
@@ -556,11 +558,6 @@ function pasteText(session: ProjectSession, text: string): void {
     return
   }
   placeLayers(session, [textLayer(text)])
-}
-
-function viewCenter(session: ProjectSession): { x: number; y: number } {
-  const bounds = session.editor?.getViewportPageBounds()
-  return bounds ? { x: Math.round(bounds.midX), y: Math.round(bounds.midY) } : { x: 0, y: 0 }
 }
 
 /** Layers from another project can name components this one doesn't have; they paste, with a warning. */

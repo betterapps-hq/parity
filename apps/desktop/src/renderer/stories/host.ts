@@ -369,6 +369,9 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       }
     case "accessibility.check":
       return { findings: findingsFor(String(params.design)), frames: 4, warnings: [] }
+    case "frames.stored":
+      // No bitmap kept, as on a first launch: a frame that sleeps draws first, or waits on its placeholder.
+      return {}
     default:
       return undefined
   }

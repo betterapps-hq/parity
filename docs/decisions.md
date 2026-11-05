@@ -3711,3 +3711,35 @@ Four issues from the architecture review build on these:
 - PAR-564 declares its method map with PAR-590's schemas.
 - PAR-572 checks decorator values with PAR-594's grammar.
 - PAR-573 reads manifests through PAR-588's schema.
+
+## New screen, New component and the empty canvas are built (PAR-546)
+
+PAR-546 builds what PAR-541 designed and PAR-560 kept (above), as editor.md's "New screen, New component and the empty
+canvas" describes. The exploration's stories now sit beside the stories of the components that draw them, and the
+exploration is gone. My calls:
+
+- **One rule covers every way something lands with no design to go into,** not only a drop: a component or image clicked
+  in the Components panel or picked in the insert picker with nothing selected makes a screen too, in the middle of the
+  view, where pasted layers and the picker's layouts already went. Before, a layout made a screen there and a component
+  was refused, which is the disagreement the audit found.
+- **The name is what's in it:** one layer as Layers names it, a component without its library; several images Images, as
+  dropped files already were; several other layers the first one's name and how many more ("Nav and 6 more"), so the
+  name still says what's inside. With nothing in it, "Untitled screen", as New screen names one.
+- **The screen is selected, not what's in it,** as a paste and a dropped image already did, so what happened is what's
+  shown. Its undo step names what landed: "Paste layer" or "Paste 7 layers" (it was "Paste layers" for any number), and
+  an item's own, "Add Badge".
+- **One situation, one message.** An item dropped over a design where there's no layout says "There's no layout here to
+  drop into", as files do, where it said "Drop it inside a screen or component, onto one of its layouts". The insert
+  picker, with a design selected that has nowhere for an item, says what the Components panel says, "Select a layout, or
+  a layer to add it after".
+- **Search actions' word matching takes each typed word in any order,** so "fit zoom" finds Zoom to fit, which matching
+  the whole text against the start of a word wouldn't. A name that starts with what's typed comes first.
+- **New screen from the canvas menu doesn't move the view,** since it's made where the pointer was. The keys, the
+  menubar, Search actions and Layers' + make it right of everything and zoom to it, as the + did.
+- **Enter and Space on Layers' + or an empty row make one.** The tree's own keys skip buttons outside its rows, where
+  Enter used to rename the selected row and the button never ran.
+- **Storybook's stand-in project service answers `frames.stored`** with no bitmap, as the real one does on a first
+  launch. It answered nothing, which failed the canvas menu's stories once a frame slept.
+
+Left for later: a screen made with nothing selected can land over a design in the middle of the view, as pasted layers
+always could, and a component in a new screen fills its width, where the proposal says it should keep its own.
