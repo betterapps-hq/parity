@@ -95,9 +95,10 @@ textarea,
 
 /*
  * The layer the camera moves is composited on its own, so panning moves what's already drawn instead of painting every
- * frame again, and zooming scales it until the camera stops, when it's drawn sharp at the new zoom.
+ * frame again, and zooming scales it. Chrome never draws such a layer again at a new scale, so once the zoom settles,
+ * it goes without the hint for a couple of frames (`data-redrawing`, see layer-redraw.ts) and is drawn sharp.
  */
-.tl-html-layer {
+.tl-html-layer:not([data-redrawing]) {
   will-change: transform;
 }
 

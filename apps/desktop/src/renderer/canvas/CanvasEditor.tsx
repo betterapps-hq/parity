@@ -19,6 +19,7 @@ import { useProject } from "./context.ts"
 import { bitmapScale } from "./frame-bitmaps.ts"
 import { hiddenSleepMs } from "./frame-sleep.ts"
 import { designColor, kindColors } from "./kinds.tsx"
+import { redrawLayer } from "./layer-redraw.ts"
 import { NoteShapeUtil } from "./NoteShapeUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
 import { TitleLayer } from "./title-layer.tsx"
@@ -114,13 +115,15 @@ function drawableColor(color: string): string {
  * Makes the zoom tldraw writes to the page's styles (as `--tl-zoom`) change only once the camera has been still for a
  * few frames and a moment. Every element of every frame inherits it, so each change restyles them all: at 60 designs
  * that was most of each frame while zooming. tldraw's own debounce only holds while frames are quick, since a slow frame
- * outlasts its timeout and counts as the camera stopping. What has to follow the zoom live uses `useZoomStyle`.
+ * outlasts its timeout and counts as the camera stopping. What has to follow the zoom live uses `useZoomStyle`. A zoom
+ * that settles somewhere new also draws the camera's layer again, sharp at that zoom (see layer-redraw.ts).
  */
 function settleZoom(editor: Editor): () => void {
   const settled = atom("settled zoom", editor.getZoomLevel())
   let last = { zoom: editor.getZoomLevel(), at: performance.now() }
   let still = 0
   let frame = 0
+  let endRedraw: (() => void) | undefined
   const check = (now: number) => {
     const zoom = editor.getZoomLevel()
     if (zoom !== last.zoom) {
@@ -128,6 +131,11 @@ function settleZoom(editor: Editor): () => void {
       still = 0
     } else still++
     if (still >= 3 && now - last.at >= 150) {
+      if (zoom !== settled.get()) {
+        const layer = editor.getContainer().querySelector(".tl-html-layer")
+        endRedraw?.()
+        endRedraw = layer ? redrawLayer(layer) : undefined
+      }
       settled.set(zoom)
       frame = 0
     } else frame = requestAnimationFrame(check)
@@ -140,6 +148,7 @@ function settleZoom(editor: Editor): () => void {
   return () => {
     stop()
     cancelAnimationFrame(frame)
+    endRedraw?.()
   }
 }
 

@@ -2543,6 +2543,30 @@ only while it's shown. Started again with nothing changed, none was drawn and Bu
 After an edit to `badge.tsx` and a restart, only Badge was drawn again, its hint showing the old picture dimmed as
 updating until then.
 
+### Sharp once the zoom settles (PAR-556)
+
+The layer the camera moves is composited (`will-change: transform`), so panning and zooming move what's already drawn.
+Chrome draws such a layer once and only scales it after that, so zooming in from far out left the canvas drawn at the
+far zoom: text, edges and the board's own captions blurry, even seconds after the camera stopped. Once the zoom settles
+somewhere new, the layer goes without the hint for two animation frames (`data-redrawing`), so it's drawn at its scale,
+then composited again from that.
+
+- **Panning is unchanged.** Only a change of zoom redraws, once it has settled, as `--tl-zoom` changes (see "The canvas
+  doesn't restyle its elements while the camera moves" in [decisions.md](decisions.md)). During a zoom the layer is
+  scaled as before.
+- **One redraw at a time.** A zoom settling again while the layer is being drawn again starts the redraw over, and
+  closing the canvas ends it.
+
+Code: `redrawLayer` in `apps/desktop/src/renderer/canvas/layer-redraw.ts`, called by `settleZoom` in
+`canvas/CanvasEditor.tsx`; the `.tl-html-layer:not([data-redrawing])` rule in `styles.css`.
+
+Tests: `apps/desktop/src/renderer/canvas/layer-redraw.test.ts` (3: the layer is off its own compositing for two frames
+and then back on it, a redraw ended early gives the hint back at once with no frame left waiting, and a redraw ended for
+a new one runs its two frames again). Gaps: that the layer is drawn sharp is up to Chrome and has no automated test. It
+was tried in a debug copy on `examples/shadcn-vite`: zooming in steadily from the whole project to 324% on Button's
+board, the board was still blurry 8 seconds after the camera stopped; with the redraw, it was sharp once the zoom
+settled. Its cost wasn't timed, as the copy's window was minimized; it's one paint of the layer for each zoom.
+
 ## What the editor itself loads
 
 What Parity's own UI costs the window, apart from the projects it shows.
