@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { currentRootFiber, type Fiber, indexDrawnNodes } from "./drawn-nodes.ts"
+import { currentRootFiber, type Fiber, indexDrawnNodes, stylePlacement } from "./drawn-nodes.ts"
 
 // Fibers shaped as React 19 makes them, with stand-ins for DOM elements. frame.test.ts checks the same walk on React
 // itself, in Chrome.
@@ -263,6 +263,63 @@ describe("finding the DOM a design node draws", () => {
   it("gives up on a tree that isn't made of fibers", () => {
     const root = { child: { child: null, type: "div" }, sibling: null, type: null, stateNode: {}, memoizedProps: {} }
     expect(indexDrawnNodes(root as unknown as Fiber, { nodeOf: () => undefined, inside: () => true })).toBeUndefined()
+  })
+})
+
+describe("where a component puts the style it's given", () => {
+  const style = { width: "320px", margin: "8px" }
+  /** The component fiber of a layer whose component draws `drawn`, given `props`. */
+  const layer = (drawn: Spec[], props: Record<string, unknown> = { style }) =>
+    build([{ boundary: "field", children: [{ component: "Field", props, children: drawn }] }]).root.child!.child!
+  const isLayer = (fiber: Fiber) => fiber.stateNode instanceof Boundary
+
+  it("finds it on the root, with the component's own styles beside it", () => {
+    // function Card({ style }) { return <section style={{ padding: 12, ...style }}>…</section> }
+    const card = layer([
+      { host: "section", props: { style: { padding: "12px", ...style } }, children: [{ text: "Hi" }] }
+    ])
+    expect(stylePlacement(card, isLayer)).toBe("root")
+  })
+
+  it("finds it inside, as a field passing its props to its input does", () => {
+    // function Field(props) { return <label><span>Email</span><input {...props} /></label> }
+    const field = layer([
+      {
+        host: "label",
+        children: [
+          { host: "span", children: [{ text: "Email" }] },
+          { host: "input", props: { style } }
+        ]
+      }
+    ])
+    expect(stylePlacement(field, isLayer)).toBe("inner")
+  })
+
+  it("looks at every top-level element before any inside, as a fragment's second root takes it", () => {
+    const pair = layer([
+      { host: "h3", children: [{ host: "span", props: { style } }] },
+      { host: "p", props: { style } }
+    ])
+    expect(stylePlacement(pair, isLayer)).toBe("root")
+  })
+
+  it("says none when no element it drew has the style, as a component ignoring it", () => {
+    expect(stylePlacement(layer([{ host: "div", children: [{ host: "span" }] }]), isLayer)).toBe("none")
+    // A merged copy missing one of the values doesn't count.
+    expect(stylePlacement(layer([{ host: "div", props: { style: { width: "320px" } } }]), isLayer)).toBe("none")
+  })
+
+  it("leaves out a slot's layers, which draw their own styles", () => {
+    const card = layer([
+      { host: "section", children: [{ boundary: "inner", children: [{ host: "div", props: { style } }] }] }
+    ])
+    expect(stylePlacement(card, isLayer)).toBe("none")
+  })
+
+  it("can't say before it draws an element, or when it's given no style", () => {
+    expect(stylePlacement(layer([]), isLayer)).toBeUndefined()
+    expect(stylePlacement(layer([{ text: "Email" }]), isLayer)).toBeUndefined()
+    expect(stylePlacement(layer([{ host: "div" }], { style: {} }), isLayer)).toBeUndefined()
   })
 })
 

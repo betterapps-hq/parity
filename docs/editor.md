@@ -119,10 +119,18 @@ to pass on to its DOM.
   that instead.", with a Wrap in layout button (Ctrl G). Inside an instance the note shows without the button, since
   that belongs in the component design. Props typed `any`, `object` or with an index signature could take anything, so
   the note doesn't show for them.
+- **When a component puts its `style` inside (PAR-201).** A component can take `style` and put it on an element inside
+  another it draws, as a field passes its props to its input. The first time a layer draws such a component with a
+  style, the guest finds where the style went in React's tree, before the frame is painted, and from then on draws a
+  plain div around the component that takes the style instead. The div is a one-cell grid the component fills, so W 320
+  makes the whole field 320 wide, and its outline is the field's. The design, the layers panel and the inspector don't
+  change. A layer of it with no style, and a component that puts its style on its root, are drawn as they are. The guest
+  keeps what it found for every frame, until the component comes from another file.
 
 Code: the walk is `packages/renderer-react/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
-props it merges, when to walk again, the check against the attribute) is in `guest.ts`, and the canvas's lookups
-(`findNodeElements`, `nodeBox`, `nodesAt`, `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in
+props it merges, when to walk again, the check against the attribute, the div around a component that puts its style
+inside) is in `guest.ts`, with where a component put its style (`stylePlacement`) in `drawn-nodes.ts`, and the canvas's
+lookups (`findNodeElements`, `nodeBox`, `nodesAt`, `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in
 `apps/desktop/src/renderer/frame.ts`. `ModeView` and the offscreen renderer (`render.ts`) register each frame's guest.
 Hovering and clicking go through `canvas/hit.ts`, outlines, sizes and resize handles through `canvas/CanvasOverlay.tsx`,
 dragging through `canvas/layer-drag.ts`, inserting through `canvas/insert.ts` (its rules in
@@ -135,7 +143,9 @@ Tests:
   ignores its props, a fragment, a field around an input, nested layers, a provider, a component that draws nothing,
   portals in and out of the frame, a slot drawn twice, and giving up on a tree that isn't one; and text drawn outside an
   element (PAR-201): a component that draws only text, one that draws text beside an element, text inside an element
-  left to the element, and a provider given its children's text.
+  left to the element, and a provider given its children's text; and where a component put its style (PAR-201): on its
+  root beside its own styles, inside, on a fragment's second root, nowhere, not in a slot's layer, and not known before
+  it draws an element.
 - `apps/desktop/src/renderer/frame-nodes.test.ts`: the same cases on React itself in Chrome, through the canvas's
   lookups: each layer found, its box measured and resolved from a point, DOM a component adds by itself, ids React moves
   to other DOM without adding any, and the fallback to the attribute. Seven of these eight fail with the attribute
@@ -144,7 +154,9 @@ Tests:
   with its own class kept, the component layer still found inside the button and under the pointer, and a failing
   component in the slot keeping its error to itself; and a `$renderWith:` slot giving an element layer and a component
   layer what each copy is rendered with, the node's style and each copy's key kept, and both spread and named props. A
-  component that draws only text has its text's box, no elements, and is under a point over its text (PAR-201).
+  component that draws only text has its text's box, no elements, and is under a point over its text (PAR-201). A field
+  given a width is drawn in a div of that width which the whole field fills, its input left as the field lays it out,
+  while a field with no style and a link that puts its style on its root are drawn as they are (PAR-201).
 - `packages/code/src/props.test.ts`: whether a component's props take a `style`.
 - `chrome/LayerPanel.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
 - `apps/desktop/e2e/selecting.e2e.ts` (6), end to end (PAR-202), on the Members screen the run adds: hovering a
@@ -153,9 +165,8 @@ Tests:
   around its input; and the fragment around both of its elements.
 
 Gaps: the canvas's pointer handling over such a component, first checked by hand on 2026-10-29, is now the end-to-end
-test above. A component that declares `style` but puts it on an inner element, as a field passing it to its input, is
-outlined around the field but sized at the input, and the note doesn't say so. How the inspector should say so is
-waiting on a design choice (PAR-201), in Storybook's Parity/Explorations/Styles on an inner element.
+test above. Code generated from a design doesn't exist yet; when it does, it has to draw the same div around a component
+that puts its style inside.
 
 ### Selecting what you point at (PAR-163)
 
