@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Component previews no longer show a stray scrollbar when part of a component reaches past its box",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

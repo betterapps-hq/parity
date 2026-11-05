@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "get_app_state marks the project's first mode primary; it marked none before.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

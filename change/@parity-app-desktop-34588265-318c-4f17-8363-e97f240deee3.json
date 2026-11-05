@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Reopening's tests wait for the kept list to be read rather than a fixed 20ms",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

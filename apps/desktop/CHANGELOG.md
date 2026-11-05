@@ -1,8 +1,48 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 20:31:21 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 22:43:02 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.12.0
+
+Thu, 05 Nov 2026 22:43:02 GMT
+
+### Minor changes
+
+- Home and new tabs show each project's picture: its first screens as last saved, taken from the canvas when it opens
+  and after each save, flipping through them on hover (ajcraswell@gmail.com)
+- Check what a token edit may write (valueProblem, loopProblem, builtOn, checkTokenEdit), with CSS.supports passed in
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- get_app_state marks the project's first mode primary; it marked none before. (ajcraswell@gmail.com)
+- Make component is refused when any variant option, shown on the board or not, would change the part
+  (ajcraswell@gmail.com)
+- Build the Layers row menu from the command registry, so its Hide acts in the state the selection was picked in, and
+  take the toolbar's and Wrap in layout's labels and keys from the keymap (ajcraswell@gmail.com)
+- Resetting a text layer's Resizing in a state now clears the grow its switch set, as well as width and height
+  (ajcraswell@gmail.com)
+- Point to problems in a project file more exactly: a length that is neither a number nor a string, padding of the wrong
+  form, and mistakes in its modes (ajcraswell@gmail.com)
+- State labels shrink as board titles do when zoomed out, and hide only when their row is too short on screen to hold
+  them (ajcraswell@gmail.com)
+- An export taken back off the component list now stays listed only if detection lists it, and keeps its mark while it's
+  still listed by hand. (ajcraswell@gmail.com)
+- Zoomed far out, board titles clip to their board and hide once it's under 24 pixels wide on screen, and state labels
+  and mode captions hide before titles do (ajcraswell@gmail.com)
+- rem in frames follows the project's html font size, as in Chrome, so a project with html { font-size: 62.5% } gets
+  10px to the rem (ajcraswell@gmail.com)
+- Show the whole value in the inspector's Width and Height fields, at every panel width (ajcraswell@gmail.com)
+- Waking a project's frames after a code change no longer makes React report "Maximum update depth exceeded"
+  (ajcraswell@gmail.com)
+- Component previews are drawn in the project's mode that matches Parity's light or dark theme, and each theme's
+  pictures are kept (ajcraswell@gmail.com)
+- Component previews no longer show a stray scrollbar when part of a component reaches past its box
+  (ajcraswell@gmail.com)
+- A board's gutter, caption band and space between previews keep their screen size up close, and shrink with the canvas
+  past 40% (ajcraswell@gmail.com)
 
 ## 0.11.1
 

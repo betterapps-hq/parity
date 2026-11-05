@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Waking a project's frames after a code change no longer makes React report \"Maximum update depth exceeded\"",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
