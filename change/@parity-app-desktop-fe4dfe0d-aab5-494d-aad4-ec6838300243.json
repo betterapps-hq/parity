@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A board's gutter, caption band and space between previews keep their screen size up close, and shrink with the canvas past 40%",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

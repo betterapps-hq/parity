@@ -3681,9 +3681,9 @@ use, with Layers and the inspector beside it, and every story starts it in a dif
   36px band for the captions and 24px between previews. Past 40% it shrinks with the canvas, as labels do, so boards
   zoomed far out don't run into each other. You had found the canvas-unit gutter "super thick on one, and non-existent
   or text overflowing on others". Captions never truncate: short of room they drop the shrink, then the width, then the
-  mode's name, and they stay until 10%. A board's title drops its menus before its name. The app's canvas still sizes
-  the gutter in canvas units (`boardLayout` in core, `ContainerView`), so PAR-545 changes both, and the agent's
-  `boardSize` estimate with them.
+  mode's name, and they stay until 10%. A board's title drops its menus before its name. PAR-602 sizes the app's gutter
+  in screen pixels too, in `boardLayout` in core and `ContainerView`, and the agent's `boardSize` estimate with them
+  (see "A board's gutter keeps its screen size up close").
 
 ## A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -4378,3 +4378,42 @@ captions do:
 - **A label isn't clipped to the gap beside its board.** At 60% a screen's state label can reach over the board to its
   left when zoomed far out, since how far away that board is isn't known to the label. The example's boards are 400
   apart. Keeping labels to that gap would be its own change.
+
+## A board's gutter keeps its screen size up close (PAR-602)
+
+Called on 2026-11-05, for your approval in Storybook. PAR-540 decided the gutter (12 at the sides and bottom, a 36 band
+for the captions, 24 between previews, in screen pixels, shrinking with the canvas past 40%), and its bullet said
+PAR-545 would change the canvas, `boardLayout` and `boardSize`. PAR-602 has done that, so PAR-545 no longer carries the
+gutter. My calls:
+
+- **The rule is in core, beside the estimate.** `boardLayout` is now the gutter in screen pixels, and `boardLayoutAt`
+  gives it in canvas pixels at a zoom: its screen size over the zoom, and past 40% what it is at 40%. The 40% line,
+  `shrinkBelow`, moved to core too, and `labelLook` reads it there, so labels and gutters can't shrink from different
+  zooms.
+- **The divider before the companions is 12, the line and 12,** as the exploration draws it, one pixel more than the 24
+  between later previews. **Rows of states are 36, the line and 36 apart:** three quarters of the 48 either side they
+  had, as the gap between previews went from 32 to 24, which is the caption band's height, so a later row sits below its
+  line as the first sits below its band.
+- **Lines are a screen pixel wide.** The board's edge is a pixel at any zoom, as in the exploration, drawn over the
+  board so it takes no room: a border a pixel wide on screen would have been 100 canvas pixels at 1%, outgrowing the
+  agent's estimate. The dashed lines are a pixel up close and thin with the gutter past 40%, so they're inside the
+  estimate. Both are drawn at screen size and scaled to fit, since browsers round a border up to a whole device pixel
+  before the canvas's zoom, which made a quarter-pixel border four pixels wide at 400%.
+- **Corners round 10 pixels, as the exploration's do, but shrink past 40%,** where the exploration's stay 10. A corner
+  wider than the gutter would cut into the frames' corners. tldraw's outline of a board follows.
+- **A board stays where its top left corner is,** so its frames shift on the canvas as the gutter changes with the zoom,
+  as they do in the exploration: from 40% to 400% the first frame moves 81 canvas pixels up, nearer the corner.
+  Anchoring the frames instead would have meant moving a design's position with the zoom.
+- **The shape takes a board's new size once the camera stops.** Taking it on every frame of a zoom would draw every
+  board's title and menus again each frame. While the camera moves, the outline of a selected board is off by the change
+  in its gutter. The gutter itself follows the zoom live, as labels do, through each part's own style, not a custom
+  property that every frame's elements would inherit (PAR-556).
+- **The agent's estimate takes the gutter at 40%,** where it's widest on the canvas, so it's never smaller than the
+  board drawn at any zoom. A drawn board's bounds are still as the canvas has them at its zoom, so `Overlaps()` sees
+  drawn boards as they are now: boards set close together up close grow towards each other as the canvas zooms out to
+  40%, by 18 at each side and 54 in the band between 100% and 40%.
+- **A state's label measures its row's frames, and the gutter at 40%.** A row's own height is now its frames' alone,
+  whatever the zoom; the space to the next row's label adds the gutter at 40%, which is exact from there out, where a
+  label can be short of space. Closer in, the line between rows alone is 73 pixels on screen.
+- **Left for later:** captions still truncate and fade by 25% (PAR-151), where the exploration's drop their chips
+  instead, never truncate, and stay until 10%; and a title doesn't yet drop its menus before its name.
