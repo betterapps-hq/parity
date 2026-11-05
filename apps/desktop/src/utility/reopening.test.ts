@@ -33,15 +33,12 @@ function projects() {
   }
 }
 
-/** Lets the list be read and the opens start. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 20))
-
 describe("reopening the projects open last time", () => {
   it("opens each project kept, and keeps those a window asks for open", async () => {
     await writeFile(file, JSON.stringify({ roots: ["D:/shop", "D:/blog"] }))
     const service = projects()
     const reopening = startReopening({ file, ...service, waitMs: 60 })
-    await settle()
+    await reopening.reopened()
     expect(service.asked).toEqual(["open D:/shop", "open D:/blog"])
     reopening.claim("D:/shop")
     reopening.claim("D:/blog")
@@ -53,7 +50,7 @@ describe("reopening the projects open last time", () => {
     await writeFile(file, JSON.stringify({ roots: ["D:/shop", "D:/old"] }))
     const service = projects()
     const reopening = startReopening({ file, ...service, waitMs: 60 })
-    await settle()
+    await reopening.reopened()
     reopening.claim("D:/shop")
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(service.asked).toEqual(["open D:/shop", "open D:/old", "close D:/old"])
@@ -64,6 +61,7 @@ describe("reopening the projects open last time", () => {
     const service = projects()
     const reopening = startReopening({ file, ...service, waitMs: 20 })
     reopening.claim("D:/shop")
+    await reopening.reopened()
     await new Promise((resolve) => setTimeout(resolve, 60))
     expect(service.asked).toEqual([])
   })
@@ -76,18 +74,18 @@ describe("reopening the projects open last time", () => {
     expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ roots: ["D:/shop", "D:/blog"] })
     expect(await readdir(folder)).toEqual(["open-projects.json"])
     const service = projects()
-    startReopening({ file, ...service })
-    await settle()
+    await startReopening({ file, ...service }).reopened()
     expect(service.asked).toEqual(["open D:/shop", "open D:/blog"])
   })
 
   it("opens nothing without a list, or with one it can't read", async () => {
     const service = projects()
-    startReopening({ file, ...service })
+    const none = startReopening({ file, ...service })
     await writeFile(join(folder, "broken.json"), "{")
-    startReopening({ file: join(folder, "broken.json"), ...service })
-    startReopening({ file: undefined, ...service }).remember(["D:/shop"])
-    await settle()
+    const broken = startReopening({ file: join(folder, "broken.json"), ...service })
+    const fileless = startReopening({ file: undefined, ...service })
+    fileless.remember(["D:/shop"])
+    await Promise.all([none.reopened(), broken.reopened(), fileless.reopened(), fileless.written()])
     expect(service.asked).toEqual([])
     expect(await readdir(folder)).toEqual(["broken.json"])
   })

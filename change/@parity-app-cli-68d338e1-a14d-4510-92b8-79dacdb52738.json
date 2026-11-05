@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "CLI transport tests ignore a closed stdin pipe instead of failing the run",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

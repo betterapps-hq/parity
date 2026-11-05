@@ -53,9 +53,12 @@ What's decided goes in [decisions.md](decisions.md), designs in [proposals](prop
 - **Todo** is planned work. A blocked one shows what it's waiting for.
 - **Backlog** is work the user put after the core, and work that's parked or waiting on Better Apps.
 - **In Progress, Done** and **Canceled** mean what they say. A split or dropped issue is Canceled with a comment why.
-- **Urgent** is the repository work: Vite+, CI and checks on commit, the first package boundaries, then the first
-  unsigned release. **High** is what's next after it, in the user's lens priority: databases, the API, routes and mock
-  data, then telemetry, then links from code, then writing back. **Low** is after the core. The rest aren't ranked yet.
+- **Urgent** is open bugs in what's built, with the refactors they wait on. **High** is the new-user experience and the
+  editor, including reading the code behind a design, which is the first and most important lens. **Medium** is the rest
+  of the editor's core: linked code, decorators and modes, Storybook, tokens, libraries, agents, validation projects,
+  and the zod and package cleanup. **Low** is the other lenses, in the user's order (databases, the API, routes and mock
+  data, then telemetry, links from code and writing back), plus what comes after the core. A blocker ranks at least as
+  high as what it blocks.
 - **Decision** marks a question for the user. **Parked** is React and Vite only, until the user asks for a second.
   **Waits on Better Apps** needs one of Better Apps' packages first.
 

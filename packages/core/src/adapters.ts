@@ -8,14 +8,36 @@ import type { TokenCategory } from "./token-types.ts"
 const packageVersions = z.record(z.string(), z.string())
 
 /**
- * The parts of a project's package.json that adapters use to detect a stack. It's someone else's file, so the fields
- * Parity doesn't read pass through unchecked.
+ * Where one of a package's entry points leads, as `exports` writes it: a file, a list to try in turn, conditions such
+ * as `types` or `import` that each lead somewhere, or `null` for a path the package keeps to itself.
+ */
+export type ExportsTarget = string | null | ExportsTarget[] | { [condition: string]: ExportsTarget }
+
+const exportsTarget: z.ZodType<ExportsTarget> = z.lazy(() =>
+  z.union([z.string(), z.null(), z.array(exportsTarget), z.record(z.string(), exportsTarget)])
+)
+
+/**
+ * The parts of a package.json Parity reads: the dependencies adapters detect a stack by, and where an installed
+ * package's entry points and a workspace's packages are (PAR-573). It's someone else's file, so the fields Parity
+ * doesn't read pass through unchecked.
  */
 export const packageManifest = z.looseObject({
   name: z.string().optional(),
+  version: z.string().optional(),
   dependencies: packageVersions.optional(),
   devDependencies: packageVersions.optional(),
-  scripts: z.record(z.string(), z.string()).optional()
+  scripts: z.record(z.string(), z.string()).optional(),
+  /** Entry points by subpath (`.`, `./tailwind.css`), or where the package's one entry point leads. */
+  exports: exportsTarget.optional(),
+  types: z.string().optional(),
+  typings: z.string().optional(),
+  module: z.string().optional(),
+  main: z.string().optional(),
+  /** The stylesheet a project imports to use the package, as some packages name it. */
+  style: z.string().optional(),
+  /** A workspace root's package folders, as npm, Yarn and Bun write them. */
+  workspaces: z.union([z.array(z.string()), z.looseObject({ packages: z.array(z.string()).optional() })]).optional()
 })
 
 export type PackageManifest = z.infer<typeof packageManifest>
