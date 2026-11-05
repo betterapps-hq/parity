@@ -1,5 +1,18 @@
-import { type EnclosingAtRule, type Guest, prepareCanvasCss, type ThemeVariable } from "@parity-app/core"
-import { extractTokens, themeFallbackCss, themeOfSelector, type Token, type TokenChange } from "@parity-app/tokens"
+import {
+  collectCustomProperties,
+  type EnclosingAtRule,
+  type Guest,
+  prepareCanvasCss,
+  type ThemeVariable
+} from "@parity-app/core"
+import {
+  extractTokens,
+  themeAttributes,
+  themeFallbackCss,
+  themeOfSelector,
+  type Token,
+  type TokenChange
+} from "@parity-app/tokens"
 
 export interface LoadedGuest {
   guest: Guest
@@ -7,6 +20,8 @@ export interface LoadedGuest {
   sheet: CSSStyleSheet
   /** The project's design tokens: its compiled CSS's variables plus its styling framework's full theme. */
   tokens: Token[]
+  /** The attributes that switch on each theme the project sets by attribute, which frames in its mode get. */
+  themeAttributes: Record<string, Record<string, string>>
 }
 
 interface Loading {
@@ -62,7 +77,12 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
     entry.global = global
   }
   const sheet = guestSheet(themeFallbackCss(css.scoped, theme) + packages.scoped + css.scoped)
-  return { guest, sheet, tokens: extractTokens(css.scoped, theme, guest.tokenCategories) }
+  return {
+    guest,
+    sheet,
+    tokens: extractTokens(css.scoped, theme, guest.tokenCategories),
+    themeAttributes: themeAttributes(collectCustomProperties(css.scoped))
+  }
 }
 
 /** Each guest stylesheet's CSS as compiled, which a frame drawn offscreen starts from. */
