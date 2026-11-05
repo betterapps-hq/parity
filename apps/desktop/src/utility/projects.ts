@@ -51,9 +51,9 @@ import { startBuilder } from "./builders.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
 import { followGuest, type GuestMoved, newGuestPort, restartPort } from "./guest-ports.ts"
-import { forgetProcess, forgetProject, trackProcess } from "./processes.ts"
+import { freePort, stopProject } from "./process-manager.ts"
+import { forgetProcess, trackProcess } from "./processes.ts"
 import { checkComponents, closeChecker, inferComponents } from "./props.ts"
-import { freePort, stopStorybook } from "./storybook.ts"
 
 const renderers: RendererAdapter[] = [reactRenderer]
 const builders: BuilderAdapter[] = [viteBuilder]
@@ -170,8 +170,7 @@ export async function closeProject(projectId: string): Promise<undefined> {
   const project = projects.get(projectId)
   projects.delete(projectId)
   closeChecker(projectId, projects.size === 0 && opening.size === 0)
-  stopStorybook(projectId)
-  forgetProject(projectId)
+  stopProject(projectId)
   project?.watcher?.close()
   for (const watcher of project?.configWatchers ?? []) watcher.close()
   if (project) {
