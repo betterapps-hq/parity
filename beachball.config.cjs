@@ -61,6 +61,9 @@ module.exports = {
   branch: hasOriginMain() ? "origin/main" : "refs/heads/main",
   // `pnpm changefile` runs Beachball locally, which shouldn't wait on the network. CI fetches when it checks out.
   fetch: false,
+  // Beachball publishes a scoped package with `--access restricted` unless told otherwise, which overrides the CLI's
+  // publishConfig and makes npm refuse it as a private package (E402), as Buildkit's config also says.
+  access: "public",
   // Parity stays below 1.0 until the user says otherwise.
   disallowedChangeTypes: ["major"],
   changehint:
