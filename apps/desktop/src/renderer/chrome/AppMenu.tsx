@@ -35,6 +35,7 @@ import {
   Gauge,
   ImageOff,
   Grid3x3,
+  House,
   Group,
   History,
   Images,
@@ -46,6 +47,7 @@ import {
   Paintbrush,
   PanelsLeftRight,
   PenLine,
+  Plus,
   Redo2,
   RefreshCw,
   Save,
@@ -152,6 +154,8 @@ function FileItems() {
   const designs = session?.store.getEntries().length ?? 0
   return (
     <>
+      <Item command="newTab" icon={Plus} />
+      <MenubarSeparator />
       <NewItems />
       <MenubarSeparator />
       <Item command="openFolder" icon={FolderOpen}>
@@ -248,6 +252,8 @@ function ViewItems() {
   const preferences = usePreferences()
   return (
     <>
+      <Item command="home" icon={House} />
+      <MenubarSeparator />
       <Item command="zoomIn" icon={ZoomIn} />
       <Item command="zoomOut" icon={ZoomOut} />
       <Item command="zoomTo100" />

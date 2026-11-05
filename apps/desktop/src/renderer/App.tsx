@@ -7,13 +7,14 @@ import { ActionsSearch } from "./chrome/ActionsSearch.tsx"
 import { QuickInsert } from "./chrome/QuickInsert.tsx"
 import { SettingsDialog } from "./chrome/SettingsDialog.tsx"
 import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
-import { StartScreen } from "./chrome/StartScreen.tsx"
 import { TabBar } from "./chrome/TabBar.tsx"
 import { UnsavedPrompt } from "./chrome/UnsavedPrompt.tsx"
 import { startUpdates } from "./chrome/updates.tsx"
 import { ProjectView } from "./ProjectView.tsx"
+import { HomePage } from "./start/HomePage.tsx"
+import { NewTabPage } from "./start/NewTabPage.tsx"
 import { useResolvedTheme } from "./theme.ts"
-import { useActiveTabId, useTabs, workspace } from "./workspace.ts"
+import { useActiveTabId, useHomeActive, useTabs, workspace } from "./workspace.ts"
 
 let started = false
 
@@ -32,10 +33,11 @@ export function App() {
   return <AppWindow />
 }
 
-/** The window's contents: the tabs, each open project, and the app's dialogs, for whatever tabs are open. */
+/** The window's contents: the tabs, Home, each open project or new tab, and the app's dialogs. */
 export function AppWindow() {
   const tabs = useTabs()
   const active = useActiveTabId()
+  const home = useHomeActive()
   const theme = useResolvedTheme()
   useAppShortcuts()
 
@@ -43,10 +45,13 @@ export function AppWindow() {
     <TooltipProvider>
       <div className="flex h-full flex-col bg-background text-foreground">
         <TabBar />
-        {tabs.length === 0 ? (
-          <StartScreen />
-        ) : (
-          tabs.map((tab) => <ProjectView key={tab.id} id={tab.id} active={tab.id === active} />)
+        <HomePage active={home} />
+        {tabs.map((tab) =>
+          tab.blank ? (
+            <NewTabPage key={tab.id} active={tab.id === active} />
+          ) : (
+            <ProjectView key={tab.id} id={tab.id} active={tab.id === active} />
+          )
         )}
       </div>
       <SonnerToaster

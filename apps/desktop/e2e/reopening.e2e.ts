@@ -36,12 +36,9 @@ async function closeProject(): Promise<void> {
   await expect.poll(frames).toBe(0)
 }
 
-/** Opens the project again from the start page's recent projects, and waits for every frame to draw. */
+/** Opens the project again from Home, where it's the one to continue, and waits for every frame to draw. */
 async function openProject(count: number): Promise<void> {
-  await app.page
-    .getByText(basename(inject("app").project), { exact: false })
-    .first()
-    .click()
+  await app.page.getByRole("button", { name: `Resume ${basename(inject("app").project)}` }).click()
   // Counted through a locator, which holds on to no element; a handle to one would keep its whole canvas.
   await expect.poll(frames, { timeout: 120_000 }).toBe(count)
   // Its frames finish drawing, and then its bitmaps are taken, before it closes.
@@ -52,8 +49,9 @@ async function openProject(count: number): Promise<void> {
 /** Opens the project again for the files after this one, unless it's open. */
 async function restoreProject(count: number): Promise<void> {
   if ((await frames()) > 0) return
-  // An open that failed leaves its tab, with an error and no frames, which hides the start page it opens from.
-  const tabs = app.page.getByRole("tab")
+  // An open that failed leaves its tab, with an error and no frames, which hides the start page it opens from. Home
+  // can't be closed, so only the tabs with a close button count.
+  const tabs = app.page.getByRole("tab").filter({ has: app.page.getByRole("button", { name: /^Close / }) })
   for (let left = await tabs.count(); left > 0; left--) {
     await app.page.keyboard.press("Control+W")
     await expect.poll(() => tabs.count()).toBe(left - 1)

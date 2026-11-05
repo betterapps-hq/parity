@@ -18,7 +18,7 @@ import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
 import { selectedDesigns } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
-import { type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
+import { homeTab, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
 import {
   align,
   deleteDesigns,
@@ -147,6 +147,16 @@ export async function exportImages(scope: "selection" | "all", session = activeS
   } catch (error) {
     toast.error("Couldn't export", { id: progress, description: message(error) })
   }
+}
+
+/** Opens a new tab, which shows the start page until a project opens in it. */
+export function openNewTab(): void {
+  workspace.newTab()
+}
+
+/** Shows Home, the start page pinned first in the tab strip. */
+export function goHome(): void {
+  workspace.activate(homeTab)
 }
 
 /** Closes the active tab once its last edits are saved. */
@@ -322,11 +332,12 @@ export function showPanelTab(tab: "layers" | "components"): void {
 }
 
 /** The tab after the active one, or before it with a step of -1, going round. */
+/** Moves to the next or previous tab, with Home first, going round. */
 export function switchTab(step: 1 | -1): void {
-  const tabs = workspace.getTabs()
-  const index = tabs.findIndex((tab) => tab.id === workspace.getActiveId())
-  const next = tabs[(index + step + tabs.length) % tabs.length]
-  if (next && tabs.length > 1) workspace.activate(next.id)
+  const ids = [homeTab, ...workspace.getTabs().map((tab) => tab.id)]
+  const index = workspace.isHomeActive() ? 0 : ids.indexOf(workspace.getActiveId()!)
+  const next = ids[(index + step + ids.length) % ids.length]
+  if (ids.length > 1) workspace.activate(next)
 }
 
 export function toggleDeveloperTools(): void {
