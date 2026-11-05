@@ -27,7 +27,8 @@ export {
   importSpecifiers,
   leftOutChanges,
   type ParsedComponent,
-  readChangedFiles
+  readChangedFiles,
+  rediscoveredSources
 } from "./listing.ts"
 export { inferProps, propsFiles } from "./props.ts"
 export { importAlias, type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "./tsconfig.ts"
