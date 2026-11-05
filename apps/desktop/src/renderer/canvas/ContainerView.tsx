@@ -19,6 +19,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type Ref,
+  useEffect,
   useMemo,
   useRef,
   useState
@@ -549,8 +550,14 @@ const FrameTile = memo(function FrameTile({
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
   const shows = useFrameShows(session, tree, mode, frame, scale)
   const { key } = shows
+  // Whether the frame is holding off drawing its design for its bitmap, which then needn't wait to be captured.
+  const holding = useRef(false)
   // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.
-  const kept = useFrameBitmap(shows, () => drawnHeight(tile.current, frame.width))
+  const kept = useFrameBitmap(
+    shows,
+    () => drawnHeight(tile.current, frame.width),
+    () => holding.current
+  )
   const bitmap = kept.src
   // The bitmap shows once it's decoded, so the frame doesn't go blank in between; until then, its skeleton, which then
   // leaves the page.
@@ -558,11 +565,16 @@ const FrameTile = memo(function FrameTile({
   const shown = !!bitmap && decoded === bitmap
   // Interacting, frames are the real thing at any zoom.
   const awake = useAwake(shown && !interactive, rest, key)
-  // Zoomed far out, a frame not drawn yet waits for the bitmap kept from an earlier session, and sleeps on it, at the
-  // height it was kept with, without drawing its design.
+  // Zoomed far out, a frame not drawn yet waits for its bitmap, kept from an earlier session or captured offscreen, and
+  // sleeps on it, at the height kept with it, without drawing its design. Until it comes, a placeholder stands in at the
+  // frame's own height or, for one that grows with its content, its window's (PAR-525).
   const waiting = useFirstDrawWaits(rest, { bitmap: kept, awake, interactive })
   const skeleton = useFrameSkeleton(key, tile, frame.width, !bitmap && awake && !waiting)
-  const height = skeleton?.height ?? kept.height
+  useEffect(() => {
+    holding.current = waiting
+  }, [waiting])
+  const placeholder = waiting && !shown && !skeleton
+  const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
     <figure
@@ -628,6 +640,7 @@ const FrameTile = memo(function FrameTile({
           shows={shows.drawn}
         />
         {skeleton && !shown && <FrameSkeleton skeleton={skeleton} />}
+        {placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
         {bitmap && (
           <img
             className="frame-bitmap"

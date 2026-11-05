@@ -75,8 +75,9 @@ interface Run {
 }
 
 /**
- * How long a project took to open, in milliseconds: until every frame on the canvas showed its design or its bitmap, so
- * the canvas can be worked on, and until every frame had its bitmap, which zooming out shows.
+ * How long a project took to open, in milliseconds: until every frame on the canvas showed its design, its bitmap or,
+ * zoomed far out, the placeholder it shows until its bitmap comes, so the canvas can be worked on; and until every frame
+ * had its bitmap, which zooming out shows.
  */
 interface Opening {
   usableMs: number
@@ -357,9 +358,10 @@ async function measure(page: Page): Promise<Measured> {
 }
 
 /**
- * Times opening the project: until every frame on the canvas shows its design or its bitmap, then until every frame
- * shows its bitmap. Given a project, it closes every tab and opens that project again in this window, timed from the
- * open; otherwise it times the page's own load, from when it started, with the tabs it restores.
+ * Times opening the project: until every frame on the canvas shows its design, its bitmap or its placeholder (a frame
+ * asleep, or waiting for its bitmap without drawing, shows one of the last two), then until every frame shows its
+ * bitmap. Given a project, it closes every tab and opens that project again in this window, timed from the open;
+ * otherwise it times the page's own load, from when it started, with the tabs it restores.
  */
 async function opened(page: Page, reopen?: string): Promise<Opening> {
   const opening = await page.evaluate(
@@ -375,7 +377,7 @@ async function opened(page: Page, reopen?: string): Promise<Opening> {
         void workspace.open(root)
       }
       const drawn = (host: Element) =>
-        Boolean(host.closest("[data-bitmap]") ?? host.shadowRoot?.querySelector("[data-canvas-node]"))
+        Boolean(host.closest("[data-bitmap], [data-asleep]") ?? host.shadowRoot?.querySelector("[data-canvas-node]"))
       let usable: number | undefined
       let count = { frames: 0, bitmaps: 0 }
       while (performance.now() - start < 180_000) {
@@ -779,7 +781,9 @@ function report(result: Result, previous: Result | undefined): void {
     )
   }
   if (result.open) {
-    console.log(`\nopening, ms until every frame shows its design or bitmap, then until every frame has its bitmap`)
+    console.log(
+      `\nopening, ms until every frame shows its design, bitmap or placeholder, then until every frame has its bitmap`
+    )
     for (const [name, now] of Object.entries(result.open)) {
       const before = previous?.open?.[name as keyof NonNullable<Result["open"]>]
       const missing = now.bitmaps < now.frames ? `, ${now.frames - now.bitmaps} of ${now.frames} never got one` : ""

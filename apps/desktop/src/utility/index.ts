@@ -64,8 +64,11 @@ const handlers: Handlers = {
     const { frame, png } = await renderOffscreen(job, true)
     if (frame.error || !png) return {}
     const served = codeServedAt(job.projectId, job.guestUrl)
-    if (served) void storeBitmap(served, job, png, height ?? frame.height)
-    return { png }
+    // The height kept with it, which a frame that hasn't drawn its design takes when it shows the bitmap (PAR-525): the
+    // live frame's, or else the offscreen window's, measured at full size as the canvas lays it out.
+    const kept = height ?? frame.canvasHeight ?? frame.height
+    if (served) void storeBitmap(served, job, png, kept)
+    return { png, height: kept }
   },
   "frames.stored": async ({ job }) => {
     const served = codeServedAt(job.projectId, job.guestUrl)

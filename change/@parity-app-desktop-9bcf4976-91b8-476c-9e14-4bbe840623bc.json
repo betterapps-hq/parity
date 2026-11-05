@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Zoomed far out, frames show a placeholder until their bitmap comes instead of drawing first, so a project opens sooner, and boards keep their size when their frames later draw",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
