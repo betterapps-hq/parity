@@ -113,6 +113,50 @@ class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
   }
 }
 
+/** A component layer as the guest draws it, before anything its parent does to it. */
+interface LayerDrawing {
+  component: ComponentType<Props>
+  props: Props
+  children: ReactNode[] | undefined
+  boundary: Omit<BoundaryProps, "children">
+}
+
+/**
+ * Draws a component layer in its boundary, and gives the component what a parent hands the layer by cloning it, as
+ * Radix's Slot does for `asChild`. Cloning an element layer merges onto the element itself; a component layer's
+ * element is this one, so it merges the same way here, with the component's own props over what it's given: class
+ * names joined, styles merged and both handlers called, the layer's first, as Radix's `mergeProps` does. A ref it's
+ * given goes to the component, since a function component takes `ref` as a prop in React 19.
+ */
+function ComponentLayer({ layer, ...given }: { layer: LayerDrawing } & Props) {
+  const props = Object.keys(given).length === 0 ? layer.props : mergeGiven(given, layer.props)
+  const element = layer.children
+    ? createElement(layer.component, props, ...layer.children)
+    : createElement(layer.component, props)
+  return createElement(ComponentBoundary, layer.boundary, element)
+}
+
+/** What a parent gives a layer, under the layer's own props, as Radix's Slot merges them. */
+function mergeGiven(given: Props, own: Props): Props {
+  const merged: Props = { ...given, ...own }
+  for (const [name, value] of Object.entries(own)) {
+    const outer = given[name]
+    if (outer === undefined) continue
+    if (/^on[A-Z]/.test(name) && typeof value === "function" && typeof outer === "function") {
+      merged[name] = (...args: unknown[]) => {
+        const result: unknown = value(...args)
+        outer(...args)
+        return result
+      }
+    } else if (name === "style" && typeof value === "object" && typeof outer === "object") {
+      merged.style = { ...outer, ...value }
+    } else if (name === "className" && typeof value === "string" && typeof outer === "string") {
+      merged.className = [outer, value].filter(Boolean).join(" ")
+    }
+  }
+  return merged
+}
+
 export function createGuest(init: GuestInit): Guest {
   const components = init.components as Record<string, ComponentType<Props>>
   const loaders: Record<string, () => Promise<unknown>> = { ...init.lazyComponents }
@@ -391,12 +435,13 @@ export function createGuest(init: GuestInit): Guest {
         Object.assign(props, passed)
         // Children it's given replace the slot's.
         if ("children" in passed) children = undefined
-        const element = children ? createElement(component, props, ...children) : createElement(component, props)
-        return createElement(
-          ComponentBoundary,
-          { key: keyed, name: node.component, source: moves.get(node.component) ?? 0, nodeId: node.nodeId, report },
-          element
-        )
+        const layer: LayerDrawing = {
+          component,
+          props,
+          children,
+          boundary: { name: node.component, source: moves.get(node.component) ?? 0, nodeId: node.nodeId, report }
+        }
+        return createElement(ComponentLayer, { key: keyed, layer })
       }
     }
   }

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Give a component layer in an asChild slot the class, attributes, handlers and ref its parent hands it",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
