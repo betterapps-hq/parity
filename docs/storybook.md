@@ -124,8 +124,8 @@ components open on their docs page.
   go in `parity.config.ts` at the project root instead, which runs in Node, while the preview file runs in the frames.
 - **Stories from component designs.** A component design's states become stories, written next to the component file
   Parity writes for it. See [components.md](proposals/components.md).
-- **One process manager.** Starting and stopping Storybook becomes its first piece, alongside dev servers and
-  `wrangler dev`. See [web-and-backend.md](proposals/web-and-backend.md).
+- **One process manager.** Storybook starts and stops through it now (PAR-20), and dev servers and `wrangler dev` are to
+  follow. See [web-and-backend.md](proposals/web-and-backend.md) and [decisions.md](decisions.md).
 - **Mock data in stories.** MSW handlers built from the OpenAPI document are served to Storybook as well as to rendered
   routes. See [web-and-backend.md](proposals/web-and-backend.md).
 - **Stories as tests, later.** Running stories through Storybook's Vitest add-on, once the core works. See
@@ -162,8 +162,9 @@ These rules keep Storybook optional and replaceable. A change that breaks one ne
    dropped, the newest major never is, and dropped means untested, never blocked.
 6. **What Parity writes is plain CSF the project owns.** Generated stories are ordinary story files a developer could
    have written, in the project's style, with no Parity runtime import. Deleting Parity leaves them working.
-7. **Starting Storybook is a process like any other,** owned by the process manager once it exists, with the same ports,
-   logs and stopping rules as a dev server.
+7. **Starting Storybook is a process like any other,** owned by the
+   [process manager](../apps/desktop/src/utility/process-manager.ts), with the same ports, logs and stopping rules as a
+   dev server.
 
 ### The adapter
 

@@ -3507,6 +3507,31 @@ every project on a screen instead, you said "Drop it."
   actions, with their keys, and Layers' + always showing, with its empty rows as buttons. PAR-546 builds those. The
   exploration's stories open on a project with screens, and its empty-canvas stories are gone.
 
+## One process manager starts and stops Parity's servers (PAR-20)
+
+[process-manager.ts](../apps/desktop/src/utility/process-manager.ts) is where the project service starts, watches and
+stops the servers a project needs. Storybook is the first to use it; dev servers, `wrangler dev` (PAR-29), test runners
+(PAR-303, PAR-304) and the MSW handlers served to Storybook (PAR-70) are meant to start through it too. My calls:
+
+- **A server is a command, a URL and a readiness check.** `startServer` runs the command, lists it in the status bar's
+  processes as starting, and asks the check until the server answers at its URL, exits, or three minutes pass. A server
+  that exits before it answers, or never answers, is listed as failed with the end of what it printed, and one that
+  doesn't answer in time is stopped. What a server does at its URL stays the caller's business: Storybook's check asks
+  for its story index.
+- **It keeps each server's port and output.** `knownServers` gives the port, process id and who started each server, for
+  one project or all, which is what PAR-117's reuse check and PAR-30's memory limit read. `serverLog` gives the last
+  16,000 characters a server printed, and a started server's `exited` settles when its process ends, saying how.
+- **A server that was already running is adopted, not owned.** `adoptServer` lists it and knows its port, and closing
+  the project only takes it off the list. Only what Parity started is ever stopped.
+- **Closing a project stops everything Parity started for it** (`stopProject`), and quitting stops everything. Starting
+  a server again under the same id stops the last one first, so a project never has two of one server.
+- **Builders and tasks stay as they are.** A project's builder has its own process and closing rules (CAN-81), and tasks
+  such as installs and type checks run once and report a result; both still list themselves in the same processes, and
+  either could move onto the manager when there's a reason to.
+- **It stays in the app.** Starting and stopping processes is what the app keeps under
+  [packages.md](proposals/packages.md), so the manager isn't a package. Its tests start small Node servers, without
+  Electron.
+
 ## How frames look and work (PAR-540)
 
 You approved the frames exploration (Parity/Explorations/Frames) by merging it on 2026-11-05. It's one canvas you can
