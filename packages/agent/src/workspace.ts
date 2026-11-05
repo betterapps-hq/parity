@@ -1179,19 +1179,46 @@ export class AgentWorkspace {
     return found
   }
 
-  /** Warnings for boards this call created, changed or moved that now overlap another. */
+  /**
+   * Warnings for boards this call created, changed or moved that now collide with another or sit inside its title's
+   * band, and a note when the canvas has others this call didn't touch, so a call that moved nothing doesn't read as a
+   * clean canvas.
+   */
   private overlapWarnings(): Warning[] {
-    const ids = new Set(this.boards().flatMap((board) => (this.touched.has(board.key) ? [board.id] : [])))
-    return this.overlaps()
-      .filter(({ designs }) => designs.some((id) => ids.has(id)))
-      .map(({ designs, names, width, height, estimated, titleOnly }) => {
-        const size = `${width}x${height}${estimated ? " (estimated, not drawn yet)" : ""}`
-        const what = titleOnly
-          ? `is too close to ${names[1]} (${designs[1]}): a title would cover the other board`
-          : `overlaps ${names[1]} (${designs[1]}) by ${size}`
-        const message = `${names[0]} (${designs[0]}) ${what}. Leave at least ${titleBand} between boards for titles. Move one clear with UpdateDesign(id, { x, y }); FindEmptySpace finds space and Overlaps() lists every overlap.`
-        return { category: "overlap" as const, message }
+    const boards = this.boards()
+    const ids = new Set(boards.flatMap((board) => (this.touched.has(board.key) ? [board.id] : [])))
+    const drawn = new Map(boards.map((board) => [board.id, !board.estimated]))
+    const found = this.overlaps()
+    const touched = found.filter(({ designs }) => designs.some((id) => ids.has(id)))
+    const warnings: Warning[] = touched.map(({ designs, names, width, height, titleOnly }) => {
+      const [a, b] = designs.map((id, index) => `${names[index]} (${id})`) as [string, string]
+      const guessed = names.filter((_, index) => !drawn.get(designs[index]))
+      const size =
+        guessed.length === 0
+          ? "measured"
+          : `estimated, as ${guessed.join(" and ")} ${guessed.length === 1 ? "isn't" : "aren't"} drawn yet`
+      if (titleOnly)
+        return {
+          category: "title_clearance" as const,
+          message: `The title of ${b} would cover ${a}: the boards are clear, but ${names[1]} starts less than ${titleBand} below it (${width}x${height} shared, ${size}). Move ${names[1]} down or aside with UpdateDesign(id, { x, y }); Overlaps() checks every board.`
+        }
+      return {
+        category: "overlap" as const,
+        message: `${a} and ${b} overlap by ${width}x${height} (${size}). Move one clear with UpdateDesign(id, { x, y }), leaving ${titleBand} above each board for its title; FindEmptySpace finds space and Overlaps() checks every board.`
+      }
+    })
+    const others = found.length - touched.length
+    if (others > 0) {
+      const what =
+        others === 1
+          ? "1 other pair of boards overlaps or crowds a title"
+          : `${others} other pairs of boards overlap or crowd a title`
+      warnings.push({
+        category: "canvas_overlaps",
+        message: `${what} on the canvas. This call didn't create, change or move them, so they aren't listed here; Overlaps() lists every one.`
       })
+    }
+    return warnings
   }
 
   /** Notes a finding for the result, with the node or frame it's about kept apart from what to do. */
@@ -1623,12 +1650,17 @@ interface Board {
   estimated: boolean
 }
 
+/**
+ * Two boards too close, from the whole canvas. Without `titleOnly` the boards themselves collide; with it they're
+ * clear, but the lower one's title, drawn in the band above it, covers the upper one. `width` and `height` are the
+ * shared area, title band included. `estimated` means one of them isn't drawn yet, so its size is a guess from its
+ * frames; without it both sizes are as the canvas last drew them.
+ */
 interface Overlap {
   designs: [string, string]
   names: [string, string]
   width: number
   height: number
-  /** Only a title overlaps: the boards themselves are clear but too close. */
   titleOnly?: true
   estimated?: true
 }

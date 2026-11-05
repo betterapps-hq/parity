@@ -444,12 +444,22 @@ size checks measure the same in `Measure` and `Screenshot` as on the canvas, eve
 
 ## The canvas
 
-`FindEmptySpace({ width, height })` finds room for a new board, to the right of the others unless `direction: "below"`,
-or next to the design named in `near`. `Overlaps()` lists boards that collide, titles included; move one with
-`UpdateDesign(design, { x, y })`. A board is as big as the canvas last drew it. One it hasn't drawn yet is sized from
-its frames, laid out as the canvas lays them out: each shown mode's frame size (`frames` on the design, else the mode's
-width), companions shrunk to 640 wide, and a frame without a fixed height as tall as its window. Those overlaps say
-`estimated: true`.
+`FindEmptySpace({ width, height })` finds room for a board that size, to the right of the others unless
+`direction: "below"`, or next to the design named in `near`. Its default `padding` of 240 leaves room for the board's
+title. Give it the size the board will be: `Designs()` has a drawn board's `width` and `height`.
+
+`Overlaps()` checks every board on the canvas and lists each pair that's too close, in one of two kinds:
+
+- **A collision:** the boards themselves overlap.
+- **Title clearance:** `titleOnly: true`. The boards are clear, but the lower one starts less than 160 below the upper
+  one, so the title the canvas draws above it covers the upper board.
+
+`width` and `height` are the area they share, title band included. Move one with `UpdateDesign(design, { x, y })`.
+
+A board is as big as the canvas last drew it, so its size is measured. One it hasn't drawn yet is sized from its frames,
+laid out as the canvas lays them out: each shown mode's frame size (`frames` on the design, else the mode's width),
+companions shrunk to 640 wide, and a frame without a fixed height as tall as its window. A pair with an estimated board
+says `estimated: true`; without it, both sizes are measured.
 
 ```js
 // With the default modes: a 1280 main frame, the dark one beside it at half size and the 390 phone, 2505 wide in all.
@@ -457,6 +467,20 @@ const dashboard = CreateDesign({ name: "Dashboard", x: 0, y: 0 })
 UpdateDesign(dashboard, { showModes: ["desktop-dark", "mobile-light"] })
 CreateDesign({ name: "Settings", x: 2200, y: 0 })
 Print(Overlaps(dashboard)) // Dashboard and Settings, 305 across, estimated: true
+```
+
+An execute call's own warnings cover only the boards it creates, changes or moves: `overlap` for a collision and
+`title_clearance` for a title too close. Other crowded boards are counted in one `canvas_overlaps` suggestion, so a call
+that changes nothing, or only reads, doesn't make a crowded canvas look clear. To audit the canvas, call `Overlaps()`:
+
+```js
+for (const { names, titleOnly, estimated } of Overlaps()) {
+  const kind = titleOnly ? "a title covers a board" : "the boards collide"
+  Print(`${names.join(" and ")}: ${kind}, ${estimated ? "estimated" : "measured"}`)
+}
+// Room below Settings for a board 1400 wide and 1000 tall, and its title above it.
+const room = FindEmptySpace({ width: 1400, height: 1000, near: "settings", direction: "below" })
+CreateDesign({ name: "Plans", x: room.x, y: room.y })
 ```
 
 ## Examples
