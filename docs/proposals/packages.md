@@ -4,8 +4,9 @@ Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-
 `@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. `@parity-app/tokens` holds reading,
 editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32), drop
 rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. `@parity-app/models` holds the lens
-models (PAR-15), on 2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and in Linear's
-Package boundaries stream.
+models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577), and `@parity-app/project` the one reader
+of installed packages (PAR-573), on 2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and
+in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -87,14 +88,14 @@ when it's spread through UI code. Today:
 
 ## The packages
 
-| Package                                 | What it owns                                                                                                                                                               | Comes from                                                                                         |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `@parity-app/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review. | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet. |
-| Project edits, in `@parity-app/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`. |
-| `@parity-app/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, selection, undo and unsaved tracking.                | The renderer files listed above.                                                                   |
-| `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.              | New code.                                                                                          |
-| `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                               | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
-| `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                          | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
+| Package                                 | What it owns                                                                                                                                                                              | Comes from                                                                                         |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `@parity-app/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review.                | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet. |
+| Project edits, in `@parity-app/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                               | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`. |
+| `@parity-app/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, moving, resizing and nudging, selection, undo and unsaved tracking. | The renderer files listed above.                                                                   |
+| `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.                             | New code.                                                                                          |
+| `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                                              | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                       |
+| `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, and matching described tokens to custom properties.                                                                         | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.        |
 
 ### `@parity-app/code`: design and code, both ways
 
@@ -141,6 +142,21 @@ itself with Beachball.
 - **This moves the diff-first part of PAR-293 into the foundations,** because components need it before any lens does.
   Writing back from the lenses (migrations, handlers, route files) keeps its place at the end of the order you set.
 
+### Installed packages, in `@parity-app/project` and `@parity-app/registry`
+
+Built in PAR-573 (2026-11-05). Finding an installed package and the files it leads to was written three to five ways,
+and the copies disagreed.
+
+- **One reader in [packages.ts](../../packages/project/src/packages.ts)** finds a package as Node does, reads its
+  manifest through core's `packageManifest`, picks an entry point's file for types, the module Node imports, source or a
+  stylesheet, traces a built file back to its source and follows both kinds of re-export. Its test is one temporary
+  folder holding every shape of package it reads.
+- **Discovery, detection, workspace packages, libgen and the Tailwind adapter use it.** libgen's loader keeps Node's own
+  `createRequire` for CommonJS, and its icon types keep TypeScript's own resolver.
+- **The registry owns hand edits and which file is newest:** `withEdits` and `readLibraryEdits` read a library file's
+  edits, which discovery, libgen and `parity lib check` share, and `newestEntries` gives each package's newest file by
+  semver, with its edits applied, for the library catalog and `parity lib check`.
+
 ### `@parity-app/editor`
 
 - **It depends on core only.** The app keeps React components, tldraw shapes and tools, DOM hit-testing and measuring,
@@ -148,6 +164,10 @@ itself with Beachball.
 - **It moves one file at a time,** each with tests as it moves: arranging and the clipboard first (pure, with many
   rules), then inserting and Make component, then drop rules and snapping, then the store's history and unsaved
   tracking.
+- **Moving, resizing and nudging are one module,** [move-resize.ts](../../packages/editor/src/move-resize.ts) (PAR-577).
+  The canvas measures a layer or a frame when a gesture begins, and the module gives the style or size for each pointer
+  move or arrow press: steps or fill, insets, snapped edges, `grow`, a frame's snap-back and smallest size, and
+  reordering. The app keeps the measuring (`frameDrawn`, `LayerSnapping`), the gesture lifecycle and the writes.
 
 ### Lenses and adapters
 

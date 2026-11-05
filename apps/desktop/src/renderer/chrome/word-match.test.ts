@@ -15,8 +15,8 @@ function found(search: string): string[] {
 }
 
 describe("matching actions by the start of words", () => {
-  it("finds New screen and New component for new, and not names with n, e and w scattered through them", () => {
-    expect(found("new")).toEqual(["New screen", "New component"])
+  it("finds New screen, New component and New tab for new, and not names with n, e and w scattered through them", () => {
+    expect(found("new")).toEqual(["New screen", "New component", "New tab"])
   })
 
   it("finds a word inside a name, after names that start with what's typed", () => {

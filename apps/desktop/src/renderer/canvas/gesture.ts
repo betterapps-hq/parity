@@ -1,16 +1,13 @@
-import type { Checkpoint } from "@parity-app/editor"
+import { type Checkpoint, dragThreshold } from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
 
 /**
  * One lifecycle for every gesture on the canvas, so a fix to how one starts or ends reaches them all. A pointer gesture
- * is a press that becomes a drag once the pointer has gone `dragThreshold` pixels (`followPress`): from then it's one
- * undo gesture, holds its cursor, and ends at the release, the pointer cancelled, the window losing focus or Escape, as
- * its entry in `gestures` says. A run is a series of presses on one selection, such as arrow presses nudging it, which
- * is one undo gesture while the selection stays (`GestureRun`).
+ * is a press that becomes a drag once the pointer has gone `dragThreshold` pixels, a rule of `@parity-app/editor`'s
+ * (`followPress`): from then it's one undo gesture, holds its cursor, and ends at the release, the pointer cancelled,
+ * the window losing focus or Escape, as its entry in `gestures` says. A run is a series of presses on one selection,
+ * such as arrow presses nudging it, which is one undo gesture while the selection stays (`GestureRun`).
  */
-
-/** How far, in screen pixels, the pointer goes before a press becomes a drag: moving, resizing or drawing a box. */
-export const dragThreshold = 4
 
 /**
  * How a pointer gesture on the canvas ended: the pointer released, Escape pressed, or cut short, by the pointer being

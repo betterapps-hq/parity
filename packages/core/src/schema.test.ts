@@ -55,6 +55,11 @@ describe("parseData", () => {
     expect(() => parseData(either, { kind: "ratio", ratio: "16/9" })).toThrow("/ratio: expected a number")
   })
 
+  it("passes over an option for another type of value, however few issues it has", () => {
+    const length = z.union([z.string(), z.object({ value: z.number(), unit: z.string() })])
+    expect(() => parseData(length, { value: "1" })).toThrow("/value: expected a number")
+  })
+
   it("keeps a message the schema gives itself", () => {
     expect(() => parseData(z.object({ id: z.string("expected the design's id") }), {})).toThrow(
       "/id: expected the design's id"
@@ -87,5 +92,16 @@ describe("packageManifest", () => {
     const manifest = { name: "app", dependencies: { react: "^19.0.0" }, private: true }
     expect(parseData(packageManifest, manifest)).toEqual(manifest)
     expect(() => parseData(packageManifest, { scripts: { dev: 1 } })).toThrow("/scripts/dev: expected a string")
+  })
+
+  it("reads exports as Node writes them: subpaths, nested conditions, fallback lists and private paths", () => {
+    const exports = {
+      ".": { types: "./dist/index.d.ts", import: { node: "./dist/node.js", default: "./dist/index.js" } },
+      "./styles/*": ["./dist/*.css", "./src/*.css"],
+      "./internal/*": null
+    }
+    expect(parseData(packageManifest, { exports }).exports).toEqual(exports)
+    expect(parseData(packageManifest, { exports: "./index.js" }).exports).toBe("./index.js")
+    expect(() => parseData(packageManifest, { exports: { ".": { import: 1 } } })).toThrow("/exports")
   })
 })

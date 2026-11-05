@@ -3,7 +3,7 @@ import { createRequire } from "node:module"
 import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import type { ComponentSource, RendererAdapter, SampleChild } from "@parity-app/core"
-import { discoverProject, installedPackage } from "@parity-app/project"
+import { discoverProject, findPackage, packageEntry } from "@parity-app/project"
 import { beforeAll, describe, expect, it } from "vite-plus/test"
 
 // PAR-453: Nova's Sidebar parts throw outside SidebarProvider, which draws nothing of its own. The provider has to stay
@@ -33,11 +33,8 @@ beforeAll(async () => {
   React = (await load("react")) as unknown as ReactLike
   renderToStaticMarkup = (await load("react-dom/server")).renderToStaticMarkup as typeof renderToStaticMarkup
   // Nova's exports only name an entry to import, which `require.resolve` doesn't follow.
-  const novaFolder = (await installedPackage(example, "@buildkitgg/shadcn-baseui-nova"))!
-  const manifest = JSON.parse(await readFile(join(novaFolder, "package.json"), "utf8")) as {
-    exports: Record<string, { import: string }>
-  }
-  nova = (await import(pathToFileURL(join(novaFolder, manifest.exports["."]!.import)).href)) as Record<string, unknown>
+  const novaPackage = (await findPackage(example, "@buildkitgg/shadcn-baseui-nova"))!
+  nova = (await import(pathToFileURL(packageEntry(novaPackage, "runtime")!).href)) as Record<string, unknown>
 }, 60_000)
 
 /** A sample as React elements, each part from Nova by its export name: `nova/Sidebar` is `Sidebar`. */

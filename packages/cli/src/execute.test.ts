@@ -5,7 +5,7 @@ import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { describeExec } from "./client.ts"
 import { type ExecReply, execResponse, executeRequest, structuredExec } from "./execute.ts"
-import { fixtureTab, toolReply, transportFixture } from "./transport-fixture.ts"
+import { fixtureTab, processTests, toolReply, transportFixture } from "./transport-fixture.ts"
 
 const success: ExecReply = {
   ok: true,
@@ -32,7 +32,7 @@ function expectRequests(params: Record<string, unknown>) {
   expect(requests).toContainEqual(expect.objectContaining({ agentId: expect.stringMatching(/^Contract Caller#/) }))
 }
 
-describe("execute transport contract", () => {
+describe("execute transport contract", processTests, () => {
   it("omits undeclared CLI ids so long names remain distinct at the desktop boundary", async () => {
     const prefix = "Harness ".repeat(16)
     for (const suffix of ["One", "Two"]) {

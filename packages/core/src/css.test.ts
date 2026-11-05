@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   collectCustomProperties,
   prepareCanvasCss,
+  resetCustomProperties,
   rewriteMedia,
   rewriteFrameUnits,
   rewriteSheetFrameUnits
@@ -241,5 +242,21 @@ describe("collectCustomProperties", () => {
 
   it("skips declarations outside any rule", () => {
     expect(collectCustomProperties("--a: 1;")).toEqual([])
+  })
+})
+
+describe("resetCustomProperties", () => {
+  it("sets each custom property to initial", () => {
+    expect(resetCustomProperties(["--background", "--tl-zoom"])).toBe("--background: initial; --tl-zoom: initial;")
+  })
+
+  it("leaves out names that aren't custom properties", () => {
+    expect(resetCustomProperties(["color", "--", "-webkit-box", "--a"])).toBe("--a: initial;")
+  })
+
+  it("escapes characters that would end the name, so it can't set another property", () => {
+    expect(resetCustomProperties(["--a:b", "--c d;", "--é_1"])).toBe(
+      String.raw`--a\3a b: initial; --c\20 d\3b : initial; --é_1: initial;`
+    )
   })
 })

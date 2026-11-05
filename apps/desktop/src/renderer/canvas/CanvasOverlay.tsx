@@ -1,25 +1,26 @@
 import {
   boardTarget,
-  type ContainerSpec,
   editNode,
-  type FrameSize,
-  frameSize,
   generateId,
   insertNode,
   isInnerPath,
   locateNode,
   nodeIds,
-  type NodeStyle,
   resolveModes
 } from "@parity-app/core"
 import {
   distancesBetween,
   drawsOver,
   type Edge,
+  frameResize,
+  frameSizeReset,
+  layerResize,
+  layerSizeReset,
   measuresNext,
   overlayDesigns,
   resizeStart,
-  settleUntil
+  settleUntil,
+  withFrame
 } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { editingState } from "../chrome/LayerPanel.tsx"
@@ -29,7 +30,7 @@ import { selectedNodes, toggleLayer, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
-import { type Drag, followPress, gestures } from "./gesture.ts"
+import { followPress, gestures } from "./gesture.ts"
 import {
   frameAt,
   frameScale,
@@ -49,7 +50,6 @@ import { findLayer } from "./layers.ts"
 import { frameDrawn } from "./nudge.ts"
 import { editableText, hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
 import { formatPx, type Redline, RedlineView } from "./Redline.tsx"
-import { edgeAxes, resizeGesture } from "./resize.ts"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { pressBackground } from "./select-box.ts"
 import { TextEditor } from "./TextEditor.tsx"
@@ -779,16 +779,12 @@ function redline(from: Point, to: Point, length: number, unit: number): Redline 
   return { x1: from.x, y1: from.y, x2: to.x, y2: to.y, px, steps: Number.isInteger(steps * 2) ? steps : undefined }
 }
 
-/** How close, in screen pixels, an edge has to come to snap. */
-const snapDistance = 6
-
 /**
- * Resizing by a handle. A frame takes a size in pixels for its viewport, snapping back to the viewport's width and the
- * content's height. A layer takes a fixed size in whole spacing steps, or fill when its edge comes back to the inside
- * of its parent, changing only the handle's own axes (see `resizeGesture`); an absolutely placed layer keeps its far
- * edge where it was, and its dragged edges snap to its siblings' and its parent's (see `LayerSnapping`). Shift on a
- * corner keeps its proportions. The drag writes as it goes, as one undo step: Escape takes it all back, and the pointer
- * cancelled or the window losing focus keeps what it did (see `gestures.resize`).
+ * Resizing by a handle, by `@parity-app/editor`'s rules: a frame's by `frameResize`, a layer's by `layerResize`. This
+ * measures the layer or the frame when the drag begins, and for an absolutely placed layer where its sides are drawn
+ * and what its edges snap to (see `LayerSnapping`), and writes the style or size each pointer move gives. The drag
+ * writes as it goes, as one undo step: Escape takes it all back, and the pointer cancelled or the window losing focus
+ * keeps what it did (see `gestures.resize`).
  */
 function startResize(
   session: ProjectSession,
@@ -803,32 +799,21 @@ function startResize(
   if (!entry || !editor || !host) return
   const scale = editor.getZoomLevel() * frameScale(host)
   const start = { clientX: event.clientX, clientY: event.clientY }
-  const { width: horizontal, height: vertical } = edgeAxes(edge)
+  const pointer = (moveEvent: PointerEvent) => ({
+    dx: moveEvent.clientX - start.clientX,
+    dy: moveEvent.clientY - start.clientY
+  })
   let last = ""
 
   if (handles.kind === "frame") {
     const mode = resolveModes(store.getModes()).find((candidate) => candidate.id === handles.mode)
     if (!mode) return
-    const size = frameSize(entry.container, mode)
-    const rect = host.getBoundingClientRect()
-    // Starting from the content's height, coming back to it snaps to hugging it again.
-    const content = size.height === undefined ? rect.height / scale : undefined
-    const startHeight = size.height ?? rect.height / scale
+    const resize = frameResize({ design: entry.container, mode, edge, rect: host.getBoundingClientRect(), scale })
     followPress(gestures.resize, store, start, {
       design: entry.key,
       cursor: resizeCursors[edge],
       move(moveEvent, { gesture }) {
-        const next: FrameSize = { ...entry.container.frames?.[mode.viewport] }
-        if (horizontal) {
-          const width = Math.round(size.width + (moveEvent.clientX - start.clientX) / scale)
-          if (Math.abs(width - mode.width) * scale < snapDistance) delete next.width
-          else next.width = Math.max(160, width)
-        }
-        if (vertical) {
-          const height = Math.round(startHeight + (moveEvent.clientY - start.clientY) / scale)
-          if (content !== undefined && Math.abs(height - content) * scale < snapDistance) delete next.height
-          else next.height = Math.max(80, height)
-        }
+        const next = resize(pointer(moveEvent))
         const serialized = JSON.stringify(next)
         if (serialized === last) return
         last = serialized
@@ -840,67 +825,53 @@ function startResize(
     return
   }
 
-  const element = handles.node ? findNodeElement(host, handles.node) : undefined
-  const rect = handles.node ? nodeBox(host, handles.node) : undefined
-  const location = handles.node ? locateNode(entry.container.root, handles.node) : undefined
-  if (!element || !rect || !location) return
+  const layer = handles.node
+  const element = layer ? findNodeElement(host, layer) : undefined
+  const rect = layer ? nodeBox(host, layer) : undefined
+  if (!layer || !element || !rect) return
   const state = editingState(entry.container, handles.state)
   // The layer and its layout as the frame being resized in shows them: its state, variants and viewport.
-  const shown = resizeStart(entry.container, location.node.id, {
-    state,
-    viewport: frameViewport(store.getModes(), handles.mode)
-  })
+  const shown = resizeStart(entry.container, layer, { state, viewport: frameViewport(store.getModes(), handles.mode) })
   if (!shown) return
-  const { style: shownStyle, parentDirection } = shown
   const unit = spacingUnit(tokens.get())
-  // An absolutely placed layer resizes by its insets too, from where its sides are drawn.
+  // An absolutely placed layer resizes by its insets, from where its sides are drawn, and its dragged edges snap.
   const drawn =
-    shownStyle.position === "absolute"
-      ? frameDrawn(area, handles.design, { mode: handles.mode, state: handles.state }, unit).insets(location.node.id)
+    shown.style.position === "absolute"
+      ? frameDrawn(area, handles.design, { mode: handles.mode, state: handles.state }, unit).insets(layer)
       : undefined
-  const gesture = resizeGesture({
+  const snapping = drawn ? LayerSnapping.measure(editor, host, entry.container, layer, scale) : undefined
+  const resize = layerResize({
     edge,
+    layer: shown,
     rect,
     inner: contentBox(element.parentElement, scale),
     scale,
     unit,
-    absolute: drawn ? { style: shownStyle, drawn } : undefined
+    drawn,
+    snapping
   })
 
-  // An absolutely placed layer's dragged edges snap to its siblings' and its parent's, unless Shift keeps a corner's
-  // proportions.
-  const snapping = drawn ? LayerSnapping.measure(editor, host, entry.container, location.node.id, scale) : undefined
-
-  const moveEdge = (moveEvent: PointerEvent, drag: Drag) => {
-    const delta = { x: moveEvent.clientX - start.clientX, y: moveEvent.clientY - start.clientY }
-    const proportional = moveEvent.shiftKey && horizontal && vertical
-    if (proportional) snapping?.clear()
-    const change = gesture({
-      dx: delta.x,
-      dy: delta.y,
-      shift: moveEvent.shiftKey,
-      snapped: proportional ? undefined : snapping?.resize(edge, delta, moveEvent)
-    })
-    if (!change) return
-    const style: Partial<Record<keyof NodeStyle, unknown>> = { ...change }
-    // `grow` was the older way to fill along the parent's direction; a size on that axis replaces it.
-    const mainAxis = parentDirection === "column" ? vertical : horizontal
-    if (shownStyle.grow && mainAxis) style.grow = undefined
-    const serialized = JSON.stringify(style)
-    if (serialized === last) return
-    last = serialized
-    store.updateContainer(
-      entry.key,
-      "Resize layer",
-      (container) =>
-        editNode(container, boardTarget(container, state.id), location.node.id, { style: style as NodeStyle }),
-      { gesture: drag.gesture }
-    )
-  }
   followPress(gestures.resize, store, start, {
     design: entry.key,
     cursor: resizeCursors[edge],
-    move: moveEdge,
+    move(moveEvent, drag) {
+      const { style, snapped } = resize({
+        ...pointer(moveEvent),
+        shift: moveEvent.shiftKey,
+        snaps: snapping?.snaps(moveEvent) ?? false
+      })
+      snapping?.show(snapped)
+      if (!style) return
+      const serialized = JSON.stringify(style)
+      if (serialized === last) return
+      last = serialized
+      store.updateContainer(
+        entry.key,
+        "Resize layer",
+        (container) => editNode(container, boardTarget(container, state.id), layer, { style }),
+        { gesture: drag.gesture }
+      )
+    },
     // The snap guides go when the drag ends, however it ends.
     end: () => snapping?.clear()
   })
@@ -911,35 +882,19 @@ function resetSize(session: ProjectSession, handles: Handles, edge: Edge): void 
   const { store } = session
   const entry = store.getEntry(handles.design)
   if (!entry) return
-  const horizontal = edge.includes("e") || edge.includes("w")
-  const vertical = edge.includes("n") || edge.includes("s")
   if (handles.kind === "frame") {
     const mode = resolveModes(store.getModes()).find((candidate) => candidate.id === handles.mode)
     if (!mode) return
-    const next: FrameSize = { ...entry.container.frames?.[mode.viewport] }
-    if (horizontal) delete next.width
-    if (vertical) delete next.height
+    const next = frameSizeReset(entry.container.frames?.[mode.viewport], edge)
     store.updateContainer(entry.key, "Reset preview size", (container) => withFrame(container, mode.viewport, next))
     return
   }
-  const nodeId = handles.node
-  if (!nodeId) return
+  const layer = handles.node
+  if (!layer) return
   const state = editingState(entry.container, handles.state)
-  const style: Partial<Record<keyof NodeStyle, unknown>> = {}
-  if (horizontal) style.width = undefined
-  if (vertical) style.height = undefined
   store.updateContainer(entry.key, "Reset size", (container) =>
-    editNode(container, boardTarget(container, state.id), nodeId, { style: style as NodeStyle })
+    editNode(container, boardTarget(container, state.id), layer, { style: layerSizeReset(edge) })
   )
-}
-
-function withFrame(container: ContainerSpec, viewport: string, size: FrameSize): ContainerSpec {
-  const frames = { ...container.frames }
-  if (size.width === undefined && size.height === undefined) delete frames[viewport]
-  else frames[viewport] = size
-  const next: ContainerSpec = { ...container, frames }
-  if (Object.keys(frames).length === 0) delete next.frames
-  return next
 }
 
 /** The box a parent lays its children out in, inside its padding and border, in screen pixels. */

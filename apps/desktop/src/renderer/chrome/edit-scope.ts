@@ -1,4 +1,11 @@
-import { boardTarget, type ContainerSpec, editsDesign, isBaseState, type StateSpec } from "@parity-app/core"
+import {
+  boardTarget,
+  type ContainerSpec,
+  editsDesign,
+  editTargetName,
+  isBaseState,
+  type StateSpec
+} from "@parity-app/core"
 
 /**
  * What the inspector says above controls that always change the design itself, when the state or variant being edited
@@ -8,10 +15,6 @@ import { boardTarget, type ContainerSpec, editsDesign, isBaseState, type StateSp
 export function baseDesignNote(container: ContainerSpec, state: StateSpec, what: string): string | undefined {
   const target = boardTarget(container, state.id)
   if (editsDesign(container, target)) return undefined
-  if (!isBaseState(container, state.id) || !target.variant) {
-    return `${what} change every state, not only ${state.name}.`
-  }
-  const { param, option } = target.variant
-  const name = container.params?.[param]?.options?.find((candidate) => candidate.id === option)?.name ?? option
-  return `${what} change every variant, not only ${name}.`
+  const every = isBaseState(container, state.id) && target.variant ? "variant" : "state"
+  return `${what} change every ${every}, not only ${editTargetName(container, target)}.`
 }

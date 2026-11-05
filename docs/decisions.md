@@ -1580,6 +1580,22 @@ recommended answer to each of its questions.
   against a fresh page's, and the render sweep (PAR-211) is to compare whole frames with Chrome. On screen at 100%, a
   phone and a desktop frame were also captured and compared with Chrome pixel by pixel: same size and place, with only
   text antialiasing differing (the canvas draws text in grayscale, and Chrome with ClearType's colored edges).
+- **Parity's own custom properties stay out of frames** (PAR-157). Custom properties inherit into a shadow root, and
+  `all: initial` leaves them alone, so a frame inherited every variable Parity's page defines. shadcn's names are
+  Parity's too: a project using `var(--border, 1px)` without defining `--border` got Parity's border instead of its
+  fallback, which Chrome gives it. A frame's root now sets each custom property that reaches its host to `initial`, as
+  if nothing defined it, in the same lowest layer as `all: initial`, so the project's own definitions, in any layer or
+  none, still win, as do the viewport properties set on the host. My calls:
+  - **The names are read from the computed style of the element around the host** as each frame is prepared, which lists
+    every custom property reaching it: Parity's stylesheets, tldraw's, and inline ones such as tldraw's zoom. Collecting
+    them from Parity's stylesheets instead would miss the inline ones. The list sits in the sheet every frame shares and
+    only grows, since setting a property nothing passes down changes nothing; the sheet is written again only when a
+    name is new, normally for the first frame alone.
+  - **A variable Parity's page first defines after a frame is prepared** reaches that frame until it's prepared again,
+    as it is when its environment changes or it wakes. Parity's page defines its variables before the canvas draws.
+  - **Registered properties can't be kept out.** `@property` is the document's, shared by Parity and every project, so a
+    name Parity registers with an initial value has that value in frames, where on the project's own page it would be
+    undefined. Shadow roots ignore `@property`, so there's no per-frame registration to put in its place.
 - **Frames have square corners and cut nothing off,** at your request, since a browser's viewport doesn't round its
   corners. Only a frame with a device height clips, below that height, where a browser would scroll; a frame that grows
   with its content shows all of it, shadows and popups included.
@@ -2435,7 +2451,9 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - The canvas passes measures in and applies what comes back. It keeps measuring frames (`DragLayouts`), finding the
     frame under the pointer, the pointer handling and the drop preview, `measureHere`, and moving an absolutely placed
     layer by its insets, whose rule (`shiftInsets`) stays with nudging in the app. For snapping it keeps reading
-    tldraw's boxes, the View menu's preference, Ctrl to move freely and drawing the guides.
+    tldraw's boxes, the View menu's preference, Ctrl to move freely and drawing the guides. You reopened the
+    `shiftInsets` call on 2026-11-04: it's in `@parity-app/editor` now, with the rest of moving, resizing and nudging
+    (PAR-577, below).
   - A frame's layouts' flows are read when the frame is measured, with the boxes, so `dropTargetAt` takes only data.
     Before, the flow of the layout found was read from its computed style at each pointer move. Showing a copy doesn't
     change a layout's display or direction, so drops land where they did.
@@ -2524,6 +2542,11 @@ A lens is a view of one layer of an app, such as its routes, data, API, permissi
 - **Standards first, then adapters.** You decided this: "We focus on standards first, then adapters/plugins." Each lens
   works from its standard before any adapter for a particular tool is built. Web apps and their backends come first; the
   plan is [proposals/web-and-backend.md](proposals/web-and-backend.md).
+- **The editor and code viewing come before every other lens** (PAR-609). You decided this on 2026-11-05: "We need to
+  improve the new user experience and editor experience before we begin taking in lens work. The editor and code viewing
+  is the first and most important lens. Until that experience is great, it doesn't matter to add other lenses." So the
+  lenses below wait, in their order, at Low priority in Linear, and PAR-17 to PAR-19, which read schemas and keep
+  database keys, stay in Backlog.
 - **Lens priority: databases, the API, routes and mock data, then telemetry.** You set this order: "1) Databases 2)
   API 3) Telemetry", then placed the rest: "Routes and mock data should come before telemetry, right after the API."
   Mock data includes the scenarios that fill designs. Telemetry means OpenTelemetry from the running app: traces linking
@@ -3727,7 +3750,8 @@ below. My calls on how they move:
     without the leading slash, which the CLI and MCP report as the error's `path`.
   - `plainObject`, `nonBlankString` (trimmed) and `finiteNumber` are the shared pieces, and `jsonText(schema)` parses
     JSON text, then checks it with the schema.
-  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type.
+  - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type. PAR-573
+    added the fields its package reader needs.
   - A read that returns nothing when the data is malformed calls the schema's own `safeParse(value).data`, as
     `readErrorDetails`, `readCopyEntry`, the caller-name helpers and the agent registry's settings do.
 - **A schema is the check and the type.** Types come from `z.infer`, not from an interface kept beside the check.
@@ -3763,7 +3787,20 @@ below. My calls on how they move:
   through Parity's packages, and fails if it reaches zod.
 - **MCP's input schemas come from zod** through `z.toJSONSchema`, and `tools/list` keeps its 12 KiB budget (PAR-510).
 - **Token files stay lenient.** A malformed token is skipped and reported rather than failing its file, since a strict
-  check would refuse files that load today (PAR-591).
+  check would refuse files that load today (PAR-591). Each of the 12 registry libraries with tokens read the same before
+  and after, with nothing skipped. My calls:
+  - Each `$type`'s `$value` is a schema in `tokens/src/dtcg-values.ts`, checked once aliases are followed. Any value can
+    be a string instead, CSS read as written, since libgen writes CSS where DTCG has no form for it.
+  - The parts Parity filled in when they were missing stay optional: a shadow's offsets, blur, spread and inset, and a
+    typography's weight, line height and letter spacing. A dimension takes any CSS unit, since libgen writes `em`.
+  - A token malformed in one context is left out of that context only. A malformed set, modifier or step of a resolver's
+    resolution order is left out too. A broken alias still fails the file.
+  - Each skip is reported once. `readDesignTokens` passes it to its caller, and project discovery adds it to the
+    project's notes, as `acme.lib.par: skipped radius (/$value: expected a string or an object)`. The Tokens panel
+    doesn't show these yet.
+  - A stroke style's dash pattern is written as `dashed`, since a CSS border can't draw one.
+  - `parseData` passes over a union's options for another type of value, so a malformed shadow reports its bad part
+    rather than `expected a string`.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
@@ -3891,6 +3928,23 @@ gesture). My calls:
 - **tldraw's own drag of a board stays tldraw's,** ending when tldraw stops translating, since tldraw follows that
   pointer, not Parity.
 
+## Agents tell board collisions from title clearance, and a call's warnings from an audit (PAR-462)
+
+An agent read an execute call with no overlap warnings as a tidy canvas, and a title too close as boards on top of each
+other. The two checks already differed, and `Overlaps()` already marked `titleOnly` and `estimated`; this makes what
+they mean, and what each check covers, plain:
+
+- **Two categories for a call's own boards.** `overlap` is two boards colliding; `title_clearance` is boards that are
+  clear, but so close that the lower one's title covers the upper. Both are warnings, and both stay limited to boards
+  the call created, changed or moved, as before.
+- **The rest of the canvas is counted, not listed.** When boards the call didn't touch are too close, one
+  `canvas_overlaps` suggestion says how many pairs and points to `Overlaps()`. A call that only reads therefore doesn't
+  look like a clean canvas, without repeating every old overlap on every call.
+- **Measured or estimated, in words.** A warning says "measured" when the canvas drew both boards, and otherwise names
+  the board that isn't drawn yet. `Overlaps()` keeps `titleOnly` and `estimated` as they were, with no new fields, and
+  `state`'s schema now describes them. Real sizes for undrawn boards remain PAR-279's, and the 1400 × 1000 room a new
+  screen is placed with isn't treated as a placement bug: it's placed right of every board.
+
 ## One step works out the component list (PAR-566)
 
 The order that keeps the component list current was written four times in the project service, and the copies disagreed.
@@ -3922,3 +3976,169 @@ event and returns the next list, and every path goes through it. My calls:
 - **An export the person puts on the list shows at once,** before its file is read again. One they take back off waits
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
+
+## A component's name goes in only where it fits (PAR-518)
+
+A component that takes children is inserted with its name as text, so it isn't an empty box. The preview survey found
+parts whose box has a fixed size showing it cut off: "Avata", "C", "Marke", the end of "AttachmentAction". Nothing in a
+component's props says how big its box is, so my calls:
+
+- **A component's own classes say whether it sets its size.** The props reader looks at the classes on the outermost
+  element a component returns, in a project's source or a library's compiled JavaScript, and marks it `fixedSize` for a
+  width (`size-8`, `w-10`, `w-(--sidebar-width)`), a height under a line of text (`h-px`, under 16 pixels) or
+  `@container`, whose width doesn't come from what's inside. Classes for the element's own states (`data-horizontal:`)
+  count; ones it takes from a parent (`group-*:`) or gives what's inside (`[&_svg]:`) don't. It reads Tailwind's names
+  only, which is what shadcn and the libraries Parity ships are written in; a component styled another way keeps its
+  name. Measuring the drawn label instead would take a second draw for every preview and an edit after every insert.
+- **A library's samples decide its parts' children.** A part with a sample gets what the sample gives, and no name when
+  it gives none: its examples use a Separator, a Checkbox or an icon button without text. Before, only a sample that
+  spelled out children replaced the name. A part without a sample of its own takes the children the first of its
+  library's other samples to use it gives it, which for MarkerIcon and AttachmentMedia is none (elements the sample
+  can't show, their icons). Only the label changes; a part's props still come from its own sample.
+- **A part no sample shows keeps its name,** as do the project's own components that don't set their size, since the
+  name is still the best sign of what was placed. ItemSeparator and SidebarSeparator wrap nova's Separator, whose
+  classes are on the Separator, not theirs, so they still show a cut name; reading through to the component a part
+  returns would cover them.
+- **A narrow Card stays narrow.** nova's Card in its preview is a narrow column because its CardHeader is a
+  `@container`, which takes no width from its text in a preview drawn at the width of its content. That's the preview's
+  width, not a name, and isn't changed here.
+
+## Hide in and Show in name where the change lands (PAR-497)
+
+Called on 2026-11-05, for your approval in Storybook. The Layers row's menu said "Show in Default" for a layer that the
+variant option shown on the board hides, though the change goes to that option. It now names whatever takes the change,
+as `boardTarget` decides it: the option shown, in the base state, whether or not that option is what hides the layer;
+any other state, since a state takes changes over the variant. Core's `editTargetName` gives the name, so the menu and
+the inspector's note ("change every variant, not only Large") read it the same way.
+
+## The start page is built: Home and new tabs (PAR-605)
+
+You asked on 2026-11-05 to build the start page's Home and New tab from the explorations (Parity/Explorations/Start
+page), with whatever Parity can't do yet stubbed. My calls:
+
+- **Home is a tab pinned first in the strip,** an icon only, which can't be closed. It shows when it's chosen, and
+  whenever no tab is, so closing the last tab lands there, and a fresh install starts there. The window remembers
+  whether it was on Home and comes back to it, reopening the saved tabs behind it.
+- **Home's shortcut is Alt+Home,** which browsers use for their home page; the exploration's Ctrl+Shift+H already runs
+  Hide or show. Ctrl+Tab and Ctrl+Shift+Tab go round with Home first.
+- **The strip's + and Ctrl+T open a new tab,** at the end of the strip, rather than the folder picker. A project opened
+  from it, by its cards, Open, the File menu or search, opens in that tab. A project that's already open elsewhere is
+  switched to, and the new tab it was picked from closes, since a project opens once. New tabs aren't saved, and agents
+  don't see them: with Home or a new tab showing, a call that names no tab says no project tab is active.
+- **A project is named by its folder,** as File > Open recent names it, and its card says when it was last opened. The
+  window keeps that time and whether it's starred beside the recent list (`parity.projects` in local storage, checked
+  with zod as it's read). Starred keeps a project after it leaves the recent list; All projects is the recent and
+  starred ones together.
+- **Ctrl+K finds your projects as well as actions,** so the start page's search does something real. Projects come first
+  on Home and in a new tab, and last in a project.
+- **What can't work yet is in place and says so.** Each project's picture is a placeholder, a board and a phone in a
+  color of its own with its initial, until Parity keeps a render of each project. For you says nothing needs you, and
+  Shared with you is empty. New project and New project from this wait on the scaffolder (PAR-284) and offer to open a
+  folder instead; cloning, Copy link, Invite people and New organization say they aren't ready yet. The organization
+  switcher shows Personal alone. The exploration's inbox and account in the title bar, and people working in a project
+  right now, are left out until they exist.
+- **Home names the page and, in a project, its first screen.** A project with no `.par` file still opens on a Home
+  screen (PAR-561). The two don't meet: the page is a tab in the window's strip, and the screen is on a project's
+  canvas.
+
+## Moving, resizing and nudging are one editor module (PAR-577)
+
+Resizing a layer ran through five places in two packages, and the overlay's `startResize` had to call them in the right
+order. PAR-33 had left moving an absolutely placed layer by its insets with nudging in the app (see Packages, above).
+You reopened that call on 2026-11-04, since resizing needs both halves in a fixed order. Now `move-resize.ts` in
+`@parity-app/editor` holds the rules, and the canvas measures and writes (see editor.md, Resize handles). Nothing people
+see changes. My calls:
+
+- **One file, not one per gesture.** Insets, resizing a layer or a frame, dragging an absolutely placed layer and
+  nudging share their rounding, which sizes a handle changes, and how a layer's insets move. Where handles go
+  (`handles.ts`) and snapping (`snap.ts`) stay files of their own, which the module calls. `resizeStart`, which reads a
+  layer as the board shows it, moved from `handles.ts` into the module.
+- **The canvas measures, the module decides.** For a layer, the overlay measures its box, its parent's inside and, for
+  one placed absolutely, where its sides are drawn and what it snaps to. For each pointer move, `layerResize` gives the
+  style and where its edges snapped: snapped edges taken exactly, Shift on a corner not snapping, and `grow` taken away.
+  `frameResize` takes the frame's box and gives its size, and double-clicks are `layerSizeReset` and `frameSizeReset`.
+  The overlay still chooses what to measure from the style the board shows, since an absolutely placed layer's insets
+  and siblings cost layout reads that a layer in a layout doesn't need.
+- **`LayerSnapping` measures and shows; it no longer snaps.** `absoluteDrag` and `layerResize` call `snapLayer` with
+  what it measured and give back where the layer locked, which its `show` draws, or clears when nothing locked. Its
+  Chrome test calls `snapLayer` with what it measured.
+- **One half-pixel rule.** A snapped resize and a snapped drag went to the half pixel in two ways, one counting pixels
+  and one counting steps (PAR-551). Both use one rule now, in steps, and so do the half steps an inset moves in.
+- **The 4-pixel drag threshold is the editor's.** `resizeGesture` needs it and the canvas's gesture lifecycle (PAR-568)
+  imports it, so it's still written once.
+- **A frame snaps back by the fill distance.** A frame's width and content height came back within 6 screen pixels, a
+  number the overlay called `snapDistance`, though snapping a layer goes by 8. It's `fillDistance` now, the distance a
+  layer's edge fills by.
+- **The tests moved as they were.** The insets, resize and nudge tests, and `resizeStart`'s from `handles.test.ts`, are
+  in `move-resize.test.ts`, with one fixture renamed so they can share a file. The app's `nudge.test.ts` keeps the
+  presses on the real stores. Resizing a frame, the double-click resets, `grow`, a resize's snapped edges and the drag
+  have tests from boxes now.
+
+## Installed packages are read one way (PAR-573)
+
+The architecture review of 2026-11-04 found that finding an installed package and the file it points to was written
+three to five ways, and the copies disagreed. One reader in `@parity-app/project`, `packages.ts`, now does it for the
+project's discovery, libgen, the Tailwind adapter and `parity lib check`, and the old copies are gone. My calls:
+
+- **The reader is a set of functions over a package's folder and manifest.** `findPackage` looks in `node_modules` from
+  a folder up, as Node does, follows pnpm's links and never uses NODE_PATH. `readPackage` reads a folder's manifest.
+  `packageEntry(pkg, use, subpath)` gives the file an entry point leads to for `types`, `runtime`, `source` or `style`,
+  `packageStylesheet` the stylesheet a project imports, and `exportedComponents` what a module exports through both
+  kinds of re-export. The Tailwind adapter now depends on `@parity-app/project` for them, as the edge may depend on
+  readers.
+- **Manifests are read through core's `packageManifest`,** which gains the fields the reader needs: `version`,
+  `exports`, `types`, `typings`, `module`, `main`, `style` and `workspaces`. PAR-597 adds the rest. A manifest that
+  isn't JSON, or has a field of the wrong type, throws with the file and the JSON pointer:
+  - Discovery leaves that package out and says why in its notes.
+  - Detection treats it as not installed.
+  - A workspace skips it, as package managers do.
+- **Conditions are tried in the order each use wants them,** as every copy did, rather than the order the package writes
+  them:
+  - Declarations: `types`, `import`, `default`, `require`.
+  - The module Node imports: `node`, `import`, `default`.
+  - Source: `source`, `types`, `import`, `default`.
+  - A stylesheet: `style`, `import`, `default`.
+- **The rest of `exports` is read as Node reads it:** patterns (`./icons/*`, the longest prefix first), `null` for a
+  private path, fallback lists and conditions written for the one entry point. Without an entry in `exports`, the older
+  fields are read, and declarations beside the module (`dist/index.d.ts` for `dist/index.js`), as TypeScript reads them.
+- **A built file is traced to its source by its path.** The build folders at the start of the path (`dist`, `build`,
+  `lib`, `out`, `esm` and `cjs`) become `src`, so `dist/esm/card.js` was built from `src/card.tsx`. Before, a build
+  folder's name anywhere counted, so a workspace package whose `main` was `src/lib/index.ts` was read from
+  `src/index.ts` when it had one, and not at all when it didn't.
+- **Re-exports follow JavaScript's rules.** `export *` doesn't bring a module's default export, and
+  `export { default as Dialog }` brings it under its new name. A library's declarations now follow `export { A } from`
+  as well as `export *`, which only the workspace copy did.
+- **The Tailwind adapter loads `@tailwindcss/node` through its `import` condition,** since it loads it with `import()`.
+  It used the `require` one, which is what `createRequire` resolved to. The theme reads the same.
+- **Hand edits are read one way, in `@parity-app/registry`:** `withEdits` and `readLibraryEdits`. A shared edits file
+  may have comments, as discovery and libgen allowed; `parity lib check` read it as plain JSON. `parseJsonc` moved to
+  core so the registry can use it.
+- **The registry picks each package's newest file by semver,** with its hand edits applied (`newestEntries`). The
+  library catalog compared versions as text, so 10.0.0 came before 9.5.0, and `parity lib check` took the first file
+  with the library's id by file name.
+- **Buildkit's presets no longer name `tailwind.css`.** It's the first of the usual stylesheet names in their `exports`,
+  so it's found as any package's stylesheet is.
+- **PAR-587's case now works.** A library's components come from its declarations found in `exports` too, so a package
+  whose types are only there lists them. PAR-587 adds its test.
+
+## Signing in goes through WorkOS in the browser (PAR-610)
+
+You asked on 2026-11-05 for Google, GitHub and Microsoft sign-in through WorkOS, chosen for its organization support.
+The design is in [proposals/sign-in.md](proposals/sign-in.md), and the work is PAR-611 to PAR-616. Your calls, each
+taking my recommendation:
+
+- **The sign-in screen is the Centered form story.** AuthKit, in the browser, sends a work email to its company's single
+  sign-on or a code by email. The Email first stories have the code typed into Parity, which needs WorkOS's API key and
+  so a server.
+- **Parity talks to WorkOS itself, with no new library:** a public client with PKCE, on `fetch` and zod, in a new
+  `@parity-app/account` package. `@workos/authkit-electron` was passed over: it's at 0.1.2, needs an older
+  `@workos-inc/node` than Better Apps uses, and brings `electron-store` and its own React provider.
+- **Signing in is optional.** Nothing that works on local folders asks for it.
+
+My calls:
+
+- **Installed apps hand back through `parity://auth/callback` on WorkOS's production environment, and `pnpm dev` copies
+  through a loopback port on the sandbox,** since several copies run at once and only an installed app gets the scheme.
+  A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
+- **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
+- **The client IDs go in the code,** since they're public. The API key never ships in the app.

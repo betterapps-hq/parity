@@ -1,7 +1,6 @@
-import { readdir, readFile, realpath, stat } from "node:fs/promises"
-import { dirname, join, posix, relative, resolve } from "node:path"
+import { readdir, readFile } from "node:fs/promises"
+import { dirname, join, posix, relative } from "node:path"
 import {
-  applyLibraryEdits,
   type ComponentSource,
   type ContainerSpec,
   type DescribedTokens,
@@ -11,15 +10,14 @@ import {
   libraryId,
   libraryManifestExtension,
   type PackageManifest,
-  parseLibraryEdits,
   parseLibraryManifest,
   type RendererAdapter,
   librarySource,
   remapLibraryImports
 } from "@parity-app/core"
-import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity-app/registry"
-import { readDesignTokens } from "@parity-app/tokens"
-import { parseJsonc } from "./jsonc.ts"
+import { newestEntries, registryEntryFor, withEdits } from "@parity-app/registry"
+import { readDesignTokens, type SkippedToken } from "@parity-app/tokens"
+import { exportedComponents, findPackage, type InstalledPackage, packageEntry } from "./packages.ts"
 import { readStylesheet } from "./styles.ts"
 
 /** A library that can be added to a project from the canvas: one Parity's registry describes. */
@@ -39,15 +37,7 @@ export interface LibraryDefinition {
  * for its newest version. Buildkit's nova style comes first.
  */
 export async function libraryCatalog(): Promise<LibraryDefinition[]> {
-  const newest = new Map<string, RegistryEntry>()
-  for (const entry of await registryEntries()) {
-    const name = entry.manifest.package!.name
-    const current = newest.get(name)
-    if (!current || (entry.manifest.package?.version ?? "") > (current.manifest.package?.version ?? "")) {
-      newest.set(name, entry)
-    }
-  }
-  return [...newest.values()]
+  return (await newestEntries())
     .map((entry) => definitionOf(entry.manifest, entry.manifest.package!.name))
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
 }
@@ -116,19 +106,26 @@ export async function findLibraries(
   const result: FoundLibraries = { libraries: [], components: {}, describedTokens: [], notes: [] }
   const dependencies = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
   for (const importName of dependencies) {
-    const packageDir = await installedPackage(root, importName)
-    if (!packageDir) continue
-    const installed = JSON.parse(await readFile(join(packageDir, "package.json"), "utf8")) as PackageManifest & {
-      name?: string
-      version?: string
-      types?: string
-      typings?: string
+    let installed: InstalledPackage | undefined
+    try {
+      installed = await findPackage(root, importName)
+    } catch (error) {
+      result.notes.push(`${importName} was left out: ${errorText(error)}`)
+      continue
     }
-    const packageName = installed.name ?? importName
+    if (!installed) continue
+    const packageDir = installed.dir
+    const { version } = installed.manifest
+    const packageName = installed.manifest.name ?? importName
     const own = await libraryManifestIn(packageDir)
-    const fromRegistry = own ? undefined : await registryEntryFor(packageName, installed.version, registry)
+    const fromRegistry = own ? undefined : await registryEntryFor(packageName, version, registry)
     const described = own ?? fromRegistry
-    const edited = described && (await withEdits(described.path, described.manifest))
+    const edited =
+      described &&
+      (await withEdits(described.path, described.manifest).catch((error: unknown) => ({
+        manifest: described.manifest,
+        orphans: [`(its edits can't be read: ${errorText(error)})`]
+      })))
     if (edited?.orphans.length) {
       result.notes.push(`${packageName}: hand edits for exports it no longer has: ${edited.orphans.join(", ")}`)
     }
@@ -146,7 +143,7 @@ export async function findLibraries(
       description: definition.description,
       package: definition.package,
       importName,
-      ...(installed.version ? { version: installed.version } : {}),
+      ...(version ? { version } : {}),
       ...(definition.tailwindEntry ? { tailwindEntry: definition.tailwindEntry } : {}),
       ...(definition.kind === "icons" ? { kind: "icons" as const } : {}),
       stylesImported:
@@ -160,12 +157,13 @@ export async function findLibraries(
       ...designsOf(manifest, definition.id)
     })
     if (described && manifestPath) {
-      const tokens = await describedTokens(root, described.path, described.manifest, manifestPath)
+      const tokens = await describedTokens(root, described.path, described.manifest, result.notes, manifestPath)
       if (tokens) result.describedTokens.push(tokens)
     }
     // Icons are used by name from the whole package, not listed one by one.
     if (definition.kind === "icons") continue
-    const entry = join(packageDir, installed.types ?? installed.typings ?? "dist/index.d.ts")
+    // TypeScript's own last resort is the package's `index.d.ts`.
+    const entry = packageEntry(installed, "types") ?? join(packageDir, "index.d.ts")
     const listed = manifest?.components
     if (listed) {
       // A file made for an older version still describes it: components the package no longer exports are left
@@ -174,15 +172,15 @@ export async function findLibraries(
       if (older && fromRegistry) {
         const made = fromRegistry.manifest.package?.version ?? "an older version"
         result.notes.push(
-          `${packageName} ${installed.version ?? ""} is newer than Parity's file for it (${made}): ${older.added.length} new components found by name, ${older.gone.size} gone. \`parity lib ${packageName} --registry\` updates it.`
+          `${packageName} ${version ?? ""} is newer than Parity's file for it (${made}): ${older.added.length} new components found by name, ${older.gone.size} gone. \`parity lib ${packageName} --registry\` updates it.`
         )
-        for (const { name, file } of older.added) {
-          result.components[`${definition.id}/${name}`] = {
-            path: importName,
-            export: name,
-            library: definition.id,
-            declaration: posix.normalize(relative(root, file).replaceAll("\\", "/"))
-          }
+        for (const component of older.added) {
+          result.components[`${definition.id}/${component.name}`] = declaredSource(
+            root,
+            importName,
+            definition.id,
+            component
+          )
         }
       }
       for (const [name, component] of Object.entries(listed.list)) {
@@ -195,42 +193,41 @@ export async function findLibraries(
       }
       continue
     }
-    for (const { name, file } of await declaredComponents(entry, renderer)) {
-      result.components[`${definition.id}/${name}`] = {
-        path: importName,
-        export: name,
-        library: definition.id,
-        declaration: posix.normalize(relative(root, file).replaceAll("\\", "/"))
-      }
+    for (const component of await declaredComponents(entry, renderer)) {
+      result.components[`${definition.id}/${component.name}`] = declaredSource(
+        root,
+        importName,
+        definition.id,
+        component
+      )
     }
   }
   return result
+}
+
+/** A component a library's declarations export, imported by the name the project depends on the library by. */
+function declaredSource(
+  root: string,
+  importName: string,
+  library: string,
+  component: DeclaredComponent
+): ComponentSource {
+  return {
+    path: importName,
+    export: component.export,
+    library,
+    declaration: posix.normalize(relative(root, component.file).replaceAll("\\", "/"))
+  }
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 /** The component designs a library's canvas holds, named by the library, when it has any. */
 function designsOf(manifest: LibraryManifest | undefined, id: string): { designs?: ContainerSpec[] } {
   const designs = manifest ? libraryDesigns(manifest, id) : []
   return designs.length > 0 ? { designs } : {}
-}
-
-/** A library file with its hand edits merged over it, read from its `edits` or the shared file it names. */
-async function withEdits(
-  path: string,
-  manifest: LibraryManifest
-): Promise<{ manifest: LibraryManifest; orphans: string[] }> {
-  if (!manifest.edits) return { manifest, orphans: [] }
-  try {
-    const edits =
-      typeof manifest.edits === "string"
-        ? parseLibraryEdits(parseJsonc(await readFile(join(dirname(path), manifest.edits), "utf8")))
-        : manifest.edits
-    return applyLibraryEdits(manifest, edits)
-  } catch (error) {
-    return {
-      manifest,
-      orphans: [`(its edits can't be read: ${error instanceof Error ? error.message : String(error)})`]
-    }
-  }
 }
 
 /**
@@ -242,7 +239,7 @@ async function newerExports(
   entry: string,
   renderer: RendererAdapter,
   list: Record<string, unknown>
-): Promise<{ added: { name: string; file: string }[]; gone: Set<string> }> {
+): Promise<{ added: DeclaredComponent[]; gone: Set<string> }> {
   const declared = await declaredComponents(entry, renderer)
   if (declared.length === 0) return { added: [], gone: new Set() }
   const names = new Set(declared.map((component) => component.name))
@@ -264,43 +261,25 @@ function importOf(specifier: string | undefined, packageName: string, importName
 }
 
 /**
- * Where a dependency is installed, found the way Node finds packages: in `node_modules` here or in a folder above. It
- * doesn't resolve `<name>/package.json`, because a package whose `exports` leaves that out can't be resolved that way.
- */
-export async function installedPackage(root: string, importName: string): Promise<string | undefined> {
-  for (let folder = resolve(root); ; folder = dirname(folder)) {
-    const candidate = join(folder, "node_modules", importName)
-    if (await isFile(join(candidate, "package.json"))) return realpath(candidate)
-    if (dirname(folder) === folder) return undefined
-  }
-}
-
-async function isFile(path: string): Promise<boolean> {
-  return stat(path).then(
-    (stats) => stats.isFile(),
-    () => false
-  )
-}
-
-/**
  * The tokens a `.lib.par` describes, read from the DTCG files it points at or written inline. A file that can't be read
- * is reported with the library, not thrown, so the project still opens. `shownAs` is how the manifest is named to the
- * person, which for one in Parity's registry isn't a path in the project.
+ * is reported with the library, not thrown, so the project still opens, and each malformed token left out is added to
+ * `notes`. `shownAs` is how the manifest is named to the person, which for one in Parity's registry isn't a path in the
+ * project.
  */
 export async function describedTokens(
   root: string,
   manifestPath: string,
   manifest: LibraryManifest,
+  notes: string[],
   shownAs = posix.normalize(relative(root, manifestPath).replaceAll("\\", "/"))
 ): Promise<DescribedTokens | undefined> {
   if (manifest.tokens === undefined) return undefined
   const entry = { name: manifest.name, manifest: shownAs }
   try {
     const read = async (path: string): Promise<unknown> => JSON.parse(await readFile(path, "utf8"))
-    return {
-      ...entry,
-      tokens: await readDesignTokens(manifest.tokens, read, dirname(manifestPath).replaceAll("\\", "/"))
-    }
+    const folder = dirname(manifestPath).replaceAll("\\", "/")
+    const skipped = ({ path, problem }: SkippedToken) => notes.push(`${shownAs}: skipped ${path} (${problem})`)
+    return { ...entry, tokens: await readDesignTokens(manifest.tokens, read, folder, skipped) }
   } catch (error) {
     return { ...entry, tokens: [], error: error instanceof Error ? error.message : String(error) }
   }
@@ -337,19 +316,15 @@ function definitionOf(manifest: LibraryManifest, packageName: string): LibraryDe
   }
 }
 
-/** Components a declaration file exports, following `export * from "./x.js"` into the package's own files. */
-async function declaredComponents(
-  entry: string,
-  renderer: RendererAdapter,
-  seen = new Set<string>()
-): Promise<{ name: string; file: string }[]> {
-  if (seen.has(entry)) return []
-  seen.add(entry)
-  const source = await readFile(entry, "utf8").catch(() => "")
-  const found = renderer.findComponents(source, entry).map(({ name }) => ({ name, file: entry }))
-  for (const match of source.matchAll(/export\s+\*\s+from\s+["'](\.[^"']+)["']/g)) {
-    const target = join(dirname(entry), match[1]!.replace(/\.js$/, ".d.ts"))
-    found.push(...(await declaredComponents(target, renderer, seen)))
-  }
-  return found
+/** A component a library's declarations export: what it's called, the export it's imported by, and its file. */
+interface DeclaredComponent {
+  name: string
+  export: string
+  file: string
+}
+
+/** The components a library's declarations export, through both kinds of re-export. */
+async function declaredComponents(entry: string, renderer: RendererAdapter): Promise<DeclaredComponent[]> {
+  const exported = await exportedComponents(entry, renderer)
+  return [...exported].map(([name, component]) => ({ name: component.name, export: name, file: component.file }))
 }
