@@ -1,8 +1,22 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 02:45:21 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 03:41:00 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.7.0
+
+Thu, 05 Nov 2026 03:41:00 GMT
+
+### Minor changes
+
+- Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Menus say Convert to component and Convert to screen for changing a design's kind, and undo names the change the same
+  way (ajcraswell@gmail.com)
 
 ## 0.6.1
 

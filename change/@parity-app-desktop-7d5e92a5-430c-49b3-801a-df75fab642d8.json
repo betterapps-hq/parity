@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

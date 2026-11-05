@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Menus say Convert to component and Convert to screen for changing a design's kind, and undo names the change the same way",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

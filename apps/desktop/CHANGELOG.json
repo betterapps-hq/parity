@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 03:41:00 GMT",
+      "version": "0.7.0",
+      "tag": "@parity-app/desktop_v0.7.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2bd53d75e9ea2316c010258b392b04f1c8b313c2",
+            "comment": "Menus say Convert to component and Convert to screen for changing a design's kind, and undo names the change the same way"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "892d47dc7132ac4659696e300090c4cb78c231fe",
+            "comment": "Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 02:45:21 GMT",
       "version": "0.6.1",
       "tag": "@parity-app/desktop_v0.6.1",
