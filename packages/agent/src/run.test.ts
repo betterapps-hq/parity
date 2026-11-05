@@ -1,4 +1,4 @@
-import { defaultModeSettings, findNode, frameGeometry, resolveModes } from "@parity-app/core"
+import { defaultModeSettings, type DesignNode, findNode, frameGeometry, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { execute } from "./run.ts"
 import type {
@@ -1057,5 +1057,122 @@ describe("coded failures", () => {
     await expect(
       execute({ label: "Retry", editId: failed.editId, edits: [{ find: "absent", replace: "x" }] }, snapshot(), hooks())
     ).rejects.toMatchObject({ details: { code: "invalid_input", field: "edits/0/find" } })
+  })
+})
+
+describe("Replace", () => {
+  /** The sign-up screen with a mobile patch on the title, a loading state on the button and a size variant. */
+  function patched(): AgentSnapshot {
+    const read = snapshot()
+    const [design] = read.documents[0]!.document.containers
+    const page = design!.root as Extract<DesignNode, { type: "layout" }>
+    page.responsive = { mobile: { style: { gap: 2 } } }
+    page.children[0]!.responsive = { mobile: { hidden: true }, tablet: { text: "Sign up" } }
+    design!.states.push({ id: "loading", name: "Loading", overrides: { submit: { props: { disabled: true } } } })
+    design!.params = {
+      size: {
+        type: "variant",
+        options: [
+          { id: "small", name: "Small", overrides: { title: { text: "Join" } } },
+          { id: "large", name: "Large" }
+        ]
+      }
+    }
+    return read
+  }
+
+  it("reports the patches a nested Replace throws away, and only the replaced node's", async () => {
+    const result = await execute(
+      {
+        label: "Rebuild the title",
+        code: `Print(Replace("title", {type: "text", name: "Heading", text: "Welcome"}))`
+      },
+      patched(),
+      hooks()
+    )
+    expect(result.ok).toBe(true)
+    expect(result.discarded).toEqual([
+      {
+        design: "signup",
+        replaced: "title",
+        replacement: result.output[0],
+        nodes: [{ id: "title", name: "Title", viewports: ["mobile", "tablet"], variants: ["size=small"] }]
+      }
+    ])
+    const after = result.changes.designs[0]!.after!
+    expect(after.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
+    expect(after.root.responsive).toEqual({ mobile: { style: { gap: 2 } } })
+  })
+
+  it("reports every node's patches when it replaces the root, which clears the states", async () => {
+    const result = await execute(
+      { label: "Rebuild the page", code: `Replace("signup/page", {type: "layout", name: "Page", children: []})` },
+      patched(),
+      hooks()
+    )
+    expect(result.error).toBeUndefined()
+    expect(result.discarded?.[0]).toMatchObject({ design: "signup", replaced: "page" })
+    expect(result.discarded?.[0]!.nodes).toEqual([
+      { id: "page", name: "Page", viewports: ["mobile"] },
+      { id: "title", name: "Title", viewports: ["mobile", "tablet"], variants: ["size=small"] },
+      { id: "submit", name: "Submit", states: ["loading"] }
+    ])
+    const after = result.changes.designs[0]!.after!
+    expect(after.params?.size?.options?.[0]).toEqual({ id: "small", name: "Small" })
+  })
+
+  it("keeps the old patches in the design as it read it, so undoing the step brings them back", async () => {
+    const result = await execute(
+      { label: "Rebuild the button", code: `Replace("submit", {type: "component", component: "Button"})` },
+      patched(),
+      hooks()
+    )
+    expect(result.error).toBeUndefined()
+    const change = result.changes.designs[0]!
+    expect(change.base!.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
+    expect(change.after!.states[1]!.overrides).toBeUndefined()
+  })
+
+  it("reports nothing when the call fails and changes nothing", async () => {
+    const result = await execute(
+      { label: "Rebuild the title", code: `Replace("title", {type: "text", text: "Welcome"})\nmissing()` },
+      patched(),
+      hooks()
+    )
+    expect(result.ok).toBe(false)
+    expect(result.discarded).toBeUndefined()
+    expect(result.changes.designs).toEqual([])
+  })
+
+  it("says nothing about a replacement that had no patches to lose", async () => {
+    const result = await execute(
+      {
+        label: "Rebuild twice",
+        code: `const id = Replace("submit", {type: "component", component: "Button"})
+Replace(id, {type: "component", component: "Button", props: {children: "Go"}})`
+      },
+      snapshot(),
+      hooks()
+    )
+    expect(result.ok).toBe(true)
+    expect(result).not.toHaveProperty("discarded")
+  })
+
+  it("runs the skill's example of putting patches back", async () => {
+    const result = await execute(
+      {
+        label: "Rebuild the title",
+        code: `const title = Replace("signup/Title", { type: "text", name: "Title", text: "Welcome" })
+Responsive(title, "mobile", { hidden: true })
+UpdateState("signup", "loading", { changes: { [title]: { text: "Signing you up…" } } })`
+      },
+      patched(),
+      hooks()
+    )
+    expect(result.ok).toBe(true)
+    const after = result.changes.designs[0]!.after!
+    const title = result.discarded![0]!.replacement
+    expect(findNode(after.root, title)?.responsive).toEqual({ mobile: { hidden: true } })
+    expect(after.states[1]!.overrides?.[title]).toEqual({ text: "Signing you up…" })
   })
 })

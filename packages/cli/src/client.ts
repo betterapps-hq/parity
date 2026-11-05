@@ -166,6 +166,20 @@ export function describeExec(result: ExecResponse): string {
   if (created.length > 0) lines.push("", "Created:", ...created.map(([name, id]) => `  ${name} = ${id}`))
   if (result.warnings.length > 0)
     lines.push("", "Warnings (fix these next):", ...result.warnings.map((warning) => `  ${warning}`))
+  if (result.discarded?.length) {
+    lines.push("", "Discarded by Replace (reapply what you still want to the new node):")
+    for (const { design, replaced, replacement, nodes } of result.discarded) {
+      lines.push(`  ${design}/${replaced}, now ${replacement}:`)
+      for (const node of nodes) {
+        const where = [
+          node.viewports && `viewports ${node.viewports.join(", ")}`,
+          node.states && `states ${node.states.join(", ")}`,
+          node.variants && `variants ${node.variants.join(", ")}`
+        ].filter(Boolean)
+        lines.push(`    ${node.name ? `${node.name} (${node.id})` : node.id}: ${where.join("; ")}`)
+      }
+    }
+  }
   if (result.screenshots.length > 0) {
     lines.push(
       "",

@@ -3317,6 +3317,29 @@ Checked in the running app on `examples/shadcn-vite`: unknown tab, component, de
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the
 CLI; `get_app_state` is unbounded (53 KB for 61 designs), left to PAR-479.
 
+### What Replace discards (PAR-455)
+
+`Replace` puts a new node, with fresh ids, where the old one was. The old node and everything inside it go, and so do
+the patches keyed to them: their responsive patches, their changes in every state and their variant options' patches.
+Replacing a design's root also clears every state's changes. Nothing is moved onto the new node, since its ids don't map
+onto the old ones. Patches on nodes outside the replaced one stay.
+
+An execute result says what went in `discarded`: for each `Replace` that threw patches away, the design, the replaced
+node, its replacement, and each node that had patches, by id (or `instance/inner` path) and name, with the viewports,
+states and `param=option` variants it was patched in. The CLI and MCP text list them under "Discarded by Replace". A
+replacement that dropped nothing adds nothing, and a failed call reports nothing, because it changed nothing. Undo
+brings the patches back with the rest of the step. The skill shows how to put back the ones still wanted.
+
+Implementation: `packages/agent/src/workspace.ts` (`replace` and `discardedPatches`, which compares the design before
+and after); `packages/agent/src/types.ts` (`DiscardedPatches`); `packages/cli/src/execute.ts` (the field and its schema)
+and `client.ts` (`describeExec`).
+
+Tests: `packages/agent/src/run.test.ts` ("Replace": a nested replacement reports only its node's viewports and variant
+and keeps the rest; a root replacement reports every node's patches and drops the variant patches; the design as read
+keeps them for undo; a failed call reports nothing; replacements without patches add no field; the skill's example of
+putting patches back). `packages/cli/src/execute.test.ts` (the same text from the CLI and MCP, `discarded` in `--json`
+and structured content, and nothing when there's none).
+
 ### Which copy of the app a call reaches (PAR-514)
 
 Several copies of Parity can run at once, each with its own projects open, and every CLI or MCP call goes to the copy

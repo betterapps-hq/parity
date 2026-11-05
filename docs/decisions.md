@@ -1694,6 +1694,12 @@ recommended answer to each of its questions.
   `@parity-app/builder-vite/dependency-maps`, which imports only Vite's types, since the builder runs it in the
   project's own Vite. Vite counts plugin names in its dependency cache's key, so adding it re-optimizes dependencies
   once, and pages can't reuse copies with maps from the HTTP cache.
+- **An agent's `Replace` reports the patches it throws away and keeps none** (PAR-455). My call, within the issue's
+  bounds: the replacement's ids are fresh, so the old node's responsive, state and variant patches go, and the result
+  lists them in `discarded` by node, viewport, state and variant for the agent to reapply. No option keeps compatible
+  root patches, since that needs a mapping contract nobody has agreed, and descendants are never remapped by name or
+  position. Replacing a root now also drops its variant options' patches, as a nested replacement always did, rather
+  than leaving them keyed to nodes that are gone.
 
 ## Previews
 

@@ -24,6 +24,14 @@ export interface Screenshot {
   mode: string
 }
 
+/** What one `Replace` threw away: the patches keyed to the old node and what was inside it (PAR-455). */
+export interface Discarded {
+  design: string
+  replaced: string
+  replacement: string
+  nodes: { id: string; name?: string; viewports?: string[]; states?: string[]; variants?: string[] }[]
+}
+
 /** What the app answers: a failure's message, with its details beside it when the app knew the cause. */
 export interface ExecReply {
   ok: boolean
@@ -34,6 +42,7 @@ export interface ExecReply {
   details?: unknown
   editId?: string
   created: Record<string, string>
+  discarded?: Discarded[]
   screenshots: Screenshot[]
 }
 
@@ -46,6 +55,8 @@ export interface ExecResponse {
   /** Set when the call failed, with the editId to retry a snippet by. */
   error?: OperationError
   created: Record<string, string>
+  /** Set when a Replace threw away responsive, state or variant patches. */
+  discarded?: Discarded[]
   screenshots: Screenshot[]
 }
 
@@ -80,6 +91,38 @@ const screenshotSchema = {
   required: ["path", "design", "state", "mode"]
 }
 
+const strings = { type: "array", items: { type: "string" } }
+
+const discardedSchema = {
+  type: "array",
+  description:
+    "Patches each Replace threw away with the node it swapped out. Present only when there were some; reapply what's " +
+    "still wanted to the replacement with Responsive, Update with a state, or UpdateState.",
+  items: {
+    type: "object",
+    properties: {
+      design: { type: "string" },
+      replaced: { type: "string", description: "The node Replace swapped out." },
+      replacement: { type: "string", description: "The node that took its place." },
+      nodes: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "The old node's id, or instance/inner path." },
+            name: { type: "string" },
+            viewports: { ...strings, description: "Viewport ids it had responsive patches for." },
+            states: { ...strings, description: "State ids it had patches in." },
+            variants: { ...strings, description: "Variant options it had patches in, as param=option." }
+          },
+          required: ["id"]
+        }
+      }
+    },
+    required: ["design", "replaced", "replacement", "nodes"]
+  }
+}
+
 /** Execute's and screenshot's structured result. */
 export const execOutputSchema = {
   type: "object",
@@ -93,6 +136,7 @@ export const execOutputSchema = {
       additionalProperties: { type: "string" },
       description: "Names of designs and nodes created, mapped to their ids."
     },
+    discarded: discardedSchema,
     screenshots: { type: "array", items: screenshotSchema },
     error: operationErrorSchema
   },

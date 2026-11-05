@@ -213,5 +213,32 @@ export interface ExecResult {
   screenshots: Screenshot[]
   /** Names of nodes and designs created in this call, mapped to their ids. */
   created: Record<string, string>
+  /** The responsive, state and variant patches each `Replace` in the call threw away. Absent when none did. */
+  discarded?: DiscardedPatches[]
   changes: AgentChangeSet
+}
+
+/**
+ * What one `Replace` threw away. The new node has fresh ids, so patches keyed to the old node and what was inside it go
+ * with it; they aren't moved onto the new one.
+ */
+export interface DiscardedPatches {
+  /** The design's id. */
+  design: string
+  /** The node `Replace` swapped out, and the one that took its place. */
+  replaced: string
+  replacement: string
+  /** Each node that had patches: its id (or `instance/inner` path) and name, and where it was patched. */
+  nodes: DiscardedNode[]
+}
+
+export interface DiscardedNode {
+  id: string
+  name?: string
+  /** Viewport ids, as `Responsive` takes them. */
+  viewports?: string[]
+  /** State ids, as `Update(..., { state })` takes them. */
+  states?: string[]
+  /** Variant options, as `param=option`. */
+  variants?: string[]
 }
