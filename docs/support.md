@@ -521,8 +521,9 @@ The same checks run on every project, from fastest to slowest:
   lockfiles and installed with their own package manager, and the script regenerates them when versions move. The script
   is `packages/fixtures/src/generate.ts`, and each project's own files are laid over the scaffold from
   `packages/fixtures/overlays`. `pnpm --filter @parity-app/fixtures generate [name]` regenerates a project, keeping its
-  `expected.json`, and `pnpm --filter @parity-app/fixtures install-projects` installs all of them from their lockfiles,
-  one at a time. Storybook's own init runs as it would in CI, so it leaves out its Vitest addon.
+  `expected.json`, and `pnpm --filter @parity-app/fixtures install-projects` installs every project in `fixtures/` from
+  its lockfile, one at a time. Projects made some other way install with `npm ci` from their `package-lock.json`.
+  Storybook's own init runs as it would in CI, so it leaves out its Vitest addon.
 - **Never changed by a test.** Each run copies the project to a temporary folder first, so saves and installs don't
   touch the original. The copy links the project's installed packages rather than copying them.
 - **Snapshots change on purpose.** When detection gets better, `pnpm vitest run packages/fixtures -u` rewrites the

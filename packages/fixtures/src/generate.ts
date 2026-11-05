@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, delimiter, dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -10,7 +10,8 @@ import { fileURLToPath } from "node:url"
  * manager so its lockfile is committed with it. A project's `expected.json` is kept when it's regenerated.
  *
  *   pnpm --filter @parity-app/fixtures generate [name...]   regenerates the named projects, or all of them
- *   pnpm --filter @parity-app/fixtures install-projects     installs every project from its committed lockfile
+ *   pnpm --filter @parity-app/fixtures install-projects [name...]   installs the named projects in fixtures/, or all
+ *                                                                   of them, from their committed lockfiles
  *
  * Projects are generated and installed one at a time, to keep memory down.
  */
@@ -182,22 +183,49 @@ function run(cwd: string, command: string, extraEnv: NodeJS.ProcessEnv = {}): Pr
   })
 }
 
+/**
+ * How a project in `fixtures/` installs. The ones this file generates say so themselves. The rest were made another way
+ * and committed with an npm lockfile, so they install with `npm ci`.
+ */
+async function installCommand(name: string): Promise<string> {
+  const project = projects[name]
+  if (project) return project.install
+  if (await exists(join(fixturesDir, name, "package-lock.json"))) return "npm ci"
+  throw new Error(`fixtures/${name} has no package-lock.json, so install-projects can't tell how to install it`)
+}
+
+async function exists(path: string): Promise<boolean> {
+  return stat(path).then(
+    () => true,
+    () => false
+  )
+}
+
 const args = process.argv.slice(2)
+const install = args.includes("--install")
 const names = args.filter((arg) => !arg.startsWith("--"))
+// Installing covers every project in fixtures/, since the detection tests open them all. Generating covers only the
+// ones this file makes.
+const known = install
+  ? (await readdir(fixturesDir, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+  : Object.keys(projects)
 for (const name of names) {
-  if (!(name in projects)) throw new Error(`No project named ${name}. Known: ${Object.keys(projects).join(", ")}`)
+  if (!known.includes(name)) throw new Error(`No project named ${name}. Known: ${known.join(", ")}`)
 }
 // Yarn comes through Corepack, at the version each project's `packageManager` names.
 await mkdir(shimDir, { recursive: true })
 await mkdir(fixturesDir, { recursive: true })
 await run(fixturesDir, `corepack enable yarn --install-directory "${shimDir}"`)
-for (const name of names.length > 0 ? names : Object.keys(projects)) {
+for (const name of names.length > 0 ? names : known) {
   const dir = join(fixturesDir, name)
-  const project = projects[name]!
-  if (args.includes("--install")) {
-    await run(dir, project.install)
+  if (install) {
+    await run(dir, await installCommand(name))
     continue
   }
+  const project = projects[name]!
   const expected = await readFile(join(dir, "expected.json"), "utf8").catch(() => undefined)
   await rm(dir, { recursive: true, force: true })
   await project.generate(dir)
