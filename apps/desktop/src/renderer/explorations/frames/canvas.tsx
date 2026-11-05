@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { kindColors } from "../../canvas/kinds.tsx"
+import { labelLook } from "../../canvas/labels.ts"
 import { ModesMenu } from "../../canvas/ModesMenu.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { modes, primaryMode } from "./data.ts"
@@ -90,7 +91,9 @@ const menuTrigger =
 function TitleBar({ children }: { children: ReactNode }) {
   return (
     <div className="absolute bottom-full left-0 w-full pb-2.5">
-      <div className="flex h-8 min-w-0 items-center gap-3">{children}</div>
+      <div className="flex h-8 w-max items-center gap-3" style={{ minWidth: "100%" }}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -177,16 +180,14 @@ export function Board({
   selected?: boolean
 }) {
   const [main, ...beside] = previews
+  const gutter = gutterAt(zoom)
   // The board's width on screen. As on the canvas, its menus hide while it's narrower than 22rem, so they never crowd
   // its name; zoomed out, a component's board shows only its name.
   const onScreen =
-    (64 +
-      previews.reduce(
-        (sum, preview, index) => sum + preview.width * (index ? companionScale(preview.width) : 1) + (index ? 32 : 0),
-        0
-      ) +
-      (beside.length ? 65 : 0)) *
-    zoom
+    previews.reduce((sum, preview, index) => sum + preview.width * (index ? companionScale(preview.width) : 1), 0) *
+      zoom +
+    gutter.padding * 2 +
+    beside.length * gutter.between
   return (
     <div className="relative w-max">
       <TitleBar>
@@ -204,72 +205,98 @@ export function Board({
           </div>
         )}
       </TitleBar>
-      <div style={{ zoom }}>
-        <div
-          className="relative w-max rounded-[20px] border bg-card text-card-foreground shadow-2xl"
-          style={{ padding: 32, ...(selected ? { boxShadow: `0 0 0 ${2 / zoom}px ${kindColor(kind)}` } : {}) }}
-        >
-          <div className="flex items-start" style={{ gap: 32 }}>
-            {previews.map((preview, index) => (
-              <PreviewTile
-                key={preview.mode.id}
-                preview={preview}
-                zoom={zoom}
-                first={index === 0}
-                divider={index === 1}
-              />
-            ))}
-          </div>
+      <div
+        className="relative w-max rounded-xl border bg-card text-card-foreground shadow-2xl"
+        style={{
+          padding: gutter.padding,
+          paddingTop: gutter.padding - 4,
+          ...(selected ? { boxShadow: `0 0 0 2px ${kindColor(kind)}` } : {})
+        }}
+      >
+        <div className="flex items-start">
+          {previews.map((preview, index) => (
+            <PreviewTile
+              key={preview.mode.id}
+              preview={preview}
+              zoom={zoom}
+              gutter={gutter}
+              first={index === 0}
+              divider={index === 1}
+            />
+          ))}
         </div>
       </div>
     </div>
   )
 }
 
-const dividerStyle: CSSProperties = {
-  marginLeft: 16,
-  borderLeftWidth: 1,
-  borderLeftStyle: "dashed",
-  paddingLeft: 48
+/**
+ * The board's gutter in screen pixels: the same at every zoom up close, so the band around the previews never swells
+ * or vanishes as you zoom, and shrinking with the canvas only past 40%, with the captions in it.
+ */
+function gutterAt(zoom: number) {
+  const s = labelLook("detail", zoom).scale
+  return { padding: 16 * s, caption: 24 * s, captionGap: 8 * s, between: 24 * s }
 }
 
 function PreviewTile({
   preview,
   zoom,
+  gutter,
   first,
   divider
 }: {
   preview: Preview
   zoom: number
+  gutter: ReturnType<typeof gutterAt>
   first: boolean
   divider: boolean
 }) {
   const scale = first ? 1 : companionScale(preview.width)
+  const look = labelLook("detail", zoom)
+  // The room its caption has on screen: the preview's width and the gutter beside it. Narrower than the whole caption,
+  // the width chips go first, and only then does the name truncate.
+  const room = preview.width * scale * zoom + gutter.padding
+  const fits = (px: number) => room / look.scale >= px
+  // The first preview starts at the gutter, the divider sits halfway to the next, and the rest follow at the gap.
+  let spacing: CSSProperties | undefined
+  if (divider) {
+    spacing = {
+      marginLeft: gutter.between / 2,
+      borderLeftWidth: 1,
+      borderLeftStyle: "dashed",
+      paddingLeft: gutter.between / 2
+    }
+  } else if (!first) spacing = { marginLeft: gutter.between }
   return (
-    <figure className="m-0" style={divider ? dividerStyle : undefined}>
-      <figcaption className="relative" style={{ height: 24, marginBottom: 12 }}>
+    <figure className="m-0" style={spacing}>
+      <figcaption className="relative" style={{ height: gutter.caption, marginBottom: gutter.captionGap }}>
         <div
-          className="absolute bottom-0 left-0 flex items-center gap-2 text-sm"
-          style={{ zoom: 1 / zoom, height: 24, maxWidth: preview.width * scale * zoom }}
+          className="absolute bottom-0 left-0"
+          style={{ zoom: look.scale, opacity: look.opacity, height: 24, width: room / look.scale }}
         >
-          <span className="flex min-w-0 items-center gap-1.5 font-medium">
-            {preview.mode.id === primaryMode.id && (
-              <Crown className="size-3.5 shrink-0 text-amber-400" aria-label="Primary mode" />
-            )}
-            <ModeViewportIcon of={preview.mode} className="size-3.5 shrink-0 opacity-70" aria-hidden />
-            <span className="truncate">{preview.mode.name}</span>
-          </span>
-          <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
-            {preview.width}
-          </span>
-          {scale < 1 && (
-            <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
-              {Math.round(scale * 100)}%
+          <div className="flex h-full items-center gap-2 text-sm">
+            <span className="flex min-w-0 items-center gap-1.5 font-medium">
+              {preview.mode.id === primaryMode.id && (
+                <Crown className="size-3.5 shrink-0 text-amber-400" aria-label="Primary mode" />
+              )}
+              <ModeViewportIcon of={preview.mode} className="size-3.5 shrink-0 opacity-70" aria-hidden />
+              <span className="truncate">{preview.mode.name}</span>
             </span>
-          )}
+            {fits(184) && (
+              <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
+                {preview.width}
+              </span>
+            )}
+            {scale < 1 && fits(232) && (
+              <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
+                {Math.round(scale * 100)}%
+              </span>
+            )}
+          </div>
         </div>
       </figcaption>
-      <div style={{ zoom: scale }}>{preview.content}</div>
+      <div style={{ zoom: scale * zoom }}>{preview.content}</div>
     </figure>
   )
 }
@@ -331,11 +358,11 @@ export function CanvasFrame({
             <ContextMenuSeparator />
             <ContextMenuItem>
               <Component />
-              Make it a component
+              Convert to component
             </ContextMenuItem>
             <ContextMenuItem>
               <AppWindow />
-              Make it a screen
+              Convert to screen
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive">Delete</ContextMenuItem>

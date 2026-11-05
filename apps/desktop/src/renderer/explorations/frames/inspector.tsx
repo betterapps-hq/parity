@@ -70,7 +70,7 @@ export function KindHeader({ kind, name, onKind }: { kind: Kind; name: string; o
               </span>
             </Hint>
             <p className="text-xs text-muted-foreground">
-              A frame isn&apos;t written to code. Make it a component or a screen to use it in your app.
+              A frame isn&apos;t written to code. Convert it to a component or a screen to use it in your app.
             </p>
           </>
         )}
@@ -233,7 +233,7 @@ export function BackToAFrameDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Make {name} a frame?</DialogTitle>
+          <DialogTitle>Convert {name} to a frame?</DialogTitle>
           <DialogDescription>
             {name} keeps its layers as {drops.kept} shows them in {primaryMode.name}. A frame has one size and
             isn&apos;t written to code, so the {kind} loses:
@@ -252,7 +252,7 @@ export function BackToAFrameDialog({
           <Button variant="outline" onClick={() => onOpenChange?.(false)}>
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange?.(false)}>Make it a frame</Button>
+          <Button onClick={() => onOpenChange?.(false)}>Convert to frame</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

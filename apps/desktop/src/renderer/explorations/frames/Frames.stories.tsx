@@ -296,7 +296,7 @@ export const SelectedFrame: Story = {
   )
 }
 
-/** Right-clicking a frame's name: Make it a component and Make it a screen, beside Rename, Duplicate and Delete. */
+/** Right-clicking a frame's name: Convert to component and Convert to screen, beside Rename, Duplicate and Delete. */
 export const FrameMenu: Story = {
   render: () => (
     <Canvas tool="select">
@@ -311,7 +311,7 @@ export const FrameMenu: Story = {
     const title = within(canvasElement).getByRole("button", { name: "Welcome" })
     const box = title.getBoundingClientRect()
     await fireEvent.contextMenu(title, { clientX: box.left + 24, clientY: box.bottom - 4 })
-    await expect(await within(document.body).findByRole("menuitem", { name: "Make it a screen" })).toBeVisible()
+    await expect(await within(document.body).findByRole("menuitem", { name: "Convert to screen" })).toBeVisible()
   }
 }
 
@@ -413,7 +413,7 @@ function Toast({ title, description }: { title: string; description: string }) {
 }
 
 /**
- * After Make it a component: the frame is on a component's board, hugging its one preview in the primary mode, with
+ * After Convert to component: the frame is on a component's board, hugging its one preview in the primary mode, with
  * the component's menus. Nothing was lost, so it just happens, and a toast offers Undo.
  */
 export const MadeAComponent: Story = {
@@ -435,7 +435,7 @@ export const MadeAComponent: Story = {
 }
 
 /**
- * After Make it a screen: a screen's board with its preview in the primary mode, at the size the frame had, and the
+ * After Convert to screen: a screen's board with its preview in the primary mode, at the size the frame had, and the
  * state and modes menus to show it in more. A toast offers Undo.
  */
 export const MadeAScreen: Story = {
