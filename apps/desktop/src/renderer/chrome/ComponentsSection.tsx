@@ -1,3 +1,4 @@
+import { Button, Input } from "@buildkitgg/shadcn-baseui-kit"
 import {
   addVariant,
   addVariantOption,
@@ -12,8 +13,6 @@ import {
 import { instancesOf } from "@parity-app/editor"
 import { Diamond, Plus, ScanSearch, Sparkles, Trash2, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"

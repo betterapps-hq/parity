@@ -1,3 +1,4 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * A library's page: its components as they render, which version each project uses, and what each release changed.
  * Parity's components are the code itself, so "where is this used" is exact, down to the board, and an outdated
@@ -5,7 +6,6 @@
  */
 import { Bot, Check, ChevronRight, Package, RefreshCw } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
 import { people } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
 import { deliverables } from "./boards.ts"

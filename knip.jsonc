@@ -30,7 +30,7 @@
         "e2e/*.e2e.ts",
         "e2e/{vite.config,global-setup}.ts"
       ],
-      // CSS too, so its imports of tailwindcss, tw-animate-css, shadcn and Geist count as uses.
+      // CSS too, so its imports of tailwindcss, the kit's stylesheet and Geist count as uses.
       "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.ts", ".storybook/*.ts", "e2e/**/*.ts", "*.ts"],
       "ignoreDependencies": [
         // Imported by @parity-app/project, which scripts/dev.ts bundles while leaving these out, so the bundled
@@ -42,9 +42,6 @@
       // macOS's own commands: plutil and sips name and brand the dev Electron, top reads memory.
       "ignoreBinaries": ["plutil", "sips", "top"],
       "ignoreIssues": {
-        // shadcn's components, kept as `shadcn add` writes them so they update cleanly. Their unused parts are its
-        // API, and scroll-area.tsx came with the set.
-        "src/renderer/components/ui/**": ["files", "exports"],
         // Design explorations drawn in Storybook. Their shared parts and sample data are a kit for stories still being
         // drawn.
         "src/renderer/explorations/**": ["exports"]

@@ -28,7 +28,7 @@ function Board({ main: initialMain, shown: initialShown }: { main: string; shown
             modes={modes}
             main={mainMode}
             beside={beside}
-            triggerClassName="flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent data-[state=open]:bg-accent"
+            triggerClassName="flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent aria-expanded:bg-accent"
             onChange={(nextMain, nextShown) => {
               setMain(nextMain)
               setShown(nextShown)

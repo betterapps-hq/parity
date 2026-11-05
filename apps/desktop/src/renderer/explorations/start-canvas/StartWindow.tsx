@@ -1,3 +1,4 @@
+import { SonnerToaster, TabsContent, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import {
   Accessibility,
   Component,
@@ -12,9 +13,6 @@ import {
 import { useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
-import { Toaster } from "@/components/ui/sonner"
-import { TabsContent } from "@/components/ui/tabs"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import { CanvasDrop } from "../../canvas/CanvasDrop.tsx"
 import { CanvasEditor } from "../../canvas/CanvasEditor.tsx"
 import { CanvasOverlay } from "../../canvas/CanvasOverlay.tsx"
@@ -30,6 +28,7 @@ import { StatusBar } from "../../chrome/StatusBar.tsx"
 import { TokensPanel } from "../../chrome/TokensPanel.tsx"
 import { FloatingToolbar, ViewControls } from "../../chrome/Toolbar.tsx"
 import { useTool } from "../../selection.ts"
+import { useResolvedTheme } from "../../theme.ts"
 import { type ProjectSession, useActiveTabId, useTabs, workspace } from "../../workspace.ts"
 import { CanvasStart } from "./CanvasStart.tsx"
 import { keysOf, makeNew } from "./commands.ts"
@@ -47,6 +46,7 @@ export function StartWindow({ frames = false, search }: { frames?: boolean; sear
   const tabs = useTabs()
   const active = useActiveTabId()
   const session = tabs.find((tab) => tab.id === active)?.session
+  const theme = useResolvedTheme()
   useAppShortcuts()
   useShortcuts(session, true)
   useStartKeys(session)
@@ -69,7 +69,7 @@ export function StartWindow({ frames = false, search }: { frames?: boolean; sear
           <main className="flex-1" />
         )}
       </div>
-      <Toaster position="bottom-right" offset={{ bottom: 40, right: 16 }} />
+      <SonnerToaster theme={theme} position="bottom-right" offset={{ bottom: 40, right: 16 }} />
       <QuickInsert />
       <StartActionsSearch initialQuery={search} />
     </TooltipProvider>

@@ -1,8 +1,9 @@
+import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { FileInput, FolderClosed, FolderOpen, type LucideIcon } from "lucide-react"
-import { Kbd } from "@/components/ui/kbd"
 import { useRecentProjects, workspace } from "../workspace.ts"
 import { openProjectFile, openProjectFolder } from "./commands.ts"
 import { Hint } from "./Hint.tsx"
+import { formatKeys } from "./keys.ts"
 
 /** How many recent projects it lists; the File menu has them all. */
 const shown = 6
@@ -95,7 +96,7 @@ function Choice({
         <span className="grid size-9 place-items-center rounded-lg bg-muted">
           <Icon className="size-4" />
         </span>
-        <Kbd>{shortcut}</Kbd>
+        <Kbd>{formatKeys(shortcut)}</Kbd>
       </span>
       <span className="flex flex-col gap-0.5">
         <span className="text-sm font-medium">{title}</span>

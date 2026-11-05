@@ -1,4 +1,19 @@
 import {
+  Menubar,
+  MenubarCheckboxItem,
+  MenubarContent,
+  MenubarGroup,
+  MenubarItem,
+  MenubarLabel,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarSub,
+  MenubarSubContent,
+  MenubarSubTrigger,
+  MenubarTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   AlignCenterHorizontal,
   AlignCenterVertical,
   AlignEndHorizontal,
@@ -50,26 +65,12 @@ import {
   ZoomOut
 } from "lucide-react"
 import type { ReactNode } from "react"
-import {
-  Menubar,
-  MenubarCheckboxItem,
-  MenubarContent,
-  MenubarItem,
-  MenubarLabel,
-  MenubarMenu,
-  MenubarSeparator,
-  MenubarShortcut,
-  MenubarSub,
-  MenubarSubContent,
-  MenubarSubTrigger,
-  MenubarTrigger
-} from "@/components/ui/menubar"
 import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { activeSession, clearBitmapCache, exit, exportImages, selectedDesign, selectedInstance } from "./commands.ts"
 import { type Command, keymap } from "./keymap.ts"
-import { isMac } from "./keys.ts"
+import { formatKeys, isMac } from "./keys.ts"
 import { setLayout, useLayout } from "./layout.ts"
 import { setPreferences, usePreferences } from "./preferences.ts"
 import { checkForUpdates } from "./updates.tsx"
@@ -93,11 +94,12 @@ export function AppMenu() {
     ["Help", HelpItems]
   ]
   return (
-    <Menubar className="mr-2 mb-1.5 shrink-0 [-webkit-app-region:no-drag]" aria-label="Application">
+    <Menubar className="mr-2 mb-1.5 shrink-0 border-0 [-webkit-app-region:no-drag]" aria-label="Application">
       {menus.map(([name, Items]) => (
         <MenubarMenu key={name}>
           <MenubarTrigger>{name}</MenubarTrigger>
-          <MenubarContent>
+          {/* As wide as what it holds; the kit's are as wide as their trigger, which wraps the items. */}
+          <MenubarContent className="w-auto">
             <Items />
           </MenubarContent>
         </MenubarMenu>
@@ -124,10 +126,10 @@ function Item({
       variant={variant}
       inset={Icon ? undefined : true}
       disabled={action.available?.() === false}
-      onSelect={() => void action.run()}
+      onClick={() => void action.run()}
     >
       {Icon && <Icon />} {children ?? keymap[command].label}
-      <MenubarShortcut>{keymap[command].keys[0]}</MenubarShortcut>
+      <MenubarShortcut>{formatKeys(keymap[command].keys[0])}</MenubarShortcut>
     </MenubarItem>
   )
 }
@@ -149,9 +151,13 @@ function FileItems() {
           <History /> Open recent
         </MenubarSubTrigger>
         <MenubarSubContent className="max-w-96 min-w-64">
-          {recent.length === 0 && <MenubarLabel>Nothing opened yet</MenubarLabel>}
+          {recent.length === 0 && (
+            <MenubarGroup>
+              <MenubarLabel>Nothing opened yet</MenubarLabel>
+            </MenubarGroup>
+          )}
           {recent.map((root) => (
-            <MenubarItem key={root} onSelect={() => void workspace.open(root)} className="flex-col items-start gap-0">
+            <MenubarItem key={root} onClick={() => void workspace.open(root)} className="flex-col items-start gap-0">
               <span>{basename(root)}</span>
               <span className="text-xs wrap-anywhere text-muted-foreground">{root}</span>
             </MenubarItem>
@@ -159,7 +165,7 @@ function FileItems() {
           {recent.length > 0 && (
             <>
               <MenubarSeparator />
-              <MenubarItem onSelect={() => workspace.forgetRecent()}>Clear recent projects</MenubarItem>
+              <MenubarItem onClick={() => workspace.forgetRecent()}>Clear recent projects</MenubarItem>
             </>
           )}
         </MenubarSubContent>
@@ -170,19 +176,19 @@ function FileItems() {
         Save a copy…
       </Item>
       <MenubarSeparator />
-      <MenubarItem disabled={!session?.selection.get().design} onSelect={() => void exportImages("selection")}>
+      <MenubarItem disabled={!session?.selection.get().design} onClick={() => void exportImages("selection")}>
         <Images /> Export selected…
-        <MenubarShortcut>{keymap.exportSelection.keys[0]}</MenubarShortcut>
+        <MenubarShortcut>{formatKeys(keymap.exportSelection.keys[0])}</MenubarShortcut>
       </MenubarItem>
-      <MenubarItem disabled={designs === 0} onSelect={() => void exportImages("all")}>
+      <MenubarItem disabled={designs === 0} onClick={() => void exportImages("all")}>
         <Images /> Export all…
       </MenubarItem>
       <MenubarSeparator />
       <Item command="closeTab" icon={X} />
       {/* On a Mac, Quit is in the Parity menu, as every app's is. */}
       {!mac && (
-        <MenubarItem onSelect={exit}>
-          <LogOut /> Exit <MenubarShortcut>Alt F4</MenubarShortcut>
+        <MenubarItem onClick={exit}>
+          <LogOut /> Exit <MenubarShortcut>{formatKeys("Alt F4")}</MenubarShortcut>
         </MenubarItem>
       )}
     </>
@@ -240,13 +246,13 @@ function ViewItems() {
         checked={layout.left || layout.right}
         onCheckedChange={(open) => setLayout({ left: open, right: open })}
       >
-        <PanelsLeftRight /> Panels <MenubarShortcut>{keymap.panels.keys[0]}</MenubarShortcut>
+        <PanelsLeftRight /> Panels <MenubarShortcut>{formatKeys(keymap.panels.keys[0])}</MenubarShortcut>
       </MenubarCheckboxItem>
       <MenubarCheckboxItem
         checked={preferences.layoutGrid}
         onCheckedChange={(layoutGrid) => setPreferences({ layoutGrid })}
       >
-        <Grid3x3 /> Layout grid <MenubarShortcut>{keymap.layoutGrid.keys[0]}</MenubarShortcut>
+        <Grid3x3 /> Layout grid <MenubarShortcut>{formatKeys(keymap.layoutGrid.keys[0])}</MenubarShortcut>
       </MenubarCheckboxItem>
       <MenubarCheckboxItem checked={preferences.snapping} onCheckedChange={(snapping) => setPreferences({ snapping })}>
         <Magnet /> Snap to screens and components
@@ -257,7 +263,7 @@ function ViewItems() {
       >
         <Gauge /> Performance stats
       </MenubarCheckboxItem>
-      <MenubarItem onSelect={() => void clearBitmapCache()}>
+      <MenubarItem onClick={() => void clearBitmapCache()}>
         <ImageOff /> Clear bitmap cache
       </MenubarItem>
     </>
@@ -337,10 +343,10 @@ function HelpItems() {
       <MenubarSeparator />
       <Item command="developerTools" icon={Code} />
       <MenubarSeparator />
-      <MenubarItem onSelect={checkForUpdates}>
+      <MenubarItem onClick={checkForUpdates}>
         <RefreshCw /> Check for updates
       </MenubarItem>
-      <MenubarItem onSelect={() => openDialog("about")}>
+      <MenubarItem onClick={() => openDialog("about")}>
         <Info /> About Parity
       </MenubarItem>
     </>
@@ -350,9 +356,11 @@ function HelpItems() {
 /** Says what to select for a menu whose items all need a selection. */
 function SelectionHint({ children }: { children: ReactNode }) {
   return (
-    <MenubarLabel className="flex items-center gap-1.5 font-normal">
-      <SquareDashed className="size-3.5" /> {children}
-    </MenubarLabel>
+    <MenubarGroup>
+      <MenubarLabel className="flex items-center gap-1.5 font-normal">
+        <SquareDashed className="size-3.5" /> {children}
+      </MenubarLabel>
+    </MenubarGroup>
   )
 }
 

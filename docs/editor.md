@@ -331,9 +331,9 @@ menubar's command. The Layers panel's menu is unchanged.
   none. A text note over a board gets the menu for around the designs.
 - **Interact mode:** the design gets the right-click, and no menu opens.
 - **Keys after an item** are the canvas's at once (PAR-424). A menu holds focus for the 100 ms or so it takes to fade
-  out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-state="closed"`) as gone, a field in
-  it included: Ctrl+Z pressed straight after Duplicate undoes it, where it used to go to the closing menu and do
-  nothing. This holds for the menubar's and the title's menus, and dialogs, too.
+  out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-closed`) as gone, a field in it
+  included: Ctrl+Z pressed straight after Duplicate undoes it, where it used to go to the closing menu and do nothing.
+  This holds for the menubar's and the title's menus, and dialogs, too.
 
 Code: the menu's contents are `canvasMenu` in `apps/desktop/src/renderer/chrome/canvas-menu.ts`, which takes the
 selection and the design under the pointer and returns the items, available or not, in order, with Select layer's list;
@@ -1035,8 +1035,9 @@ through `formatKeys` so it reads as one chord:
   Shortcut components), as Figma's and the system's menus do. Tooltips, the toolbar, the start screen and the Keyboard
   shortcuts dialog show them as keycaps (`Kbd`). Both go through `formatKeys`.
 
-Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`, called by `components/ui/kbd.tsx`, `menubar.tsx`,
-`context-menu.tsx`, `dropdown-menu.tsx` and `command.tsx`.
+Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`. The kit's `Kbd` and its menus' and Search actions'
+`*Shortcut` parts show what they're given, so each place that shows keys passes them through `formatKeys` itself, as
+`AppMenu.tsx`, `CanvasMenu.tsx`, `ActionsSearch.tsx`, `Toolbar.tsx` and `ShortcutsDialog.tsx` do.
 
 Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
 and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)

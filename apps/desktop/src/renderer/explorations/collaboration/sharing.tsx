@@ -1,4 +1,13 @@
 import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Textarea
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   Building2,
   Check,
   ChevronDown,
@@ -14,15 +23,6 @@ import {
   X
 } from "lucide-react"
 import { type KeyboardEvent, useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Textarea } from "@/components/ui/textarea"
 import { me, people, type Person } from "../explore-data.ts"
 import { Avatar, GitHubMark, MiniScreen } from "../parts.tsx"
 import { mentionable } from "./collab-data.ts"
@@ -63,15 +63,17 @@ export function RoleMenu<T extends string>({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="xs" variant="ghost" className="gap-1 text-muted-foreground">
-          {options[value].title}
-          <ChevronDown />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button size="xs" variant="ghost" className="gap-1 text-muted-foreground">
+            {options[value].title}
+            <ChevronDown />
+          </Button>
+        }
+      />
       <DropdownMenuContent align="end" className="w-60">
         {(Object.keys(options) as T[]).map((key) => (
-          <DropdownMenuItem key={key} onSelect={() => onChange?.(key)} className="items-start">
+          <DropdownMenuItem key={key} onClick={() => onChange?.(key)} className="items-start">
             <span className="flex min-w-0 flex-1 flex-col">
               <span>{options[key].title}</span>
               <span className="text-xs text-muted-foreground">{options[key].detail}</span>
@@ -82,7 +84,7 @@ export function RoleMenu<T extends string>({
         {onRemove && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+            <DropdownMenuItem variant="destructive" onClick={onRemove}>
               Remove access
             </DropdownMenuItem>
           </>
@@ -283,17 +285,19 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" className="flex w-fit items-center gap-1 text-[13px] font-medium">
-                    {access === "organization" ? "Anyone at Buildkit" : "Only people invited"}
-                    <ChevronDown className="size-3.5 text-muted-foreground" />
-                  </button>
-                </DropdownMenuTrigger>
+                <DropdownMenuTrigger
+                  render={
+                    <button type="button" className="flex w-fit items-center gap-1 text-[13px] font-medium">
+                      {access === "organization" ? "Anyone at Buildkit" : "Only people invited"}
+                      <ChevronDown className="size-3.5 text-muted-foreground" />
+                    </button>
+                  }
+                />
                 <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuItem onSelect={() => setAccess("invited")}>
+                  <DropdownMenuItem onClick={() => setAccess("invited")}>
                     <Lock /> Only people invited
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setAccess("organization")}>
+                  <DropdownMenuItem onClick={() => setAccess("organization")}>
                     <Building2 /> Anyone at Buildkit
                   </DropdownMenuItem>
                 </DropdownMenuContent>

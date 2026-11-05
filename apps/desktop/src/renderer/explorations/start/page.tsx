@@ -1,3 +1,29 @@
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Menubar,
+  MenubarContent,
+  MenubarGroup,
+  MenubarItem,
+  MenubarLabel,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  MenubarShortcut,
+  DropdownMenuShortcut,
+  Kbd
+} from "@buildkitgg/shadcn-baseui-kit"
 /**
  * The start page's parts: what Home, a new tab and the first run are built from. The design is one page in three
  * contexts, so a person learns it once. It stays quiet: a render of each project and a few words about it, with the
@@ -26,32 +52,9 @@ import {
   X
 } from "lucide-react"
 import { createContext, type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Kbd } from "@/components/ui/kbd"
-import {
-  Menubar,
-  MenubarContent,
-  MenubarItem,
-  MenubarLabel,
-  MenubarMenu,
-  MenubarSeparator,
-  MenubarShortcut,
-  MenubarTrigger
-} from "@/components/ui/menubar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { AgentBadge, AgentPointer } from "../../agent/AgentPointer.tsx"
+import { formatKeys } from "../../chrome/keys.ts"
 import { me, people, type Person } from "../explore-data.ts"
 import { Avatar, AzureDevOpsMark, ExploreWindow, GitHubMark, type MockTab } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
@@ -154,7 +157,7 @@ export function StartWindow({
 }
 
 const menuTrigger =
-  "h-auto rounded-md px-2 py-1 text-[13px] font-normal text-muted-foreground focus:bg-black/5 data-[state=open]:bg-black/5 data-[state=open]:text-foreground dark:focus:bg-white/5 dark:data-[state=open]:bg-white/5"
+  "h-auto rounded-md px-2 py-1 text-[13px] font-normal text-muted-foreground focus:bg-black/5 aria-expanded:bg-black/5 aria-expanded:text-foreground dark:focus:bg-white/5 dark:aria-expanded:bg-white/5"
 
 /** The app's menus, as far as the start page goes: what arranges boards waits for a project's canvas. */
 function StartMenus({
@@ -174,22 +177,22 @@ function StartMenus({
       <MenubarMenu>
         <MenubarTrigger className={menuTrigger}>File</MenubarTrigger>
         <MenubarContent className="w-60">
-          <MenubarItem onSelect={() => start.newProject?.()}>
-            New project <MenubarShortcut>Ctrl N</MenubarShortcut>
+          <MenubarItem onClick={() => start.newProject?.()}>
+            New project <MenubarShortcut>{formatKeys("Ctrl N")}</MenubarShortcut>
           </MenubarItem>
-          <MenubarItem onSelect={onNewTab}>
-            New tab <MenubarShortcut>Ctrl T</MenubarShortcut>
+          <MenubarItem onClick={onNewTab}>
+            New tab <MenubarShortcut>{formatKeys("Ctrl T")}</MenubarShortcut>
           </MenubarItem>
           <MenubarSeparator />
-          <MenubarItem onSelect={() => start.newProject?.({ tab: "existing", source: "folder" })}>
-            Open a folder <MenubarShortcut>Ctrl O</MenubarShortcut>
+          <MenubarItem onClick={() => start.newProject?.({ tab: "existing", source: "folder" })}>
+            Open a folder <MenubarShortcut>{formatKeys("Ctrl O")}</MenubarShortcut>
           </MenubarItem>
-          <MenubarItem onSelect={() => start.newProject?.({ tab: "existing", source: "github" })}>
+          <MenubarItem onClick={() => start.newProject?.({ tab: "existing", source: "github" })}>
             Clone a repository
           </MenubarItem>
           <MenubarSeparator />
-          <MenubarItem disabled={!onCloseTab} onSelect={onCloseTab}>
-            Close tab <MenubarShortcut>Ctrl W</MenubarShortcut>
+          <MenubarItem disabled={!onCloseTab} onClick={onCloseTab}>
+            Close tab <MenubarShortcut>{formatKeys("Ctrl W")}</MenubarShortcut>
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>
@@ -197,32 +200,32 @@ function StartMenus({
         <MenubarTrigger className={menuTrigger}>Edit</MenubarTrigger>
         <MenubarContent className="w-60">
           <MenubarItem disabled={!canvas}>
-            Undo <MenubarShortcut>Ctrl Z</MenubarShortcut>
+            Undo <MenubarShortcut>{formatKeys("Ctrl Z")}</MenubarShortcut>
           </MenubarItem>
           <MenubarItem disabled={!canvas}>
-            Redo <MenubarShortcut>Ctrl Y</MenubarShortcut>
+            Redo <MenubarShortcut>{formatKeys("Ctrl Y")}</MenubarShortcut>
           </MenubarItem>
           <MenubarSeparator />
-          <MenubarItem onSelect={() => start.search?.()}>
-            Search <MenubarShortcut>Ctrl K</MenubarShortcut>
+          <MenubarItem onClick={() => start.search?.()}>
+            Search <MenubarShortcut>{formatKeys("Ctrl K")}</MenubarShortcut>
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>
       <MenubarMenu>
         <MenubarTrigger className={menuTrigger}>View</MenubarTrigger>
         <MenubarContent className="w-60">
-          <MenubarItem onSelect={onHome}>
-            Home <MenubarShortcut>Ctrl Shift H</MenubarShortcut>
+          <MenubarItem onClick={onHome}>
+            Home <MenubarShortcut>{formatKeys("Ctrl Shift H")}</MenubarShortcut>
           </MenubarItem>
           <MenubarSeparator />
           <MenubarItem disabled={!canvas}>
-            Zoom in <MenubarShortcut>Ctrl =</MenubarShortcut>
+            Zoom in <MenubarShortcut>{formatKeys("Ctrl =")}</MenubarShortcut>
           </MenubarItem>
           <MenubarItem disabled={!canvas}>
-            Zoom out <MenubarShortcut>Ctrl -</MenubarShortcut>
+            Zoom out <MenubarShortcut>{formatKeys("Ctrl -")}</MenubarShortcut>
           </MenubarItem>
           <MenubarItem disabled={!canvas}>
-            Zoom to fit <MenubarShortcut>Shift 1</MenubarShortcut>
+            Zoom to fit <MenubarShortcut>{formatKeys("Shift 1")}</MenubarShortcut>
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>
@@ -230,9 +233,11 @@ function StartMenus({
         <MenubarTrigger className={menuTrigger}>Arrange</MenubarTrigger>
         <MenubarContent className="w-60">
           {!canvas && (
-            <MenubarLabel className="text-xs font-normal text-muted-foreground">
-              Open a project to arrange its boards
-            </MenubarLabel>
+            <MenubarGroup>
+              <MenubarLabel className="text-xs font-normal text-muted-foreground">
+                Open a project to arrange its boards
+              </MenubarLabel>
+            </MenubarGroup>
           )}
           <MenubarItem disabled={!canvas}>Bring to front</MenubarItem>
           <MenubarItem disabled={!canvas}>Send to back</MenubarItem>
@@ -253,20 +258,22 @@ function Inbox({ enabled }: { enabled: boolean }) {
   const unread = waiting.filter((item) => item.unread).length
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={unread ? `Inbox, ${unread} unread` : "Inbox"}
-          className="relative grid size-7 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
-        >
-          <Bell className="size-4" />
-          {unread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-[oklch(0.65_0.21_25)] px-1 text-[9px] font-semibold text-white">
-              {unread}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            aria-label={unread ? `Inbox, ${unread} unread` : "Inbox"}
+            className="relative grid size-7 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-accent aria-expanded:text-foreground"
+          >
+            <Bell className="size-4" />
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-[oklch(0.65_0.21_25)] px-1 text-[9px] font-semibold text-white">
+                {unread}
+              </span>
+            )}
+          </button>
+        }
+      />
       <PopoverContent align="end" sideOffset={6} className="w-[380px] gap-0 p-0">
         <header className="flex h-11 items-center justify-between border-b px-4">
           <span className="text-sm font-semibold">Inbox</span>
@@ -299,49 +306,54 @@ function AccountMenu() {
   const start = useStart()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Your account"
-          className="ml-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Avatar person={me} size={24} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label="Your account"
+            className="ml-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Avatar person={me} size={24} />
+          </button>
+        }
+      />
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel className="flex items-center gap-2.5 py-2 font-normal">
-          <Avatar person={me} size={28} />
-          <span className="flex flex-col">
-            <span className="text-sm font-medium text-foreground">{me.name}</span>
-            <span className="text-xs text-muted-foreground">Kestrel, editor</span>
-          </span>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex items-center gap-2.5 py-2 font-normal">
+            <Avatar person={me} size={28} />
+            <span className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">{me.name}</span>
+              <span className="text-xs text-muted-foreground">Kestrel, editor</span>
+            </span>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Agents</DropdownMenuLabel>
-        {agentChoices.map((agent) => {
-          const on = !!start.agents?.includes(agent.name)
-          return (
-            <DropdownMenuItem
-              key={agent.name}
-              onSelect={(event) => {
-                if (on) return
-                event.preventDefault()
-                start.connectAgent?.(agent.name)
-              }}
-            >
-              <Avatar person={agent} size={18} /> {agent.name}
-              <span className={`ml-auto text-xs ${on ? "text-muted-foreground" : "font-medium text-foreground"}`}>
-                {on ? "Connected" : "Connect"}
-              </span>
-            </DropdownMenuItem>
-          )
-        })}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Agents</DropdownMenuLabel>
+          {agentChoices.map((agent) => {
+            const on = !!start.agents?.includes(agent.name)
+            return (
+              <DropdownMenuItem
+                key={agent.name}
+                closeOnClick={on}
+                onClick={() => {
+                  if (!on) start.connectAgent?.(agent.name)
+                }}
+              >
+                <Avatar person={agent} size={18} /> {agent.name}
+                <span className={`ml-auto text-xs ${on ? "text-muted-foreground" : "font-medium text-foreground"}`}>
+                  {on ? "Connected" : "Connect"}
+                </span>
+              </DropdownMenuItem>
+            )
+          })}
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem>
-          <Settings /> Settings <DropdownMenuShortcut>Ctrl ,</DropdownMenuShortcut>
+          <Settings /> Settings <DropdownMenuShortcut>{formatKeys("Ctrl ,")}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem>
-          <Keyboard /> Keyboard shortcuts <DropdownMenuShortcut>Ctrl /</DropdownMenuShortcut>
+          <Keyboard /> Keyboard shortcuts <DropdownMenuShortcut>{formatKeys("Ctrl /")}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem>
           <BookOpen /> Docs
@@ -567,34 +579,36 @@ function ProjectMenu({
   const start = useStart()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`More for ${project.name}`} className={className}>
-          <Ellipsis />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" size="icon-sm" aria-label={`More for ${project.name}`} className={className}>
+            <Ellipsis />
+          </Button>
+        }
+      />
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onSelect={() => start.openProject?.(project.id)}>
+        <DropdownMenuItem onClick={() => start.openProject?.(project.id)}>
           <AppWindow /> Open
         </DropdownMenuItem>
         {onStar && (
-          <DropdownMenuItem onSelect={onStar}>
+          <DropdownMenuItem onClick={onStar}>
             <Star /> {starred ? "Unstar" : "Star"}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
-          onSelect={() => start.newProject?.({ tab: "existing", source: "projects", project: project.id })}
+          onClick={() => start.newProject?.({ tab: "existing", source: "projects", project: project.id })}
         >
           <CopyPlus /> New project from this
         </DropdownMenuItem>
         <DropdownMenuItem
-          onSelect={() => void navigator.clipboard?.writeText(`parity://${project.id}`).catch(() => undefined)}
+          onClick={() => void navigator.clipboard?.writeText(`parity://${project.id}`).catch(() => undefined)}
         >
           <Link /> Copy link
         </DropdownMenuItem>
         {onRemove && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onRemove}>
+            <DropdownMenuItem onClick={onRemove}>
               <X /> Remove from recent
             </DropdownMenuItem>
           </>
@@ -687,7 +701,7 @@ export function ProjectCard({
           {project.live && (
             <Here
               who={project.live.who}
-              className="transition-opacity group-hover/card:opacity-0 group-has-[[data-state=open]]/card:opacity-0"
+              className="transition-opacity group-hover/card:opacity-0 group-has-aria-expanded/card:opacity-0"
             />
           )}
           <ProjectMenu
@@ -695,7 +709,7 @@ export function ProjectCard({
             starred={starred}
             onStar={onStar}
             onRemove={onRemove}
-            className="absolute inset-0 opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+            className="absolute inset-0 opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
           />
         </span>
       </div>
@@ -744,7 +758,7 @@ export function ContinueCard({ visit }: { visit: Visit }) {
             ` Since then, ${listed(visit.since.map((item) => `${firstName(item.who)} ${item.text}`))}.`}
         </p>
         <Button onClick={resume} className="relative z-10 mt-1 gap-2">
-          Resume <Kbd className="bg-primary-foreground/10 text-primary-foreground/70">Enter</Kbd>
+          Resume <Kbd className="bg-primary-foreground/10 text-primary-foreground/70">{formatKeys("Enter")}</Kbd>
         </Button>
       </div>
     </section>
@@ -1013,7 +1027,7 @@ export function SearchButton({ large, onOpen }: { large?: boolean; onOpen?: () =
       <span className="flex-1 truncate">
         {large ? "Search projects, designs and people, or paste a repository URL" : "Search"}
       </span>
-      <Kbd>Ctrl K</Kbd>
+      <Kbd>{formatKeys("Ctrl K")}</Kbd>
     </button>
   )
 }
@@ -1023,23 +1037,25 @@ export function OpenMenu({ size = "lg" }: { size?: "lg" | "default" }) {
   const start = useStart()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size={size}>
-          <FolderOpen /> Open <ChevronDown className="opacity-60" />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="outline" size={size}>
+            <FolderOpen /> Open <ChevronDown className="opacity-60" />
+          </Button>
+        }
+      />
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuItem onSelect={() => start.newProject?.({ tab: "existing", source: "folder" })}>
-          <FolderOpen /> Open a folder <DropdownMenuShortcut>Ctrl O</DropdownMenuShortcut>
+        <DropdownMenuItem onClick={() => start.newProject?.({ tab: "existing", source: "folder" })}>
+          <FolderOpen /> Open a folder <DropdownMenuShortcut>{formatKeys("Ctrl O")}</DropdownMenuShortcut>
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => start.newProject?.({ tab: "existing", source: "folder" })}>
-          <FileInput /> Open a project file <DropdownMenuShortcut>Ctrl Shift O</DropdownMenuShortcut>
+        <DropdownMenuItem onClick={() => start.newProject?.({ tab: "existing", source: "folder" })}>
+          <FileInput /> Open a project file <DropdownMenuShortcut>{formatKeys("Ctrl Shift O")}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => start.newProject?.({ tab: "existing", source: "github" })}>
+        <DropdownMenuItem onClick={() => start.newProject?.({ tab: "existing", source: "github" })}>
           <GitHubMark size={16} /> Clone from GitHub
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => start.newProject?.({ tab: "existing", source: "azure" })}>
+        <DropdownMenuItem onClick={() => start.newProject?.({ tab: "existing", source: "azure" })}>
           <AzureDevOpsMark size={16} /> Clone from Azure DevOps
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -1061,16 +1077,18 @@ export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; on
   const org = organizations[value]
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="-ml-1.5 flex w-fit items-center gap-2 rounded-lg px-1.5 py-1 text-sm outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted/50"
-        >
-          <OrgBadge org={org} size={20} />
-          <span className="font-medium">{org.name}</span>
-          <ChevronsUpDown className="size-3.5 text-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className="-ml-1.5 flex w-fit items-center gap-2 rounded-lg px-1.5 py-1 text-sm outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-muted/50"
+          >
+            <OrgBadge org={org} size={20} />
+            <span className="font-medium">{org.name}</span>
+            <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+          </button>
+        }
+      />
       <DropdownMenuContent align="start" className="w-60">
         <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange?.(next as OrgId)}>
           {Object.values(organizations).map((candidate) => (

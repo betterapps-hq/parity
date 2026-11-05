@@ -1,13 +1,14 @@
-import type { ResolvedMode } from "@parity-app/core"
-import { Check, ChevronDown, Moon, Sun } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@buildkitgg/shadcn-baseui-kit"
+import type { ResolvedMode } from "@parity-app/core"
+import { Check, ChevronDown, Moon, Sun } from "lucide-react"
 import { Hint } from "../chrome/Hint.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import { kindColors } from "./kinds.tsx"
@@ -50,7 +51,9 @@ export function ModesMenu({
         <ChevronDown className="size-3.5 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel>Previews</DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Previews</DropdownMenuLabel>
+        </DropdownMenuGroup>
         {modes.map((mode) => {
           const on = shown.includes(mode.id)
           return (
@@ -59,8 +62,8 @@ export function ModesMenu({
                 role="menuitemcheckbox"
                 aria-checked={on}
                 className="min-w-0 flex-1"
-                onSelect={(event) => {
-                  event.preventDefault()
+                closeOnClick={false}
+                onClick={() => {
                   const next = toggleShownMode(main.id, shown, mode.id, modes)
                   onChange(next.main, next.shown)
                 }}
@@ -85,8 +88,8 @@ export function ModesMenu({
                 ) : (
                   <DropdownMenuItem
                     className="h-auto rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground opacity-0 group-hover/mode:opacity-100 focus:opacity-100"
-                    onSelect={(event) => {
-                      event.preventDefault()
+                    closeOnClick={false}
+                    onClick={() => {
                       onChange(mode.id, on ? shown : [...shown, mode.id])
                     }}
                   >
@@ -102,14 +105,14 @@ export function ModesMenu({
           <DropdownMenuItem
             className="min-w-0 flex-1 justify-center"
             disabled={frames.length === 1}
-            onSelect={() => onChange(main.id, [main.id])}
+            onClick={() => onChange(main.id, [main.id])}
           >
             <span className="truncate">Only {main.name}</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             className="flex-1 justify-center"
             disabled={frames.length === modes.length}
-            onSelect={() =>
+            onClick={() =>
               onChange(
                 main.id,
                 modes.map((mode) => mode.id)

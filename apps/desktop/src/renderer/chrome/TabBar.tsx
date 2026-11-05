@@ -1,12 +1,12 @@
+import { Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { FolderOpen, LoaderCircle, Plus, TriangleAlert, X } from "lucide-react"
 import { useEffect, useRef, useSyncExternalStore } from "react"
-import { Kbd } from "@/components/ui/kbd"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { DesignStore } from "../design-store.ts"
 import { type Tab, useActiveTabId, useTabs, workspace } from "../workspace.ts"
 import { AppMenu } from "./AppMenu.tsx"
 import { openProjectFolder } from "./commands.ts"
 import { Hint } from "./Hint.tsx"
+import { formatKeys } from "./keys.ts"
 
 const mac = navigator.userAgent.includes("Mac")
 
@@ -120,18 +120,20 @@ export function TabBar() {
         ))}
       </div>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => void openProjectFolder()}
-            aria-label="Open project"
-            className="mb-1 ml-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground [-webkit-app-region:no-drag]"
-          >
-            <Plus className="size-4" />
-          </button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              onClick={() => void openProjectFolder()}
+              aria-label="Open project"
+              className="mb-1 ml-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground [-webkit-app-region:no-drag]"
+            >
+              <Plus className="size-4" />
+            </button>
+          }
+        />
         <TooltipContent>
-          <FolderOpen className="size-3.5" /> Open project <Kbd>Ctrl O</Kbd>
+          <FolderOpen className="size-3.5" /> Open project <Kbd>{formatKeys("Ctrl O")}</Kbd>
         </TooltipContent>
       </Tooltip>
     </div>

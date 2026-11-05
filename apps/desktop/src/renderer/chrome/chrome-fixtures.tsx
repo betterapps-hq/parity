@@ -1,8 +1,9 @@
+import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import type { Decorator } from "@storybook/react-vite"
-import { Toaster } from "@/components/ui/sonner"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import type { ReactNode } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { blankProjectAt, design, example, ProjectStage } from "../stories/fixtures.tsx"
+import { useResolvedTheme } from "../theme.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
 
@@ -44,19 +45,23 @@ export function addNote(session: ProjectSession, text: string): void {
 }
 
 /** The window's chrome without a canvas: tooltips, notifications and the unsaved changes prompt, full height. */
-export const Chrome: Decorator = (Story) => (
-  <TooltipProvider>
-    <div className="flex h-screen flex-col bg-background text-foreground">
-      <Story />
-    </div>
-    <Toaster
-      position="bottom-right"
-      offset={{ bottom: 40, right: 16 }}
-      mobileOffset={{ bottom: 40, left: 16, right: 16 }}
-    />
-    <UnsavedPrompt />
-  </TooltipProvider>
-)
+export const Chrome: Decorator = (Story) => <ChromeAround story={<Story />} />
+
+function ChromeAround({ story }: { story: ReactNode }) {
+  const theme = useResolvedTheme()
+  return (
+    <TooltipProvider>
+      <div className="flex h-screen flex-col bg-background text-foreground">{story}</div>
+      <SonnerToaster
+        theme={theme}
+        position="bottom-right"
+        offset={{ bottom: 40, right: 16 }}
+        mobileOffset={{ bottom: 40, left: 16, right: 16 }}
+      />
+      <UnsavedPrompt />
+    </TooltipProvider>
+  )
+}
 
 /** The active tab's project around a story, at the bottom of the window as the app places the status bar. */
 export const AtBottom: Decorator = (Story) => (
