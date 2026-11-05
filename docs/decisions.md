@@ -3961,6 +3961,16 @@ event and returns the next list, and every path goes through it. My calls:
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
 
+## Make component checks every variant option (PAR-493)
+
+Called on 2026-11-05. Make component's before-and-after check now renders the design in each option of each variant
+param, not only the option its board shows, as it already did for every state and viewport. Each option is checked with
+the other params as the board shows them, rather than every combination of options: an option that changes nothing
+inside the part on its own changes nothing there beside another that doesn't either, and the checks grow with the number
+of options rather than their product. A refusal for an option the board doesn't show names it after the state and
+viewport. A variant's change inside the part isn't caught earlier with its own advice, as a state's is; the render check
+refuses it.
+
 ## Width and Height make room for their value (PAR-496)
 
 Called on 2026-11-05, for your approval in Storybook. A 96 by 48 layer showed "9" and "4" in the Size section. Both
