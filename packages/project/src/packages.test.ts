@@ -44,7 +44,8 @@ async function installed(name: string): Promise<InstalledPackage> {
 }
 
 beforeAll(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), "parity-packages-")))
+  // Resolved as the reader resolves links, so a Windows temp folder's short name (`RUNNER~1`) is written out in full.
+  root = realpathSync.native(mkdtempSync(join(tmpdir(), "parity-packages-")))
   write("apps/web/package.json", { name: "web" })
 
   // The app's own copy is nearer than the one in the folder above.
