@@ -2,6 +2,8 @@ import type {
   CanvasDocument,
   ChangeConflict,
   ComponentInfo,
+  ComponentRenderStatus,
+  ComponentSource,
   ContainerSpec,
   DesignChange,
   ErrorDetails,
@@ -37,6 +39,13 @@ export interface AgentSnapshot {
   mainDocument: string
   /** Components' props as inferred from their source, by component; missing until inference finishes. */
   props: Record<string, ComponentInfo>
+  /**
+   * Where each component comes from, with the parents and sample a library part is inserted with, which `Props`
+   * reports as its composition. Without it, every component's parents are unknown.
+   */
+  sources?: Record<string, ComponentSource>
+  /** How each component drawn so far fares on the canvas, which says whether its example draws. */
+  renderStatus?: Record<string, ComponentRenderStatus>
   selection: { design?: string; node?: string; mode?: string }
   /** Each design's board on the canvas, by design key, so new designs can be placed in empty space. */
   bounds: Record<string, { x: number; y: number; width: number; height: number }>

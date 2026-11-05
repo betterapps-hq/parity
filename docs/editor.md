@@ -2294,6 +2294,26 @@ keeping Undo, then the detail's Undo), ReferenceLoop (refused through another to
 file's stories played in Storybook on 2026-10-29. Gaps: the inspector's pickers don't show previews yet, the rest of
 PAR-143.
 
+### Full round beside the radius tokens (PAR-458)
+
+The radius field takes `radius-full` as well as the project's radius tokens. It's Tailwind's `rounded-full`, which
+Tailwind writes as `calc(infinity * 1px)` rather than as a theme variable: the corners are as round as the box allows,
+so a square of any size is a circle and a wider box is a pill, in every viewport. A frame draws it as
+`var(--radius-full, calc(infinity * 1px))`, so a project that declares its own `--radius-full` keeps that value, and one
+that doesn't gets no new variable. `GetTokens` (and `parity tokens`, MCP `get_tokens`) lists it after the tokens, as
+`{ name: "radius-full", category: "radius", source: "keyword", values: { default: "calc(infinity * 1px)" } }`, unless
+the project has a token of that name, which is listed instead. An agent's `radius: "radius-full"`, in a design, a
+viewport's patch or a state, gets no "isn't a token" warning; under any other key it's still not a token.
+
+Code: `radiusKeywords` and `radiusCss` in `packages/core/src/render.ts`; `tokensAndKeywords` and `lint` in
+`packages/agent/src/workspace.ts`.
+
+Tests: `packages/core/src/render.test.ts` (a 24px and a 384px avatar and a component's root drawn fully round, a
+viewport's patch switching to it from `radius-md`); `packages/agent/src/run.test.ts` (2: `GetTokens` listing the keyword
+and the design taking it without a warning while a color named `radius-full` is warned about; a project's own
+`--radius-full` listed as its token). Gaps: the inspector's radius picker doesn't offer Full yet, and the Tokens panel
+doesn't list it; a node an agent rounds this way shows `radius-full` in the field as it would an unknown token.
+
 ## Libraries
 
 How a library's own designs reach the projects that install it.
@@ -2345,6 +2365,29 @@ screens left out). `packages/project/src/index.test.ts` (1: a dependency's canva
 entry and isn't saved). Gaps: the panel's section has no automated test. It was checked in an isolated copy of the app
 on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen: the library's section
 listed the design under Ready-made components and left the screen out.
+
+### Providers a library's parts need (PAR-428, PAR-453)
+
+A provider draws nothing of its own, but the parts inside it throw without it: Nova's `Sidebar` and its parts need
+`SidebarProvider`. The library's file marks such a provider `visual: false`, and it stays one of the project's
+components, so designs and agents can put the parts inside it. Only the Components panel and the insert picker's
+browsing leave it out; a search by its name finds it.
+
+- **Agents** see it in `Components()` and `parity components`, and compose with it like any component: a
+  `nova/SidebarProvider` node with the sidebar in its `children` slot, or `Props()`'s `composition` example (PAR-454),
+  which places a part inside its parents. A part placed without it shows in `Problems` as a render error that names the
+  provider.
+- **Inserting a part** from the panel puts it inside its parents, the provider included, with the provider's sample.
+
+Code: `findLibraries` in `packages/project/src/libraries.ts`, which keeps a `visual: false` component with its `parents`
+and `sample`; `componentSources` in `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`, which leaves it out of the
+panel.
+
+Tests: `packages/libgen/src/nova-sidebar.test.ts` (3: the shadcn example's Nova lists `SidebarProvider` as a part that
+draws nothing and the sidebar's parent; a `Sidebar` alone throws naming the provider; the provider's sample from the
+registry draws the sidebar). `packages/project/src/library-files.test.ts` (1: a part marked `visual: false` stays
+listed). Composing a Nova sidebar inside its provider through `parity exec` was checked in the running app on
+2026-11-04: `Problems` found nothing, and the same sidebar without the provider reported the provider's error.
 
 ### Placing a library's design, linked or detached (PAR-126)
 
@@ -3415,6 +3458,21 @@ transport contract test covers two names sharing more than 80 prefix characters.
 through the otherwise transparent overlay, so the full hover title is reachable without blocking the rest of the canvas.
 The cursor component was checked in Storybook with a long name; its text and title remain intact and its visible width
 is bounded with ellipsis.
+
+### What a component goes inside (PAR-454)
+
+`Props(component)`, `parity props` and `get_props` return the component's `composition` with its props, and before they
+are read: its role (a `provider` that draws nothing, a `wrapper` other parts go inside, or a `component`), the parents
+it goes inside (`listed` with their chain and where the library learned it, `none`, or `unknown` with why), the parts it
+holds, its slots by the key a node holds them under, and an example node `Insert` takes as it is. The example is the
+tree the Components panel draws for the component, and its status is the canvas's render status: `drawn`, `failing` with
+why, or `untried`. The CLI prints it after the props, with the example as JSON.
+
+`packages/editor/src/composition.test.ts` covers a Nova-shaped sidebar (its provider before inserting, provider, wrapper
+and component roles, optional parents), parents that are unknown until a project component draws or that a provider
+error names, slots from props and from samples, and a stable example. `packages/agent/src/run.test.ts` reads Sidebar's
+provider through `Props` and inserts the example. `packages/cli/src/operations.test.ts` checks that the CLI and MCP give
+the same composition and text.
 
 ### Structured results and coded errors (PAR-472)
 

@@ -576,20 +576,65 @@ export interface PropsResponse {
     default?: string | number | boolean | null
     required?: boolean
   }[]
+  /** What it needs around it and holds inside it, read from its library's metadata (PAR-454). */
+  composition?: Composition
 }
 
-/** A component's props, with each variant's options and default. */
+/** A component's composition, as `@parity-app/editor`'s `componentComposition` reads it. */
+export interface Composition {
+  role: "provider" | "wrapper" | "component"
+  parents:
+    | { status: "listed"; chain: { component: string; optional?: true }[]; from?: string }
+    | { status: "none" }
+    | { status: "unknown"; reason: string }
+  holds: string[]
+  slots: { name: string; key: string; kind: "children" | "element" | "render" }[]
+  example: { node: unknown; status: "drawn" | "failing" | "untried"; reason?: string }
+}
+
+/** A component's props, with each variant's options and default, then what it needs around it and holds. */
 export function describeProps(result: PropsResponse): string {
-  if (!result.known) return `${result.component}'s props haven't been read from its source yet. Try again in a moment.`
-  const imported = result.import && result.import !== result.path ? `, imported from "${result.import}"` : ""
-  const lines = [`${result.component}, from ${result.path}${imported}:`]
-  for (const prop of result.props) {
-    const options = prop.options ? `: ${prop.options.map((option) => JSON.stringify(option)).join(", ")}` : ""
-    const fallback = prop.default === undefined ? "" : `, default ${JSON.stringify(prop.default)}`
-    lines.push(`  ${prop.name} (${prop.kind}${prop.required ? ", required" : ""})${options}${fallback}`)
+  const lines: string[] = []
+  if (!result.known) {
+    lines.push(`${result.component}'s props haven't been read from its source yet. Try again in a moment.`)
+  } else {
+    const imported = result.import && result.import !== result.path ? `, imported from "${result.import}"` : ""
+    lines.push(`${result.component}, from ${result.path}${imported}:`)
+    for (const prop of result.props) {
+      const options = prop.options ? `: ${prop.options.map((option) => JSON.stringify(option)).join(", ")}` : ""
+      const fallback = prop.default === undefined ? "" : `, default ${JSON.stringify(prop.default)}`
+      lines.push(`  ${prop.name} (${prop.kind}${prop.required ? ", required" : ""})${options}${fallback}`)
+    }
+    if (result.props.length === 0) lines.push("  No props of its own. --all lists the attributes it passes on.")
   }
-  if (result.props.length === 0) lines.push("  No props of its own. --all lists the attributes it passes on.")
+  if (result.composition) lines.push("", ...describeComposition(result.composition))
   return lines.join("\n")
+}
+
+const roles: Record<Composition["role"], string> = {
+  provider: "a provider, which draws nothing and gives the parts inside it their context",
+  wrapper: "a wrapper, which other parts go inside",
+  component: "a component"
+}
+const exampleStatus: Record<Composition["example"]["status"], string> = {
+  drawn: "drawn on the canvas",
+  failing: "failing on the canvas",
+  untried: "not drawn yet"
+}
+
+/** What a component needs around it, what it holds, its slots, and its example as JSON for `Insert`. */
+function describeComposition({ role, parents, holds, slots, example }: Composition): string[] {
+  const lines = [`It's ${roles[role]}.`]
+  if (parents.status === "listed") {
+    const chain = parents.chain.map((parent) => (parent.optional ? `${parent.component} (optional)` : parent.component))
+    lines.push(`Goes inside, outermost first: ${chain.join(" > ")}${parents.from ? ` (from its ${parents.from})` : ""}`)
+  } else if (parents.status === "none") lines.push("Needs nothing around it.")
+  else lines.push(`What it needs around it is unknown: ${parents.reason}`)
+  if (holds.length > 0) lines.push(`Holds: ${holds.join(", ")}`)
+  if (slots.length > 0) lines.push(`Slots: ${slots.map((slot) => `${slot.key} (${slot.kind})`).join(", ")}`)
+  const reason = example.reason ? `: ${example.reason}` : ""
+  lines.push(`Example for Insert, ${exampleStatus[example.status]}${reason}:`, `  ${JSON.stringify(example.node)}`)
+  return lines
 }
 
 /** Frames as state and mode ids, naming a mode once when they share it: "default, error in desktop-light". */

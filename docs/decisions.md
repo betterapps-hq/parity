@@ -1,5 +1,13 @@
 # Decisions
 
+- **Agents read a component's composition from `Props`, built from its library file (PAR-454).** `Props`, and through it
+  `parity props` and `get_props`, returns a `composition` beside the props, rather than a new operation, so agents that
+  already check `Props` before inserting learn what a part goes inside. It comes from `componentComposition` in
+  `@parity-app/editor`, which reads the parents, optional parents, provider flag and sample the library file gives, not
+  recipes of its own. Its example is `componentExample`, the tree the Components panel draws, so the two can't drift. A
+  part's parents say where they came from (`parentsFrom`, now kept on the component's source). Whether the example draws
+  comes from the canvas's render status, so it says `untried` rather than claiming an example works before it has drawn.
+
 - **A production promotion waiting for approval doesn't hold up the next beta (PAR-504).** v0.4.2's beta publish waited
   until v0.4.1's pending production promotion was cancelled. The promote job held the `cd-desktop-publish` concurrency
   group it shares with publishing while it waited for its environment's reviewers. The shared `cd-desktop-promote`
@@ -1125,6 +1133,11 @@ recommended answer to each of its questions.
 - **A part that draws nothing is still one of the project's components (PAR-428),** marked `visual: false`, so the parts
   whose chains need it (Chakra's `CodeBlock.AdapterProvider`, Base UI's `Tooltip.Provider`) insert inside it with its
   sample. Only the Components panel leaves it out. Leaving it off the project's list made every part inside one fail.
+- **Agents put a part in its provider themselves (PAR-453).** `Components()` lists providers such as
+  `nova/SidebarProvider`, and an agent's `Insert` places what it's given as written, without wrapping a part in the
+  parents the panel would add, so a design never gains layers the agent didn't write. A part placed without its provider
+  shows a render error that names it. `Props()`'s `composition` (PAR-454) says which parents a part needs, with an
+  example that inserts it inside them.
 - **More generator rules (PAR-428):**
   - A failing part's error from the app that names no parent puts the examples' own chain in place of the one it has,
     when that's another.
@@ -1849,6 +1862,14 @@ to PAR-209 build it.
   theme. With each swatch edged and split by a gap, equal halves no longer run together, so every color in a two-theme
   project shows two swatches, Light then Dark, in rows, tiles and the detail, and matching halves say the value is the
   same (PAR-435).
+- **A framework's styling keyword is a name the style field takes, listed with the tokens as `source: "keyword"`**
+  (PAR-458). My call, as the issue asked: Tailwind's `rounded-full` is `calc(infinity * 1px)` in its utilities, with no
+  `--radius-full` in its theme, so there was no name for a circle or a pill. The radius field takes `radius-full`, named
+  as Tailwind's radius steps are, and a frame draws `var(--radius-full, calc(infinity * 1px))`: a project that declares
+  `--radius-full` keeps its own value, and Parity adds no variable and changes no scale. `GetTokens` lists it after the
+  tokens, so discovery and validation agree, and the agent's lint takes it for `radius` only. The alternative, a token
+  added to the project's list, would have put it in the Tokens panel as something to edit and write to the stylesheet.
+  `radius-full` is the only keyword for now; others can join `radiusKeywords` the same way when a design needs them.
 
 ## The app icon
 
