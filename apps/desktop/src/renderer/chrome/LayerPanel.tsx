@@ -30,6 +30,7 @@ import {
   type NodeStyle,
   overrideCount,
   type PatchField,
+  propChange,
   patchSize,
   pushOverrides,
   resetInstance,
@@ -151,7 +152,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           node={node}
           own={location.node as InstanceNode}
           changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
+          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -290,7 +291,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           entry={entry}
           node={node}
           changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
+          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -346,7 +347,7 @@ function LayerSections({
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
   const propPreview = useChangePreview(session.store, entry.key)
   const setProp = (name: string, value: unknown) => (gesture?: string) =>
-    change(`Change ${name}`, { props: { [name]: value } }, gesture)
+    change(`Change ${name}`, propChange(name, value), gesture)
   const edited = (style: NodeStyle) => (current: ContainerSpec) => {
     const target = boardTarget(current, editingState(current, selected.state).id)
     return inner
@@ -418,6 +419,7 @@ function LayerSections({
           node={node}
           info={components[node.component]}
           changed={(name) => changesField(override, { kind: "props", key: name })}
+          taken={override?.unset?.props}
           onChange={(name, value, gesture) => propPreview.commit(setProp(name, value), gesture)}
           onPreview={(name, value) => propPreview.show(setProp(name, value))}
           onCancel={() => propPreview.cancel()}

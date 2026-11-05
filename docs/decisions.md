@@ -193,6 +193,22 @@ still need your call.
   layout of the design under the pointer, in the slot there, or at the pointer in an absolutely placed one, in half
   steps of the spacing scale. It never pastes into a layout inside an instance. Select layer lists the design first,
   then every layer under the pointer, those inside instances included.
+- **A component's slot is a Paste here target like a layout** (PAR-419), and so for dropped files and components from
+  the panel, which share `measureHere`. My calls: a slot is under the pointer when the element its layers are drawn in
+  is, since only the component knows where it draws a slot, so a slot with no layers yet isn't a target and the copy
+  goes to the layout around the component; the slot of the layer under the pointer is tried first; and a slot is never
+  absolutely placed, whatever the component's own position, so copies go in its flow. A dragged layer still doesn't drop
+  into a slot.
+- **A stretched copy pasted at the pointer keeps its far insets** (PAR-419). My call: a copy with a left and a right and
+  no width keeps its right, and one with a top and a bottom and no height its bottom, so it still reaches that edge; its
+  left and top go to the pointer as before. A copy with a width drops its right, as CSS ignores it then.
+- **A right-click on the canvas while its menu is open opens it again there** (PAR-419), as Figma does; off the canvas
+  it only closes it. My call: Base UI's menu lays a backdrop over the page while it's open, so the menu cancels the
+  close for that press and, on release, sends the canvas under the backdrop the `contextmenu` tldraw would have, rather
+  than being made non-modal, which would let a left click outside the menu act on the canvas as well as close it.
+- **The menubar greys what the canvas menu greys for layers inside an instance** (PAR-419): Copy, Duplicate, the order,
+  Wrap in layout and Hide or show, through one rule (`layerCommands`), and their keys do nothing then. Cut and Delete,
+  which the canvas menu doesn't have, are unchanged.
 
 ## Canvas
 
@@ -568,6 +584,12 @@ section has the details. The user asked for "variants, instance overrides and th
   patch's values: agents' `Update` already reads `null` as "take back this change", and a prop can be `null` on purpose,
   so a list says it apart from both. Paste style in a state takes away what the copy doesn't set, so it replaces the
   look there as it does in the base, and the inspector marks a value taken away as changed, with Reset.
+- **Clearing a prop in a state takes it away there (PAR-421):** a switch back to its default, emptied text or a removed
+  attribute is the prop taken away in the state being edited, not the state's change taken back, so a prop the design
+  turns on can be off in one state. Reset is how to take the change back. My call over writing the default's value
+  (`false`) into the state: a prop's declared default isn't always known, and taking the prop away shows what the
+  component does without it, as clearing does in the base. An attribute taken away stays listed in the props, so it can
+  be set again or reset.
 - **The variant grid shows each variant on its own, plus combinations someone pins.** You chose this on 2026-10-28 over
   every combination, which multiplies fast.
 - **A component design in `.par` stays the source, linked to a real component file.** You set the direction on

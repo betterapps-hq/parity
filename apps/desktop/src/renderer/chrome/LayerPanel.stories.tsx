@@ -1,6 +1,6 @@
 import { insertNode, mapNode } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import { layersSelection } from "../selection.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answering } from "../stories/host.ts"
@@ -156,6 +156,37 @@ export const HiddenLayer: Story = { loaders: [pick("Sign in", "Sign in error")] 
  * and says edits change only this state, and the props that state changes can each be reset.
  */
 export const EditingAState: Story = { loaders: [pick("Sign in", "Password input", "wrong-password")] }
+
+/**
+ * A prop the base design turns on, turned off in one state (PAR-421): Sign in's button is disabled in the base, and in
+ * Wrong password its `disabled` switch turns off there only. The field is marked as changed, and Reset takes the
+ * state's change back, so the switch is on again.
+ */
+export const TurningAPropOffInAState: Story = {
+  loaders: [
+    inspecting("design", () => {
+      const key = design("Sign in")
+      const id = node("Sign in", "Sign in button")
+      example().store.updateContainer(key, "Disable button", (container) => ({
+        ...container,
+        root: mapNode(container.root, id, (current) =>
+          current.type === "component" ? { ...current, props: { ...current.props, disabled: true } } : current
+        )
+      }))
+      return layersSelection(key, [id], { state: "wrong-password" })
+    })
+  ],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    const disabled = await panel.findByRole("switch", { name: "disabled" }, slowly)
+    await expect(disabled).toBeChecked()
+    await userEvent.click(disabled)
+    await expect(panel.getByRole("switch", { name: "disabled" })).not.toBeChecked()
+    await userEvent.click(await panel.findByRole("button", { name: "Reset disabled to the base design" }, slowly))
+    await expect(await panel.findByRole("switch", { name: "disabled" }, slowly)).toBeChecked()
+    await expect(panel.queryByRole("button", { name: "Reset disabled to the base design" })).toBeNull()
+  }
+}
 
 /** The state picker opened from the editing bar: every state of the design, to send edits to another. */
 export const ChoosingTheState: Story = {

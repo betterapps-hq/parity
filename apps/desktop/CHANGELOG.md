@@ -1,8 +1,32 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 00:49:09 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 02:13:33 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.6.0
+
+Thu, 05 Nov 2026 02:13:33 GMT
+
+### Minor changes
+
+- Labels use one word for each thing: screens and components rather than designs, previews for a board's per-mode tiles,
+  Show first rather than Main, and the first state's own name rather than Base (ajcraswell@gmail.com)
+- A state can take away a prop or style the design sets, and Paste style in a state leaves only the copied style
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Box a component that draws only text by its text, so it can be hovered, picked and sized on the canvas
+  (ajcraswell@gmail.com)
+- Zoomed far out, frames show a placeholder until their bitmap comes instead of drawing first, so a project opens
+  sooner, and boards keep their size when their frames later draw (ajcraswell@gmail.com)
+- Give a component layer in an asChild slot the class, attributes, handlers and ref its parent hands it
+  (ajcraswell@gmail.com)
+- Saving after undoing a token value a theme didn't have takes it back out of the stylesheet, with any rule it leaves
+  empty (ajcraswell@gmail.com)
+- Draw the app's menus, dialogs and controls with Buildkit's Base UI Nova kit instead of copied Radix components
+  (ajcraswell@gmail.com)
 
 ## 0.5.0
 

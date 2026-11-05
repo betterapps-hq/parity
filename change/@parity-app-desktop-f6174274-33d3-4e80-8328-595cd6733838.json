@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Draw the app's menus, dialogs and controls with Buildkit's Base UI Nova kit instead of copied Radix components",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

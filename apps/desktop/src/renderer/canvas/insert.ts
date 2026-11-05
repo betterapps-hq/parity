@@ -60,6 +60,7 @@ export function dropTarget(session: ProjectSession, area: ParentNode, point: Poi
     entry: hit.entry,
     parent: slot.layout,
     index: slot.index,
+    ...(slot.slot ? { slot: slot.slot } : {}),
     mode: hit.mode,
     state: hit.state,
     box: { x: box.left, y: box.top, w: box.right - box.left, h: box.bottom - box.top },
