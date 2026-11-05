@@ -20,7 +20,7 @@ import {
 } from "./client.ts"
 import { type ExecReply, type Screenshot, execResponse, structuredExec } from "./execute.ts"
 import { bounded, operations, skillOperation } from "./operations.ts"
-import { fixtureTab, toolReply, transportFixture } from "./transport-fixture.ts"
+import { fixtureTab, processTests, toolReply, transportFixture } from "./transport-fixture.ts"
 
 const fixture = transportFixture({})
 const { requests, run, mcp } = fixture
@@ -285,7 +285,7 @@ function expectRequests(method: string, params: Record<string, unknown>) {
     expect(request).toEqual(expect.objectContaining({ method, params: sent, agent: "Contract Caller" }))
 }
 
-describe("remaining transport contracts", () => {
+describe("remaining transport contracts", processTests, () => {
   it.each(cases)("shares $name defaults and human output", async (entry) => {
     fixture.response = { result: entry.result }
     const [cli, protocol] = await Promise.all([run(entry.cli), mcp(entry.input, entry.tool)])
