@@ -110,7 +110,7 @@ export function stepFieldValue(current: number, count: number, rules: FieldRules
   if (rules.kind === "length") {
     if (count === 0) next = value
     else next = count > 0 ? Math.floor(value) + count : Math.ceil(value) + count
-  } else if (rules.kind === "count") next = Math.round(value) + count
+  } else if (wholeNumbers(rules)) next = Math.round(value) + count
   else next = value + count
   return clamp(next, rules)
 }
@@ -137,7 +137,7 @@ export function describeFieldNote(note: FieldNote, rules: FieldRules): string {
     case "clamped":
       return `Kept at ${shown(note.to)}: it can't go ${note.bound === "min" ? "lower" : "higher"}`
     case "rounded":
-      return `Rounded to ${shown(note.to)}: it takes whole numbers`
+      return `Rounded to ${shown(note.to)}: it takes whole ${rules.kind === "percent" ? "percentages" : "numbers"}`
   }
 }
 
@@ -182,7 +182,7 @@ function settle(stored: number, rules: FieldRules): FieldOutcome {
     const snapped = snapToSpacingGrid(value)
     note = { kind: "snapped", from: value * scale, to: snapped * scale }
     value = snapped
-  } else if (rules.kind === "count" && !Number.isInteger(value)) {
+  } else if (wholeNumbers(rules) && !Number.isInteger(value)) {
     value = Math.round(value)
     note = { kind: "rounded", to: value }
   }
@@ -193,6 +193,14 @@ function settle(stored: number, rules: FieldRules): FieldOutcome {
   }
   // A negative zero shows as "-0".
   return { ok: true, value: value === 0 ? 0 : value, ...(note ? { note } : {}) }
+}
+
+/**
+ * Whether a field takes only whole numbers: counts, and percentages, so a typed 33.333 in Opacity lands on 33 and says
+ * so, rather than keeping a fraction the field shows rounded to 33.33.
+ */
+function wholeNumbers(rules: FieldRules): boolean {
+  return rules.kind === "count" || rules.kind === "percent"
 }
 
 function clamp(value: number, rules: FieldRules): number {

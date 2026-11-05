@@ -216,7 +216,8 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
       </PanelSection>
       {mixed.length > 0 && (
         <p className="border-b px-4 py-2.5 text-xs text-muted-foreground">
-          Different across these layers: {mixed.map(styleLabel).join(", ")}. Setting one gives them all the same value.
+          Different across these layers: {mixed.map(styleLabel).join(", ")}. Setting one gives them all the same value,
+          and <code className="font-mono">Mixed+8</code> adds 8 to each layer&apos;s own value.
         </p>
       )}
       <StyleSections

@@ -439,7 +439,21 @@ still need your call.
   focus with the text selected, and Escape reverts and leaves. A value changing underneath doesn't touch what's being
   typed.
 - **The canvas previews a field's edit as inline styles on the frames already drawn,** not through the store, so typing
-  shows in about 25 ms and commits as one undo step. Number props don't preview yet (PAR-203).
+  shows in about 25 ms and commits as one undo step.
+- **A number prop previews by being made in the design and taken back,** since the component has to draw again for it
+  (PAR-203). My call: the preview is a change in a gesture of its own, reverted to its checkpoint before the next
+  keystroke and on Escape, as a resize writes as the pointer moves, rather than a second source of designs for the
+  frames to draw beside the store. So while it shows, the panels, agents and, with automatic saving on, the file see it,
+  as they see a resize in progress; taking it back leaves nothing to undo, and making it is one undo step. Edits work
+  from the value as it was before the preview.
+- **Opacity takes whole percentages** (PAR-203). My call, of the two the issue offered: a typed fraction is rounded to
+  the nearest whole percentage and the field says so ("Rounded to 33%: it takes whole percentages"), as a count's is,
+  rather than keeping the fraction and naming what it shows. It's the same code path counts already had, and the field
+  shows two decimals, so `100/3` would have kept 33.333… behind a 33.33. An opacity already off a whole percentage stays
+  as it is until it's edited.
+- **The example's code field takes `value`, not `defaultValue`** (PAR-203). input-otp, under nova's InputOTP, reads
+  `defaultValue` for itself but also passes it to its input beside its own `value`, which React warned about in
+  development. Verify email's code is now fixed at 482913 (482931 in Wrong code), so in Interact it can't be typed over.
 - **The field parser is in `@parity-app/core`** until `@parity-app/editor` exists (PAR-7).
 - **A dragged layer stays in its own layout while the pointer is over that layout** (CAN-47): it changes places with its
   neighbours and never drops into one of them, so cards and bars that are layouts themselves don't swallow the neighbour
