@@ -2,6 +2,100 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 12:23:23 GMT",
+      "version": "0.11.0",
+      "tag": "@parity-app/desktop_v0.11.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e0a5abd11e6cafa959f3fb9e87de4726418de81c",
+            "comment": "Move the rules for moving, resizing and nudging layers and frames into the editor package, with no change in how they behave"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1a9ce919ef75545c116676133be7737cf1dd42c6",
+            "comment": "Leave out malformed tokens in a library's DTCG files, and note why, instead of reading them as broken CSS"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "efd287481e035c75ece204adb03a53ffce441999",
+            "comment": "Open Home and new tabs on the start page, with your recent and starred projects, search, Open and New project"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 05 Nov 2026 11:43:57 GMT",
+      "version": "0.10.1",
+      "tag": "@parity-app/desktop_v0.10.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4ec07f11e671529ea3ee6c3603ef7ea2dfd50dad",
+            "comment": "Layers' Hide in and Show in name the variant option the change goes to, not the state"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 05 Nov 2026 11:30:08 GMT",
+      "version": "0.10.0",
+      "tag": "@parity-app/desktop_v0.10.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "61aee15522a6f74aa009644466bbe9927a5e8101",
+            "comment": "Agent overlap warnings tell board collisions (overlap) from a title too close (title_clearance), say whether sizes are measured or estimated, and count crowded boards a call didn't touch (canvas_overlaps)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 05 Nov 2026 11:11:28 GMT",
+      "version": "0.9.1",
+      "tag": "@parity-app/desktop_v0.9.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "33c34a92c79de67eb0d73a961b40f9acc7087594",
+            "comment": "Check registry entries, caller names and the app's error details with zod"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6442c27c837a6b3ad58cf4d6d001bc1f74dadfad",
+            "comment": "List an export you put on the component list straight away, and keep a new component that takes a removed one's id when files change"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "452996e0038c6f53b6b6ff08bd2d0973310801f8",
+            "comment": "Every canvas drag now ends the same way: a title drag and a box select end when the window loses focus, and a title drag or a frame's resize waits for the pointer to move 4 pixels"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1617e29cf5dd4bce918a3ad8525143c16be059a0",
+            "comment": "Measure explains that it lays out one frame when given a list, \"all\" or \"shown\", and lists the state or mode ids it takes"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 10:01:48 GMT",
       "version": "0.9.0",
       "tag": "@parity-app/desktop_v0.9.0",

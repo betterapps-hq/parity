@@ -19,6 +19,17 @@ export function toolReply(stdout: string): unknown {
  */
 const spawnLimit = process.env.CI ? 18_000 : 10_000
 
+/**
+ * The timeout for a test that starts CLI or MCP processes: two rounds of them at `spawnLimit`, so a slow start fails
+ * with the fixture's own error rather than vitest's. Alone each takes about a fifth of a second, mostly Node loading
+ * the CLI's modules, but starting processes slows under load far more than work inside the test does: with three full
+ * runs at once, as several sessions' `pnpm verify` make, these tests took over the default 5 seconds (PAR-495).
+ */
+export const processTests = { timeout: 2 * spawnLimit }
+
+/** Node's compile cache, shared by every CLI process the tests start, which saves about a quarter of each start. */
+export const compileCache = { NODE_COMPILE_CACHE: join(tmpdir(), "parity-cli-compile-cache") }
+
 /** The one project the fixture's app has open, which calls without a tab are routed to. */
 export const fixtureTab = { id: "project", name: "Project", root: "/fixture/project", active: true }
 
@@ -84,6 +95,7 @@ export function transportFixture(defaultResult: unknown) {
       const child = spawn(process.execPath, [bin, ...args], {
         env: {
           ...process.env,
+          ...compileCache,
           PARITY_AGENT_FILE: agentFile,
           PARITY_AGENT_NAME: "Contract Caller",
           PARITY_AGENT_ID: "cli-session",

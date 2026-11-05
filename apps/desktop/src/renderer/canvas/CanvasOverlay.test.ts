@@ -358,6 +358,26 @@ describe("a box drawn from a frame's background", () => {
     await page.mouse.up()
     expect(await selected()).toEqual({ design, node: "chart", mode, state: "default" })
   })
+
+  it("puts the selection back when the window loses focus, and follows the pointer no further (PAR-583)", async () => {
+    const chart = await at("chart")
+    await page.mouse.click(chart.x, chart.y)
+    const start = await at("app", "default", true)
+    const title = await at("title")
+    const users = await at("users")
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(title.x, title.y, { steps: 4 })
+    expect(await selected()).toMatchObject({ node: "header" })
+    // What the window hears when another window takes the focus mid-drag. Playwright has the page think it's always
+    // focused, so it's sent by script.
+    await page.evaluate(() => window.dispatchEvent(new Event("blur")))
+    expect(await selected()).toEqual({ design, node: "chart", mode, state: "default" })
+    // The box is over, so the pointer going on over the cards and letting go selects nothing more.
+    await page.mouse.move(users.x, users.y, { steps: 4 })
+    await page.mouse.up()
+    expect(await selected()).toEqual({ design, node: "chart", mode, state: "default" })
+  })
 })
 
 describe("hovering", () => {

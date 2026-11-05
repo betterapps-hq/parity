@@ -18,7 +18,7 @@ import {
   remapLibraryImports
 } from "@parity-app/core"
 import { type RegistryEntry, registryEntries, registryEntryFor } from "@parity-app/registry"
-import { readDesignTokens } from "@parity-app/tokens"
+import { readDesignTokens, type SkippedToken } from "@parity-app/tokens"
 import { parseJsonc } from "./jsonc.ts"
 import { readStylesheet } from "./styles.ts"
 
@@ -160,7 +160,7 @@ export async function findLibraries(
       ...designsOf(manifest, definition.id)
     })
     if (described && manifestPath) {
-      const tokens = await describedTokens(root, described.path, described.manifest, manifestPath)
+      const tokens = await describedTokens(root, described.path, described.manifest, result.notes, manifestPath)
       if (tokens) result.describedTokens.push(tokens)
     }
     // Icons are used by name from the whole package, not listed one by one.
@@ -284,23 +284,24 @@ async function isFile(path: string): Promise<boolean> {
 
 /**
  * The tokens a `.lib.par` describes, read from the DTCG files it points at or written inline. A file that can't be read
- * is reported with the library, not thrown, so the project still opens. `shownAs` is how the manifest is named to the
- * person, which for one in Parity's registry isn't a path in the project.
+ * is reported with the library, not thrown, so the project still opens, and each malformed token left out is added to
+ * `notes`. `shownAs` is how the manifest is named to the person, which for one in Parity's registry isn't a path in the
+ * project.
  */
 export async function describedTokens(
   root: string,
   manifestPath: string,
   manifest: LibraryManifest,
+  notes: string[],
   shownAs = posix.normalize(relative(root, manifestPath).replaceAll("\\", "/"))
 ): Promise<DescribedTokens | undefined> {
   if (manifest.tokens === undefined) return undefined
   const entry = { name: manifest.name, manifest: shownAs }
   try {
     const read = async (path: string): Promise<unknown> => JSON.parse(await readFile(path, "utf8"))
-    return {
-      ...entry,
-      tokens: await readDesignTokens(manifest.tokens, read, dirname(manifestPath).replaceAll("\\", "/"))
-    }
+    const folder = dirname(manifestPath).replaceAll("\\", "/")
+    const skipped = ({ path, problem }: SkippedToken) => notes.push(`${shownAs}: skipped ${path} (${problem})`)
+    return { ...entry, tokens: await readDesignTokens(manifest.tokens, read, folder, skipped) }
   } catch (error) {
     return { ...entry, tokens: [], error: error instanceof Error ? error.message : String(error) }
   }

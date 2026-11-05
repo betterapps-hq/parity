@@ -17,8 +17,12 @@ export const warningCategories = {
   not_a_token: "warning",
   /** A length that isn't a spacing step or a length token. */
   not_a_length_token: "warning",
-  /** Boards that overlap, or sit so close a title would cover one. */
+  /** A board this call created, changed or moved collides with another. */
   overlap: "warning",
+  /** A board this call touched is clear of another, but so close that the lower one's title covers the upper. */
+  title_clearance: "warning",
+  /** Boards this call didn't touch overlap or crowd a title; Overlaps() lists them. */
+  canvas_overlaps: "suggestion",
   /** A design changed kind and dropped what the new kind doesn't have. */
   kind_changed: "warning",
   /** A new layout that groups things has no name. */
