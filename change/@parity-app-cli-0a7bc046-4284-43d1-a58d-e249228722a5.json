@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Component previews draw dialogs, popovers, menus and closed content open, and say when a component draws nothing of its own",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

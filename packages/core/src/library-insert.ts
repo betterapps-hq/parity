@@ -9,7 +9,7 @@ import {
   type SampleChild,
   type SampleRender
 } from "./library.ts"
-import type { ComponentSource } from "./project.ts"
+import { type ComponentSource, openProps } from "./project.ts"
 import type { ComponentInfo } from "./props.ts"
 
 /** Nodes whose `children` is the name `componentNode` gave them, rather than text someone set. */
@@ -243,6 +243,9 @@ export function librarySource(
   component: LibraryComponent,
   path: string
 ): Omit<ComponentSource, "declaration"> {
+  // The library file marks an optional prop with `?`.
+  const declared = new Set(Object.keys(component.props ?? {}).map((prop) => prop.replace(/\?$/, "")))
+  const open = openProps.filter((prop) => declared.has(prop))
   return {
     path,
     export: name,
@@ -256,7 +259,8 @@ export function librarySource(
       ? { optionalParents: component.optionalParents.map((parent) => `${library}/${parent}`) }
       : {}),
     ...(component.parentParts ? { parentParts: true as const } : {}),
-    ...(component.sample ? { sample: sampleIds(component.sample, library) } : {})
+    ...(component.sample ? { sample: sampleIds(component.sample, library) } : {}),
+    ...(open.length > 0 ? { openProps: open } : {})
   }
 }
 

@@ -25,7 +25,7 @@ import { losslessWebp } from "./webp.ts"
  */
 
 /** Goes up when what's kept changes, so pictures made the old way aren't shown. */
-const previewFormat = 2
+const previewFormat = 3
 
 /** What each file imports, by the snapshot it's read in: the code a guest draws doesn't change under it. */
 const imports = new WeakMap<CodeSnapshot, Map<string, Promise<string[]>>>()
@@ -41,14 +41,14 @@ export async function lookupPreviews(previews: PreviewJob[]): Promise<ComponentP
 }
 
 /**
- * Makes a component's preview, unless it's made for its key already or failed to draw for it, and keeps it. A draw
- * that failed is kept as such, so the same code isn't drawn again on every open; one that didn't finish, as when the
- * offscreen window closed under it, isn't, and is tried again when it's next asked for.
+ * Makes a component's preview, unless it's made for its key already, failed to draw for it or drew nothing to see, and
+ * keeps it. A draw that failed or showed nothing is kept as such, so the same code isn't drawn again on every open; one
+ * that didn't finish, as when the offscreen window closed under it, isn't, and is tried again when it's next asked for.
  */
 export async function makePreview(preview: PreviewJob, priority: "visible" | "idle"): Promise<ComponentPreview> {
   const looked = await lookup(preview)
   if (!looked) throw new Error("The project's code isn't known yet")
-  if (looked.image || looked.error) return looked
+  if (looked.image || looked.error || looked.empty) return looked
   const id = `${preview.job.projectId}\0${looked.key}`
   let made = making.get(id)
   if (!made) {
@@ -69,6 +69,11 @@ async function make(
   if ("error" in drawn) {
     await storePreview(job.projectId, component, { key, error: drawn.error })
     return { component, key, error: drawn.error }
+  }
+  // A picture of nothing isn't kept, only that there was nothing to see, so it isn't drawn again on every open.
+  if ("empty" in drawn) {
+    await storePreview(job.projectId, component, { key, empty: true })
+    return { component, key, empty: true }
   }
   const { thumb, large, width, height } = drawn.pictures
   // Kept as lossless WebP, as frame bitmaps are (PAR-535).
@@ -92,7 +97,8 @@ async function lookup(preview: PreviewJob): Promise<ComponentPreview | undefined
   if (image) return { component, key, image }
   const record = (await previewIndex(job.projectId)).get(component)
   if (record?.key === key && record.error) return { component, key, error: record.error }
-  const last = record && !record.error ? await storedPreview(job.projectId, record.key) : undefined
+  if (record?.key === key && record.empty) return { component, key, empty: true }
+  const last = record && !record.error && !record.empty ? await storedPreview(job.projectId, record.key) : undefined
   return { component, key, ...(last ? { last } : {}) }
 }
 

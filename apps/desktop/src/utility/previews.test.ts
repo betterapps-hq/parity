@@ -144,6 +144,29 @@ describe("component previews", () => {
     expect(open.draws).toHaveLength(1)
   })
 
+  it("keep one that drew nothing to see as that, across a restart, and draw it again once its code changes", async () => {
+    await previews.makePreview(preview("Badge"), "idle")
+    open.draw = () => Promise.resolve({ empty: true })
+    expect(await previews.makePreview(preview("Button"), "idle")).toMatchObject({ empty: true })
+    expect((await previews.makePreview(preview("Button"), "idle")).image).toBeUndefined()
+
+    vi.resetModules()
+    previews = await import("./previews.ts")
+    serve("http://localhost:5002")
+    const [found] = await previews.lookupPreviews([preview("Button", "http://localhost:5002")])
+    expect(found).toMatchObject({ empty: true })
+    expect(open.draws).toHaveLength(2)
+
+    // It keeps no picture, so none stands in for it once it's drawn again.
+    await write("src/Button.tsx", "export const Button = () => 'Buy'")
+    const later = new Date(Date.now() + 1000)
+    await utimes(join(open.root, "src/Button.tsx"), later, later)
+    serve("http://localhost:5003")
+    const [changed] = await previews.lookupPreviews([preview("Button", "http://localhost:5003")])
+    expect(changed).not.toHaveProperty("empty")
+    expect(changed).not.toHaveProperty("last")
+  })
+
   it("try again later when the offscreen window couldn't finish one", async () => {
     open.draw = () => Promise.reject(new Error("The render window closed"))
     await expect(previews.makePreview(preview("Button"), "idle")).rejects.toThrow("The render window closed")
