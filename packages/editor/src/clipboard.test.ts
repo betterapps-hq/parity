@@ -7,7 +7,6 @@ import {
   copyDesigns,
   copyLayers,
   copyNotes,
-  designOfLayers,
   fitBindings,
   isParityCopy,
   isSvgMarkup,
@@ -227,13 +226,6 @@ describe("pasting a bound layer", () => {
     const fitted = fitBindings(node, destination)
     expect(fitted.type === "layout" && fitted.children[0]?.bind).toEqual({ props: { children: "label" } })
   })
-
-  it("keeps no bindings in a new screen", () => {
-    const design = designOfLayers(title(), ["form"], { x: 0, y: 0 })
-    const pasted = design.root.type === "layout" ? design.root.children[0] : undefined
-    expect(pasted).toMatchObject({ text: "Card title" })
-    expect(pasted).not.toHaveProperty("bind")
-  })
 })
 
 describe("where pasted layers go", () => {
@@ -291,22 +283,6 @@ describe("pasting layers", () => {
       copies[0],
       "card-title"
     ])
-  })
-})
-
-describe("layers pasted with nothing to paste into", () => {
-  it("become a new screen that lays them out", () => {
-    const design = designOfLayers([text("heading"), text("heading")], ["form", "pasted"], { x: 40, y: 60 })
-    expect(design).toMatchObject({
-      id: "pasted-2",
-      name: "Pasted",
-      position: { x: 40, y: 60 },
-      root: { type: "layout", style: { padding: 6, gap: 4 } },
-      states: [{ id: "default", name: "Default" }]
-    })
-    const ids = [...nodeIds(design.root)]
-    expect(ids).toHaveLength(3)
-    expect(ids).not.toContain("heading")
   })
 })
 

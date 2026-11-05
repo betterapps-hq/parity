@@ -233,17 +233,23 @@ export const FailingToDraw: Story = {
 }
 
 /**
- * Clicking a component with nothing selected: a toast says to select where it goes first, or to drag it there. It is
- * pointed at, so it stays rather than fading after a few seconds.
+ * Clicking a component design with nothing selected: it lands on the canvas, so a new screen named Stat card holds an
+ * instance of it, and is selected, here in Layers, where it's listed under Screens (PAR-546).
  */
 export const AddingWithNothingSelected: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Stat card" }))
-    const toast = await within(document.body).findByText(
-      "Select a screen, component or layer first, or drag it onto one"
-    )
-    await userEvent.hover(toast)
+    const made = await waitFor(async () => {
+      const found = example().store.getEntry(example().selection.get().design ?? "")?.container
+      await expect(found).toMatchObject({
+        name: "Stat card",
+        root: { children: [{ type: "instance", design: "stat-card" }] }
+      })
+      return found
+    })
+    await expect(made?.kind).toBeUndefined()
+    setLayout({ leftTab: "layers" })
   }
 }
 

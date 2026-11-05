@@ -1,3 +1,4 @@
+import type { ContainerKind } from "@parity-app/core"
 import { selectedDesigns, selectedNodes } from "../selection.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
@@ -52,6 +53,7 @@ import {
   zoomToFit,
   zoomToSelection
 } from "./commands.ts"
+import { createDesign } from "./create.ts"
 import type { Command } from "./keymap.ts"
 import { togglePanels } from "./layout.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
@@ -94,6 +96,11 @@ const can = (command: LayerCommand) => {
   return !!selection && layerCommands(selection, root)[command]
 }
 const alignable = () => layers() > 0 || designs() > 1
+/** Makes an empty screen or component in the active tab, right of everything (see `createDesign`). */
+const newDesign = (kind: ContainerKind) => {
+  const session = activeSession()
+  if (session) createDesign(session, kind)
+}
 const tool = (name: "select" | "hand" | "text" | "interact"): Action => ({
   run: () => activeSession()?.selection.setTool(name),
   available: hasSession
@@ -129,6 +136,8 @@ export const actions: Record<Command, Action> = {
   pasteStyle: { run: () => pasteSelectionStyle(), available: hasLayer },
   rename: { run: () => renameSelection(), available: hasDesign },
 
+  newScreen: { run: () => newDesign("screen"), available: hasSession },
+  newComponent: { run: () => newDesign("component"), available: hasSession },
   insert: { run: openQuickInsert, available: hasSession },
   wrap: { run: () => wrapSelection(), available: () => can("wrap") },
   unwrap: { run: () => unwrapSelection(), available: oneLayer },

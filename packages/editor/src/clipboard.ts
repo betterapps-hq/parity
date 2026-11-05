@@ -236,30 +236,6 @@ export function pasteLayers(
 }
 
 /**
- * Layers pasted with nothing to paste them into: a new screen called Pasted, with its top left `at`, that lays them out
- * in a padded column. Its id isn't one of `taken`, the designs' ids, and its layers get fresh ids. It has no params, so
- * the layers keep no bindings, only the values they showed.
- */
-export function designOfLayers(
-  nodes: readonly DesignNode[],
-  taken: Iterable<string>,
-  at: { x: number; y: number }
-): ContainerSpec {
-  const ids = new Set<string>()
-  const rootId = generateId(ids)
-  ids.add(rootId)
-  const design: ContainerSpec = {
-    id: uniqueId("Pasted", taken),
-    name: "Pasted",
-    position: at,
-    root: { type: "layout", id: rootId, style: { padding: 6, gap: 4 }, children: [] },
-    states: [{ id: "default", name: "Default" }]
-  }
-  const children = nodes.map((node) => withFreshIds(fitBindings(node, design), ids))
-  return { ...design, root: { type: "layout", id: rootId, style: { padding: 6, gap: 4 }, children } }
-}
-
-/**
  * Copies of `designs` moved by `shift` and rounded to whole pixels. Each keeps its id unless `taken`, or a copy before
  * it, has it, when it gets one from its name.
  */

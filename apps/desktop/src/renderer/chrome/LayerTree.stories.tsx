@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, fireEvent, waitFor, within } from "storybook/test"
+import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { designsSelection, layersSelection } from "../selection.ts"
-import { design, example, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { design, example, findTooltip, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { formatKeys } from "./keys.ts"
 import { renameLayer } from "./LayerPanel.tsx"
 import { LayerTree } from "./LayerTree.tsx"
 import { LeftPanel } from "./LeftPanel.tsx"
@@ -81,13 +82,58 @@ async function rightClick(target: HTMLElement): Promise<void> {
   await fireEvent.contextMenu(target, { clientX: box.left + 48, clientY: box.bottom - 4 })
 }
 
-/** Every design closed: component designs first, then screens, each with how many states it has. */
+/**
+ * Every design closed: component designs first, then screens, each with how many states it has. Each heading has its
+ * count, then a + that makes a new one, always showing (PAR-546).
+ */
 export const Designs: Story = { loaders: [() => openProjects("example")] }
 
-/** A project with no designs yet: both groups say so. */
+/**
+ * A project with no screens or components, as once they're all deleted: each heading's + shows, the count is left out
+ * since the row below says so, and that row is a button that makes the first one, its action in the kind's color.
+ */
 export const EmptyProject: Story = {
   parameters: { blank: true },
-  loaders: [() => openProjects("empty")]
+  loaders: [() => openProjects("empty")],
+  play: async ({ canvasElement }) => {
+    const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
+    await expect(within(tree).getByRole("button", { name: "New screen" })).toBeVisible()
+    await expect(within(tree).getByRole("button", { name: "No screens yet. New screen" })).toBeVisible()
+    await expect(within(tree).getByRole("button", { name: "No components yet. New component" })).toBeVisible()
+  }
+}
+
+/**
+ * The Screens heading's + under the pointer: its tooltip names it and gives its keys. Tabbing to it shows the same
+ * tooltip; a story can't, as Base UI opens one on focus only when the browser shows focus, and a script's focus doesn't
+ * count.
+ */
+export const NewScreenHovered: Story = {
+  parameters: { blank: true },
+  loaders: [() => openProjects("empty")],
+  play: async ({ canvasElement }) => {
+    const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
+    await userEvent.hover(within(tree).getByRole("button", { name: "New screen" }))
+    await expect(await findTooltip({ timeout: 8000 })).toHaveTextContent(`New screen ${formatKeys("Ctrl Alt N")}`)
+  }
+}
+
+/**
+ * An empty group's row pressed: the first screen is made and selected, and listed under Screens in place of the row,
+ * with the count back beside the +.
+ */
+export const FirstScreenMade: Story = {
+  parameters: { blank: true },
+  loaders: [() => openProjects("empty")],
+  play: async ({ canvasElement }) => {
+    const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
+    await userEvent.click(within(tree).getByRole("button", { name: "No screens yet. New screen" }))
+    // The screen's row, then the heading inside it, which reads the same.
+    const [screen] = await within(tree).findAllByRole("treeitem", { name: /Untitled screen/ })
+    await expect(screen).toHaveAttribute("aria-level", "1")
+    await expect(screen).toHaveAttribute("aria-selected", "true")
+    await expect(within(tree).queryByRole("button", { name: "No screens yet. New screen" })).toBeNull()
+  }
 }
 
 /** A design opened by its arrow, then its page: its first level of layers shows, and nothing is selected. */
