@@ -2753,8 +2753,7 @@ cycle), and libgen reads CSS with core's `collectCustomProperties` instead of it
   per-token modifiers for both.
 - `writeTokenChanges` and `previewToken` find a theme's blocks with `themeOfSelector` too, so a theme read from
   `[data-theme="dark"]` is previewed and written there, a value it lacks is added to its block, and a `:root` inside a
-  media query is never edited as the default. A frame still shows an attribute theme only when its option in Modes sets
-  that attribute; that's in `docs/support.md`.
+  media query is never edited as the default. A frame showing an attribute theme came later, in PAR-22 below.
 
 The differences that stay are explicit options, both for libgen: `tailwindTheme` reads `@theme` as the default, which
 only source CSS has (the app takes Tailwind's resolved theme from its styles adapter), and `colorScheme` reads a
@@ -2765,6 +2764,24 @@ app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only 
 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
+
+## A mode's theme class also sets the theme's attribute (PAR-22)
+
+My call: a frame whose mode adds a theme's class also gets the attribute the project's stylesheet switches that theme on
+with. vite7-js's `[data-theme="dark"]` was read as `dark`, but the default Dark option adds only the `dark` class, so
+its frames stayed light unless someone edited the option in Modes. The alternatives were to write `data-theme` into each
+project's mode settings when it opens, which changes a file the person didn't touch and goes stale when the stylesheet
+does, or to rewrite the stylesheet's attribute selectors as classes, which the preview and the save would then have to
+undo. Reading the stylesheet each time a guest loads keeps both as they are.
+
+- `themeAttributes` in `packages/tokens/src/policy.ts` lists, by theme, the attributes whose value names it, from the
+  rules `themedProperties` reads as themes and no condition holds: `[data-theme='dark']` gives
+  `dark: { "data-theme": "dark" }`. `light` is the default and needs none.
+- `frameAttributes` adds them for each class the mode has, then the mode's own attributes, which win, so an option that
+  sets `data-theme` itself keeps its value.
+- An attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed. Frames get it on
+  their body, and the root is the frame's shadow host, which the mode's attributes don't reach; that's still in
+  `docs/support.md`.
 
 ## Agent calls merge per design (PAR-278)
 
@@ -3504,3 +3521,35 @@ stops the servers a project needs. Storybook is the first to use it; dev servers
 - **It stays in the app.** Starting and stopping processes is what the app keeps under
   [packages.md](proposals/packages.md), so the manager isn't a package. Its tests start small Node servers, without
   Electron.
+
+## How frames look and work (PAR-540)
+
+You approved the frames exploration (Parity/Explorations/Frames) by merging it on 2026-11-05. It's one canvas you can
+use, with Layers and the inspector beside it, and every story starts it in a different place. PAR-545 builds it.
+
+- **A frame has no board:** its name above it, smaller and quieter than a board's, and the design at its own size,
+  filled with the primary mode's background. Its icon is lucide's Frame, neutral until selected, then in the layer
+  color, since a frame is a layout. Screens use AppWindow in the stories until PAR-538's icon lands.
+- **The toolbar is Move and Hand, then Frame (F or A) and Text (T), then Interact.** The frame tool's menu lists each
+  viewport the modes use once, naming the modes that use it, with heights from `screenHeightForWidth` where a viewport
+  gives only a width. A size resizes the selected frame, or adds a frame at that size. New screen and New component sit
+  below the sizes.
+- **A drag with the frame tool draws a frame, snapping to the edges of the designs around it,** named Frame 1, Frame 2
+  and so on, selected, with the move tool back. A click without a drag makes a 100 × 100 frame, as Figma does.
+- **T and a click in empty space makes a text layer in a frame that hugs it,** with 2 steps of padding so the fill
+  doesn't clip the letters, named after its text until it's renamed.
+- **Notes don't get a tool yet.** You said on 2026-11-05: "I think it's too early to add notes functionality. We should
+  revert that." This replaces "Notes stay, as annotations, under a tool of their own" in PAR-537's list: the Note tool
+  (S) is gone from the exploration, and PAR-545 doesn't build one.
+- **The inspector's kind switch is Frame, Component, Screen,** and every design's title menu has Convert to for the
+  other two kinds. A heavier kind applies at once, with a toast whose Undo brings it back. Converting a screen or
+  component to a frame asks first when it drops anything, and lists it: states after the first, previews beside the main
+  one, params, and instances, which become plain layers as Detach instance makes them. A frame made a screen keeps its
+  size as its preview's.
+- **A board's gutter is in screen pixels,** so it looks the same at every zoom up close: 12px at the sides and bottom, a
+  36px band for the captions and 24px between previews. Past 40% it shrinks with the canvas, as labels do, so boards
+  zoomed far out don't run into each other. You had found the canvas-unit gutter "super thick on one, and non-existent
+  or text overflowing on others". Captions never truncate: short of room they drop the shrink, then the width, then the
+  mode's name, and they stay until 10%. A board's title drops its menus before its name. The app's canvas still sizes
+  the gutter in canvas units (`boardLayout` in core, `ContainerView`), so PAR-545 changes both, and the agent's
+  `boardSize` estimate with them.
