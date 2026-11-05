@@ -2405,7 +2405,9 @@ How Parity's code is split, so the parts that change most are easy to find, repl
   - The canvas passes measures in and applies what comes back. It keeps measuring frames (`DragLayouts`), finding the
     frame under the pointer, the pointer handling and the drop preview, `measureHere`, and moving an absolutely placed
     layer by its insets, whose rule (`shiftInsets`) stays with nudging in the app. For snapping it keeps reading
-    tldraw's boxes, the View menu's preference, Ctrl to move freely and drawing the guides.
+    tldraw's boxes, the View menu's preference, Ctrl to move freely and drawing the guides. You reopened the
+    `shiftInsets` call on 2026-11-04: it's in `@parity-app/editor` now, with the rest of moving, resizing and nudging
+    (PAR-577, below).
   - A frame's layouts' flows are read when the frame is measured, with the boxes, so `dropTargetAt` takes only data.
     Before, the flow of the layout found was read from its computed style at each pointer move. Showing a copy doesn't
     change a layout's display or direction, so drops land where they did.
@@ -3960,3 +3962,36 @@ page), with whatever Parity can't do yet stubbed. My calls:
 - **Home names the page and, in a project, its first screen.** A project with no `.par` file still opens on a Home
   screen (PAR-561). The two don't meet: the page is a tab in the window's strip, and the screen is on a project's
   canvas.
+
+## Moving, resizing and nudging are one editor module (PAR-577)
+
+Resizing a layer ran through five places in two packages, and the overlay's `startResize` had to call them in the right
+order. PAR-33 had left moving an absolutely placed layer by its insets with nudging in the app (see Packages, above).
+You reopened that call on 2026-11-04, since resizing needs both halves in a fixed order. Now `move-resize.ts` in
+`@parity-app/editor` holds the rules, and the canvas measures and writes (see editor.md, Resize handles). Nothing people
+see changes. My calls:
+
+- **One file, not one per gesture.** Insets, resizing a layer or a frame, dragging an absolutely placed layer and
+  nudging share their rounding, which sizes a handle changes, and how a layer's insets move. Where handles go
+  (`handles.ts`) and snapping (`snap.ts`) stay files of their own, which the module calls. `resizeStart`, which reads a
+  layer as the board shows it, moved from `handles.ts` into the module.
+- **The canvas measures, the module decides.** For a layer, the overlay measures its box, its parent's inside and, for
+  one placed absolutely, where its sides are drawn and what it snaps to. For each pointer move, `layerResize` gives the
+  style and where its edges snapped: snapped edges taken exactly, Shift on a corner not snapping, and `grow` taken away.
+  `frameResize` takes the frame's box and gives its size, and double-clicks are `layerSizeReset` and `frameSizeReset`.
+  The overlay still chooses what to measure from the style the board shows, since an absolutely placed layer's insets
+  and siblings cost layout reads that a layer in a layout doesn't need.
+- **`LayerSnapping` measures and shows; it no longer snaps.** `absoluteDrag` and `layerResize` call `snapLayer` with
+  what it measured and give back where the layer locked, which its `show` draws, or clears when nothing locked. Its
+  Chrome test calls `snapLayer` with what it measured.
+- **One half-pixel rule.** A snapped resize and a snapped drag went to the half pixel in two ways, one counting pixels
+  and one counting steps (PAR-551). Both use one rule now, in steps, and so do the half steps an inset moves in.
+- **The 4-pixel drag threshold is the editor's.** `resizeGesture` needs it and the canvas's gesture lifecycle (PAR-568)
+  imports it, so it's still written once.
+- **A frame snaps back by the fill distance.** A frame's width and content height came back within 6 screen pixels, a
+  number the overlay called `snapDistance`, though snapping a layer goes by 8. It's `fillDistance` now, the distance a
+  layer's edge fills by.
+- **The tests moved as they were.** The insets, resize and nudge tests, and `resizeStart`'s from `handles.test.ts`, are
+  in `move-resize.test.ts`, with one fixture renamed so they can share a file. The app's `nudge.test.ts` keeps the
+  presses on the real stores. Resizing a frame, the double-click resets, `grow`, a resize's snapped edges and the drag
+  have tests from boxes now.
