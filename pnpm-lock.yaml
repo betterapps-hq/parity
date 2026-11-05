@@ -571,6 +571,9 @@ importers:
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
+      '@parity-app/registry':
+        specifier: workspace:*
+        version: link:../registry
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
@@ -655,6 +658,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/project':
+        specifier: workspace:*
+        version: link:../project
 
   packages/tokens:
     dependencies:

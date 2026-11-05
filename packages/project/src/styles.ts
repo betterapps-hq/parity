@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { dirname, join, relative } from "node:path"
-import { parseJsonc } from "./jsonc.ts"
+import { parseJsonc } from "@parity-app/core"
 
 /** An app's global stylesheets: the project's own, by path from its root, and packages', by their specifiers. */
 export interface AppStyles {

@@ -1,8 +1,21 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 12:23:39 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 20:31:29 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.6.3
+
+Thu, 05 Nov 2026 20:31:29 GMT
+
+### Patches
+
+- Find installed packages and their entries one way, so a library's types under exports, named re-exports and the
+  registry's newest file read the same in the app, libgen and parity lib check (ajcraswell@gmail.com)
+- Frames no longer pick up Parity's own CSS variables: a variable the project uses but never defines takes its fallback,
+  as in Chrome (ajcraswell@gmail.com)
+- Components that set their own size, and library parts whose examples give them no text, are inserted without their
+  name cut off inside them (ajcraswell@gmail.com)
 
 ## 0.6.2
 

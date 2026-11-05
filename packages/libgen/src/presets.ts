@@ -80,7 +80,7 @@ const buildkit = Object.fromEntries(
         id: style,
         name: `Shadcn ${style.charAt(0).toUpperCase()}${style.slice(1)}`,
         description: `Every shadcn component on Base UI, in the ${style} style, kept in step with upstream.`,
-        styles: "tailwind.css",
+        // Its stylesheet is found as any package's is: `tailwind.css`, the first of the usual names its `exports` has.
         examples: { paths: ["apps/v4/examples/base/"], anatomy: ["apps/v4/content/docs/components/base/"] },
         decorators: [
           { wrap: { import: name, component: "TooltipProvider" } },

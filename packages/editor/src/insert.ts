@@ -57,7 +57,8 @@ export function insertLabel(item: InsertItem): string {
 
 /**
  * A new node for an item, ready to show something: required props get their default or first option, and a component
- * that takes children gets its own name as text, so it isn't an empty box.
+ * that takes children gets its own name as text, so it isn't an empty box, unless it sets its own size (see
+ * `componentNode`).
  */
 export function nodeForItem(item: InsertItem, info: ComponentInfo | undefined, taken: Set<string>): DesignNode {
   if (item.kind === "instance") return { type: "instance", id: generateId(taken), design: item.design }
