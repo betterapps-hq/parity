@@ -1,0 +1,271 @@
+import { type ContainerSpec, type DesignNode, effectiveNode, findNode, type NodeStyle } from "@parity-app/core"
+import { effectiveFixture } from "@parity-app/core/fixtures"
+import { describe, expect, it } from "vite-plus/test"
+import { boardReader } from "./shown.ts"
+import {
+  editingState,
+  fieldEdit,
+  layoutTypeEdit,
+  placementEdit,
+  rowKeys,
+  sidesField,
+  sizeEdit,
+  sizeField,
+  styleRows,
+  styleSelection,
+  type StyleValues,
+  textSizingEdit
+} from "./style-editing.ts"
+
+const text = (id: string, style?: NodeStyle): DesignNode => ({ type: "text", id, text: id, style })
+
+/** A toolbar row of two buttons' labels and a column of notes, with a Hover state that changes the first label. */
+function toolbar(): ContainerSpec {
+  return {
+    id: "toolbar",
+    name: "Toolbar",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "root",
+      children: [
+        {
+          type: "layout",
+          id: "buttons",
+          style: { direction: "row", gap: 2 },
+          children: [text("save", { padding: 2, weight: 600 }), text("cancel", { padding: 4, weight: 600 })]
+        },
+        { type: "layout", id: "notes", children: [text("note", { grow: true, padding: 2 })] }
+      ]
+    },
+    states: [
+      { id: "default", name: "Default" },
+      { id: "hover", name: "Hover", overrides: { save: { style: { background: "accent", padding: 3 } } } }
+    ]
+  }
+}
+
+const { library } = effectiveFixture
+const fixture = (id: string, variants?: Record<string, string>): ContainerSpec => {
+  const found = effectiveFixture.designs.find((design) => design.id === id)!
+  return variants ? { ...found, view: { ...found.view, variants } } : found
+}
+
+const styleOf = (container: ContainerSpec, id: string, state?: string) =>
+  boardReader(container, { state: container.states.find((candidate) => candidate.id === state) })(
+    findNode(container.root, id)!
+  ).style ?? {}
+
+describe("the state a style edit goes to", () => {
+  it("is the one the layers were picked in, else the one the design shows, else the first", () => {
+    const design = toolbar()
+    expect(editingState(design, "hover").id).toBe("hover")
+    expect(editingState({ ...design, view: { state: "hover" } }, undefined).id).toBe("hover")
+    expect(editingState(design, "gone").id).toBe("default")
+  })
+
+  it("takes the variant option the board shows, so an edit lands in that option", () => {
+    const selection = styleSelection(fixture("card", { layout: "inline" }), ["body"], undefined)!
+    expect(selection.target).toEqual({ state: "base", variant: { param: "layout", option: "inline" } })
+    expect(selection.layers[0]!.base).toBe(false)
+    // The layer shows as the option draws it.
+    expect(selection.style).toMatchObject({ direction: "row", gap: 6 })
+
+    const card = fixture("card", { layout: "inline" })
+    const edited = selection.edit("gap", { gap: 8 })(card)
+    expect(edited.root.style?.gap).toBe(4)
+    expect(edited.params?.layout?.options?.[1]?.overrides?.body?.style?.gap).toBe(8)
+  })
+})
+
+describe("the style several layers share", () => {
+  it("shows what they share and lists what differs", () => {
+    const selection = styleSelection(toolbar(), ["save", "cancel"], undefined)!
+    expect(selection.style).toEqual({ weight: 600 })
+    expect(selection.mixed).toEqual(["padding"])
+    expect(selection.differs("padding")).toBe(true)
+    expect(selection.differs("weight")).toBe(false)
+  })
+
+  it("reads each layer as the state being edited shows it", () => {
+    const selection = styleSelection(toolbar(), ["save", "cancel"], "hover")!
+    expect(selection.mixed).toEqual(["padding", "background"])
+  })
+
+  it("skips layers that no longer exist, and is nothing when none do", () => {
+    expect(styleSelection(toolbar(), ["save", "gone"], undefined)!.layers.map((layer) => layer.id)).toEqual(["save"])
+    expect(styleSelection(toolbar(), ["gone"], undefined)).toBeUndefined()
+  })
+
+  it("adds to each layer's own value with Mixed+8, rather than giving them all one", () => {
+    const design = toolbar()
+    const selection = styleSelection(design, ["save", "cancel"], undefined)!
+    const { read, write } = sidesField("padding", [0, 1, 2, 3])
+    // 8px at 4px a step is two steps.
+    const edited = selection.edit(
+      "padding",
+      fieldEdit(read, write, (value) => (Number(value ?? 0) + 2) as never)
+    )(design)
+    expect(styleOf(edited, "save").padding).toBe(4)
+    expect(styleOf(edited, "cancel").padding).toBe(6)
+  })
+})
+
+describe("what a state changes", () => {
+  it("marks a row changed when the state changes any of its keys on any of the layers", () => {
+    const selection = styleSelection(toolbar(), ["save", "cancel"], "hover")!
+    expect(selection.changed("padding")).toBe(true)
+    expect(selection.changed("fill")).toBe(true)
+    expect(selection.changed("weight")).toBe(false)
+    expect(styleSelection(toolbar(), ["save"], "default")!.changed("padding")).toBe(false)
+  })
+
+  it("writes an edit into the state, leaving the design as it was", () => {
+    const design = toolbar()
+    const edited = styleSelection(design, ["cancel"], "hover")!.edit("weight", { weight: 700 })(design)
+    expect(styleOf(edited, "cancel").weight).toBe(600)
+    expect(styleOf(edited, "cancel", "hover").weight).toBe(700)
+  })
+
+  it("resets every key of the row on every layer", () => {
+    let design = toolbar()
+    design = styleSelection(design, ["cancel"], "hover")!.edit("padding", { padding: 5 })(design)
+    const selection = styleSelection(design, ["save", "cancel"], "hover")!
+    const reset = selection.reset("padding")(design)
+    expect(styleOf(reset, "save", "hover")).toEqual({ padding: 2, weight: 600, background: "accent" })
+    expect(styleOf(reset, "cancel", "hover")).toEqual({ padding: 4, weight: 600 })
+  })
+
+  it("resets Placement's insets with it, as putting a layer back in the layout drops them", () => {
+    let design = toolbar()
+    design = styleSelection(design, ["save"], "hover")!.edit("placement", placementEdit(true))(design)
+    expect(styleOf(design, "save", "hover")).toMatchObject({ position: "absolute", top: 0, left: 0 })
+    design = styleSelection(design, ["save"], "hover")!.reset("placement")(design)
+    expect(styleOf(design, "save", "hover")).toEqual({ padding: 3, weight: 600, background: "accent" })
+  })
+
+  it("does nothing on reset when edits change the design itself", () => {
+    const design = toolbar()
+    expect(styleSelection(design, ["save"], "default")!.reset("padding")(design)).toBe(design)
+  })
+})
+
+describe("the layout the layers sit in", () => {
+  it("is their shared parent's direction, and whether it's a grid", () => {
+    expect(styleSelection(toolbar(), ["save", "cancel"], undefined)!.parent).toEqual({ direction: "row", grid: false })
+    expect(styleSelection(toolbar(), ["note"], undefined)!.parent).toEqual({ direction: "column", grid: false })
+    expect(styleSelection(toolbar(), ["root"], undefined)!.parent).toBeUndefined()
+  })
+
+  it("is nothing when the layers sit in different ones, though each knows its own", () => {
+    const selection = styleSelection(toolbar(), ["save", "note"], undefined)!
+    expect(selection.parent).toBeUndefined()
+    expect(selection.layers.map((layer) => layer.parent?.direction)).toEqual(["row", "column"])
+  })
+
+  it("is read as the board shows it, with the variant option's direction", () => {
+    expect(styleSelection(fixture("card"), ["copy"], undefined)!.parent?.direction).toBe("column")
+    expect(styleSelection(fixture("card", { layout: "inline" }), ["copy"], undefined)!.parent?.direction).toBe("row")
+  })
+
+  it("is read inside an instance as that copy shows it", () => {
+    const profile = fixture("profile")
+    // The person card places the Inline option, which turns its body into a row.
+    const avatar = styleSelection(profile, ["person/avatar"], undefined, library)!
+    expect(avatar.parent).toEqual({ direction: "row", grid: false })
+    expect(styleSelection(profile, ["person/title"], undefined, library)!.parent?.direction).toBe("column")
+  })
+
+  it("gives Width or Height `grow` only along the parent's direction", () => {
+    expect(rowKeys("width", { direction: "row", grid: false })).toEqual(["width", "grow"])
+    expect(rowKeys("height", { direction: "row", grid: false })).toEqual(["height"])
+    expect(rowKeys("height", { direction: "column", grid: false })).toEqual(["height", "grow"])
+    expect(rowKeys("width", undefined)).toEqual(["width", "grow"])
+  })
+})
+
+describe("a layer inside an instance", () => {
+  it("is edited as that copy's override, and marked and reset there", () => {
+    const profile = fixture("profile")
+    const selection = styleSelection(profile, ["person/title"], undefined, library)!
+    expect(selection.layers[0]!.base).toBe(false)
+    expect(selection.style.weight).toBe(600)
+    const edited = selection.edit("weight", { weight: 800 })(profile)
+    expect(effectiveNode(edited, "person/title", { library })?.style?.weight).toBe(800)
+
+    const again = styleSelection(edited, ["person/title"], undefined, library)!
+    expect(again.changed("weight")).toBe(true)
+    expect(effectiveNode(again.reset("weight")(edited), "person/title", { library })?.style?.weight).toBe(600)
+  })
+
+  it("is skipped without the library to find it in", () => {
+    expect(styleSelection(fixture("profile"), ["person/title"], undefined)).toBeUndefined()
+  })
+})
+
+describe("rows' edits", () => {
+  /** Every key a row's edit writes, over a few styles and layers. */
+  const written = (edit: (style: NodeStyle) => StyleValues, styles: NodeStyle[]) =>
+    new Set(styles.flatMap((style) => Object.keys(edit(style))))
+  const styles: NodeStyle[] = [{}, { grow: true }, { width: "hug", height: 10, columns: 3, top: 2 }]
+  const layer = { base: false, measure: () => 12, type: "text" as const, column: true }
+
+  it("write only the keys their row resets", () => {
+    const cases: [keyof typeof styleRows, (style: NodeStyle) => StyleValues][] = [
+      ["layoutType", (style) => apply(layoutTypeEdit("grid"), style)],
+      ["layoutType", (style) => apply(layoutTypeEdit("row"), style)],
+      ["placement", (style) => apply(placementEdit(true), style)],
+      ["placement", (style) => apply(placementEdit(false), style)],
+      ["resizing", (style) => apply(textSizingEdit("auto-width"), style)],
+      ["resizing", (style) => apply(textSizingEdit("fixed"), style)],
+      ["padding", (style) => sidesField("padding", [0, 2]).write(1, style)],
+      ["margin", (style) => sidesField("margin", [1]).write(1, style)]
+    ]
+    for (const parent of [undefined, { direction: "column" as const, grid: false }]) {
+      for (const axis of ["width", "height"] as const) {
+        cases.push([axis, (style) => apply(sizeEdit(axis, "hug", parent), style)])
+        cases.push([axis, (style) => sizeField(axis, parent).write(undefined, style)])
+      }
+    }
+    for (const [row, edit] of cases) {
+      for (const key of written(edit, styles)) expect(styleRows[row], `${row} writes ${key}`).toContain(key)
+    }
+    function apply(edit: unknown, style: NodeStyle): StyleValues {
+      return typeof edit === "function"
+        ? (edit as (s: NodeStyle, l: typeof layer) => StyleValues)(style, layer)
+        : (edit as StyleValues)
+    }
+  })
+
+  it("replace a `grow` that filled along the size with the size set", () => {
+    expect(apply(sizeEdit("width", 20, undefined), { grow: true })).toEqual({ width: 20, grow: undefined })
+    expect(apply(sizeEdit("width", 20, { direction: "column", grid: false }), { grow: true })).toEqual({ width: 20 })
+    // A cleared length leaves fill as it shows.
+    expect(sizeField("height", { direction: "column", grid: false }).write(undefined, { grow: true })).toEqual({
+      height: "fill",
+      grow: undefined
+    })
+    function apply(edit: unknown, style: NodeStyle) {
+      return (edit as (s: NodeStyle) => StyleValues)(style)
+    }
+  })
+
+  it("size text by each layer's own measure, rounded up, and leave other layers alone", () => {
+    const design: ContainerSpec = {
+      ...toolbar(),
+      root: {
+        type: "layout",
+        id: "root",
+        children: [text("label", { width: "hug" }), { type: "layout", id: "box", children: [] }]
+      }
+    }
+    const measured = { label: { width: 10.2, height: 4 }, box: { width: 30, height: 30 } }
+    const edited = styleSelection(design, ["label", "box"], undefined)!.edit(
+      "resizing",
+      textSizingEdit("fixed"),
+      (id, axis, round) => round(measured[id as keyof typeof measured][axis])
+    )(design)
+    expect(styleOf(edited, "label")).toEqual({ width: 11, height: 4 })
+    expect(styleOf(edited, "box")).toEqual({})
+  })
+})

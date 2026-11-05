@@ -13,16 +13,25 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
+import { type DesignNode, type FieldRules, type Length, type NodeStyle, type Size } from "@parity-app/core"
 import {
-  type DesignNode,
-  type FieldRules,
-  type Length,
-  type NodeStyle,
-  type Padding,
-  type Size
-} from "@parity-app/core"
-import { type TextSizing, textSizing, withTextSizing } from "@parity-app/editor"
-import { spacingStepName, type Token } from "@parity-app/tokens"
+  fieldEdit,
+  layoutTypeEdit,
+  type ParentLayout,
+  placementEdit,
+  type RowKey,
+  shownSize,
+  sidesField,
+  sidesOf,
+  sizeEdit,
+  sizeField,
+  type StyleRow,
+  type StyleValues,
+  type TextSizing,
+  textSizing,
+  textSizingEdit
+} from "@parity-app/editor"
+import { spacingStepName } from "@parity-app/tokens"
 import {
   AlignCenter,
   AlignJustify,
@@ -56,81 +65,41 @@ import {
 } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
+import type { StyleEditor } from "./style-editor.ts"
 
-/** Style properties to set; `undefined` clears one. */
-export type StyleValues = Partial<{ [K in keyof NodeStyle]: NodeStyle[K] | undefined }>
-
-/** What an edit worked out per layer knows about the layer besides its style. */
-export interface EditedLayer {
-  /** Whether the edit changes the design itself, rather than a state's, a variant's or a copy's changes to it. */
-  base: boolean
-  /** The layer's own rendered length, in spacing steps, rounded as `StyleEditor.measure` rounds. */
-  measure: (axis: "width" | "height", round?: (steps: number) => number) => number | undefined
-  /** What kind of layer it is, so an edit for one kind (text's Resizing) leaves the others in a mixed selection alone. */
-  type: DesignNode["type"]
-  /** Whether it sits in a column, where `grow` fills its height. Several layers can each sit in a different one. */
-  column: boolean
+/**
+ * What a row shows and does, from the editor: the selection's shared style, whether the row's keys are changed or
+ * differ across the layers, and its reset. The row's keys are listed once, in `@parity-app/editor`'s `styleRows`.
+ */
+function rowOf(editor: StyleEditor, row: StyleRow): { changed: boolean; mixed: boolean; onReset: () => void } {
+  return {
+    changed: editor.selection.changed(row),
+    mixed: editor.selection.differs(row),
+    onReset: () => editor.reset(row)
+  }
 }
 
-/** Properties to set, or how to work them out from each selected layer's own style, as `Mixed+8` does. */
-export type StyleEdit = StyleValues | ((style: NodeStyle, layer: EditedLayer) => StyleValues)
-
-/** An edit's values for one layer, from its style as shown in the state being edited. */
-export function styleValues(edit: StyleEdit, style: NodeStyle, layer: EditedLayer): StyleValues {
-  return typeof edit === "function" ? edit(style, layer) : edit
-}
-
-/** Reads and writes one node's style in the state being edited. */
-export interface StyleEditor {
-  style: NodeStyle
-  changed: (name: keyof NodeStyle) => boolean
-  reset: (name: keyof NodeStyle) => void
-  /**
-   * Several properties as one undoable change, or as part of a gesture's one step (a field's run of Up and Down
-   * presses). `undefined` clears a property.
-   */
-  set: (values: StyleEdit, label?: string, gesture?: string) => void
-  /**
-   * Shows properties on the canvas at once, without changing the design, while a field is typed in or scrubbed:
-   * `set` then makes them, or `endPreview` takes them back.
-   */
-  preview?(values: StyleEdit): void
-  endPreview?(): void
-  tokens: Token[]
-  /** Pixels per spacing step. */
-  unit: number
-  /**
-   * The node's rendered length, in whole spacing steps, so switching to a fixed size keeps it where it is: the nearest
-   * step, or the one above with `Math.ceil`, so text fixed at it doesn't wrap again.
-   */
-  measure(axis: "width" | "height", round?: (steps: number) => number): number | undefined
-  /** With several layers selected: whether they have different values for a property. */
-  mixed?(name: keyof NodeStyle): boolean
-}
-
-/** Whether a property differs across the selected layers; never, with one layer. */
+/** Whether one property differs across the selected layers; never, with one layer. */
 function mixedOf(editor: StyleEditor): (name: keyof NodeStyle) => boolean {
-  return (name) => editor.mixed?.(name) ?? false
+  return (name) => editor.selection.mixed.includes(name)
 }
 
 /**
- * A number field's edits of a style: previewed while typed or scrubbed, then made, each worked out from every selected
+ * A number field's edits of a row: previewed while typed or scrubbed, then made, each worked out from every selected
  * layer's own value (`read`) and written back into its style (`write`).
  */
-function fieldEdits(
+function fieldEdits<R extends StyleRow>(
   editor: StyleEditor,
+  row: R,
   label: string,
   read: (style: NodeStyle) => FieldValue,
-  write: (value: FieldValue, style: NodeStyle) => StyleValues
+  write: (value: FieldValue, style: NodeStyle) => Pick<StyleValues, RowKey<R>>
 ): Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit"> {
-  const edit =
-    (update: FieldUpdate): StyleEdit =>
-    (style) =>
-      write(update(read(style)), style)
+  const edit = (update: FieldUpdate) => fieldEdit(read, write, update)
   return {
-    onPreview: (update) => editor.preview?.(edit(update)),
+    onPreview: (update) => editor.preview?.(row, edit(update)),
     onCancel: () => editor.endPreview?.(),
-    onCommit: (update, gesture) => editor.set(edit(update), label, gesture)
+    onCommit: (update, gesture) => editor.set(row, edit(update), label, gesture)
   }
 }
 
@@ -144,12 +113,6 @@ const zero = () => 0
 
 const opacityRules: FieldRules = { kind: "percent", min: 0, max: 100, label: "Opacity" }
 
-/** The layout a node sits in, when it sits in one. */
-export interface ParentLayout {
-  direction: "row" | "column"
-  grid: boolean
-}
-
 interface SectionProps {
   editor: StyleEditor
   node: DesignNode
@@ -160,8 +123,8 @@ interface SectionProps {
  * Every style section that applies to a node, in Figma's order. Components get the same control as layouts: what's
  * set on them lands on their root element, over the component's own styles.
  */
-export function StyleSections(props: SectionProps) {
-  const { node } = props
+export function StyleSections({ editor, node }: { editor: StyleEditor; node: DesignNode }) {
+  const props: SectionProps = { editor, node, parent: editor.selection.parent }
   return (
     <>
       {node.type === "layout" && <LayoutSection {...props} />}
@@ -176,7 +139,8 @@ export function StyleSections(props: SectionProps) {
 }
 
 function LayoutSection({ editor }: SectionProps) {
-  const { style, changed, reset, set } = editor
+  const { set } = editor
+  const { style } = editor.selection
   const mixed = mixedOf(editor)
   const grid = style.display === "grid"
   const direction = style.direction ?? "column"
@@ -185,12 +149,7 @@ function LayoutSection({ editor }: SectionProps) {
   return (
     <PanelSection title="Layout">
       <div className="flex flex-col gap-1">
-        <Field
-          label="Type"
-          changed={changed("display") || changed("direction") || changed("wrap")}
-          mixed={mixed("display") || mixed("direction") || mixed("wrap")}
-          onReset={() => (reset("display"), reset("direction"), reset("wrap"))}
-        >
+        <Field label="Type" {...rowOf(editor, "layoutType")}>
           <div className="flex items-center gap-1.5">
             <ToggleGroup
               variant="outline"
@@ -200,8 +159,8 @@ function LayoutSection({ editor }: SectionProps) {
               value={[mixed("display") || mixed("direction") ? "" : mode]}
               onValueChange={([value]) => {
                 if (!value) return
-                if (value === "grid") set({ display: "grid", columns: style.columns ?? 2 }, "Use a grid")
-                else set({ display: undefined, direction: value as "row" | "column" }, "Change direction")
+                const next = value as "row" | "column" | "grid"
+                set("layoutType", layoutTypeEdit(next), next === "grid" ? "Use a grid" : "Change direction")
               }}
             >
               <Hint label="Vertical auto layout">
@@ -228,7 +187,7 @@ function LayoutSection({ editor }: SectionProps) {
                   className="h-7 px-2"
                   aria-label="Wrap"
                   pressed={style.wrap ?? false}
-                  onPressedChange={(wrap) => set({ wrap: wrap || undefined }, "Toggle wrap")}
+                  onPressedChange={(wrap) => set("layoutType", { wrap: wrap || undefined }, "Toggle wrap")}
                 >
                   <WrapText />
                 </Toggle>
@@ -237,12 +196,7 @@ function LayoutSection({ editor }: SectionProps) {
           </div>
         </Field>
         {grid && (
-          <Field
-            label="Tracks"
-            changed={changed("columns") || changed("rows")}
-            mixed={mixed("columns") || mixed("rows")}
-            onReset={() => (reset("columns"), reset("rows"))}
-          >
+          <Field label="Tracks" {...rowOf(editor, "tracks")}>
             <div className="grid grid-cols-2 gap-1">
               <CompactNumber
                 label="Cols"
@@ -253,6 +207,7 @@ function LayoutSection({ editor }: SectionProps) {
                 blank={() => 2}
                 {...fieldEdits(
                   editor,
+                  "tracks",
                   "Change columns",
                   (style) => style.columns,
                   (columns) => ({ columns: columns as number | undefined })
@@ -265,6 +220,7 @@ function LayoutSection({ editor }: SectionProps) {
                 placeholder="Auto"
                 {...fieldEdits(
                   editor,
+                  "tracks",
                   "Change rows",
                   (style) => style.rows,
                   (rows) => ({ rows: rows as number | undefined })
@@ -273,35 +229,25 @@ function LayoutSection({ editor }: SectionProps) {
             </div>
           </Field>
         )}
-        <Field
-          label="Alignment"
-          changed={changed("align") || changed("justify")}
-          mixed={mixed("align") || mixed("justify")}
-          onReset={() => (reset("align"), reset("justify"))}
-        >
+        <Field label="Alignment" {...rowOf(editor, "alignment")}>
           <div className="flex items-start gap-2">
             <AlignmentGrid
               style={style}
               direction={grid ? "row" : direction}
               distributed={distributed}
-              onChange={set}
+              onChange={(values, label) => set("alignment", values, label)}
             />
             <div className="min-w-0 flex-1">
               <ChoiceInput
                 value={distributed ? style.justify : undefined}
                 options={distributeOptions}
                 placeholder="Packed"
-                onChange={(justify) => set({ justify: justify ?? "start" }, "Change distribution")}
+                onChange={(justify) => set("alignment", { justify: justify ?? "start" }, "Change distribution")}
               />
             </div>
           </div>
         </Field>
-        <Field
-          label="Gap"
-          changed={changed("gap") || changed("rowGap")}
-          mixed={mixed("gap") || mixed("rowGap")}
-          onReset={() => (reset("gap"), reset("rowGap"))}
-        >
+        <Field label="Gap" {...rowOf(editor, "gap")}>
           {grid || style.wrap ? (
             <div className="grid grid-cols-2 gap-1">
               <LengthInput
@@ -311,6 +257,7 @@ function LayoutSection({ editor }: SectionProps) {
                 value={style.gap}
                 {...fieldEdits(
                   editor,
+                  "gap",
                   "Change gap",
                   (style) => style.gap,
                   (gap) => ({ gap: asLength(gap) })
@@ -323,6 +270,7 @@ function LayoutSection({ editor }: SectionProps) {
                 value={style.rowGap ?? style.gap}
                 {...fieldEdits(
                   editor,
+                  "gap",
                   "Change row gap",
                   (style) => style.rowGap ?? style.gap,
                   (rowGap) => ({ rowGap: asLength(rowGap) })
@@ -336,6 +284,7 @@ function LayoutSection({ editor }: SectionProps) {
               value={style.gap}
               {...fieldEdits(
                 editor,
+                "gap",
                 "Change gap",
                 (style) => style.gap,
                 (gap) => ({ gap: asLength(gap) })
@@ -361,7 +310,7 @@ function AlignmentGrid({
   style: NodeStyle
   direction: "row" | "column"
   distributed: boolean
-  onChange: StyleEditor["set"]
+  onChange: (values: StyleValues, label: string) => void
 }) {
   const spots = ["start", "center", "end"] as const
   const justify = distributed ? undefined : (style.justify ?? "start")
@@ -416,24 +365,16 @@ function SpacingSection({ editor }: SectionProps) {
 }
 
 function SidesField({ editor, name, label }: { editor: StyleEditor; name: "padding" | "margin"; label: string }) {
-  const { style, changed, reset } = editor
-  const mixed = mixedOf(editor)
+  const { style } = editor.selection
   const sides = sidesOf(style[name])
   const [perSide, setPerSide] = useState(Array.isArray(style[name]) && style[name].length === 4)
   /** Edits of some sides, read from the first of them, in each layer's own padding or margin. */
-  const sideEdits = (indices: number[]) =>
-    fieldEdits(
-      editor,
-      `Change ${name}`,
-      (layer) => sidesOf(layer[name])?.[indices[0]!],
-      (value, layer) => {
-        const next = [...(sidesOf(layer[name]) ?? [0, 0, 0, 0])] as SideValues
-        for (const index of indices) next[index] = asLength(value) ?? 0
-        return { [name]: tidySides(next) }
-      }
-    )
+  const sideEdits = (indices: number[]) => {
+    const { read, write } = sidesField(name, indices)
+    return fieldEdits(editor, name, `Change ${name}`, read, (value, layer) => write(asLength(value), layer))
+  }
   return (
-    <Field label={label} changed={changed(name)} mixed={mixed(name)} onReset={() => reset(name)}>
+    <Field label={label} {...rowOf(editor, name)}>
       <div className="flex items-center gap-1">
         {perSide ? (
           <div className="grid flex-1 grid-cols-2 gap-1">
@@ -483,42 +424,31 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
 }
 
 function SizeSection({ editor, node, parent }: SectionProps) {
-  const { style, changed, reset, set } = editor
-  const mixed = mixedOf(editor)
+  const { set } = editor
+  const { style } = editor.selection
   const [limits, setLimits] = useState(
     [style.minWidth, style.maxWidth, style.minHeight, style.maxHeight].some((value) => value !== undefined)
   )
-  // `grow` is the older way to fill along the parent's direction; it shows, and is replaced, as fill.
-  const grows = (axis: "width" | "height", layer: NodeStyle = style) =>
-    layer.grow === true && (axis === "width") === (parent?.direction !== "column")
-  const sizeOf = (axis: "width" | "height", layer: NodeStyle) => (grows(axis, layer) ? "fill" : layer[axis])
-  const sizeField = (axis: "width" | "height", label: string) => (
-    <Field label={label} changed={changed(axis)} mixed={mixed(axis)} onReset={() => reset(axis)}>
-      <SizeInput
-        editor={editor}
-        axis={axis}
-        value={sizeOf(axis, style)}
-        canFill={parent !== undefined || node.type === "layout"}
-        onChange={(value) => set({ [axis]: value, ...(grows(axis) ? { grow: undefined } : {}) }, `Change ${axis}`)}
-        // A typed length makes a layer's size fixed; clearing it puts a fixed size back to auto and leaves fill or hug.
-        edits={fieldEdits(
-          editor,
-          `Change ${axis}`,
-          (layer) => fixedSize(sizeOf(axis, layer)),
-          (value, layer) => {
-            const size = sizeOf(axis, layer)
-            return {
-              [axis]: asLength(value) ?? (fixedSize(size) === undefined ? size : undefined),
-              ...(grows(axis, layer) ? { grow: undefined } : {})
-            }
-          }
-        )}
-      />
-    </Field>
-  )
-  const lengthEdits = (name: "minWidth" | "minHeight" | "maxWidth" | "maxHeight", label: string) =>
+  const sizeRow = (axis: "width" | "height", label: string) => {
+    const { read, write } = sizeField(axis, parent)
+    return (
+      <Field label={label} {...rowOf(editor, axis)}>
+        <SizeInput
+          editor={editor}
+          axis={axis}
+          value={shownSize(style, axis, parent)}
+          canFill={parent !== undefined || node.type === "layout"}
+          onChange={(value) => set(axis, sizeEdit(axis, value, parent), `Change ${axis}`)}
+          // A typed length makes a layer's size fixed; clearing it puts a fixed size back to auto and leaves fill or hug.
+          edits={fieldEdits(editor, axis, `Change ${axis}`, read, (value, layer) => write(asLength(value), layer))}
+        />
+      </Field>
+    )
+  }
+  const lengthEdits = (row: "min" | "max", name: RowKey<"min"> | RowKey<"max">, label: string) =>
     fieldEdits(
       editor,
+      row,
       label,
       (layer) => layer[name],
       (value) => ({ [name]: asLength(value) })
@@ -538,16 +468,11 @@ function SizeSection({ editor, node, parent }: SectionProps) {
       }
     >
       <div className="flex flex-col gap-1">
-        {sizeField("width", "Width")}
-        {sizeField("height", "Height")}
+        {sizeRow("width", "Width")}
+        {sizeRow("height", "Height")}
         {limits && (
           <>
-            <Field
-              label="Min"
-              changed={changed("minWidth") || changed("minHeight")}
-              mixed={mixed("minWidth") || mixed("minHeight")}
-              onReset={() => (reset("minWidth"), reset("minHeight"))}
-            >
+            <Field label="Min" {...rowOf(editor, "min")}>
               <div className="grid grid-cols-2 gap-1">
                 <LengthInput
                   editor={editor}
@@ -555,7 +480,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   title="Minimum width"
                   value={style.minWidth}
                   blank={none}
-                  {...lengthEdits("minWidth", "Change minimum width")}
+                  {...lengthEdits("min", "minWidth", "Change minimum width")}
                 />
                 <LengthInput
                   editor={editor}
@@ -563,16 +488,11 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   title="Minimum height"
                   value={style.minHeight}
                   blank={none}
-                  {...lengthEdits("minHeight", "Change minimum height")}
+                  {...lengthEdits("min", "minHeight", "Change minimum height")}
                 />
               </div>
             </Field>
-            <Field
-              label="Max"
-              changed={changed("maxWidth") || changed("maxHeight")}
-              mixed={mixed("maxWidth") || mixed("maxHeight")}
-              onReset={() => (reset("maxWidth"), reset("maxHeight"))}
-            >
+            <Field label="Max" {...rowOf(editor, "max")}>
               <div className="grid grid-cols-2 gap-1">
                 <LengthInput
                   editor={editor}
@@ -580,7 +500,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   title="Maximum width"
                   value={style.maxWidth}
                   blank={none}
-                  {...lengthEdits("maxWidth", "Change maximum width")}
+                  {...lengthEdits("max", "maxWidth", "Change maximum width")}
                 />
                 <LengthInput
                   editor={editor}
@@ -588,29 +508,24 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   title="Maximum height"
                   value={style.maxHeight}
                   blank={none}
-                  {...lengthEdits("maxHeight", "Change maximum height")}
+                  {...lengthEdits("max", "maxHeight", "Change maximum height")}
                 />
               </div>
             </Field>
           </>
         )}
         {parent && !parent.grid && (
-          <Field label="Align self" changed={changed("self")} mixed={mixed("self")} onReset={() => reset("self")}>
+          <Field label="Align self" {...rowOf(editor, "self")}>
             <ChoiceInput
               value={style.self}
               options={selfOptions}
               placeholder="Follow layout"
-              onChange={(self) => set({ self }, "Change self alignment")}
+              onChange={(self) => set("self", { self }, "Change self alignment")}
             />
           </Field>
         )}
         {parent?.grid && (
-          <Field
-            label="Span"
-            changed={changed("colSpan") || changed("rowSpan")}
-            mixed={mixed("colSpan") || mixed("rowSpan")}
-            onReset={() => (reset("colSpan"), reset("rowSpan"))}
-          >
+          <Field label="Span" {...rowOf(editor, "span")}>
             <div className="grid grid-cols-2 gap-1">
               <CompactNumber
                 label="Cols"
@@ -620,6 +535,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                 blank={() => 1}
                 {...fieldEdits(
                   editor,
+                  "span",
                   "Change span",
                   (layer) => layer.colSpan,
                   (colSpan) => ({ colSpan: colSpan as number | undefined })
@@ -633,6 +549,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                 blank={() => 1}
                 {...fieldEdits(
                   editor,
+                  "span",
                   "Change span",
                   (layer) => layer.rowSpan,
                   (rowSpan) => ({ rowSpan: rowSpan as number | undefined })
@@ -644,11 +561,6 @@ function SizeSection({ editor, node, parent }: SectionProps) {
       </div>
     </PanelSection>
   )
-}
-
-/** A size's fixed length, or nothing when it's unset, fill or hug. */
-function fixedSize(size: Size | undefined): Length | undefined {
-  return size === "fill" || size === "hug" ? undefined : size
 }
 
 /** Unset limits have no value an edit can work from. */
@@ -709,20 +621,15 @@ function SizeInput({
 }
 
 function PositionSection({ editor, parent }: SectionProps) {
-  const { style, changed, reset, set } = editor
-  const mixed = mixedOf(editor)
+  const { set } = editor
+  const { style } = editor.selection
   const absolute = style.position === "absolute"
   if (!parent && !absolute) return null
   const sides = ["top", "right", "bottom", "left"] as const
   return (
     <PanelSection title="Position">
       <div className="flex flex-col gap-1">
-        <Field
-          label="Placement"
-          changed={changed("position")}
-          mixed={mixed("position")}
-          onReset={() => reset("position")}
-        >
+        <Field label="Placement" {...rowOf(editor, "placement")}>
           <ToggleGroup
             variant="outline"
             size="sm"
@@ -732,9 +639,8 @@ function PositionSection({ editor, parent }: SectionProps) {
             onValueChange={([value]) =>
               value &&
               set(
-                value === "absolute"
-                  ? { position: "absolute", top: style.top ?? 0, left: style.left ?? 0 }
-                  : { position: undefined, top: undefined, right: undefined, bottom: undefined, left: undefined },
+                "placement",
+                placementEdit(value === "absolute"),
                 value === "absolute" ? "Position absolutely" : "Put back in the layout"
               )
             }
@@ -748,12 +654,7 @@ function PositionSection({ editor, parent }: SectionProps) {
           </ToggleGroup>
         </Field>
         {absolute && (
-          <Field
-            label="Insets"
-            changed={sides.some(changed)}
-            mixed={sides.some(mixed)}
-            onReset={() => sides.forEach(reset)}
-          >
+          <Field label="Insets" {...rowOf(editor, "insets")}>
             <div className="grid grid-cols-2 gap-1">
               {sides.map((side) => (
                 <LengthInput
@@ -766,6 +667,7 @@ function PositionSection({ editor, parent }: SectionProps) {
                   min={-Infinity}
                   {...fieldEdits(
                     editor,
+                    "insets",
                     `Change ${side}`,
                     (layer) => layer[side],
                     (value) => ({ [side]: asLength(value) })
@@ -781,41 +683,36 @@ function PositionSection({ editor, parent }: SectionProps) {
 }
 
 function AppearanceSection({ editor }: SectionProps) {
-  const { style, changed, reset, set, tokens } = editor
-  const mixed = mixedOf(editor)
+  const { set, tokens } = editor
+  const { style } = editor.selection
   return (
     <PanelSection title="Appearance">
       <div className="flex flex-col gap-1">
-        <Field
-          label="Fill"
-          changed={changed("background")}
-          mixed={mixed("background")}
-          onReset={() => reset("background")}
-        >
+        <Field label="Fill" {...rowOf(editor, "fill")}>
           <TokenInput
             value={style.background}
             tokens={tokens}
             categories={["color"]}
-            onChange={(background) => set({ background }, "Change fill")}
+            onChange={(background) => set("fill", { background }, "Change fill")}
           />
         </Field>
-        <Field label="Radius" changed={changed("radius")} mixed={mixed("radius")} onReset={() => reset("radius")}>
+        <Field label="Radius" {...rowOf(editor, "radius")}>
           <TokenInput
             value={style.radius}
             tokens={tokens}
             categories={["radius"]}
-            onChange={(radius) => set({ radius }, "Change radius")}
+            onChange={(radius) => set("radius", { radius }, "Change radius")}
           />
         </Field>
-        <Field label="Shadow" changed={changed("shadow")} mixed={mixed("shadow")} onReset={() => reset("shadow")}>
+        <Field label="Shadow" {...rowOf(editor, "shadow")}>
           <TokenInput
             value={style.shadow}
             tokens={tokens}
             categories={["shadow"]}
-            onChange={(shadow) => set({ shadow }, "Change shadow")}
+            onChange={(shadow) => set("shadow", { shadow }, "Change shadow")}
           />
         </Field>
-        <Field label="Opacity" changed={changed("opacity")} mixed={mixed("opacity")} onReset={() => reset("opacity")}>
+        <Field label="Opacity" {...rowOf(editor, "opacity")}>
           <NumberInput
             value={style.opacity}
             rules={opacityRules}
@@ -826,23 +723,19 @@ function AppearanceSection({ editor }: SectionProps) {
             blank={() => 100}
             {...fieldEdits(
               editor,
+              "opacity",
               "Change opacity",
               (layer) => layer.opacity,
               (opacity) => ({ opacity: opacity as number | undefined })
             )}
           />
         </Field>
-        <Field
-          label="Overflow"
-          changed={changed("overflow")}
-          mixed={mixed("overflow")}
-          onReset={() => reset("overflow")}
-        >
+        <Field label="Overflow" {...rowOf(editor, "overflow")}>
           <ChoiceInput
             value={style.overflow}
             options={overflowOptions}
             placeholder="Visible"
-            onChange={(overflow) => set({ overflow }, "Change overflow")}
+            onChange={(overflow) => set("overflow", { overflow }, "Change overflow")}
           />
         </Field>
       </div>
@@ -851,8 +744,8 @@ function AppearanceSection({ editor }: SectionProps) {
 }
 
 function StrokeSection({ editor }: SectionProps) {
-  const { style, changed, reset, set, tokens } = editor
-  const mixed = mixedOf(editor)
+  const { set, tokens } = editor
+  const { style } = editor.selection
   const on = style.border !== undefined || style.borderWidth !== undefined
   return (
     <PanelSection
@@ -863,7 +756,7 @@ function StrokeSection({ editor }: SectionProps) {
             variant="ghost"
             size="sm"
             className="h-6 px-2 text-xs text-muted-foreground"
-            onClick={() => set({ border: "border", borderWidth: 1 }, "Add stroke")}
+            onClick={() => set("stroke", { border: "border", borderWidth: 1 }, "Add stroke")}
           >
             <Square /> Add
           </Button>
@@ -872,26 +765,23 @@ function StrokeSection({ editor }: SectionProps) {
     >
       {on ? (
         <div className="flex flex-col gap-1">
-          <Field label="Color" changed={changed("border")} mixed={mixed("border")} onReset={() => reset("border")}>
+          <Field label="Color" {...rowOf(editor, "strokeColor")}>
             <TokenInput
               value={style.border}
               tokens={tokens}
               categories={["color"]}
-              onChange={(border) => set({ border }, "Change stroke color")}
+              onChange={(border) => set("strokeColor", { border }, "Change stroke color")}
             />
           </Field>
-          <Field
-            label="Width"
-            changed={changed("borderWidth")}
-            mixed={mixed("borderWidth")}
-            onReset={() => reset("borderWidth")}
-          >
+          <Field label="Width" {...rowOf(editor, "strokeWidth")}>
             <ToggleGroup
               variant="outline"
               size="sm"
               spacing={0}
               value={[String(style.borderWidth ?? 1)]}
-              onValueChange={([value]) => value && set({ borderWidth: Number(value) }, "Change stroke width")}
+              onValueChange={([value]) =>
+                value && set("strokeWidth", { borderWidth: Number(value) }, "Change stroke width")
+              }
             >
               {[1, 2, 4, 8].map((width) => (
                 <ToggleGroupItem key={width} value={String(width)} className="h-7 w-9 text-xs tabular-nums">
@@ -900,24 +790,21 @@ function StrokeSection({ editor }: SectionProps) {
               ))}
             </ToggleGroup>
           </Field>
-          <Field
-            label="Style"
-            changed={changed("borderStyle")}
-            mixed={mixed("borderStyle")}
-            onReset={() => reset("borderStyle")}
-          >
+          <Field label="Style" {...rowOf(editor, "strokeStyle")}>
             <ChoiceInput
               value={style.borderStyle}
               options={borderStyleOptions}
               placeholder="Solid"
-              onChange={(borderStyle) => set({ borderStyle }, "Change stroke style")}
+              onChange={(borderStyle) => set("strokeStyle", { borderStyle }, "Change stroke style")}
             />
           </Field>
           <Button
             variant="ghost"
             size="sm"
             className="mt-1 h-7 self-start text-xs text-muted-foreground"
-            onClick={() => set({ border: undefined, borderWidth: undefined, borderStyle: undefined }, "Remove stroke")}
+            onClick={() =>
+              set("stroke", { border: undefined, borderWidth: undefined, borderStyle: undefined }, "Remove stroke")
+            }
           >
             Remove stroke
           </Button>
@@ -930,90 +817,72 @@ function StrokeSection({ editor }: SectionProps) {
 }
 
 function TextSection({ editor, node }: SectionProps) {
-  const { style, changed, reset, set, tokens } = editor
-  const mixed = mixedOf(editor)
+  const { set, tokens } = editor
+  const { style } = editor.selection
   return (
     <PanelSection
       title={node.type === "text" ? "Text" : "Text inside"}
       description={node.type === "text" ? undefined : "Text in here inherits these unless it sets its own."}
     >
       <div className="flex flex-col gap-1">
-        <Field
-          label="Color"
-          changed={changed("foreground")}
-          mixed={mixed("foreground")}
-          onReset={() => reset("foreground")}
-        >
+        <Field label="Color" {...rowOf(editor, "textColor")}>
           <TokenInput
             value={style.foreground}
             tokens={tokens}
             categories={["color"]}
-            onChange={(foreground) => set({ foreground }, "Change text color")}
+            onChange={(foreground) => set("textColor", { foreground }, "Change text color")}
           />
         </Field>
-        <Field label="Font" changed={changed("font")} mixed={mixed("font")} onReset={() => reset("font")}>
+        <Field label="Font" {...rowOf(editor, "font")}>
           <TokenInput
             value={style.font}
             tokens={tokens}
             categories={["font"]}
-            onChange={(font) => set({ font }, "Change font")}
+            onChange={(font) => set("font", { font }, "Change font")}
           />
         </Field>
-        <Field label="Size" changed={changed("size")} mixed={mixed("size")} onReset={() => reset("size")}>
+        <Field label="Size" {...rowOf(editor, "textSize")}>
           <TokenInput
             value={style.size}
             tokens={tokens}
             categories={["font-size"]}
-            onChange={(size) => set({ size }, "Change text size")}
+            onChange={(size) => set("textSize", { size }, "Change text size")}
           />
         </Field>
-        <Field label="Weight" changed={changed("weight")} mixed={mixed("weight")} onReset={() => reset("weight")}>
+        <Field label="Weight" {...rowOf(editor, "weight")}>
           <ChoiceInput
             value={style.weight === undefined ? undefined : String(style.weight)}
             options={weightOptions}
             placeholder="Inherit"
-            onChange={(weight) => set({ weight: weight === undefined ? undefined : Number(weight) }, "Change weight")}
+            onChange={(weight) =>
+              set("weight", { weight: weight === undefined ? undefined : Number(weight) }, "Change weight")
+            }
           />
         </Field>
-        <Field
-          label="Line height"
-          changed={changed("leading")}
-          mixed={mixed("leading")}
-          onReset={() => reset("leading")}
-        >
+        <Field label="Line height" {...rowOf(editor, "lineHeight")}>
           <TokenInput
             value={style.leading}
             tokens={tokens}
             categories={["leading"]}
-            onChange={(leading) => set({ leading }, "Change line height")}
+            onChange={(leading) => set("lineHeight", { leading }, "Change line height")}
           />
         </Field>
-        <Field
-          label="Letter spacing"
-          changed={changed("tracking")}
-          mixed={mixed("tracking")}
-          onReset={() => reset("tracking")}
-        >
+        <Field label="Letter spacing" {...rowOf(editor, "letterSpacing")}>
           <TokenInput
             value={style.tracking}
             tokens={tokens}
             categories={["tracking"]}
-            onChange={(tracking) => set({ tracking }, "Change letter spacing")}
+            onChange={(tracking) => set("letterSpacing", { tracking }, "Change letter spacing")}
           />
         </Field>
-        <Field
-          label="Align"
-          changed={changed("textAlign")}
-          mixed={mixed("textAlign")}
-          onReset={() => reset("textAlign")}
-        >
+        <Field label="Align" {...rowOf(editor, "textAlign")}>
           <ToggleGroup
             variant="outline"
             size="sm"
             spacing={0}
             value={[style.textAlign ?? ""]}
             onValueChange={([value]) =>
-              set({ textAlign: (value || undefined) as NodeStyle["textAlign"] }, "Change text alignment")
+              set("textAlign", { textAlign: (value || undefined) as NodeStyle["textAlign"] }, "Change text alignment")
             }
           >
             {textAlignOptions.map(({ value, label, Icon }) => (
@@ -1026,12 +895,7 @@ function TextSection({ editor, node }: SectionProps) {
           </ToggleGroup>
         </Field>
         {node.type === "text" && <TextResizing editor={editor} />}
-        <Field
-          label="Decoration"
-          changed={changed("italic") || changed("decoration")}
-          mixed={mixed("italic") || mixed("decoration")}
-          onReset={() => (reset("italic"), reset("decoration"))}
-        >
+        <Field label="Decoration" {...rowOf(editor, "decoration")}>
           <div className="flex gap-1">
             <Hint label="Italic">
               <Toggle
@@ -1040,7 +904,7 @@ function TextSection({ editor, node }: SectionProps) {
                 className="h-7 px-2"
                 aria-label="Italic"
                 pressed={style.italic ?? false}
-                onPressedChange={(italic) => set({ italic: italic || undefined }, "Toggle italic")}
+                onPressedChange={(italic) => set("decoration", { italic: italic || undefined }, "Toggle italic")}
               >
                 <Italic />
               </Toggle>
@@ -1052,7 +916,9 @@ function TextSection({ editor, node }: SectionProps) {
                 className="h-7 px-2"
                 aria-label="Underline"
                 pressed={style.decoration === "underline"}
-                onPressedChange={(on) => set({ decoration: on ? "underline" : undefined }, "Toggle underline")}
+                onPressedChange={(on) =>
+                  set("decoration", { decoration: on ? "underline" : undefined }, "Toggle underline")
+                }
               >
                 <Underline />
               </Toggle>
@@ -1064,28 +930,25 @@ function TextSection({ editor, node }: SectionProps) {
                 className="h-7 px-2"
                 aria-label="Strikethrough"
                 pressed={style.decoration === "line-through"}
-                onPressedChange={(on) => set({ decoration: on ? "line-through" : undefined }, "Toggle strikethrough")}
+                onPressedChange={(on) =>
+                  set("decoration", { decoration: on ? "line-through" : undefined }, "Toggle strikethrough")
+                }
               >
                 <Strikethrough />
               </Toggle>
             </Hint>
           </div>
         </Field>
-        <Field
-          label="Case"
-          changed={changed("transform")}
-          mixed={mixed("transform")}
-          onReset={() => reset("transform")}
-        >
+        <Field label="Case" {...rowOf(editor, "case")}>
           <ChoiceInput
             value={style.transform}
             options={transformOptions}
             placeholder="As typed"
-            onChange={(transform) => set({ transform }, "Change case")}
+            onChange={(transform) => set("case", { transform }, "Change case")}
           />
         </Field>
         {node.type === "text" && (
-          <Field label="Max lines" changed={changed("lines")} mixed={mixed("lines")} onReset={() => reset("lines")}>
+          <Field label="Max lines" {...rowOf(editor, "lines")}>
             <NumberInput
               value={style.lines}
               rules={linesRules}
@@ -1093,6 +956,7 @@ function TextSection({ editor, node }: SectionProps) {
               placeholder="No limit"
               {...fieldEdits(
                 editor,
+                "lines",
                 "Change max lines",
                 (layer) => layer.lines,
                 (lines) => ({ lines: lines as number | undefined })
@@ -1110,38 +974,25 @@ function TextSection({ editor, node }: SectionProps) {
  * layer the size it's drawn at, and Width and Height show what it set.
  */
 function TextResizing({ editor }: { editor: StyleEditor }) {
-  const { style, set, changed, reset } = editor
-  const mixed = mixedOf(editor)
-  const differs = mixed("width") || mixed("height") || mixed("grow")
+  const { set } = editor
+  const { style } = editor.selection
+  const row = rowOf(editor, "resizing")
   return (
     <Field
       label="Resizing"
       hint="Auto width grows along its line, auto height wraps at its width and grows down, fixed keeps its size"
-      changed={changed("width") || changed("height")}
-      mixed={differs}
-      onReset={() => (reset("width"), reset("height"))}
+      {...row}
     >
       <ToggleGroup
         variant="outline"
         size="sm"
         spacing={0}
-        value={[differs ? "" : textSizing(style)]}
+        value={[row.mixed ? "" : textSizing(style)]}
         onValueChange={([value]) => {
           const sizing = textSizingOptions.find((option) => option.value === value)
           if (!sizing) return
-          set(
-            // Only the text layers of a mixed selection, each by its own parent.
-            (style, layer) =>
-              layer.type !== "text"
-                ? {}
-                : withTextSizing(
-                    style,
-                    sizing.value,
-                    { width: layer.measure("width", stepUp), height: layer.measure("height", stepUp) },
-                    { explicit: !layer.base, column: layer.column }
-                  ),
-            sizing.edit
-          )
+          // Only the text layers of a mixed selection, each by its own parent.
+          set("resizing", textSizingEdit(sizing.value), sizing.edit)
         }}
       >
         {textSizingOptions.map(({ value, label, Icon }) => (
@@ -1154,14 +1005,6 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
       </ToggleGroup>
     </Field>
   )
-}
-
-/**
- * The whole step at or above a measured length. A thousandth of a step (0.004px at 4px) is measuring noise from the zoom
- * and the frame's scale: it's under the 1/64px browsers lay text out in, so a length truly past a step still rounds up.
- */
-function stepUp(steps: number): number {
-  return Math.ceil(steps - 0.001)
 }
 
 const textSizingOptions = [
@@ -1321,22 +1164,6 @@ function CompactNumber({
       onCommit={onCommit}
     />
   )
-}
-
-type SideValues = [Length, Length, Length, Length]
-
-/** Padding or margin as four sides, whichever form it's written in. */
-export function sidesOf(value: Padding | undefined): SideValues | undefined {
-  if (value === undefined) return undefined
-  if (!Array.isArray(value)) return [value, value, value, value]
-  if (value.length === 2) return [value[0], value[1], value[0], value[1]]
-  return value
-}
-
-/** The shortest form of four sides. */
-export function tidySides([top, right, bottom, left]: SideValues): Padding {
-  if (top === bottom && right === left) return top === right ? top : [top, right]
-  return [top, right, bottom, left]
 }
 
 /** A step's token name, for showing it the way the Tokens panel does. */

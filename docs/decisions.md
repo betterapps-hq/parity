@@ -4143,6 +4143,30 @@ see changes. My calls:
   presses on the real stores. Resizing a frame, the double-click resets, `grow`, a resize's snapped edges and the drag
   have tests from boxes now.
 
+## Style editing for a selection is one editor module (PAR-567)
+
+The inspector's style rows were wired three times, in the layer panel, the several-layers panel and the stories, each
+working out where edits go, what differs and the parent's layout by hand, and each row named its keys three times apart
+from what its edit wrote. Now `style-editing.ts` in `@parity-app/editor` holds the rules, and the app keeps the views,
+measuring, previewing and the store (see editor.md, Typing, stepping and scrubbing). My calls:
+
+- **A row's keys are what its edit writes.** `styleRows` lists each row's keys once, and a row's edit is typed to write
+  only those. Where an edit wrote more than the row reset, the row took the extra keys: Placement resets the insets it
+  sets, Width and Height reset the `grow` they replace (only along the parent's direction, where `grow` fills), Type
+  resets the columns a new grid gets, and Resizing resets `grow` (PAR-582). So resetting one of these in a state takes
+  back everything its edit wrote, and the row shows as changed or mixed by any of them.
+- **One wiring for every panel.** `chrome/style-editor.ts`'s `useStyleEditor` is how the layer panel, the several-layers
+  panel, the screen-container exploration and the stories edit style. The stories used to edit the state alone and read
+  changes from it; now they edit the variant shown too.
+- **Edits work from each layer's own style.** Switching to a grid, placing absolutely and changing a size used the
+  shared style; now each layer keeps its own columns, insets and `grow`, as a field's edit already did.
+- **The parent is read as the board shows it, inside instances too.** A layer inside an instance read its parent as the
+  component has it, without the copy's or the variant's changes; it's read as that copy shows it now.
+- **Several layers can include layers inside instances.** The several-layers panel skipped them; they're edited as each
+  copy's changes now, as one such layer is.
+- **`editingState` moved with it,** since the module works out the state from the one the layers were picked in.
+  `chrome/LayerPanel.tsx` passes it on, so the canvas's commands are unchanged.
+
 ## Installed packages are read one way (PAR-573)
 
 The architecture review of 2026-11-04 found that finding an installed package and the file it points to was written

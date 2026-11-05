@@ -1745,14 +1745,21 @@ Code:
   run, and `FieldTarget`, which `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits),
   `NumberInput`, and `Field`, whose label scrubs a lone field and which shows what its fields say under the row.
   `NumberValueInput` is a prop's or param's number, which works its edits out from the value as it was before a preview.
-- `chrome/StyleSections.tsx`: each style field's rules and how its edit reads and writes each layer's own style
-  (`fieldEdits`), with `LengthInput` and `CompactNumber`. `StyleEditor` takes values, or a function of each layer's
-  style, and has `preview` and `endPreview`. `chrome/PropsSection.tsx` has the number props, which
-  `chrome/LayerPanel.tsx` previews through `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and
-  taken back to its checkpoint unless it's made. `chrome/MultiPanel.tsx` has the note on what differs.
+- `packages/editor/src/style-editing.ts` (PAR-567): the selected layers' style as rows. `styleSelection` takes the
+  design, the selected ids and the state they were picked in, and gives the state and variant edits go to, the style the
+  layers share, what differs, what the state changes, and the layout they sit in, read as the board shows it. Each row's
+  keys are listed once, in `styleRows`: what the row marks as changed or mixed, what its reset takes back, and the only
+  keys its edit can write. A row's edit is worked out once from each layer's own style and written to every layer
+  (`fieldEdit` is what `Mixed+8` goes through), and the edits that need more than a value are there too: `sidesField`,
+  `sizeField` and `sizeEdit`, `layoutTypeEdit`, `placementEdit` and `textSizingEdit`.
+- `chrome/StyleSections.tsx`: each style field's rules, with `LengthInput` and `CompactNumber`, naming the row each
+  field shows. `chrome/style-editor.ts`'s `useStyleEditor` is the one way the inspector's rows are wired: it measures
+  layers, previews a row's edit and makes it or its reset through the store, for `chrome/LayerPanel.tsx`,
+  `chrome/MultiPanel.tsx` and the stories. `chrome/PropsSection.tsx` has the number props, which `chrome/LayerPanel.tsx`
+  previews through `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and taken back to its
+  checkpoint unless it's made. `chrome/MultiPanel.tsx` has the note on what differs.
 - `canvas/style-preview.ts`: `StylePreview`, which writes previews onto the frames, takes them back, and settles them
-  for the change. `chrome/LayerPanel.tsx` and `chrome/MultiPanel.tsx` wire it into the inspector, the latter working an
-  edit out for each layer.
+  for the change. `chrome/style-editor.ts` wires it into the inspector.
 
 Tests:
 
@@ -1761,6 +1768,13 @@ Tests:
   another spacing unit, clearing, `50-10` in Opacity, whole percentages in Opacity with their note and stepping from a
   fraction (PAR-203), counts and numbers, each reason for input it can't read, steps, scrubbing, and notes across
   layers. The cases the audit found broken fail without the change.
+- `packages/editor/src/style-editing.test.ts` (21, PAR-567): the state and the variant option an edit lands in; what
+  several layers share and what differs, read in the state being edited; `Mixed+8` adding to each layer's own padding; a
+  row marked changed by any of its keys on any layer, and its reset taking every key back on every layer, Placement's
+  insets with it; the layout the layers sit in, shared or each their own, with a variant's direction and inside an
+  instance; `grow` belonging to the size along the parent's direction; a layer inside an instance edited, marked and
+  reset as that copy's; every row's edit writing only the keys its reset takes back; and text sized by each layer's own
+  measure, leaving other layers alone.
 - `apps/desktop/src/renderer/canvas/change-preview.test.ts` (4), with the real store: each preview in place of the last
   and taken back with nothing to undo, a commit after previews as one undo step, a commit in a run's gesture, and Redo
   kept when a preview is taken back.
@@ -1947,8 +1961,9 @@ Code: what the editor selects, the modes and switching between them are `package
 `packages/core/src/render.ts`. The editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character
 under the double-click from the text's own ranges, measures the text each frame, and handles the keys. The double-click
 passes its point through `SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing
-control is `TextResizing` in `chrome/StyleSections.tsx`, and `measure` in `chrome/LayerPanel.tsx` rounds up for it. The
-agent's skill says how text sizes in `packages/cli/skills/document.md`.
+control is `TextResizing` in `chrome/StyleSections.tsx`, whose edit is `textSizingEdit` in
+`packages/editor/src/style-editing.ts`, rounding each layer's measure up with `stepUp`. The agent's skill says how text
+sizes in `packages/cli/skills/document.md`.
 
 Tests:
 
@@ -2136,7 +2151,7 @@ Code: `packages/editor/src/history.ts` (`recordChange` with the `gesture` option
 drags and runs begin and end theirs through `canvas/gesture.ts`: `followPress` for resize handles
 (`canvas/CanvasOverlay.tsx`), layer drags (`canvas/layer-drag.ts`) and title drags (`canvas/ContainerShapeUtil.tsx`),
 and `GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `chrome/fields.tsx` (`NumberField`'s runs and
-scrubs), whose gesture reaches the store through `StyleSections.tsx`'s `fieldEdits`, `LayerPanel.tsx`, `MultiPanel.tsx`
+scrubs), whose gesture reaches the store through `StyleSections.tsx`'s `fieldEdits`, `style-editor.ts`, `LayerPanel.tsx`
 and `PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
 
 Tests:
@@ -2192,6 +2207,11 @@ as that state's or variant's changes ("changes only this state", "changes only t
   inspector reads the board without a viewport, as the text editor and Hide do, since its edits change the design or the
   state rather than a viewport's patch. The app's wiring, which frame's viewport each command passes, has no automated
   test.
+- **The style rows read and write one way** (PAR-567). One layer, several layers, a layer inside an instance and the
+  inspector's stories all go through `@parity-app/editor`'s `styleSelection`, so each reads its layers and the layout
+  they sit in as the board shows them, with the variant shown, and its edits and resets land in the state or variant
+  option the Editing control names. A row's reset takes back every key its edit writes: resetting Placement in a state
+  drops the insets it set, and resetting Width drops the `grow` it replaced.
 - **A component's board shows its params' defaults,** as an instance that sets none of them does. The Stat card's board
   shows only the rising trend icon, since `showFalling` is off, where it showed both. Changing a bound text, prop or
   visibility on the board, in the base state, changes the param's default too, so the board and the instances that don't
@@ -2220,7 +2240,8 @@ Code: in `packages/core`, `edit.ts` (`propChange`, how the inspector sets and cl
 `hiddenOnBoard`, `toggleHidden`, `editTargetName`, `editNode` keeping the bound param's default in step and a state's
 patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives a board, and `paramDefaults`, shared
 with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside an instance).
-`packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation reads with, and
+`packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation reads with,
+`packages/editor/src/style-editing.ts` (`styleSelection`, `editingState`) the style rows' reads, edits and resets, and
 `canvas/view.ts`'s `frameViewport` gives the viewport of the frame a layer was picked in. In the app,
 `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark and
 its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it, `BaseDesignNote` in the Image and
@@ -2239,6 +2260,9 @@ Tests:
   base state, another state over the variant, and the base state with the default option shown.
 - `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Plan card's Compact option hides Feature 4, and its row's
   menu offers Show in Compact.
+- `packages/editor/src/style-editing.test.ts` (PAR-567): an edit in a variant option the board shows landing in the
+  option, a state's edit leaving the design alone, resets across layers, and the parent's layout read with a variant's
+  direction and inside an instance (see Fields, Typing, stepping and scrubbing).
 - `packages/editor/src/shown.test.ts` (7): `shownNode` and `boardReader` agree with each other for every layer in each
   of the shared fixture's cases, in every viewport; a bound text's default, the variant shown and a viewport's patches;
   and a layer inside an instance by its path, with the library. The operations' own tests are under their sections.

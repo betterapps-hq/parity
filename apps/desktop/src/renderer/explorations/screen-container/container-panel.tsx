@@ -16,13 +16,11 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   boardTarget,
-  type ContainerSpec,
   editNode,
   editsDesign,
   findRepeats,
   type NodeChange,
   nodeOnBoard,
-  type NodeStyle,
   type PatchField,
   type RepeatCandidate,
   resetOverride,
@@ -33,24 +31,23 @@ import { Crown, Diamond, MousePointerClick, ScanSearch, Sparkles } from "lucide-
 import { type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, designColor, kindColors } from "../../canvas/kinds.tsx"
-import { useStylePreview } from "../../canvas/style-preview.ts"
 import { containerModes, modeNames, withMainMode } from "../../canvas/view.ts"
 import { extractIntoComponent } from "../../chrome/components.ts"
 import { ParamsSection } from "../../chrome/ComponentsSection.tsx"
 import { DesignTab } from "../../chrome/DesignPanel.tsx"
 import { FieldTarget } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { editingState, measureNode } from "../../chrome/LayerPanel.tsx"
+import { editingState } from "../../chrome/LayerPanel.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { PropsSection } from "../../chrome/PropsSection.tsx"
 import { revealSelection } from "../../chrome/reveal.ts"
 import { StatesSection } from "../../chrome/StatesSection.tsx"
-import { type EditedLayer, type StyleEditor, StyleSections, styleValues } from "../../chrome/StyleSections.tsx"
+import { useStyleEditor } from "../../chrome/style-editor.ts"
+import { StyleSections } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { useComponents } from "../../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { type Selection, selectionKey, useSelection } from "../../selection.ts"
-import { spacingUnit, useTokenList } from "../../tokens-store.ts"
 
 /*
  * The inspector's Design tab once a screen and its root layout are one selection (PAR-542, decision 3 of
@@ -242,13 +239,12 @@ function RootSections({ entry }: { entry: ContainerEntry }) {
   const { store, selection } = session
   const selected = useSelection(selection)
   const components = useComponents(session.components)
-  const tokens = useTokenList(session.tokens)
-  const preview = useStylePreview(session, entry.key)
   const { container, key } = entry
   const rootId = container.root.id
   const state = editingState(container, selected.state)
   const target = boardTarget(container, state.id)
   const node = nodeOnBoard(container, container.root, state)
+  const editor = useStyleEditor(entry, [rootId])
   const override = targetPatches(container, target)?.[rootId]
 
   const change = (label: string, value: NodeChange, gesture?: string) =>
@@ -259,33 +255,6 @@ function RootSections({ entry }: { entry: ContainerEntry }) {
     store.updateContainer(key, "Reset change", (current) =>
       resetOverride(current, boardTarget(current, state.id), rootId, field)
     )
-  const edited = (style: NodeStyle) => (current: ContainerSpec) =>
-    editNode(current, boardTarget(current, editingState(current, selected.state).id), rootId, { style })
-  const layer: EditedLayer = {
-    base: editsDesign(container, target),
-    measure: (axis, round = Math.round) => {
-      const size = measureNode(session, key, rootId, selected)
-      return size && Math.max(1, round(size[axis] / spacingUnit(tokens)))
-    },
-    type: node.type,
-    column: false
-  }
-  const editor: StyleEditor = {
-    style: node.style ?? {},
-    changed: (name) => override?.style?.[name] !== undefined,
-    reset: (name) => reset({ kind: "style", key: name }),
-    set: (edit, label = "Change style", gesture) => {
-      const values = styleValues(edit, node.style ?? {}, layer) as NodeStyle
-      preview.settle(edited(values))
-      change(label, { style: values }, gesture)
-    },
-    preview: (edit) => preview.show(edited(styleValues(edit, node.style ?? {}, layer) as NodeStyle)),
-    endPreview: () => preview.cancel(),
-    tokens,
-    unit: spacingUnit(tokens),
-    measure: layer.measure
-  }
-
   return (
     <>
       {node.type === "component" && (
@@ -297,7 +266,7 @@ function RootSections({ entry }: { entry: ContainerEntry }) {
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
-      <StyleSections editor={editor} node={node} />
+      {editor && <StyleSections editor={editor} node={node} />}
     </>
   )
 }

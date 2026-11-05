@@ -1,20 +1,6 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import {
-  boardTarget,
-  changesField,
-  editsDesign,
-  type ContainerSpec,
-  type DesignNode,
-  editNode,
-  findNode,
-  isBaseState,
-  locateNode,
-  type NodeStyle,
-  resetOverride,
-  styleKeys,
-  targetPatches
-} from "@parity-app/core"
-import { type Alignment, boardReader, kindsName } from "@parity-app/editor"
+import { isBaseState } from "@parity-app/core"
+import { type Alignment, kindsName } from "@parity-app/editor"
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -31,16 +17,13 @@ import {
 } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { designColor, kindColors } from "../canvas/kinds.tsx"
-import { useStylePreview } from "../canvas/style-preview.ts"
 import type { ContainerEntry } from "../design-store.ts"
-import { useSelection } from "../selection.ts"
-import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import { alignSelection, deleteSelection, distributeSelection, duplicateSelection, wrapSelection } from "./commands.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
-import { editingState, measureNode } from "./LayerPanel.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
-import { type EditedLayer, type StyleEdit, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
+import { useStyleEditor } from "./style-editor.ts"
+import { StyleSections } from "./StyleSections.tsx"
 
 const alignments: { value: Alignment; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
   { value: "left", label: "Align left", shortcut: keymap.alignLeft.keys[0], icon: AlignStartVertical },
@@ -127,84 +110,22 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
  * Values they share show as usual; the ones that differ are listed, and setting one gives them all that value.
  */
 export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: string[] }) {
-  const session = useProject()
-  const { store, selection, tokens: tokenStore } = session
-  const tokens = useTokenList(tokenStore)
-  const selected = useSelection(selection)
-  const { container, key } = entry
-  const state = editingState(container, selected.state)
-  const target = boardTarget(container, state.id)
-  const base = isBaseState(container, state.id)
-  const patches = targetPatches(container, target)
-  const shown = boardReader(container, { state })
-  const present = ids.filter((id) => findNode(container.root, id))
-  const nodes = present.map((id) => shown(findNode(container.root, id)!))
-  const preview = useStylePreview(session, key)
-  const primary = nodes.at(-1)
-  if (!primary) return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
-  const unit = spacingUnit(tokens)
-  // Each layer measured in the frame the selection was picked in, so a size worked out from it is its own.
-  const layers: EditedLayer[] = present.map((id, index) => {
-    const around = locateNode(container.root, id)?.ancestors.at(-1)
-    const direction = around?.type === "layout" ? shown(around).style?.direction : undefined
-    return {
-      base: editsDesign(container, target),
-      measure: (axis, round = Math.round) => {
-        const size = measureNode(session, key, id, selected)
-        return size && Math.max(1, round(size[axis] / unit))
-      },
-      type: nodes[index]!.type,
-      column: around?.type === "layout" && (direction ?? "column") === "column"
-    }
-  })
-  /** An edit worked out for each layer from its own style, once, and how to apply it to the design. */
-  const edited = (edit: StyleEdit) => {
-    const values = nodes.map((node, index) => styleValues(edit, node.style ?? {}, layers[index]!) as NodeStyle)
-    const apply = (current: ContainerSpec) =>
-      present.reduce(
-        (next, id, index) => editNode(next, boardTarget(next, state.id), id, { style: values[index] }),
-        current
-      )
-    return { apply }
-  }
-
-  const { common, mixed } = sharedStyle(nodes)
-  const parents = new Set(present.map((id) => locateNode(container.root, id)?.ancestors.at(-1)?.id))
-  const parent = parents.size === 1 ? locateNode(container.root, present[0]!)?.ancestors.at(-1) : undefined
-  const parentStyle = parent?.type === "layout" ? (shown(parent).style ?? {}) : undefined
-  const editor: StyleEditor = {
-    style: common,
-    changed: (name) => present.some((id) => changesField(patches?.[id], { kind: "style", key: name })),
-    reset: (name) =>
-      store.updateContainer(key, "Reset changes", (current) =>
-        present.reduce(
-          (next, id) => resetOverride(next, boardTarget(next, state.id), id, { kind: "style", key: name }),
-          current
-        )
-      ),
-    set: (edit, label = "Change style", gesture) => {
-      const { apply } = edited(edit)
-      preview.settle(apply)
-      store.updateContainer(key, `${label} on ${present.length} layers`, apply, { gesture })
-    },
-    preview: (edit) => preview.show(edited(edit).apply),
-    endPreview: () => preview.cancel(),
-    tokens,
-    unit: spacingUnit(tokens),
-    measure: () => undefined,
-    mixed: (name) => mixed.includes(name)
-  }
-
+  const editor = useStyleEditor(entry, ids)
+  if (!editor) return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
+  const { selection } = editor
+  const { mixed } = selection
+  const base = isBaseState(entry.container, selection.state.id)
+  const primary = selection.layers.at(-1)!.node
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex items-center gap-2 font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: kindColors.layer }} />
-          {present.length} layers
+          {selection.layers.length} layers
         </div>
         <p className="mt-0.5 pl-6 text-xs text-muted-foreground">
-          In {container.name}
-          {base ? "" : `, editing ${state.name}`}
+          In {entry.container.name}
+          {base ? "" : `, editing ${selection.state.name}`}
         </p>
       </div>
       <PanelSection title="Arrange">
@@ -221,30 +142,9 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
           and <code className="font-mono">Mixed+8</code> adds 8 to each layer&apos;s own value.
         </p>
       )}
-      <StyleSections
-        editor={editor}
-        node={primary}
-        parent={
-          parentStyle
-            ? { direction: parentStyle.direction ?? "column", grid: parentStyle.display === "grid" }
-            : undefined
-        }
-      />
+      <StyleSections editor={editor} node={primary} />
     </>
   )
-}
-
-/** The style values every node shares, and the properties set differently on some of them. */
-function sharedStyle(nodes: DesignNode[]): { common: NodeStyle; mixed: (keyof NodeStyle)[] } {
-  const common: Record<string, unknown> = {}
-  const mixed: (keyof NodeStyle)[] = []
-  for (const name of styleKeys) {
-    const values = nodes.map((node) => JSON.stringify(node.style?.[name]))
-    if (values.every((value) => value === values[0])) {
-      if (nodes[0]!.style?.[name] !== undefined) common[name] = nodes[0]!.style[name]
-    } else mixed.push(name)
-  }
-  return { common: common as NodeStyle, mixed }
 }
 
 /** "minWidth" reads as "min width". */
