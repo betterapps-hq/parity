@@ -1098,10 +1098,12 @@ a component design; the Layers panel's add buttons start new designs. Each is on
 - **Make component** puts the component design at the end of the project file, 640px above the topmost design on the
   canvas, lined up with the design it came from, so components sit above screens. An instance replaces each occurrence,
   and the step is "Extract" and its name. It's refused, changing nothing, unless the design renders the same in every
-  state and viewport, as its board shows it: with the variant option the board shows and the defaults of the params the
-  design binds (PAR-486). So a variant that changes something inside the part, or a param default a layer in it shows,
-  refuses it rather than losing the change. A component design's Params section lists its instances, across every
-  design.
+  state, viewport and variant option, as its board shows each, with the defaults of the params the design binds
+  (PAR-486). Every option of every variant is checked, not only the one the board shows (PAR-493), each with the other
+  variants as the board shows them, and the message names the option: "Extracting would change how Team looks (Default,
+  desktop, Compact), so it wasn't done". So a variant option that changes something inside the part, shown or not, or a
+  param default a layer in it shows, refuses it rather than losing the change. A component design's Params section lists
+  its instances, across every design.
 - **A new design goes 240px to the right of everything on the canvas,** top-aligned with the topmost design. A screen
   starts as a padded page with its name as a heading, a component as a small padded layout on a 480px frame.
 
@@ -1123,8 +1125,9 @@ canvas, and a component above everything. A library part's parents and samples a
 `packages/core/src/library-insert.test.ts`. The extraction and its check are core's `extractComponent`, in
 `packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
 refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
-the part but not one that changes what's outside it or isn't shown, and refused when a layer in the part shows a param's
-default.
+the part, whether the board shows it or not (PAR-493), but not one that changes what's outside it; each option of two
+variant params checked in turn, refused for one the board doesn't show; and refused when a layer in the part shows a
+param's default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
