@@ -152,7 +152,7 @@ beforeAll(async () => {
   if (!(await page.evaluate(() => typeof frame === "object")))
     throw new Error(`The page didn't load: ${errors.join(",")}`)
   await mount(design)
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()

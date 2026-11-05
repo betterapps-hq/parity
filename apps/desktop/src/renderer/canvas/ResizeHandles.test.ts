@@ -57,7 +57,7 @@ beforeAll(async () => {
   await page.setContent(`<style>.absolute { position: absolute } .z-10 { z-index: 10 }</style>
     <body style="margin: 0"><div id="overlay" style="position: relative; height: 600px"></div></body>`)
   await page.addScriptTag({ content: bundle.outputFiles[0]!.text })
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()
