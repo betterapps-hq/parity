@@ -2274,6 +2274,29 @@ entry and isn't saved). Gaps: the panel's section has no automated test. It was 
 on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen: the library's section
 listed the design under Ready-made components and left the screen out.
 
+### Providers a library's parts need (PAR-428, PAR-453)
+
+A provider draws nothing of its own, but the parts inside it throw without it: Nova's `Sidebar` and its parts need
+`SidebarProvider`. The library's file marks such a provider `visual: false`, and it stays one of the project's
+components, so designs and agents can put the parts inside it. Only the Components panel and the insert picker's
+browsing leave it out; a search by its name finds it.
+
+- **Agents** see it in `Components()` and `parity components`, and compose with it like any component: a
+  `nova/SidebarProvider` node with the sidebar in its `children` slot, or `Props()`'s `composition` example (PAR-454),
+  which places a part inside its parents. A part placed without it shows in `Problems` as a render error that names the
+  provider.
+- **Inserting a part** from the panel puts it inside its parents, the provider included, with the provider's sample.
+
+Code: `findLibraries` in `packages/project/src/libraries.ts`, which keeps a `visual: false` component with its `parents`
+and `sample`; `componentSources` in `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`, which leaves it out of the
+panel.
+
+Tests: `packages/libgen/src/nova-sidebar.test.ts` (3: the shadcn example's Nova lists `SidebarProvider` as a part that
+draws nothing and the sidebar's parent; a `Sidebar` alone throws naming the provider; the provider's sample from the
+registry draws the sidebar). `packages/project/src/library-files.test.ts` (1: a part marked `visual: false` stays
+listed). Composing a Nova sidebar inside its provider through `parity exec` was checked in the running app on
+2026-11-04: `Problems` found nothing, and the same sidebar without the provider reported the provider's error.
+
 ### Placing a library's design, linked or detached (PAR-126)
 
 A library's design is placed like the project's own: drag it onto a design, or click it to add it to the selection. That
