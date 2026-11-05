@@ -3967,6 +3967,18 @@ the picture. My calls:
   scrollbar would otherwise stay until their code changed. Every project's previews are made again once, in the idle
   pass.
 
+## Width and Height make room for their value (PAR-496)
+
+Called on 2026-11-05, for your approval in Storybook. A 96 by 48 layer showed "9" and "4" in the Size section. Both
+width and font played a part: the length field shared its row with a 92px Fixed, Fill or Hug list, a token button and
+`px`, leaving it about 9px for the value before PAR-552 widened rows and 17px at 300 pixels after it, and nothing at the
+narrowest 260. Its text was also 14px rather than the 12px it asks for, since the UI kit's input turns to 14px from the
+`md` breakpoint and the field's `text-xs` didn't override that. Now every number field's value is 12px, and when the
+Size row is narrower than 176px (an inspector under about 310 pixels) the list goes under the length rather than beside
+it, so the row is taller there instead of the value being cut. Shrinking the list or dropping `px` wouldn't have made
+room for four digits at 260 pixels. Padding, Margin, Min, Max and insets keep two lengths to a row and still clip at the
+narrowest; they're left for another issue.
+
 ## A component's name goes in only where it fits (PAR-518)
 
 A component that takes children is inserted with its name as text, so it isn't an empty box. The preview survey found
@@ -4030,6 +4042,38 @@ page), with whatever Parity can't do yet stubbed. My calls:
 - **Home names the page and, in a project, its first screen.** A project with no `.par` file still opens on a Home
   screen (PAR-561). The two don't meet: the page is a tab in the window's strip, and the screen is on a project's
   canvas.
+
+## Projects' pictures are taken from the canvas's bitmaps when saved (PAR-607)
+
+You asked on 2026-11-05 for a picture of each project's interface on the start page, and suggested taking it again
+whenever the project is saved. The start page now shows each project's first screens as last saved (see editor.md, The
+start page). My calls:
+
+- **Taken from the bitmaps the canvas already has,** not drawn again. Every frame on the canvas has one, kept on disk or
+  captured a second after it settles (PAR-158), so a picture costs no offscreen render. The frames in each board's first
+  row note what they show, so the picture reads the same bitmaps. They're a quarter of the frame's size, 320 pixels
+  across for a 1280 desktop frame: sharp at a card's size on a 1x screen, a little soft in Home's Continue picture on a
+  2x one.
+- **Two seconds after the project opens and after each save,** once the canvas has drawn the frames and has every bitmap
+  it's waiting for, so its own come first. A run of saves, as with Save automatically, takes one. A picture is never
+  taken with edits unsaved; it waits for the next save. Opening covers projects not saved since this landed, as the
+  issue asks.
+- **Screens with a phone frame beside them first,** up to five, then the rest, each in Layers' order. The issue's
+  picture is a desktop frame with the phone beside it, which a screen showing both gives; in the example the first
+  screen in Layers is Button, a design without a kind, which is a single button in a desktop window. Components and
+  frames aren't pictured. The phone is the first mode beside the main one whose viewport is a phone, by its device or
+  else by being under 600 wide. A board that shows none is pictured by its main frame, and one whose main frame is a
+  phone shows it alone in the middle.
+- **One JSON file per project in app data, not in the bitmap cache.** It's `<userData>/pictures`, which main gives the
+  service as `PARITY_PICTURE_DIR`. The cache's 30-day and 200 MB sweeps would drop the pictures of projects Home still
+  lists, and Clear bitmap cache would blank Home. One file holds the whole picture, its frames as data URLs, so a reader
+  never finds half of one; the example's five screens come to 72 KB. Each frame is cut to the top of its window before
+  it's kept, as that's all a picture shows. A picture goes when the start page stops listing its project: the window
+  tells the service which projects it lists whenever its notes change.
+- **Drawn as the canvas draws a board,** each frame the shape of its window, or shorter where the frame is, on the
+  placeholder's backdrop in the project's own colors. Cards flip through the screens as the exploration's do, the
+  picture split into as many strips across as there are screens. Home's Continue picture names the frames instead, as
+  the canvas's titles do, and doesn't flip.
 
 ## Moving, resizing and nudging are one editor module (PAR-577)
 
