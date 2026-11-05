@@ -75,7 +75,19 @@ const designs: ContainerSpec[] = [
       ]),
       layout("Empty state", [text("empty", "No members yet")], true)
     ])
-  )
+  ),
+  {
+    ...screen(
+      "signup",
+      "Signup",
+      4800,
+      layout("Page", [{ type: "text", id: "title", name: "Title", text: "Sign up" }])
+    ),
+    states: [
+      { id: "default", name: "Default" },
+      { id: "loading", name: "Loading" }
+    ]
+  }
 ]
 
 function project(tab: string): AgentSnapshot {
