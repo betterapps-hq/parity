@@ -3563,3 +3563,29 @@ use, with Layers and the inspector beside it, and every story starts it in a dif
   mode's name, and they stay until 10%. A board's title drops its menus before its name. The app's canvas still sizes
   the gutter in canvas units (`boardLayout` in core, `ContainerView`), so PAR-545 changes both, and the agent's
   `boardSize` estimate with them.
+
+## A project with no Parity file opens on a Home screen (PAR-561)
+
+PAR-560 decided that every project opens on a screen. A folder or project with no `.par` file now opens on a Home screen
+for its app's `/` route, in its desktop and mobile modes, drawing the real app. The rule is `openingDesigns` in
+`@parity-app/editor`, which the app calls as a project opens, so a blank project from the scaffolder (PAR-284) gets the
+same screen. My calls:
+
+- **What draws `/` is the page detection found for it, else `App`.** The page is told by its router's file names, as the
+  Components panel's pages are: Next's `app/page`, also inside route groups, which don't change the URL, or an `index`
+  in a `pages` or `routes` folder. A router-less app's `/` is whatever its entry mounts, and Vite's and Create React
+  App's templates mount `App`. The entry isn't read for components (it mounts the app, which the canvas must never run),
+  so `App` is found by its name rather than by reading the entry. The nearest the root wins, and a route file's default
+  export over its other parts, such as React Router's `ErrorBoundary`.
+- **With neither, the Home screen is a padded page headed Home,** as New screen starts one, so the project still opens
+  on a screen.
+- **The page is drawn unpadded,** in the screen's root layout on the theme's background, since the page lays out its own
+  content.
+- **Mobile is the first phone mode, matching the primary mode's theme.** "Desktop and mobile" means the primary mode,
+  usually Desktop Light, and beside it the first mode on a phone, preferring one whose theme and other options match.
+  When the primary mode is a phone's, a laptop's or desktop's goes beside it.
+- **Opening writes nothing.** The Home screen opens as if the project file held it, so opening a folder leaves it as it
+  was, and the file is written with the first change. A Home screen made on open but never kept is no loss, since the
+  next open makes the same one.
+- **A file that couldn't be read gets no Home screen,** so saving can't write over it. A file whose designs were all
+  deleted opens with none, as the person left it.

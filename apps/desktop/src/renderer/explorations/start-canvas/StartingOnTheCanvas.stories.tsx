@@ -119,9 +119,9 @@ export const SearchActions: Story = {
  * so.
  */
 export const Layers: Story = {
-  loaders: [() => openProjects("empty")],
+  loaders: [() => openProjects("designless")],
   render: () => (
-    <ProjectStage project="empty">
+    <ProjectStage project="designless">
       <StartLeftPanel />
     </ProjectStage>
   )
@@ -132,9 +132,9 @@ export const Layers: Story = {
  * can't, as Base UI opens one on focus only when the browser shows focus, and a script's focus doesn't count.
  */
 export const LayersPlusHovered: Story = {
-  loaders: [() => openProjects("empty")],
+  loaders: [() => openProjects("designless")],
   render: () => (
-    <ProjectStage project="empty">
+    <ProjectStage project="designless">
       <StartLeftPanel />
     </ProjectStage>
   ),
