@@ -1,8 +1,8 @@
-/* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-interactions -- designs and notes stand in for the canvas's shapes, which take the pointer; the keyboard reaches them through Layers and the canvas's keys, as in the app */
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- designs stand in for the canvas's shapes, which take the pointer; the keyboard reaches them through Layers and the canvas's keys, as in the app */
 import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
 import type { DesignNode } from "@parity-app/core"
 import { companionScale } from "@parity-app/core"
-import { Layers, Minus, Plus, StickyNote as NoteIcon } from "lucide-react"
+import { Layers, Minus, Plus } from "lucide-react"
 import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -19,8 +19,6 @@ import { IconButton } from "../../chrome/IconButton.tsx"
 import { SidePanel } from "../../chrome/SidePanel.tsx"
 import { StatesSection } from "../../chrome/StatesSection.tsx"
 import { useContainerEntries } from "../../design-store.ts"
-import { StickyNote } from "../collaboration/notes.tsx"
-import { me } from "../explore-data.ts"
 import {
   Board,
   CanvasFrame,
@@ -42,7 +40,6 @@ import {
   frameDrops,
   InspectorPanel,
   KindHeader,
-  NoteSelected,
   NothingSelected
 } from "./inspector.tsx"
 import { type ExploreTool, FramesToolbar, toolForKey } from "./toolbar.tsx"
@@ -50,8 +47,8 @@ import { type ExploreTool, FramesToolbar, toolForKey } from "./toolbar.tsx"
 /*
  * The frames explorations as one canvas you can use: Layers at the left, the canvas, and the inspector at the right,
  * with what's on the canvas and what's selected kept here. Every story is a starting state of it. Click a design or
- * its row in Layers to select it; F and a drag draws a frame, T and a click makes text in a frame, S and a click
- * places a note; the frame tool's menu and every Convert to act on what's selected.
+ * its row in Layers to select it; F and a drag draws a frame, and T and a click makes text in a frame; the frame tool's
+ * menu and every Convert to act on what's selected.
  */
 
 /** What a design draws: one of the example's, a sketch, an empty frame, or text. */
@@ -79,28 +76,19 @@ export interface Design {
   example?: string
 }
 
-export interface Note {
-  id: string
-  x: number
-  y: number
-  text: string
-}
-
 interface Doc {
   designs: Design[]
-  notes: Note[]
 }
 
 /** Where a story starts: what's on the canvas, what's selected, and anything open. */
 export interface Start {
   designs: Design[]
-  notes?: Note[]
   selected?: string
   tool?: ExploreTool
   zoom?: number
   /** Where the canvas's origin is on the screen. */
   pan?: { x: number; y: number }
-  /** The text frame or note being typed in. */
+  /** The text frame being typed in. */
   editing?: string
   /** The frame tool's menu is open. */
   menuOpen?: boolean
@@ -114,7 +102,7 @@ export interface Start {
   past?: Doc[]
   /** A toast showing at the start, with Undo, as after the last change. */
   toast?: { title: string; description: string }
-  /** Notes for the reviewer, over the canvas at screen size. */
+  /** Explanations for the reviewer, over the canvas at screen size. */
   overlay?: ReactNode
 }
 
@@ -217,7 +205,7 @@ function typing(target: EventTarget | null): boolean {
 export function FramesWorkspace({ start }: { start: Start }) {
   const { store } = useProject()
   const entries = useContainerEntries(store)
-  const [doc, setDoc] = useState<Doc>({ designs: start.designs, notes: start.notes ?? [] })
+  const [doc, setDoc] = useState<Doc>({ designs: start.designs })
   const [, setPast] = useState<Doc[]>(start.past ?? [])
   const [selected, setSelected] = useState(start.selected)
   const [tool, setTool] = useState<ExploreTool>(start.tool ?? "select")
@@ -313,10 +301,7 @@ export function FramesWorkspace({ start }: { start: Start }) {
   }
 
   const remove = (id: string) => {
-    change((current) => ({
-      designs: current.designs.filter((each) => each.id !== id),
-      notes: current.notes.filter((each) => each.id !== id)
-    }))
+    change((current) => ({ designs: current.designs.filter((each) => each.id !== id) }))
     if (selected === id) setSelected(undefined)
   }
   const duplicate = (of: Design) => {
@@ -452,16 +437,10 @@ export function FramesWorkspace({ start }: { start: Start }) {
         modes: []
       })
       setEditing(id)
-    } else if (tool === "note") {
-      const id = newId("note")
-      change((current) => ({ ...current, notes: [...current.notes, { id, x: at.x, y: at.y, text: "" }] }))
-      setSelected(id)
-      setEditing(id)
-      setTool("select")
     } else if (tool === "select") setSelected(undefined)
   }
 
-  // A press on a design or note: selects it, and with the move tool starts moving it. With the frame or hand tool the
+  // A press on a design: selects it, and with the move tool starts moving it. With the frame or hand tool the
   // press goes on to the canvas, so a frame can be drawn over a design and the hand pans from anywhere.
   const onItemDown = (id: string, origin: Point) => (event: ReactPointerEvent) => {
     if (event.button !== 0 || (tool !== "select" && tool !== "interact" && tool !== "text")) return
@@ -497,8 +476,7 @@ export function FramesWorkspace({ start }: { start: Start }) {
       const x = Math.round(now.origin.x + dx)
       const y = Math.round(now.origin.y + dy)
       setDoc((current) => ({
-        designs: current.designs.map((each) => (each.id === now.id ? { ...each, x, y } : each)),
-        notes: current.notes.map((each) => (each.id === now.id ? { ...each, x, y } : each))
+        designs: current.designs.map((each) => (each.id === now.id ? { ...each, x, y } : each))
       }))
     }
   }
@@ -529,7 +507,6 @@ export function FramesWorkspace({ start }: { start: Start }) {
   const confirming = doc.designs.find((each) => each.id === confirm)
   const cursor = {
     frame: "crosshair",
-    note: "crosshair",
     text: "text",
     hand: "grab",
     select: "default",
@@ -624,40 +601,6 @@ export function FramesWorkspace({ start }: { start: Start }) {
           )
         })}
 
-        {doc.notes.map((note) => (
-          <div
-            key={note.id}
-            className="absolute rounded-[3px]"
-            style={{
-              ...place(note),
-              outline: selected === note.id ? `2px solid ${kindColor("frame")}` : undefined,
-              outlineOffset: 3
-            }}
-            role="group"
-            aria-label="Note"
-            onPointerDown={onItemDown(note.id, note)}
-            onDoubleClick={() => setEditing(note.id)}
-          >
-            <StickyNote author={me} size={190}>
-              <Editable
-                text={note.text}
-                editing={editing === note.id}
-                placeholder="Write a note"
-                onText={(text) =>
-                  setDoc((current) => ({
-                    ...current,
-                    notes: current.notes.map((each) => (each.id === note.id ? { ...each, text } : each))
-                  }))
-                }
-                onDone={() => {
-                  setEditing(undefined)
-                  if (!note.text.trim()) remove(note.id)
-                }}
-              />
-            </StickyNote>
-          </div>
-        ))}
-
         {drawing && (
           <div
             className="absolute"
@@ -736,8 +679,7 @@ export function FramesWorkspace({ start }: { start: Start }) {
             }
           />
         )}
-        {!design && selected && <NoteSelected />}
-        {!selected && <NothingSelected />}
+        {!design && <NothingSelected />}
       </InspectorPanel>
 
       {confirming && confirming.kind !== "frame" && (
@@ -827,26 +769,6 @@ function LayersList({ doc, selected, onSelect }: { doc: Doc; selected?: string; 
           ))}
         </section>
       ))}
-      {doc.notes.length > 0 && (
-        <section aria-label="Notes" className="flex flex-col">
-          <h3 className="flex h-7 items-center justify-between px-2 text-xs text-muted-foreground">
-            Notes
-            <span className="tabular-nums">{doc.notes.length}</span>
-          </h3>
-          {doc.notes.map((note) => (
-            <button
-              key={note.id}
-              type="button"
-              aria-pressed={selected === note.id}
-              className={`${row} ${selected === note.id ? "bg-accent" : ""}`}
-              onClick={() => onSelect(note.id)}
-            >
-              <NoteIcon className="size-4 shrink-0 text-amber-500" />
-              <span className="truncate">{note.text || "Empty note"}</span>
-            </button>
-          ))}
-        </section>
-      )}
     </div>
   )
 }

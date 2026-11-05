@@ -338,7 +338,7 @@ export const LibraryStylesMissing: Story = {
   }
 }
 
-/** A project with no designs yet: only its own components and its libraries'. */
+/** A project with no `.par` file yet, so no component designs: only its own components and its libraries'. */
 export const BlankProject: Story = {
   parameters: { blank: true },
   loaders: [

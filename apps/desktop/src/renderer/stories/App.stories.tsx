@@ -26,10 +26,10 @@ export const ExampleProject: Story = {
   play: () => frameDesigns("Dashboard", "Pricing", "Sign in", "Settings")
 }
 
-/** Two projects in their own tabs; the second has no designs yet. */
+/** Two projects in their own tabs; the second has no `.par` file yet. */
 export const TwoProjects: Story = { loaders: [() => openProjects("example", "empty")] }
 
-/** A project with no `.par` file yet: an empty canvas, ready for its first design. */
+/** A project with no `.par` file yet: it opens on a Home screen drawing the app's `App`, on desktop and mobile. */
 export const BlankProject: Story = { loaders: [() => openProjects("empty")] }
 
 /** While the project's builder starts and its components load. */

@@ -1,3 +1,4 @@
+import { defaultModeSettings } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ProjectInfo } from "../shared/protocol.ts"
 
@@ -30,7 +31,7 @@ const info = {
   theme: [],
   documents: [],
   mainDocument: "app.par",
-  modes: { settings: {}, custom: false },
+  modes: { settings: defaultModeSettings, custom: false },
   sources: {},
   libraries: []
 } as unknown as ProjectInfo

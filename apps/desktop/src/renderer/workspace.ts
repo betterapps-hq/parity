@@ -1,3 +1,4 @@
+import { openingDesigns } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
@@ -572,9 +573,8 @@ function sayWhenSavesFail(session: ProjectSession): void {
 
 async function createSession(info: ProjectInfo): Promise<ProjectSession> {
   const loaded = await loadGuest(info.guestUrl, info.theme)
-  const readable = info.documents.flatMap(({ path, document }) => (document ? [{ path, document }] : []))
   const store = new DesignStore(
-    readable,
+    openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
     info.modes.settings,
     info.mainDocument,
     {

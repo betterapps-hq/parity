@@ -235,6 +235,25 @@ removes the keys as `null` does.
 its design; to move it to another design, `Copy` it there and `Delete` the original. `Copy` gives the copy fresh ids and
 returns the new id. A design's root can't be deleted; use `Replace`.
 
+The new node and everything in it get fresh ids, so `Replace` throws away the patches on the old node and what was
+inside it: its `Responsive` patches, its changes in every state and its variant options' patches. Replacing a design's
+root clears every state's changes. To keep a node's patches, change it with `Update` instead. The result lists what went
+under "Discarded by Replace" (`discarded` in structured output), with each node's viewports, states and variants:
+
+```text
+Discarded by Replace (reapply what you still want to the new node):
+  signup/title, now k3x9a:
+    Title (title): viewports mobile; states loading
+```
+
+Put back the ones you still want on the new ids, in the same call or the next:
+
+```js
+const title = Replace("signup/Title", { type: "text", name: "Title", text: "Welcome" })
+Responsive(title, "mobile", { hidden: true })
+UpdateState("signup", "loading", { changes: { [title]: { text: "Signing you up…" } } })
+```
+
 ### Responsive
 
 Patches a node in one viewport: `Responsive("dashboard/Stats", "mobile", { style: { columns: 1 } })`. The viewport is a

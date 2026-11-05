@@ -18,12 +18,16 @@ import type {
  */
 const example = discovered as { info: ProjectInfo; components: Record<string, ComponentInfo> }
 
-/** Roots the stand-in service knows: the example, one that takes forever to open, and one that fails to. */
+/**
+ * Roots the stand-in service knows: the example, one that takes forever to open, one that fails to, one with no project
+ * file yet, which opens on a Home screen, and one whose project file holds no designs, as once they're all deleted.
+ */
 export const roots = {
   example: example.info.root,
   slow: "D:/projects/slow-builder",
   broken: "D:/projects/broken-app",
-  empty: "D:/projects/blank-slate"
+  empty: "D:/projects/blank-slate",
+  designless: "D:/projects/all-deleted"
 } as const
 
 /** What the stand-in service has been asked to do, newest last, for stories that show a request's effect. */
@@ -133,16 +137,22 @@ export function installHost(): void {
 /** A fresh copy of a project, as opening it again reads it again. */
 export function projectInfo(root: string): ProjectInfo {
   const info = structuredClone(example.info)
-  if (root === roots.empty) {
+  if (root === roots.empty || root === roots.designless) {
+    const name = root.split("/").at(-1)!
+    const file = `${name}.par`
+    const empty = root === roots.empty
     return {
       ...info,
       id: root,
       root,
-      name: "blank-slate",
-      documents: [],
-      mainDocument: "blank-slate.par",
+      name,
+      documents: empty ? [] : [{ path: file, document: { version: 3, containers: [] } }],
+      mainDocument: file,
       modes: { settings: defaultModeSettings, custom: false },
-      notes: [...info.notes.filter((note) => !note.startsWith("designs in")), "no .par project file yet"]
+      notes: [
+        ...info.notes.filter((note) => !note.startsWith("designs in")),
+        empty ? "no .par project file yet" : `designs in ${file}`
+      ]
     }
   }
   return info

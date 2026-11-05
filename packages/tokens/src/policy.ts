@@ -91,15 +91,18 @@ function listTheme(selector: string): string | undefined {
 interface CompoundTheme {
   root: boolean
   name?: string
+  /** The attribute whose value names the theme, as `data-theme` in `[data-theme="dark"]`. */
+  attribute?: string
 }
 
 const simpleSelector =
-  /^(?:(?<root>html|:root|:host)(?![\w(-])|\.(?<className>[\w-]+)|\[\s*[\w-]+\s*(?:=\s*(?:"(?<double>[^"]*)"|'(?<single>[^']*)'|(?<bare>[\w-]+))\s*(?:[is]\s*)?)?\]|(?<functional>:(?:not|where|is|host)\())/
+  /^(?:(?<root>html|:root|:host)(?![\w(-])|\.(?<className>[\w-]+)|\[\s*(?<attribute>[\w-]+)\s*(?:=\s*(?:"(?<double>[^"]*)"|'(?<single>[^']*)'|(?<bare>[\w-]+))\s*(?:[is]\s*)?)?\]|(?<functional>:(?:not|where|is|host)\())/
 
 /** The theme one compound selector (no combinators) names, or undefined when it isn't a theme's. */
 function compoundTheme(part: string): CompoundTheme | undefined {
   let root = false
   const names: string[] = []
+  let attribute: string | undefined
   let rest = part
   while (rest.length > 0) {
     const match = simpleSelector.exec(rest)
@@ -117,17 +120,65 @@ function compoundTheme(part: string): CompoundTheme | undefined {
       if (!nested) return undefined
       root ||= nested.root
       if (nested.name !== undefined) names.push(nested.name)
+      attribute ??= nested.attribute
       continue
     }
     rest = rest.slice(match[0].length)
     if (groups.root) root = true
-    const name = groups.className ?? groups.double ?? groups.single ?? groups.bare
+    const value = groups.double ?? groups.single ?? groups.bare
+    if (value !== undefined) attribute = groups.attribute
+    const name = groups.className ?? value
     if (name !== undefined) names.push(name)
   }
   if (names.length > 1) return undefined
   const name = names[0] === "light" ? undefined : names[0]
   if (!root && names.length === 0) return undefined
-  return { root: root || names[0] === "light", ...(name === undefined ? {} : { name }) }
+  return {
+    root: root || names[0] === "light",
+    ...(name === undefined ? {} : { name }),
+    ...(name !== undefined && attribute !== undefined ? { attribute } : {})
+  }
+}
+
+/**
+ * The attributes that switch a stylesheet's themes on in a frame, by theme: `[data-theme="dark"]` gives
+ * `{ dark: { "data-theme": "dark" } }`. A frame gets a theme from its mode's class, such as the `dark` the default Dark
+ * option adds, so a frame in that mode sets these attributes on its body as well, and an attribute theme shows as a
+ * class theme does.
+ *
+ * Only themes `themedProperties` reads count, from rules no condition holds. An attribute on the root
+ * (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed: a frame's root is the shadow host, which
+ * the mode's attributes don't reach.
+ */
+export function themeAttributes(
+  declarations: readonly CustomPropertyDeclaration[]
+): Record<string, Record<string, string>> {
+  const themes = new Set(themedProperties(declarations).flatMap(({ values }) => Object.keys(values)))
+  const attributes: Record<string, Record<string, string>> = {}
+  for (const { selector, atRules } of declarations) {
+    if (!isUnconditional(atRules)) continue
+    for (const part of splitTopLevel(selector, ",")) {
+      const theme = compoundTheme(part.trim())
+      if (!theme?.name || !theme.attribute || theme.root || !themes.has(theme.name)) continue
+      const set = (attributes[theme.name] ??= {})
+      set[theme.attribute] ??= theme.name
+    }
+  }
+  return attributes
+}
+
+/**
+ * A frame body's attributes in a mode: those that switch on the themes its classes name (see `themeAttributes`), then
+ * the mode's own, which win.
+ */
+export function frameAttributes(
+  mode: { classNames: readonly string[]; attributes: Readonly<Record<string, string>> },
+  themes: Readonly<Record<string, Record<string, string>>>
+): Record<string, string> {
+  return Object.assign({}, ...mode.classNames.map((className) => themes[className] ?? {}), mode.attributes) as Record<
+    string,
+    string
+  >
 }
 
 function matchingParen(text: string, open: number): number {

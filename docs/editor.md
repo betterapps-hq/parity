@@ -1888,8 +1888,12 @@ decisions.md's "Saving is explicit" sets out.
   `[data-theme="dark"]` or `html.dark` alike. Every block that declares the token gets the new value, so a later
   `[data-theme="dark"]` can't win back over an edited `.dark` after a save; a value the theme lacks goes into its first
   block, else a new `.dark`. A `:root` inside `@media`, such as a `prefers-color-scheme` block, isn't the default, so
-  editing the default never changes it. A frame shows an attribute theme only when its option in Modes sets that
-  attribute.
+  editing the default never changes it.
+- **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
+  an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
+  body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
+  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. An attribute on the
+  root (`:root[data-theme="dark"]`) still never applies in a frame, as the frame's root is its shadow host.
 
 Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
 (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
@@ -1947,7 +1951,9 @@ Tests:
   attribute, adding a value a theme lacks with the selector it already uses, and leaving a `prefers-color-scheme` block
   alone when previewing the default.
 - `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, and the
-  same CSS read alike by libgen and the app.
+  same CSS read alike by libgen and the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests:
+  vite7-js's `[data-theme='dark']`, an attribute beside a class, none for a class theme, the light theme, the root, a
+  conditional rule or a component's own attribute, and a mode's own attribute winning).
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).
@@ -2801,6 +2807,43 @@ What opening a project loads into the windows, and what closing it gives back.
 On first launch the installed app shows the welcome page. Later launches restore the saved project tabs. Development can
 request an initial project through its runner. `workspace.test.ts` covers these startup choices (PAR-8).
 
+### A project with no Parity file opens on a Home screen (PAR-561)
+
+Opening a folder or project that has no `.par` file yet opens on a screen named Home, for the app's `/` route. It draws
+the component that renders the app there, live, in the project's primary mode with a phone's mode beside it: Desktop
+Light and Mobile Light with the default modes. There's no empty canvas to start from (decisions.md, "The empty-canvas
+start is dropped").
+
+- **What renders `/`:** the page for it, by its router's file names (decisions.md, "Pages get their own section in the
+  Components panel"): Next's `app/page`, also inside a route group such as `app/(marketing)/page`, or an `index` in a
+  `pages` or `routes` folder, a route file's default export over its other parts. Without one, it's the `App` component
+  that Vite's and Create React App's templates mount, by its export name or as `App.tsx`'s default export. When there
+  are several, the one in the fewest folders wins. A library's component is never it.
+- **Without either,** the screen is a padded page headed Home, as New screen starts one.
+- **The page fills the screen:** the component sits in the screen's root layout, unpadded, on the theme's background.
+- **The mode beside the primary one** is the first mode on a phone, preferring one whose theme and other options match
+  the primary mode's, so Mobile Light comes before Mobile Dark beside Desktop Light. Beside a phone's primary mode it's
+  a laptop's or desktop's. With no mode on the other kind of device, the screen shows the primary mode alone.
+- **Opening writes nothing.** The Home screen opens as if the main project file held it: there's nothing to undo or
+  save, and the folder is left as it was. The file is written with the first change, Home screen included. Closed
+  without a change, the project opens on a new Home screen next time.
+- **Only a project with no project file gets one.** A project whose file couldn't be read gets none, so saving never
+  writes over the broken file, and one whose designs were all deleted opens with none.
+- **A blank project from the scaffolder (PAR-284) has no project file either,** so it opens on a Home screen the same
+  way.
+
+Code: `openingDesigns`, `homeScreen` and `homeComponent` in `packages/editor/src/home.ts` (`@parity-app/editor`), which
+`createSession` in `apps/desktop/src/renderer/workspace.ts` calls with what `project.open` gave it. In Storybook, Parity
+/ App / Blank project opens on the Home screen. The stories of Layers with nothing in it open `designless`, a project
+whose file holds no designs.
+
+Tests: `packages/editor/src/home.test.ts` (14: a Home screen in the main file of a project with none, a project's own
+files as they are, and none beside a file that couldn't be read; the screen drawing `App` with Mobile Light beside
+Desktop Light, a padded page headed Home with nothing to draw, the phone mode sharing the primary mode's theme, a
+laptop's beside a phone's, and the primary mode alone; and what renders `/`: Next's, a `pages` folder's and a `routes`
+folder's page over `App`, a route group's, a route file's default export, `App` by export or file and the nearest one,
+never a library's, and nothing). Gap: `createSession` calling it has no automated test.
+
 ### Opening in seconds (PAR-179)
 
 Started again, Parity shows the example project's canvas, with every frame on its bitmap from last time, about 3.2
@@ -3402,6 +3445,29 @@ text.
 Checked in the running app on `examples/shadcn-vite`: unknown tab, component, design and state through the CLI with
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the
 CLI; `get_app_state` is unbounded (53 KB for 61 designs), left to PAR-479.
+
+### What Replace discards (PAR-455)
+
+`Replace` puts a new node, with fresh ids, where the old one was. The old node and everything inside it go, and so do
+the patches keyed to them: their responsive patches, their changes in every state and their variant options' patches.
+Replacing a design's root also clears every state's changes. Nothing is moved onto the new node, since its ids don't map
+onto the old ones. Patches on nodes outside the replaced one stay.
+
+An execute result says what went in `discarded`: for each `Replace` that threw patches away, the design, the replaced
+node, its replacement, and each node that had patches, by id (or `instance/inner` path) and name, with the viewports,
+states and `param=option` variants it was patched in. The CLI and MCP text list them under "Discarded by Replace". A
+replacement that dropped nothing adds nothing, and a failed call reports nothing, because it changed nothing. Undo
+brings the patches back with the rest of the step. The skill shows how to put back the ones still wanted.
+
+Implementation: `packages/agent/src/workspace.ts` (`replace` and `discardedPatches`, which compares the design before
+and after); `packages/agent/src/types.ts` (`DiscardedPatches`); `packages/cli/src/execute.ts` (the field and its schema)
+and `client.ts` (`describeExec`).
+
+Tests: `packages/agent/src/run.test.ts` ("Replace": a nested replacement reports only its node's viewports and variant
+and keeps the rest; a root replacement reports every node's patches and drops the variant patches; the design as read
+keeps them for undo; a failed call reports nothing; replacements without patches add no field; the skill's example of
+putting patches back). `packages/cli/src/execute.test.ts` (the same text from the CLI and MCP, `discarded` in `--json`
+and structured content, and nothing when there's none).
 
 ### Which copy of the app a call reaches (PAR-514)
 

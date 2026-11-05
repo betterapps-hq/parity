@@ -1659,6 +1659,10 @@ recommended answer to each of its questions.
   words. Slides, shaders, SVG drawing and image generation are future features (the Future features stream in Linear),
   so the skill leaves them out. Keep it current: a new agent function or tool needs its line in `execute.md` or
   `SKILL.md`, and its examples must run.
+- **Every `js` example in the skill runs in a test** (PAR-23): `packages/cli/src/skill-examples.test.ts` runs each one
+  through `execute` against an example project with every design and node the examples name, a file's examples in one
+  tab so globals carry over. It fails on an error or a warning, except warnings that boards overlap, which depend on
+  where the project's boards sit. A new example that names a design the project lacks needs it added there.
 - **Parity is design-system first, so it has no style archetypes.** A project's look comes from its own components and
   tokens, or from a design system library it adds. Pen's ready-made styles aren't copied, and the skill never suggests
   one. PAR-140, which proposed them, was dropped; its ID isn't reused.
@@ -1694,6 +1698,12 @@ recommended answer to each of its questions.
   `@parity-app/builder-vite/dependency-maps`, which imports only Vite's types, since the builder runs it in the
   project's own Vite. Vite counts plugin names in its dependency cache's key, so adding it re-optimizes dependencies
   once, and pages can't reuse copies with maps from the HTTP cache.
+- **An agent's `Replace` reports the patches it throws away and keeps none** (PAR-455). My call, within the issue's
+  bounds: the replacement's ids are fresh, so the old node's responsive, state and variant patches go, and the result
+  lists them in `discarded` by node, viewport, state and variant for the agent to reapply. No option keeps compatible
+  root patches, since that needs a mapping contract nobody has agreed, and descendants are never remapped by name or
+  position. Replacing a root now also drops its variant options' patches, as a nested replacement always did, rather
+  than leaving them keyed to nodes that are gone.
 
 ## Previews
 
@@ -2753,8 +2763,7 @@ cycle), and libgen reads CSS with core's `collectCustomProperties` instead of it
   per-token modifiers for both.
 - `writeTokenChanges` and `previewToken` find a theme's blocks with `themeOfSelector` too, so a theme read from
   `[data-theme="dark"]` is previewed and written there, a value it lacks is added to its block, and a `:root` inside a
-  media query is never edited as the default. A frame still shows an attribute theme only when its option in Modes sets
-  that attribute; that's in `docs/support.md`.
+  media query is never edited as the default. A frame showing an attribute theme came later, in PAR-22 below.
 
 The differences that stay are explicit options, both for libgen: `tailwindTheme` reads `@theme` as the default, which
 only source CSS has (the app takes Tailwind's resolved theme from its styles adapter), and `colorScheme` reads a
@@ -2765,6 +2774,24 @@ app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only 
 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
+
+## A mode's theme class also sets the theme's attribute (PAR-22)
+
+My call: a frame whose mode adds a theme's class also gets the attribute the project's stylesheet switches that theme on
+with. vite7-js's `[data-theme="dark"]` was read as `dark`, but the default Dark option adds only the `dark` class, so
+its frames stayed light unless someone edited the option in Modes. The alternatives were to write `data-theme` into each
+project's mode settings when it opens, which changes a file the person didn't touch and goes stale when the stylesheet
+does, or to rewrite the stylesheet's attribute selectors as classes, which the preview and the save would then have to
+undo. Reading the stylesheet each time a guest loads keeps both as they are.
+
+- `themeAttributes` in `packages/tokens/src/policy.ts` lists, by theme, the attributes whose value names it, from the
+  rules `themedProperties` reads as themes and no condition holds: `[data-theme='dark']` gives
+  `dark: { "data-theme": "dark" }`. `light` is the default and needs none.
+- `frameAttributes` adds them for each class the mode has, then the mode's own attributes, which win, so an option that
+  sets `data-theme` itself keeps its value.
+- An attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed. Frames get it on
+  their body, and the root is the frame's shadow host, which the mode's attributes don't reach; that's still in
+  `docs/support.md`.
 
 ## Agent calls merge per design (PAR-278)
 
@@ -3479,6 +3506,89 @@ every project on a screen instead, you said "Drop it."
 - **The rest of PAR-541 stays:** New screen and New component in File, Object, the canvas's right-click menu and Search
   actions, with their keys, and Layers' + always showing, with its empty rows as buttons. PAR-546 builds those. The
   exploration's stories open on a project with screens, and its empty-canvas stories are gone.
+
+## One process manager starts and stops Parity's servers (PAR-20)
+
+[process-manager.ts](../apps/desktop/src/utility/process-manager.ts) is where the project service starts, watches and
+stops the servers a project needs. Storybook is the first to use it; dev servers, `wrangler dev` (PAR-29), test runners
+(PAR-303, PAR-304) and the MSW handlers served to Storybook (PAR-70) are meant to start through it too. My calls:
+
+- **A server is a command, a URL and a readiness check.** `startServer` runs the command, lists it in the status bar's
+  processes as starting, and asks the check until the server answers at its URL, exits, or three minutes pass. A server
+  that exits before it answers, or never answers, is listed as failed with the end of what it printed, and one that
+  doesn't answer in time is stopped. What a server does at its URL stays the caller's business: Storybook's check asks
+  for its story index.
+- **It keeps each server's port and output.** `knownServers` gives the port, process id and who started each server, for
+  one project or all, which is what PAR-117's reuse check and PAR-30's memory limit read. `serverLog` gives the last
+  16,000 characters a server printed, and a started server's `exited` settles when its process ends, saying how.
+- **A server that was already running is adopted, not owned.** `adoptServer` lists it and knows its port, and closing
+  the project only takes it off the list. Only what Parity started is ever stopped.
+- **Closing a project stops everything Parity started for it** (`stopProject`), and quitting stops everything. Starting
+  a server again under the same id stops the last one first, so a project never has two of one server.
+- **Builders and tasks stay as they are.** A project's builder has its own process and closing rules (CAN-81), and tasks
+  such as installs and type checks run once and report a result; both still list themselves in the same processes, and
+  either could move onto the manager when there's a reason to.
+- **It stays in the app.** Starting and stopping processes is what the app keeps under
+  [packages.md](proposals/packages.md), so the manager isn't a package. Its tests start small Node servers, without
+  Electron.
+
+## How frames look and work (PAR-540)
+
+You approved the frames exploration (Parity/Explorations/Frames) by merging it on 2026-11-05. It's one canvas you can
+use, with Layers and the inspector beside it, and every story starts it in a different place. PAR-545 builds it.
+
+- **A frame has no board:** its name above it, smaller and quieter than a board's, and the design at its own size,
+  filled with the primary mode's background. Its icon is lucide's Frame, neutral until selected, then in the layer
+  color, since a frame is a layout. Screens use AppWindow in the stories until PAR-538's icon lands.
+- **The toolbar is Move and Hand, then Frame (F or A) and Text (T), then Interact.** The frame tool's menu lists each
+  viewport the modes use once, naming the modes that use it, with heights from `screenHeightForWidth` where a viewport
+  gives only a width. A size resizes the selected frame, or adds a frame at that size. New screen and New component sit
+  below the sizes.
+- **A drag with the frame tool draws a frame, snapping to the edges of the designs around it,** named Frame 1, Frame 2
+  and so on, selected, with the move tool back. A click without a drag makes a 100 × 100 frame, as Figma does.
+- **T and a click in empty space makes a text layer in a frame that hugs it,** with 2 steps of padding so the fill
+  doesn't clip the letters, named after its text until it's renamed.
+- **Notes don't get a tool yet.** You said on 2026-11-05: "I think it's too early to add notes functionality. We should
+  revert that." This replaces "Notes stay, as annotations, under a tool of their own" in PAR-537's list: the Note tool
+  (S) is gone from the exploration, and PAR-545 doesn't build one.
+- **The inspector's kind switch is Frame, Component, Screen,** and every design's title menu has Convert to for the
+  other two kinds. A heavier kind applies at once, with a toast whose Undo brings it back. Converting a screen or
+  component to a frame asks first when it drops anything, and lists it: states after the first, previews beside the main
+  one, params, and instances, which become plain layers as Detach instance makes them. A frame made a screen keeps its
+  size as its preview's.
+- **A board's gutter is in screen pixels,** so it looks the same at every zoom up close: 12px at the sides and bottom, a
+  36px band for the captions and 24px between previews. Past 40% it shrinks with the canvas, as labels do, so boards
+  zoomed far out don't run into each other. You had found the canvas-unit gutter "super thick on one, and non-existent
+  or text overflowing on others". Captions never truncate: short of room they drop the shrink, then the width, then the
+  mode's name, and they stay until 10%. A board's title drops its menus before its name. The app's canvas still sizes
+  the gutter in canvas units (`boardLayout` in core, `ContainerView`), so PAR-545 changes both, and the agent's
+  `boardSize` estimate with them.
+
+## A project with no Parity file opens on a Home screen (PAR-561)
+
+PAR-560 decided that every project opens on a screen. A folder or project with no `.par` file now opens on a Home screen
+for its app's `/` route, in its desktop and mobile modes, drawing the real app. The rule is `openingDesigns` in
+`@parity-app/editor`, which the app calls as a project opens, so a blank project from the scaffolder (PAR-284) gets the
+same screen. My calls:
+
+- **What draws `/` is the page detection found for it, else `App`.** The page is told by its router's file names, as the
+  Components panel's pages are: Next's `app/page`, also inside route groups, which don't change the URL, or an `index`
+  in a `pages` or `routes` folder. A router-less app's `/` is whatever its entry mounts, and Vite's and Create React
+  App's templates mount `App`. The entry isn't read for components (it mounts the app, which the canvas must never run),
+  so `App` is found by its name rather than by reading the entry. The nearest the root wins, and a route file's default
+  export over its other parts, such as React Router's `ErrorBoundary`.
+- **With neither, the Home screen is a padded page headed Home,** as New screen starts one, so the project still opens
+  on a screen.
+- **The page is drawn unpadded,** in the screen's root layout on the theme's background, since the page lays out its own
+  content.
+- **Mobile is the first phone mode, matching the primary mode's theme.** "Desktop and mobile" means the primary mode,
+  usually Desktop Light, and beside it the first mode on a phone, preferring one whose theme and other options match.
+  When the primary mode is a phone's, a laptop's or desktop's goes beside it.
+- **Opening writes nothing.** The Home screen opens as if the project file held it, so opening a folder leaves it as it
+  was, and the file is written with the first change. A Home screen made on open but never kept is no loss, since the
+  next open makes the same one.
+- **A file that couldn't be read gets no Home screen,** so saving can't write over it. A file whose designs were all
+  deleted opens with none, as the person left it.
 
 ## New screen, New component and the empty canvas are built (PAR-546)
 

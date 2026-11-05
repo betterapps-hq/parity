@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Execute results list the responsive, state and variant patches each Replace discarded, in discarded and under Discarded by Replace (PAR-455)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

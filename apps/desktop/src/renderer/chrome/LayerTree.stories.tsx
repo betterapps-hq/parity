@@ -18,7 +18,7 @@ const meta = {
   decorators: [
     (Story, { parameters }) =>
       parameters.blank ? (
-        <ProjectStage project="empty">
+        <ProjectStage project="designless">
           <Story />
         </ProjectStage>
       ) : (
@@ -89,12 +89,12 @@ async function rightClick(target: HTMLElement): Promise<void> {
 export const Designs: Story = { loaders: [() => openProjects("example")] }
 
 /**
- * A project with no screens or components, as once they're all deleted: each heading's + shows, the count is left out
- * since the row below says so, and that row is a button that makes the first one, its action in the kind's color.
+ * A project whose designs were all deleted: each heading's + shows, the count is left out since the row below says so,
+ * and that row is a button that makes the first one, its action in the kind's color.
  */
 export const EmptyProject: Story = {
   parameters: { blank: true },
-  loaders: [() => openProjects("empty")],
+  loaders: [() => openProjects("designless")],
   play: async ({ canvasElement }) => {
     const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
     await expect(within(tree).getByRole("button", { name: "New screen" })).toBeVisible()
@@ -110,7 +110,7 @@ export const EmptyProject: Story = {
  */
 export const NewScreenHovered: Story = {
   parameters: { blank: true },
-  loaders: [() => openProjects("empty")],
+  loaders: [() => openProjects("designless")],
   play: async ({ canvasElement }) => {
     const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
     await userEvent.hover(within(tree).getByRole("button", { name: "New screen" }))
@@ -124,7 +124,7 @@ export const NewScreenHovered: Story = {
  */
 export const FirstScreenMade: Story = {
   parameters: { blank: true },
-  loaders: [() => openProjects("empty")],
+  loaders: [() => openProjects("designless")],
   play: async ({ canvasElement }) => {
     const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
     await userEvent.click(within(tree).getByRole("button", { name: "No screens yet. New screen" }))

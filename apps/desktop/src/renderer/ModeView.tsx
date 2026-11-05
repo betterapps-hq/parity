@@ -1,4 +1,5 @@
 import { type FrameGeometry, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
+import { frameAttributes } from "@parity-app/tokens"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { prepareFrame, registerFrame, setDrawnNodes, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
@@ -138,7 +139,11 @@ export function ModeView({
     ]
     const viewport = viewportRef.current
     const host = hostRef.current!
-    const target = prepareFrame(host, loaded.sheet, { classNames, attributes, viewport })
+    const target = prepareFrame(host, loaded.sheet, {
+      classNames,
+      attributes: frameAttributes({ classNames, attributes }, loaded.themeAttributes),
+      viewport
+    })
     const handle = loaded.guest.mount(target, [], {
       globals,
       viewport,
