@@ -2945,6 +2945,15 @@ dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
   sentence within them ends, else after the last whole word with "…" (`sampleText`), and the registry's files were
   shortened the same way. Since a preview's key covers its tree, both changes give the affected components new keys and
   new pictures without raising `previewFormat`.
+- **The offscreen window never scrolls (PAR-520).** For a capture the window is made as tall as the frame, so anything
+  reaching past it, such as a name below a 1px Separator, ItemSeparator or AlertAction, or Bubble's reactions hanging
+  below it, made the page scroll. The scrollbars took room from the window, and the one along its bottom was captured
+  inside the picture. The render page's root hides its overflow (`render.ts`), so the window has no scrollbars. On
+  `examples/shadcn-vite` this took the scrollbar out of Separator, AlertAction, Bubble, BubbleGroup and BubbleReactions,
+  which the survey found, and of ItemSeparator, SidebarSeparator, SidebarMenu, SidebarMenuAction, Slider, the Toast
+  parts, AspectRatio and Portal. What reaches past the box is still cut off: BubbleReactions, alone in an empty Bubble,
+  hangs wholly below it, so its picture is empty. `previewFormat` went up to 2, so pictures kept with a scrollbar are
+  made again.
 - **No cut-off names (PAR-518).** A part that sets its own size, or whose library's samples give it no text, is drawn
   without its name, as it's inserted (see Inserting, Make component and new designs). On `examples/shadcn-vite`, Avatar,
   AvatarGroupCount, CardHeader and Separator, and nova's MarkerIcon, AttachmentAction, AttachmentMedia, AlertAction and
@@ -2957,11 +2966,16 @@ in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/
 `codeSnapshot` in `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the
 `previews.lookup` and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of
 `utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
-`previewJob`, `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in
-`apps/desktop/src/renderer/component-previews.ts`; `previewMode` and `modeAppearance` in `packages/core/src/modes.ts`,
-and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in `renderer/chrome/ComponentCard.tsx` and
-`AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
-`packages/code/src/props.ts`; `sampleText` and `shortenedText` in `packages/libgen/src/sample-text.ts`.
+the offscreen page, `apps/desktop/src/renderer/render.ts`; `previewJob`, `startPreviews`, `useComponentPreview` and
+`usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in
+`renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
+`shortenedText` in `packages/libgen/src/sample-text.ts`. `previewJob`, `startPreviews`, `useComponentPreview` and
+`usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `previewMode` and `modeAppearance` in
+`packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in
+`renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
+`shortenedText` in `packages/libgen/src/sample-text.ts`.
 
 Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
 and those before the idle pass, one job at a time with one window, one job in each window at once in the lowest free,
@@ -2980,15 +2994,23 @@ across a restart, none for a key not made, kept in the previews folder with no p
 project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (7, with the project and the offscreen
 window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
 component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
-again; a light and a dark picture kept apart under their own keys, the light one shown again without drawing; two asks
-at once drawing once; and none for code the project hasn't served). `packages/core/src/modes.test.ts` (4 for
-`previewMode` and `modeAppearance`: the first mode when it matches and the dark one with its options when it doesn't;
-the first mode's viewport kept over a matching mode listed first, else the first that matches; the first mode when none
-matches or there's no theme; and dark read from a theme option's id, name or class as a word).
-`packages/code/src/props.test.ts` (3 for void elements: no `children` for `<input>` attributes or a ref to an `<hr>`,
-kept for other elements and for a component's own, and none for shadcn's Input).
-`packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a sentence, at a whole word with
-"…", not at a too-short first sentence, text without spaces, and text cut before shortened as the whole would be).
+again; two asks at once drawing once; and none for code the project hasn't served).
+`apps/desktop/src/renderer/render.test.ts` (1, in Chrome with its scrollbars shown: a part whose name runs below the
+frame leaves no scrollbar once the window is as tall as the frame). `packages/code/src/props.test.ts` (3 for void
+elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a component's
+own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a
+sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut before
+shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word,
+and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`), the queue's
+use in main and the protocol have no test of their own; they were tried in the app. again; a light and a dark picture
+kept apart under their own keys, the light one shown again without drawing; two asks at once drawing once; and none for
+code the project hasn't served). `packages/core/src/modes.test.ts` (4 for `previewMode` and `modeAppearance`: the first
+mode when it matches and the dark one with its options when it doesn't; the first mode's viewport kept over a matching
+mode listed first, else the first that matches; the first mode when none matches or there's no theme; and dark read from
+a theme option's id, name or class as a word). `packages/code/src/props.test.ts` (3 for void elements: no `children` for
+`<input>` attributes or a ref to an `<hr>`, kept for other elements and for a component's own, and none for shadcn's
+Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a sentence, at a whole word
+with "…", not at a too-short first sentence, text without spaces, and text cut before shortened as the whole would be).
 `packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word, and nova's Accordion ending its
 sentence). Gaps: the window's store and scheduler (`component-previews.ts`), including looking previews up again when
 Parity's theme changes, the card's page color from the picture's corner, the queue's use in main and the protocol have

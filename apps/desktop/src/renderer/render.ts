@@ -25,6 +25,11 @@ declare global {
   }
 }
 
+// The window is made as tall as the frame for a capture, so what reaches past the frame (a name taller than a 1px part,
+// reactions hanging below a bubble) made the page scroll, and the scrollbars that took room for it were captured along
+// with the frame, at the bottom of a component's preview (PAR-520). The window shows the frame and never scrolls.
+document.documentElement.style.overflow = "hidden"
+
 let current: { unmount(): void } | undefined
 /** The frame drawn last, for the audit that may follow once the window is as tall as the frame. */
 let currentHost: HTMLElement | undefined

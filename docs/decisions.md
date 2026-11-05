@@ -4011,6 +4011,26 @@ event and returns the next list, and every path goes through it. My calls:
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
 
+## The offscreen window never scrolls (PAR-520)
+
+Five component previews on the example (Separator, AlertAction, Bubble, BubbleGroup, BubbleReactions) showed a
+horizontal scrollbar along their bottom. Watching the offscreen window draw them showed why: for a capture it's made as
+tall as the frame, and whatever reaches below the frame (a part's name under a 1px Separator, a bubble's reactions,
+which hang three quarters below it) makes the page scroll. The vertical scrollbar takes room, so the frame, as wide as
+the window, overflows sideways too, and the horizontal scrollbar is drawn at the window's bottom, which is the bottom of
+the picture. My calls:
+
+- **The render page's root hides its overflow,** so the window has no scrollbars, rather than growing the window to what
+  overflows. A frame's picture is its frame: a bitmap is captured at the frame's size, and a component's preview is
+  cropped to its box. This applies to frame bitmaps and agents' captures as well as previews; none of them should show
+  scrollbars, and the window is never scrolled.
+- **What reaches past a preview's box is still cut off.** Bubble's reactions hang past its 8 pixels of room and show cut
+  through at the bottom, and BubbleReactions on its own, inside an otherwise empty Bubble, hangs wholly below it, so its
+  picture is now empty where it was a scrollbar. Cropping to everything the component draws would be a separate change.
+- **`previewFormat` went up to 2.** A preview's key covers its tree and code, not the renderer, so pictures kept with a
+  scrollbar would otherwise stay until their code changed. Every project's previews are made again once, in the idle
+  pass.
+
 ## Component previews follow Parity's light or dark theme (PAR-521)
 
 Previews were all drawn in the project's first mode, light on the example, so in Parity's dark theme they were white

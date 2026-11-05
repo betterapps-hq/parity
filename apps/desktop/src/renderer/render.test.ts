@@ -6,7 +6,8 @@ import type { RenderedFrame, RenderJob } from "../shared/protocol.ts"
 
 // The offscreen render window's page, in Chrome, as the main process drives it: `canvasRender` draws a job with a guest
 // that stands in for a project's, whose stylesheet makes an element as tall as the window (`100vh`) and which notes
-// the window it's mounted in. It needs Chrome installed.
+// the window it's mounted in. Given a tree, the guest draws each node as a part 1px high holding its id as text, which
+// reaches past the part, as a Separator labelled with its name does. It needs Chrome installed.
 let browser: Browser
 let page: Page
 const errors: string[] = []
@@ -16,13 +17,13 @@ export default {
   renderer: "test",
   components: [],
   hasComponent: () => false,
-  css: ".tall { height: 100vh }",
+  css: ".tall { height: 100vh } .line { height: 1px }",
   mount(target, tree, options) {
     window.mountedIn = options.viewport
-    const tall = document.createElement("div")
-    tall.className = "tall"
-    target.append(tall)
-    return { update() {}, unmount() { tall.remove() } }
+    const element = (className, text) => Object.assign(document.createElement("div"), { className, textContent: text })
+    const drawn = tree.length === 0 ? [element("tall", "")] : tree.map((node) => element("line", node.nodeId))
+    target.append(...drawn)
+    return { update() {}, unmount() { for (const part of drawn) part.remove() } }
   }
 }
 `
@@ -36,7 +37,8 @@ beforeAll(async () => {
     platform: "browser",
     define: { "process.env.NODE_ENV": '"production"' }
   })
-  browser = await chromium.launch({ channel: "chrome", headless: true })
+  // Headless Chrome hides scrollbars unless asked not to; the offscreen window draws them.
+  browser = await chromium.launch({ channel: "chrome", headless: true, ignoreDefaultArgs: ["--hide-scrollbars"] })
   // Shorter than the frame's window, so a height that came from this window rather than the job's would show.
   page = await browser.newPage({ viewport: { width: 1280, height: 800 } })
   page.on("pageerror", (error) => errors.push(error.message))
@@ -62,12 +64,12 @@ afterAll(async () => {
 })
 
 /** Draws a job as the main process does: the frame, the window the guest was mounted in, and how tall `100vh` is. */
-async function render(mode: Pick<RenderJob["mode"], "width" | "height" | "viewport">) {
+async function render(mode: Pick<RenderJob["mode"], "width" | "height" | "viewport">, tree: unknown[] = []) {
   const job: RenderJob = {
     projectId: "app",
     guestUrl: "http://parity.test/guest.js",
     theme: [],
-    tree: [],
+    tree,
     mode: { ...mode, classNames: [], attributes: {} },
     scale: 1
   }
@@ -98,5 +100,24 @@ describe("canvasRender", () => {
     expect(mountedIn).toEqual({ width: 1280, height: 1234 })
     expect(vh).toBe(1234)
     expect(frame).toMatchObject({ width: 1280, height: 600 })
+  })
+
+  it("never scrolls, so text reaching past the frame puts no scrollbar in its capture (PAR-520)", async () => {
+    const separator = { kind: "element", nodeId: "Separator", tag: "div", style: {}, children: [] }
+    const { frame } = await render({ width: 400, viewport: { width: 400, height: 800 } }, [separator])
+    // The frame is the part and the body's margin; the part's name runs below it.
+    expect(frame.height).toBeLessThan(20)
+    // As the main process sizes the window for a capture: as wide and as tall as the frame.
+    await page.setViewportSize({ width: frame.width, height: frame.height })
+    try {
+      const scrollbars = await page.evaluate(async () => {
+        await window.canvasSettle()
+        const root = document.documentElement
+        return { vertical: innerWidth - root.clientWidth, horizontal: innerHeight - root.clientHeight }
+      })
+      expect(scrollbars).toEqual({ vertical: 0, horizontal: 0 })
+    } finally {
+      await page.setViewportSize({ width: 1280, height: 800 })
+    }
   })
 })
