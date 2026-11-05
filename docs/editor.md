@@ -2709,6 +2709,43 @@ What opening a project loads into the windows, and what closing it gives back.
 On first launch the installed app shows the welcome page. Later launches restore the saved project tabs. Development can
 request an initial project through its runner. `workspace.test.ts` covers these startup choices (PAR-8).
 
+### A project with no Parity file opens on a Home screen (PAR-561)
+
+Opening a folder or project that has no `.par` file yet opens on a screen named Home, for the app's `/` route. It draws
+the component that renders the app there, live, in the project's primary mode with a phone's mode beside it: Desktop
+Light and Mobile Light with the default modes. There's no empty canvas to start from (decisions.md, "The empty-canvas
+start is dropped").
+
+- **What renders `/`:** the page for it, by its router's file names (decisions.md, "Pages get their own section in the
+  Components panel"): Next's `app/page`, also inside a route group such as `app/(marketing)/page`, or an `index` in a
+  `pages` or `routes` folder, a route file's default export over its other parts. Without one, it's the `App` component
+  that Vite's and Create React App's templates mount, by its export name or as `App.tsx`'s default export. When there
+  are several, the one in the fewest folders wins. A library's component is never it.
+- **Without either,** the screen is a padded page headed Home, as New screen starts one.
+- **The page fills the screen:** the component sits in the screen's root layout, unpadded, on the theme's background.
+- **The mode beside the primary one** is the first mode on a phone, preferring one whose theme and other options match
+  the primary mode's, so Mobile Light comes before Mobile Dark beside Desktop Light. Beside a phone's primary mode it's
+  a laptop's or desktop's. With no mode on the other kind of device, the screen shows the primary mode alone.
+- **Opening writes nothing.** The Home screen opens as if the main project file held it: there's nothing to undo or
+  save, and the folder is left as it was. The file is written with the first change, Home screen included. Closed
+  without a change, the project opens on a new Home screen next time.
+- **Only a project with no project file gets one.** A project whose file couldn't be read gets none, so saving never
+  writes over the broken file, and one whose designs were all deleted opens with none.
+- **A blank project from the scaffolder (PAR-284) has no project file either,** so it opens on a Home screen the same
+  way.
+
+Code: `openingDesigns`, `homeScreen` and `homeComponent` in `packages/editor/src/home.ts` (`@parity-app/editor`), which
+`createSession` in `apps/desktop/src/renderer/workspace.ts` calls with what `project.open` gave it. In Storybook, Parity
+/ App / Blank project opens on the Home screen. The stories of Layers with nothing in it open `designless`, a project
+whose file holds no designs.
+
+Tests: `packages/editor/src/home.test.ts` (14: a Home screen in the main file of a project with none, a project's own
+files as they are, and none beside a file that couldn't be read; the screen drawing `App` with Mobile Light beside
+Desktop Light, a padded page headed Home with nothing to draw, the phone mode sharing the primary mode's theme, a
+laptop's beside a phone's, and the primary mode alone; and what renders `/`: Next's, a `pages` folder's and a `routes`
+folder's page over `App`, a route group's, a route file's default export, `App` by export or file and the nearest one,
+never a library's, and nothing). Gap: `createSession` calling it has no automated test.
+
 ### Opening in seconds (PAR-179)
 
 Started again, Parity shows the example project's canvas, with every frame on its bitmap from last time, about 3.2
