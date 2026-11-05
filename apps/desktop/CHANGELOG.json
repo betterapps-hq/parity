@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 22:59:52 GMT",
+      "version": "0.12.1",
+      "tag": "@parity-app/desktop_v0.12.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f1d2fcc0a8672ed8370ccb39192483416368958a",
+            "comment": "Component previews draw dialogs, popovers, menus and closed content open, and say when a component draws nothing of its own"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b225f0f5103dda83684552f0dc4ed5f9818f7ddd",
+            "comment": "The sleeping end-to-end test compares frame sizes zoomed out, since boards grow there with their screen-pixel gutter"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 22:43:02 GMT",
       "version": "0.12.0",
       "tag": "@parity-app/desktop_v0.12.0",

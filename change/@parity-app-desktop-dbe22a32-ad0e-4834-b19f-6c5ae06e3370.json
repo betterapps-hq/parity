@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "The sleeping end-to-end test compares frame sizes zoomed out, since boards grow there with their screen-pixel gutter",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
