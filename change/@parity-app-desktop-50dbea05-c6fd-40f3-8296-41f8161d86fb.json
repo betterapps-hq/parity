@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Preview number props on the canvas while typing or scrubbing, round Opacity to whole percentages, and name Mixed+8 in the note on what differs across selected layers",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
