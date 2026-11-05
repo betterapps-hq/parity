@@ -2287,10 +2287,10 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   code is never shown for new.
 - **Kept as lossless WebP (PAR-535).** The offscreen window captures a PNG, and the project service encodes it again as
   a lossless WebP with sharp's libwebp before keeping it, the same pixels in about 40% less: the example project's 119
-  bitmaps came to 562 KB where their PNGs took 908 KB, encoding in about 10 ms each, off main's thread. The canvas is
-  given the WebP too, so it reads and decodes the smaller file. Component previews are kept the same way. Chromium's own
-  encoder was tried first, being lossless at full quality, but wrote files 5% larger than the PNGs. A system where sharp
-  can't load keeps nothing, and captures each session.
+  bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
+  in about 10 ms each, off main's thread. The canvas is given the WebP too, so it reads and decodes the smaller file.
+  Component previews are kept the same way. Chromium's own encoder was tried first, being lossless at full quality, but
+  wrote files 5% larger than the PNGs. A system where sharp can't load keeps nothing, and captures each session.
 - **Each bitmap carries its frame's height** as the canvas drew it, in a `parity:height` text chunk after the image, so
   a frame that hasn't drawn yet can show its kept bitmap at its size (see Opening in seconds). WebP decoders skip it, as
   the format asks them to of a chunk they don't know. The offscreen window lays a frame out at the bitmap's quarter
