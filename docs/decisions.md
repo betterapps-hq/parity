@@ -3671,9 +3671,10 @@ migrated to zod should absolutely be done. If there are some remaining, we need 
 found about 70 hand-written parsers, checks and unchecked casts. Each one that can move to zod has an issue, listed
 below. My calls on how they move:
 
-- **zod 4 comes from the pnpm catalog, at 4.6.7,** the version the MCP SDK already installs. PAR-588 adds it to
-  `@parity-app/core` and the agent, with the helpers the other issues use. The CLI and the desktop app declare it too,
-  since `vp pack` and `scripts/dev.ts` bundle Parity's packages but leave zod to load from their own `node_modules`.
+- **zod 4 comes from the pnpm catalog, at 4.6.7,** the version the MCP SDK already installs. PAR-15 put it in the
+  catalog for the lens models, and PAR-588 adds it to `@parity-app/core` and the agent, with the helpers the other
+  issues use. The CLI and the desktop app declare it too, since `vp pack` and `scripts/dev.ts` bundle Parity's packages
+  but leave zod to load from their own `node_modules`.
 - **Core's helpers are in `@parity-app/core/schema`,** which `@parity-app/core` exports too (PAR-588):
   - `parseData(schema, value, at?)` returns what the schema reads, or throws `TypeError` with the first problem as
     `/json/pointer: message`, in `validate.ts`'s words. `at` is where the value sits in a larger one.
