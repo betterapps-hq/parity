@@ -1,6 +1,6 @@
 // The offscreen render window's page. The main process asks it to draw one frame, measures it, and captures it, so
 // agents can lay out and screenshot any state in any mode without touching the person's canvas.
-import type { AccessibilityIssue, ContrastDetail } from "@parity-app/agent"
+import type { AccessibilityIssue, ContrastDetail, ContrastReading, FrameContrast } from "@parity-app/agent"
 import { type RenderNode, renderedComponents } from "@parity-app/core"
 import { frameAttributes } from "@parity-app/tokens"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
@@ -13,7 +13,7 @@ declare global {
   interface Window {
     canvasRender(job: RenderJob): Promise<RenderedFrame>
     canvasSettle(): Promise<void>
-    canvasAudit(): Promise<AccessibilityIssue[]>
+    canvasAudit(colorTokens?: string[]): Promise<{ issues: AccessibilityIssue[]; contrast?: FrameContrast }>
     canvasHeight(): number | undefined
   }
 }
@@ -141,19 +141,21 @@ const pageRules = [
 const auditOptions: RunOptions = {
   runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"] },
   rules: Object.fromEntries(pageRules.map((rule) => [rule, { enabled: false }])),
-  resultTypes: ["violations"],
+  // Passes too, for the contrast of text that passes now, which a contrast fix mustn't break.
+  resultTypes: ["violations", "passes"],
   elementRef: true
 }
 
 /**
  * Checks the frame drawn last with axe-core. Each element it flags is reported on the design node it belongs to, so
- * an element inside a component counts as the component, once per rule.
+ * an element inside a component counts as the component, once per rule. Its text's contrast, passing or failing, and
+ * the values of `colorTokens` come back too, for contrast fixes.
  */
-window.canvasAudit = async () => {
+window.canvasAudit = async (colorTokens = []) => {
   const host = currentHost
-  if (!host) return []
+  if (!host) return { issues: [] }
   const results = await axe.run(host, auditOptions)
-  return results.violations.map((violation) => {
+  const issues = results.violations.map((violation) => {
     const nodes = new Map<string, AccessibilityIssue["nodes"][number]>()
     for (const node of violation.nodes) {
       const id = (node.element && nodeOfElement(host, node.element)) ?? ""
@@ -167,6 +169,66 @@ window.canvasAudit = async () => {
       nodes: [...nodes.values()]
     }
   })
+  if (colorTokens.length === 0) return { issues }
+  const contrastNodes = [...results.violations, ...results.passes]
+    .filter((result) => result.id === "color-contrast")
+    .flatMap((result) => result.nodes)
+  return { issues, contrast: { tokens: tokenColors(host, colorTokens), texts: contrastReadings(host, contrastNodes) } }
+}
+
+/** Per node, its text with the lowest contrast, and whether coloring the node's own element reaches that text. */
+function contrastReadings(host: HTMLElement, results: NodeResult[]): ContrastReading[] {
+  const lowest = new Map<string, ContrastReading>()
+  for (const result of results) {
+    const element = result.element
+    const id = element && nodeOfElement(host, element)
+    const contrast = contrastOf([...result.any, ...result.all].find((check) => check.id === "color-contrast")?.data)
+    if (!element || !id || !contrast) continue
+    const known = lowest.get(id)
+    if (known && known.ratio <= contrast.ratio) continue
+    const { foreground, background, ratio, required } = contrast
+    lowest.set(id, { id, foreground, background, ratio, required, follows: follows(host, id, element) })
+  }
+  return [...lowest.values()]
+}
+
+/**
+ * Whether a color set on the node's element reaches the text: the text's own element may set a color of its own, as a
+ * component's classes do. It's tried with a color nothing uses, then put back.
+ */
+function follows(host: HTMLElement, id: string, text: Element): boolean {
+  const element = findNodeElement(host, id)
+  if (!element) return false
+  const { style } = element
+  const [value, priority] = [style.getPropertyValue("color"), style.getPropertyPriority("color")]
+  style.setProperty("color", "rgb(1, 2, 3)", "important")
+  const reached = getComputedStyle(text).color === "rgb(1, 2, 3)"
+  style.setProperty("color", value, priority)
+  return reached
+}
+
+/** Each named token's color in the frame, in its theme, as hex: `#rrggbb`, or `#rrggbbaa` when it's see-through. */
+function tokenColors(host: HTMLElement, names: string[]): Record<string, string> {
+  const body = host.shadowRoot!.firstElementChild as HTMLElement
+  const probe = document.createElement("span")
+  body.append(probe)
+  const canvas = document.createElement("canvas")
+  canvas.width = canvas.height = 1
+  const context = canvas.getContext("2d", { willReadFrequently: true })!
+  const colors: Record<string, string> = {}
+  for (const name of names) {
+    if (!getComputedStyle(probe).getPropertyValue(`--${name}`).trim()) continue
+    probe.style.color = `var(--${name})`
+    // The browser keeps colors such as oklch() as written, so a pixel drawn in it gives the sRGB value.
+    context.clearRect(0, 0, 1, 1)
+    context.fillStyle = getComputedStyle(probe).color
+    context.fillRect(0, 0, 1, 1)
+    const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
+    const hex = (channel: number) => channel.toString(16).padStart(2, "0")
+    colors[name] = `#${hex(r!)}${hex(g!)}${hex(b!)}${a === 255 ? "" : hex(a!)}`
+  }
+  probe.remove()
+  return colors
 }
 
 /** ARIA attributes whose value is the id of another element. */

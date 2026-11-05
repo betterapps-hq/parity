@@ -426,7 +426,15 @@ function findingsFor(key: string): AccessibilityFinding[] {
       node: node.id,
       name: node.name,
       detail: "Element has insufficient color contrast of 3.9 (foreground #737373, background #f5f5f5)",
-      contrast: { foreground: "#737373", background: "#f5f5f5", ratio: 3.9, required: 4.5, fontSize: 14, bold: false }
+      contrast: {
+        foreground: "#737373",
+        background: "#f5f5f5",
+        ratio: 3.9,
+        required: 4.5,
+        fontSize: 14,
+        bold: false,
+        fix: { token: "foreground", color: "#0a0a0a", ratio: 18.16 }
+      }
     })),
     ...nodes.slice(2, 3).map((node) => ({
       state: state.id,

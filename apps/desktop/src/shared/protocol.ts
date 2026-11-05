@@ -1,4 +1,11 @@
-import type { AccessibilityFinding, AccessibilityIssue, AgentEvent, IconNames, IconSet } from "@parity-app/agent"
+import type {
+  AccessibilityFinding,
+  AccessibilityIssue,
+  AgentEvent,
+  FrameContrast,
+  IconNames,
+  IconSet
+} from "@parity-app/agent"
 import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
@@ -501,6 +508,8 @@ export interface RenderJob {
   scale: number
   /** Also check the frame with axe-core. */
   audit?: boolean
+  /** When auditing, the color tokens to read the values of in the frame, for contrast fixes. */
+  colorTokens?: string[]
   /**
    * Every token value that differs from the project's compiled CSS, such as unsaved edits: the complete set, not
    * changes. Each frame starts from the compiled stylesheet and lays these over it, so no frame inherits another's.
@@ -551,6 +560,7 @@ export interface RenderedFrame {
   unknownComponents: string[]
   error?: string
   issues?: AccessibilityIssue[]
+  contrast?: FrameContrast
 }
 
 /** A message the project's own code wrote to the console. The same message several times in a row is one entry. */

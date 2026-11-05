@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Suggest the project's color token that fixes each contrast failure, and apply it in one click",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

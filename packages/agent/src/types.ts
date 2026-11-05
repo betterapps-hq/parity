@@ -111,6 +111,8 @@ export interface FrameRequest {
   capture: boolean
   /** Also check the frame for accessibility issues. */
   audit?: boolean
+  /** When auditing, the color tokens to read the values of in the frame, for contrast fixes. */
+  colorTokens?: string[]
   /**
    * Every token value that differs from the project's compiled CSS: the canvas's unsaved edits with this call's
    * `SetTokens` over them. The complete set, not changes, for the frame to lay over the compiled stylesheet.
@@ -142,6 +144,21 @@ export interface ContrastDetail {
   /** The text's size in CSS pixels. */
   fontSize: number
   bold: boolean
+  /**
+   * The project's color token closest to the text's color that passes in every frame the layer was checked in, or
+   * `"none"` when no token does.
+   */
+  fix?: TokenFix | "none"
+}
+
+/** A token to color a layer's text with, so its contrast passes. */
+export interface TokenFix {
+  /** The token's name, without `--`. */
+  token: string
+  /** What it comes to in this frame, as hex. */
+  color: string
+  /** The lowest ratio it reaches in the frames checked, such as 7.09 for 7.09:1. */
+  ratio: number
 }
 
 export type AccessibilityImpact = "critical" | "serious" | "moderate" | "minor"
@@ -172,6 +189,28 @@ export interface FrameResult {
   png?: string
   /** When audited. */
   issues?: AccessibilityIssue[]
+  /** When audited: the contrast of the frame's text, passing or failing, and its color tokens' values. */
+  contrast?: FrameContrast
+}
+
+/** What a frame's text measured for contrast, and what each color token comes to there, for contrast fixes. */
+export interface FrameContrast {
+  /** Each color token's value in the frame, as hex, by name. Tokens the frame doesn't define are left out. */
+  tokens: Record<string, string>
+  /** Per node with text, the text in it with the lowest contrast. */
+  texts: ContrastReading[]
+}
+
+export interface ContrastReading {
+  /** The node, as issues name it: an element inside a component counts as the component. */
+  id: string
+  /** Hex colours, as axe-core measured them. */
+  foreground: string
+  background: string
+  ratio: number
+  required: number
+  /** Whether coloring the node's own element reaches this text, rather than a color set inside it. */
+  follows: boolean
 }
 
 /** How an agent call reaches the outside world: showing its work and drawing frames. */

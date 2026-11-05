@@ -57,6 +57,7 @@ import {
   withFreshIds
 } from "@parity-app/core"
 import { componentComposition, type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
+import { contrastFix } from "@parity-app/tokens"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import type {
   AccessibilityFinding,
@@ -66,6 +67,7 @@ import type {
   DiscardedNode,
   DiscardedPatches,
   ExecResult,
+  FrameContrast,
   Screenshot,
   TokenChange
 } from "./types.ts"
@@ -925,7 +927,7 @@ export class AgentWorkspace {
       viewport: size.viewport,
       scale,
       capture: look === "screenshot",
-      ...(look === "accessibility" ? { audit: true } : {}),
+      ...(look === "accessibility" ? { audit: true, colorTokens: this.colorTokens().map((token) => token.name) } : {}),
       tokens: this.tokenValues()
     })
     return { container, state, mode, frame }
@@ -988,14 +990,21 @@ export class AgentWorkspace {
     return count
   }
 
+  private colorTokens() {
+    return this.snapshot.tokens.filter((token) => token.category === "color")
+  }
+
   /**
    * What axe-core finds in each frame, one finding per node, in the frame's own size and at 1x. Automated checks catch
-   * only some issues, so an empty list isn't a pass.
+   * only some issues, so an empty list isn't a pass. Each contrast failure carries its fix from the project's tokens.
    */
   private async accessibility(reference: string, options: MatrixOptions = {}): Promise<AccessibilityFinding[]> {
     const { container } = this.findDesign(reference)
     const names = nodeNames(container, this.designName)
     const found: AccessibilityFinding[] = []
+    const contrast: FrameContrast[] = []
+    // Each contrast failure on a layer of this design, with what its frame measured.
+    const inFrame = new Map<AccessibilityFinding, FrameContrast>()
     for (const state of this.statesFor(container, options.state)) {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "accessibility")
@@ -1003,6 +1012,7 @@ export class AgentWorkspace {
           this.warnings.push(`${container.name} (${state.name}, ${mode.name}) failed to render: ${frame.error}`)
           continue
         }
+        if (frame.contrast) contrast.push(frame.contrast)
         const seen = new Set<string>()
         for (const { nodes, ...issue } of frame.issues ?? []) {
           for (const { id, ...about } of nodes) {
@@ -1012,12 +1022,52 @@ export class AgentWorkspace {
             const once = `${issue.rule}\n${name ? node : ""}`
             if (seen.has(once)) continue
             seen.add(once)
-            found.push({ state: state.id, mode: mode.id, ...issue, ...(name ? { node, name } : {}), ...about })
+            const finding = { state: state.id, mode: mode.id, ...issue, ...(name ? { node, name } : {}), ...about }
+            found.push(finding)
+            if (finding.contrast && frame.contrast && id === node) inFrame.set(finding, frame.contrast)
           }
         }
       }
     }
+    this.addContrastFixes(container, inFrame, contrast)
     return found
+  }
+
+  /**
+   * Gives each contrast failure the token closest to its text's color that passes in every frame the layer's text was
+   * measured in, failing or passing, so fixing one frame doesn't break another. A layer whose text takes its color
+   * from inside it, such as a component's own classes, or from inside an instance, gets none, since coloring the layer
+   * wouldn't reach it.
+   */
+  private addContrastFixes(
+    container: ContainerSpec,
+    inFrame: Map<AccessibilityFinding, FrameContrast>,
+    frames: FrameContrast[]
+  ): void {
+    const preferred = new Set(
+      this.colorTokens()
+        .filter((token) => token.source === "semantic")
+        .map((token) => token.name)
+    )
+    const fixes = new Map<string, ReturnType<typeof contrastFix> | "unreachable">()
+    for (const [finding, frame] of inFrame) {
+      const node = finding.node!
+      if (!fixes.has(node)) {
+        const readings = frames.flatMap((each) => {
+          const reading = each.texts.find((text) => text.id === node)
+          return reading ? [{ ...reading, tokens: each.tokens }] : []
+        })
+        const reachable =
+          locateNode(container.root, node)?.node.type !== "instance" && readings.every((reading) => reading.follows)
+        fixes.set(node, reachable ? contrastFix(readings, { preferred }) : "unreachable")
+      }
+      const fix = fixes.get(node)
+      if (fix === "unreachable") continue
+      finding.contrast = {
+        ...finding.contrast!,
+        fix: fix ? { token: fix.token, color: frame.tokens[fix.token]!, ratio: Math.min(...fix.ratios) } : "none"
+      }
+    }
   }
 
   private statesFor(container: ContainerSpec, option: string | string[] | undefined): StateSpec[] {

@@ -313,7 +313,7 @@ async function state(snapshot: TabSnapshot) {
 
 /** Draws an agent's frames in the offscreen render window, with the tab's guest and theme. */
 function renderFor(snapshot: TabSnapshot): AgentHooks["render"] {
-  return async ({ tree, mode, height, viewport, scale, capture, audit, tokens }) => {
+  return async ({ tree, mode, height, viewport, scale, capture, audit, colorTokens, tokens }) => {
     const { frame, png } = await renderOffscreen(
       {
         projectId: snapshot.projectId,
@@ -324,6 +324,7 @@ function renderFor(snapshot: TabSnapshot): AgentHooks["render"] {
         mode: renderJobMode(mode, { width: mode.width, ...(height === undefined ? {} : { height }), viewport }),
         scale,
         ...(audit ? { audit } : {}),
+        ...(audit && colorTokens?.length ? { colorTokens } : {}),
         ...(tokens.length > 0 ? { previews: tokens } : {})
       },
       capture
