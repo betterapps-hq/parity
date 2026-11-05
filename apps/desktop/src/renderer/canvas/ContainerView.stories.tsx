@@ -60,8 +60,9 @@ export const OneState: Story = onCanvas(["Sign in"], () =>
 )
 
 /**
- * Zoomed far out: boards are small, and their titles shrink with them but stay above every board. State labels and
- * frame captions have faded out, even on boards showing every state, so they don't crowd the boards around them.
+ * Zoomed far out: boards are small, and their titles shrink with them, clipped to each board, and stay above every board
+ * at least 24 pixels wide on screen. State labels and frame captions have faded out, even on boards showing every
+ * state, so they don't crowd the boards around them.
  */
 export const ZoomedOut: Story = onCanvas(
   [],

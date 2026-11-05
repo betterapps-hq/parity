@@ -1,4 +1,5 @@
 export * from "./arrange.ts"
+export * from "./canvas-labels.ts"
 export * from "./clipboard.ts"
 export * from "./component-preview.ts"
 export * from "./components.ts"

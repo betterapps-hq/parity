@@ -595,6 +595,24 @@ export class App {
   }
 
   /**
+   * Selects a design with a click on its row in Layers, as a person does zoomed so far out that its board is too narrow
+   * on screen to show its title (PAR-151).
+   */
+  async selectDesignInLayers(design: string): Promise<void> {
+    const key = await this.key(design)
+    // Show Layers, whichever panel the left side had open.
+    await this.page.keyboard.press("Alt+1")
+    const row = this.page.locator(`[id="layer-${key}"]`)
+    await row.scrollIntoViewIfNeeded()
+    const box = await row.boundingBox()
+    if (!box) throw new Error(`${design}'s row in Layers isn't drawn`)
+    await this.click(center(box))
+    if (!(await until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key })))) {
+      throw new Error(`Clicking ${design}'s row in Layers selected ${JSON.stringify(await this.selection())}`)
+    }
+  }
+
+  /**
    * Adds a layer to the selection, or takes it out, with Ctrl and a click on its row in Layers, opening the rows above
    * it. On the canvas, Shift and a click pick among the selected layer's siblings, so another part of the design is
    * added from Layers.
