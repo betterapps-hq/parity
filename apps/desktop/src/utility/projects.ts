@@ -4,7 +4,13 @@ import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
 import { portFree, viteBuilder } from "@parity-app/builder-vite"
-import { checkedAppFiles, configInputs, correctedSources, leftOutChanges } from "@parity-app/code"
+import {
+  checkedAppFiles,
+  type ComponentList,
+  type ComponentListStep,
+  configInputs,
+  nextComponentList
+} from "@parity-app/code"
 import {
   type BuilderAdapter,
   type BuilderDetection,
@@ -14,9 +20,7 @@ import {
   type ComponentInfo,
   type ComponentSource,
   type CanvasDocument,
-  type ComponentRef,
   defaultModeSettings,
-  type DetectionCorrections,
   libraryCanvas,
   libraryManifestExtension,
   type PackageManifest,
@@ -30,11 +34,9 @@ import {
 } from "@parity-app/core"
 import {
   appFiles,
-  checkedChanges,
   codeSnapshot,
   detectProject,
   discoverProject,
-  filesChanged,
   changesLockfiles,
   findLockfiles,
   importersOf,
@@ -63,7 +65,13 @@ const require = createRequire(import.meta.url)
 const allowedOrigins = (process.env.PARITY_ALLOWED_ORIGINS ?? "").split(",").filter(Boolean)
 
 interface OpenProject {
-  info: ProjectInfo
+  /** What the windows are told about the project, less its component list, which `projectInfo` adds. */
+  info: Omit<ProjectInfo, "sources" | "componentCount" | "leftOut">
+  /**
+   * The component list, the exports the type checker left out and the person's corrections, as `nextComponentList`
+   * made them: the one place they're kept. The builder serves the guest from it, and the windows hear when it changes.
+   */
+  list: ComponentList
   /** The builder, which runs in a process of its own, and what it was started with, to start it again. */
   session: BuilderProcessSession
   builder: BuilderAdapter
@@ -73,16 +81,11 @@ interface OpenProject {
   /** What each project file last held, as read or written here, so the watcher only reports changes from outside. */
   known: Map<string, string>
   watcher?: FSWatcher
-  /** Where each component comes from, and the props inferred from its source (re-inferred when a source changes). */
-  sources: Record<string, ComponentSource>
+  /** The props inferred from each component's source, read again as the list says. */
   components: Promise<Record<string, ComponentInfo>>
   /** What reads the app's files for components when they change, and the UI kit folder whose components load eagerly. */
   renderer: RendererAdapter
   uiKit?: string
-  /** For a library's own project, the id its own components are named by, as in `nova/Button`. */
-  namespace?: string
-  /** The person's corrections to which exports are components, as the canvas has the main project file now. */
-  corrections?: DetectionCorrections
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
   drawnGuestUrl: string
   /**
@@ -152,7 +155,7 @@ export function projectRootFor(root: string | undefined): string {
 
 export function openProject(root: string): Promise<ProjectInfo> {
   const existing = projects.get(root)
-  if (existing) return Promise.resolve(existing.info)
+  if (existing) return Promise.resolve(projectInfo(existing))
   let pending = opening.get(root)
   if (!pending) {
     pending = start(root).finally(() => opening.delete(root))
@@ -224,19 +227,22 @@ async function start(root: string): Promise<ProjectInfo> {
   const mainDocument = pickMainDocument(config.documents, pkg.name ?? basename(root))
   const main = documents.find((entry) => entry.path === mainDocument)?.document
   // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
-  config.components = correctedSources(config.components, main?.detection, config.namespace)
+  const discovered = nextComponentList(
+    { sources: {}, leftOut: [], ...(config.namespace ? { namespace: config.namespace } : {}) },
+    { kind: "discovered", sources: config.components, ...(main?.detection ? { corrections: main.detection } : {}) }
+  )
   // What the type checker and props found last time, when nothing they read has changed since.
-  const discovered = { ...config.components }
-  const { fingerprint, saved } = await savedDetection(root, config)
+  const { fingerprint, saved } = await savedDetection(root, config.componentFiles, discovered.list.sources)
+  const opened = saved
+    ? nextComponentList(discovered.list, { kind: "restored", sources: saved.sources, leftOut: saved.leftOut ?? [] })
+    : discovered
   if (saved) {
-    for (const id of Object.keys(config.components)) if (!(id in saved.sources)) delete config.components[id]
-    Object.assign(config.components, saved.sources)
     config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
   }
 
   const startOptions: BuilderStartOptions = {
     root,
-    config,
+    config: { ...config, components: opened.list.sources },
     renderer,
     rendererGuestPath:
       !process.env.PARITY_DEV_RUNNER && existsSync(join(import.meta.dirname, "guest.mjs"))
@@ -260,7 +266,7 @@ async function start(root: string): Promise<ProjectInfo> {
     forgetProcess(builderProcessId(root))
     throw error
   })
-  const info: ProjectInfo = {
+  const info: OpenProject["info"] = {
     id: root,
     root,
     name: pkg.name ?? basename(root),
@@ -269,8 +275,6 @@ async function start(root: string): Promise<ProjectInfo> {
     styles: styles.info,
     theme: styles.theme,
     guestUrl: session.guestUrl,
-    componentCount: Object.keys(config.components).length,
-    sources: config.components,
     libraries: config.libraries,
     ...(config.storybook ? { storybook: config.storybook } : {}),
     ...(config.describedTokens ? { describedTokens: config.describedTokens } : {}),
@@ -278,11 +282,11 @@ async function start(root: string): Promise<ProjectInfo> {
     detection,
     documents,
     mainDocument,
-    modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes },
-    ...(saved?.leftOut ? { leftOut: saved.leftOut } : {})
+    modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes }
   }
   const project: OpenProject = {
     info,
+    list: opened.list,
     session,
     builder,
     startOptions,
@@ -290,19 +294,19 @@ async function start(root: string): Promise<ProjectInfo> {
     fingerprints: new Map([[session.guestUrl, servedCode(root, startOptions)]]),
     stylesheets: config.styles,
     known,
-    sources: config.components,
-    components: saved ? Promise.resolve(saved.props) : inferProps(root, config.components, config.componentFiles),
+    // A saved detection brings its props; discovery's list has every one read.
+    components: Promise.resolve(saved?.props ?? {}),
     renderer,
-    ...(config.uiKit ? { uiKit: config.uiKit } : {}),
-    ...(config.namespace ? { namespace: config.namespace } : {}),
-    ...(main?.detection ? { corrections: main.detection } : {})
+    ...(config.uiKit ? { uiKit: config.uiKit } : {})
   }
+  readProps(project, opened, config.componentFiles)
   project.watcher = watchProjectFiles(project)
   if (!saved) {
     void checkTypes(project, config.componentFiles).then(async (ran) => {
       if (!ran || projects.get(root) !== project) return
-      const found = { sources: project.sources, props: await project.components, leftOut: project.info.leftOut ?? [] }
-      await saveDetection(root, config.componentFiles, discovered, fingerprint, found)
+      const { sources, leftOut } = project.list
+      const found = { sources, props: await project.components, leftOut }
+      await saveDetection(root, config.componentFiles, discovered.list.sources, fingerprint, found)
     })
   }
   projects.set(root, project)
@@ -310,7 +314,13 @@ async function start(root: string): Promise<ProjectInfo> {
   for (const found of [detection.packageManager, ...detection.tools]) console.log(`[service]   ${found.summary}`)
   for (const note of config.notes) console.log(`[service]   ${note}`)
   if (styles.info) console.log(`[service]   ${styles.theme.length} theme variables from ${styles.info.name}`)
-  return info
+  return projectInfo(project)
+}
+
+/** What the windows are told about an open project: its info, with the component list as it is now. */
+function projectInfo(project: OpenProject): ProjectInfo {
+  const { sources, leftOut } = project.list
+  return { ...project.info, sources, componentCount: Object.keys(sources).length, leftOut }
 }
 
 /**
@@ -360,7 +370,11 @@ async function serveBuilder(
 async function restartBuilder(root: string): Promise<void> {
   const project = getProject(root)
   await project.session.close()
-  const session = await serveBuilder(root, project.info.name, project.builder, project.startOptions, true)
+  const options = {
+    ...project.startOptions,
+    config: { ...project.startOptions.config, components: project.list.sources }
+  }
+  const session = await serveBuilder(root, project.info.name, project.builder, options, true)
   if (projects.get(root) !== project) {
     await session.close()
     return
@@ -368,7 +382,7 @@ async function restartBuilder(root: string): Promise<void> {
   project.session = session
   project.info.guestUrl = session.guestUrl
   if (!project.fingerprints.has(session.guestUrl)) {
-    project.fingerprints.set(session.guestUrl, servedCode(root, project.startOptions))
+    project.fingerprints.set(session.guestUrl, servedCode(root, options))
   }
   // It has its old port back unless something took it; then the open windows load the guest from the new one. That's
   // checked against where they draw it, so a move they couldn't load is tried again when it's started again.
@@ -414,12 +428,7 @@ export function previewProject(
   const stylesheets = project.info.styles
     ? [project.info.styles.stylesheet, ...project.stylesheets]
     : project.stylesheets
-  return { root: project.info.root, sources: project.sources, stylesheets: [...new Set(stylesheets)] }
-}
-
-/** Sends the builder the components the guest imports, once they've changed in place. */
-function serveSources(project: OpenProject): void {
-  project.session.setComponents(project.sources)
+  return { root: project.info.root, sources: project.list.sources, stylesheets: [...new Set(stylesheets)] }
 }
 
 async function loadStyles(
@@ -684,27 +693,26 @@ function isConfigInput(project: OpenProject, file: string): boolean {
  * again from the config as it is now (see `utility/props-worker.ts`), so the answers match a project opened afresh.
  */
 async function rereadConfig(project: OpenProject, changed: () => void): Promise<void> {
-  const { root, id } = project.info
+  const { root } = project.info
   const tsconfig = readTsconfig(root)
   await followConfig(project, changed, tsconfig)
   if (projects.get(root) !== project) return
   console.log(`[service] ${project.info.name}'s config or dependencies changed, so props are read again`)
   // The files discovery gives the checker, so never the entry that mounts the app, which the guest must not import.
   const files = await checkedAppFiles(root, project.renderer, tsconfig)
-  project.components = inferProps(root, project.sources, files)
+  project.components = inferProps(root, project.list.sources, files)
   if (files.length > 0) {
     await checkTypes(project, files)
     return
   }
   const components = await project.components
-  if (projects.get(root) !== project) return
-  notifyComponents({ projectId: id, components, sources: project.sources, leftOut: project.info.leftOut ?? [] })
+  if (projects.get(root) === project) notifyList(project, components)
 }
 
 /**
  * Runs the type checker over the app's files once props are read, so the list gains what the parse can't see, such as
  * `const Select = SelectPrimitive.Root`, and loses the UI kit's undecided exports that aren't components. The builder
- * serves the guest from `sources`, so a guest loaded later has the new ones; the canvas hears about them and adds them
+ * serves the guest from the list, so a guest loaded later has the new ones; the canvas hears about them and adds them
  * to the guest it has. Whether the checker read them, so what it found can be saved.
  */
 async function checkTypes(project: OpenProject, files: string[]): Promise<boolean> {
@@ -733,40 +741,12 @@ async function checkTypes(project: OpenProject, files: string[]): Promise<boolea
     return false
   }
   if (projects.get(root) !== project) return false
-  const { added, confirmed, removed } = checkedChanges(
-    project.sources,
-    checked.components,
-    undefined,
-    project.namespace
-  )
-  project.info.leftOut = checked.leftOut
-  task.set("passed", { summary: typeCheckSummary(files.length, Object.keys(added).length, removed.length) })
-  for (const name of removed) delete project.sources[name]
-  Object.assign(project.sources, confirmed, added)
-  applyCorrections(project)
-  serveSources(project)
-  project.info.componentCount = Object.keys(project.sources).length
-  console.log(
-    `[service]   the type checker added ${Object.keys(added).length} components and left out ${removed.length}`
-  )
-  if (Object.keys(added).length === 0 && removed.length === 0) {
-    const components = await project.components
-    if (projects.get(root) === project) {
-      notifyComponents({ projectId: id, components, sources: project.sources, leftOut: checked.leftOut })
-    }
-    return true
-  }
-  const before = project.components
-  project.components = Promise.all([before, inferProps(root, added)]).then(([known, more]) => {
-    const all = { ...known, ...more }
-    // What the checker left out, and what the person took off the list.
-    for (const name of Object.keys(all)) if (!(name in project.sources)) delete all[name]
-    return all
-  })
-  const components = await project.components
-  if (projects.get(root) === project) {
-    notifyComponents({ projectId: id, components, sources: project.sources, leftOut: checked.leftOut })
-  }
+  const step = nextComponentList(project.list, { kind: "checked", result: checked })
+  const added = Object.keys(step.guest.add).length
+  task.set("passed", { summary: typeCheckSummary(files.length, added, step.guest.drop.length) })
+  console.log(`[service]   the type checker added ${added} components and left out ${step.guest.drop.length}`)
+  // Told even when nothing changed, since it's the end of what opening the project reads.
+  await settle(project, step)
   return true
 }
 
@@ -786,28 +766,13 @@ function typeCheckSummary(files: number, added: number, removed: number): string
  * files and the files that import them, which is all a change can affect.
  */
 async function rescanComponents(project: OpenProject, paths: string[]): Promise<void> {
-  const { root, id } = project.info
+  const { root } = project.info
   const tsconfig = readTsconfig(root)
   const { files } = await appFiles(root, project.renderer, tsconfig)
   const read = await readChangedFiles(root, project.renderer, files, project.uiKit, paths)
-  const update = filesChanged(project.sources, read, project.namespace)
-  const current = () => projects.get(root) === project
-  if (!current()) return
-  const settle = async (found: Record<string, ComponentSource>, label: string, added: number, removed: number) => {
-    const next = correctedSources(found, project.corrections, project.namespace)
-    // In place, since the project's info and its builder's start options share this list.
-    for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
-    Object.assign(project.sources, next)
-    serveSources(project)
-    project.info.componentCount = Object.keys(project.sources).length
-    project.components = inferProps(root, project.sources)
-    const components = await project.components
-    if (added > 0 || removed > 0) console.log(`[service]   ${label}: ${added} components added, ${removed} left out`)
-    const leftOut = project.info.leftOut ?? []
-    if (current()) notifyComponents({ projectId: id, components, sources: project.sources, leftOut })
-  }
+  if (projects.get(root) !== project) return
   const what = paths.length === 1 ? paths[0] : `${paths.length} files`
-  await settle(update.sources, `${what} changed`, update.added.length, update.removed.length)
+  await settle(project, nextComponentList(project.list, { kind: "filesRead", read }), `${what} changed`)
 
   const inApp = new Set(files)
   const reread = [...read.keys()].filter((path) => inApp.has(path) && read.get(path))
@@ -820,53 +785,73 @@ async function rescanComponents(project: OpenProject, paths: string[]): Promise<
     console.warn(`[service] the type checker couldn't read the changed components: ${message(error)}`)
     return
   }
-  if (!current()) return
-  const { added, confirmed, removed } = checkedChanges(
-    project.sources,
-    checked.components,
-    new Set(toCheck),
-    project.namespace
-  )
-  const before = project.info.leftOut ?? []
-  project.info.leftOut = leftOutChanges(before, new Set(toCheck), checked.leftOut)
-  const unchanged = Object.keys(added).length === 0 && removed.length === 0 && Object.keys(confirmed).length === 0
-  if (unchanged && JSON.stringify(project.info.leftOut) === JSON.stringify(before)) return
-  const next = { ...project.sources, ...confirmed, ...added }
-  for (const name of removed) delete next[name]
-  await settle(next, "the type checker", Object.keys(added).length, removed.length)
+  if (projects.get(root) !== project) return
+  const step = nextComponentList(project.list, { kind: "checked", result: checked, files: new Set(toCheck) })
+  if (step.changed) await settle(project, step, "the type checker")
 }
 
 /**
- * Takes the person's corrections to the component list, as the canvas has the main project file now. The files of the
- * exports they changed are read again, so a correction undone leaves detection to decide.
+ * Takes the person's corrections to the component list, as the canvas has the main project file now. An export they
+ * put on the list is listed at once, and the files of the exports they changed are read again, so a correction undone
+ * leaves detection to decide.
  */
 export async function correctComponents({
   projectId,
   corrections
 }: ServiceMethods["project.correctComponents"]["params"]): Promise<undefined> {
   const project = getProject(projectId)
-  const before = project.corrections
-  project.corrections = corrections
-  const same = (a: ComponentRef, b: ComponentRef) => a.path === b.path && a.export === b.export
-  const changed = (kind: keyof DetectionCorrections) => {
-    const was = before?.[kind] ?? []
-    const now = corrections?.[kind] ?? []
-    return [
-      ...was.filter((ref) => !now.some((other) => same(ref, other))),
-      ...now.filter((ref) => !was.some((other) => same(ref, other)))
-    ]
-  }
-  const paths = [...new Set(changed("include").map((ref) => ref.path))]
-  if (paths.length > 0) await rescanComponents(project, paths)
+  const step = nextComponentList(project.list, { kind: "corrected", corrections })
+  // Taken at once, before anything is awaited, so a type check that lands meanwhile keeps them.
+  if (step.changed) await settle(project, step, "the person's corrections")
+  else project.list = step.list
+  if (step.reread.length > 0) await rescanComponents(project, step.reread)
   return undefined
 }
 
-/** Applies the person's corrections to the list in place, since the project's info and builder share it. */
-function applyCorrections(project: OpenProject): void {
-  const next = correctedSources(project.sources, project.corrections, project.namespace)
-  if (next === project.sources) return
-  for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
-  Object.assign(project.sources, next)
+/**
+ * Takes the next component list into the project, serves it to the builder, so a guest loaded later has it, reads the
+ * props it needs, and tells the windows once they're read.
+ */
+async function settle(project: OpenProject, step: ComponentListStep, label?: string): Promise<void> {
+  project.list = step.list
+  project.session.setComponents(step.list.sources)
+  readProps(project, step)
+  const components = await project.components
+  const added = Object.keys(step.guest.add).length
+  const removed = step.guest.drop.length
+  if (label && (added > 0 || removed > 0)) {
+    console.log(`[service]   ${label}: ${added} components added, ${removed} left out`)
+  }
+  if (projects.get(project.info.root) === project) notifyList(project, components)
+}
+
+/**
+ * Reads the props a step says the list needs: every component's, with `files` read too so the type checker uses the
+ * same program, or the named ones', kept with the rest. Ones no longer listed are let go either way.
+ */
+function readProps(project: OpenProject, step: ComponentListStep, files?: string[]): void {
+  const { root } = project.info
+  if (step.props === "all") {
+    project.components = inferProps(root, step.list.sources, files)
+    return
+  }
+  if (step.props.length === 0 && step.guest.drop.length === 0) return
+  const named = new Set(step.props)
+  const needed = Object.fromEntries(Object.entries(step.list.sources).filter(([id]) => named.has(id)))
+  const known = project.components
+  const more = named.size > 0 ? inferProps(root, needed) : Promise.resolve<Record<string, ComponentInfo>>({})
+  project.components = Promise.all([known, more]).then(([props, read]) => {
+    const all = { ...props, ...read }
+    // What the checker left out, and what the person took off the list, since.
+    for (const id of Object.keys(all)) if (!(id in project.list.sources)) delete all[id]
+    return all
+  })
+}
+
+/** Tells the windows the project's component list, with its props, as they are now. */
+function notifyList(project: OpenProject, components: Record<string, ComponentInfo>): void {
+  const { sources, leftOut } = project.list
+  notifyComponents({ projectId: project.info.id, components, sources, leftOut })
 }
 
 /** Props inference that never fails the project: without it, panels fall back to free-form props. */

@@ -1,3 +1,4 @@
+import { guestChanges } from "@parity-app/core"
 import { openingDesigns } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
@@ -382,18 +383,13 @@ export class Workspace {
   setSources(id: string, sources: ProjectInfo["sources"], leftOut?: ProjectInfo["leftOut"]): void {
     const tab = this.getTab(id)
     if (!tab?.session) return
-    const before = tab.session.info.sources
-    const changed = Object.fromEntries(
-      Object.entries(sources).filter(
-        ([name, source]) => before[name]?.path !== source.path || before[name]?.export !== source.export
-      )
-    )
-    tab.session.loaded.guest.addComponents?.(changed)
-    const added = { ...tab.session.added, ...changed }
-    const gone = Object.keys(added).filter((name) => !(name in sources))
-    for (const name of gone) delete added[name]
-    // The guest takes them back too, as the offscreen renderer does once a job no longer carries them.
-    if (gone.length > 0) tab.session.loaded.guest.removeComponents?.(gone)
+    const { add, drop } = guestChanges(tab.session.info.sources, sources)
+    const { guest } = tab.session.loaded
+    guest.addComponents?.(add)
+    // The guest takes back the ones it was given, as the offscreen renderer does once a job no longer carries them.
+    if (drop.length > 0) guest.removeComponents?.(drop)
+    const added = { ...tab.session.added, ...add }
+    for (const name of drop) delete added[name]
     const info = {
       ...tab.session.info,
       sources,
