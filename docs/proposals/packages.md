@@ -3,8 +3,9 @@
 Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-app/project` (PAR-6), and
 `@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. `@parity-app/tokens` holds reading,
 editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32), drop
-rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. The rule and the first items are in
-[decisions.md](../decisions.md) and in Linear's Package boundaries stream.
+rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. `@parity-app/models` holds the lens
+models (PAR-15), on 2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and in Linear's
+Package boundaries stream.
 
 ## In one line
 

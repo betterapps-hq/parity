@@ -3743,3 +3743,32 @@ exploration is gone. My calls:
 
 Left for later: a screen made with nothing selected can land over a design in the middle of the view, as pasted layers
 always could, and a component in a new screen fills its width, where the proposal says it should keep its own.
+
+## Lens models are zod schemas with versioned JSON Schemas (PAR-15)
+
+The data, API, routes, scenarios and links lenses each have a model in `@parity-app/models`, before any lens reads into
+it. You approved zod for it on 2026-11-05, which PAR-578 had already chosen for data Parity didn't make. My calls:
+
+- **zod is the source, and the JSON Schema comes from it.** Each model is a zod schema that lens code checks with
+  `parseTables`, `parseOperations`, `parseRoutes`, `parseScenarios` and `parseLinks`. `lensModelJsonSchema(name)` writes
+  it out with `z.toJSONSchema` for adapters and agents to target, so there's one copy to keep, not a schema file and a
+  parser beside it. This package adds zod to the catalog, ahead of PAR-588.
+- **Each document says its version,** as `.lib.par` does: `"version": 1`. A change that would reject a document the
+  version accepts gets a new version. Snapshots of each model's JSON Schema show any change to it in review.
+- **The schemas stay private.** Their ids are `urn:parity:model:<name>:<version>`, which name them without publishing
+  them anywhere, and the package is private.
+- **Objects are strict,** since Parity owns these models: an unknown field is an error, reported as
+  `/json/pointer: message` in a `TypeError`, as `.par` and `.lib.par` files report theirs.
+- **The models are what each lens's design needs and no more:**
+  - Tables hold the database family, and each table's columns (type as the database names it, whether it can be null,
+    default as SQL), primary key, indexes and foreign keys, with Postgres's enums. A key or index naming a column the
+    table lacks is an error.
+  - Operations hold an id, an input and output schema kept as written, errors, a method and OpenAPI path when it's HTTP,
+    and `x-` fields, which mark server functions. Ids are unique.
+  - Routes are a tree, each with its full path as a URL pattern's pathname, the file that draws it and whether it's a
+    layout. Ids are unique across the tree.
+  - Scenarios hold a name, the design state they fill, and each operation's response by operation id, with an HTTP
+    status for errors.
+  - Links join a screen, route, operation or table to another, and say whether a person drew it, a trace showed it or
+    the code calls it. Any kind may link to any other, since "screen → route → operation → table" is an example, not a
+    rule.
