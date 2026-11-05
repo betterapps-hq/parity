@@ -342,9 +342,9 @@ menubar's command. The Layers panel's menu is unchanged.
   when the button goes down. A design's title keeps its own menu, and state labels, toolbars and text being edited open
   none. A text note over a board gets the menu for around the designs.
 - **A right-click while the menu is open** opens it again at the new point, for what that right-click selects, as in
-  Figma (PAR-419); one off the canvas, such as on a panel, closes it. The open menu keeps the pointer from the page, so
-  tldraw never hears of that press: the menu stays open, and when the button comes up the canvas gets the `contextmenu`
-  tldraw would have sent, and the menu is drawn afresh there.
+  Figma (PAR-419); one off the canvas, such as on a panel, closes it. The open menu lays Base UI's backdrop over the
+  page, so tldraw never hears of that press: the menu stays open, and when the button comes up the canvas under the
+  backdrop gets the `contextmenu` tldraw would have sent, which moves the menu there.
 - **Interact mode:** the design gets the right-click, and no menu opens.
 - **Keys after an item** are the canvas's at once (PAR-424). A menu holds focus for the 100 ms or so it takes to fade
   out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-closed`) as gone, a field in it
@@ -357,11 +357,11 @@ selection and the design under the pointer and returns the items, available or n
 in layout and Hide can act on the selected layers, which the menubar's `actions.ts` reads too. `chrome/CanvasMenu.tsx`
 is the context menu around the canvas area in `ProjectView.tsx`: it records the right button's press, finds the design
 under the pointer with `hitTest` and `pickLayer`, outlines Select layer's entries through the hover, runs items through
-`actions.ts`, and opens again on a right-click outside it (`onPointerDownOutside`). Paste here is `pasteAtPointer` in
-`canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go through
-`canvas/paste-here.ts`, where `measureHere` measures the layout or component's slot under the pointer in its frame, and
-`pasteHere` in `packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys an open
-menu keeps is `inMenu` in `canvas/shortcuts.ts`.
+`actions.ts`, and opens again on a right-click outside it (`reopensOnCanvas`, from `onOpenChange`). Paste here is
+`pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
+through `canvas/paste-here.ts`, where `measureHere` measures the layout or component's slot under the pointer in its
+frame, and `pasteHere` in `packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys
+an open menu keeps is `inMenu` in `canvas/shortcuts.ts`.
 
 Tests:
 

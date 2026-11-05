@@ -203,9 +203,9 @@ still need your call.
   no width keeps its right, and one with a top and a bottom and no height its bottom, so it still reaches that edge; its
   left and top go to the pointer as before. A copy with a width drops its right, as CSS ignores it then.
 - **A right-click on the canvas while its menu is open opens it again there** (PAR-419), as Figma does; off the canvas
-  it only closes it. My call: Radix's menu keeps pointer events from the page while it's open, so the menu keeps itself
-  open for that press and, on release, sends the canvas the `contextmenu` tldraw would have, rather than being made
-  non-modal, which would let a left click outside the menu act on the canvas as well as close it.
+  it only closes it. My call: Base UI's menu lays a backdrop over the page while it's open, so the menu cancels the
+  close for that press and, on release, sends the canvas under the backdrop the `contextmenu` tldraw would have, rather
+  than being made non-modal, which would let a left click outside the menu act on the canvas as well as close it.
 - **The menubar greys what the canvas menu greys for layers inside an instance** (PAR-419): Copy, Duplicate, the order,
   Wrap in layout and Hide or show, through one rule (`layerCommands`), and their keys do nothing then. Cut and Delete,
   which the canvas menu doesn't have, are unchanged.
