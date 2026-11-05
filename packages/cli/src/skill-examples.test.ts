@@ -75,25 +75,33 @@ const designs: ContainerSpec[] = [
       ]),
       layout("Empty state", [text("empty", "No members yet")], true)
     ])
-  ),
-  {
-    ...screen(
-      "signup",
-      "Signup",
-      4800,
-      layout("Page", [{ type: "text", id: "title", name: "Title", text: "Sign up" }])
-    ),
-    states: [
-      { id: "default", name: "Default" },
-      { id: "loading", name: "Loading" }
-    ]
-  }
+  )
 ]
+
+/** A library sidebar and the provider it goes inside, for the composition example. */
+const nova = { path: "@buildkit/nova", library: "nova" }
 
 function project(tab: string): AgentSnapshot {
   return {
     tab,
-    components: ["Badge", "Button", "Card", "CardDescription", "CardHeader", "CardTitle", "Input", "Label", "Skeleton"],
+    components: [
+      "Badge",
+      "Button",
+      "Card",
+      "CardDescription",
+      "CardHeader",
+      "CardTitle",
+      "Input",
+      "Label",
+      "Skeleton",
+      "nova/Sidebar",
+      "nova/SidebarProvider"
+    ],
+    sources: {
+      "nova/SidebarProvider": { ...nova, export: "SidebarProvider", visual: false },
+      "nova/Sidebar": { ...nova, export: "Sidebar", parents: ["nova/SidebarProvider"], parentsFrom: "example" }
+    },
+    renderStatus: { "nova/Sidebar": { drawn: true } },
     iconSets: [{ id: "lucide", name: "Lucide", package: "lucide-react", version: "0.500.0" }],
     tokens: [
       { name: "background", category: "color", source: "semantic", values: { default: "white", dark: "black" } },
