@@ -2401,7 +2401,7 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     records no step. The app keeps the undo labels, the messages, the selection, the system clipboard, saving images and
     the designs' boxes on the canvas, which it measures with tldraw and passes in.
   - The state being edited is passed in as a `StateSpec`. `editingState`, which picks it, stays in the app's
-    `LayerPanel.tsx` until a package needs to choose it.
+    `LayerPanel.tsx` until a package needs to choose it. PAR-570 moved it into the package (below).
   - The rules have names of their own (`removeLayers`, `copyLayersInPlace`, `wrapInLayout`, `styleOf`, `applyStyle` and
     so on), so the app's commands keep theirs and nothing is imported under another name.
   - `paste-over.ts` moved with the clipboard, with its tests, since it was already pure and is where pasted layers go.
@@ -4600,3 +4600,28 @@ method's shapes were declared four times. My calls:
   the app with the same schemas is PAR-598.
 - **Export and the window's accessibility check go through the package too:** `exportPictures` names each picture and
   `accessibility` checks a design, and the app writes the files.
+
+## The edit target and placing at a point are `@parity-app/editor`'s (PAR-570)
+
+You reopened PAR-7's call that `editingState` stays in `LayerPanel.tsx` "until a package needs to choose it" on
+2026-11-04: there were four copies of the rule, the text editor read by one and wrote by another, and PAR-170 needs the
+design and state together on the write side. My calls in moving it:
+
+- **The selection model moved, the store stayed.** `Selection` and the functions that read and build one
+  (`selectedNodes`, `layersSelection`, `toggleLayer`, `selectionKey` and the rest) are
+  `packages/editor/src/selection.ts`. `SelectionStore`, hover, the tool and the React hooks stay in the app's
+  `selection.ts`, since they hold state for a tab rather than rules.
+- **The edit target is `editFrame`,** since core's `EditTarget` already names a state and variant. It takes what was
+  picked (`Picked`: a design, and the frame's mode and state), so a selection, a hit, resize handles and the text being
+  edited all go through it, and gives the design's key, its container, the state and the viewport. `editingState` and
+  `activeState`, which PAR-551 had moved into `editing-state.ts`, joined it there with their tests, and the mode's
+  viewport moved too. The viewport function is `modeViewport`, since core's `frameViewport` already means a frame's
+  viewport from its width. `DesignStore.editFrame` looks the design up, so callers write `store.editFrame(selection)`.
+- **Several designs edit the one picked last,** as the canvas menu and the inspector already read them, and a note or
+  nothing has no edit target.
+- **Placing at a point is one step in the app, `placeAtPoint`,** which hits, measures the layout in the frame and asks
+  `slotHere`. Measuring needs the DOM, so it stays in the app; the rules (`slotHere`, `pasteHere`) were already the
+  package's. Insert, image drops, Paste here and the text tool all use it. The text tool adds its layer through
+  `pasteHere`, so it lands where a drop does, in the slot under the pointer, rather than after the layer under it.
+- **The text editor reads and writes through `editFrame`.** That makes PAR-585's two rules one. PAR-585 stays open for
+  its reproduction and test, as it asks.

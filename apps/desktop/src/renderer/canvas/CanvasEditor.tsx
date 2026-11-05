@@ -1,3 +1,4 @@
+import { designsSelection, selectedDesigns } from "@parity-app/editor"
 import { useCallback, useEffect } from "react"
 import {
   type Atom,
@@ -12,7 +13,6 @@ import {
   type TLShapeId
 } from "tldraw"
 import { heldBoards } from "../agent/held-boards.ts"
-import { designsSelection, selectedDesigns } from "../selection.ts"
 import { getResolvedTheme, useResolvedTheme } from "../theme.ts"
 import { ContainerShapeUtil, designDrag } from "./ContainerShapeUtil.tsx"
 import { useProject } from "./context.ts"

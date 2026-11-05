@@ -27,7 +27,7 @@ import {
   type StateSpec,
   targetPatches
 } from "@parity-app/core"
-import { editingState } from "@parity-app/editor"
+import { editingState, type Selection, selectionKey } from "@parity-app/editor"
 import { Crown, Diamond, MousePointerClick, ScanSearch, Sparkles } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
@@ -47,7 +47,7 @@ import { StyleSections } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { useComponents } from "../../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings } from "../../design-store.ts"
-import { type Selection, selectionKey, useSelection } from "../../selection.ts"
+import { useSelection } from "../../selection.ts"
 
 /*
  * The inspector's Design tab once a screen and its root layout are one selection (PAR-542, decision 3 of

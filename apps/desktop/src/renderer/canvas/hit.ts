@@ -1,8 +1,8 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity-app/core"
+import type { Picked, Selection } from "@parity-app/editor"
 import type { Editor } from "tldraw"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, nodeParent, nodesAt } from "../frame.ts"
-import type { Selection } from "../selection.ts"
 import type { Selected, Under } from "./pick.ts"
 
 export interface Point {
@@ -23,6 +23,11 @@ export interface Hit {
    * reach past `chain`: `card`, then `card/title`.
    */
   path: string[]
+}
+
+/** Where a hit was: its design, in the frame under the point. */
+export function pickedIn(hit: Hit): Picked {
+  return { design: hit.entry.key, mode: hit.mode, state: hit.state }
 }
 
 export function inside(rect: DOMRect, point: Point): boolean {

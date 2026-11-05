@@ -1,7 +1,6 @@
 import { boardTarget, editTargetName, hiddenOnBoard } from "@parity-app/core"
-import { editingState } from "@parity-app/editor"
+import { selectedDesigns, selectedNodes, type Selection, editingState } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
-import { selectedDesigns, selectedNodes, type Selection } from "../selection.ts"
 import { item, layerCommands, type MenuEntry, ownLayers, sections } from "./canvas-menu.ts"
 
 /**

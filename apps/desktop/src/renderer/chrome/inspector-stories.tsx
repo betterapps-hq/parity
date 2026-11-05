@@ -9,13 +9,13 @@ import {
   resetOverride,
   targetPatches
 } from "@parity-app/core"
-import { boardReader, editingState } from "@parity-app/editor"
+import { boardReader, type Selection, editingState } from "@parity-app/editor"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
-import { type Selection, useSelection } from "../selection.ts"
+import { useSelection } from "../selection.ts"
 import { example, openProjects, type ProjectName, ProjectStage } from "../stories/fixtures.tsx"
 import { setLayout } from "./layout.ts"
 import { PropsSection } from "./PropsSection.tsx"

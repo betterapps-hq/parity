@@ -1,7 +1,7 @@
 import { insertNode, mapNode } from "@parity-app/core"
+import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
-import { layersSelection } from "../selection.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answering } from "../stories/host.ts"
 import { DesignTab } from "./DesignPanel.tsx"

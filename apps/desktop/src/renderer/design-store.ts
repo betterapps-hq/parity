@@ -25,6 +25,8 @@ import {
   type DesignSnapshot,
   type DesignStep,
   deleteDesign,
+  type EditFrame,
+  editFrame,
   type EditStatus,
   editStatus,
   endGesture,
@@ -39,6 +41,7 @@ import {
   recordChange,
   redoChange,
   mergeAgentChanges,
+  type Picked,
   reloadFile,
   replaceDocuments,
   revertTo,
@@ -145,6 +148,9 @@ export class DesignStore {
   getLibraryDesigns = (): readonly ContainerSpec[] => this.libraryDesigns
   getNotes = () => this.notes
   getModes = (): ModeSettings => this.state.current.modes
+  /** What an edit to what's `picked` lands on: its design, in the state and viewport of the frame it was picked in. */
+  editFrame = (picked: Picked): EditFrame | undefined =>
+    editFrame(picked, (key) => this.getEntry(key)?.container, this.getModes())
   getHistory = (): HistoryState => this.state.historyState
   getSaveState = (): SaveState => this.state.saveState
   getTokenEdits = (): TokenEdits => this.state.current.tokens

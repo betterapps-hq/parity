@@ -1,13 +1,4 @@
-import {
-  boardTarget,
-  editNode,
-  generateId,
-  insertNode,
-  isInnerPath,
-  locateNode,
-  nodeIds,
-  resolveModes
-} from "@parity-app/core"
+import { boardTarget, editNode, generateId, isInnerPath, locateNode, resolveModes } from "@parity-app/core"
 import {
   distancesBetween,
   drawsOver,
@@ -18,15 +9,18 @@ import {
   layerSizeReset,
   measuresNext,
   overlayDesigns,
+  pasteHere,
   resizeStart,
+  selectedNodes,
   settleUntil,
-  withFrame,
-  editingState
+  textLayer,
+  toggleLayer,
+  withFrame
 } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, subscribeFrames } from "../frame.ts"
-import { selectedNodes, toggleLayer, useEditing } from "../selection.ts"
+import { useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
@@ -48,12 +42,12 @@ import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
 import { getSnapMeasures, LayerSnapping } from "./layer-snap.ts"
 import { findLayer } from "./layers.ts"
 import { frameDrawn } from "./nudge.ts"
+import { placeAtPoint } from "./paste-here.ts"
 import { editableText, hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
 import { formatPx, type Redline, RedlineView } from "./Redline.tsx"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { pressBackground } from "./select-box.ts"
 import { TextEditor } from "./TextEditor.tsx"
-import { frameViewport } from "./view.ts"
 
 interface Box {
   x: number
@@ -137,7 +131,7 @@ export function CanvasOverlay() {
       if (tool === "text") {
         event.stopPropagation()
         event.preventDefault()
-        addText(session, hit, point)
+        addText(session, area, point)
         selection.setTool("select")
         return
       }
@@ -828,10 +822,11 @@ function startResize(
   const layer = handles.node
   const element = layer ? findNodeElement(host, layer) : undefined
   const rect = layer ? nodeBox(host, layer) : undefined
-  if (!layer || !element || !rect) return
-  const state = editingState(entry.container, handles.state)
+  const frame = store.editFrame(handles)
+  if (!layer || !element || !rect || !frame) return
+  const { state } = frame
   // The layer and its layout as the frame being resized in shows them: its state, variants and viewport.
-  const shown = resizeStart(entry.container, layer, { state, viewport: frameViewport(store.getModes(), handles.mode) })
+  const shown = resizeStart(entry.container, layer, { state, viewport: frame.viewport })
   if (!shown) return
   const unit = spacingUnit(tokens.get())
   // An absolutely placed layer resizes by its insets, from where its sides are drawn, and its dragged edges snap.
@@ -890,10 +885,10 @@ function resetSize(session: ProjectSession, handles: Handles, edge: Edge): void 
     return
   }
   const layer = handles.node
-  if (!layer) return
-  const state = editingState(entry.container, handles.state)
-  store.updateContainer(entry.key, "Reset size", (container) =>
-    editNode(container, boardTarget(container, state.id), layer, { style: layerSizeReset(edge) })
+  const frame = store.editFrame(handles)
+  if (!layer || !frame) return
+  store.updateContainer(frame.design, "Reset size", (container) =>
+    editNode(container, boardTarget(container, frame.state.id), layer, { style: layerSizeReset(edge) })
   )
 }
 
@@ -911,28 +906,27 @@ function contentBox(parent: HTMLElement | null, scale: number) {
   }
 }
 
-/** The text tool: inside a design, a text layer in the layout under the pointer; on the canvas, a free note. */
-function addText(session: ProjectSession, hit: Hit | undefined, point: Point): void {
+/**
+ * The text tool: inside a design, a text layer where a drop at the pointer would land (see `placeAtPoint`), in the
+ * frame there; on the canvas, a free note. Over a design with no layout under the pointer, nothing.
+ */
+function addText(session: ProjectSession, area: ParentNode, point: Point): void {
   const { store, selection, editor } = session
-  if (hit) {
-    const { entry, chain } = hit
-    const layoutIndex = chain.findLastIndex((node) => node.type === "layout")
-    const layout = chain[layoutIndex]
-    if (!layout) return
-    const after = chain[layoutIndex + 1]
-    const index = after ? (locateNode(entry.container.root, after.id)?.index ?? 0) + 1 : undefined
-    const id = generateId(nodeIds(entry.container.root))
-    store.updateContainer(entry.key, "Add text", (container) => ({
-      ...container,
-      root: insertNode(container.root, layout.id, { type: "text", id, text: "Text" }, { index })
-    }))
-    selection.set({ design: entry.key, node: id, mode: hit.mode, state: hit.state })
+  const place = placeAtPoint(session, area, point)
+  if (place.kind === "none") return
+  if (place.kind === "layout") {
+    const { hit, here, frame } = place
+    let node: string | undefined
+    store.updateContainer(frame.design, "Add text", (container) => {
+      const placed = pasteHere(container, [textLayer("Text")], here, frame.state, frame.viewport)
+      node = placed.copies[0]
+      return placed.container
+    })
+    if (!node) return
+    const picked = { design: frame.design, node, mode: hit.mode, state: hit.state }
+    selection.set(picked)
     // The layer renders on the next frame; edit it once it's there.
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() =>
-        selection.setEditing({ design: entry.key, node: id, mode: hit.mode, state: hit.state })
-      )
-    )
+    requestAnimationFrame(() => requestAnimationFrame(() => selection.setEditing(picked)))
     return
   }
   if (!editor) return

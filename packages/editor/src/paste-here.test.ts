@@ -1,5 +1,6 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
+import { textLayer } from "./clipboard.ts"
 import type { Rect } from "./drop-slot.ts"
 import { type HereLayout, pasteHere, slotHere } from "./paste-here.ts"
 
@@ -361,5 +362,23 @@ describe("the slot here", () => {
 
   it("has none for what isn't one of the design's layouts", () => {
     expect(slotHere(dashboard(), { ...stats({ x: 280, y: 230 }), layout: "revenue" }, base)).toBeUndefined()
+  })
+})
+
+describe("placing at a point", () => {
+  it("puts a new text layer where a drop at the pointer lands, not after the layer under it (PAR-570)", () => {
+    // Over the first half of Users: a drop goes before it, though Users is the layer under the pointer.
+    const here = stats({ x: 350, y: 230 })
+    const slot = slotHere(dashboard(), here, base)
+    const { container, copies } = pasteHere(dashboard(), [textLayer("Text")], here, base)
+    expect(children(container, "stats")).toEqual(["revenue", "issues", copies[0], "users", "uptime"])
+    expect(children(container, "stats").indexOf(copies[0]!)).toBe(slot?.index)
+    expect(findNode(container.root, copies[0]!)).toMatchObject({ type: "text", text: "Text" })
+  })
+
+  it("puts a new text layer at the pointer in an absolutely placed layout, as a drop there goes", () => {
+    const { container, copies } = pasteHere(dashboard(), [textLayer("Text")], events({ x: 100, y: 120 }), base)
+    expect(children(container, "events")).toEqual(["review", copies[0]])
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({ position: "absolute", left: 20, top: 20 })
   })
 })

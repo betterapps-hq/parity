@@ -1,7 +1,7 @@
+import { designsSelection, layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
-import { designsSelection, layersSelection } from "../selection.ts"
 import {
   blankProjectAt,
   clearNotifications,

@@ -22,7 +22,7 @@ import {
   styleKeys,
   targetPatches
 } from "@parity-app/core"
-import { editingState } from "./editing-state.ts"
+import { editingState } from "./edit-frame.ts"
 import { boardReader } from "./shown.ts"
 import { type TextSizing, textSizingKeys, withTextSizing } from "./text-editing.ts"
 

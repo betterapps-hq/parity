@@ -1,7 +1,7 @@
 import { findNode } from "@parity-app/core"
+import { designsSelection, layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
-import { designsSelection, layersSelection } from "../selection.ts"
 import { design, example, findTooltip, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, InspectorStage, slowly } from "./inspector-stories.tsx"
