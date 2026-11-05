@@ -738,6 +738,13 @@ recommended answer to each of its questions.
   included, and any lockfile name appearing in the folders `findLockfiles` searches (`lockfileFolders`,
   `changesLockfiles`), and reads props and the type check again a moment after one changes, so the answers match a
   project opened afresh. The saved detection needs nothing more: its fingerprint already changes with them.
+- **A config change sorts the app's sources again, as opening does.** My call (PAR-492): `rediscoveredSources` reads
+  every file the config includes now, and the files the list came from, through `filesChanged`, so components in files
+  it leaves out are removed, those in files it newly includes are added, and the rest keep their ids. Exports only the
+  type checker decided lose `as` and wait for it again, which the full type check that follows gives back, so the list
+  matches a fresh open. Libraries' and workspace packages' components aren't touched, and the person's corrections are
+  applied after, so an export they included stays even when its file is left out. The UI kit folder isn't looked for
+  again; that still takes reopening.
 - **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
   files about half a second after the last change, so added, renamed and deleted components show at once, and the type
   checker then reads only those files and the files that import them, since an export's type can come from an import. A
