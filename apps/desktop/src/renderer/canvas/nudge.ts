@@ -1,11 +1,18 @@
-import type { ContainerSpec, StateSpec } from "@parity-app/core"
-import { type Arrow, type Drawn, flowOf, type LayersNudge, nudgedPosition, nudgeLayers } from "@parity-app/editor"
+import {
+  type Arrow,
+  type Drawn,
+  editingState,
+  flowOf,
+  type LayersNudge,
+  nudgedPosition,
+  nudgeLayers
+} from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
 import { findNodeElement, flowingBoxes } from "../frame.ts"
 import { selectedDesigns, selectedNodes, type SelectionStore, selectionKey } from "../selection.ts"
 import { GestureRun } from "./gesture.ts"
 import { selectionFrame } from "./hit.ts"
-import { activeState, frameViewport } from "./view.ts"
+import { frameViewport } from "./view.ts"
 
 /**
  * The arrow keys, through the keymap: the selection nudged by `@parity-app/editor`'s rules (`nudgeLayers`,
@@ -88,11 +95,6 @@ function runGesture(store: DesignStore, selection: SelectionStore): string {
   return run.gesture(selectionKey(selection.get()), () =>
     selection.subscribe(() => run.select(selectionKey(selection.get())))
   )
-}
-
-/** The state being edited: the one the selection was picked in, else the one the board shows. */
-function editingState(container: ContainerSpec, picked: string | undefined): StateSpec {
-  return container.states.find((state) => state.id === picked) ?? activeState(container)
 }
 
 /**

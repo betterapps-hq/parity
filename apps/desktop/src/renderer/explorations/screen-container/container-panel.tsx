@@ -29,6 +29,7 @@ import {
   type StateSpec,
   targetPatches
 } from "@parity-app/core"
+import { editingState } from "@parity-app/editor"
 import { Crown, Diamond, MousePointerClick, ScanSearch, Sparkles } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
@@ -40,7 +41,7 @@ import { ParamsSection } from "../../chrome/ComponentsSection.tsx"
 import { DesignTab } from "../../chrome/DesignPanel.tsx"
 import { FieldTarget } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { editingState, measureNode } from "../../chrome/LayerPanel.tsx"
+import { measureNode } from "../../chrome/LayerPanel.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { PropsSection } from "../../chrome/PropsSection.tsx"
 import { revealSelection } from "../../chrome/reveal.ts"

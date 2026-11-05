@@ -9,7 +9,7 @@ let browser: Browser
 let page: Page
 
 const entry = `export { pasteHere } from "@parity-app/editor"
-export { measureHere } from "./paste-here.ts"`
+export { HereMeasures, measureHere } from "./paste-here.ts"`
 
 /**
  * The dashboard's stat cards in a four-column grid, a day of a calendar whose Events layout is placed absolutely and
@@ -179,6 +179,39 @@ describe("paste here, measured in a frame", () => {
     // In the footer, the other slot.
     const footer = await pasteAt(["root", "plan"], { x: 700, y: 400 })
     expect(footer).toMatchObject({ layout: "plan", slot: "footer", order: ["buy", "pasted"] })
+  })
+
+  it("measures the layout under a drag once while the pointer stays over it", async () => {
+    const counts = await page.evaluate((container) => {
+      const host = document.querySelector<HTMLElement>("#host")!
+      const camera = document.querySelector<HTMLElement>("#camera")!
+      const stats = container.root.children[0]!
+      const hit = {
+        entry: { key: "app.par#dashboard", path: "app.par", container },
+        host,
+        mode: "desktop",
+        state: "default",
+        chain: [container.root, stats],
+        path: ["root", "stats"]
+      }
+      // @ts-expect-error The bundle's global.
+      const measures = new here.HereMeasures()
+      // @ts-expect-error The bundle's global.
+      const children = (x: number) => here.measureHere(hit, { x, y: 25 }, 4, measures).children.length
+      const hide = (id: string) => {
+        const cell = host.shadowRoot!.querySelector<HTMLElement>(`[data-canvas-node="${id}"]`)!
+        cell.style.display = "none"
+      }
+      const first = children(100)
+      // Hidden after it was measured: the drag goes on with what was measured, at another point in the same grid.
+      hide("revenue")
+      const kept = children(160)
+      // Panned, so the frame is somewhere else on screen: measured again.
+      camera.style.transform = "translate(10px, 0) scale(0.5)"
+      const panned = children(170)
+      return { first, kept, panned }
+    }, container)
+    expect(counts).toEqual({ first: 4, kept: 4, panned: 3 })
   })
 
   it("goes to the layout around a component where none of its slots is under the pointer", async () => {

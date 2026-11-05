@@ -267,6 +267,11 @@ export interface AgentHooks {
    * what conflicted, and nothing was applied when any did. Without it, the changes are only returned.
    */
   apply?(changes: AgentChangeSet): Promise<ChangeConflict[]>
+  /**
+   * Whether the browser takes each value for its CSS property (`CSS.supports`), which says whether a `SetTokens` value
+   * is its token's kind. The agent runs without a browser; without the hook, kinds aren't checked.
+   */
+  supports?(queries: { property: string; value: string }[]): Promise<boolean[]>
 }
 
 /** What a call changed: each design it touched with how it found it, the modes when it set them, and token values. */

@@ -7,10 +7,9 @@ import {
   hiddenOnBoard,
   isInnerPath,
   locateInner,
-  nodeLabel,
-  type StateSpec
+  nodeLabel
 } from "@parity-app/core"
-import { activeState } from "../canvas/view.ts"
+import { editingState } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
 import { layersSelection, selectedDesigns, selectedNodes, type Selection } from "../selection.ts"
 import { type Command, keymap } from "./keymap.ts"
@@ -220,11 +219,6 @@ export function sections(groups: readonly (readonly MenuEntry[])[]): MenuEntry[]
   return groups
     .filter((group) => group.length > 0)
     .flatMap((group, index): MenuEntry[] => (index === 0 ? [...group] : [{ kind: "separator" }, ...group]))
-}
-
-/** The state being edited: the one the selection was picked in, else the one the board shows. */
-export function editingState(container: ContainerSpec, picked: string | undefined): StateSpec {
-  return container.states.find((state) => state.id === picked) ?? activeState(container)
 }
 
 function designName(entries: readonly ContainerEntry[], id: string): string | undefined {

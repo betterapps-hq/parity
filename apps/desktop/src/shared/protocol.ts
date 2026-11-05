@@ -241,6 +241,8 @@ export interface WindowMethods {
   "agent.open": { params: { root: string }; result: TabSummary }
   /** An icon set's names in one style's module, from the tab's own copy of the set, for `Icons(set)`. */
   "agent.iconNames": { params: { tab: string; set: string; module?: string }; result: IconNames }
+  /** Whether the browser takes each value for its CSS property, for checking an agent's `SetTokens` (PAR-584). */
+  "agent.supports": { params: { property: string; value: string }[]; result: boolean[] }
   /** A project file changed on disk, not by this window. */
   "project.fileChanged": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
   /**
@@ -283,6 +285,7 @@ export const windowMethods = Object.keys({
   "agent.presence": true,
   "agent.open": true,
   "agent.iconNames": true,
+  "agent.supports": true,
   "project.fileChanged": true,
   "project.componentsChanged": true,
   "project.guestMoved": true

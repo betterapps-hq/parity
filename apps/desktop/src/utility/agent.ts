@@ -357,7 +357,8 @@ async function exec(
       iconNames: (set, module) =>
         window.request("agent.iconNames", { tab: tabId, set, ...(module === undefined ? {} : { module }) }),
       apply: (changes) =>
-        window.request("agent.apply", { tab: tabId, label: request.label || "Agent edit", ...changes })
+        window.request("agent.apply", { tab: tabId, label: request.label || "Agent edit", ...changes }),
+      supports: (queries) => window.request("agent.supports", queries)
     }
   )
   const { changes, screenshots, ...rest } = result

@@ -39,7 +39,7 @@ import {
   swapInstance,
   targetPatches
 } from "@parity-app/core"
-import { boardReader } from "@parity-app/editor"
+import { boardReader, editingState } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
@@ -66,15 +66,6 @@ import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
 import { hasStories, openInStorybook } from "./storybook.ts"
 import { type EditedLayer, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
-
-/** The state edits go to: the one the layer was picked in, else the one the design shows. */
-export function editingState(container: ContainerSpec, picked: string | undefined): StateSpec {
-  return (
-    container.states.find((state) => state.id === picked) ??
-    container.states.find((state) => state.id === container.view?.state) ??
-    container.states[0]!
-  )
-}
 
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in

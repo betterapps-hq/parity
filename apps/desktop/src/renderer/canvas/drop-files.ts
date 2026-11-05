@@ -8,10 +8,10 @@ import {
   type Slot,
   skippedMessage,
   slotHere,
-  sortDrop
+  sortDrop,
+  editingState
 } from "@parity-app/editor"
 import { toast } from "sonner"
-import { editingState } from "../chrome/LayerPanel.tsx"
 import { layersSelection } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
