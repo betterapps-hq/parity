@@ -403,6 +403,20 @@ theme, or `SetTokens({ primary: { default: "…", dark: "…" } })` per theme. E
 saving writes them into the project's code, so do it only when the person asks to change the design system, not to style
 one design. They're undone with the call's other changes.
 
+`SetTokens` refuses a value the Tokens panel would refuse, throwing an `invalid_input` error that names the token and
+theme and says what's wrong: a bracket or quote left open, a `var()` naming no token, or a token built on itself. None
+of that call's values are kept. A value that isn't its token's kind (`"bluish"` for a color) is refused when the call
+ends, and then nothing in the call is applied.
+
+```js
+SetTokens({ primary: { default: "oklch(0.55 0.2 260)", dark: "var(--foreground)" } })
+try {
+  SetTokens({ primary: "oklch(0.55 0.2 260" })
+} catch (error) {
+  Print(error.message) // SetTokens/primary/default: A bracket isn't closed. Add ) at the end.
+}
+```
+
 ## Checking
 
 `Screenshot` renders frames offscreen at their real widths and returns how many it took; the images come back with the

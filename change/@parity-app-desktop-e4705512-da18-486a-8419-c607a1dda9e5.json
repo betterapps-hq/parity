@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "The CLI and MCP server check Parity's answers before reading them, and say what they can't read; MCP execute refuses fields it doesn't take",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

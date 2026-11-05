@@ -20,10 +20,10 @@ import {
   overlayDesigns,
   resizeStart,
   settleUntil,
-  withFrame
+  withFrame,
+  editingState
 } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
-import { editingState } from "../chrome/LayerPanel.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, subscribeFrames } from "../frame.ts"
 import { selectedNodes, toggleLayer, useEditing } from "../selection.ts"

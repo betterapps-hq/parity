@@ -14,7 +14,7 @@ import {
   styleKeys,
   targetPatches
 } from "@parity-app/core"
-import { type Alignment, boardReader, kindsName } from "@parity-app/editor"
+import { type Alignment, boardReader, kindsName, editingState } from "@parity-app/editor"
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -39,7 +39,7 @@ import { alignSelection, deleteSelection, distributeSelection, duplicateSelectio
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
-import { editingState, measureNode } from "./LayerPanel.tsx"
+import { measureNode } from "./LayerPanel.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { type EditedLayer, type StyleEdit, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
 

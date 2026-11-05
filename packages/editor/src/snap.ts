@@ -166,6 +166,11 @@ export interface SnapSpacing {
 export interface LayerSnapScene {
   siblings: readonly SnapBox[]
   parent: SnapBox
+  /**
+   * The places among the siblings that space a box evenly, kept through a gesture, since the siblings don't move
+   * meanwhile (see `EvenSpacing`). Without it, they're worked out at each move.
+   */
+  spacing?: EvenSpacing
 }
 
 /** Which edge a resize handle moves along each axis: the start (left or top) or the end (right or bottom). */
@@ -228,9 +233,10 @@ export interface LayerSnapped {
 export function snapLayer(box: SnapBox, scene: LayerSnapScene, zoom: number, edges?: SnapEdges): LayerSnapped {
   const threshold = snapDistance / zoom
   const targets = [...scene.siblings, scene.parent]
+  const even = edges ? undefined : (scene.spacing ?? new EvenSpacing(scene.siblings))
   const result = { ...box }
   const locks: Partial<Record<Axis, Lock>> = {}
-  const spaced: Partial<Record<Axis, Spacing[]>> = {}
+  const spaced: Partial<Record<Axis, EvenPlace[]>> = {}
 
   for (const axis of ["x", "y"] as const) {
     const { start, size } = span(box, axis)
@@ -239,7 +245,7 @@ export function snapLayer(box: SnapBox, scene: LayerSnapScene, zoom: number, edg
     let mine = lines(box, axis)
     if (edge) mine = [edge === "start" ? start : start + size]
     const lock = nearestLine(mine, targets, axis, threshold)
-    const spacing = edges ? [] : evenSpacing(box, scene.siblings, axis, threshold)
+    const spacing = even ? even.near(box, axis, threshold) : []
     const spacingDelta = spacing[0] ? spacing[0].at - start : undefined
     const nearer = lock && (spacingDelta === undefined || Math.abs(lock.delta) <= Math.abs(spacingDelta))
     const delta = nearer ? lock.delta : spacingDelta
@@ -282,7 +288,7 @@ export function snapLayer(box: SnapBox, scene: LayerSnapScene, zoom: number, edg
 }
 
 /** A place that spaces a box evenly with its siblings along an axis: the box's start there, and the run it joins. */
-interface Spacing {
+export interface EvenPlace {
   at: number
   /** The siblings in the run, in order along the axis, with `undefined` where the box goes. */
   run: (SnapBox | undefined)[]
@@ -290,24 +296,61 @@ interface Spacing {
 }
 
 /**
- * The places along an axis where a box would be evenly spaced with its siblings, within `threshold` of where it is,
- * the nearest first, with every run that comes to that same place. Only siblings beside it across the axis count, as
- * a row (or a column) does: those that overlap it the other way.
+ * Even spacing among a layer's siblings, which don't move while it's dragged: the places that space it evenly with a
+ * row of them are worked out once for each row it's beside and kept, so a move only finds its row and the places near
+ * it (PAR-551). A gesture makes one with the siblings it measured.
  */
-function evenSpacing(box: SnapBox, siblings: readonly SnapBox[], axis: Axis, threshold: number): Spacing[] {
-  const across: Axis = axis === "x" ? "y" : "x"
-  const mine = span(box, across)
-  const { start, size } = span(box, axis)
+export class EvenSpacing {
+  private readonly places = new Map<string, EvenPlace[]>()
+  private readonly siblings: readonly SnapBox[]
+
+  constructor(siblings: readonly SnapBox[]) {
+    this.siblings = siblings
+  }
+
+  /**
+   * The places along an axis where `box` would be evenly spaced with its siblings, within `threshold` of where it is,
+   * the nearest first, with every run that comes to that same place. Only siblings beside it across the axis count, as
+   * a row (or a column) does: those that overlap it the other way.
+   */
+  near(box: SnapBox, axis: "x" | "y", threshold: number): EvenPlace[] {
+    const across: Axis = axis === "x" ? "y" : "x"
+    const mine = span(box, across)
+    const { start, size } = span(box, axis)
+    const row: number[] = []
+    this.siblings.forEach((other, index) => {
+      const theirs = span(other, across)
+      if (theirs.start < mine.start + mine.size && mine.start < theirs.start + theirs.size) row.push(index)
+    })
+    // Gaps within a screen pixel of each other are the same.
+    const tolerance = threshold / snapDistance
+    const key = `${axis}:${size}:${tolerance}:${row.join(",")}`
+    let found = this.places.get(key)
+    if (!found) {
+      found = evenPlaces(
+        row.map((index) => this.siblings[index]!),
+        axis,
+        size,
+        tolerance
+      )
+      this.places.set(key, found)
+    }
+    const near = found.filter((spacing) => Math.abs(spacing.at - start) <= threshold)
+    const best = near.toSorted((a, b) => Math.abs(a.at - start) - Math.abs(b.at - start))[0]
+    return best ? near.filter((spacing) => Math.abs(spacing.at - best.at) < 1e-6) : []
+  }
+}
+
+/**
+ * Every place along an axis where a box `size` long would be evenly spaced with a row of siblings: in the middle
+ * between two neighbours, or a gap after or before a run of them that's already evenly spaced. Gaps within
+ * `tolerance` of each other are the same.
+ */
+function evenPlaces(siblings: readonly SnapBox[], axis: Axis, size: number, tolerance: number): EvenPlace[] {
   const end = (other: SnapBox) => span(other, axis).start + span(other, axis).size
   const begin = (other: SnapBox) => span(other, axis).start
-  const row = siblings
-    .filter((other) => {
-      const theirs = span(other, across)
-      return theirs.start < mine.start + mine.size && mine.start < theirs.start + theirs.size
-    })
-    .toSorted((a, b) => begin(a) - begin(b))
-  // Gaps within a screen pixel of each other are the same.
-  const same = (a: number, b: number) => Math.abs(a - b) <= threshold / snapDistance
+  const row = siblings.toSorted((a, b) => begin(a) - begin(b))
+  const same = (a: number, b: number) => Math.abs(a - b) <= tolerance
   // Neighbours: one box ending before the next begins, with nothing else between them.
   const pairs: { first: SnapBox; second: SnapBox; gap: number }[] = []
   for (const first of row) {
@@ -331,7 +374,7 @@ function evenSpacing(box: SnapBox, siblings: readonly SnapBox[], axis: Axis, thr
     return after ? [first, ...runOn(after.second, gap)] : [first]
   }
 
-  const found: Spacing[] = []
+  const found: EvenPlace[] = []
   for (const { first, second, gap } of pairs) {
     // In the middle between two neighbours.
     const room = gap - size
@@ -345,13 +388,11 @@ function evenSpacing(box: SnapBox, siblings: readonly SnapBox[], axis: Axis, thr
     const before = begin(first) - gap - size
     if (clear(before, begin(first))) found.push({ at: before, run: [undefined, ...runOn(first, gap)], gap })
   }
-  const near = found.filter((spacing) => Math.abs(spacing.at - start) <= threshold)
-  const best = near.toSorted((a, b) => Math.abs(a.at - start) - Math.abs(b.at - start))[0]
-  return best ? near.filter((spacing) => Math.abs(spacing.at - best.at) < 1e-6) : []
+  return found
 }
 
 /** The marks for the runs a box joined, at its snapped place: each gap in them once. */
-function spacingMarks(axis: Axis, runs: readonly Spacing[], box: SnapBox): SnapSpacing {
+function spacingMarks(axis: Axis, runs: readonly EvenPlace[], box: SnapBox): SnapSpacing {
   const across: Axis = axis === "x" ? "y" : "x"
   const point = (along: number, at: number): SnapPoint => (axis === "x" ? { x: along, y: at } : { x: at, y: along })
   const seen = new Set<string>()

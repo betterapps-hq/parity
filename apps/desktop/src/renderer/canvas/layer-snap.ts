@@ -1,5 +1,6 @@
 import { childEntries, type ContainerSpec, locateNode } from "@parity-app/core"
 import {
+  EvenSpacing,
   type LayerSnapped,
   type LayerSnapScene,
   type LayerSnapStart,
@@ -92,7 +93,12 @@ export class LayerSnapping implements LayerSnapStart {
       w: outer.w - border("left") - border("right"),
       h: outer.h - border("top") - border("bottom")
     }
-    return new LayerSnapping(editor, host, scale, toBox(own), { siblings, parent: inner })
+    // The siblings stay where they are through the gesture, so where they'd space the layer evenly is kept.
+    return new LayerSnapping(editor, host, scale, toBox(own), {
+      siblings,
+      parent: inner,
+      spacing: new EvenSpacing(siblings)
+    })
   }
 
   /** Whether the layer snaps with these keys held: when snapping is turned on, unless Ctrl (Cmd on a Mac) is held. */

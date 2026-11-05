@@ -110,6 +110,7 @@ function fixtureHost() {
       }
     },
     iconNames: async () => ({ names: [] }),
+    supports: async (queries) => queries.map(() => true),
     apply: async (tabId, label, changes) => {
       asked.applied.push({ tab: tabId, label, changes })
       return []
@@ -207,6 +208,25 @@ describe("dispatch", () => {
     expect(asked.applied).toHaveLength(1)
     expect(asked.applied[0]).toMatchObject({ tab: "tab-1", label: "Outline the button" })
     expect(asked.applied[0]!.changes.designs).toHaveLength(1)
+  })
+
+  it("asks the host whether a token value is its token's kind, and applies nothing it refuses", async () => {
+    const { host, asked } = fixtureHost()
+    const queries: { property: string; value: string }[] = []
+    host.supports = async (asking) => {
+      queries.push(...asking)
+      return asking.map(() => false)
+    }
+    const answer = (await dispatch(
+      "exec",
+      { label: "Recolor", code: 'SetTokens({ background: "bluish" })' },
+      host
+    )) as {
+      ok: boolean
+    }
+    expect(queries.map((query) => query.value)).toContain("bluish")
+    expect(answer.ok).toBe(false)
+    expect(asked.applied).toEqual([])
   })
 
   it("keeps a screenshot's PNG as a file, without an editId to retry", async () => {

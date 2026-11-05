@@ -16,6 +16,14 @@ export interface Point {
   y: number
 }
 
+/** A box by its top left, width and height, as a drop line or an outline is drawn. */
+export interface Box {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 /**
  * How a layout places its children on screen, for dropping, dragging and nudging alike (PAR-205): along a row or down a
  * column, whether they go on to further lines, whether each line runs right to left or bottom to top (`reversed`), and
@@ -127,7 +135,7 @@ export interface Slot {
   /** Among the layout's children as they are before the move. */
   index: number
   /** The line that marks it, in the boxes' coordinates. */
-  line: { x: number; y: number; w: number; h: number }
+  line: Box
 }
 
 /**
@@ -264,7 +272,7 @@ function marker(
   row: boolean,
   wraps: boolean,
   layout: Rect
-): Slot["line"] {
+): Box {
   const reference = before ?? last
   if (row) {
     let x = layout.left + 4

@@ -9,7 +9,7 @@ import {
   withFreshIds
 } from "@parity-app/core"
 import { fitBindings } from "./clipboard.ts"
-import { type Flow, type Point, type Rect, type Slot, type SlotChild, slotAt } from "./drop-slot.ts"
+import { type Box, type Flow, type Point, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
 import { boardReader } from "./shown.ts"
 
 /**
@@ -99,7 +99,7 @@ export interface HereSlot {
   /** The pointer from inside the layout's border, in half steps of the spacing scale. */
   at: { left: number; top: number }
   /** In a layout that flows, the line that marks the slot on screen. */
-  line?: Slot["line"]
+  line?: Box
 }
 
 /**

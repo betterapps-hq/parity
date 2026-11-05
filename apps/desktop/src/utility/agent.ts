@@ -102,6 +102,7 @@ export function desktopHost(window: WindowChannel): AgentHost {
     iconNames: (tab, set, module) =>
       window.request("agent.iconNames", { tab, set, ...(module === undefined ? {} : { module }) }),
     apply: (tab, label, changes) => window.request("agent.apply", { tab, label, ...changes }),
+    supports: (queries) => window.request("agent.supports", queries),
     console: (snapshot, clear) => readConsole(snapshot.guestUrl, clear),
     async saveScreenshots(screenshots) {
       await mkdir(screenshotDir, { recursive: true })

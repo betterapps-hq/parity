@@ -53,6 +53,11 @@ export interface AgentHost {
   iconNames(tab: string, set: string, module: string | undefined): Promise<IconNames>
   /** Applies a call's changes in a tab as one undoable step, or gives back what conflicted and applies nothing. */
   apply(tab: string, label: string, changes: AgentChangeSet): Promise<ChangeConflict[]>
+  /**
+   * Whether the window's browser takes each value for its CSS property (`CSS.supports`), which says whether a
+   * `SetTokens` value is its token's kind (PAR-584).
+   */
+  supports(queries: { property: string; value: string }[]): Promise<boolean[]>
   /** What the tab's project code wrote to the console, forgotten once read when `clear` is set. */
   console(snapshot: TabSnapshot, clear: boolean): Promise<ConsoleEntry[]>
   /** Keeps a call's screenshots as PNG files, and says where each went, in order. */
@@ -313,7 +318,8 @@ async function exec(
       presence: presence(tabId),
       render: renderFor(host, snapshot),
       iconNames: (set, module) => host.iconNames(tabId, set, module),
-      apply: (changes) => host.apply(tabId, label, changes)
+      apply: (changes) => host.apply(tabId, label, changes),
+      supports: (queries) => host.supports(queries)
     }
   )
   const { changes, screenshots, ...rest } = result
