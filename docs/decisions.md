@@ -3959,6 +3959,23 @@ it, so the row is taller there instead of the value being cut. Shrinking the lis
 room for four digits at 260 pixels. Padding, Margin, Min, Max and insets keep two lengths to a row and still clip at the
 narrowest; they're left for another issue.
 
+## A correction taken back leaves the list to detection (PAR-581, PAR-604)
+
+An export the person took back off the component list stayed listed when the parse couldn't decide it, as
+`export const Menu = MenuPrimitive.Root`: reading its file again kept its `included` mark, and the type checker skips
+marked components. My calls:
+
+- **The mark follows the person's list.** `correctedSources` takes the mark off any component whose export is no longer
+  in `include`, every time it runs. Nothing else sets or clears it, so the mark always says whether the person listed
+  it.
+- **One taken back stays listed until the checker reads its file.** It's left as any export the parse can't decide is
+  after files change, so the checker confirms or drops it in the check that follows the read. Dropping it at once would
+  take it off the canvas and put it back when the checker does recognise it.
+- **An export still on the person's list keeps its mark** through files being read again, so it doesn't drop off and
+  come back.
+- **PAR-581 needed only its test.** PAR-566's step already lets removed ids go before new components get theirs, so a
+  component the checker finds keeps an id it took off the list in the same check.
+
 ## A component's name goes in only where it fits (PAR-518)
 
 A component that takes children is inserted with its name as text, so it isn't an empty box. The preview survey found
