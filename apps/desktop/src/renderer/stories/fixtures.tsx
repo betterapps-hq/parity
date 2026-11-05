@@ -1,10 +1,9 @@
+import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { childNodes, type ComponentRenderStatus, type DesignNode } from "@parity-app/core"
 import type { ReactNode } from "react"
 import { toast } from "sonner"
 import { userEvent, waitFor, within } from "storybook/test"
 import { Box } from "tldraw"
-import { Toaster } from "@/components/ui/sonner"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import type { ProjectInfo, ServiceMethods } from "../../shared/protocol.ts"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { ProjectContext } from "../canvas/context.ts"
@@ -12,6 +11,7 @@ import { setTabOrderShown } from "../canvas/tab-order.ts"
 import { setLayout } from "../chrome/layout.ts"
 import { getPreferences, type Preferences, setPreferences } from "../chrome/preferences.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
+import { useResolvedTheme } from "../theme.ts"
 import { type ProjectSession, useActiveTabId, useTabs, workspace } from "../workspace.ts"
 import { answering, projectInfo, resetHost, roots } from "./host.ts"
 
@@ -193,6 +193,7 @@ export function ProjectStage({
   className?: string
 }) {
   const active = useActiveTabId()
+  const theme = useResolvedTheme()
   const id = project ? roots[project] : active
   const session = useTabs().find((tab) => tab.id === id)?.session
   if (!session) return null
@@ -201,7 +202,8 @@ export function ProjectStage({
       <ProjectContext value={session}>
         <div className={className}>{children}</div>
       </ProjectContext>
-      <Toaster
+      <SonnerToaster
+        theme={theme}
         position="bottom-right"
         offset={{ bottom: 40, right: 16 }}
         mobileOffset={{ bottom: 40, left: 16, right: 16 }}
@@ -306,6 +308,20 @@ export async function holdToast(text: string | RegExp): Promise<void> {
     { timeout: 8000 }
   )
   await userEvent.hover(shown)
+}
+
+/** The tooltip showing, if one is. Base UI draws tooltips as visual labels only, with no role to find them by. */
+export function tooltip(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[data-slot="tooltip-content"][data-open]')
+}
+
+/** Waits for a tooltip to show. */
+export function findTooltip(options?: { timeout?: number }): Promise<HTMLElement> {
+  return waitFor(() => {
+    const shown = tooltip()
+    if (!shown) throw new Error("No tooltip is showing")
+    return shown
+  }, options)
 }
 
 async function until<T>(get: () => T | undefined): Promise<T> {

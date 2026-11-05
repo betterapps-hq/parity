@@ -1,5 +1,7 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import {
   boardTarget,
+  changesField,
   editsDesign,
   type ContainerSpec,
   type DesignNode,
@@ -12,7 +14,7 @@ import {
   styleKeys,
   targetPatches
 } from "@parity-app/core"
-import { type Alignment, boardReader } from "@parity-app/editor"
+import { type Alignment, boardReader, kindsName } from "@parity-app/editor"
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -27,7 +29,6 @@ import {
   Layers,
   Trash2
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { useProject } from "../canvas/context.ts"
 import { designColor, kindColors } from "../canvas/kinds.tsx"
 import { useStylePreview } from "../canvas/style-preview.ts"
@@ -100,13 +101,13 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
       <div className="border-b px-4 py-3">
         <div className="flex items-center gap-2 font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: designColor("screen") }} />
-          {entries.length} designs
+          {kindsName(entries.map((entry) => entry.container.kind))}
         </div>
         <p className="mt-0.5 truncate pl-6 text-xs text-muted-foreground">
           {entries.map((entry) => entry.container.name).join(", ")}
         </p>
       </div>
-      <PanelSection title="Arrange" description="Line up and space out the designs on the canvas.">
+      <PanelSection title="Arrange" description="Line up and space them out on the canvas.">
         <AlignButtons distribute={entries.length > 2} />
       </PanelSection>
       <div className="flex gap-2 px-4 py-3">
@@ -173,7 +174,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   const parentStyle = parent?.type === "layout" ? (shown(parent).style ?? {}) : undefined
   const editor: StyleEditor = {
     style: common,
-    changed: (name) => present.some((id) => patches?.[id]?.style?.[name] !== undefined),
+    changed: (name) => present.some((id) => changesField(patches?.[id], { kind: "style", key: name })),
     reset: (name) =>
       store.updateContainer(key, "Reset changes", (current) =>
         present.reduce(

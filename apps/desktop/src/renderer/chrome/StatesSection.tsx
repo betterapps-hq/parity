@@ -1,4 +1,14 @@
 import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Label,
+  Switch
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   addState,
   changeCount,
   duplicateState,
@@ -12,16 +22,6 @@ import {
 } from "@parity-app/core"
 import { Copy, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors, layerLabel, NodeIcon } from "../canvas/kinds.tsx"
 import { activeState } from "../canvas/view.ts"
@@ -40,7 +40,8 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
   const allStates = container.view?.allStates ?? false
   const [renaming, setRenaming] = useState<string>()
 
-  const view = (state: string) => store.updateView(key, (current) => ({ ...current, state, allStates: false }))
+  const view = (state: string, name = container.states.find(({ id }) => id === state)?.name ?? state) =>
+    store.updateView(key, `Show ${name}`, (current) => ({ ...current, state, allStates: false }))
   const add = () => {
     let id = ""
     store.updateContainer(key, "Add state", (current) => {
@@ -99,7 +100,12 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
         <Switch
           size="sm"
           checked={allStates}
-          onCheckedChange={(on) => store.updateView(key, (current) => ({ ...current, allStates: on }))}
+          onCheckedChange={(on) =>
+            store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (current) => ({
+              ...current,
+              allStates: on
+            }))
+          }
         />
       </Label>
       {!isBaseState(container, active.id) && !allStates && <ChangesList entry={entry} state={active} />}
@@ -130,9 +136,10 @@ function StateRow({
   onDuplicate,
   onDelete
 }: StateRowProps) {
+  // The first state is what the others change, so it has nothing to count.
   const changes = changeCount(state)
   let summary = `${changes} change${changes === 1 ? "" : "s"}`
-  if (base) summary = "Base"
+  if (base) summary = ""
   else if (changes === 0) summary = "No changes"
   return (
     <li
@@ -167,27 +174,29 @@ function StateRow({
           <span className="min-w-0 flex-1 truncate">{state.name}</span>
         </button>
       )}
-      <span className="shrink-0 px-1 text-xs text-muted-foreground">{summary}</span>
+      {summary && <span className="shrink-0 px-1 text-xs text-muted-foreground">{summary}</span>}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label={`${state.name} actions`}
-            className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label={`${state.name} actions`}
+              className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
+            >
+              <MoreHorizontal />
+            </Button>
+          }
+        />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onRename}>
+          <DropdownMenuItem onClick={onRename}>
             <Pencil /> Rename
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onDuplicate}>
+          <DropdownMenuItem onClick={onDuplicate}>
             <Copy /> Duplicate
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" disabled={!onDelete} onSelect={onDelete}>
+          <DropdownMenuItem variant="destructive" disabled={!onDelete} onClick={onDelete}>
             <Trash2 /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>

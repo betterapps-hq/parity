@@ -373,7 +373,9 @@ describe("how shortcuts are shown", () => {
         "Select matching layers Ctrl+Alt+A"
       ])
     )
-    expect(await items("View")).toEqual(expect.arrayContaining(["Next design N", "Previous design Shift+N"]))
+    expect(await items("View")).toEqual(
+      expect.arrayContaining(["Next screen or component N", "Previous screen or component Shift+N"])
+    )
   })
 
   it("lists the nudges and the new keys in the Keyboard shortcuts dialog, as keycaps", async () => {
@@ -384,8 +386,8 @@ describe("how shortcuts are shown", () => {
     for (const label of [
       "Nudge",
       "Big nudge",
-      "Next design",
-      "Previous design",
+      "Next screen or component",
+      "Previous screen or component",
       "Paste over selection",
       "Paste to replace"
     ]) {

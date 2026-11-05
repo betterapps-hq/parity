@@ -193,11 +193,25 @@ export function findNodeElement(host: Element, nodeId: string): HTMLElement | un
 }
 
 /**
- * A node's box on screen: around everything it draws at its top level. An element that isn't drawn (display: none)
- * has an empty box at the frame's corner, so it's left out unless nothing else is drawn.
+ * A node's box on screen: around everything it draws at its top level, its elements and any text it draws outside
+ * them. An element that isn't drawn (display: none) has an empty box at the frame's corner, so it's left out unless
+ * nothing else is drawn.
  */
 export function nodeBox(host: Element, nodeId: string): DOMRect | undefined {
-  return boxAround(findNodeElements(host, nodeId).map(elementBox))
+  const drawn = drawnNodes(host)
+  return drawn ? boxAround(drawnBoxes(drawn, nodeId)) : boxAround(findNodeElements(host, nodeId).map(elementBox))
+}
+
+/** The boxes of what a node draws at its top level, as its frame's guest says: its elements, then its text. */
+function drawnBoxes(drawn: DrawnNodes, nodeId: string): DOMRect[] {
+  return [...drawn.elements(nodeId).map(elementBox), ...drawn.texts(nodeId).map(textBox)]
+}
+
+/** The box around a text's characters. */
+function textBox(text: Text): DOMRect {
+  const range = document.createRange()
+  range.selectNodeContents(text)
+  return range.getBoundingClientRect()
 }
 
 /** Whether each element is clipped to nothing, read once, since a hidden input stays hidden. */
@@ -258,7 +272,7 @@ export function nodesAt(host: Element, point: { x: number; y: number }): string[
     !!rect && point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
   const drawn = drawnNodes(host)
   if (drawn) {
-    return drawn.ids.filter((id) => holds(boxAround(drawn.elements(id).map(elementBox))))
+    return drawn.ids.filter((id) => holds(boxAround(drawnBoxes(drawn, id))))
   }
   return attributeElements(host)
     .filter((element) => holds(boxAround([elementBox(element)])))

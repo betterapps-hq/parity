@@ -31,6 +31,8 @@ import {
   type FileWrite,
   fileWrite,
   type HistoryState,
+  kindName,
+  kindsName,
   mergedDocument,
   moveDesign,
   openDesigns,
@@ -44,10 +46,10 @@ import {
   type StatusOptions,
   saveFailure,
   startSave,
-  type TokenChange,
   type TokenEdit,
   type TokenEdits,
   type TokenFailure,
+  type TokenWrite,
   undoChange,
   unsavedPaths,
   withStylesheet,
@@ -81,7 +83,7 @@ interface Persistence {
 /** Writes token values into the project's stylesheet, `path`. */
 export interface TokenWriter {
   path: string
-  write(changes: TokenChange[]): Promise<unknown>
+  write(changes: TokenWrite[]): Promise<unknown>
 }
 
 const saveDelay = 300
@@ -264,11 +266,11 @@ export class DesignStore {
   }
 
   /**
-   * Changes what a design shows, which isn't undoable. The view is kept tidy, so switching something on and off again
-   * leaves the file as it was.
+   * Changes what a design shows, which isn't undoable. `label` says what changed ("Show Dark", "Show every state"). The
+   * view is kept tidy, so switching something on and off again leaves the file as it was.
    */
-  updateView(key: string, update: (view: ContainerViewSettings) => ContainerViewSettings): void {
-    this.updateContainer(key, "Change view", (container) => withTidyView(container, update(container.view ?? {})), {
+  updateView(key: string, label: string, update: (view: ContainerViewSettings) => ContainerViewSettings): void {
+    this.updateContainer(key, label, (container) => withTidyView(container, update(container.view ?? {})), {
       history: false
     })
   }
@@ -278,8 +280,14 @@ export class DesignStore {
     this.change(label, (snapshot) => ({ ...snapshot, tokens: withTokenEdits(snapshot.tokens, edits) }), options)
   }
 
+  /** The designs with these keys as a label names them, by kind: "screen", "2 components" (see `kindsName`). */
+  designsLabel(keys: Iterable<string>): string {
+    return kindsName([...keys].map((key) => this.getEntry(key)?.container.kind))
+  }
+
   setPosition(key: string, position: { x: number; y: number }, options?: ChangeOptions): void {
-    this.updateContainer(key, "Move design", (container) => moveDesign(container, position), options)
+    const label = `Move ${kindName(this.getEntry(key)?.container.kind)}`
+    this.updateContainer(key, label, (container) => moveDesign(container, position), options)
   }
 
   setModes(modes: ModeSettings, label = "Edit modes"): void {
@@ -287,15 +295,16 @@ export class DesignStore {
   }
 
   /** Adds a design to a file, creating the file when it doesn't exist yet. Returns the design's key. */
-  addContainer(path: string, container: ContainerSpec, label = "Add design"): string {
+  addContainer(path: string, container: ContainerSpec, label = `Add ${kindName(container.kind)}`): string {
     this.change(label, (snapshot) => addDesign(snapshot, path, container))
     return containerKey(path, container.id)
   }
 
-  removeContainer(key: string, label = "Delete design"): void {
+  removeContainer(key: string, label?: string): void {
     const design = this.designOf(key)
     if (!design) return
-    this.change(label, (snapshot) => deleteDesign(snapshot, design))
+    const named = label ?? `Delete ${kindName(this.getEntry(key)?.container.kind)}`
+    this.change(named, (snapshot) => deleteDesign(snapshot, design))
   }
 
   addNote(path: string, note: NoteSpec): string {

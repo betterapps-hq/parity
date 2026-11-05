@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, spyOn, userEvent, within } from "storybook/test"
+import { findTooltip } from "../stories/fixtures.tsx"
 import { CopyButton, CopyOnClick } from "./Copy.tsx"
 
 /**
@@ -81,7 +82,7 @@ export const ClickCopied: Story = {
     try {
       await userEvent.click(within(canvasElement).getByRole("button", { name: `Copy ${swatches[1]}` }))
       await expect(writes).toHaveBeenLastCalledWith(swatches[1])
-      await expect(await within(document.body).findByRole("tooltip")).toHaveTextContent("Copied")
+      await expect(await findTooltip()).toHaveTextContent("Copied")
     } finally {
       writes.mockRestore()
     }
@@ -99,7 +100,7 @@ export const Refused: Story = {
       const button = within(canvasElement).getByRole("button", { name: "Copy --radius-md" })
       await userEvent.click(button)
       await expect(button).toHaveAttribute("data-copied", "failed")
-      await expect(await within(document.body).findByRole("tooltip")).toHaveTextContent("Couldn't copy")
+      await expect(await findTooltip()).toHaveTextContent("Couldn't copy")
     } finally {
       writes.mockRestore()
       fallback.mockRestore()

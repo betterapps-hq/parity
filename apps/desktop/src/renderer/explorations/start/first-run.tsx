@@ -1,10 +1,10 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * The first time, signed in with nothing yet. It keeps Home's layout, so nothing moves once there are projects: a
  * finished sample where Continue will be, what to set up where For you will be, and templates where Recent will be.
  */
 import { ArrowRight, Check, FolderOpen, Layers } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
 import { me, people } from "../explore-data.ts"
 import { Avatar, AzureDevOpsMark, GitHubMark } from "../parts.tsx"
 import { stacks, type StartProject, templatesOn } from "./data.ts"

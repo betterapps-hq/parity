@@ -1,3 +1,4 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * Inspect, Parity's answer to Dev Mode: a board opened from Handoff, read-only, at the version that was approved. Pick
  * anything on it to see the component it is, its file, its props as code, its states, its text, the tokens it uses and
@@ -6,7 +7,6 @@
  */
 import { Bot, ChevronRight, Copy, ExternalLink, FileCode, Monitor } from "lucide-react"
 import { Fragment, type ReactNode } from "react"
-import { Button } from "@/components/ui/button"
 import { me } from "../explore-data.ts"
 import { Avatar, ParityMark } from "../parts.tsx"
 import { DesignRender } from "../start/renders.tsx"

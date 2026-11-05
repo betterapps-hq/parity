@@ -1,7 +1,7 @@
+import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { describedCategories, describedTokenCss, extractTokens, readDesignTokens } from "@parity-app/tokens"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { within } from "storybook/test"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import { ProjectContext } from "../canvas/context.ts"
 import { example, openProjects } from "../stories/fixtures.tsx"
 import { TokenStore } from "../tokens-store.ts"

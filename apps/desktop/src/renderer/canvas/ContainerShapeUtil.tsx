@@ -268,7 +268,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
           return found ? [[candidate, { x: found.x, y: found.y }] as const] : []
         })
       )
-      moveDesigns(session, positions, positions.size === 1 ? "Move design" : `Move ${positions.size} designs`)
+      moveDesigns(session, positions, `Move ${session.store.designsLabel(positions.keys())}`)
     }
     target.addEventListener("pointermove", move)
     target.addEventListener("pointerup", end)
@@ -279,7 +279,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   if (!entry) {
     return (
       <div ref={ref} className="rounded-xl border bg-card p-5 text-sm text-destructive">
-        Missing design {shape.props.key}
+        Nothing called {shape.props.key} in the project
       </div>
     )
   }

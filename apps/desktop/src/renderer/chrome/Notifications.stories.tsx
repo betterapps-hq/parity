@@ -1,6 +1,6 @@
+import { SonnerToaster } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
-import { Toaster } from "@/components/ui/sonner"
 import { AppWindow } from "../App.tsx"
 import { layersSelection } from "../selection.ts"
 import {
@@ -26,11 +26,11 @@ import { copySelectionStyle, exportImages, save, saveCopy, unwrapSelection } fro
  */
 const meta = {
   title: "Parity/Chrome/Notifications",
-  component: Toaster,
+  component: SonnerToaster,
   render: () => <AppWindow />,
   decorators: [Window],
   loaders: [clearNotifications]
-} satisfies Meta<typeof Toaster>
+} satisfies Meta<typeof SonnerToaster>
 
 export default meta
 type Story = StoryObj<typeof meta>
@@ -118,7 +118,7 @@ export const Exporting: Story = {
   play: async () => {
     await frameDesigns("Pricing")
     void exportImages("selection")
-    await holdToast("Exporting the design…")
+    await holdToast("Exporting Pricing…")
   }
 }
 
@@ -157,7 +157,7 @@ export const ExportedWithWarnings: Story = {
   play: async () => {
     await frameDesigns("Pricing")
     void exportImages("selection")
-    await holdToast("Some frames had problems")
+    await holdToast("Some previews had problems")
   }
 }
 
@@ -187,7 +187,7 @@ export const NothingSelectedToExport: Story = {
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
     void exportImages("selection")
-    await holdToast("Select a design to export it")
+    await holdToast("Select a screen or component to export it")
   }
 }
 

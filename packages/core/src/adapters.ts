@@ -245,6 +245,11 @@ export interface DrawnNodes {
    * component that draws nothing.
    */
   elements(id: string): readonly Element[]
+  /**
+   * The text a node draws at its top level, outside any element of its own: all a component that draws only text
+   * (`function Label() { return "Email" }`) has, so its box is its text's.
+   */
+  texts(id: string): readonly Text[]
   /** The node a node is drawn inside. */
   parent(id: string): string | undefined
   /** The node an element in the frame belongs to: the innermost one that draws it or an element around it. */

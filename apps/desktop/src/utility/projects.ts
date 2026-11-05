@@ -519,7 +519,8 @@ export async function saveDocumentCopy({
 
 /**
  * Writes token values into the project's stylesheet: semantic tokens into `:root` or their theme class, theme scale
- * tokens into an `@theme` block, editing declarations in place where they already exist.
+ * tokens into an `@theme` block, editing declarations in place where they already exist. A change without a value
+ * takes the declaration out, and a block it leaves empty.
  */
 export async function saveTokens({
   projectId,
@@ -538,7 +539,7 @@ export async function saveTokens({
   // Keep the theme in step, so a reopened tab sees the new values before the builder recompiles.
   for (const change of changes) {
     const variable = project.info.theme.find((candidate) => candidate.name === change.name)
-    if (variable && change.theme === "default") variable.value = change.value
+    if (variable && change.theme === "default" && change.value !== undefined) variable.value = change.value
   }
   return edit
 }

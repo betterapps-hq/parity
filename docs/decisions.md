@@ -96,6 +96,14 @@ still need your call.
   button is Apply, with a line saying Save writes it to the stylesheet. Don't save writes nothing. A failed write names
   the token and the file in the save notice, the status bar and the Tokens panel, where its row is marked and a banner
   offers Try again; a stylesheet changed since it was read fails the same way.
+- **Save takes out a token value that's been undone back to nothing** (PAR-420): a value given to a theme that had none
+  (a dark `--radius`), saved and then undone, is written as a `TokenWrite` without a value, rather than as an empty
+  value, so a value that's empty on purpose can't be mistaken for one taken out. `writeTokenChanges` takes the
+  declaration out of every block that would hold it (the theme's `.dark` and `[data-theme="dark"]` alike, but no `:root`
+  under `@media`), with its line, and a rule left with nothing in it goes too, with one of the blank lines around it, so
+  a value Save added in a new block leaves the file as it was. A rule that keeps only a comment stays, and so do the
+  at-rules around one taken out, which Save never adds. The frames' overrides are unchanged: compared with the CSS the
+  canvas loaded, so the render window is assumed to have loaded the same CSS.
 - **Closing a tab or quitting with unsaved changes asks** Save, Don't save or Cancel, with Save focused so Enter does
   it. Quitting with several projects unsaved asks once, with Save all.
 - **Changes from outside reload as one undoable step.** That covers agents, git and text editors. A file with unsaved
@@ -553,6 +561,15 @@ section has the details. The user asked for "variants, instance overrides and th
 - **Prop and param fields follow the declared type** (PAR-164), not the value's: a number param with no value takes a
   number, JSON that doesn't parse is refused with the reason rather than saved as text, and an empty field clears the
   value.
+- **A state can take a value away (PAR-426):** a patch's `unset` lists prop names and style keys to drop from what's
+  under it, `{ "unset": { "style": ["gap"], "props": ["disabled"] } }`, so a state, a variant option, an instance's
+  overrides or a viewport can show a layer without what the design sets. Patches layer as before: an upper patch's
+  `unset` drops the lower ones' values, and a value it sets wins over a key a lower one took away. Taking an instance's
+  param value away gives the param its default. In the base design, taking a key away removes it. A key is only kept in
+  `unset` when what's under the patch has it, and never both set and taken away by one patch. My call over `null` in a
+  patch's values: agents' `Update` already reads `null` as "take back this change", and a prop can be `null` on purpose,
+  so a list says it apart from both. Paste style in a state takes away what the copy doesn't set, so it replaces the
+  look there as it does in the base, and the inspector marks a value taken away as changed, with Reset.
 - **The variant grid shows each variant on its own, plus combinations someone pins.** You chose this on 2026-10-28 over
   every combination, which multiplies fast.
 - **A component design in `.par` stays the source, linked to a real component file.** You set the direction on
@@ -3198,6 +3215,26 @@ You chose these on 2026-11-04 from the new-user audit
 - **A project file with an `exclude` list still opens.** It's read and dropped, so the next save leaves it out, rather
   than the file failing to open over a list no version reads now.
 
+## The labels that follow the glossary (PAR-538)
+
+Calls made on 2026-11-04 while renaming the editor's labels to the glossary above, for you to approve in the pull
+request's Storybook preview:
+
+- **The modes menu offers "Only Desktop Light", by the mode's name,** rather than the issue's "Only this one", which
+  says nothing beside Show all. The inspector's Modes section already said "Only Desktop Light". The preview a board
+  shows first is marked "Shown first", and the others offer Show first.
+- **The first state shows its name alone.** With Base gone, the state menu, the every-state grid's labels and the States
+  section show no tag beside the first state rather than a count of changes, and a field's reset says "Reset to
+  Default", or whatever the first state is called.
+- **A label names the kind when it knows it,** counted for several ("Delete 2 components", "Move 3 screens and
+  components", screens first), and says "screen or component" when it can't. Export stays short in the File menu (Export
+  selected…, Export all…), and Interact is "Interact with previews".
+- **A screen's icon is lucide's AppWindow,** which reads as a window of the app.
+- **The Components panel calls the project's own components Local components,** as Figma's assets do, and a library's
+  ready-made ones Ready-made components, so neither is "Component designs".
+- **Left as they were:** the explorations under `apps/desktop/src/renderer/explorations/`, which are design sketches;
+  the agent tools' and `packages/core`'s messages ("No component design"), which agents read; and "Pasted" (PAR-546).
+
 ## Starting on an empty canvas is one visible step (PAR-541)
 
 You approved the explorations on 2026-11-04 ("Looks pretty good! Let's ship it"). They're in Storybook under Parity /
@@ -3251,3 +3288,67 @@ frames show a skeleton loader until their image loads. My calls:
   edits aren't captured at every step, and nothing is being edited in a frame that hasn't drawn.
 - **`pnpm perf` counts a frame as shown once it's asleep,** which is when it shows its bitmap or its placeholder, and
   still times every bitmap separately.
+
+## A screen is its own container (PAR-542)
+
+You approved the explorations on 2026-11-04 ("Yeah, let's ship it"). They're in Storybook under Parity / Explorations /
+A screen is its container, from the audit's "Selecting any of them selects the container"
+([proposals/new-user-experience.md](proposals/new-user-experience.md)). PAR-547 builds them in the app.
+
+- **Selecting a screen or component shows its root's sections first,** the ones a layer's inspector has today: Layout
+  (auto layout), Spacing (padding), Size, Appearance (fill), Stroke and Text inside. A component whose root is a code
+  component, as Plan card's is a Card, starts with that component's props. There's no Visibility or Position section,
+  since a root has no parent.
+- **What only a screen or component has comes below:** a component's Variants and Params, with where it's used, then
+  States, Modes, and for a screen Repeated parts, the heading Find repeated parts now sits under rather than
+  "Components". The header keeps the name, the Screen or Component toggle and the file.
+- **The editing bar shows only once there's somewhere else for edits to go:** a second state or a variant. It says
+  "changes every state" or "changes only this state", and the root's edits go to the state being edited, as a layer's
+  do.
+- **Layers lists the root's children straight under the screen or component,** with no Page row. A change the root has
+  in the shown state, or on a viewport, marks the screen's own row. The headings and empty rows are the start design's
+  (above).
+- **A click on a screen's padding selects the screen,** and Enter from there selects the layers inside, as Figma's Enter
+  selects a frame's children. Shift+Enter or Esc from one of them selects the screen again, never a root layer between.
+- **With nothing selected, the inspector asks for "a screen or component on the canvas or in Layers"** and says its
+  size, layout and styles show there, matching the empty canvas's wording.
+
+Seen in review, for PAR-547 to weigh: a screen's own sections now start below six style sections, about 1,300px down
+Plan card's panel; and at the inspector's default 320px the shipped padding and minimum height fields cut off values
+such as 64 and 800, which are now among the first fields a person sees.
+
+## The app runs on Buildkit's Base UI Nova (PAR-549)
+
+The 23 copies in `components/ui` are gone, with `components.json`, Radix, `shadcn`, `tw-animate-css`, `cmdk` and the
+`cn` package; the app imports every component from `@buildkitgg/shadcn-baseui-kit`, and its stylesheet is the kit's
+`tailwind.css`. The comparison stories went with them. Your calls:
+
+- **The kit's components are used bare,** as you asked on 2026-11-04: no app-owned wrappers around them. What the app
+  needs beyond the kit is said where a component is used. Keys pass through `formatKeys` inside the kit's `Kbd` and
+  `*Shortcut` parts, and `SonnerToaster` gets the app's theme from `useResolvedTheme` where it's placed, since the kit's
+  reads `next-themes`, which Parity doesn't use.
+- **The title bar's menubar keeps two classes, in `AppMenu.tsx`:** no border around the bar, and menus as wide as what
+  they hold (`w-auto`), since the kit's are as wide as their trigger and wrap their items. The rest of its old look,
+  taller names, checks at the end of items, small dimmed labels and a fade as menus close, went.
+- **Menus and selects stay open when the window loses focus,** Base UI's default. Radix's closed.
+- **The side panel's tab strip is the kit's tabs,** a muted track with the open tab raised, rather than the app's own
+  look on an unstyled primitive. Its panels are the kit's `TabsContent`, which need Base UI's tabs around them, and the
+  kit's are those, so `@base-ui/react` isn't a dependency of its own.
+
+My calls:
+
+- **A token's row is its detail's trigger.** Base UI's popover has no anchor apart from its trigger, so the row, already
+  a button saying it opens a dialog, is the `PopoverTrigger`, with its click kept from toggling the detail, since a
+  click copies the token. Escape in a field being edited is kept from closing it through `onOpenChange`'s reason.
+- **The canvas menu turns events away with `preventBaseUIHandler`.** Base UI opens a context menu for a `contextmenu`
+  even when it's been cancelled, where Radix didn't, so the canvas's menu stops tldraw's held-back event and
+  right-clicks in Interact mode that way.
+- **Tooltips are visual labels only.** Base UI gives them no `tooltip` role and doesn't tie them to their trigger, so a
+  control with one needs its own name (`aria-label`), as IconButton and the toolbar give theirs. Stories find the open
+  one by the kit's `data-slot="tooltip-content"`.
+- **Toggle groups are pressed buttons, not radios.** Base UI's is a `group` of buttons with `aria-pressed`, where
+  Radix's single-choice one was `radio`s with `aria-checked`. The kit styles the pressed one, so the app's
+  `aria-checked` classes, there because Radix's tooltip took over a toggle's `data-state`, went; the toolbar's tools key
+  their look off `aria-pressed`.
+- **Open triggers style by `aria-expanded`,** which Base UI sets on every menu, popover and select trigger, where Radix
+  set `data-state="open"`; a closing popup is `[data-closed]` for the canvas's shortcuts.

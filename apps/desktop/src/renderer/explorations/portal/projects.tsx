@@ -1,10 +1,10 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * All projects: every project in Kestrel you can open, as a list grouped by team, so a 300-person org can find work
  * and see where each team's boards stand. Each team's line counts its boards by status and what it approved this week;
  * each project shows its owner, its last edit and its boards. Opening one opens its canvas.
  */
 import { ChevronDown, LayoutGrid, List } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Avatar, GitHubMark } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
 import { CanvasArt } from "../start/page.tsx"

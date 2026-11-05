@@ -1,4 +1,23 @@
 import {
+  Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   applyFieldInput,
   type FieldNote,
   type FieldRules,
@@ -23,12 +42,6 @@ import {
   useRef,
   useState
 } from "react"
-import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { ProjectContext } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { Hint } from "./Hint.tsx"
@@ -56,6 +69,9 @@ interface FieldProps {
 }
 
 const MixedContext = createContext(false)
+
+/** The first state's name, which a field's reset goes back to: Default unless it's been renamed. */
+export const FirstStateName = createContext("Default")
 
 /**
  * What the number fields inside edit, as a key that changes when that does: the selection, for the inspector (see
@@ -93,6 +109,7 @@ const MessageContext = createContext<((id: string, message: FieldMessage | undef
  * the row.
  */
 export function Field({ label, hint, changed, mixed = false, onReset, children }: FieldProps) {
+  const firstState = useContext(FirstStateName)
   const scrubs = useRef(new Set<Scrub>())
   const [scrub, setScrub] = useState<Scrub>()
   const register = useCallback((added: Scrub) => {
@@ -140,12 +157,12 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
         </ScrubContext>
       </div>
       {changed && onReset ? (
-        <Hint label="Reset to the base design">
+        <Hint label={`Reset to ${firstState}`}>
           <button
             type="button"
             onClick={onReset}
             className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label={`Reset ${label} to the base design`}
+            aria-label={`Reset ${label} to ${firstState}`}
           >
             <RotateCcw className="size-3" />
           </button>
@@ -594,21 +611,23 @@ export function ChoiceInput<T extends string>({
   placeholder?: string
 }) {
   const mixed = useMixed()
+  const items: { value: string; label: ReactNode }[] = [
+    { value: "__unset", label: <span className="text-muted-foreground">{placeholder}</span> },
+    ...options
+  ]
   return (
     <Select
-      value={value ?? (mixed ? "" : "__unset")}
-      onValueChange={(next) => onChange(next === "__unset" ? undefined : (next as T))}
+      items={items}
+      value={value ?? (mixed ? null : "__unset")}
+      onValueChange={(next) => onChange(next === null || next === "__unset" ? undefined : (next as T))}
     >
       <SelectTrigger size="sm" className="h-7 w-full text-xs">
         <SelectValue placeholder="Mixed" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="__unset">
-          <span className="text-muted-foreground">{placeholder}</span>
-        </SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
+        {items.map((item) => (
+          <SelectItem key={item.value} value={item.value}>
+            {item.label}
           </SelectItem>
         ))}
       </SelectContent>
@@ -736,17 +755,19 @@ export function TokenInput({
   const groups = Map.groupBy(choices, (token) => token.source)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal">
-          <span className="flex min-w-0 items-center gap-1.5">
-            {value && categories.includes("color") && <Swatch value={current?.values.default ?? `var(--${value})`} />}
-            <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>
-              {value ?? (mixed ? "Mixed" : "None")}
+      <PopoverTrigger
+        render={
+          <Button variant="outline" size="sm" className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal">
+            <span className="flex min-w-0 items-center gap-1.5">
+              {value && categories.includes("color") && <Swatch value={current?.values.default ?? `var(--${value})`} />}
+              <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>
+                {value ?? (mixed ? "Mixed" : "None")}
+              </span>
             </span>
-          </span>
-          <ChevronsUpDown className="size-3 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+            <ChevronsUpDown className="size-3 opacity-50" />
+          </Button>
+        }
+      />
       <PopoverContent className="w-64 p-0" align="start">
         <Command>
           <CommandInput placeholder="Search tokens" className="h-8 text-xs" />

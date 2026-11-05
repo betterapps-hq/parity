@@ -191,10 +191,10 @@ describe("leaving the editor", () => {
 })
 
 describe("auto width, auto height and fixed text", () => {
-  const sizing = (name: string) => app.page.getByRole("radio", { name })
+  const sizing = (name: string) => app.page.getByRole("button", { name, exact: true })
   const pressed = async () => {
     for (const name of ["Auto width", "Auto height", "Fixed size"]) {
-      if ((await sizing(name).getAttribute("aria-checked")) === "true") return name
+      if ((await sizing(name).getAttribute("aria-pressed")) === "true") return name
     }
     return undefined
   }

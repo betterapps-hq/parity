@@ -1,7 +1,7 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity-app/core"
 import type { Editor } from "tldraw"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
-import { allFrames, boxAround, elementBox, findFrames, findNodeElements, nodeParent, nodesAt } from "../frame.ts"
+import { allFrames, findFrames, findNodeElement, nodeBox, nodeParent, nodesAt } from "../frame.ts"
 import type { Selection } from "../selection.ts"
 import type { Selected, Under } from "./pick.ts"
 
@@ -110,14 +110,16 @@ export function selectionFrame(
 
 /**
  * A node in each frame of its design, the picked frame first: its first element, and its box around everything it
- * draws, which is what outlines and sizes show.
+ * draws, which is what outlines and sizes show. A component that draws only text has a box and no element.
  */
 export function nodeInFrames(area: ParentNode, design: string, node: string, picked: HTMLElement | undefined) {
   return findFrames(area, design)
     .flatMap((host) => {
-      const elements = findNodeElements(host, node)
-      const rect = boxAround(elements.map(elementBox))
-      return elements[0] && rect ? [{ host, element: elements[0], rect, picked: host === picked }] : []
+      const rect = nodeBox(host, node)
+      const element: HTMLElement | undefined = findNodeElement(host, node)
+      return rect && (element || rect.width > 0 || rect.height > 0)
+        ? [{ host, element, rect, picked: host === picked }]
+        : []
     })
     .sort((a, b) => Number(b.picked) - Number(a.picked))
 }

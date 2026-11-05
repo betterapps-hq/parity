@@ -1,4 +1,19 @@
 import {
+  Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Toggle,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   type DesignNode,
   type FieldRules,
   type Length,
@@ -28,11 +43,6 @@ import {
   WrapText
 } from "lucide-react"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Toggle } from "@/components/ui/toggle"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { kindColors } from "../canvas/kinds.tsx"
 import {
   ChoiceInput,
@@ -183,30 +193,29 @@ function LayoutSection({ editor }: SectionProps) {
         >
           <div className="flex items-center gap-1.5">
             <ToggleGroup
-              type="single"
               variant="outline"
               size="sm"
               spacing={0}
               // Mixed directions press no button, rather than the default.
-              value={mixed("display") || mixed("direction") ? "" : mode}
-              onValueChange={(value) => {
+              value={[mixed("display") || mixed("direction") ? "" : mode]}
+              onValueChange={([value]) => {
                 if (!value) return
                 if (value === "grid") set({ display: "grid", columns: style.columns ?? 2 }, "Use a grid")
                 else set({ display: undefined, direction: value as "row" | "column" }, "Change direction")
               }}
             >
               <Hint label="Vertical auto layout">
-                <ToggleGroupItem value="column" aria-label="Vertical" className="h-7 px-2 aria-checked:bg-muted">
+                <ToggleGroupItem value="column" aria-label="Vertical" className="h-7 px-2">
                   <ArrowDown />
                 </ToggleGroupItem>
               </Hint>
               <Hint label="Horizontal auto layout">
-                <ToggleGroupItem value="row" aria-label="Horizontal" className="h-7 px-2 aria-checked:bg-muted">
+                <ToggleGroupItem value="row" aria-label="Horizontal" className="h-7 px-2">
                   <ArrowRight />
                 </ToggleGroupItem>
               </Hint>
               <Hint label="Grid">
-                <ToggleGroupItem value="grid" aria-label="Grid" className="h-7 px-2 aria-checked:bg-muted">
+                <ToggleGroupItem value="grid" aria-label="Grid" className="h-7 px-2">
                   <Grid3x3 />
                 </ToggleGroupItem>
               </Hint>
@@ -712,13 +721,12 @@ function PositionSection({ editor, parent }: SectionProps) {
           onReset={() => reset("position")}
         >
           <ToggleGroup
-            type="single"
             variant="outline"
             size="sm"
             spacing={0}
             className="w-full"
-            value={absolute ? "absolute" : "flow"}
-            onValueChange={(value) =>
+            value={[absolute ? "absolute" : "flow"]}
+            onValueChange={([value]) =>
               value &&
               set(
                 value === "absolute"
@@ -876,12 +884,11 @@ function StrokeSection({ editor }: SectionProps) {
             onReset={() => reset("borderWidth")}
           >
             <ToggleGroup
-              type="single"
               variant="outline"
               size="sm"
               spacing={0}
-              value={String(style.borderWidth ?? 1)}
-              onValueChange={(value) => value && set({ borderWidth: Number(value) }, "Change stroke width")}
+              value={[String(style.borderWidth ?? 1)]}
+              onValueChange={([value]) => value && set({ borderWidth: Number(value) }, "Change stroke width")}
             >
               {[1, 2, 4, 8].map((width) => (
                 <ToggleGroupItem key={width} value={String(width)} className="h-7 w-9 text-xs tabular-nums">
@@ -998,18 +1005,17 @@ function TextSection({ editor, node }: SectionProps) {
           onReset={() => reset("textAlign")}
         >
           <ToggleGroup
-            type="single"
             variant="outline"
             size="sm"
             spacing={0}
-            value={style.textAlign ?? ""}
-            onValueChange={(value) =>
+            value={[style.textAlign ?? ""]}
+            onValueChange={([value]) =>
               set({ textAlign: (value || undefined) as NodeStyle["textAlign"] }, "Change text alignment")
             }
           >
             {textAlignOptions.map(({ value, label, Icon }) => (
               <Hint key={value} label={label}>
-                <ToggleGroupItem value={value} aria-label={label} className="h-7 px-2 aria-checked:bg-muted">
+                <ToggleGroupItem value={value} aria-label={label} className="h-7 px-2">
                   <Icon />
                 </ToggleGroupItem>
               </Hint>
@@ -1113,12 +1119,11 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
       onReset={() => (reset("width"), reset("height"))}
     >
       <ToggleGroup
-        type="single"
         variant="outline"
         size="sm"
         spacing={0}
-        value={differs ? "" : textSizing(style)}
-        onValueChange={(value) => {
+        value={[differs ? "" : textSizing(style)]}
+        onValueChange={([value]) => {
           const sizing = textSizingOptions.find((option) => option.value === value)
           if (!sizing) return
           set(
@@ -1138,7 +1143,7 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
       >
         {textSizingOptions.map(({ value, label, Icon }) => (
           <Hint key={value} label={label}>
-            <ToggleGroupItem value={value} aria-label={label} className="h-7 px-2 aria-checked:bg-muted">
+            <ToggleGroupItem value={value} aria-label={label} className="h-7 px-2">
               <Icon />
             </ToggleGroupItem>
           </Hint>
@@ -1217,15 +1222,17 @@ export function LengthInput({
       onCommit={onCommit}
       after={
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label={`Pick a token for ${title.toLowerCase()}`}
-              className="grid h-full w-5 shrink-0 place-items-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <ChevronDown className="size-3" />
-            </button>
-          </PopoverTrigger>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                aria-label={`Pick a token for ${title.toLowerCase()}`}
+                className="grid h-full w-5 shrink-0 place-items-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <ChevronDown className="size-3" />
+              </button>
+            }
+          />
           <PopoverContent className="w-60 p-0" align="end">
             <Command>
               <CommandInput placeholder="Search spacing" className="h-8 text-xs" />

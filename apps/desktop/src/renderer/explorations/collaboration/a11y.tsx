@@ -1,3 +1,4 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import {
   AudioLines,
   Check,
@@ -14,8 +15,6 @@ import {
   TriangleAlert
 } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
-
 export type A11yKind = "focus" | "heading" | "landmark" | "name" | "alt" | "keyboard" | "announce" | "note"
 
 /** Whether the render does what the annotation says: checked, different, or something only a person can check. */

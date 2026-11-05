@@ -1,5 +1,15 @@
 import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   boardTarget,
+  changesField,
   type ComponentLibrary,
   type ContainerSpec,
   type DesignNode,
@@ -31,9 +41,6 @@ import {
 import { boardReader } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
@@ -142,7 +149,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           entry={entry}
           node={node}
           own={location.node as InstanceNode}
-          changed={(name) => override?.props?.[name] !== undefined}
+          changed={(name) => changesField(override, { kind: "props", key: name })}
           onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
@@ -281,7 +288,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
         <InstanceSection
           entry={entry}
           node={node}
-          changed={(name) => override.props?.[name] !== undefined}
+          changed={(name) => changesField(override, { kind: "props", key: name })}
           onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
@@ -355,7 +362,7 @@ function LayerSections({
   }
   const styleEditor: StyleEditor = {
     style: node.style ?? {},
-    changed: (name) => override?.style?.[name] !== undefined,
+    changed: (name) => changesField(override, { kind: "style", key: name }),
     reset: (name) => reset({ kind: "style", key: name }),
     set: (edit, label = "Change style", gesture) => {
       const values = styleValues(edit, node.style ?? {}, layer) as NodeStyle
@@ -380,7 +387,7 @@ function LayerSections({
           ) : (
             <Field
               label="Label"
-              changed={override?.props?.children !== undefined}
+              changed={changesField(override, { kind: "props", key: "children" })}
               onReset={() => reset({ kind: "props", key: "children" })}
             >
               <TextInput
@@ -405,7 +412,7 @@ function LayerSections({
         <PropsSection
           node={node}
           info={components[node.component]}
-          changed={(name) => override?.props?.[name] !== undefined}
+          changed={(name) => changesField(override, { kind: "props", key: name })}
           onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
@@ -528,9 +535,7 @@ function InstanceSection({
   if (!design) {
     return (
       <PanelSection title="Instance">
-        <p className="px-1 text-xs text-destructive">
-          The component design &quot;{node.design}&quot; doesn&apos;t exist.
-        </p>
+        <p className="px-1 text-xs text-destructive">The component &quot;{node.design}&quot; doesn&apos;t exist.</p>
       </PanelSection>
     )
   }
@@ -651,11 +656,11 @@ function InstanceSection({
             )}
           </div>
           <div className="flex gap-1.5">
-            <Select
-              value=""
-              onValueChange={(design) =>
-                replace("Swap instance", (container) => swapInstance(container, node.id, design, library))
-              }
+            <Select<string>
+              value={null}
+              onValueChange={(design) => {
+                if (design) replace("Swap instance", (container) => swapInstance(container, node.id, design, library))
+              }}
             >
               <SelectTrigger size="sm" className="h-7 flex-1 text-xs">
                 <SelectValue placeholder="Swap component" />
@@ -697,7 +702,7 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
     entry.container.params?.[target.variant.param]?.options?.find((option) => option.id === target.variant!.option)
   const variantOnly = !base && variant && state.id === entry.container.states[0]!.id
   let changes = "changes only this state"
-  if (base) changes = "changes the design"
+  if (base) changes = "changes every state"
   else if (variantOnly) changes = `changes only the ${variant.name} variant`
   return (
     <div
@@ -710,9 +715,12 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
       <Select
+        items={entry.container.states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
-          store.updateView(entry.key, (view) => ({ ...view, state: id }))
+          if (!id) return
+          const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
+          store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
       >

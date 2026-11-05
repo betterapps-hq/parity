@@ -1,8 +1,8 @@
+import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, Component, Eye, ListFilter, MessageSquarePlus, Plus } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
-import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
 import { agentPalettes } from "../../agent/agent-colors.ts"
+import { formatKeys } from "../../chrome/keys.ts"
 import { me, type Person } from "../explore-data.ts"
 import { Avatar, AvatarStack } from "../parts.tsx"
 import type { ThreadData } from "./collab-data.ts"
@@ -250,7 +250,7 @@ export function CommentModeBar({ showResolved = false }: { showResolved?: boolea
         <ListFilter /> Everyone
       </Button>
       <Button size="xs" variant="secondary" className="ml-1">
-        Done <Kbd className="ml-1">Esc</Kbd>
+        Done <Kbd className="ml-1">{formatKeys("Esc")}</Kbd>
       </Button>
     </div>
   )

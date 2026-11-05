@@ -1,6 +1,6 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { UserPlus } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { people } from "../explore-data.ts"
 import { AvatarStack } from "../parts.tsx"
 import { ActivityRow, OrgBadge } from "../start-page-parts.tsx"

@@ -121,6 +121,55 @@ describe("writeTokenChanges", () => {
   })
 })
 
+describe("writeTokenChanges without a value", () => {
+  it("takes a value back out of the block it was added to, leaving the stylesheet as it was", () => {
+    const ring = writeTokenChanges(source, [{ name: "ring", theme: "dark", value: "green" }], new Set())
+    expect(ring).toContain("--ring: green;")
+    expect(writeTokenChanges(ring, [{ name: "ring", theme: "dark", value: undefined }], new Set())).toBe(source)
+  })
+
+  it("takes out a block it leaves empty, as when the value was the first its theme had", () => {
+    const css = ":root {\n  --radius: 0.5rem;\n}\n"
+    const dark = writeTokenChanges(css, [{ name: "radius", theme: "dark", value: "1rem" }], new Set())
+    expect(dark).toBe(":root {\n  --radius: 0.5rem;\n}\n\n.dark {\n  --radius: 1rem;\n}\n")
+    expect(writeTokenChanges(dark, [{ name: "radius", theme: "dark", value: undefined }], new Set())).toBe(css)
+
+    const themeNames = new Set(["spacing"])
+    const spacing = writeTokenChanges(source, [{ name: "spacing", theme: "default", value: "0.3rem" }], themeNames)
+    expect(writeTokenChanges(spacing, [{ name: "spacing", theme: "default", value: undefined }], themeNames)).toBe(
+      source
+    )
+
+    const between = "a { color: red; }\n\n.dark {\n  --c: 1;\n}\n\nb { color: blue; }\n"
+    const left = writeTokenChanges(between, [{ name: "c", theme: "dark", value: undefined }], new Set())
+    expect(left).toBe("a { color: red; }\n\nb { color: blue; }\n")
+    const inline = writeTokenChanges(
+      "a {} .dark { --c: 1 } b {}",
+      [{ name: "c", theme: "dark", value: undefined }],
+      new Set()
+    )
+    expect(inline).toBe("a {} b {}")
+  })
+
+  it("takes the declaration out of every block of the theme, keeping the rest of each", () => {
+    const css = ':root { --c: #fff; }\n.dark { --a: 1; --c: 2; }\n[data-theme="dark"] {\n  --c: 3;\n  --d: 4;\n}\n'
+    const next = writeTokenChanges(css, [{ name: "c", theme: "dark", value: undefined }], new Set())
+    expect(next).toBe(':root { --c: #fff; }\n.dark { --a: 1; }\n[data-theme="dark"] {\n  --d: 4;\n}\n')
+  })
+
+  it("leaves a prefix of the name, a nested block and a root inside a media query alone", () => {
+    const css =
+      "@media (prefers-color-scheme: dark) {\n  :root { --radius: 9px; }\n}\n" +
+      ":root {\n  --radius-lg: 1rem;\n  @media (x) { --radius: 9px; }\n  --radius: 2px;\n}\n"
+    const next = writeTokenChanges(css, [{ name: "radius", theme: "default", value: undefined }], new Set())
+    expect(next).toBe(
+      "@media (prefers-color-scheme: dark) {\n  :root { --radius: 9px; }\n}\n" +
+        ":root {\n  --radius-lg: 1rem;\n  @media (x) { --radius: 9px; }\n}\n"
+    )
+    expect(writeTokenChanges(next, [{ name: "radius", theme: "default", value: undefined }], new Set())).toBe(next)
+  })
+})
+
 describe("extractTokens", () => {
   const compiled = ":host { --primary: oklch(0.2 0 0); --spacing: 0.25rem; }\n.dark { --primary: oklch(0.9 0 0); }"
   const theme = [

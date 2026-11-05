@@ -1,4 +1,12 @@
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  ContextMenuShortcut
+} from "@buildkitgg/shadcn-baseui-kit"
+import {
   childNodes,
   deleteNode,
   type DesignNode,
@@ -9,16 +17,9 @@ import {
   toggleHidden,
   withFreshIds
 } from "@parity-app/core"
+import { kindName } from "@parity-app/editor"
 import { ChevronRight, EyeOff, FileWarning, Plus, MonitorSmartphone, PenLine, StickyNote } from "lucide-react"
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useState } from "react"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuTrigger
-} from "@/components/ui/context-menu"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
@@ -37,6 +38,7 @@ import { createDesign } from "./create.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
+import { formatKeys } from "./keys.ts"
 import { renameLayer } from "./LayerPanel.tsx"
 import { revealSelection } from "./reveal.ts"
 
@@ -407,124 +409,130 @@ function LayerRow({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          id={`layer-${row.id}`}
-          role="treeitem"
-          aria-selected={selected}
-          aria-expanded={row.hasChildren ? expanded : undefined}
-          aria-level={row.depth + 1}
-          tabIndex={-1}
-          draggable={!!row.node && row.depth > 1 && !renaming}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-          onDragEnd={onDragEnd}
-          onClick={(event) => onSelect(event)}
-          onKeyDown={(event) => event.key === " " && onSelect(event)}
-          onDoubleClick={onRename}
-          onPointerEnter={() => onHover(true)}
-          onPointerLeave={() => onHover(false)}
-          className={`group relative flex h-7 cursor-default items-center gap-1.5 pr-2 ${
-            background
-          } ${hidden ? "text-muted-foreground/60" : ""} ${row.depth === 0 ? "font-medium" : ""}`}
-          style={{ paddingLeft: 8 + row.depth * 14 }}
-        >
-          {selected && <span className="absolute inset-y-0 left-0 w-0.5" style={{ background: color }} />}
-          {dropPosition === "inside" && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-0 rounded-sm border-2"
-              style={{ borderColor: kindColors.layer }}
-            />
-          )}
-          {(dropPosition === "before" || dropPosition === "after") && (
-            <span
-              aria-hidden
-              className={`pointer-events-none absolute right-1 h-0.5 rounded-full ${
-                dropPosition === "before" ? "-top-px" : "-bottom-px"
-              }`}
-              style={{ left: 8 + row.depth * 14, background: kindColors.layer }}
-            />
-          )}
-          {Array.from({ length: row.depth }, (_, level) => (
-            <span
-              key={level}
-              aria-hidden
-              className="absolute inset-y-0 w-px bg-border/70"
-              style={{ left: 15 + level * 14 }}
-            />
-          ))}
-          <button
-            type="button"
+      <ContextMenuTrigger
+        render={
+          <div
+            id={`layer-${row.id}`}
+            role="treeitem"
+            aria-selected={selected}
+            aria-expanded={row.hasChildren ? expanded : undefined}
+            aria-level={row.depth + 1}
             tabIndex={-1}
-            aria-label={expanded ? "Collapse" : "Expand"}
-            onClick={(event) => {
-              event.stopPropagation()
-              onToggle()
-            }}
-            className={`grid size-4 shrink-0 place-items-center rounded-sm text-muted-foreground hover:text-foreground ${
-              row.hasChildren ? "" : "invisible"
-            }`}
+            draggable={!!row.node && row.depth > 1 && !renaming}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onDragEnd={onDragEnd}
+            onClick={(event) => onSelect(event)}
+            onKeyDown={(event) => event.key === " " && onSelect(event)}
+            onDoubleClick={onRename}
+            onPointerEnter={() => onHover(true)}
+            onPointerLeave={() => onHover(false)}
+            className={`group relative flex h-7 cursor-default items-center gap-1.5 pr-2 ${
+              background
+            } ${hidden ? "text-muted-foreground/60" : ""} ${row.depth === 0 ? "font-medium" : ""}`}
+            style={{ paddingLeft: 8 + row.depth * 14 }}
           >
-            <ChevronRight className={`size-3.5 transition-transform ${expanded ? "rotate-90" : ""}`} />
-          </button>
-          {row.node ? (
-            <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />
-          ) : (
-            <DesignIcon kind={container.kind} className="size-3.5 shrink-0" style={{ color }} />
-          )}
-          {renaming ? (
-            <input
-              ref={focusOnMount}
-              defaultValue={label}
-              onClick={(event) => event.stopPropagation()}
-              onFocus={(event) => event.currentTarget.select()}
-              onBlur={(event) => onRenamed(event.currentTarget.value.trim() || undefined)}
-              onKeyDown={(event) => {
+            {selected && <span className="absolute inset-y-0 left-0 w-0.5" style={{ background: color }} />}
+            {dropPosition === "inside" && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 rounded-sm border-2"
+                style={{ borderColor: kindColors.layer }}
+              />
+            )}
+            {(dropPosition === "before" || dropPosition === "after") && (
+              <span
+                aria-hidden
+                className={`pointer-events-none absolute right-1 h-0.5 rounded-full ${
+                  dropPosition === "before" ? "-top-px" : "-bottom-px"
+                }`}
+                style={{ left: 8 + row.depth * 14, background: kindColors.layer }}
+              />
+            )}
+            {Array.from({ length: row.depth }, (_, level) => (
+              <span
+                key={level}
+                aria-hidden
+                className="absolute inset-y-0 w-px bg-border/70"
+                style={{ left: 15 + level * 14 }}
+              />
+            ))}
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label={expanded ? "Collapse" : "Expand"}
+              onClick={(event) => {
                 event.stopPropagation()
-                if (event.key === "Enter") event.currentTarget.blur()
-                if (event.key === "Escape") onRenamed(undefined)
+                onToggle()
               }}
-              className="h-5 min-w-0 flex-1 rounded-sm border border-ring bg-background px-1 outline-none"
-            />
-          ) : (
-            <span className="min-w-0 flex-1 truncate">{label}</span>
-          )}
-          <span className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
-            {changed && (
-              <PenLine className="size-3" style={{ color: kindColors.agent }} aria-label={`Changed in ${state.name}`} />
+              className={`grid size-4 shrink-0 place-items-center rounded-sm text-muted-foreground hover:text-foreground ${
+                row.hasChildren ? "" : "invisible"
+              }`}
+            >
+              <ChevronRight className={`size-3.5 transition-transform ${expanded ? "rotate-90" : ""}`} />
+            </button>
+            {row.node ? (
+              <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />
+            ) : (
+              <DesignIcon kind={container.kind} className="size-3.5 shrink-0" style={{ color }} />
             )}
-            {viewports.length > 0 && (
-              <MonitorSmartphone className="size-3" aria-label={`Changes on ${viewports.join(", ")}`} />
+            {renaming ? (
+              <input
+                ref={focusOnMount}
+                defaultValue={label}
+                onClick={(event) => event.stopPropagation()}
+                onFocus={(event) => event.currentTarget.select()}
+                onBlur={(event) => onRenamed(event.currentTarget.value.trim() || undefined)}
+                onKeyDown={(event) => {
+                  event.stopPropagation()
+                  if (event.key === "Enter") event.currentTarget.blur()
+                  if (event.key === "Escape") onRenamed(undefined)
+                }}
+                className="h-5 min-w-0 flex-1 rounded-sm border border-ring bg-background px-1 outline-none"
+              />
+            ) : (
+              <span className="min-w-0 flex-1 truncate">{label}</span>
             )}
-            {hidden && <EyeOff className="size-3" aria-label="Hidden" />}
-            {row.depth === 0 && (
-              <Hint label={container.states.length === 1 ? "1 state" : `${container.states.length} states`} wait>
-                <span className="text-xs tabular-nums opacity-70">{container.states.length}</span>
-              </Hint>
-            )}
-          </span>
-        </div>
-      </ContextMenuTrigger>
+            <span className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
+              {changed && (
+                <PenLine
+                  className="size-3"
+                  style={{ color: kindColors.agent }}
+                  aria-label={`Changed in ${state.name}`}
+                />
+              )}
+              {viewports.length > 0 && (
+                <MonitorSmartphone className="size-3" aria-label={`Changes on ${viewports.join(", ")}`} />
+              )}
+              {hidden && <EyeOff className="size-3" aria-label="Hidden" />}
+              {row.depth === 0 && (
+                <Hint label={container.states.length === 1 ? "1 state" : `${container.states.length} states`} wait>
+                  <span className="text-xs tabular-nums opacity-70">{container.states.length}</span>
+                </Hint>
+              )}
+            </span>
+          </div>
+        }
+      />
       <ContextMenuContent className="w-52">
-        <ContextMenuItem onSelect={onRename}>
-          Rename <ContextMenuShortcut>{keymap.rename.keys[0]}</ContextMenuShortcut>
+        <ContextMenuItem onClick={onRename}>
+          Rename <ContextMenuShortcut>{formatKeys(keymap.rename.keys[0])}</ContextMenuShortcut>
         </ContextMenuItem>
         {row.node && (
           <>
-            <ContextMenuItem onSelect={() => toggleHiddenRow(session, row)}>
+            <ContextMenuItem onClick={() => toggleHiddenRow(session, row)}>
               {hidden ? "Show" : "Hide"} in {state.name}
             </ContextMenuItem>
-            {row.depth > 1 && <ContextMenuItem onSelect={() => duplicate(session, row)}>Duplicate</ContextMenuItem>}
+            {row.depth > 1 && <ContextMenuItem onClick={() => duplicate(session, row)}>Duplicate</ContextMenuItem>}
           </>
         )}
         {(row.depth > 1 || !row.node) && (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem variant="destructive" onSelect={() => remove(session, row)}>
-              Delete <ContextMenuShortcut>Del</ContextMenuShortcut>
+            <ContextMenuItem variant="destructive" onClick={() => remove(session, row)}>
+              Delete <ContextMenuShortcut>{formatKeys("Del")}</ContextMenuShortcut>
             </ContextMenuItem>
           </>
         )}
@@ -541,7 +549,10 @@ type Session = ReturnType<typeof useProject>
 
 function rename(session: Session, row: Row, name: string): void {
   if (!row.node) {
-    session.store.updateContainer(row.design.key, "Rename design", (container) => ({ ...container, name }))
+    session.store.updateContainer(row.design.key, `Rename ${kindName(row.design.container.kind)}`, (container) => ({
+      ...container,
+      name
+    }))
     return
   }
   const nodeId = row.node.id

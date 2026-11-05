@@ -132,6 +132,15 @@ Type set on a layout applies to the text inside it. A component's own look comes
 A state's `overrides` map node ids to patches of `hidden`, `text`, `props` and `style`. A node a state doesn't mention
 looks as it does in the base. States win over responsive patches.
 
+A patch can also take values away with `unset`, which lists prop names and style keys to drop from what's under it, so a
+state can turn off a prop the base sets or leave a layout without the base's gap:
+
+```json
+{ "fields": { "style": { "padding": 4 }, "unset": { "style": ["gap"], "props": ["disabled"] } } }
+```
+
+A key a patch sets isn't also in its `unset`. Taking away an instance's param value gives the param its default.
+
 ## Responsive
 
 A node's `responsive` maps a viewport option's id (such as `tablet` or `mobile`) to a patch of the same four things,
