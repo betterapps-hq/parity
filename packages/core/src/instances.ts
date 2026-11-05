@@ -334,6 +334,7 @@ function patchChange(patch: NodePatch): NodeChange {
   if (patch.text !== undefined) change.text = patch.text
   if (patch.props) change.props = patch.props
   if (patch.style) change.style = patch.style
+  if (patch.unset) change.unset = patch.unset
   return change
 }
 

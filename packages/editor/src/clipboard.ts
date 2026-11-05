@@ -14,6 +14,7 @@ import {
   parseCanvasDocument,
   parseDesignNode,
   type StateSpec,
+  styleKeys,
   topmostNodes,
   uniqueId,
   withFreshIds
@@ -315,7 +316,8 @@ export function styleOf(
 
 /**
  * Gives each of the layers `ids` the copied `style` in `state`, in place of the one the board shows in `state` and
- * `viewport`.
+ * `viewport`: what the copy doesn't set is taken away, so in a state other than the base the state shows only the
+ * copied style, whatever the design sets.
  */
 export function applyStyle(
   container: ContainerSpec,
@@ -329,8 +331,8 @@ export function applyStyle(
     const node = findNode(next.root, id)
     if (!node) continue
     const shown = boardReader(next, { state, viewport })(node).style ?? {}
-    const cleared = Object.fromEntries(Object.keys(shown).map((key) => [key, undefined]))
-    next = editNode(next, boardTarget(next, state.id), id, { style: { ...cleared, ...style } })
+    const taken = styleKeys.filter((key) => Object.hasOwn(shown, key) && !Object.hasOwn(style, key))
+    next = editNode(next, boardTarget(next, state.id), id, { style, unset: { style: taken } })
   }
   return next
 }

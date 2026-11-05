@@ -537,6 +537,15 @@ section has the details. The user asked for "variants, instance overrides and th
 - **Prop and param fields follow the declared type** (PAR-164), not the value's: a number param with no value takes a
   number, JSON that doesn't parse is refused with the reason rather than saved as text, and an empty field clears the
   value.
+- **A state can take a value away (PAR-426):** a patch's `unset` lists prop names and style keys to drop from what's
+  under it, `{ "unset": { "style": ["gap"], "props": ["disabled"] } }`, so a state, a variant option, an instance's
+  overrides or a viewport can show a layer without what the design sets. Patches layer as before: an upper patch's
+  `unset` drops the lower ones' values, and a value it sets wins over a key a lower one took away. Taking an instance's
+  param value away gives the param its default. In the base design, taking a key away removes it. A key is only kept in
+  `unset` when what's under the patch has it, and never both set and taken away by one patch. My call over `null` in a
+  patch's values: agents' `Update` already reads `null` as "take back this change", and a prop can be `null` on purpose,
+  so a list says it apart from both. Paste style in a state takes away what the copy doesn't set, so it replaces the
+  look there as it does in the base, and the inspector marks a value taken away as changed, with Reset.
 - **The variant grid shows each variant on its own, plus combinations someone pins.** You chose this on 2026-10-28 over
   every combination, which multiplies fast.
 - **A component design in `.par` stays the source, linked to a real component file.** You set the direction on
