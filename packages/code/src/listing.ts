@@ -296,8 +296,7 @@ export function checkedChanges(
 }
 
 /**
- * The list with the person's corrections: the components they took off it are dropped, and the exports they put on it
- * are added, marked `included` and loading as they're drawn, with ids that don't clash. Libraries' components aren't
+ * The list with the person's corrections: the exports they put on it are added, marked `included` and loading as they're drawn, with ids that don't clash. Libraries' components aren't
  * touched. Applied after each pass of detection, so the corrections outlast files changing. New ids start with a library
  * project's `namespace`.
  */
@@ -306,14 +305,11 @@ export function correctedSources(
   corrections: DetectionCorrections | undefined,
   namespace?: string
 ): Record<string, ComponentSource> {
-  if (!corrections?.include && !corrections?.exclude) return sources
+  if (!corrections?.include) return sources
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
-  const excluded = new Set((corrections.exclude ?? []).map(key))
-  const next = Object.fromEntries(
-    Object.entries(sources).filter(([, source]) => source.library || !excluded.has(key(source)))
-  )
+  const next = { ...sources }
   const listed = new Set(Object.values(next).map(key))
-  const missing = (corrections.include ?? []).filter((ref) => !listed.has(key(ref)) && !excluded.has(key(ref)))
+  const missing = corrections.include.filter((ref) => !listed.has(key(ref)))
   const added = componentIds(
     missing.map((ref) => ({ name: refName(ref), path: ref.path, export: ref.export, uiKit: false })),
     new Set(Object.keys(next)),

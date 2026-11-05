@@ -9,6 +9,7 @@
   "main": "out/main.mjs",
   "scripts": {
     "dev": "node scripts/dev.ts",
+    "dev:prod": "node scripts/dev.ts --react production",
     "build": "node scripts/build.ts",
     "try-built": "node scripts/try-built.ts",
     "package": "electron-builder --publish never",
@@ -38,6 +39,7 @@
     "unconfig": "^7.5.0"
   },
   "devDependencies": {
+    "@buildkitgg/shadcn-baseui-kit": "catalog:",
     "@parity-app/agent": "workspace:*",
     "@parity-app/builder-vite": "workspace:*",
     "@parity-app/code": "workspace:*",

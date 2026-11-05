@@ -171,7 +171,7 @@ export const NotListed: Story = {
 
 /**
  * An export listed by hand: the main project file keeps it under `detection`, unsaved until the project is, and it's
- * listed with the components, its tooltip saying so.
+ * listed with the components, its card saying so.
  */
 export const ListedByHand: Story = {
   loaders: [
@@ -187,45 +187,30 @@ export const ListedByHand: Story = {
   play: async ({ canvasElement }) => {
     await enter(within(canvasElement).getByRole("textbox", { name: "Search components" }), "theme")
     await userEvent.hover(await within(canvasElement).findByRole("button", { name: "ThemeScript" }))
-    const hint = await within(document.body).findByRole("tooltip", undefined, { timeout: 3000 })
-    await expect(hint).toHaveTextContent("ThemeScript, listed by hand")
-  }
-}
-
-/** Right-clicking one of the project's own components offers to take it off the list. */
-export const NotAComponent: Story = {
-  loaders: [openComponents],
-  play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Component designs"))
-    const kit = source(canvasElement, "UI kit").closest("section")!
-    const badge = within(kit as HTMLElement).getByRole("button", { name: "Badge" })
-    const box = badge.getBoundingClientRect()
-    // Where a pointer would be, so the menu opens beside the row.
-    await fireEvent.contextMenu(badge, { clientX: box.left + 48, clientY: box.top + box.height / 2 })
-    await within(document.body).findByRole("menuitem", { name: "Not a component" })
-  }
-}
-
-/** A component taken off the list: it's gone from its source, and a search finds it under Not listed to list again. */
-export const TakenOffTheList: Story = {
-  loaders: [
-    async () => {
-      await openComponents()
-      correcting({ exclude: [{ path: "src/components/ui/badge.tsx", export: "Badge" }] })
-      // As the service lists them once it hears about the correction.
-      const { info } = example()
-      const { Badge: _, ...rest } = info.sources
-      info.sources = rest
-    }
-  ],
-  play: async ({ canvasElement }) => {
-    await enter(within(canvasElement).getByRole("textbox", { name: "Search components" }), "badge")
-    await within(canvasElement).findByRole("button", { name: "List it again" })
+    const card = await within(document.body).findByRole("dialog", undefined, { timeout: 3000 })
+    await expect(card).toHaveTextContent("Listed by hand")
   }
 }
 
 /**
- * Components failing to draw on the canvas: a warning beside each, and its tooltip says why, here a missing provider,
+ * Right-clicking a component: View in Storybook and View code, here for Button, which has stories. Its menu on its own,
+ * in each state, is in Component menu.
+ */
+export const ComponentMenu: Story = {
+  loaders: [openComponents],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(source(canvasElement, "Component designs"))
+    const kit = source(canvasElement, "UI kit").closest("section")!
+    const button = within(kit as HTMLElement).getByRole("button", { name: "Button" })
+    const box = button.getBoundingClientRect()
+    // Where a pointer would be, so the menu opens beside the row.
+    await fireEvent.contextMenu(button, { clientX: box.left + 48, clientY: box.top + box.height / 2 })
+    await within(document.body).findByRole("menuitem", { name: /View code/ })
+  }
+}
+
+/**
+ * Components failing to draw on the canvas: a warning beside each, and its card says why, here a missing provider,
  * which a decorator adds.
  */
 export const FailingToDraw: Story = {
@@ -242,8 +227,8 @@ export const FailingToDraw: Story = {
     await userEvent.click(source(canvasElement, "Component designs"))
     const [card] = await within(canvasElement).findAllByLabelText("Fails to draw")
     await userEvent.hover(card!.closest("button")!)
-    const hint = await within(document.body).findByRole("tooltip", undefined, { timeout: 3000 })
-    await expect(hint).toHaveTextContent("Needs a provider, which a decorator can add")
+    const about = await within(document.body).findByRole("dialog", undefined, { timeout: 3000 })
+    await expect(about).toHaveTextContent("Needs a provider, which a decorator can add")
   }
 }
 
