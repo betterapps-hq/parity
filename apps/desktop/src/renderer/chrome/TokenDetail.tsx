@@ -13,7 +13,7 @@ import {
   Input,
   type Popover
 } from "@buildkitgg/shadcn-baseui-kit"
-import { codeForms, substituteReferences, tokenReferences, valueParts } from "@parity-app/tokens"
+import { checkTokenEdit, codeForms, substituteReferences, tokenReferences, valueParts } from "@parity-app/tokens"
 import { Check, ChevronDown, Pause, Pencil, Play } from "lucide-react"
 import { type ComponentProps, Fragment, useEffect, useId, useRef, useState } from "react"
 import { CopyButton, useCopy } from "./Copy.tsx"
@@ -34,8 +34,7 @@ import {
   TokenArt,
   TokenTile,
   useReducedMotion,
-  valueLabel,
-  valueProblem
+  valueLabel
 } from "./token-previews.tsx"
 
 /** A token as its detail shows it. */
@@ -99,24 +98,15 @@ export function TokenDetail({
   const kind = preview.kind
   const themes = Object.keys(values)
   const editing = drafts !== undefined
-  const problems: Record<string, string | undefined> = Object.fromEntries(
-    themes.map((theme) => [
-      theme,
-      drafts
-        ? (loopProblem(preview.name, drafts[theme] ?? "", (name) => references(name, theme)) ??
-          valueProblem(kind, drafts[theme] ?? "", (name) => lookup(name, theme)))
-        : undefined
-    ])
-  )
-  const valid = themes.every((theme) => !problems[theme])
-  const changes = drafts
-    ? Object.fromEntries(
-        themes.flatMap((theme) => {
-          const value = (drafts[theme] ?? "").trim()
-          return value !== values[theme] ? [[theme, value]] : []
-        })
-      )
-    : {}
+  const { problems, changes, valid } = checkTokenEdit({
+    name: preview.name,
+    kind,
+    values,
+    drafts: drafts ? Object.fromEntries(themes.map((theme) => [theme, drafts[theme] ?? ""])) : {},
+    lookup,
+    references,
+    supports: (property, value) => CSS.supports(property, value)
+  })
   const changed = Object.keys(changes).length > 0
   // While editing, the preview follows what's typed, as long as it's a value it can draw.
   const shown: PreviewToken =
@@ -322,29 +312,6 @@ export function TokenDetail({
       </form>
     </div>
   )
-}
-
-/**
- * Why a value would make the token self loop back to itself, directly or through the tokens it's built on, or
- * nothing. A loop comes to nothing in every frame, though checking it against the tokens' old values would pass.
- */ function loopProblem(
-  self: string,
-  value: string,
-  references: (name: string) => readonly string[]
-): string | undefined {
-  for (const start of new Set(tokenReferences(value))) {
-    if (start === self) return `${self} can't be built on itself.`
-    const seen = new Set<string>()
-    const next = [start]
-    while (next.length > 0) {
-      const name = next.pop()!
-      if (name === self) return `${start} is built on ${self}, so this would loop.`
-      if (seen.has(name)) continue
-      seen.add(name)
-      next.push(...references(name))
-    }
-  }
-  return undefined
 }
 
 /**

@@ -51,9 +51,9 @@ export function jsonText<T extends z.ZodType>(schema: T) {
  * problem as `/json/pointer: message`. `at` is where the value sits in a larger one, so its pointers start there.
  */
 export function parseData<T extends z.ZodType>(schema: T, value: unknown, at = ""): z.output<T> {
-  const result = schema.safeParse(value, { error: issueText })
-  if (result.success) return result.data
-  const { pointer, message } = firstProblem(result.error.issues, at)
+  const checked = checkData(schema, value, at)
+  if (checked.success) return checked.data
+  const { pointer, message } = checked.problem
   throw new TypeError(`${pointer || "/"}: ${message}`)
 }
 
@@ -62,23 +62,38 @@ export function parseData<T extends z.ZodType>(schema: T, value: unknown, at = "
  * field, without the leading slash, so the CLI and MCP report the pointer as the error's `path` (PAR-472).
  */
 export function parseInput<T extends z.ZodType>(schema: T, value: unknown, at = ""): z.output<T> {
-  const result = schema.safeParse(value, { error: issueText })
-  if (result.success) return result.data
-  const { pointer, message } = firstProblem(result.error.issues, at)
+  const checked = checkData(schema, value, at)
+  if (checked.success) return checked.data
+  const { pointer, message } = checked.problem
   throw new CodedError(`${pointer || "/"}: ${message}`, {
     code: "invalid_input",
     ...(pointer ? { field: pointer.slice(1) } : {})
   })
 }
 
+/** What a failed check found first: where, as a JSON pointer (`` for the value itself), and what was expected there. */
+export interface SchemaProblem {
+  pointer: string
+  message: string
+}
+
+/**
+ * Checks data Parity didn't make, as `parseData` does, and returns the first problem rather than throwing it, for a
+ * caller that reports it its own way: the CLI keeps the pointer out of its messages, since each names its field.
+ */
+export function checkData<T extends z.ZodType>(
+  schema: T,
+  value: unknown,
+  at = ""
+): { success: true; data: z.output<T> } | { success: false; problem: SchemaProblem } {
+  const result = schema.safeParse(value, { error: issueText })
+  if (result.success) return { success: true, data: result.data }
+  return { success: false, problem: firstProblem(result.error.issues, at) }
+}
+
 /** A path inside a value as a JSON pointer (RFC 6901): `/edits/0/find`, or `` for the value itself. */
 function jsonPointer(path: readonly PropertyKey[]): string {
   return path.map((key) => `/${String(key).replaceAll("~", "~0").replaceAll("/", "~1")}`).join("")
-}
-
-interface Problem {
-  pointer: string
-  message: string
 }
 
 /**
@@ -87,7 +102,7 @@ interface Problem {
  * type. An option for another type of value isn't close, so `{ size: "big" }` against a string or an object with a
  * numeric size reports the size, however many issues the object has.
  */
-function firstProblem(issues: readonly z.core.$ZodIssue[], at: string): Problem {
+function firstProblem(issues: readonly z.core.$ZodIssue[], at: string): SchemaProblem {
   const [issue] = issues
   if (!issue) return { pointer: at, message: "isn't valid" }
   const pointer = at + jsonPointer(issue.path)
@@ -98,7 +113,7 @@ function firstProblem(issues: readonly z.core.$ZodIssue[], at: string): Problem 
   return { pointer, message: issue.message }
 }
 
-function unionProblem(options: readonly (readonly z.core.$ZodIssue[])[], pointer: string): Problem {
+function unionProblem(options: readonly (readonly z.core.$ZodIssue[])[], pointer: string): SchemaProblem {
   const issues = options.flat()
   const shallow = issues.every((issue) => issue.path.length === 0)
   const expected = issues.map(expectation)

@@ -4,7 +4,14 @@ import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
-import { fitInside, offscreenWindows, previewSizes, type RenderPriority, renderQueue } from "@parity-app/core"
+import {
+  drawsNothing,
+  fitInside,
+  offscreenWindows,
+  previewSizes,
+  type RenderPriority,
+  renderQueue
+} from "@parity-app/core"
 import {
   app,
   BrowserWindow,
@@ -29,7 +36,14 @@ import type {
   RenderJob,
   SaveDialogOptions
 } from "../shared/protocol.ts"
-import type { BuilderReading, ConnectMessage, MainMethods, ServiceProcessMethods } from "../shared/service.ts"
+import type {
+  BuilderReading,
+  ConnectMessage,
+  MainMethods,
+  PreviewDrawn,
+  PreviewPictures,
+  ServiceProcessMethods
+} from "../shared/service.ts"
 import { InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
@@ -562,14 +576,6 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
   })
 }
 
-/** A component preview's pictures, base64 PNGs, with the large one's size. */
-interface PreviewPictures {
-  thumb: string
-  large: string
-  width: number
-  height: number
-}
-
 /**
  * Draws a component preview and crops it to the element `crop` names, scaled down to the two sizes previews are kept
  * at (PAR-207). A component that fails to draw gives its error.
@@ -578,8 +584,9 @@ async function renderPreview(
   job: RenderJob,
   crop: string,
   priority: Exclude<RenderPriority, "render">
-): Promise<{ pictures: PreviewPictures } | { error: string }> {
+): Promise<PreviewDrawn> {
   let pictures: PreviewPictures | undefined
+  let empty = false
   const { frame } = await renderOffscreen(priority, job, true, async (window, drawn) => {
     const box = drawn.nodes.find((node) => node.id === crop)
     if (!box) return { frame: drawn }
@@ -590,6 +597,10 @@ async function renderPreview(
       height: Math.max(1, Math.ceil(box.height * job.scale))
     })
     const { width, height } = image.getSize()
+    if (drawsNothing(image.toBitmap())) {
+      empty = true
+      return { frame: drawn }
+    }
     const scaled = (size: { width: number; height: number }) => {
       const fitted = fitInside(width, height, size)
       return fitted.width === width && fitted.height === height ? image : image.resize({ ...fitted, quality: "best" })
@@ -603,6 +614,7 @@ async function renderPreview(
     return { frame: drawn }
   })
   if (frame?.error) return { error: frame.error }
+  if (empty) return { empty: true }
   if (!pictures) return { error: "It drew nothing to take a picture of" }
   return { pictures }
 }

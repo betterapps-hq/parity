@@ -137,3 +137,14 @@ export function fitInside(
   const scale = Math.min(1, box.width / Math.max(1, width), box.height / Math.max(1, height))
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) }
 }
+
+/**
+ * Whether a picture shows nothing but the page it's drawn on: every pixel the same as the first, which is in the room
+ * round the component (PAR-517). `pixels` are 4 bytes each, in any channel order.
+ */
+export function drawsNothing(pixels: Uint8Array): boolean {
+  for (let at = 4; at + 3 < pixels.length; at += 4) {
+    for (let channel = 0; channel < 4; channel++) if (pixels[at + channel] !== pixels[channel]) return false
+  }
+  return true
+}

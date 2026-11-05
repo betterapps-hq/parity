@@ -14,7 +14,6 @@ import {
   DropdownMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  boardLayout,
   boardRoot,
   changeCount,
   companionScale,
@@ -27,15 +26,16 @@ import {
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
-import { kindTitle } from "@parity-app/editor"
+import { kindTitle, stateLabelSpace } from "@parity-app/editor"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
   memo,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
-  type Ref,
+  type RefObject,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -50,6 +50,7 @@ import { useLibrary, useModeSettings } from "../design-store.ts"
 import { frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
+import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
 import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
@@ -61,7 +62,8 @@ import { ModesMenu } from "./ModesMenu.tsx"
 import { activeState, containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
-  ref?: Ref<HTMLDivElement>
+  /** The board's element, which the canvas sizes its shape by. */
+  ref?: RefObject<HTMLDivElement | null>
   entry: ContainerEntry
   /** The pointer is over the board: its controls show. */
   hovered: boolean
@@ -75,9 +77,14 @@ interface ContainerViewProps {
 
 /**
  * A design on the canvas. A title bar above it, drawn at screen size whatever the zoom, names the design and switches
- * its state and modes. The board holds a grid of frames: modes across, states down when every state is shown.
+ * its state and modes. The board holds a grid of frames: modes across, states down when every state is shown. Its
+ * gutter, the band around and between the frames, keeps its screen size up close and shrinks with the canvas past 40%,
+ * as its labels do (see `boardLayoutAt`, PAR-602).
  */
 export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
+  const own = useRef<HTMLDivElement>(null)
+  const board = ref ?? own
+  useGutterStyle(board, "board")
   const { store, loaded, selection } = useProject()
   const settings = useModeSettings(store)
   const { selected: isSelected, mode: selectedMode } = useDesignSelection(selection, entry.key)
@@ -140,11 +147,11 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
 
   return (
     <div
-      ref={ref}
-      className="container-view relative w-max rounded-[20px] border-solid bg-card font-sans text-card-foreground shadow-2xl"
-      style={{ borderWidth: boardLayout.border, padding: boardLayout.padding }}
+      ref={board}
+      className="container-view relative w-max bg-card font-sans text-card-foreground shadow-2xl"
       data-design={key}
     >
+      <BoardEdge />
       {title
         ? createPortal(
             <div className="absolute" style={{ left: title.x, top: title.y, width: title.width }}>
@@ -156,61 +163,110 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
 
       <div className="flex flex-col">
         {rows.map((state, index) => (
-          <section
+          <StateRow
             key={state.id}
-            className={`state-row relative ${index > 0 ? "border-dashed" : ""}`}
-            style={index > 0 ? rowDividerStyle : undefined}
-            data-state={state.id}
-          >
-            {rows.length > 1 && (
-              <StateLabel
-                state={state}
-                base={index === 0}
-                offset={index > 0 ? boardLayout.rowDivider.after : 0}
-                boardWidth={width}
-                tabbable={isSelected}
-                onSelect={() => selectState(state.id)}
-              />
-            )}
-            <div className="flex items-start" style={{ gap: boardLayout.frameGap }}>
-              {columns.map((mode, column) => (
-                <FrameTile
-                  key={mode.id}
-                  entry={entry}
+            state={state.id}
+            first={index === 0}
+            label={
+              rows.length > 1 && (
+                <StateLabel
                   state={state}
-                  mode={mode}
-                  primary={column === 0}
-                  projectPrimary={mode.id === all[0]?.id}
-                  scale={column === 0 ? 1 : companionScale(frameSize(container, mode).width)}
-                  caption={index === 0}
+                  base={index === 0}
+                  boardWidth={width}
                   tabbable={isSelected}
-                  selected={selectedMode === mode.id}
-                  divider={column === 1}
-                  loaded={loaded}
-                  library={library}
-                  rest={rest}
+                  onSelect={() => selectState(state.id)}
                 />
-              ))}
-            </div>
-          </section>
+              )
+            }
+          >
+            {columns.map((mode, column) => (
+              <FrameTile
+                key={mode.id}
+                entry={entry}
+                state={state}
+                mode={mode}
+                primary={column === 0}
+                projectPrimary={mode.id === all[0]?.id}
+                scale={column === 0 ? 1 : companionScale(frameSize(container, mode).width)}
+                caption={index === 0}
+                tabbable={isSelected}
+                selected={selectedMode === mode.id}
+                place={framePlace(column)}
+                loaded={loaded}
+                library={library}
+                rest={rest}
+              />
+            ))}
+          </StateRow>
         ))}
       </div>
     </div>
   )
 }
 
-/** The dashed line above every row of states but the first, sized as the agent's estimate of an undrawn board is. */
-const rowDividerStyle: CSSProperties = {
-  marginTop: boardLayout.rowDivider.before,
-  borderTopWidth: boardLayout.rowDivider.line,
-  paddingTop: boardLayout.rowDivider.after
+/** Where a frame is in its row, by its column: the main frame, then the first companion, after the dashed line. */
+function framePlace(column: number): FrameTileProps["place"] {
+  if (column === 0) return "firstFrame"
+  return column === 1 ? "dividedFrame" : "nextFrame"
 }
 
-/** The dashed line before the first companion frame. */
-const dividerStyle: CSSProperties = {
-  marginLeft: boardLayout.divider.before,
-  borderLeftWidth: boardLayout.divider.line,
-  paddingLeft: boardLayout.divider.after
+/** The board's edge, a screen pixel wide at any zoom. It's drawn over the board rather than as its border, which would take room. */
+function BoardEdge() {
+  const ref = useRef<HTMLDivElement>(null)
+  useGutterStyle(ref, "edge")
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      className="pointer-events-none absolute top-0 left-0 origin-top-left border border-solid"
+    />
+  )
+}
+
+/** A dashed line on the board, which takes no room: the space around it leaves room for it. */
+function DashedLine({ part }: { part: "rowLine" | "frameLine" }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useGutterStyle(ref, part)
+  return (
+    <span
+      ref={ref}
+      aria-hidden
+      className={`pointer-events-none absolute top-0 left-0 block origin-top-left border-dashed ${
+        part === "rowLine" ? "border-t" : "border-l"
+      }`}
+    />
+  )
+}
+
+/**
+ * One state's row of the board's frames. The first sits below the band its frames' captions are in; a later one below a
+ * dashed line. Either way the row's own height is its frames', which its state's label is measured by (see
+ * `useLabelSpace`).
+ */
+function StateRow({
+  state,
+  first,
+  label,
+  children
+}: {
+  state: string
+  first: boolean
+  label: ReactNode
+  children: ReactNode
+}) {
+  const row = useRef<HTMLElement>(null)
+  const frames = useRef<HTMLDivElement>(null)
+  useGutterStyle(row, first ? "firstRow" : "nextRow")
+  useGutterStyle(frames, first ? "firstRowFrames" : "nextRowFrames")
+  return (
+    <section ref={row} className="state-row relative" data-state={state}>
+      {!first && <DashedLine part="rowLine" />}
+      {label}
+      <div ref={frames} className="flex items-start">
+        {children}
+      </div>
+    </section>
+  )
 }
 
 /**
@@ -452,22 +508,21 @@ function StateMenu({
 }
 
 /**
- * Names a row in the every-state grid, to the left of the board. It's detail (see `labelLook`), so it fades out when
- * zoomed far out instead of spilling onto the boards beside it, and hides with the board's name once the board is too
- * narrow on screen. A design with one state has no label: its title and state menu already name the only state there
- * is.
+ * Names a row in the every-state grid, to the left of the board. It's a name (see `labelLook`), so zoomed out it
+ * shrinks as the board's title does and stays, while there's space on screen below it before the next row's label: a
+ * short row's label hides rather than piling onto the next one. It hides with the title once the board is too narrow on
+ * screen. A design with one state has no label: its title and state menu already name the only state there is.
  */
 function StateLabel({
   state,
   base,
-  offset,
   boardWidth,
   tabbable,
   onSelect
 }: {
   state: StateSpec
+  /** The first state's, beside the first row. */
   base: boolean
-  offset: number
   /** How wide the board is on the canvas. */
   boardWidth: number | undefined
   /** In the tab order, as it is while its design is selected (see TitleButton). */
@@ -476,7 +531,9 @@ function StateLabel({
 }) {
   const changes = changeCount(state)
   const ref = useRef<HTMLButtonElement>(null)
-  useCanvasLabel(ref, "detail", { width: boardWidth })
+  const height = useLabelSpace(ref, base)
+  useCanvasLabel(ref, "name", { width: boardWidth, height })
+  useGutterStyle(ref, base ? "firstStateLabel" : "nextStateLabel")
   return (
     <Hint label={`Show only ${state.name}`} wait>
       <button
@@ -486,8 +543,7 @@ function StateLabel({
         data-canvas-control
         onPointerDown={stopEventPropagation}
         onClick={onSelect}
-        className="state-label pointer-events-auto absolute right-full mr-8 flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap"
-        style={{ top: offset }}
+        className="state-label pointer-events-auto absolute right-full flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap"
       >
         <span className="text-sm font-medium text-foreground">{state.name}</span>
         {!base && (
@@ -499,23 +555,38 @@ function StateLabel({
 }
 
 /**
- * Names a frame's mode above it. It's detail (see `labelLook`): at screen size up close, as wide on screen as the
- * frame, and fading out when zoomed far out, or once the frame is too narrow on screen. Its place in the board's layout
- * stays the same at any zoom.
+ * How much height a state's label has on the canvas, down to the next row's label (see `stateLabelSpace`), the first
+ * row's from the top of its caption band. A frame that grows with its content sets its row's height, so the row is
+ * measured: its content, which is its frames alone, whatever the zoom makes its gutter.
+ */
+function useLabelSpace(label: RefObject<HTMLElement | null>, first: boolean): number | undefined {
+  const [height, setHeight] = useState<number>()
+  useLayoutEffect(() => {
+    const row = label.current?.closest<HTMLElement>(".state-row")
+    if (!row) return undefined
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setHeight(stateLabelSpace(entry.contentRect.height, first))
+    })
+    observer.observe(row)
+    return () => observer.disconnect()
+  }, [label, first])
+  return height
+}
+
+/**
+ * Names a frame's mode above it, centred in the band of the board's gutter above the first row. It's detail (see
+ * `labelLook`): at screen size up close, as wide on screen as the frame, and fading out when zoomed far out, or once the
+ * frame is too narrow on screen. The band shrinks with it past 40%.
  */
 function FrameCaption({ width, children }: { width: number; children: ReactNode }) {
+  const band = useRef<HTMLElement>(null)
   const ref = useRef<HTMLDivElement>(null)
+  useGutterStyle(band, "caption")
   useCanvasLabel(ref, "detail", { fit: true, width })
   return (
-    <figcaption
-      className="relative"
-      style={{ height: boardLayout.caption.height, marginBottom: boardLayout.caption.gap }}
-    >
-      <div
-        ref={ref}
-        className="absolute bottom-0 left-0 flex origin-bottom-left items-center gap-2 text-sm"
-        style={{ height: boardLayout.caption.height }}
-      >
+    <figcaption ref={band} className="relative">
+      {/* Out of the flow, so a long caption doesn't widen a narrow frame's board. */}
+      <div ref={ref} className="absolute top-1/2 left-0 -mt-3 flex h-6 origin-left items-center gap-2 text-sm">
         {children}
       </div>
     </figcaption>
@@ -536,7 +607,8 @@ interface FrameTileProps {
   /** The caption is in the tab order, as it is while its design is selected (see TitleButton). */
   tabbable: boolean
   selected: boolean
-  divider: boolean
+  /** Where it is in its row: the main frame, the first companion after the dashed line, or a later one. */
+  place: Extract<BoardPart, "firstFrame" | "dividedFrame" | "nextFrame">
   loaded: ReturnType<typeof useProject>["loaded"]
   library: ComponentLibrary
   rest: BoardRest | undefined
@@ -556,7 +628,7 @@ const FrameTile = memo(function FrameTile({
   caption,
   tabbable,
   selected,
-  divider,
+  place,
   loaded,
   library,
   rest
@@ -576,6 +648,8 @@ const FrameTile = memo(function FrameTile({
       }),
     [container, state, mode.viewport, library]
   )
+  const figure = useRef<HTMLElement>(null)
+  useGutterStyle(figure, place)
   const tile = useRef<HTMLDivElement>(null)
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
   const shows = useFrameShows(session, tree, mode, frame, scale)
@@ -609,12 +683,8 @@ const FrameTile = memo(function FrameTile({
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
-    <figure
-      className={`mode-tile m-0 ${divider ? "border-dashed" : ""}`}
-      style={divider ? dividerStyle : undefined}
-      data-mode={mode.id}
-      data-primary={primary}
-    >
+    <figure ref={figure} className="mode-tile relative m-0" data-mode={mode.id} data-primary={primary}>
+      {place === "dividedFrame" && <DashedLine part="frameLine" />}
       {caption && (
         <FrameCaption width={frame.width * scale}>
           <button

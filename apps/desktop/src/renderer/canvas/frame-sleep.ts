@@ -46,9 +46,20 @@ export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: 
     if (!rest) return undefined
     if (awake) {
       if (!canSleep) return undefined
-      return react("frame sleeps", () => {
-        if (rest.dormant.get()) setSlept(shows)
+      // It falls asleep just after the effects run, not while they do. Waking a project's frames one by one, each
+      // falling asleep from its effect kept React's effect pass scheduling another render dozens of times in a row,
+      // which React's development build reports as "Maximum update depth exceeded" (PAR-606).
+      let live = true
+      const stop = react("frame sleeps", () => {
+        if (!rest.dormant.get()) return
+        queueMicrotask(() => {
+          if (live && rest.dormant.get()) setSlept(shows)
+        })
       })
+      return () => {
+        live = false
+        stop()
+      }
     }
     let cancel: (() => void) | undefined
     const stop = react("frame wakes", () => {

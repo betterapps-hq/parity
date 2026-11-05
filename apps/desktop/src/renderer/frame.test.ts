@@ -327,6 +327,82 @@ describe("a frame's viewport", () => {
   })
 })
 
+describe("a frame's rem", () => {
+  const html =
+    '<div class="box">Text</div><p class="spaced"></p><div class="inline" style="width: 5rem; height: 1rem"></div>'
+
+  /**
+   * The sizes of a few elements with the project's stylesheet, in a frame on the canvas's 12px text and on a fresh page,
+   * with a rule the project's code adds as it runs. Parity's own root keeps the 16px it had.
+   */
+  async function sizes(projectCss: string) {
+    await frameWith(projectCss, html)
+    return page.evaluate(
+      ({ projectCss, html }) => {
+        const added = ".added { width: 3rem; height: 3rem }"
+        const document_ = document.querySelector("iframe")!.contentDocument!
+        document_.open()
+        document_.write(`<!doctype html><style>${projectCss} ${added}</style>${html}<div class="added"></div>`)
+        document_.close()
+        const shadow = document.querySelector("#host")!.shadowRoot!
+        const sheet = new CSSStyleSheet()
+        sheet.insertRule(added)
+        shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, sheet]
+        const target = shadow.querySelector("[data-canvas-body] > div")!
+        target.insertAdjacentHTML("beforeend", '<div class="added"></div>')
+        const read = (root: ParentNode) =>
+          Object.fromEntries(
+            [".box", ".spaced", ".inline", ".added"].map((selector) => {
+              const element = root.querySelector(selector)!
+              const box = element.getBoundingClientRect()
+              return [selector, `${box.width}x${box.height} ${getComputedStyle(element).fontSize}`]
+            })
+          )
+        return {
+          frame: read(shadow),
+          page: read(document_),
+          parity: getComputedStyle(document.documentElement).fontSize
+        }
+      },
+      { projectCss, html }
+    )
+  }
+
+  const boxes = `.box { width: 10rem; height: 2.4rem; font-size: 1.6rem; padding: .5rem }
+    :root { --spacing: 0.25rem } .spaced { width: calc(var(--spacing) * 40); height: 1px; margin: 0 }`
+
+  it("measures the project's root font, as Chrome does, when the project sets one", async () => {
+    const { frame, page, parity } = await sizes(`html { font-size: 62.5% } ${boxes}`)
+    expect(frame).toEqual(page)
+    expect(frame).toEqual({
+      ".box": "110x34 16px",
+      ".spaced": "100x1 10px",
+      ".inline": "50x10 10px",
+      ".added": "30x30 10px"
+    })
+    expect(parity).toBe("16px")
+  })
+
+  it("measures a browser's 16px when the project sets none", async () => {
+    const { frame, page } = await sizes(boxes)
+    expect(frame).toEqual(page)
+    expect(frame[".spaced"]).toBe("160x1 16px")
+  })
+
+  it("follows a root font size in pixels, em or rem, or in a media query that isn't a width", async () => {
+    for (const root of [
+      "html { font-size: 20px }",
+      "html { font-size: 1.25em }",
+      ":root { font-size: 1.25rem }",
+      "html { font-size: 50% } @media screen { html { font-size: 125% } }"
+    ]) {
+      const { frame, page } = await sizes(`${root} ${boxes}`)
+      expect(frame).toEqual(page)
+      expect(frame[".spaced"]).toBe("200x1 20px")
+    }
+  })
+})
+
 describe("styles written while the project runs", () => {
   it("measure viewport units against the frame, however they're written", async () => {
     await frameWith("", '<div class="h-[100vh]"></div><div style="height: 20vh"></div>')

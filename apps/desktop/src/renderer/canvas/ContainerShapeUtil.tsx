@@ -1,9 +1,11 @@
+import { boardLayoutAt } from "@parity-app/core"
 import { snaps } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   type Atom,
   atom,
   Box,
+  type Computed,
   computed,
   HTMLContainer,
   Rectangle2d,
@@ -11,7 +13,9 @@ import {
   react,
   ShapeUtil,
   T,
+  type Editor,
   type TLShape,
+  unsafe__withoutCapture,
   useEditor,
   useValue
 } from "tldraw"
@@ -88,11 +92,24 @@ export class ContainerShapeUtil extends ShapeUtil<ContainerShape> {
     )
   }
 
+  /** The board's outline, round its corners, which follow the zoom as its gutter does. */
   override getIndicatorPath(shape: ContainerShape) {
     const path = new Path2D()
-    path.roundRect(0, 0, shape.props.w, shape.props.h, 20)
+    path.roundRect(0, 0, shape.props.w, shape.props.h, boardLayoutAt(this.editor.getZoomLevel()).radius)
     return path
   }
+}
+
+/** Whether the camera is still, by editor, which every board's size waits for (see `ContainerContent`). */
+const cameraStill = new WeakMap<Editor, Computed<boolean>>()
+
+function isCameraStill(editor: Editor): boolean {
+  let still = cameraStill.get(editor)
+  if (!still) {
+    still = computed("camera still", () => editor.getCameraState() === "idle")
+    cameraStill.set(editor, still)
+  }
+  return still.get()
 }
 
 function ContainerContent({ shape }: { shape: ContainerShape }) {
@@ -127,11 +144,13 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
 
   // Layout sizes are unaffected by the camera's scale, so they can be written straight to the shape. A board that isn't
   // drawn at all, in a tab that isn't showing, has no size to give, rather than a size of nothing. Once it has given
-  // one, it says so, for a pasted design brought into view at its real size.
+  // one, it says so, for a pasted design brought into view at its real size. Its gutter follows the zoom (PAR-602), so
+  // a board changes size as the camera zooms; the shape takes its new size once the camera stops, rather than every
+  // board drawing again on every frame of a zoom.
   useLayoutEffect(() => {
     const element = ref.current
     if (!element) return undefined
-    const observer = new ResizeObserver(() => {
+    const measure = () => {
       const current = editor.getShape(shape.id)
       if (current?.type !== "canvas-container" || element.getClientRects().length === 0) return
       setDrawn(true)
@@ -143,9 +162,16 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
         })
       }
       setBoardSized(editor, shape.id, true)
+    }
+    const observer = new ResizeObserver(() => {
+      if (isCameraStill(editor)) measure()
     })
     observer.observe(element)
+    const stop = react("board size once the camera stops", () => {
+      if (isCameraStill(editor)) unsafe__withoutCapture(measure)
+    })
     return () => {
+      stop()
       observer.disconnect()
       setBoardSized(editor, shape.id, false)
     }

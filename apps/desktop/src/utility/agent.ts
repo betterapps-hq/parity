@@ -100,7 +100,7 @@ interface Caller {
 }
 
 /** Runs an agent's call. Its caller gets its own cursor on the canvas. */
-async function call(
+export async function call(
   method: string,
   params: Record<string, unknown>,
   window: WindowChannel,
@@ -289,11 +289,12 @@ async function state(snapshot: TabSnapshot) {
     designs: api.Designs(),
     /** Boards on top of each other, to move apart. */
     overlaps: api.Overlaps(),
-    modes: resolveModes(snapshot.modes).map((mode) => ({
+    // resolveModes makes new objects on every call, so the first one is the primary mode by position (PAR-579).
+    modes: resolveModes(snapshot.modes).map((mode, index) => ({
       id: mode.id,
       name: mode.name,
       width: mode.width,
-      primary: mode === resolveModes(snapshot.modes)[0]
+      primary: index === 0
     })),
     components: snapshot.components,
     tokens: {

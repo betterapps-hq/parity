@@ -217,6 +217,12 @@ still need your call.
 - **The menubar greys what the canvas menu greys for layers inside an instance** (PAR-419): Copy, Duplicate, the order,
   Wrap in layout and Hide or show, through one rule (`layerCommands`), and their keys do nothing then. Cut and Delete,
   which the canvas menu doesn't have, are unchanged.
+- **A Layers row's menu runs the menubar's commands on the selection** (PAR-571), as the canvas menu does, so a
+  right-click on a row selects it first unless it's in the selection. My calls: Rename still renames the row in place
+  rather than going through Edit > Rename, which renames a design on its title on the canvas, out of sight from Layers;
+  a design's row gains Duplicate, since the command duplicates designs; the root's row keeps only Rename, as the
+  commands can't duplicate, hide or delete a design's root, where the old menu could hide it; and Hide keeps naming
+  where the change lands (Hide in Default, PAR-497), read from the state the selection was picked in.
 
 ## Canvas
 
@@ -1620,6 +1626,36 @@ recommended answer to each of its questions.
     rewritten as rules are added, in any stylesheet. Outside a frame the custom properties aren't set, so the units
     still measure Parity's window there.
   - Only declarations are rewritten, so a selector such as `.h-[100vh]` still matches. Rewriting twice changes nothing.
+- **`rem` measures the project's root font** (PAR-156). In a shadow root `rem` reads the document's root, Parity's, so a
+  project with `html { font-size: 62.5% }` got 16px to the rem in frames where Chrome gives it 10px. Two things were
+  wrong: `rem` measured Parity's root, and the root's own `62.5%` was of the canvas's 12px text, since a frame's root
+  sits in Parity's page rather than at the top of one. My calls:
+  - **`rem` in the project's CSS is rewritten,** as viewport units are and in the same places (its stylesheets, inline
+    styles, `<style>` text and rules added while it runs): `1.6rem` becomes `calc(1.6 * var(--canvas-rem, 1rem))`.
+    Custom properties are rewritten too, since Tailwind's `--spacing: 0.25rem` is used everywhere. Queries are left
+    alone: `rem` in a media query counts a browser's default 16px, not the root's font.
+  - **The frame's root sets `--canvas-rem` to its font size,** whatever the project's rules make it, read through a
+    length Parity registers (`--canvas-root-font-size: 1em`), since `1em` in an ordinary custom property would measure
+    each element that uses it. A size worked out once, when the frame is prepared, would miss a theme or mode that
+    changes the root's font; through the cascade it follows them.
+  - **A relative root font size counts from a browser's 16px,** as on a page: `62.5%` and `em` in a `:root` or `html`
+    rule's `font-size` become `calc()`s of 16px, and so does `rem`, which in the root's own font size means the default.
+    A rule for the root and other elements at once, as `html, body`, is split when it sets a font size, so only the
+    root's changes.
+  - **Tokens keep the values the project wrote.** They used to be read from the CSS prepared for frames, so a token in
+    `vh` already read as a `calc()`, and with `rem` rewritten, Tailwind's and shadcn's spacing, text and radius would
+    have too. They're now read from the CSS with selectors mapped and lengths as written (`units: false`). What frames
+    draw is rewritten instead: a token's previewed value, and the values of the styling framework's theme that the
+    compiled CSS left out.
+  - **Not covered:** a root font size in a width media query, since those become container queries the root asks rather
+    than answers (a container can't query itself), so it applies in no frame; `larger`, `smaller` or the `font`
+    shorthand on the root; a root font size from a variable holding a percentage, or holding `rem`, which makes a cycle
+    with `--canvas-rem` and leaves the root at the canvas's font size; and a root font set by CSS-in-JS, whose added
+    rules aren't mapped onto the root. The editor's own rem (Fields count 16px to the rem, and a spacing step is
+    `--spacing` at 16px to the rem) is unchanged.
+  - **Rejected:** setting Parity's own root to the project's font size, which would resize Parity's interface and can't
+    serve two projects at once; converting `rem` to pixels when the CSS is prepared, which misses themes, modes and
+    token previews that change the root's font; and iframes, as for viewport units.
 - **A frame's body has a browser's 8px margin,** in the lowest layer, so a reset such as Tailwind's preflight still
   removes it (CAN-25). The size container that the project's rewritten media queries ask is the frame's root rather than
   its body. A container lays out on its own, as a page's root does, so on the body it kept a first heading's margin from
@@ -2866,6 +2902,20 @@ app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
 
+## Token value checks live in `@parity-app/tokens` (PAR-569)
+
+My calls: what a token edit may write is decided in `packages/tokens/src/checks.ts`, not in the token detail, so the
+agent's `SetTokens` can refuse what the detail refuses (PAR-584).
+
+- `checkTokenEdit` takes the token, its values, the drafts and how to read other tokens in a theme, and gives each
+  theme's problem, whether all pass, and the smallest changes: the themes whose trimmed value differs. A loop is checked
+  before the value's kind, as before.
+- The browser's `CSS.supports` is passed in as `supports`, so the package runs without a DOM and its tests use a
+  stand-in. What a reference comes to is passed in too, since the app's `comesTo` measures a spacing step's pixels in
+  the browser.
+- `builtOn` gives the tokens a token is built on in a theme, a scale step's base first, which the panel had written
+  inline.
+
 ## A mode's theme class also sets the theme's attribute (PAR-22)
 
 My call: a frame whose mode adds a theme's class also gets the attribute the project's stylesheet switches that theme on
@@ -3105,13 +3155,18 @@ editor.md, Component previews, made offscreen and kept on disk). The design is t
 calls, which you agreed on 2026-11-04:
 
 - **Tools publish no `outputSchema`; `structuredContent` stays.** The MCP spec allows structured content without a
-  schema. The schemas stay in the operation contracts (`operations.ts`, `execute.ts`), behind CLI `--json` and the
-  tests. The list is 11.7 KB.
+  schema. The schemas stay in the contracts (`@parity-app/agent/contracts` since PAR-590), where the CLI checks the
+  app's answers with them. The list is 11.7 KB.
 - **Why it was safe to drop.** Claude Code never shows an output schema to the model: Anthropic's tool definitions have
   no field for one, and Claude Code defers MCP tools, so a session starts with their names and the server's instructions
   and loads a tool's description and input schema when it's needed. Codex renders output schemas into the model's
   context as TypeScript in its code mode, so there they cost context on every session. No client needed them to call the
   tools.
+- **The input schemas come from zod since PAR-590, and nothing a client relies on changed.** A snapshot of the list
+  before and after has the same fields, types, defaults, bounds and `pattern: "\\S"`. A selector (`state`, `mode`) is
+  `anyOf` its two branches rather than `oneOf`, which more clients take. Execute's text fields gain `pattern: "\\S"`, as
+  the other tools' have, and it refuses unknown fields with `additionalProperties: false`. The list went from 12,089
+  bytes to 12,083.
 - **A test holds the list to 12 KiB** (`operations.test.ts`, "keeps the MCP tool list within its budget"). Raise it when
   a tool earns it, not to make room for longer schemas or descriptions.
 - **Codex shows the model only `structuredContent` when a result has it,** dropping the text and images beside it, so
@@ -3651,9 +3706,9 @@ use, with Layers and the inspector beside it, and every story starts it in a dif
   36px band for the captions and 24px between previews. Past 40% it shrinks with the canvas, as labels do, so boards
   zoomed far out don't run into each other. You had found the canvas-unit gutter "super thick on one, and non-existent
   or text overflowing on others". Captions never truncate: short of room they drop the shrink, then the width, then the
-  mode's name, and they stay until 10%. A board's title drops its menus before its name. The app's canvas still sizes
-  the gutter in canvas units (`boardLayout` in core, `ContainerView`), so PAR-545 changes both, and the agent's
-  `boardSize` estimate with them.
+  mode's name, and they stay until 10%. A board's title drops its menus before its name. PAR-602 sizes the app's gutter
+  in screen pixels too, in `boardLayout` in core and `ContainerView`, and the agent's `boardSize` estimate with them
+  (see "A board's gutter keeps its screen size up close").
 
 ## A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -3770,6 +3825,23 @@ below. My calls on how they move:
   guest's evaluator stays hand-written, typed from the schema (PAR-572). `guest.test.ts` follows what the guest imports,
   through Parity's packages, and fails if it reaches zod.
 - **MCP's input schemas come from zod** through `z.toJSONSchema`, and `tools/list` keeps its 12 KiB budget (PAR-510).
+- **The CLI and MCP contracts are in `@parity-app/agent/contracts`** (PAR-590), so the app can check its requests with
+  the same schemas (PAR-598) and PAR-564's method map can pair them. My calls:
+  - `requests` and `replies` are keyed by RPC method. The CLI's own results (every copy's tabs, the bounded console and
+    tokens, execute's canonical result) are schemas in the CLI, built on those.
+  - Request messages stay as the CLI worded them, naming their field ("design must be a nonblank string"), with the
+    field as the path. `readRequest` throws them through core's new `checkData`, which returns the first problem rather
+    than throwing it, so the message doesn't repeat the pointer as `parseInput`'s does. An operation's path stops at the
+    field, so a bad item in a list of modes points at `/mode`, as before.
+  - Execute's input is a union of a strict snippet object and a strict retry object. Which message a bad request gets
+    follows from the union's closest option: `{}` is "Nothing to run", a snippet with an `editId` "not both", and edits
+    without one "edits requires an editId". MCP execute now refuses unknown fields, as the other tools do.
+  - Answers are loose objects: a field a newer app adds reaches agents, and a field older apps leave out is optional
+    (state's `revision` before PAR-481, `warningGroups` before PAR-460, `composition` before PAR-454). Everything else
+    is required, as the app sends it, and an answer that doesn't match fails as `app_error` saying where, with "Update
+    Parity and @parity-app/cli". The tests' fake apps now send whole tabs and states.
+  - Core exports `propKinds` and `propGroups`, so the props answer checks a prop's kind and group against the same lists
+    its types come from, and `@parity-app/core/props` loads alone.
 - **Token files stay lenient.** A malformed token is skipped and reported rather than failing its file, since a strict
   check would refuse files that load today (PAR-591). Each of the 12 registry libraries with tokens read the same before
   and after, with nothing skipped. My calls:
@@ -3960,6 +4032,76 @@ event and returns the next list, and every path goes through it. My calls:
 - **An export the person puts on the list shows at once,** before its file is read again. One they take back off waits
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
+
+## A component preview draws what opens, open and in place (PAR-517)
+
+A dialog, popover or menu's preview showed its trigger alone, and its parts a blank or an empty trigger, since their
+content renders only once opened, in a portal outside the frame (see editor.md, Component previews, made offscreen and
+kept on disk). My calls in fixing it:
+
+- **Opened through the props a library declares, not a list of components.** The preview's tree gives `defaultOpen` to
+  what takes it and chooses an item for what takes `defaultValue`, reading the props each component's library file lists
+  (`openProps`). That covers Base UI's and Radix's dialogs, popovers, menus, selects and accordions in every library
+  without naming them. Only the first that opens, and the first within it, opens, so a menubar shows one menu rather
+  than four over each other. A sample that already chooses an item, as tabs' and radio groups' do, is left as it is, so
+  their pictures don't change. A value given to choose an item is a list when the sample's own choice is (an
+  accordion's), else a single value: nothing else says which a component takes, since props aren't read from Base UI's
+  types (the type checker gives library components no props here).
+- **Portals are moved into the frame after drawing, not given a container.** Neither Base UI nor Radix lets a project
+  say where every portal goes, and a component's own portal is inside it (`AlertDialogContent` wraps its portal), so the
+  offscreen page moves what's been added to its body into the preview's element once the component has drawn, and back
+  before the next job. React keeps rendering into a portal's node wherever it is.
+- **Placed content is put in the flow by the page, not by each library's classes.** What's fixed or absolute in a moved
+  portal is made relative, unmoved and shown, and what holds nothing is left out, by a stylesheet in the frame keyed by
+  attributes the page sets. A positioner that hid its popup for want of a trigger to place it by (a part drawn without
+  one) is shown, and positioning libraries that set inline styles again don't undo it. Only preview jobs do this: agents
+  and bitmaps draw portals where the project puts them.
+- **"Draws nothing of its own" is a picture with every pixel alike.** It's what the person would see, whatever the
+  reason: a provider, a part whose sample holds nothing, or content that couldn't be opened. It follows the Previews
+  exploration's States story (an eye-off icon and "Draws nothing of its own" on the muted fill), which designs it.
+  Previews made before are made again once, as `previewFormat` went up to 3.
+
+## The offscreen window never scrolls (PAR-520)
+
+Five component previews on the example (Separator, AlertAction, Bubble, BubbleGroup, BubbleReactions) showed a
+horizontal scrollbar along their bottom. Watching the offscreen window draw them showed why: for a capture it's made as
+tall as the frame, and whatever reaches below the frame (a part's name under a 1px Separator, a bubble's reactions,
+which hang three quarters below it) makes the page scroll. The vertical scrollbar takes room, so the frame, as wide as
+the window, overflows sideways too, and the horizontal scrollbar is drawn at the window's bottom, which is the bottom of
+the picture. My calls:
+
+- **The render page's root hides its overflow,** so the window has no scrollbars, rather than growing the window to what
+  overflows. A frame's picture is its frame: a bitmap is captured at the frame's size, and a component's preview is
+  cropped to its box. This applies to frame bitmaps and agents' captures as well as previews; none of them should show
+  scrollbars, and the window is never scrolled.
+- **What reaches past a preview's box is still cut off.** Bubble's reactions hang past its 8 pixels of room and show cut
+  through at the bottom, and BubbleReactions on its own, inside an otherwise empty Bubble, hangs wholly below it, so its
+  picture is now empty where it was a scrollbar. Cropping to everything the component draws would be a separate change.
+- **`previewFormat` went up to 2.** A preview's key covers its tree and code, not the renderer, so pictures kept with a
+  scrollbar would otherwise stay until their code changed. Every project's previews are made again once, in the idle
+  pass.
+
+## Component previews follow Parity's light or dark theme (PAR-521)
+
+Previews were all drawn in the project's first mode, light on the example, so in Parity's dark theme they were white
+boxes (see editor.md, Component previews, made offscreen and kept on disk). My calls in fixing it:
+
+- **One mode at a time, the one matching the theme, not both.** The issue allowed drawing both and showing the matching
+  one. Drawing both would double the idle pass's work and the disk for a theme most people don't switch, so the window
+  draws only the matching one, and a switch draws the rest then. The key covers the mode, so both are kept once made and
+  a switch back draws nothing.
+- **Dark is read from the mode's theme options, by the word.** Modes don't say light or dark, so a mode is dark when a
+  theme option's id, name or class is the word "dark": shadcn's `dark` class, a "Dark" option, `theme-dark`. A project
+  whose dark theme is called something else ("Night", "Midnight") is drawn in its first mode, as before.
+- **The matching mode keeps the first mode's other options.** Desktop Dark is picked over a Mobile Dark listed before
+  it, so a preview changes in theme only, not in viewport or locale.
+- **The card's box takes the page's color from the picture.** It was white, the light page; a dark picture in it showed
+  a white frame round its own dark page. Nothing in the window says what the page's color is in that mode, and the
+  picture's corner is that page, so the box draws the picture's first pixel scaled past its size as its background,
+  which needs no stored color and no decoding in script.
+- **Switching themes shows the other theme's picture, dimmed, until its own is made.** The index keeps one latest key a
+  component, so a switch to a theme not drawn yet shows the last picture as updating, as after an edit, rather than
+  nothing; switching back shows the kept one at once.
 
 ## Zoomed far out, a board's labels hide once it's too narrow (PAR-151)
 
@@ -4327,11 +4469,10 @@ requests, the worker client and main, and the copies disagreed. Now `@parity-app
   when it exits, and gives the performance stats its last builder readings when the service doesn't answer in a second.
 - **Ports are adapters:** `domPort` for the preload's `MessagePort`, `nodePort` for Electron's `MessagePortMain`,
   `parentPort` and `UtilityProcess` and Node's `Worker`, and `memoryPorts` for tests.
-- **Only the window's port to the service is checked.** Project code shares the window's page, so it can call
-  `window.canvasHost.request` with anything. `shared/service-checks.ts` has a zod schema for each method's params, typed
-  against `ServiceMethods` so the two can't drift, and a refused request fails with `invalid_input` and the field at
-  fault. A method the service doesn't have fails the same way, with `method` as the field. The other ports skip the
-  check, as PAR-578 says.
+- **Only the window's port to the service is checked.** Project code shares the window's page, so it can call the bridge
+  with anything. `shared/service-checks.ts` has a zod schema for each method's params, typed against `ServiceMethods` so
+  the two can't drift, and a refused request fails with `invalid_input` and the field at fault. A method the service
+  doesn't have fails the same way, with `method` as the field. The other ports skip the check, as PAR-578 says.
 - **What the checks cost.** On the example project's 1.8 MB `.par`, with 61 designs, checking `document.save` took 30 to
   75 ms in the service, against 9 to 15 ms to copy the document across the port. `frames.capture` with a whole design as
   its tree took 0.2 ms, and `previews.lookup` with 300 such previews 23 ms. A save waits on it, which the person doesn't
@@ -4355,3 +4496,61 @@ keeps only its message. My calls:
 - **Stand-ins answer as the preload does,** through `preloadAnswers`, so stories and tests see the same failures.
 - **A test goes the whole way:** `utility/window-channel.test.ts` sends requests from a channel set up as the preload's
   to the service's own window channel, and reads the page's errors through `settled`.
+
+## State labels shrink as titles do, beside rows tall enough to hold them (PAR-155)
+
+Called on 2026-11-04, for your approval in Storybook. Built on PAR-151's rule, which had state labels fade out by 25% as
+captions do:
+
+- **A state's label is a name now,** shrinking to 60% as a board's title does rather than fading, since it's how a row
+  is found on a board showing every state. Captions stay detail and still fade.
+- **It hides once it has under 24 screen pixels before the next row's label,** the line titles hide at, measured from
+  its top to where the next row's label starts, past the dashed line between rows. A label is 36 pixels tall at screen
+  size and about 22 at 60%, and that space is never under 98 page pixels, so a label that shows can't reach the next
+  one. Measuring only the row beside it would hide a component's lower rows at 25% while its first row, which also holds
+  the captions, kept its label. The last row is measured the same way. A row of component boards at 5% shows no state
+  labels, since their rows have a few pixels each; a screen's rows keep theirs.
+- **Rows are measured, not worked out.** A frame that grows with its content sets its row's height, which only the
+  layout knows, so each label watches its row with a `ResizeObserver`, as the board does for its own size.
+- **A label isn't clipped to the gap beside its board.** At 60% a screen's state label can reach over the board to its
+  left when zoomed far out, since how far away that board is isn't known to the label. The example's boards are 400
+  apart. Keeping labels to that gap would be its own change.
+
+## A board's gutter keeps its screen size up close (PAR-602)
+
+Called on 2026-11-05, for your approval in Storybook. PAR-540 decided the gutter (12 at the sides and bottom, a 36 band
+for the captions, 24 between previews, in screen pixels, shrinking with the canvas past 40%), and its bullet said
+PAR-545 would change the canvas, `boardLayout` and `boardSize`. PAR-602 has done that, so PAR-545 no longer carries the
+gutter. My calls:
+
+- **The rule is in core, beside the estimate.** `boardLayout` is now the gutter in screen pixels, and `boardLayoutAt`
+  gives it in canvas pixels at a zoom: its screen size over the zoom, and past 40% what it is at 40%. The 40% line,
+  `shrinkBelow`, moved to core too, and `labelLook` reads it there, so labels and gutters can't shrink from different
+  zooms.
+- **The divider before the companions is 12, the line and 12,** as the exploration draws it, one pixel more than the 24
+  between later previews. **Rows of states are 36, the line and 36 apart:** three quarters of the 48 either side they
+  had, as the gap between previews went from 32 to 24, which is the caption band's height, so a later row sits below its
+  line as the first sits below its band.
+- **Lines are a screen pixel wide.** The board's edge is a pixel at any zoom, as in the exploration, drawn over the
+  board so it takes no room: a border a pixel wide on screen would have been 100 canvas pixels at 1%, outgrowing the
+  agent's estimate. The dashed lines are a pixel up close and thin with the gutter past 40%, so they're inside the
+  estimate. Both are drawn at screen size and scaled to fit, since browsers round a border up to a whole device pixel
+  before the canvas's zoom, which made a quarter-pixel border four pixels wide at 400%.
+- **Corners round 10 pixels, as the exploration's do, but shrink past 40%,** where the exploration's stay 10. A corner
+  wider than the gutter would cut into the frames' corners. tldraw's outline of a board follows.
+- **A board stays where its top left corner is,** so its frames shift on the canvas as the gutter changes with the zoom,
+  as they do in the exploration: from 40% to 400% the first frame moves 81 canvas pixels up, nearer the corner.
+  Anchoring the frames instead would have meant moving a design's position with the zoom.
+- **The shape takes a board's new size once the camera stops.** Taking it on every frame of a zoom would draw every
+  board's title and menus again each frame. While the camera moves, the outline of a selected board is off by the change
+  in its gutter. The gutter itself follows the zoom live, as labels do, through each part's own style, not a custom
+  property that every frame's elements would inherit (PAR-556).
+- **The agent's estimate takes the gutter at 40%,** where it's widest on the canvas, so it's never smaller than the
+  board drawn at any zoom. A drawn board's bounds are still as the canvas has them at its zoom, so `Overlaps()` sees
+  drawn boards as they are now: boards set close together up close grow towards each other as the canvas zooms out to
+  40%, by 18 at each side and 54 in the band between 100% and 40%.
+- **A state's label measures its row's frames, and the gutter at 40%.** A row's own height is now its frames' alone,
+  whatever the zoom; the space to the next row's label adds the gutter at 40%, which is exact from there out, where a
+  label can be short of space. Closer in, the line between rows alone is 73 pixels on screen.
+- **Left for later:** captions still truncate and fade by 25% (PAR-151), where the exploration's drop their chips
+  instead, never truncate, and stay until 10%; and a title doesn't yet drop its menus before its name.

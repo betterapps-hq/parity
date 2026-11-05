@@ -6,7 +6,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 import { operations } from "./operations.ts"
-import { compileCache, processTests } from "./transport-fixture.ts"
+import { compileCache, emptyState, processTests } from "./transport-fixture.ts"
 
 /**
  * The CLI against two running copies of the app, each with its own project open (PAR-514): every call reaches the copy
@@ -15,7 +15,7 @@ import { compileCache, processTests } from "./transport-fixture.ts"
 interface FakeCopy {
   app: number
   startedAt: number
-  tabs: { id: string; name: string; root: string; active: boolean }[]
+  tabs: { id: string; name: string; root: string; active: boolean; status: string; designs: number }[]
   focusedAt: number
   requests: { method: string; params: Record<string, unknown> }[]
   server?: Server
@@ -26,14 +26,14 @@ const blog = "/work/blog"
 const person: FakeCopy = {
   app: process.pid,
   startedAt: 1000,
-  tabs: [{ id: shop, name: "shop", root: shop, active: true }],
+  tabs: [{ id: shop, name: "shop", root: shop, active: true, status: "ready", designs: 0 }],
   focusedAt: 5000,
   requests: []
 }
 const session: FakeCopy = {
   app: process.ppid,
   startedAt: 2000,
-  tabs: [{ id: blog, name: "blog", root: blog, active: true }],
+  tabs: [{ id: blog, name: "blog", root: blog, active: true, status: "ready", designs: 0 }],
   focusedAt: 6000,
   requests: []
 }
@@ -59,7 +59,8 @@ beforeAll(async () => {
         return
       }
       copy.requests.push({ method: body.method, params: body.params })
-      reply.end(JSON.stringify({ result: { tab: { id: body.params.tab, name: "x" }, designs: [] } }))
+      const tab = { id: body.params.tab, name: "x", root: body.params.tab, active: true, status: "ready", designs: 0 }
+      reply.end(JSON.stringify({ result: emptyState(tab) }))
     })
     await new Promise<void>((resolve) => copy.server!.listen(0, "127.0.0.1", resolve))
     const address = copy.server.address()
@@ -165,12 +166,12 @@ describe("routing between copies", processTests, () => {
   it("sends a call without a tab to the project the folder is in", async () => {
     const folder = join(registry, "work")
     await mkdir(folder, { recursive: true })
-    person.tabs = [{ id: folder, name: "work", root: folder, active: false }]
+    person.tabs = [{ id: folder, name: "work", root: folder, active: false, status: "ready", designs: 0 }]
     try {
       expect((await run(["state"], folder)).code).toBe(0)
       expect(person.requests).toEqual([{ method: "state", params: { tab: folder } }])
     } finally {
-      person.tabs = [{ id: shop, name: "shop", root: shop, active: true }]
+      person.tabs = [{ id: shop, name: "shop", root: shop, active: true, status: "ready", designs: 0 }]
     }
   })
 

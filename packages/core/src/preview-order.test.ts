@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { fitInside, nextPreview, previewIdleMs, previewSettleMs, renderQueue } from "./preview-order.ts"
+import { drawsNothing, fitInside, nextPreview, previewIdleMs, previewSettleMs, renderQueue } from "./preview-order.ts"
 
 /** A job that records when it starts and finishes only when `release` is called. */
 function held(log: string[], name: string) {
@@ -159,5 +159,17 @@ describe("fitInside", () => {
 
   it("keeps at least a pixel each way", () => {
     expect(fitInside(10_000, 1, box)).toEqual({ width: 240, height: 1 })
+  })
+})
+
+describe("drawsNothing", () => {
+  const white = [255, 255, 255, 255]
+  it("is a picture of the page alone, every pixel alike", () => {
+    expect(drawsNothing(new Uint8Array([...white, ...white, ...white]))).toBe(true)
+    expect(drawsNothing(new Uint8Array(white))).toBe(true)
+  })
+
+  it("isn't one with a pixel of anything else, even a channel apart", () => {
+    expect(drawsNothing(new Uint8Array([...white, ...white, 255, 255, 254, 255]))).toBe(false)
   })
 })

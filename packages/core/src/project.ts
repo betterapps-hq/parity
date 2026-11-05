@@ -105,7 +105,19 @@ export interface ComponentSource {
   visual?: false
   /** What a library component is inserted with: sample props, and children by component id or as text. */
   sample?: ComponentSample
+  /**
+   * The props among `openProps` a library component declares, which say what of it is open or chosen, so its preview
+   * draws it open (PAR-517).
+   */
+  openProps?: OpenProp[]
 }
+
+/**
+ * Props that say what's open or chosen: `defaultOpen` on what opens (a dialog, a popover, a menu), `defaultValue` on
+ * what opens or chooses its items by value (an accordion, a navigation menu, tabs) and `value` on those items.
+ */
+export const openProps = ["defaultOpen", "defaultValue", "value"] as const
+export type OpenProp = (typeof openProps)[number]
 
 /** A component library installed in the project, such as Buildkit's shadcn styles. */
 export interface LibraryInfo {

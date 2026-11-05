@@ -2,7 +2,16 @@ import { describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
 import { packageManifest } from "./adapters.ts"
 import { CodedError, errorDetails } from "./errors.ts"
-import { fileObject, finiteNumber, jsonText, nonBlankString, parseData, parseInput, plainObject } from "./schema.ts"
+import {
+  checkData,
+  fileObject,
+  finiteNumber,
+  jsonText,
+  nonBlankString,
+  parseData,
+  parseInput,
+  plainObject
+} from "./schema.ts"
 
 function thrown(run: () => unknown): unknown {
   try {
@@ -85,6 +94,17 @@ describe("fileObject", () => {
     const read = parseData(size, { width: 400, height: undefined })
     expect(read).toEqual({ width: 400 })
     expect(read).not.toHaveProperty("height")
+  })
+})
+
+describe("checkData", () => {
+  it("returns the first problem rather than throwing it, for a caller that words it its own way", () => {
+    const edits = z.object({ edits: z.array(z.object({ find: z.string("find it") })) })
+    expect(checkData(edits, { edits: [{ find: "a" }] })).toEqual({ success: true, data: { edits: [{ find: "a" }] } })
+    expect(checkData(edits, { edits: [{}] }, "/request")).toEqual({
+      success: false,
+      problem: { pointer: "/request/edits/0/find", message: "find it" }
+    })
   })
 })
 
