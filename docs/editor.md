@@ -330,7 +330,7 @@ Gaps: a label beside a line near the canvas's edge can run past it, as the centr
 
 A right-click on a design opens Figma's canvas menu, as far as Parity's commands go, for what's selected. Each item
 shows its keys from the keymap as the menubar shows them (`ContextMenuShortcut`, through `formatKeys`), and runs the
-menubar's command. The Layers panel's menu is unchanged.
+menubar's command. A row in the Layers panel has a menu of its own, built the same way (below).
 
 - **The items**, in groups with a line between them: Select layer; Copy, Paste here, Paste over selection, Paste to
   replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make component
@@ -385,6 +385,12 @@ menubar's command. The Layers panel's menu is unchanged.
   page, so tldraw never hears of that press: the menu stays open, and when the button comes up the canvas under the
   backdrop gets the `contextmenu` tldraw would have sent, which moves the menu there.
 - **Interact mode:** the design gets the right-click, and no menu opens.
+- **A row in Layers** (PAR-571) opens a shorter menu: Rename and Duplicate; for a layer, Hide in or Show in where the
+  change lands (see Edits in the state and variant shown); then Delete. A right-click on a row selects it first, unless
+  it's in the selection, so the menu acts on all of it, as on the canvas. Each item has the keymap's label and keys, and
+  runs the menubar's command, Rename excepted, which renames the row in place. So Hide reads and hides in the state the
+  selection was picked in, as Ctrl+Shift+H does, rather than the one the board shows (PAR-586), and Duplicate and Delete
+  act on every selected layer or design. The design's root can be renamed only, and a design can be duplicated too.
 - **Keys after an item** are the canvas's at once (PAR-424). A menu holds focus for the 100 ms or so it takes to fade
   out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-closed`) as gone, a field in it
   included: Ctrl+Z pressed straight after Duplicate undoes it, where it used to go to the closing menu and do nothing.
@@ -400,7 +406,9 @@ under the pointer with `hitTest` and `pickLayer`, outlines Select layer's entrie
 `pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
 through `canvas/paste-here.ts`, where `measureHere` measures the layout or component's slot under the pointer in its
 frame, and `pasteHere` in `packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys
-an open menu keeps is `inMenu` in `canvas/shortcuts.ts`.
+an open menu keeps is `inMenu` in `canvas/shortcuts.ts`. The Layers row's menu is `layersMenu` in
+`chrome/layers-menu.ts`, which reuses `canvasMenu`'s items and `layerCommands`, and `rowSelection` there is what a
+right-click on a row selects; `chrome/LayerTree.tsx` selects on opening and runs the items through `actions.ts`.
 
 Tests:
 
@@ -411,6 +419,12 @@ Tests:
   frame's background, around the frames, the root, inside the selection, outside it, and in a selected design; and
   `layerCommands`, which the menubar shares, for the design's own layers, one or several, and for a layer inside an
   instance, the root, and one of each.
+- `chrome/layers-menu.test.ts` (7, PAR-571): a layer's row menu in order with the keymap's labels and keys, a design's,
+  the root's with only Rename available, Hide reading every selected layer, Hide in the state the selection was picked
+  in rather than the one the board shows (PAR-586, which the menu before got wrong), and what a right-click on a row
+  selects, inside the selection and outside it.
+- `chrome/LayerTree.stories.tsx`, LayerMenu and DesignMenu (under Parity/Left panel/Layers): a right-click on a row
+  selects it and opens its menu.
 - `packages/editor/src/paste-here.test.ts` (23): the dashboard's stats row, at the slot under the pointer, first and
   last, several copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half
   size, half steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row
@@ -1300,7 +1314,9 @@ through `formatKeys` so it reads as one chord:
 
 Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`. The kit's `Kbd` and its menus' and Search actions'
 `*Shortcut` parts show what they're given, so each place that shows keys passes them through `formatKeys` itself, as
-`AppMenu.tsx`, `CanvasMenu.tsx`, `ActionsSearch.tsx`, `Toolbar.tsx` and `ShortcutsDialog.tsx` do.
+`AppMenu.tsx`, `CanvasMenu.tsx`, `ActionsSearch.tsx`, `Toolbar.tsx` and `ShortcutsDialog.tsx` do. The Layers row's menu,
+the toolbar's tools, history and zoom, and the Wrap in layout button for several layers take their labels and keys from
+the keymap too, so none types a shortcut by hand (PAR-571).
 
 Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
 and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)
@@ -2177,9 +2193,10 @@ as that state's or variant's changes ("changes only this state", "changes only t
 - **Edits start from what the board shows.** The inspector, the text editor and Hide read a layer as the board draws it
   in the state being edited: with the variant shown, the state's changes, and the params it binds. The text editor opens
   on the state's text: in Pricing's Yearly state, the Pro plan's price opens as $19, not Monthly's $24. Hide or show
-  (Ctrl+Shift+H, or Hide in and Show in on a row in Layers) hides what the state shows and shows what it hides, so a
-  layer the state, the variant or a param hides counts as hidden, and Layers marks it so. The canvas menu's Hide says
-  Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer the variant already hides.
+  (Ctrl+Shift+H, or Hide in and Show in on a row in Layers, which runs the same command, PAR-586) hides what the state
+  shows and shows what it hides, so a layer the state, the variant or a param hides counts as hidden, and Layers marks
+  it so. The canvas menu's Hide says Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a
+  layer the variant already hides.
 - **Hide in and Show in name where the change lands** (PAR-497). In the base state, with a variant option other than the
   default shown, the change goes to that option, so the row's menu names it: Show in Compact, not Show in Default. In
   any other state the state takes it, and the menu names the state. Core's `editTargetName` gives the name, which the
@@ -2222,11 +2239,11 @@ patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` giv
 with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside an instance).
 `packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation reads with, and
 `canvas/view.ts`'s `frameViewport` gives the viewport of the frame a layer was picked in. In the app,
-`canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark and
-its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it, `BaseDesignNote` in the Image and
-Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`,
-`readValue`) and `chrome/fields.tsx` (`ValueInput`), used by `PropsSection.tsx`, `LayerPanel.tsx`'s instance params and
-`ComponentsSection.tsx`'s defaults.
+`canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark),
+`chrome/layers-menu.ts` (its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it,
+`BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words),
+`chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by `PropsSection.tsx`,
+`LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
 
 Tests:
 

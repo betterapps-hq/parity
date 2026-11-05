@@ -217,6 +217,12 @@ still need your call.
 - **The menubar greys what the canvas menu greys for layers inside an instance** (PAR-419): Copy, Duplicate, the order,
   Wrap in layout and Hide or show, through one rule (`layerCommands`), and their keys do nothing then. Cut and Delete,
   which the canvas menu doesn't have, are unchanged.
+- **A Layers row's menu runs the menubar's commands on the selection** (PAR-571), as the canvas menu does, so a
+  right-click on a row selects it first unless it's in the selection. My calls: Rename still renames the row in place
+  rather than going through Edit > Rename, which renames a design on its title on the canvas, out of sight from Layers;
+  a design's row gains Duplicate, since the command duplicates designs; the root's row keeps only Rename, as the
+  commands can't duplicate, hide or delete a design's root, where the old menu could hide it; and Hide keeps naming
+  where the change lands (Hide in Default, PAR-497), read from the state the selection was picked in.
 
 ## Canvas
 

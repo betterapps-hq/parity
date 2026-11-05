@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Build the Layers row menu from the command registry, so its Hide acts in the state the selection was picked in, and take the toolbar's and Wrap in layout's labels and keys from the keymap",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

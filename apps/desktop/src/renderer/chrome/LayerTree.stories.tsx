@@ -298,13 +298,25 @@ export const LongNames: Story = {
   ]
 }
 
-/** A hidden layer's menu, opened by right-clicking its row: rename, show it again, duplicate or delete it. */
+/**
+ * A hidden layer's menu, opened by right-clicking its row, which selects it first: rename, duplicate, show it again or
+ * delete it, each with its keys from the keymap (PAR-571).
+ */
 export const LayerMenu: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     await reveal("Stat card", "Value skeleton")
+    example().selection.set({ design: design("Stat card") })
     await rightClick(row("Stat card", "Value skeleton"))
-    await within(document.body).findByRole("menu")
+    const menu = await within(document.body).findByRole("menu")
+    await expect(row("Stat card", "Value skeleton")).toHaveAttribute("aria-selected", "true")
+    const items = within(menu).getAllByRole("menuitem")
+    await expect(items.map((item) => item.textContent)).toEqual([
+      `Rename${formatKeys("Ctrl R")}`,
+      `Duplicate${formatKeys("Ctrl D")}`,
+      `Show in Default${formatKeys("Ctrl Shift H")}`,
+      `Delete${formatKeys("Del")}`
+    ])
   }
 }
 
@@ -340,12 +352,18 @@ export const HiddenByAVariant: Story = {
   }
 }
 
-/** A design's menu, opened by right-clicking its row: rename or delete it. */
+/** A design's menu, opened by right-clicking its row, which selects it: rename, duplicate or delete it. */
 export const DesignMenu: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     await rightClick(row("Plan card"))
-    await within(document.body).findByRole("menu")
+    const menu = await within(document.body).findByRole("menu")
+    await expect(row("Plan card")).toHaveAttribute("aria-selected", "true")
+    await expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent)
+    ).toEqual([`Rename${formatKeys("Ctrl R")}`, `Duplicate${formatKeys("Ctrl D")}`, `Delete${formatKeys("Del")}`])
   }
 }
 
