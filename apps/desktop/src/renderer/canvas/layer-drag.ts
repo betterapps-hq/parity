@@ -1,5 +1,5 @@
 import { boardTarget, editNode, findNode, locateNode, type NodeStyle, topmostNodes } from "@parity-app/core"
-import { boardReader, moveLayersAcross, moveLayersWithin, type MoveTarget } from "@parity-app/editor"
+import { absoluteDrag, boardReader, moveLayersAcross, moveLayersWithin, type MoveTarget } from "@parity-app/editor"
 import { editingState } from "../chrome/LayerPanel.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
@@ -9,7 +9,6 @@ import type { ProjectSession } from "../workspace.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
 import { type Drag, followPress, gestures } from "./gesture.ts"
 import { frameAt, frameScale, type Point } from "./hit.ts"
-import { shiftInsets } from "./insets.ts"
 import { kindColors } from "./kinds.tsx"
 import { LayerSnapping } from "./layer-snap.ts"
 import { frameDrawn } from "./nudge.ts"
@@ -19,7 +18,7 @@ import { frameViewport } from "./view.ts"
  * Moving layers by dragging them, on the canvas or in the Layers panel. In a layout they go wherever they're dropped,
  * between other layers or into another layout, in the same design or another. A layer placed absolutely moves live by
  * its insets instead, snapping to its siblings and its parent. Where they land and how they move are
- * `@parity-app/editor`'s (`dropTargetAt`, `moveLayersWithin`, `moveLayersAcross`, `snapLayer`); this follows the
+ * `@parity-app/editor`'s (`dropTargetAt`, `moveLayersWithin`, `moveLayersAcross`, `absoluteDrag`); this follows the
  * pointer, measures the frames, shows the
  * preview and applies the move to the store and the selection.
  */
@@ -249,11 +248,9 @@ export function moveLayers(
 }
 
 /**
- * Moves an absolutely placed layer live, as the pointer moves, by its insets, keeping both sides, negative insets and
- * tokens, as nudging does (see `shiftInsets`). It moves in half steps of the spacing scale, except along an axis where
- * it snaps to its siblings or its parent (see `LayerSnapping`), where it goes exactly where it locks, to the half
- * pixel. Every write is in the drag's gesture, one undo step: Escape takes them all back, and a drag that ends where
- * it began leaves nothing to undo.
+ * Moves an absolutely placed layer live, as the pointer moves, by the insets `@parity-app/editor`'s `absoluteDrag`
+ * gives, snapping to its siblings and its parent as `LayerSnapping` measured them. Every write is in the drag's
+ * gesture, one undo step: Escape takes them all back, and a drag that ends where it began leaves nothing to undo.
  */
 function followAbsolute(
   session: ProjectSession,
@@ -270,24 +267,23 @@ function followAbsolute(
   const location = locateNode(entry.container.root, id)
   if (!location) return undefined
   const viewport = frameViewport(store.getModes(), current.mode)
-  const style = boardReader(entry.container, { state, viewport })(location.node).style ?? {}
-  // Where its sides are drawn, for those set by a token or not at all.
-  const drawn = frameDrawn(area, entry.key, current, unit).insets(id)
   // Screen pixels per pixel of the design.
   const scale = frameScale(host) * (editor?.getZoomLevel() ?? 1)
   const snapping = LayerSnapping.measure(editor, host, entry.container, id, scale)
-  const halfSteps = (px: number) => Math.round((px / unit) * 2) / 2
-  const exactly = (px: number) => Math.round(px * 2) / 2 / unit
+  const follow = absoluteDrag({
+    style: boardReader(entry.container, { state, viewport })(location.node).style ?? {},
+    // Where its sides are drawn, for those set by a token or not at all.
+    drawn: frameDrawn(area, entry.key, current, unit).insets(id),
+    unit,
+    scale,
+    snapping
+  })
   let written: NodeStyle = {}
 
   return {
     move(delta, held) {
-      const free = { x: delta.x / scale, y: delta.y / scale }
-      const from = snapping?.box
-      const snapped = from && snapping.snap({ ...from, x: from.x + free.x, y: from.y + free.y }, held)
-      const along = (axis: "x" | "y") =>
-        snapped?.locked[axis] && from ? exactly(snapped.box[axis] - from[axis]) : halfSteps(free[axis])
-      const { change } = shiftInsets(style, along("x"), along("y"), drawn)
+      const { change, snapped } = follow({ dx: delta.x, dy: delta.y, snaps: snapping?.snaps(held) ?? false })
+      snapping?.show(snapped)
       if (JSON.stringify(change) === JSON.stringify(written)) return
       // A side moved back to where it began goes back to what was written, which only the drag's checkpoint has.
       if (Object.keys(written).some((side) => !(side in change))) {

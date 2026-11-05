@@ -55,6 +55,11 @@ describe("parseData", () => {
     expect(() => parseData(either, { kind: "ratio", ratio: "16/9" })).toThrow("/ratio: expected a number")
   })
 
+  it("passes over an option for another type of value, however few issues it has", () => {
+    const length = z.union([z.string(), z.object({ value: z.number(), unit: z.string() })])
+    expect(() => parseData(length, { value: "1" })).toThrow("/value: expected a number")
+  })
+
   it("keeps a message the schema gives itself", () => {
     expect(() => parseData(z.object({ id: z.string("expected the design's id") }), {})).toThrow(
       "/id: expected the design's id"

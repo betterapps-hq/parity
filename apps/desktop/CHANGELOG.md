@@ -1,8 +1,53 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 10:01:48 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 12:23:23 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.11.0
+
+Thu, 05 Nov 2026 12:23:23 GMT
+
+### Minor changes
+
+- Open Home and new tabs on the start page, with your recent and starred projects, search, Open and New project
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Leave out malformed tokens in a library's DTCG files, and note why, instead of reading them as broken CSS
+  (ajcraswell@gmail.com)
+
+## 0.10.1
+
+Thu, 05 Nov 2026 11:43:57 GMT
+
+### Patches
+
+- Layers' Hide in and Show in name the variant option the change goes to, not the state (ajcraswell@gmail.com)
+
+## 0.10.0
+
+Thu, 05 Nov 2026 11:30:08 GMT
+
+### Minor changes
+
+- Agent overlap warnings tell board collisions (overlap) from a title too close (title_clearance), say whether sizes are
+  measured or estimated, and count crowded boards a call didn't touch (canvas_overlaps) (ajcraswell@gmail.com)
+
+## 0.9.1
+
+Thu, 05 Nov 2026 11:11:28 GMT
+
+### Patches
+
+- Check registry entries, caller names and the app's error details with zod (ajcraswell@gmail.com)
+- List an export you put on the component list straight away, and keep a new component that takes a removed one's id
+  when files change (ajcraswell@gmail.com)
+- Every canvas drag now ends the same way: a title drag and a box select end when the window loses focus, and a title
+  drag or a frame's resize waits for the pointer to move 4 pixels (ajcraswell@gmail.com)
+- Measure explains that it lays out one frame when given a list, "all" or "shown", and lists the state or mode ids it
+  takes (ajcraswell@gmail.com)
 
 ## 0.9.0
 

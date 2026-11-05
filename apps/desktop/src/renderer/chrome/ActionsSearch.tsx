@@ -9,6 +9,7 @@ import {
   CommandShortcut
 } from "@buildkitgg/shadcn-baseui-kit"
 import { useState } from "react"
+import { useHomeActive, useKnownProjects, useTabs, useActiveTabId, workspace } from "../workspace.ts"
 import { type Action, actions } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { clearBitmapCache, exportImages } from "./commands.ts"
@@ -44,11 +45,16 @@ const extras: Item[] = [
 ]
 
 /**
- * Every action by name, as Figma's actions menu: Ctrl+K or Ctrl+/, or Help > Search actions. What's typed matches the
- * start of words in a name or its group (`matchWords`).
+ * Every action by name, as Figma's actions menu, and the projects the window remembers: Ctrl+K or Ctrl+/, or Help >
+ * Search actions. What's typed matches the start of words in a name or its group (`matchWords`). Projects come first
+ * on Home and in a new tab, where opening one is what you're there for, and last in a project.
  */
 export function ActionsSearch() {
   const open = useOpenDialog() === "actions"
+  const projects = useKnownProjects()
+  const tabs = useTabs()
+  const activeId = useActiveTabId()
+  const starting = useHomeActive() || !!tabs.find((tab) => tab.id === activeId)?.blank
   const [query, setQuery] = useState("")
   // Each time it opens it starts empty, even if keys reached the search while it was closing.
   const [wasOpen, setWasOpen] = useState(open)
@@ -66,17 +72,35 @@ export function ActionsSearch() {
     closeDialog()
     void item.run()
   }
+  const projectGroup = projects.length > 0 && (
+    <CommandGroup heading="Projects">
+      {projects.map((project) => (
+        <CommandItem
+          key={project.root}
+          value={`${project.name} Projects ${project.root}`}
+          onSelect={() => {
+            closeDialog()
+            void workspace.open(project.root)
+          }}
+        >
+          <span className="truncate">{project.name}</span>
+          <span className="ml-auto max-w-1/2 truncate text-xs text-muted-foreground">{project.root}</span>
+        </CommandItem>
+      ))}
+    </CommandGroup>
+  )
   return (
     <CommandDialog
       open={open}
       onOpenChange={(next) => !next && closeDialog()}
-      title="Search actions"
-      description="Search for an action to run"
+      title="Search"
+      description="Find a project to open or an action to run."
     >
       <Command filter={matchWords}>
-        <CommandInput value={query} onValueChange={setQuery} placeholder="Search actions" />
+        <CommandInput value={query} onValueChange={setQuery} placeholder="Search projects and actions" />
         <CommandList className="max-h-96">
-          <CommandEmpty>No action matches.</CommandEmpty>
+          <CommandEmpty>Nothing matches.</CommandEmpty>
+          {starting && projectGroup}
           {groups.map((group) => (
             <CommandGroup key={group} heading={group}>
               {items
@@ -94,6 +118,7 @@ export function ActionsSearch() {
                 ))}
             </CommandGroup>
           ))}
+          {!starting && projectGroup}
         </CommandList>
       </Command>
     </CommandDialog>
