@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Reopen a project in about 3 seconds: frames show the bitmaps kept from last time without drawing first, the project opens as Parity starts, and kept bitmaps carry their frame's height",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
