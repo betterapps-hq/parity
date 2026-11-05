@@ -3201,3 +3201,30 @@ Explorations / Starting on the canvas, from the audit's "Making something is alw
 - **The inspector on an empty canvas** says "Nothing to inspect yet", that a screen or component makes a start and that
   its size, layout and styles show there once one is selected, with New screen and New component buttons and their keys.
   With something on the canvas and nothing selected, it asks for "a screen or component on the canvas or in Layers".
+
+## Far frames wait on a placeholder rather than drawing (PAR-525)
+
+On a first launch every frame of the example project drew its design live while it had no bitmap, only to be taken apart
+once its bitmap came, which held the canvas up and paced the captures (see editor.md, Opening in seconds). You decided
+frames show a skeleton loader until their image loads. My calls:
+
+- **Zoomed far out, a frame that hasn't drawn waits for any bitmap, kept or captured,** where PAR-179 waited only for a
+  kept one. It draws at once where it wouldn't sleep (the selected board, zoomed in, interacting), and once its capture
+  fails or its design doesn't render, so a broken frame shows its error rather than a placeholder for good.
+- **The placeholder is a plain block, not a skeleton of the frame's boxes.** The skeletons frames already show are
+  measured from the drawn frame (`frameSkeleton`), and a frame that never drew has nothing to measure. A block in the
+  muted color at the frame's size reads as loading at the zooms it shows at. It doesn't pulse: an animation on 119
+  frames would repaint the canvas the whole time they wait.
+- **Its height is the frame's own, the height kept with an earlier bitmap, or the mode's window height,** as the issue
+  set out. A short component's placeholder is then much taller than the component, and its board takes the right height
+  when the bitmap comes. Boards keep their places on the canvas, so this changes their outlines, not where anything is.
+- **The height kept with a captured bitmap is measured at full size, after the capture.** No frame draws live on a first
+  launch now, so the offscreen window's own measure, up to 66 pixels out at the bitmap's quarter zoom, would have become
+  every kept height, and boards would have jumped when their frames first drew. Laying the frame out again at full size
+  gives the canvas's height (in the example, 4 of 61 boards still change by 12 to 24 pixels when they draw, against 28
+  boards by up to 66). It's measured after `capturePage` because measuring first made the capture fail on tall app
+  screens, and so the bitmap is the one the window took before, pixel for pixel.
+- **A frame holding off drawing is captured without the 1-second settle,** on what it first shows. The wait is there so
+  edits aren't captured at every step, and nothing is being edited in a frame that hasn't drawn.
+- **`pnpm perf` counts a frame as shown once it's asleep,** which is when it shows its bitmap or its placeholder, and
+  still times every bitmap separately.

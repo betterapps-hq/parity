@@ -2588,6 +2588,14 @@ puts that frame to sleep, which takes its drawn design apart, about 40 ms a fram
 once it has handled the last, so the offscreen windows waited 43% of the time. A far frame that shows a skeleton instead
 of drawing first (PAR-525) takes away both.
 
+**Placeholders instead of drawing (PAR-525).** Measured back to back with `main` on the same machine, while other
+sessions used it, on React's production build: a first launch is usable at 5.6 to 6.3 seconds where `main` took 7.4 to
+8.5, and has every bitmap at 12.2 to 13.5 where `main` took 14.8 to 15.9. No frame draws on the way: every frame shows
+its placeholder the moment it mounts, and its bitmap as it's captured, four at a time. The 3-second target for a first
+launch isn't met, and frames aren't what holds it now: they mount only once the project has opened and its guest has
+loaded, which on a fresh profile, with nothing cached, took about 5 seconds in these runs. Reopening and starting again
+show kept bitmaps as before, give or take this machine's load.
+
 **Where the time went, started again.** Before: the window loaded Parity's UI (1.0 s, from Vite's development server);
 asked the service for the project, which took 1.3 s to open it (finding its tools 0.2 s, discovering its components 0.35
 s, starting Vite in the builder's process 0.6 s); loaded the project's guest (0.4 s); then mounted the canvas, which
@@ -2626,6 +2634,12 @@ each copy on a fresh profile, so none of it opens on kept bitmaps. They were che
 app, and with a script that started a copy again, recorded every board's size while all 119 frames showed kept bitmaps
 without having drawn, then selected each board so its frames drew, and found none of the 61 boards changed size. With
 the offscreen window's heights, 28 boards were 3 to 66 pixels too tall, which is why the canvas's own height is kept.
+Since PAR-525, a script on a fresh profile watched every frame: all 119 showed placeholders, then bitmaps, with none
+drawn on the way; no board changed size between its placeholder and its bitmap other than taking its height; and
+selecting each board so its frames drew changed 4 of 61 by 12 to 24 pixels, where heights measured at the bitmap's zoom
+changed 28 by up to 66. The bitmaps were the same pixels as before the full-size measure, but for the 2 whose shadows
+rasterize differently between runs. The placeholder and capturing without the wait have no automated test of their own;
+they were checked that way and by reading `FrameTile` and `useFrameBitmap`.
 
 ### Reopening loads the project afresh (PAR-195, PAR-422, PAR-433)
 
