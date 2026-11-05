@@ -31,7 +31,28 @@ export const processTests = { timeout: 2 * spawnLimit }
 export const compileCache = { NODE_COMPILE_CACHE: join(tmpdir(), "parity-cli-compile-cache") }
 
 /** The one project the fixture's app has open, which calls without a tab are routed to. */
-export const fixtureTab = { id: "project", name: "Project", root: "/fixture/project", active: true }
+export const fixtureTab = {
+  id: "project",
+  name: "Project",
+  root: "/fixture/project",
+  active: true,
+  status: "ready",
+  designs: 0
+}
+
+/** A tab's state with nothing in it, as the app answers `state` for an empty project. */
+export function emptyState(tab: Record<string, unknown>) {
+  return {
+    tab,
+    revision: "r1",
+    selection: {},
+    designs: [],
+    overlaps: [],
+    modes: [],
+    components: [],
+    tokens: { count: 0, semantic: [], themeCategories: [] }
+  }
+}
 
 /**
  * Each test file owns its endpoint and subprocesses; no Electron or running app is needed. The endpoint answers the

@@ -144,7 +144,7 @@ function errorText(error: unknown): string {
 }
 
 /** Whether a manifest describes this version of its package. A manifest without a range covers every version. */
-export function covers(manifest: LibraryManifest, version: string | undefined): boolean {
+export function covers(manifest: Pick<LibraryManifest, "package">, version: string | undefined): boolean {
   const range = manifest.package?.range
   if (!range) return true
   if (!version) return false

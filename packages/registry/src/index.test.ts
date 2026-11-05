@@ -94,9 +94,9 @@ describe("withEdits", () => {
 
 describe("covers", () => {
   it("reads prereleases and a manifest without a range covers every version", () => {
-    expect(covers({ version: 3, name: "x", package: { name: "x", range: "^1.0.0" } }, "1.2.0-beta.1")).toBe(true)
-    expect(covers({ version: 3, name: "x", package: { name: "x", range: "^1.0.0" } }, "2.0.0-rc.1")).toBe(false)
-    expect(covers({ version: 3, name: "x", package: { name: "x" } }, undefined)).toBe(true)
+    expect(covers({ package: { name: "x", range: "^1.0.0" } }, "1.2.0-beta.1")).toBe(true)
+    expect(covers({ package: { name: "x", range: "^1.0.0" } }, "2.0.0-rc.1")).toBe(false)
+    expect(covers({ package: { name: "x" } }, undefined)).toBe(true)
   })
 })
 

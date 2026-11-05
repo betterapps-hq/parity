@@ -3155,13 +3155,18 @@ editor.md, Component previews, made offscreen and kept on disk). The design is t
 calls, which you agreed on 2026-11-04:
 
 - **Tools publish no `outputSchema`; `structuredContent` stays.** The MCP spec allows structured content without a
-  schema. The schemas stay in the operation contracts (`operations.ts`, `execute.ts`), behind CLI `--json` and the
-  tests. The list is 11.7 KB.
+  schema. The schemas stay in the contracts (`@parity-app/agent/contracts` since PAR-590), where the CLI checks the
+  app's answers with them. The list is 11.7 KB.
 - **Why it was safe to drop.** Claude Code never shows an output schema to the model: Anthropic's tool definitions have
   no field for one, and Claude Code defers MCP tools, so a session starts with their names and the server's instructions
   and loads a tool's description and input schema when it's needed. Codex renders output schemas into the model's
   context as TypeScript in its code mode, so there they cost context on every session. No client needed them to call the
   tools.
+- **The input schemas come from zod since PAR-590, and nothing a client relies on changed.** A snapshot of the list
+  before and after has the same fields, types, defaults, bounds and `pattern: "\\S"`. A selector (`state`, `mode`) is
+  `anyOf` its two branches rather than `oneOf`, which more clients take. Execute's text fields gain `pattern: "\\S"`, as
+  the other tools' have, and it refuses unknown fields with `additionalProperties: false`. The list went from 12,089
+  bytes to 12,083.
 - **A test holds the list to 12 KiB** (`operations.test.ts`, "keeps the MCP tool list within its budget"). Raise it when
   a tool earns it, not to make room for longer schemas or descriptions.
 - **Codex shows the model only `structuredContent` when a result has it,** dropping the text and images beside it, so
@@ -3820,6 +3825,23 @@ below. My calls on how they move:
   guest's evaluator stays hand-written, typed from the schema (PAR-572). `guest.test.ts` follows what the guest imports,
   through Parity's packages, and fails if it reaches zod.
 - **MCP's input schemas come from zod** through `z.toJSONSchema`, and `tools/list` keeps its 12 KiB budget (PAR-510).
+- **The CLI and MCP contracts are in `@parity-app/agent/contracts`** (PAR-590), so the app can check its requests with
+  the same schemas (PAR-598) and PAR-564's method map can pair them. My calls:
+  - `requests` and `replies` are keyed by RPC method. The CLI's own results (every copy's tabs, the bounded console and
+    tokens, execute's canonical result) are schemas in the CLI, built on those.
+  - Request messages stay as the CLI worded them, naming their field ("design must be a nonblank string"), with the
+    field as the path. `readRequest` throws them through core's new `checkData`, which returns the first problem rather
+    than throwing it, so the message doesn't repeat the pointer as `parseInput`'s does. An operation's path stops at the
+    field, so a bad item in a list of modes points at `/mode`, as before.
+  - Execute's input is a union of a strict snippet object and a strict retry object. Which message a bad request gets
+    follows from the union's closest option: `{}` is "Nothing to run", a snippet with an `editId` "not both", and edits
+    without one "edits requires an editId". MCP execute now refuses unknown fields, as the other tools do.
+  - Answers are loose objects: a field a newer app adds reaches agents, and a field older apps leave out is optional
+    (state's `revision` before PAR-481, `warningGroups` before PAR-460, `composition` before PAR-454). Everything else
+    is required, as the app sends it, and an answer that doesn't match fails as `app_error` saying where, with "Update
+    Parity and @parity-app/cli". The tests' fake apps now send whole tabs and states.
+  - Core exports `propKinds` and `propGroups`, so the props answer checks a prop's kind and group against the same lists
+    its types come from, and `@parity-app/core/props` loads alone.
 - **Token files stay lenient.** A malformed token is skipped and reported rather than failing its file, since a strict
   check would refuse files that load today (PAR-591). Each of the 12 registry libraries with tokens read the same before
   and after, with nothing skipped. My calls:
