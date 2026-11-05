@@ -14,12 +14,12 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { AppWindow, ChevronDown, Component, Frame, Hand, MousePointer2, Pointer, StickyNote, Type } from "lucide-react"
+import { AppWindow, ChevronDown, Component, Frame, Hand, MousePointer2, Pointer, Type } from "lucide-react"
 import { Fragment } from "react"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { type FramePreset, framePresets } from "./data.ts"
 
-export type ExploreTool = "select" | "hand" | "frame" | "text" | "note" | "interact"
+export type ExploreTool = "select" | "hand" | "frame" | "text" | "interact"
 
 interface ToolSpec {
   id: ExploreTool
@@ -31,8 +31,7 @@ interface ToolSpec {
 
 /**
  * The tools, in three groups: getting around, making things, and trying the real app. Frame takes F and A, as in
- * Figma. Note takes S, FigJam's key for a sticky note; Figma's own S is the slice tool, which Parity doesn't have, and
- * the keymap has no S yet (N is Next design).
+ * Figma.
  */
 const groups: ToolSpec[][] = [
   [
@@ -41,8 +40,7 @@ const groups: ToolSpec[][] = [
   ],
   [
     { id: "frame", label: "Frame", keys: ["F", "A"], icon: Frame },
-    { id: "text", label: "Text", keys: ["T"], icon: Type },
-    { id: "note", label: "Note", keys: ["S"], icon: StickyNote }
+    { id: "text", label: "Text", keys: ["T"], icon: Type }
   ],
   [{ id: "interact", label: "Interact with designs", keys: ["I"], icon: Pointer }]
 ]
@@ -64,7 +62,7 @@ export interface FrameMenuActions {
 }
 
 /**
- * The floating toolbar with the frame and note tools added. The frame tool has a menu beside it: a frame at one of the
+ * The floating toolbar with the frame tool added. The frame tool has a menu beside it: a frame at one of the
  * modes' sizes, and New screen and New component.
  */
 export function FramesToolbar({

@@ -202,16 +202,6 @@ export function NothingSelected() {
   )
 }
 
-/** The Design tab for a note, which has nothing to style: it's for the team, never drawn in the app. */
-export function NoteSelected() {
-  return (
-    <div className="flex flex-col gap-1 border-b px-4 py-3">
-      <span className="text-base font-semibold">Note</span>
-      <p className="text-xs text-muted-foreground">Notes are for your team. They&apos;re never drawn in your app.</p>
-    </div>
-  )
-}
-
 /** What making a screen or component a frame drops, worked out from the design and the project's others. */
 export interface FrameDrops {
   /** The state whose content the frame keeps: the first. */

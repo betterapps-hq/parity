@@ -9,12 +9,11 @@ import { type Design, FramesWorkspace, type Start } from "./workspace.tsx"
  * Frames, the light weight beside screens and components (docs/proposals/new-user-experience.md, "Three weights" and
  * "Making something is always one visible step"). A frame is drawn once, at its own size, in the primary mode: no
  * states, no previews in other modes, and never written to code. It holds anything a screen holds, and becomes a
- * component or a screen when it's ready. The frame tool (F) draws one, T in empty space on the canvas makes text in one, and
- * notes get a tool of their own.
+ * component or a screen when it's ready. The frame tool (F) draws one, and T in empty space on the canvas makes text in
+ * one. Notes aren't part of this yet.
  *
  * Every story is the same canvas, started in a different place, and all of it works: click a design or its row in
- * Layers to select it, drag to move it, F and a drag to draw a frame, T and a click to type, S and a click for a note,
- * and right-click a name or use the inspector's kind to convert. Ctrl+Z undoes. The app's theme follows the toolbar's
+ * Layers to select it, drag to move it, F and a drag to draw a frame, T and a click to type, and right-click a name or use the inspector's kind to convert. Ctrl+Z undoes. The app's theme follows the toolbar's
  * Theme switch; the designs keep the project's own light theme, as the primary mode draws them.
  */
 const meta = {
@@ -165,7 +164,7 @@ export const ClickToSelect: Story = {
 // The frame tool
 
 /**
- * The frame tool picked with F (or A, as in Figma), beside Text and a new Note tool. The pointer is a crosshair over
+ * The frame tool picked with F (or A, as in Figma), beside Text. The pointer is a crosshair over
  * the canvas, and the arrow beside the tool opens its sizes. Drag on the canvas to draw a frame.
  */
 export const FrameTool: Story = {
@@ -275,7 +274,7 @@ export const FrameMenu: Story = {
   }
 }
 
-// Text and notes in empty space
+// Text in empty space
 
 /**
  * T, then a click in empty space beside a screen: a text layer, being typed, in a frame that hugs it. The frame is named after
@@ -323,25 +322,6 @@ export const TextFrameSelected: Story = {
   })
 }
 
-/**
- * Notes keep their own tool, Note (S), and look like what they are: annotations about the designs, never drawn in the
- * app. They draw as sticky notes, as the collaboration explorations do, so text in a design and a note can't be taken
- * for each other. Click the canvas to place one and type.
- */
-export const NoteTool: Story = {
-  render: workspace({
-    designs: [pricing],
-    notes: [{ id: "note-1", x: 1900, y: 40, text: "Should Business say “Talk to sales” instead of a price?" }],
-    tool: "note",
-    tooltip: "note",
-    zoom: 0.35,
-    pan: { x: 48, y: 120 }
-  }),
-  play: async () => {
-    await expect(await within(document.body).findByRole("tooltip")).toHaveTextContent("Note")
-  }
-}
-
 // Making it something heavier, and back
 
 const welcomeHere = { ...welcome, x: 0, y: 0 }
@@ -353,7 +333,7 @@ const welcomeHere = { ...welcome, x: 0, y: 0 }
 export const MadeAComponent: Story = {
   render: workspace({
     designs: [{ ...welcomeHere, kind: "component", modes: [primaryMode.id] }],
-    past: [{ designs: [welcomeHere], notes: [] }],
+    past: [{ designs: [welcomeHere] }],
     selected: "welcome",
     zoom: 0.75,
     pan: { x: 240, y: 160 },
@@ -368,7 +348,7 @@ export const MadeAComponent: Story = {
 export const MadeAScreen: Story = {
   render: workspace({
     designs: [{ ...welcomeHere, kind: "screen", modes: [primaryMode.id] }],
-    past: [{ designs: [welcomeHere], notes: [] }],
+    past: [{ designs: [welcomeHere] }],
     selected: "welcome",
     zoom: 0.75,
     pan: { x: 240, y: 160 },

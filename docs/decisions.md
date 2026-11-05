@@ -3479,3 +3479,35 @@ every project on a screen instead, you said "Drop it."
 - **The rest of PAR-541 stays:** New screen and New component in File, Object, the canvas's right-click menu and Search
   actions, with their keys, and Layers' + always showing, with its empty rows as buttons. PAR-546 builds those. The
   exploration's stories open on a project with screens, and its empty-canvas stories are gone.
+
+## How frames look and work (PAR-540)
+
+You approved the frames exploration (Parity/Explorations/Frames) by merging it on 2026-11-05. It's one canvas you can
+use, with Layers and the inspector beside it, and every story starts it in a different place. PAR-545 builds it.
+
+- **A frame has no board:** its name above it, smaller and quieter than a board's, and the design at its own size,
+  filled with the primary mode's background. Its icon is lucide's Frame, neutral until selected, then in the layer
+  color, since a frame is a layout. Screens use AppWindow in the stories until PAR-538's icon lands.
+- **The toolbar is Move and Hand, then Frame (F or A) and Text (T), then Interact.** The frame tool's menu lists each
+  viewport the modes use once, naming the modes that use it, with heights from `screenHeightForWidth` where a viewport
+  gives only a width. A size resizes the selected frame, or adds a frame at that size. New screen and New component sit
+  below the sizes.
+- **A drag with the frame tool draws a frame, snapping to the edges of the designs around it,** named Frame 1, Frame 2
+  and so on, selected, with the move tool back. A click without a drag makes a 100 × 100 frame, as Figma does.
+- **T and a click in empty space makes a text layer in a frame that hugs it,** with 2 steps of padding so the fill
+  doesn't clip the letters, named after its text until it's renamed.
+- **Notes don't get a tool yet.** You said on 2026-11-05: "I think it's too early to add notes functionality. We should
+  revert that." This replaces "Notes stay, as annotations, under a tool of their own" in PAR-537's list: the Note tool
+  (S) is gone from the exploration, and PAR-545 doesn't build one.
+- **The inspector's kind switch is Frame, Component, Screen,** and every design's title menu has Convert to for the
+  other two kinds. A heavier kind applies at once, with a toast whose Undo brings it back. Converting a screen or
+  component to a frame asks first when it drops anything, and lists it: states after the first, previews beside the main
+  one, params, and instances, which become plain layers as Detach instance makes them. A frame made a screen keeps its
+  size as its preview's.
+- **A board's gutter is in screen pixels,** so it looks the same at every zoom up close: 12px at the sides and bottom, a
+  36px band for the captions and 24px between previews. Past 40% it shrinks with the canvas, as labels do, so boards
+  zoomed far out don't run into each other. You had found the canvas-unit gutter "super thick on one, and non-existent
+  or text overflowing on others". Captions never truncate: short of room they drop the shrink, then the width, then the
+  mode's name, and they stay until 10%. A board's title drops its menus before its name. The app's canvas still sizes
+  the gutter in canvas units (`boardLayout` in core, `ContainerView`), so PAR-545 changes both, and the agent's
+  `boardSize` estimate with them.
