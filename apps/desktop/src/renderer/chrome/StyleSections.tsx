@@ -678,29 +678,32 @@ function SizeInput({
   let placeholder = "Hug"
   if (mode === "auto") placeholder = "Auto"
   else if (mode === "fill") placeholder = "Fill"
+  // The length keeps room for four digits and px beside the mode; a narrower panel puts the mode under it instead.
   return (
-    <div className="grid grid-cols-[1fr_92px] items-start gap-1">
-      <LengthInput
-        editor={editor}
-        title={axis === "width" ? "Width" : "Height"}
-        value={fixed ? value : undefined}
-        placeholder={placeholder}
-        blank={() => editor.measure(axis)}
-        {...edits}
-      />
-      <ChoiceInput
-        value={mode === "auto" ? undefined : mode}
-        options={[
-          { value: "fixed", label: "Fixed" },
-          ...(canFill ? [{ value: "fill" as const, label: "Fill" }] : []),
-          { value: "hug", label: "Hug" }
-        ]}
-        placeholder="Auto"
-        onChange={(next) => {
-          if (next === "fixed") onChange(fixed ? value : (editor.measure(axis) ?? 64))
-          else onChange(next)
-        }}
-      />
+    <div className="@container">
+      <div className="grid grid-cols-1 items-start gap-1 @min-[11rem]:grid-cols-[1fr_92px]">
+        <LengthInput
+          editor={editor}
+          title={axis === "width" ? "Width" : "Height"}
+          value={fixed ? value : undefined}
+          placeholder={placeholder}
+          blank={() => editor.measure(axis)}
+          {...edits}
+        />
+        <ChoiceInput
+          value={mode === "auto" ? undefined : mode}
+          options={[
+            { value: "fixed", label: "Fixed" },
+            ...(canFill ? [{ value: "fill" as const, label: "Fill" }] : []),
+            { value: "hug", label: "Hug" }
+          ]}
+          placeholder="Auto"
+          onChange={(next) => {
+            if (next === "fixed") onChange(fixed ? value : (editor.measure(axis) ?? 64))
+            else onChange(next)
+          }}
+        />
+      </div>
     </div>
   )
 }
