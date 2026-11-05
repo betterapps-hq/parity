@@ -262,11 +262,23 @@ describe("stepping and scrubbing", () => {
     const entries = await log()
     expect(entries.filter(([kind]) => kind === "commit")).toEqual([["commit", 18]])
     expect(entries).toContainEqual(["preview", 18])
-    // In a gesture of its own, from the press to the release.
+    // Its one commit is an undo step of its own, with no gesture around it (PAR-551).
+    expect(await gestures()).toEqual([["commit", null]])
+  })
+
+  it("ends a run of Up and Down presses when the label is scrubbed", async () => {
+    await width().click()
+    await width().press("ArrowUp")
+    const label = await page.getByText("Width", { exact: true }).boundingBox()
+    await page.mouse.move(label!.x + 5, label!.y + 5)
+    await page.mouse.down()
+    await page.mouse.move(label!.x + 25, label!.y + 5)
+    await page.mouse.up()
     expect(await gestures()).toEqual([
       ["begin", "g1"],
       ["commit", "g1"],
-      ["end", "g1"]
+      ["end", "g1"],
+      ["commit", null]
     ])
   })
 

@@ -15,7 +15,8 @@ import {
   siblingsOf,
   topLayers,
   unwrapLayout,
-  wrapInLayout
+  wrapInLayout,
+  editingState
 } from "@parity-app/editor"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
@@ -23,7 +24,6 @@ import { frameViewport } from "../canvas/view.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { editingState } from "./LayerPanel.tsx"
 
 /**
  * What acts on several layers or designs at once: deleting, duplicating, selecting all, wrapping in a layout, ordering,

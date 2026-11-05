@@ -281,8 +281,8 @@ export interface NumberFieldProps {
   /** Takes the preview back. */
   onCancel?: () => void
   /**
-   * Makes the edit, as one undo step. A run of Up and Down presses, and a scrub, pass the gesture they're in, so the
-   * whole run is one step.
+   * Makes the edit, as one undo step. A run of Up and Down presses passes the gesture it's in, so the whole run is one
+   * step.
    */
   onCommit: (update: FieldUpdate, gesture?: string) => void
 }
@@ -316,7 +316,7 @@ export function NumberField({
   const store = useContext(ProjectContext)?.store
   const target = useContext(FieldTarget)
   /**
-   * The run of Up and Down presses, or the scrub, the field's edits are in, keyed by its target (see `GestureRun`). A
+   * The run of Up and Down presses the field's edits are in, keyed by its target (see `GestureRun`). A
    * run lasts while only Up and Down are pressed on one target: typing, Enter, Escape, leaving the field, scrubbing or
    * the target changing ends it.
    */
@@ -447,8 +447,9 @@ export function NumberField({
     const start = event.clientX
     let steps = 0
     let update: FieldUpdate | undefined
+    // A scrub ends any run of Up and Down presses, and previews until it's let go, when it makes its edit once: one
+    // undo step without a gesture of its own.
     dispatch({ type: "scrubStart" })
-    beginGesture()
     const move = (moveEvent: PointerEvent) => {
       const next = scrubSteps(moveEvent.clientX - start, moveEvent.shiftKey)
       if (next === steps) return
@@ -467,11 +468,10 @@ export function NumberField({
       dispatch({ type: "scrubEnd" })
       if (commit && steps !== 0) {
         const { update: final, summary } = editFor(undefined, steps)
-        onCommit(final, beginGesture())
+        onCommit(final)
         previewing.current = false
         dispatch({ type: "committed", note: summary() })
       } else run({ type: "cancel" })
-      endGesture()
       // A press without a drag is a click: on a label inside the field, it goes to the field.
       if (steps === 0 && inner) input.current?.focus()
     }

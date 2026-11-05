@@ -710,9 +710,11 @@ is now the end-to-end test above. A component dropped from the Components panel 
 
 ### Moving an absolutely placed layer by dragging (CAN-47)
 
-A layer placed absolutely moves by its insets, live, as the pointer moves (PAR-174): in half steps of the spacing scale,
-except along an axis where it snaps (see "Snapping layers while moving and resizing", below). Its outline and size label
-follow it. Escape takes the move back, leaving nothing to undo, and a drag that ends where it began adds no undo step.
+A layer placed absolutely moves by its insets as the pointer moves (PAR-174): in half steps of the spacing scale, except
+along an axis where it snaps (see "Snapping layers while moving and resizing", below). Its outline and size label follow
+it. While it's dragged the move is a preview on the frames, and the design is written once, when it's dropped (PAR-551),
+so a drag doesn't draw the design again and mark the file changed dozens of times a second. Escape puts it back, leaving
+nothing to undo, and a drag that ends where it began adds no undo step.
 
 - **Both sides.** Along each axis it moves by the side it's placed from: the left (or top), unless only the right (or
   bottom) is set. A layer stretched between both sides moves both, so it keeps its size: Calendar's Review slot, placed
@@ -726,9 +728,12 @@ This is the same rule nudging uses, one function for both. Code: `packages/edito
 (`@parity-app/editor`): `shiftInsets` moves the insets, and `absoluteDrag` follows one drag, taking the layer's style as
 the board shows it, where its sides are drawn and what it snaps to, and giving the insets for each pointer move, in half
 steps or, where it snapped, to the half pixel. `apps/desktop/src/renderer/canvas/layer-drag.ts` (`followAbsolute`)
-measures those, where the sides are drawn with `frameDrawn` (`canvas/nudge.ts`), and writes each move in the drag's
-gesture, one undo step (PAR-441), taking them back to the drag's checkpoint (`Drag.revert`, from `canvas/gesture.ts`'s
-`followPress`) on Escape or when the layer comes back to where it began.
+measures those, where the sides are drawn with `frameDrawn` (`canvas/nudge.ts`), previews each move with
+`canvas/style-preview.ts`'s `StylePreview`, as the inspector's fields do, and on the drop settles the preview and writes
+the insets once, in the drag's gesture (PAR-441). A component that doesn't draw the styles it's given on its root can't
+be previewed (CAN-45), so that layer is written as it moves, in the drag's gesture, as before PAR-551: Escape, or the
+layer coming back to where it began, takes it back to the drag's checkpoint (`Drag.revert`, from `canvas/gesture.ts`'s
+`followPress`).
 
 Tests: `packages/editor/src/move-resize.test.ts`, moving: by the side it's placed from, both sides of a stretched layer
 (the Review slot), negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn
@@ -736,10 +741,11 @@ Tests: `packages/editor/src/move-resize.test.ts`, moving: by the side it's place
 Review slot, in half steps where nothing is near, exactly where its bottom locks to Lunch's top, 8.25 steps to a line
 off the scale, and by the pointer when it isn't drawn. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2) drags
 Calendar's Review slot 24px right to left 6 and right -6, and, with left -2 and both right and top set to the `spacing`
-token, 16px right with Ctrl held to left 2 and right -3, with top still `spacing` and the width unchanged. Moving live
-and Escape are covered under "Snapping layers while moving and resizing".
+token, 16px right with Ctrl held to left 2 and right -3, with top still `spacing` and the width unchanged. The preview
+during the drag, the single write and Escape are covered under "Snapping layers while moving and resizing".
 
-Gaps: none known. Dragging itself was first checked by hand, as the end-to-end test now does it.
+Gaps: the fallback for a component that can't be previewed has no test of its own; it's the path every absolutely placed
+layer took before PAR-551, which `design-store.test.ts` covers through the store.
 
 ### Resize handles (CAN-47)
 
@@ -888,7 +894,7 @@ the text cursor. Escape cancels each of these drags.
   | ----------------------------- | ----------------------- | --------------------------------------- |
   | Resize                        | takes it all back       | keeps it                                |
   | Layers dragged in a layout    | calls it off            | calls it off                            |
-  | An absolutely placed layer    | takes it back           | takes it back                           |
+  | An absolutely placed layer    | puts it back            | puts it back                            |
   | Designs dragged by a title    | puts them back          | saves them where they are               |
   | A box on a frame's background | puts the selection back | puts the selection back                 |
 
@@ -992,7 +998,8 @@ snapping preference to move freely.
 - **Even spacing.** Along each axis, it also takes the place that spaces it evenly with the siblings beside it across
   that axis, as in a row or a column: in the middle between two, or the same gap after or before a run of them that's
   already evenly spaced, so three or more are evenly spaced. Of an edge and an even space, the nearer wins; when both
-  come to the same place, both show.
+  come to the same place, both show. The siblings don't move during the gesture, so the places among each row it's
+  beside are worked out once and kept (PAR-551), and a move only finds its row and the places near it.
 - **What shows.** A red guide along each line it locked to, spanning it and what it locked to; spacing marks in every
   gap of the evenly spaced run; and the distances to what it lined up with, drawn as Alt's redlines are, with the
   spacing step they come to: the gap to a sibling, or its four insets in its parent. They go when the drag ends, whether
@@ -1011,23 +1018,24 @@ spacing-8 to Planning. Dragged 36px down, its bottom locks to Lunch's top at top
 Code: `snapLayer` in `packages/editor/src/snap.ts` (`@parity-app/editor`) takes the layer's box, its siblings' and its
 parent's, the zoom and, for a resize, the edges the handle drags (`resizeEdges`, `resizedBox`), and returns where it
 goes, the axes it locked, the guides, the distances (`distancesBetween`, which Alt's redlines use too) and the spacing
-marks; `lockedEdgeMoves` says how far a resize's locked edges moved. `packages/editor/src/move-resize.ts` snaps with
-them: `absoluteDrag` moves the layer exactly where it locked, and `layerResize` passes a resize's locked edges to
-`resizeGesture`, which `resizeInsets` takes exactly; both give back where it locked.
-`apps/desktop/src/renderer/canvas/layer-snap.ts` (`LayerSnapping`) measures the boxes in the frame when the gesture
-begins, the parent's as the layer's `offsetParent`, which is its containing block, and shows where the layer locked, the
-guides and marks as tldraw's snap indicators, keeping the distances for `canvas/CanvasOverlay.tsx` to draw; the gesture
-clears them when it ends. `canvas/layer-drag.ts` (`followAbsolute`) and `CanvasOverlay.tsx`'s `startResize` pass it in
-and show what comes back. Both gestures end through `canvas/gesture.ts` (`followPress`), which tells them whichever way
-they end.
+marks; `lockedEdgeMoves` says how far a resize's locked edges moved; `EvenSpacing` keeps the even places for a gesture,
+which the scene passes in. `packages/editor/src/move-resize.ts` snaps with them: `absoluteDrag` moves the layer exactly
+where it locked, and `layerResize` passes a resize's locked edges to `resizeGesture`, which `resizeInsets` takes
+exactly; both give back where it locked. `apps/desktop/src/renderer/canvas/layer-snap.ts` (`LayerSnapping`) measures the
+boxes in the frame when the gesture begins, the parent's as the layer's `offsetParent`, which is its containing block,
+with an `EvenSpacing` of the siblings, and shows where the layer locked, the guides and marks as tldraw's snap
+indicators, keeping the distances for `canvas/CanvasOverlay.tsx` to draw; the gesture clears them when it ends.
+`canvas/layer-drag.ts` (`followAbsolute`) and `CanvasOverlay.tsx`'s `startResize` pass it in and show what comes back.
+Both gestures end through `canvas/gesture.ts` (`followPress`), which tells them whichever way they end.
 
 Tests:
 
-- `packages/editor/src/snap.test.ts` (14 more): a left locking to a sibling's within 8 pixels, with its guide and the
+- `packages/editor/src/snap.test.ts` (15 more): a left locking to a sibling's within 8 pixels, with its guide and the
   gap between them; a centre locking to the parent's, with the four insets; the distance counted on screen at half and
   double zoom; nothing near; a resize locking only the dragged edge, left or right, and how far it moved; an axis the
   handle doesn't drag left alone; the edges each handle drags; the same gap after a run and before one, in the middle
-  between two, with the marks; a nearer line winning over even spacing, and both showing when they agree; spacing
+  between two, with the marks; a nearer line winning over even spacing, and both showing when they agree; the places
+  kept through a gesture snapping as working them out each move does, moving in and out of rows at two zooms; spacing
   needing three beside each other; distances apart and inside; and Ctrl or Cmd, or snapping turned off, moving freely.
 - `packages/editor/src/move-resize.test.ts`: a snapped edge taken exactly, to the half pixel, and an axis that didn't
   snap in steps; sizes and insets to the half pixel with `exact`; the Review slot's bottom handle locking to Lunch's top
@@ -1040,8 +1048,9 @@ Tests:
 - `canvas/gesture.test.ts`: how a gesture ends, under "Cursors and Escape during a gesture", above.
 - `apps/desktop/e2e/moving.e2e.ts` (5), end to end, on the Review slot at 100%: dragged 6px down it stays, with spacing
   marks over three gaps, a guide and the 32px distance during the drag, and nothing to undo or shown after; dragged 36px
-  down it's at top 48 during the drag and after, and Undo puts it back; with Ctrl it's at 49, with nothing shown; Escape
-  mid-drag puts it back with nothing to undo; and its bottom handle dragged 26px makes it 24 steps high.
+  down it's drawn 8 steps lower during the drag while the design still says top 40, then written at top 48 when it's
+  dropped, and Undo puts it back; with Ctrl it's at 49, with nothing shown; Escape mid-drag puts it back where it was
+  drawn, with nothing to undo; and its bottom handle dragged 26px makes it 24 steps high.
 
 Gaps: the spacing marks and guides are read from tldraw's snap indicators, not from what's drawn. Checked in the app on
 2026-11-04, in a copy on its own ports: the guide, marks and distance on the Review slot, its bottom locked to Lunch's
@@ -1138,7 +1147,9 @@ a component design; the Layers panel's add buttons start new designs. Each is on
   absolutely placed as the board shows it, it goes last, placed at the pointer in half steps of the spacing scale. While
   dragging, the layout is outlined and a line shows the slot, or a corner marks the pointer where it goes in an
   absolutely placed layout. A drop on the empty canvas makes a screen there (PAR-546, below); one over a design where
-  there's no layout says so.
+  there's no layout says so. The layout under the pointer is measured once while the drag stays over it, its children's
+  boxes and its flow kept until the pointer is over another layout or the canvas pans or zooms (PAR-551), so the line
+  keeps up over a big grid.
 - **A click inserts at the selection:** into a selected layout, at its end; just after any other selected layer, in its
   layout or slot; or at the end of a selected design's root. With nothing selected it makes a screen in the middle of
   the view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
@@ -1171,9 +1182,10 @@ a component design; the Layers panel's add buttons start new designs. Each is on
 Code: the rules are in `packages/editor/src/insert.ts`, `components.ts`, `create.ts` and `placement.ts`
 (`@parity-app/editor`), with the new layer's props and label in `componentNode` and a library part's parents and samples
 in `withLibraryContext`, both in `packages/core/src/library-insert.ts`, and `fixedSize` read by `setsOwnSize` in
-`packages/code/src/props.ts`. The app's `canvas/insert.ts` measures the layout under the pointer and applies an insert
-to the selection and the store, `chrome/components.ts` measures the designs and applies Make component, and
-`chrome/create.ts` adds a new design and zooms to it.
+`packages/code/src/props.ts`. The app's `canvas/insert.ts` measures the layout under the pointer, through
+`canvas/paste-here.ts`'s `HereMeasures` while a drag goes on, and applies an insert to the selection and the store,
+`chrome/components.ts` measures the designs and applies Make component, and `chrome/create.ts` adds a new design and
+zooms to it.
 
 Tests: `packages/editor/src/insert.test.ts`: the layer for a component (required props, given props, a library's name),
 an instance and an image (its size, alt text and credit, and a tiny one); the labels; inserting between children, at the
@@ -1181,25 +1193,26 @@ end, in a slot, at the pointer in an absolutely placed layout, inside a library 
 and a detached copy; and where a click inserts (a layout, after a layer, in a slot, the root, and nowhere). Where a drop
 lands is `slotHere`'s, in `packages/editor/src/paste-here.test.ts`: the slot and its line in a row, a grid's second row
 where one line along every child would pick the first, and the pointer's place in an absolutely placed layout.
-`components.test.ts`: making a component into the project file, a taken id and param names, a project file that doesn't
-exist yet, and the errors; and instances in layouts and slots across designs. `create.test.ts`: a new screen and
-component, and a taken id. `placement.test.ts`: a new design beside everything, one the canvas hasn't drawn, an empty
-canvas, and a component above everything. A library part's parents and samples are core's, in
-`packages/core/src/library-insert.test.ts`. The extraction and its check are core's `extractComponent`, in
-`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
-refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
-the part, whether the board shows it or not (PAR-493), but not one that changes what's outside it; each option of two
-variant params checked in turn, refused for one the board doesn't show; and refused when a layer in the part shows a
-param's default. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for a
-component that sets its own size, unless given; none for a part whose sample gives no children; and a part without a
-sample taking the children its library's other samples give it (none for an icon's box or one used without any, their
-text), else its name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount,
-CardHeader and Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's
-inside or taken from a parent. The extraction and its check are core's `extractComponent`, in
-`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
-refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
-the part but not one that changes what's outside it or isn't shown, and refused when a layer in the part shows a param's
-default.
+`apps/desktop/src/renderer/canvas/paste-here-frame.test.ts`, in Chrome, keeps the measurement through a drag over
+Dashboard's stats grid, with a card hidden meanwhile, and measures again once the canvas pans. `components.test.ts`:
+making a component into the project file, a taken id and param names, a project file that doesn't exist yet, and the
+errors; and instances in layouts and slots across designs. `create.test.ts`: a new screen and component, and a taken id.
+`placement.test.ts`: a new design beside everything, one the canvas hasn't drawn, an empty canvas, and a component above
+everything. A library part's parents and samples are core's, in `packages/core/src/library-insert.test.ts`. The
+extraction and its check are core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become
+instances that render the same, a state changing the part refused, a single part's texts as params, and the check
+against the board, refused under a variant option that changes the part, whether the board shows it or not (PAR-493),
+but not one that changes what's outside it; each option of two variant params checked in turn, refused for one the board
+doesn't show; and refused when a layer in the part shows a param's default. `packages/core/src/library-insert.test.ts`,
+with three for names that fit (PAR-518): none for a component that sets its own size, unless given; none for a part
+whose sample gives no children; and a part without a sample taking the children its library's other samples give it
+(none for an icon's box or one used without any, their text), else its name. `packages/code/src/props.test.ts` has two
+for `fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and Separator but not Card, Badge or Button, and a
+library's compiled parts, leaving out classes for what's inside or taken from a parent. The extraction and its check are
+core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same,
+a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
+variant option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer
+in the part shows a param's default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
@@ -1757,8 +1770,8 @@ Code:
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
   leaving, Escape, steps and scrubs, and the effects it asks for.
 - `chrome/fields.tsx`: `NumberField`, which runs those effects, handles keys and scrubbing, and begins and ends the
-  gesture a run of steps or a scrub commits in, a `GestureRun` from `canvas/gesture.ts` (`runEnders` says what ends a
-  run, and `FieldTarget`, which `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits),
+  gesture a run of steps commits in, a `GestureRun` from `canvas/gesture.ts` (`runEnders` says what ends a run, and
+  `FieldTarget`, which `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits),
   `NumberInput`, and `Field`, whose label scrubs a lone field and which shows what its fields say under the row.
   `NumberValueInput` is a prop's or param's number, which works its edits out from the value as it was before a preview.
 - `chrome/StyleSections.tsx`: each style field's rules and how its edit reads and writes each layer's own style
@@ -1785,14 +1798,14 @@ Tests:
 - `apps/desktop/src/renderer/chrome/number-field.test.ts` (16): previews while typing, keeping the last one, the draft
   over a changing value, Enter committing and keeping focus, input it can't read kept with its reason, leaving the
   field, Escape, steps from the value and from a draft, and scrubbing.
-- `apps/desktop/src/renderer/chrome/fields.test.ts` (14), in Chrome: the real field in a row. 320 previews as it's
+- `apps/desktop/src/renderer/chrome/fields.test.ts` (15), in Chrome: the real field in a row. 320 previews as it's
   typed; Enter commits and keeps focus with the text selected; `16em` stays with its reason, also after leaving; a value
   changing underneath, then Escape; a snapped note; Up, Shift+Up and Down; a run of Up presses with a pause as one
   gesture, ended by Enter, another ended by leaving the field, and a typed commit in none (PAR-441); a run ended by what
   the field edits changing while it keeps focus, the next press starting another; scrubbing the row's label to one
-  commit, in a gesture from the press to the release, and Escape during a scrub; `Mixed+8` on two layers; and a number
-  prop whose preview the value it's given holds (PAR-203): `/20` previewed and committed from 70, Escape and Enter on
-  the value it started with taking the preview back, and a scrub from 70.
+  commit, a step of its own with no gesture around it (PAR-551), a scrub ending a run of Up presses, and Escape during a
+  scrub; `Mixed+8` on two layers; and a number prop whose preview the value it's given holds (PAR-203): `/20` previewed
+  and committed from 70, Escape and Enter on the value it started with taking the preview back, and a scrub from 70.
 - `apps/desktop/src/renderer/canvas/style-preview.test.ts` (6), in Chrome: a preview drawn in each state's frame, a
   state that sets its own width left alone, a later preview putting back what it doesn't change, taking it back exactly,
   settling for the change, and nothing written for no change.
@@ -2136,14 +2149,15 @@ field. Time plays no part, so a slow drag with long pauses is still one step, an
 - **Where each begins and ends.** A resize, a layer drag and a design dragged by its title begin their gesture as the
   press becomes a drag, 4 pixels from where it was pressed, and end it however the drag ends, as "Cursors and Escape
   during a gesture" sets out (PAR-568). A resize writes as it moves, and Escape takes it all back. A layer drag in a
-  layout writes on the drop; an absolutely placed layer writes as it moves, and Escape takes that back too, as do the
-  pointer cancelled and the window losing focus. Dragged by its title, a design writes once, when the drag ends. A
-  design or note dragged by its board is tldraw's translate, from its first move until tldraw stops translating. A scrub
-  runs from the press on the label to the release. A run of arrow presses on the canvas lasts while the same layers,
-  designs or note stay selected, in whatever order, and nothing else changes: another edit, an undo or a redo, or
-  selecting something else, also back to what it was, ends it. In a field, typing, Enter, Escape, leaving the field,
-  scrubbing it or another selection ends a run of Up and Down. Both kinds of run are a `GestureRun`, keyed by the
-  selection's `selectionKey`, so a press on another selection starts a run of its own.
+  layout writes on the drop, and so does an absolutely placed layer, previewed as it moves (PAR-551); Escape puts it
+  back, as do the pointer cancelled and the window losing focus. Dragged by its title, a design writes once, when the
+  drag ends. A design or note dragged by its board is tldraw's translate, from its first move until tldraw stops
+  translating. A scrub previews until it's let go and then commits once, a step of its own that needs no gesture
+  (PAR-551). A run of arrow presses on the canvas lasts while the same layers, designs or note stay selected, in
+  whatever order, and nothing else changes: another edit, an undo or a redo, or selecting something else, also back to
+  what it was, ends it. In a field, typing, Enter, Escape, leaving the field, scrubbing it or another selection ends a
+  run of Up and Down. Both kinds of run are a `GestureRun`, keyed by the selection's `selectionKey`, so a press on
+  another selection starts a run of its own.
 - **Gestures that change nothing.** A gesture that changes nothing adds no step, and one that comes back where it began,
   such as a drag back to its start or a nudge there and back, leaves none, with the file clean again and Redo as it was
   before the gesture.
@@ -2154,9 +2168,9 @@ Code: `packages/editor/src/history.ts` (`recordChange` with the `gesture` option
 `revertTo` by gesture) and `apps/desktop/src/renderer/design-store.ts` (`beginGesture`, `endGesture`). The canvas's
 drags and runs begin and end theirs through `canvas/gesture.ts`: `followPress` for resize handles
 (`canvas/CanvasOverlay.tsx`), layer drags (`canvas/layer-drag.ts`) and title drags (`canvas/ContainerShapeUtil.tsx`),
-and `GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `chrome/fields.tsx` (`NumberField`'s runs and
-scrubs), whose gesture reaches the store through `StyleSections.tsx`'s `fieldEdits`, `LayerPanel.tsx`, `MultiPanel.tsx`
-and `PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
+and `GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `chrome/fields.tsx` (`NumberField`'s runs), whose
+gesture reaches the store through `StyleSections.tsx`'s `fieldEdits`, `LayerPanel.tsx`, `MultiPanel.tsx` and
+`PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
 
 Tests:
 
@@ -2167,9 +2181,9 @@ Tests:
   a gesture ended elsewhere doesn't; another change, an undo or the gesture's end ending its step; two gestures' changes
   kept apart; and a file reloaded mid-gesture as a step of its own, between the gesture's.
 - `apps/desktop/src/renderer/design-store.test.ts` (2 of its 21): a gesture's changes five seconds apart as one step
-  until it ends, and each gesture its own id; and a live drag written as an absolutely placed layer's is, taking a side
-  back to the checkpoint mid-drag, as one step, and as none once Escape reverts it. Its checkpoint tests are under
-  "Resize handles".
+  until it ends, and each gesture its own id; and a live drag written as an absolutely placed layer's is when it can't
+  be previewed, taking a side back to the checkpoint mid-drag, as one step, and as none once Escape reverts it. Its
+  checkpoint tests are under "Resize handles".
 - `apps/desktop/src/renderer/canvas/gesture.test.ts`, without Electron: for each of the canvas's five drags, Escape
   leaving nothing to undo, the window losing focus ending it as its policy says, and the release keeping it as one step
   (under "Cursors and Escape during a gesture"); and a run, one gesture for presses on one selection, another for a
@@ -2182,10 +2196,10 @@ Tests:
   apart, then one undo; `fields.e2e.ts`, Up, Shift+Up and Down more than a second apart, then one undo; and
   `selecting.e2e.ts`, Sign in dragged by its board with a pause, then one undo.
 
-Gaps: a layer drag in a layout and a title drag write once, on release, and have no slow test of their own; the live
-drag of an absolutely placed layer is tested through the store, not end to end with a pause. A frame's own handles and a
-note dragged by tldraw go through the same code as a resize and a board, without tests of their own. Escape during
-tldraw's drag of a board isn't covered.
+Gaps: a layer drag in a layout, an absolutely placed layer's drag and a title drag write once, on release, and have no
+slow test of their own; the live drag of a layer that can't be previewed is tested through the store, not end to end
+with a pause. A frame's own handles and a note dragged by tldraw go through the same code as a resize and a board,
+without tests of their own. Escape during tldraw's drag of a board isn't covered.
 
 ### Edits in the state and variant shown (PAR-164)
 

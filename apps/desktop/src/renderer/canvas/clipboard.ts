@@ -22,10 +22,10 @@ import {
   replaceLayers,
   styleOf,
   textLayer,
-  writeEnvelope
+  writeEnvelope,
+  editingState
 } from "@parity-app/editor"
 import { toast } from "sonner"
-import { editingState } from "../chrome/LayerPanel.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"

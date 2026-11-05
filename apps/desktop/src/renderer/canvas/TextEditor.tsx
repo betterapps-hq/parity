@@ -1,7 +1,6 @@
 import { boardTarget, layerOnBoard } from "@parity-app/core"
-import { openingSelection, type TextRange, textSizing } from "@parity-app/editor"
+import { openingSelection, type TextRange, textSizing, editingState } from "@parity-app/editor"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
-import { editingState } from "../chrome/LayerPanel.tsx"
 import { useProject } from "./context.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
 import { kindColors } from "./kinds.tsx"
