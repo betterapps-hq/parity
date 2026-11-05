@@ -18,18 +18,6 @@ export function renderJobMode(mode: ResolvedMode, frame: FrameGeometry): RenderJ
 }
 
 /**
- * The components the offscreen guest was given by an earlier job that this job's no longer carries: their source went
- * away, so it takes them back, as the canvas's guest does. A job that carries no components says nothing about them.
- */
-export function componentsGone(
-  given: RenderJob["components"] | undefined,
-  now: RenderJob["components"] | undefined
-): string[] {
-  if (!given || !now) return []
-  return Object.keys(given).filter((id) => !(id in now))
-}
-
-/**
  * Where each component a frame's tree draws comes from, as `path#export` in order of id: from the components the guest
  * was given since it loaded (`given`, a job's `components`) or else those it was served with. A kept bitmap is named by
  * these rather than by how they reached the guest, so a frame drawn while the type checker added components to the guest

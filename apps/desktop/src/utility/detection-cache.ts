@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import type { ComponentInfo, ComponentSource, LeftOutExport } from "@parity-app/core"
-import { type DiscoveredProject, detectionFingerprint, readTsconfig } from "@parity-app/project"
+import { detectionFingerprint, readTsconfig } from "@parity-app/project"
 import { checkerVersion } from "./props.ts"
 
 /**
@@ -25,12 +25,16 @@ function cacheFile(root: string): string {
   return join(cacheDir, `${createHash("sha256").update(root).digest("hex").slice(0, 24)}.json`)
 }
 
-/** The project's fingerprint as discovered, and what was saved under it last time, if anything. */
+/**
+ * The project's fingerprint as discovered, from the files discovery gives the checker and its list with the person's
+ * corrections, and what was saved under it last time, if anything.
+ */
 export async function savedDetection(
   root: string,
-  config: DiscoveredProject
+  files: string[],
+  discovered: Record<string, ComponentSource>
 ): Promise<{ fingerprint: string; saved?: SavedDetection }> {
-  const fingerprint = await fingerprintOf(root, config.componentFiles, config.components)
+  const fingerprint = await fingerprintOf(root, files, discovered)
   try {
     const saved = JSON.parse(await readFile(cacheFile(root), "utf8")) as SavedDetection
     return saved.fingerprint === fingerprint ? { fingerprint, saved } : { fingerprint }

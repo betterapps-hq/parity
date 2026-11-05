@@ -11,6 +11,12 @@ export {
   relativePath,
   withReactProbe
 } from "./checker.ts"
+export {
+  type ComponentList,
+  type ComponentListEvent,
+  type ComponentListStep,
+  nextComponentList
+} from "./component-list.ts"
 export { type ConfigChange, configChange, type ConfigInputs, configInputs, type ConfigStamps } from "./config-inputs.ts"
 export { type AppComponent, appComponents, type ComponentFinder, findAll, reactFinder } from "./finder.ts"
 export {
@@ -28,7 +34,7 @@ export {
   leftOutChanges,
   type ParsedComponent,
   readChangedFiles,
-  rediscoveredSources
+  rediscoveredFiles
 } from "./listing.ts"
 export { inferProps, propsFiles } from "./props.ts"
 export { importAlias, type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "./tsconfig.ts"
