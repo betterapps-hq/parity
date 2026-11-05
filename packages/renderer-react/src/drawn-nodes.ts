@@ -47,13 +47,14 @@ interface Drawn {
   id: string
   parent?: string
   elements: Element[]
+  texts: Text[]
 }
 
 export interface IndexOptions {
   /** The design node a fiber stands for, if it stands for one. */
   nodeOf(fiber: Fiber): string | undefined
-  /** Whether an element is drawn in the frame. Content portaled out of it, or hoisted to `<head>`, isn't. */
-  inside(element: Element): boolean
+  /** Whether an element or text is drawn in the frame. Content portaled out of it, or hoisted to `<head>`, isn't. */
+  inside(node: Node): boolean
 }
 
 /**
@@ -63,7 +64,8 @@ export interface IndexOptions {
  * fragment gets each of its roots, and one that draws only its children (a provider) gets the children's.
  *
  * Each element also gets an owner, the innermost node it's collected for, so a point over a child layer's DOM belongs
- * to the child even when the parent draws it at its own top level.
+ * to the child even when the parent draws it at its own top level. Text is collected the same way, for nodes that draw
+ * it outside any element of their own, so a component that draws only text has its text's box.
  *
  * A fiber that carries the id of a node it's already inside is that node's: a component passes its props, `data-canvas-
  * node` included, to the element or component it wraps. A node drawn twice, as a list's `renderItem` slot is, is one
@@ -85,7 +87,7 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
       if (id !== undefined && !within.includes(id)) {
         let node = byId.get(id)
         if (!node) {
-          node = { id, ...(within.length > 0 ? { parent: within.at(-1) } : {}), elements: [] }
+          node = { id, ...(within.length > 0 ? { parent: within.at(-1) } : {}), elements: [], texts: [] }
           nodes.push(node)
           byId.set(id, node)
         }
@@ -94,6 +96,7 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
         entered = true
       }
       const element = elementOf(fiber.stateNode)
+      const text = element ? undefined : textOf(fiber.stateNode)
       if (element) {
         if (options.inside(element)) {
           for (const node of here) node.elements.push(element)
@@ -101,6 +104,8 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
           if (owner !== undefined) owners.set(element, owner)
           visit(fiber.child, [])
         }
+      } else if (text) {
+        if (options.inside(text)) for (const node of here) node.texts.push(text)
       } else {
         visit(fiber.child, here)
       }
@@ -117,6 +122,7 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
   return {
     ids: nodes.map((node) => node.id),
     elements: (id) => byId.get(id)?.elements ?? [],
+    texts: (id) => byId.get(id)?.texts ?? [],
     parent: (id) => byId.get(id)?.parent,
     nodeOf(element) {
       for (let current: Element | null = element; current; current = current.parentElement) {
@@ -128,9 +134,16 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
   }
 }
 
-/** A host fiber's DOM element. Text nodes don't count: a component that draws only text has no box of its own. */
+/** A host fiber's DOM element. */
 function elementOf(stateNode: unknown): Element | undefined {
   return typeof stateNode === "object" && stateNode !== null && (stateNode as Node).nodeType === 1
     ? (stateNode as Element)
+    : undefined
+}
+
+/** A text fiber's DOM text. */
+function textOf(stateNode: unknown): Text | undefined {
+  return typeof stateNode === "object" && stateNode !== null && (stateNode as Node).nodeType === 3
+    ? (stateNode as Text)
     : undefined
 }
