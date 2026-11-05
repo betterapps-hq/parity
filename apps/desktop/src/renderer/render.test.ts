@@ -55,7 +55,7 @@ beforeAll(async () => {
   await page.goto("http://parity.test/")
   if (!(await page.evaluate(() => typeof window.canvasRender === "function")))
     throw new Error(`The page didn't load: ${errors.join(",")}`)
-}, 30_000)
+})
 
 afterAll(async () => {
   await browser?.close()
