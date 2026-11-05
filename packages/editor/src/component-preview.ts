@@ -2,12 +2,10 @@ import {
   type ComponentInfo,
   type ComponentLibrary,
   type ComponentSource,
-  type DesignNode,
   type RenderNode,
-  resolveDesign,
-  withLibraryContext
+  resolveDesign
 } from "@parity-app/core"
-import { nodeForItem } from "./insert.ts"
+import { componentExample } from "./composition.ts"
 
 /** The element a component preview is drawn in, whose box the picture is cropped to. */
 export const previewRootId = "parity-preview"
@@ -31,14 +29,11 @@ export interface PreviewContext {
 
 /**
  * What a component's preview draws: what inserting it would place in an empty layout (its sample and the parents a part
- * needs, see `nodeForItem` and `withLibraryContext`), at its own size up to `previewMaxWidth`, with room around it. Its
- * layers are numbered in order rather than given fresh ids, so the same component gives the same tree, and the same
- * preview key, every time.
+ * needs, see `componentExample`), at its own size up to `previewMaxWidth`, with room around it. The same component
+ * gives the same tree, and the same preview key, every time; agents get it as the component's example.
  */
 export function componentPreviewTree(component: string, context: PreviewContext): RenderNode[] {
-  const taken = new Set<string>()
-  const part = nodeForItem({ kind: "component", component }, context.info, taken)
-  const placed = numbered(withLibraryContext(part, context.sources, [], taken), { next: 1 })
+  const placed = componentExample(component, context.info, context.sources)
   return [
     {
       kind: "element",
@@ -54,17 +49,4 @@ export function componentPreviewTree(component: string, context: PreviewContext)
       children: resolveDesign(placed, undefined, context.viewport, context.library)
     }
   ]
-}
-
-/** A node with its layers' ids replaced by `p1`, `p2` and on, in the order they're met. */
-function numbered(node: DesignNode, count: { next: number }): DesignNode {
-  const id = `p${count.next++}`
-  if (node.type === "layout") return { ...node, id, children: node.children.map((child) => numbered(child, count)) }
-  if (node.type === "component" && node.slots) {
-    const slots = Object.entries(node.slots).map(
-      ([slot, children]) => [slot, children.map((child) => numbered(child, count))] as const
-    )
-    return { ...node, id, slots: Object.fromEntries(slots) }
-  }
-  return { ...node, id }
 }

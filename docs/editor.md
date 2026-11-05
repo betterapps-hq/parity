@@ -3281,6 +3281,21 @@ through the otherwise transparent overlay, so the full hover title is reachable 
 The cursor component was checked in Storybook with a long name; its text and title remain intact and its visible width
 is bounded with ellipsis.
 
+### What a component goes inside (PAR-454)
+
+`Props(component)`, `parity props` and `get_props` return the component's `composition` with its props, and before they
+are read: its role (a `provider` that draws nothing, a `wrapper` other parts go inside, or a `component`), the parents
+it goes inside (`listed` with their chain and where the library learned it, `none`, or `unknown` with why), the parts it
+holds, its slots by the key a node holds them under, and an example node `Insert` takes as it is. The example is the
+tree the Components panel draws for the component, and its status is the canvas's render status: `drawn`, `failing` with
+why, or `untried`. The CLI prints it after the props, with the example as JSON.
+
+`packages/editor/src/composition.test.ts` covers a Nova-shaped sidebar (its provider before inserting, provider, wrapper
+and component roles, optional parents), parents that are unknown until a project component draws or that a provider
+error names, slots from props and from samples, and a stable example. `packages/agent/src/run.test.ts` reads Sidebar's
+provider through `Props` and inserts the example. `packages/cli/src/operations.test.ts` checks that the CLI and MCP give
+the same composition and text.
+
 ### Structured results and coded errors (PAR-472)
 
 Every shared operation returns the same data as CLI `--json` and MCP `structuredContent`, beside the text and images

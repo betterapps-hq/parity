@@ -1,5 +1,13 @@
 # Decisions
 
+- **Agents read a component's composition from `Props`, built from its library file (PAR-454).** `Props`, and through it
+  `parity props` and `get_props`, returns a `composition` beside the props, rather than a new operation, so agents that
+  already check `Props` before inserting learn what a part goes inside. It comes from `componentComposition` in
+  `@parity-app/editor`, which reads the parents, optional parents, provider flag and sample the library file gives, not
+  recipes of its own. Its example is `componentExample`, the tree the Components panel draws, so the two can't drift. A
+  part's parents say where they came from (`parentsFrom`, now kept on the component's source). Whether the example draws
+  comes from the canvas's render status, so it says `untried` rather than claiming an example works before it has drawn.
+
 - **A production promotion waiting for approval doesn't hold up the next beta (PAR-504).** v0.4.2's beta publish waited
   until v0.4.1's pending production promotion was cancelled. The promote job held the `cd-desktop-publish` concurrency
   group it shares with publishing while it waited for its environment's reviewers. The shared `cd-desktop-promote`

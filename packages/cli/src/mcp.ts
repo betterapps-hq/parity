@@ -157,7 +157,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "get_props",
-    "Read a component's props from source. all includes attributes it passes through.",
+    "Read a component's props from source, and its composition: the parents or provider it goes inside, the parts it holds, its slots and an example node to insert. all includes attributes it passes through.",
     operations.props,
     (result) => [text(describeProps(result))]
   ),
