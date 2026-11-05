@@ -2631,18 +2631,18 @@ in `canvas/ContainerShapeUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`;
 Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
 by at least the elements the awake frames held, and no board changes size; back at 100% the design's frames draw again
 with their layers while boards out of view stay asleep, still at the same sizes; and the selected board's frames wake at
-a far zoom and sleep again once nothing is selected). `apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to
-sleep keeps its host and height with nothing inside, and draws its design again when it wakes).
-`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture isn't kept, so the next try takes it and
-that one is kept; a frame that didn't render is kept and not drawn again). Before it, a capture that failed under load
-(Electron's `UnknownVizError`) was kept as no bitmap, so that frame never slept and `sleeping.e2e.ts`, which waits for
-every frame's bitmap, timed out in the full suite. The retry delays, and that a frame which leaves the canvas or changes
-stops retrying, have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four
-times under extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show`
-brings a design into view before finding a layer in it, so the other files' tests work on frames that slept. Gaps: the
-order frames wake in, and waking on a changed design, have no test of their own; the first was checked by reading
-`wakeNext`, the second by reading `useAwake`. The memory it gives back and the time waking takes were measured by hand
-in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
+a far zoom, picked in Layers since its title is hidden there, and sleep again once nothing is selected).
+`apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to sleep keeps its host and height with nothing inside, and
+draws its design again when it wakes). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture
+isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not drawn again).
+Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that frame never
+slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. The retry delays, and
+that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked by reading
+`useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in `e2e/app.ts` waits
+for a design's board to wake, and `App.show` brings a design into view before finding a layer in it, so the other files'
+tests work on frames that slept. Gaps: the order frames wake in, and waking on a changed design, have no test of their
+own; the first was checked by reading `wakeNext`, the second by reading `useAwake`. The memory it gives back and the
+time waking takes were measured by hand in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
 
 ### A hidden tab's frames sleep (PAR-153)
 
