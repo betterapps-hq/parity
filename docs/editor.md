@@ -707,18 +707,22 @@ follow it. Escape takes the move back, leaving nothing to undo, and a drag that 
   moved it's a number of steps, since a token can't be offset. An axis the layer doesn't move along keeps what's
   written, tokens included.
 
-This is the same rule nudging uses, one function for both. Code: `shiftInsets` in
-`apps/desktop/src/renderer/canvas/insets.ts`; `canvas/layer-drag.ts` (`followAbsolute`) reads where the sides are drawn
-with `frameDrawn` (`canvas/nudge.ts`), rounds the drag to half steps, and writes each move in the drag's gesture, one
-undo step (PAR-441), taking them back to the drag's checkpoint (`Drag.revert`, from `canvas/gesture.ts`'s `followPress`)
-on Escape or when the layer comes back to where it began.
+This is the same rule nudging uses, one function for both. Code: `packages/editor/src/move-resize.ts`
+(`@parity-app/editor`): `shiftInsets` moves the insets, and `absoluteDrag` follows one drag, taking the layer's style as
+the board shows it, where its sides are drawn and what it snaps to, and giving the insets for each pointer move, in half
+steps or, where it snapped, to the half pixel. `apps/desktop/src/renderer/canvas/layer-drag.ts` (`followAbsolute`)
+measures those, where the sides are drawn with `frameDrawn` (`canvas/nudge.ts`), and writes each move in the drag's
+gesture, one undo step (PAR-441), taking them back to the drag's checkpoint (`Drag.revert`, from `canvas/gesture.ts`'s
+`followPress`) on Escape or when the layer comes back to where it began.
 
-Tests: `canvas/insets.test.ts`, moving: by the side it's placed from, both sides of a stretched layer (the Review slot),
-negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn (a negative side
-with a token on the other), and an axis with a token that isn't drawn staying put. End to end (PAR-202),
-`apps/desktop/e2e/moving.e2e.ts` (2) drags Calendar's Review slot 24px right to left 6 and right -6, and, with left -2
-and both right and top set to the `spacing` token, 16px right with Ctrl held to left 2 and right -3, with top still
-`spacing` and the width unchanged. Moving live and Escape are covered under "Snapping layers while moving and resizing".
+Tests: `packages/editor/src/move-resize.test.ts`, moving: by the side it's placed from, both sides of a stretched layer
+(the Review slot), negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn
+(a negative side with a token on the other), and an axis with a token that isn't drawn staying put; and dragging the
+Review slot, in half steps where nothing is near, exactly where its bottom locks to Lunch's top, 8.25 steps to a line
+off the scale, and by the pointer when it isn't drawn. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2) drags
+Calendar's Review slot 24px right to left 6 and right -6, and, with left -2 and both right and top set to the `spacing`
+token, 16px right with Ctrl held to left 2 and right -3, with top still `spacing` and the width unchanged. Moving live
+and Escape are covered under "Snapping layers while moving and resizing".
 
 Gaps: none known. Dragging itself was first checked by hand, as the end-to-end test now does it.
 
@@ -734,13 +738,19 @@ design has them on its frames' right and bottom.
   Fill.
 - **Fill.** A layer in a layout takes a size in whole spacing steps, or fill when its edge comes back to the inside of
   its parent after leaving it. An edge that starts there, as New project's right edge does at the end of its row, gets a
-  fixed size until it has been away. Shift keeps the size fixed, and on a corner keeps the proportions.
+  fixed size until it has been away. Shift keeps the size fixed, and on a corner keeps the proportions. A size along the
+  direction of the layout the layer is in takes away `grow`, the older way to fill along it.
 - **Absolutely placed layers** keep the opposite edge where it was. The left or top handle moves that inset with the
   edge, so the right or bottom stays put; a layer stretched between both sides changes the dragged side's inset alone,
   keeping both sides; a layer placed from the right or bottom alone moves that inset when its right or bottom handle is
   dragged. Negative and token insets follow the moving rules above, and a side that doesn't move keeps its token. They
   never fill. Their dragged edges snap (PAR-174, "Snapping layers while moving and resizing", below), unless Shift keeps
   a corner's proportions.
+- **A frame** takes a width and a height in whole pixels for its viewport, at least 160 by 80. Within 6 screen pixels of
+  its viewport's width the width is left unset, so it follows the viewport again; a frame that hugged its content when
+  the drag began goes back to hugging it the same way, and one with a height of its own keeps one.
+- **A double-click** on a handle goes back to the default size on its axes: a layer's size is taken away, and a frame
+  goes back to its viewport's width or its content's height.
 - **The hint** ("Drag to resize") closes when a handle is pressed and stays closed through the drag and after it, until
   the pointer next rests on a handle.
 - **Small layers keep their middle** (PAR-193). Along an axis where a layer is under 24 screen pixels, its handles sit
@@ -761,32 +771,40 @@ design has them on its frames' right and bottom.
   absolutely resizes by its insets there, and a row the board shows is a row. The edit still lands where every edit does
   (see "Edits in the state and variant shown").
 
-Code: `apps/desktop/src/renderer/canvas/resize.ts` (`edgeAxes`, and `resizeGesture`, which follows one drag and gives
-the style for each pointer position), `canvas/insets.ts` (`resizeInsets`), `packages/editor/src/handles.ts`
-(`handleBoxes`, where each handle goes, and `resizeStart`, what a resize reads, `@parity-app/editor`),
-`canvas/ResizeHandles.tsx` (the handles and their hint, which `chrome/Hint.tsx` lets a caller open and close), and
-`canvas/CanvasOverlay.tsx` (`startResize` measures the layer, its parent and its drawn insets, and writes the style).
-`canvas/gesture.ts`'s `followPress` follows the pointer in one gesture, holds the cursor, and on Escape reverts the
-store to a checkpoint taken when the drag began, with `DesignStore.checkpoint` and `revert` in `design-store.ts` (see
-"Cursors and Escape during a gesture").
+Code: the rules are `packages/editor/src/move-resize.ts` (`@parity-app/editor`). `resizeStart` reads the layer and its
+layout as the board shows them. `layerResize` follows one drag of a layer's handle and gives the style for each pointer
+move: `resizeGesture` gives steps or fill, or the insets `resizeInsets` moves for an absolutely placed layer, and
+`layerResize` adds the snapped edges and takes `grow` away. `frameResize` follows a frame's, with its snap-back and
+smallest size, `layerSizeReset` and `frameSizeReset` are a double-click's, and `edgeAxes` says which sizes a handle
+changes. `packages/editor/src/handles.ts` (`handleBoxes`) says where each handle goes. In the app,
+`canvas/ResizeHandles.tsx` draws the handles and their hint, which `chrome/Hint.tsx` lets a caller open and close, and
+`canvas/CanvasOverlay.tsx`'s `startResize` measures the layer, its parent's inside and, for an absolutely placed layer,
+its drawn insets and what it snaps to, or the frame's box, and writes what comes back. `canvas/gesture.ts`'s
+`followPress` follows the pointer in one gesture, holds the cursor, and on Escape reverts the store to a checkpoint
+taken when the drag began, with `DesignStore.checkpoint` and `revert` in `design-store.ts` (see "Cursors and Escape
+during a gesture").
 
 Tests:
 
-- `canvas/resize.test.ts`: which sizes each of the eight handles changes; the right handle changing only the width
-  however the pointer drifts; a side's handle dragged along its side changing nothing; the four-pixel start; an edge
-  that starts on the inside of its parent not filling at once, then filling when it comes back, and Shift keeping it
-  fixed; an edge reaching the inside filling; a corner with Shift; and an absolutely placed layer resized from the top
-  and the left, stretched or not, keeping a negative inset and a token it doesn't move, and never filling.
-- `canvas/insets.test.ts`, resizing: each anchoring (near side, far side, both, both with a size of its own), negative
-  and token insets, and a token kept when its side doesn't move.
+- `packages/editor/src/move-resize.test.ts`: which sizes each of the eight handles changes; the right handle changing
+  only the width however the pointer drifts; a side's handle dragged along its side changing nothing; the four-pixel
+  start; an edge that starts on the inside of its parent not filling at once, then filling when it comes back, and Shift
+  keeping it fixed; an edge reaching the inside filling; a corner with Shift; and an absolutely placed layer resized
+  from the top and the left, stretched or not, keeping a negative inset and a token it doesn't move, and never filling.
+  Resizing by insets: each anchoring (near side, far side, both, both with a size of its own), negative and token
+  insets, and a token kept when its side doesn't move. From what the board shows and what was measured: `grow` taken
+  away along the layout's direction and kept across it, nothing before the drag starts, and a double-click's reset. A
+  frame, from its box at half size: a width in whole pixels, back to its viewport's width within 6 screen pixels, back
+  to hugging its content, a height of its own kept, both from the corner, and 160 by 80 at least; a double-click's
+  reset, and no entry kept for a viewport that takes its own size. With the shared fixture's card (PAR-464),
+  `resizeStart` reads its layout as the row its Inline option makes it, and the layer's style in a viewport and state,
+  the Compact state's gap over the mobile patch.
 - `canvas/ResizeHandles.test.ts`, in Chrome: the hint opens on hover, closes on press and stays closed through a drag
   into the hint itself and after release (this fails as the handles were before), opens again on the next hover, and a
   double-click still resets.
 - `packages/editor/src/handles.test.ts`: handles straddling a large layer's edges with the strips short of the corners;
   a layer under 24px both ways with no handle on it; one small only in height, with only its side strips on it; a layer
-  of exactly 24px as before; a layer that draws nothing; and a frame's three handles in order. With the shared fixture's
-  card (PAR-464), `resizeStart` reads its layout as the row its Inline option makes it, and the layer's style in a
-  viewport and state, the Compact state's gap over the mobile patch.
+  of exactly 24px as before; a layer that draws nothing; and a frame's three handles in order.
 - `apps/desktop/src/renderer/design-store.test.ts`, reverting to a checkpoint: a gesture's writes more than a second
   apart taken back with nothing left to undo for them; Redo kept; an earlier gesture's step left as it was; another file
   reloaded mid-gesture kept, with its undo step undoing to the design as it was; another design added to the same file
@@ -801,8 +819,8 @@ Tests:
   inside its top edge moves it past Export. The last two failed before PAR-193. A seventh drags New project's right
   handle 24px, pauses a second and a half, drags on to 48px, and takes it all back with one undo (PAR-441).
 
-Gaps: a frame's own handles (a design's width and height) aren't covered by these tests, Escape on them included, which
-goes through the same `followPress`. A resize writes as the pointer moves, all of it one undo step however long it
+Gaps: a frame's handles (a design's width and height) are tested from boxes but not end to end, Escape on them included,
+which goes through the same `followPress`. A resize writes as the pointer moves, all of it one undo step however long it
 pauses (PAR-441, see "One undo step per gesture"). Checked in the app on 2026-10-30, in a copy on its own ports: the
 handles above and below New project at 50%, the arrows over the design 90px below the handle, and Escape leaving the
 button as it was.
@@ -875,11 +893,11 @@ the text cursor. Escape cancels each of these drags.
   undo step, and leaves the design selected.
 
 Code: `apps/desktop/src/renderer/canvas/gesture.ts`: `followPress` follows a press, `gestures` holds each gesture's
-policy, `dragThreshold` is the 4 pixels, `holdCursor` the layer, and `onGestureEnd` hears how a gesture ends, as the
-right-click menu does too. The gestures are `canvas/CanvasOverlay.tsx` (`startResize`), `canvas/layer-drag.ts`
-(`pressLayers` and `followAbsolute`), `canvas/ContainerShapeUtil.tsx` (`dragByTitle`, which gives the title the cursor
-too, since it has the pointer captured) and `canvas/select-box.ts` (`pressBackground`). The text tool's rule is in
-`apps/desktop/src/renderer/styles.css`.
+policy, `dragThreshold` (from `@parity-app/editor`'s `move-resize.ts`) is the 4 pixels, `holdCursor` the layer, and
+`onGestureEnd` hears how a gesture ends, as the right-click menu does too. The gestures are `canvas/CanvasOverlay.tsx`
+(`startResize`), `canvas/layer-drag.ts` (`pressLayers` and `followAbsolute`), `canvas/ContainerShapeUtil.tsx`
+(`dragByTitle`, which gives the title the cursor too, since it has the pointer captured) and `canvas/select-box.ts`
+(`pressBackground`). The text tool's rule is in `apps/desktop/src/renderer/styles.css`.
 
 Tests:
 
@@ -961,13 +979,15 @@ spacing-8 to Planning. Dragged 36px down, its bottom locks to Lunch's top at top
 Code: `snapLayer` in `packages/editor/src/snap.ts` (`@parity-app/editor`) takes the layer's box, its siblings' and its
 parent's, the zoom and, for a resize, the edges the handle drags (`resizeEdges`, `resizedBox`), and returns where it
 goes, the axes it locked, the guides, the distances (`distancesBetween`, which Alt's redlines use too) and the spacing
-marks; `lockedEdgeMoves` says how far a resize's locked edges moved. `apps/desktop/src/renderer/canvas/layer-snap.ts`
-(`LayerSnapping`) measures those boxes in the frame when the gesture begins, the parent's as the layer's `offsetParent`,
-which is its containing block, shows the guides and marks as tldraw's snap indicators and keeps the distances for
-`canvas/CanvasOverlay.tsx` to draw; the gesture clears them when it ends. `canvas/layer-drag.ts` (`followAbsolute`)
-moves the layer by them, and `CanvasOverlay.tsx`'s `startResize` passes a resize's locked edges to `resizeGesture`
-(`canvas/resize.ts`), which `resizeInsets` (`canvas/insets.ts`) takes exactly. Both gestures end through
-`canvas/gesture.ts` (`followPress`), which tells them whichever way they end.
+marks; `lockedEdgeMoves` says how far a resize's locked edges moved. `packages/editor/src/move-resize.ts` snaps with
+them: `absoluteDrag` moves the layer exactly where it locked, and `layerResize` passes a resize's locked edges to
+`resizeGesture`, which `resizeInsets` takes exactly; both give back where it locked.
+`apps/desktop/src/renderer/canvas/layer-snap.ts` (`LayerSnapping`) measures the boxes in the frame when the gesture
+begins, the parent's as the layer's `offsetParent`, which is its containing block, and shows where the layer locked, the
+guides and marks as tldraw's snap indicators, keeping the distances for `canvas/CanvasOverlay.tsx` to draw; the gesture
+clears them when it ends. `canvas/layer-drag.ts` (`followAbsolute`) and `CanvasOverlay.tsx`'s `startResize` pass it in
+and show what comes back. Both gestures end through `canvas/gesture.ts` (`followPress`), which tells them whichever way
+they end.
 
 Tests:
 
@@ -977,12 +997,14 @@ Tests:
   handle doesn't drag left alone; the edges each handle drags; the same gap after a run and before one, in the middle
   between two, with the marks; a nearer line winning over even spacing, and both showing when they agree; spacing
   needing three beside each other; distances apart and inside; and Ctrl or Cmd, or snapping turned off, moving freely.
-- `canvas/resize.test.ts`: a snapped edge taken exactly, to the half pixel, and an axis that didn't snap in steps.
-  `canvas/insets.test.ts`: sizes and insets to the half pixel with `exact`.
-- `canvas/layer-snap.test.ts` (3), in Chrome, in a frame at half size: a layer snapping to the inside of its parent's
-  border, in the frame's own pixels; a badge in a transformed component's slot snapping to the component's box; and one
-  in a slot of a component that isn't positioned snapping to the root its insets count from, not to the component's
-  edge.
+- `packages/editor/src/move-resize.test.ts`: a snapped edge taken exactly, to the half pixel, and an axis that didn't
+  snap in steps; sizes and insets to the half pixel with `exact`; the Review slot's bottom handle locking to Lunch's top
+  through `layerResize`, in steps with Ctrl, and Shift on a corner not snapping; and a drag going exactly where it
+  locks.
+- `canvas/layer-snap.test.ts` (3), in Chrome, in a frame at half size, snapped with `snapLayer` from what it measured: a
+  layer snapping to the inside of its parent's border, in the frame's own pixels; a badge in a transformed component's
+  slot snapping to the component's box; and one in a slot of a component that isn't positioned snapping to the root its
+  insets count from, not to the component's edge.
 - `canvas/gesture.test.ts`: how a gesture ends, under "Cursors and Escape during a gesture", above.
 - `apps/desktop/e2e/moving.e2e.ts` (5), end to end, on the Review slot at 100%: dragged 6px down it stays, with spacing
   marks over three gaps, a guide and the 32px distance during the drag, and nothing to undo or shown after; dragged 36px
@@ -1316,25 +1338,27 @@ actions, since each needs to know which arrow was pressed.
   keymap's back. On a focused control, such as a Layers row, the arrows stay the control's. A layer that moves stays in
   view.
 
-Code: `apps/desktop/src/renderer/canvas/nudge.ts` (the rules, which take data and return data, and `frameDrawn`, which
-reads a layout's flow, through `@parity-app/editor`'s `flowOf` with its children's boxes from `frame.ts`'s
-`flowingBoxes`, and a layer's drawn insets from its frame), `canvas/insets.ts` (`shiftInsets`, which moves an absolutely
-placed layer's insets for dragging too), `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of
-Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and
-`canvas/shortcuts.ts`, which passes the key event to the action and keeps the other arrows from tldraw. A run's gesture
-is `runGesture` in `nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the selection's `selectionKey`
-(`selection.ts`).
+Code: the rules are `packages/editor/src/move-resize.ts` (`@parity-app/editor`): `arrowOf`, `reorderStep` and `reorder`,
+`nudgeLayers`, which moves absolutely placed layers by `shiftInsets` as dragging does, and `nudgedPosition` for designs
+and notes. `apps/desktop/src/renderer/canvas/nudge.ts` has `nudgeSelection`, which nudges what's selected in the store,
+and `frameDrawn`, which reads a layout's flow, through `@parity-app/editor`'s `flowOf` with its children's boxes from
+`frame.ts`'s `flowingBoxes`, and a layer's drawn insets from its frame. Then `chrome/commands.ts` (`nudge`),
+`chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are
+written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event to the action and keeps the other
+arrows from tldraw. A run's gesture is `runGesture` in `nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the
+selection's `selectionKey` (`selection.ts`).
 
 Tests:
 
-- `apps/desktop/src/renderer/canvas/nudge.test.ts`: how far each arrow moves in a row, a column, reversed and a grid;
+- `packages/editor/src/move-resize.test.ts`: how far each arrow moves in a row, a column, reversed and a grid;
   reordering a layer, a block, past absolutely placed layers and down a grid; nudging a design's layers in a state,
-  following the frame's direction, and leaving instances alone; and, with the real stores, a run of presses with pauses
-  of four seconds as one undo step, another edit or an undo between presses starting another, a run there and back
-  leaving no step, a new selection starting another, also back to the one before, the same layers selected again in
-  another order keeping the run, designs moving together and a mode column and a note moving.
-- `apps/desktop/src/renderer/canvas/insets.test.ts`: moving insets from each side, both sides, tokens and unset sides
-  with and without where they're drawn (`shiftInsets`, shared with dragging).
+  following the frame's direction, and leaving instances alone; moving insets from each side, both sides, tokens and
+  unset sides with and without where they're drawn (`shiftInsets`, shared with dragging); and designs and notes moving
+  1px or 10px, to the whole pixel.
+- `apps/desktop/src/renderer/canvas/nudge.test.ts`, with the real stores: a run of presses with pauses of four seconds
+  as one undo step, another edit or an undo between presses starting another, a run there and back leaving no step, a
+  new selection starting another, also back to the one before, the same layers selected again in another order keeping
+  the run, designs moving together and a mode column and a note moving.
 - `apps/desktop/src/renderer/ModeView.test.ts`: `frameDrawn` reads a row, a column and a grid's columns from a design
   rendered as the canvas renders it, and an absolutely placed layer's insets in steps, at full size and at half scale.
 - `apps/desktop/src/renderer/chrome/keymap.test.ts`: the arrows match with and without Shift, and show as `⇧←` on a Mac.

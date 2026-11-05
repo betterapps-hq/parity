@@ -1,5 +1,5 @@
 import { detachInstance, findNode } from "@parity-app/core"
-import type { Alignment, Order } from "@parity-app/editor"
+import { type Alignment, arrowOf, type Order } from "@parity-app/editor"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import {
@@ -13,7 +13,7 @@ import {
 } from "../canvas/clipboard.ts"
 import { layerLabel } from "../canvas/kinds.tsx"
 import { parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
-import { arrowOf, frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
+import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
 import { selectedDesigns } from "../selection.ts"
