@@ -41,6 +41,7 @@ changing the rules.
 
 ## Before opening a PR
 
+- Open pull requests on GitHub, where these repositories are hosted.
 - When the change is ready for review, run the relevant focused checks, fix related failures together, and run
   `pnpm verify`.
 - Only bypass a Git hook with explicit user permission for an unrelated failure. Run focused checks on the files
