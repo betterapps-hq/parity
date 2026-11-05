@@ -16,7 +16,7 @@ const tools: { id: Tool; label: string; shortcut: string; icon: typeof Hand }[] 
   { id: "select", label: "Move and select", shortcut: keymap.select.keys[0], icon: MousePointer2 },
   { id: "hand", label: "Hand", shortcut: keymap.hand.keys[0], icon: Hand },
   { id: "text", label: "Text", shortcut: keymap.text.keys[0], icon: Type },
-  { id: "interact", label: "Interact with designs", shortcut: keymap.interact.keys[0], icon: Pointer }
+  { id: "interact", label: "Interact with previews", shortcut: keymap.interact.keys[0], icon: Pointer }
 ]
 
 /** A pill floating over the canvas. */

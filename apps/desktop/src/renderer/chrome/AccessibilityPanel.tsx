@@ -1,5 +1,6 @@
 import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail } from "@parity-app/agent"
 import { type ContainerSpec, findNode, type ModeSettings, shownModes } from "@parity-app/core"
+import { kindName } from "@parity-app/editor"
 import {
   ArrowUpRight,
   ChevronRight,
@@ -149,8 +150,8 @@ export function AccessibilityPanel() {
     return (
       <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
         <MousePointerClick className="size-5" />
-        Select a design to check its accessibility.
-        <span className="text-xs">Every state is checked, in the modes the design shows.</span>
+        Select a screen or component to check its accessibility.
+        <span className="text-xs">Every state is checked, in the modes it shows.</span>
       </div>
     )
   }
@@ -184,7 +185,7 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
       <TabOrderSwitch />
       {stale && (
         <div className="flex items-center gap-2 border-b bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
-          <span className="flex-1">The design changed since this check.</span>
+          <span className="flex-1">{`This ${kindName(container.kind)} changed after it was checked.`}</span>
           <button type="button" className="font-medium text-foreground hover:underline" onClick={checkAgain}>
             Check again
           </button>
@@ -262,7 +263,7 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
   let every = "Every state and mode"
   if (modes.length === 1) every = "Every state"
   else if (check.container.states.length === 1) every = "Every mode"
-  const frames = check.frames === 1 ? "1 frame" : `${check.frames} frames`
+  const frames = check.frames === 1 ? "1 preview" : `${check.frames} previews`
   const toggle = (rule: string) =>
     setCollapsed((current) => {
       const next = new Set(current)
@@ -318,8 +319,8 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
       <p className="flex items-start gap-2 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
         <Info className="mt-0.5 size-3.5 shrink-0" />
         <span>
-          Checked with axe-core against WCAG 2.2 AA. Automated checks find some issues, not all, so try the design with
-          a keyboard and a screen reader too.
+          Checked with axe-core against WCAG 2.2 AA. Automated checks find some issues, not all, so try the{" "}
+          {kindName(check.container.kind)} with a keyboard and a screen reader too.
         </span>
       </p>
     </div>
@@ -421,12 +422,13 @@ function LayerRow({
 }) {
   const { selection, store } = useProject()
   const node = layer.nodes[0] === undefined ? undefined : findNode(container.root, layer.nodes[0])
-  const name = layer.name ?? "The design"
+  const name = layer.name ?? `The ${kindName(container.kind)}`
   const view = entry.container.view
   const shownState = view?.state ?? entry.container.states[0]?.id
   const select = (frame: Frame) => {
     if (!view?.allStates && frame.state !== shownState) {
-      store.updateView(entry.key, (current) => ({ ...current, state: frame.state }))
+      const state = container.states.find((candidate) => candidate.id === frame.state)?.name ?? frame.state
+      store.updateView(entry.key, `Show ${state}`, (current) => ({ ...current, state: frame.state }))
     }
     selection.set(
       layer.nodes.length > 0

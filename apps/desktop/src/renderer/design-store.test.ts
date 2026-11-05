@@ -319,7 +319,7 @@ describe("reverting to a checkpoint", () => {
     store.revert(checkpoint)
     expect(name(store)).toBe("home")
     expect(store.getEntry("app.par#about")).toBeDefined()
-    expect(store.getHistory()).toMatchObject({ canUndo: true, undoLabel: "Add design" })
+    expect(store.getHistory()).toMatchObject({ canUndo: true, undoLabel: "Add screen" })
     store.undo()
     expect(store.getEntry("app.par#about")).toBeUndefined()
     expect(name(store)).toBe("home")

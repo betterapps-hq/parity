@@ -40,7 +40,8 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
   const allStates = container.view?.allStates ?? false
   const [renaming, setRenaming] = useState<string>()
 
-  const view = (state: string) => store.updateView(key, (current) => ({ ...current, state, allStates: false }))
+  const view = (state: string, name = container.states.find(({ id }) => id === state)?.name ?? state) =>
+    store.updateView(key, `Show ${name}`, (current) => ({ ...current, state, allStates: false }))
   const add = () => {
     let id = ""
     store.updateContainer(key, "Add state", (current) => {
@@ -99,7 +100,12 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
         <Switch
           size="sm"
           checked={allStates}
-          onCheckedChange={(on) => store.updateView(key, (current) => ({ ...current, allStates: on }))}
+          onCheckedChange={(on) =>
+            store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (current) => ({
+              ...current,
+              allStates: on
+            }))
+          }
         />
       </Label>
       {!isBaseState(container, active.id) && !allStates && <ChangesList entry={entry} state={active} />}
@@ -130,9 +136,10 @@ function StateRow({
   onDuplicate,
   onDelete
 }: StateRowProps) {
+  // The first state is what the others change, so it has nothing to count.
   const changes = changeCount(state)
   let summary = `${changes} change${changes === 1 ? "" : "s"}`
-  if (base) summary = "Base"
+  if (base) summary = ""
   else if (changes === 0) summary = "No changes"
   return (
     <li
@@ -167,7 +174,7 @@ function StateRow({
           <span className="min-w-0 flex-1 truncate">{state.name}</span>
         </button>
       )}
-      <span className="shrink-0 px-1 text-xs text-muted-foreground">{summary}</span>
+      {summary && <span className="shrink-0 px-1 text-xs text-muted-foreground">{summary}</span>}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button

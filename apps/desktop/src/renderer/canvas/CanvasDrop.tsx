@@ -121,7 +121,7 @@ export function CanvasDrop() {
       show(undefined)
       const target = dropTarget(session, area, pointOf(event))
       if (!target) {
-        toast.info("Drop it inside a design, onto one of its layouts")
+        toast.info("Drop it inside a screen or component, onto one of its layouts")
         return
       }
       const item = JSON.parse(event.dataTransfer!.getData(insertMime)) as InsertItem

@@ -24,11 +24,11 @@ interface Item extends Action {
 
 /** What the menus offer that has no shortcut, so the search finds those too. */
 const extras: Item[] = [
-  { id: "exportAll", group: "File", label: "Export all designs", run: () => exportImages("all") },
+  { id: "exportAll", group: "File", label: "Export all", run: () => exportImages("all") },
   {
     id: "snapping",
     group: "View",
-    label: "Snap to designs",
+    label: "Snap to screens and components",
     run: () => setPreferences({ snapping: !getPreferences().snapping })
   },
   {

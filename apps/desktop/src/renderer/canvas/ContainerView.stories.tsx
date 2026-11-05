@@ -31,7 +31,7 @@ export const Components: Story = onCanvas(["Stat card", "Plan card", "Activity i
 
 /** A design showing every one of its states at once, each frame labelled with its state. */
 export const EveryState: Story = onCanvas(["Button"], () =>
-  example().store.updateView(design("Button"), (view) => ({ ...view, allStates: true }))
+  example().store.updateView(design("Button"), "Show every state", (view) => ({ ...view, allStates: true }))
 )
 
 /**
@@ -40,7 +40,7 @@ export const EveryState: Story = onCanvas(["Button"], () =>
  */
 export const EveryStateZoomedOut: Story = onCanvas(
   ["Button"],
-  () => example().store.updateView(design("Button"), (view) => ({ ...view, allStates: true })),
+  () => example().store.updateView(design("Button"), "Show every state", (view) => ({ ...view, allStates: true })),
   () => {
     const { editor } = example()
     const bounds = editor?.getShapePageBounds(shapeIdFor(design("Button")))
@@ -50,12 +50,12 @@ export const EveryStateZoomedOut: Story = onCanvas(
 
 /** Every state of a design with only one: a single frame, with no label beside it, since there's nothing to tell apart. */
 export const EveryStateOfOne: Story = onCanvas(["Plan card"], () =>
-  example().store.updateView(design("Plan card"), (view) => ({ ...view, allStates: true }))
+  example().store.updateView(design("Plan card"), "Show every state", (view) => ({ ...view, allStates: true }))
 )
 
 /** A design showing one state, the one picked on its board, rather than all of them. */
 export const OneState: Story = onCanvas(["Sign in"], () =>
-  example().store.updateView(design("Sign in"), (view) => ({ ...view, state: "wrong-password" }))
+  example().store.updateView(design("Sign in"), "Show Wrong password", (view) => ({ ...view, state: "wrong-password" }))
 )
 
 /**
@@ -66,7 +66,7 @@ export const ZoomedOut: Story = onCanvas(
   [],
   () => {
     for (const name of ["Button", "Sign in"]) {
-      example().store.updateView(design(name), (view) => ({ ...view, allStates: true }))
+      example().store.updateView(design(name), "Show every state", (view) => ({ ...view, allStates: true }))
     }
   },
   () => example().editor?.zoomToFit()

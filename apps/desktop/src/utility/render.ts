@@ -23,7 +23,7 @@ export function handleRenderResult(result: Extract<MainMessage, { type: "render-
   const request = pending.get(result.id)
   pending.delete(result.id)
   if (!request) return
-  if (result.error || !result.frame) request.reject(new Error(result.error ?? "The frame didn't render"))
+  if (result.error || !result.frame) request.reject(new Error(result.error ?? "The preview didn't render"))
   else request.resolve({ frame: result.frame, png: result.png })
 }
 

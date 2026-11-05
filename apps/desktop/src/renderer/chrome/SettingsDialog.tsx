@@ -30,7 +30,7 @@ export function SettingsDialog() {
           <DialogDescription>For every project, and remembered between runs.</DialogDescription>
         </DialogHeader>
         <Section title="Appearance">
-          <Row label="Theme" detail="Parity's own look. Designs show whichever theme their mode picks.">
+          <Row label="Theme" detail="Parity's own look. Previews show whichever theme their mode picks.">
             <ToggleGroup
               type="single"
               variant="outline"
@@ -70,16 +70,16 @@ export function SettingsDialog() {
         </Section>
         <Section title="Canvas">
           <Row
-            label="Snap to designs"
-            detail="Designs lock to the edges and centers of the designs around them while dragged."
+            label="Snap to screens and components"
+            detail="Screens and components line up with the edges and centers of those around them while dragged."
           >
             <Switch
               checked={preferences.snapping}
               onCheckedChange={(snapping) => setPreferences({ snapping })}
-              aria-label="Snap to designs"
+              aria-label="Snap to screens and components"
             />
           </Row>
-          <Row label="Layout grid" detail="Column grids over every frame, sized for its viewport.">
+          <Row label="Layout grid" detail="Column grids over every preview, sized for its viewport.">
             <Switch
               checked={preferences.layoutGrid}
               onCheckedChange={(layoutGrid) => setPreferences({ layoutGrid })}

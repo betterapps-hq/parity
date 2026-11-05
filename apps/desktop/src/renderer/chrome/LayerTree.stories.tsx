@@ -170,7 +170,7 @@ export const ShowingAState: Story = {
     async () => {
       await openProjects("example")
       const card = design("Stat card")
-      example().store.updateView(card, (view) => ({ ...view, state: "loading" }))
+      example().store.updateView(card, "Show Loading", (view) => ({ ...view, state: "loading" }))
     }
   ],
   play: async () => {

@@ -135,17 +135,21 @@ export function matchOption(option: InsertOption, query: string): Match | undefi
   const sourceWords = typed.filter((word) => source.some((part) => part.startsWith(word))).length
   const whole = nameTier(name, typed.join(""))
   if (whole !== undefined) return { tier: whole, closeness: 0, sourceWords: 0 }
-  // Word by word: each found in the name, or else in what describes it.
+  // Word by word: each found in the name, or else in what describes it. Its source's name ("nova badge") counts only
+  // beside a word of its own name, so a heading such as Local components doesn't match everything under it.
   let closeness = 3
   let inName = 0
+  let inDescription = 0
   for (const word of typed) {
     const tier = nameTier(name, word)
     if (tier !== undefined) {
       inName++
       closeness = Math.min(closeness, tier)
-    } else if (!described.some((part) => part.startsWith(word))) return undefined
+    } else if (described.slice(source.length).some((part) => part.startsWith(word))) inDescription++
+    else if (!source.some((part) => part.startsWith(word))) return undefined
   }
-  return inName > 0 ? { tier: 4, closeness, sourceWords } : { tier: 5, closeness: 3, sourceWords }
+  if (inName > 0) return { tier: 4, closeness, sourceWords }
+  return inDescription > 0 ? { tier: 5, closeness: 3, sourceWords } : undefined
 }
 
 /**
