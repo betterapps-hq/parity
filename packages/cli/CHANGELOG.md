@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 11:44:07 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 12:23:39 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.6.2
+
+Thu, 05 Nov 2026 12:23:39 GMT
+
+### Patches
+
+- Leave out malformed tokens in a library's DTCG files, and note why, instead of reading them as broken CSS
+  (ajcraswell@gmail.com)
 
 ## 0.6.1
 

@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Keep the CLI's process tests inside their timeout when several test runs share the machine",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
