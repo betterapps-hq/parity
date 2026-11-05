@@ -455,6 +455,37 @@ Print(JSON.stringify(Overlaps()))`
     expect(result.warnings.join("\n")).toContain(`background "hotpink" isn't a token`)
   })
 
+  it("lists radius-full with the radius tokens and takes it without a warning (PAR-458)", async () => {
+    const result = await execute(
+      {
+        label: "Pill",
+        code: [
+          `Print(JSON.stringify(GetTokens({ category: "radius" })))`,
+          `Update("submit", {style: {radius: "radius-full"}})`,
+          `Update("title", {style: {background: "radius-full"}})`
+        ].join("\n")
+      },
+      snapshot(),
+      hooks()
+    )
+    expect(JSON.parse(result.output[0]!)).toEqual([
+      { name: "radius-full", category: "radius", source: "keyword", values: { default: "calc(infinity * 1px)" } }
+    ])
+    expect(result.warnings.join("\n")).not.toContain(`radius "radius-full"`)
+    // A keyword is a radius only: as a color it's still not a token.
+    expect(result.warnings.join("\n")).toContain(`background "radius-full" isn't a token`)
+  })
+
+  it("lists a project's own --radius-full as its token, not the keyword", async () => {
+    const own = snapshot()
+    own.tokens.push({ name: "radius-full", category: "radius", source: "semantic", values: { default: "9999px" } })
+    const code = `Print(JSON.stringify(GetTokens({ search: "radius-full" })))`
+    const result = await execute({ label: "Read", code }, own, hooks())
+    expect(JSON.parse(result.output[0]!)).toEqual([
+      { name: "radius-full", category: "radius", source: "semantic", values: { default: "9999px" } }
+    ])
+  })
+
   it("rejects nodes that don't fit the format", async () => {
     const result = await execute(
       { label: "Bad", code: `Insert("page", {type: "text", text: "x", fontSize: 12})` },

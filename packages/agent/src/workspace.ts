@@ -45,6 +45,7 @@ import {
   parseModeSettings,
   parseNodePatch,
   projectComponentLibrary,
+  radiusKeywords,
   removeState,
   renameState,
   resolveDesign,
@@ -486,8 +487,20 @@ export class AgentWorkspace {
       : (container.states.find((candidate) => candidate.id === container.view?.state) ?? container.states[0]!)
   }
 
+  /**
+   * The project's tokens, then the framework keywords the style fields also take (`radius-full`), each as a token with
+   * `source: "keyword"`. A keyword the project declares a variable for is its token instead.
+   */
+  private tokensAndKeywords(): { name: string; category: string; source: string; values: Record<string, string> }[] {
+    const names = new Set(this.snapshot.tokens.map((token) => token.name))
+    const keywords = Object.entries(radiusKeywords)
+      .filter(([name]) => !names.has(name))
+      .map(([name, value]) => ({ name, category: "radius", source: "keyword", values: { default: value } }))
+    return [...this.snapshot.tokens, ...keywords]
+  }
+
   private getTokens(filter: { category?: string; source?: string; search?: string } = {}) {
-    return this.snapshot.tokens
+    return this.tokensAndKeywords()
       .filter(
         (token) =>
           (!filter.category || token.category === filter.category) &&
@@ -1356,6 +1369,7 @@ export class AgentWorkspace {
     const components = new Set(this.snapshot.components)
     const icons = (this.snapshot.iconSets ?? []).map((set) => `${set.id}/`)
     const tokens = new Set(this.snapshot.tokens.map((token) => token.name))
+    const known = (name: string, value: string) => tokens.has(value) || (name === "radius" && value in radiusKeywords)
     const library = this.library()
     for (const container of document.containers) {
       const check = (node: DesignNode, where: string) => {
@@ -1375,7 +1389,7 @@ export class AgentWorkspace {
         for (const style of [node.style, ...Object.values(node.responsive ?? {}).map((patch) => patch.style)]) {
           for (const name of tokenStyleKeys) {
             const value = style?.[name]
-            if (value && !tokens.has(value))
+            if (value && !known(name, value))
               this.warnings.push(`${where}: ${name} "${value}" isn't a token. Use a name from GetTokens().`)
           }
           for (const [name, value] of lengthTokens(style)) {
@@ -1402,7 +1416,7 @@ export class AgentWorkspace {
         for (const [nodeId, patch] of Object.entries(state.overrides ?? {})) {
           for (const name of tokenStyleKeys) {
             const value = patch.style?.[name]
-            if (value && !tokens.has(value))
+            if (value && !known(name, value))
               this.warnings.push(`${container.id} state ${state.id}/${nodeId}: ${name} "${value}" isn't a token`)
           }
         }

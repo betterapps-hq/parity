@@ -562,6 +562,20 @@ export function token(name: string): string {
   return `var(--${name})`
 }
 
+/**
+ * Values the radius field takes that the styling framework writes as a keyword rather than a variable, with the CSS
+ * each comes to. `radius-full` is Tailwind's `rounded-full`: a corner as round as the box allows, so a square is a
+ * circle and a wide box a pill at any size. Tailwind's theme has no `--radius-full`, so the name isn't a token; a
+ * project that declares one keeps its own value.
+ */
+export const radiusKeywords: Readonly<Record<string, string>> = { "radius-full": "calc(infinity * 1px)" }
+
+/** The CSS for a radius: the token's variable, falling back to the keyword's value for a keyword. */
+function radiusCss(name: string): string {
+  const keyword = radiusKeywords[name]
+  return keyword === undefined ? token(name) : `var(--${name}, ${keyword})`
+}
+
 type Direction = "row" | "column"
 
 const flexAlign = { start: "flex-start", center: "center", end: "flex-end", stretch: "stretch" } as const
@@ -650,7 +664,7 @@ function surfaceCss(style: NodeStyle): Record<string, string> {
     css.borderStyle = style.borderStyle ?? "solid"
     css.borderColor = style.border ? token(style.border) : "var(--border, currentColor)"
   }
-  if (style.radius) css.borderRadius = token(style.radius)
+  if (style.radius) css.borderRadius = radiusCss(style.radius)
   if (style.shadow) css.boxShadow = token(style.shadow)
   if (style.overflow) css.overflow = style.overflow === "scroll" ? "auto" : style.overflow
   return css

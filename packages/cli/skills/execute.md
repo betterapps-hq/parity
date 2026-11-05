@@ -158,8 +158,15 @@ Insert("dashboard/Toolbar", {
 
 Each token has a `name`, a `category` (`color`, `font-size`, `radius`, `shadow`, `spacing`, `font`, `font-weight`,
 `leading`, `tracking` and others), a `source` (`semantic` for the project's own variables, `theme` for its styling
-framework's scale) and its `values` per theme. Filter with `GetTokens({ category: "color", source: "semantic" })` or
-`GetTokens({ search: "radius" })`.
+framework's scale, `keyword` for a framework keyword the style fields also take) and its `values` per theme. Filter with
+`GetTokens({ category: "color", source: "semantic" })` or `GetTokens({ search: "radius" })`.
+
+For a circle or a pill, use `radius-full`, Tailwind's `rounded-full`. It's listed under `radius` with
+`source: "keyword"`, and frames draw it as round as the box allows, at any size:
+
+```js
+Update("avatar", { style: { width: 10, height: 10, radius: "radius-full" } })
+```
 
 ### Selection
 
