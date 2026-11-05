@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs"
+import { createRequire } from "node:module"
+import ts from "typescript"
 import { describe, expect, it } from "vite-plus/test"
 import { createGuest } from "./guest.ts"
 
@@ -79,5 +82,42 @@ describe("taking back added components", () => {
     guest.addComponents!({ Badge: { path: "src/badge.tsx", export: "Badge" } })
     expect(guest.hasComponent("Badge")).toBe(true)
     expect(guest.revision!.get()).toBe(start + 2)
+  })
+})
+
+/**
+ * The packages outside Parity that loading a module loads, following its own files and Parity's packages as a dev
+ * server would, unbundled. Only `import type` and `export type` are left out, since nothing else is erased.
+ */
+function packagesLoaded(entry: string): Set<string> {
+  const packages = new Set<string>()
+  const seen = new Set<string>()
+  const visit = (file: string) => {
+    if (seen.has(file)) return
+    seen.add(file)
+    const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest)
+    for (const statement of source.statements) {
+      const typeOnly = ts.isImportDeclaration(statement)
+        ? statement.importClause?.isTypeOnly
+        : ts.isExportDeclaration(statement) && statement.isTypeOnly
+      const specifier =
+        (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) && !typeOnly
+          ? statement.moduleSpecifier
+          : undefined
+      if (!specifier || !ts.isStringLiteral(specifier)) continue
+      const name = specifier.text
+      if (name.startsWith(".") || name.startsWith("@parity-app/")) visit(createRequire(file).resolve(name))
+      else packages.add(name)
+    }
+  }
+  visit(entry)
+  return packages
+}
+
+describe("what the guest loads", () => {
+  it("leaves zod out, since the project's own Vite serves the guest to every frame", () => {
+    const loaded = packagesLoaded(createRequire(import.meta.url).resolve("./guest.ts"))
+    expect(loaded).toContain("react")
+    expect(loaded).not.toContain("zod")
   })
 })

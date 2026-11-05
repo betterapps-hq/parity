@@ -1,5 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { nonBlankString } from "@parity-app/core/schema"
+import { z } from "zod"
 import { type CopyEntry, readCopyEntry } from "./routing.ts"
 
 /**
@@ -16,10 +18,17 @@ export interface Registry {
   path: string
 }
 
+/** The settings that place the registry. One that's blank counts as unset. */
+const registrySettings = z.object({
+  PARITY_AGENT_FILE: nonBlankString.optional().catch(undefined),
+  PARITY_AGENT_DIR: nonBlankString.optional().catch(undefined)
+})
+
 /** The registry these settings name: `PARITY_AGENT_FILE`, else `PARITY_AGENT_DIR`, else `~/.parity/agents`. */
 export function agentRegistry(env: Record<string, string | undefined>, home: string): Registry {
-  if (env.PARITY_AGENT_FILE) return { kind: "file", path: env.PARITY_AGENT_FILE }
-  return { kind: "folder", path: env.PARITY_AGENT_DIR || join(home, ".parity", "agents") }
+  const { PARITY_AGENT_FILE: file, PARITY_AGENT_DIR: folder } = registrySettings.parse(env)
+  if (file) return { kind: "file", path: file }
+  return { kind: "folder", path: folder ?? join(home, ".parity", "agents") }
 }
 
 /** The file before the registry, where an app from before it says how to reach it. */
