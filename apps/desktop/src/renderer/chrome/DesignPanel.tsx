@@ -1,13 +1,17 @@
+import {
+  Badge,
+  Button,
+  Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
+  Switch,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
 import type { ContainerKind } from "@parity-app/core"
 import { kindName, kindTitle } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
@@ -103,12 +107,11 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
         </div>
         <div className="mt-2 flex items-center gap-2 pl-6">
           <ToggleGroup
-            type="single"
             variant="outline"
             size="sm"
             spacing={0}
-            value={container.kind ?? "screen"}
-            onValueChange={(value) =>
+            value={[container.kind ?? "screen"]}
+            onValueChange={([value]) =>
               value &&
               store.updateContainer(key, value === "component" ? "Make component" : "Make screen", (current) => ({
                 ...current,

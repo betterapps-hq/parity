@@ -1,6 +1,6 @@
+import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { Apple, Clock, Hand, Heart, Leaf, Lightbulb, Search, Smile, SmilePlus } from "lucide-react"
 import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   emojiCategories,
   type EmojiEntry,
@@ -267,7 +267,7 @@ export function EmojiPopover({
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverTrigger render={children} />
       <PopoverContent align={align} side={side} className="w-auto p-0">
         <EmojiPicker
           onPick={(emoji) => {
@@ -351,7 +351,7 @@ export function QuickReactions({ onPick }: { onPick: (emoji: string) => void }) 
  */
 export function ReactionAdder({ onPick }: { onPick: (emoji: string) => void }) {
   return (
-    <span className="group/add flex h-6 items-center rounded-full border text-muted-foreground hover:bg-muted/40 has-[[data-state=open]]:bg-muted">
+    <span className="group/add flex h-6 items-center rounded-full border text-muted-foreground hover:bg-muted/40 has-aria-expanded:bg-muted">
       <EmojiPopover onPick={onPick}>
         <button
           type="button"

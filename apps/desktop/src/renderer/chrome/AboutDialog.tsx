@@ -1,15 +1,15 @@
-import { Copy } from "lucide-react"
-import { useEffect, useState } from "react"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle
-} from "@/components/ui/dialog"
+} from "@buildkitgg/shadcn-baseui-kit"
+import { Copy } from "lucide-react"
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import icon from "../../../../../brand/parity-icon.svg?url"
 import type { BuildInfo } from "../../shared/protocol.ts"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"

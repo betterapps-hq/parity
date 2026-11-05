@@ -1,7 +1,6 @@
+import { Tabs, TabsList, TabsTrigger, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { type LucideIcon, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react"
-import { Tabs as TabsPrimitive } from "radix-ui"
 import type { ReactNode } from "react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { panelLimits, setLayout, useLayout } from "./layout.ts"
@@ -44,40 +43,32 @@ export function SidePanel({ side, label, tabs, defaultTab, children }: SidePanel
       style={{ width }}
       aria-label={label}
     >
-      <TabsPrimitive.Root
+      <Tabs
         value={current}
-        onValueChange={(value) => setLayout({ [tabKey]: value })}
-        className="flex min-h-0 flex-1 flex-col gap-0"
+        onValueChange={(value: string) => setLayout({ [tabKey]: value })}
+        className="min-h-0 flex-1 gap-0"
       >
         <div className={`flex items-center gap-1 border-b p-2 ${side === "right" ? "flex-row-reverse" : ""}`}>
-          <TabsPrimitive.List className="flex min-w-0 flex-1 items-center gap-0.5" aria-label={label}>
+          <TabsList className="min-w-0" aria-label={label}>
             {tabs.map(({ value, label: name, icon: Icon }) => {
-              const selected = value === current
+              const named = value === current && roomForName
               const trigger = (
-                <TabsPrimitive.Trigger
-                  key={value}
-                  value={value}
-                  aria-label={name}
-                  className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-                    selected && roomForName
-                      ? "bg-accent px-2.5 font-medium text-foreground"
-                      : `w-8 justify-center ${selected ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`
-                  }`}
-                >
-                  <Icon className="size-4 shrink-0" />
-                  {selected && roomForName && <span className="truncate">{name}</span>}
-                </TabsPrimitive.Trigger>
+                <TabsTrigger key={value} value={value} aria-label={name} className="flex-none">
+                  <Icon />
+                  {named && <span className="truncate">{name}</span>}
+                </TabsTrigger>
               )
-              return selected && roomForName ? (
+              return named ? (
                 trigger
               ) : (
                 <Tooltip key={value}>
-                  <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+                  <TooltipTrigger render={trigger} />
                   <TooltipContent>{name}</TooltipContent>
                 </Tooltip>
               )
             })}
-          </TabsPrimitive.List>
+          </TabsList>
+          <div className="flex-1" />
           <IconButton
             label={`Hide ${label.toLowerCase()}`}
             shortcut="Ctrl \"
@@ -87,7 +78,7 @@ export function SidePanel({ side, label, tabs, defaultTab, children }: SidePanel
           </IconButton>
         </div>
         {children}
-      </TabsPrimitive.Root>
+      </Tabs>
       <ResizeEdge side={side} width={width} />
     </aside>
   )
@@ -119,20 +110,22 @@ function CollapsedRail({
       <div className="my-1 h-px w-6 bg-border" />
       {tabs.map(({ value, label: name, icon: Icon }) => (
         <Tooltip key={value}>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={name}
-              onClick={() => setLayout({ [side]: true, [tabKey]: value })}
-              className={`grid size-8 place-items-center rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-                value === current
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-              }`}
-            >
-              <Icon className="size-4" />
-            </button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                aria-label={name}
+                onClick={() => setLayout({ [side]: true, [tabKey]: value })}
+                className={`grid size-8 place-items-center rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+                  value === current
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                }`}
+              >
+                <Icon className="size-4" />
+              </button>
+            }
+          />
           <TooltipContent side={tooltipSide}>{name}</TooltipContent>
         </Tooltip>
       ))}

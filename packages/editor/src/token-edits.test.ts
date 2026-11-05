@@ -29,10 +29,11 @@ describe("token edits", () => {
     expect(sameTokenValues(withTokenEdits(noTokenEdits, [{ ...primary, value: "black" }]), noTokenEdits)).toBe(true)
   })
 
-  it("say a value a theme didn't have is taken out again, and have nothing to write for it", () => {
+  it("say a value a theme didn't have is taken out again, and write it without a value once it was saved", () => {
     const dark = withTokenEdits(noTokenEdits, [{ name: "radius", theme: "dark", value: "1rem" }])
     expect(tokenDifferences(dark, noTokenEdits)).toEqual([{ name: "radius", theme: "dark", value: undefined }])
-    expect(tokenWrites(noTokenEdits, dark)).toEqual([])
+    expect(tokenWrites(noTokenEdits, dark)).toEqual([{ name: "radius", theme: "dark", value: undefined }])
+    expect(sameTokenValues(noTokenEdits, dark)).toBe(false)
   })
 
   describe("as overrides for frames drawn elsewhere", () => {

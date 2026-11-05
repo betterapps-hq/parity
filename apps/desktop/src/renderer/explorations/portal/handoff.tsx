@@ -1,3 +1,4 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * Handoff, for developers: every board by where it stands between design and code, one row each, with the board you
  * pick open at the side. Statuses come from Parity's own versions, so they work without git: an approval is of one
@@ -8,7 +9,6 @@
  */
 import { ChevronDown, Ellipsis, GitBranch, Search, TriangleAlert, X } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
 import { me } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
 import type { Look } from "../start/data.ts"

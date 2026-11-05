@@ -46,10 +46,10 @@ import {
   type StatusOptions,
   saveFailure,
   startSave,
-  type TokenChange,
   type TokenEdit,
   type TokenEdits,
   type TokenFailure,
+  type TokenWrite,
   undoChange,
   unsavedPaths,
   withStylesheet,
@@ -83,7 +83,7 @@ interface Persistence {
 /** Writes token values into the project's stylesheet, `path`. */
 export interface TokenWriter {
   path: string
-  write(changes: TokenChange[]): Promise<unknown>
+  write(changes: TokenWrite[]): Promise<unknown>
 }
 
 const saveDelay = 300

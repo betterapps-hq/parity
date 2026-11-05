@@ -1,3 +1,4 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import {
   boardTarget,
   changesField,
@@ -28,7 +29,6 @@ import {
   Layers,
   Trash2
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { useProject } from "../canvas/context.ts"
 import { designColor, kindColors } from "../canvas/kinds.tsx"
 import { useStylePreview } from "../canvas/style-preview.ts"

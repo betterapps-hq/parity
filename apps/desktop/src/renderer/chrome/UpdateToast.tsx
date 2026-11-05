@@ -1,6 +1,5 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { CircleAlert, CircleCheck, Download, ExternalLink, LoaderCircle, RotateCw, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-
 export type UpdateNotice =
   | { kind: "downloading"; version: string; percent: number; transferred: number; total: number }
   | { kind: "ready" | "manual"; version: string }

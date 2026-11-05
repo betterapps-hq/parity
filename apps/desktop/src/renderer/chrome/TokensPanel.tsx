@@ -1,6 +1,15 @@
+import {
+  Button,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
 import { type ModeSettings } from "@parity-app/core"
 import { defaultValues, type PreviewKind, previewKind, type Token, tokenReferences } from "@parity-app/tokens"
-import { type LibraryToken, matchDescribed, type TokenChange } from "@parity-app/tokens"
+import { type LibraryToken, matchDescribed, type TokenWrite } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Check, LayoutGrid, List, Search, X } from "lucide-react"
 import {
@@ -13,10 +22,6 @@ import {
   useRef,
   useState
 } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useProject } from "../canvas/context.ts"
 import { useHistory, useModeSettings } from "../design-store.ts"
 import { comesTo, type TokenMap } from "../token-values.ts"
@@ -282,40 +287,38 @@ export function TokensPanel() {
             />
           </div>
           <ToggleGroup
-            type="single"
             variant="outline"
             size="sm"
             spacing={0}
-            value={view}
-            onValueChange={(value) => value && setView(value as View)}
+            value={[view]}
+            onValueChange={([value]) => value && setView(value as View)}
             aria-label="Show tokens as"
           >
             <Hint label="List">
-              <ToggleGroupItem value="list" aria-label="List" className="h-8 w-7 aria-checked:bg-muted">
+              <ToggleGroupItem value="list" aria-label="List" className="h-8 w-7">
                 <List className="size-3.5" />
               </ToggleGroupItem>
             </Hint>
             <Hint label="Tiles">
-              <ToggleGroupItem value="tiles" aria-label="Tiles" className="h-8 w-7 aria-checked:bg-muted">
+              <ToggleGroupItem value="tiles" aria-label="Tiles" className="h-8 w-7">
                 <LayoutGrid className="size-3.5" />
               </ToggleGroupItem>
             </Hint>
           </ToggleGroup>
         </div>
         <ToggleGroup
-          type="single"
           variant="outline"
           size="sm"
           spacing={0}
-          value={source}
-          onValueChange={(value) => value && setSource(value as Source)}
+          value={[source]}
+          onValueChange={([value]) => value && setSource(value as Source)}
           className="w-full"
         >
           <ToggleGroupItem value="all" className="h-7 min-w-0 flex-1 px-1.5 text-xs">
             All
           </ToggleGroupItem>
           <Hint label={`Semantic tokens, named for what they're for, ${counts.semantic}`} wait>
-            <ToggleGroupItem value="semantic" className="h-7 min-w-0 flex-1 gap-1 px-1.5 text-xs aria-checked:bg-muted">
+            <ToggleGroupItem value="semantic" className="h-7 min-w-0 flex-1 gap-1 px-1.5 text-xs">
               <span className="truncate">Semantic</span>
               <SourceCount count={counts.semantic} />
             </ToggleGroupItem>
@@ -324,7 +327,7 @@ export function TokensPanel() {
             label={`Primitive tokens, the raw scale${info.styles ? ` from ${info.styles.name}'s theme` : ""}, ${counts.theme}`}
             wait
           >
-            <ToggleGroupItem value="theme" className="h-7 min-w-0 flex-1 gap-1 px-1.5 text-xs aria-checked:bg-muted">
+            <ToggleGroupItem value="theme" className="h-7 min-w-0 flex-1 gap-1 px-1.5 text-xs">
               <span className="truncate">Primitive</span>
               <SourceCount count={counts.theme} />
             </ToggleGroupItem>
@@ -711,18 +714,23 @@ function TokenPopover({
   children: React.ReactElement
 }) {
   return (
-    <Popover open={card.open} onOpenChange={card.setOpen} modal={false}>
-      <PopoverAnchor asChild>{children}</PopoverAnchor>
+    <Popover
+      open={card.open}
+      onOpenChange={(open, details) => {
+        keepEditing(details)
+        if (!details.isCanceled) card.setOpen(open)
+      }}
+    >
+      {/* The row opens its detail by resting on it or by a key; a click copies the token instead. */}
+      <PopoverTrigger render={children} onClick={(event) => event.preventBaseUIHandler()} />
       <PopoverContent
         className="w-80 p-0"
         align="start"
         side="right"
         sideOffset={12}
         id={card.id}
-        onOpenAutoFocus={card.takesFocus}
-        onCloseAutoFocus={card.returnFocus}
-        onEscapeKeyDown={keepEditing}
-        onInteractOutside={card.keepForItem}
+        initialFocus={card.takesFocus}
+        finalFocus={card.returnFocus}
         onPointerEnter={card.stay}
         onPointerLeave={card.leave}
         onFocusCapture={card.hold}
@@ -779,7 +787,7 @@ function Detail({ entry }: { entry: Kinded }) {
 }
 
 /** The tokens a save couldn't write, by name: one, or how many. */
-function failedNames(changes: readonly TokenChange[]): string {
+function failedNames(changes: readonly TokenWrite[]): string {
   const names = [...new Set(changes.map((change) => change.name))]
   return names.length === 1 ? names[0]! : `${names.length} tokens`
 }

@@ -1,11 +1,10 @@
+import { Button, Popover, PopoverContent, PopoverTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { Eye, Layers, LocateFixed, MonitorPlay, RefreshCw, WifiOff } from "lucide-react"
 import type { ReactNode } from "react"
-import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { PresenceEvent } from "../../../shared/protocol.ts"
 import { type AgentPalette, agentPalettes } from "../../agent/agent-colors.ts"
 import { ActionIcon, AgentBadge, AgentPointer } from "../../agent/AgentPointer.tsx"
+import { formatKeys } from "../../chrome/keys.ts"
 import { me, people, type Person } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
 
@@ -115,15 +114,17 @@ export function Facepile({ here, following, max = 4 }: { here: Here[]; following
     <div className="flex items-center">
       {shown.map((entry, index) => (
         <Popover key={entry.person.name}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label={`${entry.person.name}, ${entry.away ? "away" : entry.where}`}
-              className={`rounded-full ${index > 0 ? "-ml-1.5" : ""}`}
-            >
-              <PresenceAvatar here={entry} size={24} following={entry.person === following} />
-            </button>
-          </PopoverTrigger>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                aria-label={`${entry.person.name}, ${entry.away ? "away" : entry.where}`}
+                className={`rounded-full ${index > 0 ? "-ml-1.5" : ""}`}
+              >
+                <PresenceAvatar here={entry} size={24} following={entry.person === following} />
+              </button>
+            }
+          />
           <PopoverContent align="end" className="w-auto p-3">
             <PresenceCard here={entry} following={entry.person === following} />
           </PopoverContent>
@@ -218,7 +219,7 @@ export function FollowFrame({ person, children }: { person: Person; children: Re
           type="button"
           className="flex items-center gap-1.5 rounded-md bg-black/15 px-2 py-0.5 hover:bg-black/25"
         >
-          Stop <Kbd className="h-4 bg-black/15 text-current">Esc</Kbd>
+          Stop <Kbd className="h-4 bg-black/15 text-current">{formatKeys("Esc")}</Kbd>
         </button>
       </div>
     </div>

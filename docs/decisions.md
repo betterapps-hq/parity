@@ -96,6 +96,14 @@ still need your call.
   button is Apply, with a line saying Save writes it to the stylesheet. Don't save writes nothing. A failed write names
   the token and the file in the save notice, the status bar and the Tokens panel, where its row is marked and a banner
   offers Try again; a stylesheet changed since it was read fails the same way.
+- **Save takes out a token value that's been undone back to nothing** (PAR-420): a value given to a theme that had none
+  (a dark `--radius`), saved and then undone, is written as a `TokenWrite` without a value, rather than as an empty
+  value, so a value that's empty on purpose can't be mistaken for one taken out. `writeTokenChanges` takes the
+  declaration out of every block that would hold it (the theme's `.dark` and `[data-theme="dark"]` alike, but no `:root`
+  under `@media`), with its line, and a rule left with nothing in it goes too, with one of the blank lines around it, so
+  a value Save added in a new block leaves the file as it was. A rule that keeps only a comment stays, and so do the
+  at-rules around one taken out, which Save never adds. The frames' overrides are unchanged: compared with the CSS the
+  canvas loaded, so the render window is assumed to have loaded the same CSS.
 - **Closing a tab or quitting with unsaved changes asks** Save, Don't save or Cancel, with Save focused so Enter does
   it. Quitting with several projects unsaved asks once, with Save all.
 - **Changes from outside reload as one undoable step.** That covers agents, git and text editors. A file with unsaved
@@ -3300,3 +3308,39 @@ headers ran to it: everything in the Design tab now ends where the inputs end, a
 that edge in a gutter of its own, rather than inputs growing into the arrow's slot with the arrow floating inside the
 field. An input keeps its width whether or not it can be reset, and the arrow never covers what's typed. For your
 approval in the pull request's Storybook preview.
+
+## The app runs on Buildkit's Base UI Nova (PAR-549)
+
+The 23 copies in `components/ui` are gone, with `components.json`, Radix, `shadcn`, `tw-animate-css`, `cmdk` and the
+`cn` package; the app imports every component from `@buildkitgg/shadcn-baseui-kit`, and its stylesheet is the kit's
+`tailwind.css`. The comparison stories went with them. Your calls:
+
+- **The kit's components are used bare,** as you asked on 2026-11-04: no app-owned wrappers around them. What the app
+  needs beyond the kit is said where a component is used. Keys pass through `formatKeys` inside the kit's `Kbd` and
+  `*Shortcut` parts, and `SonnerToaster` gets the app's theme from `useResolvedTheme` where it's placed, since the kit's
+  reads `next-themes`, which Parity doesn't use.
+- **The title bar's menubar keeps two classes, in `AppMenu.tsx`:** no border around the bar, and menus as wide as what
+  they hold (`w-auto`), since the kit's are as wide as their trigger and wrap their items. The rest of its old look,
+  taller names, checks at the end of items, small dimmed labels and a fade as menus close, went.
+- **Menus and selects stay open when the window loses focus,** Base UI's default. Radix's closed.
+- **The side panel's tab strip is the kit's tabs,** a muted track with the open tab raised, rather than the app's own
+  look on an unstyled primitive. Its panels are the kit's `TabsContent`, which need Base UI's tabs around them, and the
+  kit's are those, so `@base-ui/react` isn't a dependency of its own.
+
+My calls:
+
+- **A token's row is its detail's trigger.** Base UI's popover has no anchor apart from its trigger, so the row, already
+  a button saying it opens a dialog, is the `PopoverTrigger`, with its click kept from toggling the detail, since a
+  click copies the token. Escape in a field being edited is kept from closing it through `onOpenChange`'s reason.
+- **The canvas menu turns events away with `preventBaseUIHandler`.** Base UI opens a context menu for a `contextmenu`
+  even when it's been cancelled, where Radix didn't, so the canvas's menu stops tldraw's held-back event and
+  right-clicks in Interact mode that way.
+- **Tooltips are visual labels only.** Base UI gives them no `tooltip` role and doesn't tie them to their trigger, so a
+  control with one needs its own name (`aria-label`), as IconButton and the toolbar give theirs. Stories find the open
+  one by the kit's `data-slot="tooltip-content"`.
+- **Toggle groups are pressed buttons, not radios.** Base UI's is a `group` of buttons with `aria-pressed`, where
+  Radix's single-choice one was `radio`s with `aria-checked`. The kit styles the pressed one, so the app's
+  `aria-checked` classes, there because Radix's tooltip took over a toggle's `data-state`, went; the toolbar's tools key
+  their look off `aria-pressed`.
+- **Open triggers style by `aria-expanded`,** which Base UI sets on every menu, popover and select trigger, where Radix
+  set `data-state="open"`; a closing popup is `[data-closed]` for the canvas's shortcuts.

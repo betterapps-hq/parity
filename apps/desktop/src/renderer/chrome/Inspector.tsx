@@ -1,5 +1,5 @@
+import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
 import { Accessibility, MonitorSmartphone, SlidersHorizontal } from "lucide-react"
-import { TabsContent } from "@/components/ui/tabs"
 import { AccessibilityPanel } from "./AccessibilityPanel.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { ModesPanel } from "./ModesPanel.tsx"

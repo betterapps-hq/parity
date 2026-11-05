@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
-import { design } from "../stories/fixtures.tsx"
+import { design, findTooltip } from "../stories/fixtures.tsx"
 import { checkAgain, inspecting, InspectorStage, slowly } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
 import { panelLimits, setLayout } from "./layout.ts"
@@ -40,7 +40,7 @@ export const TabTooltip: Story = {
   loaders: [inspecting("design", pricing)],
   play: async ({ canvasElement }) => {
     await userEvent.hover(within(canvasElement).getByRole("tab", { name: "Modes" }))
-    await within(document.body).findByRole("tooltip", undefined, slowly)
+    await findTooltip(slowly)
   }
 }
 
@@ -49,7 +49,7 @@ export const CollapseTooltip: Story = {
   loaders: [inspecting("design", pricing)],
   play: async ({ canvasElement }) => {
     await userEvent.hover(within(canvasElement).getByRole("button", { name: "Hide inspector" }))
-    await within(document.body).findByRole("tooltip", undefined, slowly)
+    await findTooltip(slowly)
   }
 }
 
@@ -83,7 +83,7 @@ export const CollapsedTooltip: Story = {
   ],
   play: async ({ canvasElement }) => {
     await userEvent.hover(within(canvasElement).getByRole("button", { name: "Accessibility" }))
-    await within(document.body).findByRole("tooltip", undefined, slowly)
+    await findTooltip(slowly)
   }
 }
 
