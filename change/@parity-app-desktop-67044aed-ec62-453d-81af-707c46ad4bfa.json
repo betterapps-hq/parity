@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "State labels shrink as board titles do when zoomed out, and hide only when their row is too short on screen to hold them",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
