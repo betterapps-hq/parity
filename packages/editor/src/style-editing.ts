@@ -23,7 +23,7 @@ import {
   targetPatches
 } from "@parity-app/core"
 import { boardReader } from "./shown.ts"
-import { type TextSizing, withTextSizing } from "./text-editing.ts"
+import { type TextSizing, textSizingKeys, withTextSizing } from "./text-editing.ts"
 
 /**
  * Editing the style of the selected layers, as the inspector's style rows do: where an edit goes, what the layers share
@@ -98,7 +98,7 @@ export const styleRows = {
   lineHeight: ["leading"],
   letterSpacing: ["tracking"],
   textAlign: ["textAlign"],
-  resizing: ["width", "height", "grow"],
+  resizing: textSizingKeys,
   decoration: ["italic", "decoration"],
   case: ["transform"],
   lines: ["lines"]

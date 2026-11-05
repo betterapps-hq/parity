@@ -35,6 +35,15 @@ const boards = () =>
   )
 
 /**
+ * Every frame's size on the canvas, in the order the page draws them. A board's gutter keeps its screen size (PAR-602),
+ * so zoomed out its board grows on the canvas while its frames keep theirs.
+ */
+const frameSizes = () =>
+  app.page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>("[data-frame]")].map((host) => [host.offsetWidth, host.offsetHeight])
+  )
+
+/**
  * How many frames have bitmaps, how many sleep, how many draw their designs, and how many elements those hold. A frame
  * whose design doesn't render has no bitmap, so it never sleeps.
  */
@@ -91,6 +100,7 @@ describe("zoomed far out", () => {
     async () => {
       await app.show("Members", 1)
       const sizes = await boards()
+      const framed = await frameSizes()
       const awake = await nodes()
       const { elements } = await frames()
       expect(elements).toBeGreaterThan(0)
@@ -100,7 +110,7 @@ describe("zoomed far out", () => {
       const out = await frames()
       expect(out.drawn).toBe(out.all - out.asleep)
       expect(await nodes()).toBeLessThan(awake - elements)
-      expect(await boards()).toEqual(sizes)
+      expect(await frameSizes()).toEqual(framed)
 
       // Back in view, its frames draw again, and the boards out of view stay asleep.
       await app.show("Members", 1)
@@ -108,6 +118,7 @@ describe("zoomed far out", () => {
       expect(await app.size("Members", "ada")).toBeDefined()
       expect((await frames()).asleep).toBeGreaterThan(0)
       expect(await boards()).toEqual(sizes)
+      expect(await frameSizes()).toEqual(framed)
     }
   )
 

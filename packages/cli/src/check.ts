@@ -1,8 +1,16 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import type { ComponentInfo, ComponentSource, DesignNode, LibraryManifest } from "@parity-app/core"
+import { replies } from "@parity-app/agent/contracts"
+import type { ComponentSource, DesignNode, LibraryManifest } from "@parity-app/core"
+import { checkData, jsonText } from "@parity-app/core/schema"
+import { z } from "zod"
 import { call } from "./client.ts"
 import { executeOperation } from "./execute.ts"
+
+/** The registry's least share of placed parts each library must render, by library, in `in-app.json`. */
+const floorsFile = jsonText(z.record(z.string(), z.number()))
+/** The app's errors kept for a library, by part. */
+const appErrorsFile = jsonText(z.record(z.string(), z.string()))
 
 export interface CheckOptions {
   tab?: string
@@ -55,22 +63,26 @@ export async function runCheck(library: string | undefined, options: CheckOption
     ])
   )
   const mode = options.mode ?? "desktop-light"
-  const exec = async (label: string, code: string): Promise<string> => {
+  /** Runs one of these snippets and reads the JSON it prints, once `printed` has checked it. */
+  const exec = async <T extends z.ZodType>(label: string, code: string, printed: T): Promise<z.output<T>> => {
     const result = await executeOperation.run({ tab: options.tab, label, code }, call)
     if (executeOperation.failed(result)) throw new Error(result.error?.message ?? `${label} failed`)
     const line = result.output.find((item) => item.startsWith("{") || item.startsWith("["))
     if (!line) throw new Error(`${label} printed nothing`)
-    return line
+    const checked = checkData(jsonText(printed), line)
+    if (checked.success) return checked.data
+    throw new Error(
+      `This CLI can't read what "${label}" printed (${checked.problem.pointer}: ${checked.problem.message})`
+    )
   }
   // The props the app reads for each component, which give a new node its required values, as on the canvas.
-  const infos = JSON.parse(
-    await exec(
-      `Read ${library}'s props`,
-      `const ids = ${JSON.stringify(names.map(id))}
+  const infos = await exec(
+    `Read ${library}'s props`,
+    `const ids = ${JSON.stringify(names.map(id))}
 const known = new Set(Components())
-Print(JSON.stringify(Object.fromEntries(ids.filter((id) => known.has(id)).map((id) => [id, Props(id, { all: true })]))))`
-    )
-  ) as Record<string, ComponentInfo>
+Print(JSON.stringify(Object.fromEntries(ids.filter((id) => known.has(id)).map((id) => [id, Props(id, { all: true })]))))`,
+    z.record(z.string(), replies.props)
+  )
   const missing = names.filter((name) => !infos[id(name)])
   if (missing.length === names.length) throw new Error(`The tab's project doesn't have ${library} installed`)
   const taken = new Set<string>()
@@ -85,22 +97,23 @@ Print(JSON.stringify(Object.fromEntries(ids.filter((id) => known.has(id)).map((i
     withLibraryContext(componentNode(id(name), infos[id(name)], taken), sources, [], taken)
   )
   const failing = async (design: string, nodes: DesignNode[]) => {
-    const line = await exec(
+    const problems = await exec(
       `Check ${design}`,
       `for (const design of Designs().filter((d) => d.name === ${JSON.stringify(design)})) DeleteDesign(design.id)
 const spot = FindEmptySpace({ width: 1280, height: 2000 })
 const id = CreateDesign({ name: ${JSON.stringify(design)}, x: spot.x, y: spot.y })
 const grid = Insert(id, { type: "layout", name: "Grid", style: { direction: "row", wrap: true, gap: 4, padding: 4 }, children: [] })
 for (const node of ${JSON.stringify(nodes)}) Insert(grid, node)
-Print(JSON.stringify(await Problems(id, { mode: ${JSON.stringify(mode)} })))`
+Print(JSON.stringify(await Problems(id, { mode: ${JSON.stringify(mode)} })))`,
+      replies.problems.shape.problems
     )
-    return failures(JSON.parse(line) as { problem: string }[], library)
+    return failures(problems, library)
   }
   const failAlone = await failing(`${library} alone`, alone)
   const failInside = await failing(`${library} inside`, inside)
   const report = score(library, mode, names.length, failAlone, failInside, list)
-  const floors = JSON.parse(await readFile(join(registryDir(), "..", "in-app.json"), "utf8")) as Record<string, number>
-  report.floor = floors[library]
+  const floors = join(registryDir(), "..", "in-app.json")
+  report.floor = registryFile(floors, await readFile(floors, "utf8"), floorsFile)[library]
   if (options.record) {
     const kept = await recordAppErrors(registryDir(), library, report)
     console.error(`Kept ${kept} errors from the app for ${library}; run parity lib with --registry to use them.`)
@@ -117,10 +130,16 @@ function appErrorsPath(registry: string, library: string): string {
 
 /** The app's errors kept for a library, by part, or none. */
 export async function readAppErrors(registry: string, library: string): Promise<Record<string, string> | undefined> {
-  return readFile(appErrorsPath(registry, library), "utf8").then(
-    (text) => JSON.parse(text) as Record<string, string>,
-    () => undefined
-  )
+  const path = appErrorsPath(registry, library)
+  const text = await readFile(path, "utf8").catch(() => undefined)
+  return text === undefined ? undefined : registryFile(path, text, appErrorsFile)
+}
+
+/** One of the registry's own JSON files once `schema` has checked it, or an error naming the file and what's wrong. */
+function registryFile<T extends z.ZodType>(path: string, text: string, schema: T): z.output<T> {
+  const checked = checkData(schema, text)
+  if (checked.success) return checked.data
+  throw new TypeError(`${path}: ${checked.problem.pointer || "/"}: ${checked.problem.message}`)
 }
 
 /**

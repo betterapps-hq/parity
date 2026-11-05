@@ -13,8 +13,7 @@ describe("packageSpec", () => {
 
 describe("keptRange", () => {
   const read = { name: "lucide-react", version: "1.63.0", range: "^1.0.0" }
-  const covering = (versions: typeof read) =>
-    covers({ package: versions } as Parameters<typeof covers>[0], read.version)
+  const covering = (versions: typeof read) => covers({ package: versions }, read.version)
 
   it("keeps a file's range while it covers the version read", () => {
     expect(keptRange({ package: { range: ">=0.400.0 <2.0.0" } }, read, covering)).toBe(">=0.400.0 <2.0.0")

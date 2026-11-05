@@ -21,6 +21,7 @@ import type { ContainerEntry } from "../design-store.ts"
 import { alignSelection, deleteSelection, distributeSelection, duplicateSelection, wrapSelection } from "./commands.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
+import { formatKeys } from "./keys.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -132,7 +133,8 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         <div className="flex flex-col gap-2">
           <AlignButtons />
           <Button variant="outline" size="sm" onClick={() => wrapSelection()}>
-            <Group /> Wrap in layout <span className="ml-auto text-xs text-muted-foreground">Ctrl G</span>
+            <Group /> {keymap.wrap.label}{" "}
+            <span className="ml-auto text-xs text-muted-foreground">{formatKeys(keymap.wrap.keys[0])}</span>
           </Button>
         </div>
       </PanelSection>

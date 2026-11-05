@@ -1,6 +1,7 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { CircleAlert, Component, Diamond, LoaderCircle } from "lucide-react"
-import type { ReactElement, ReactNode } from "react"
+import { CircleAlert, Component, Diamond, EyeOff, LoaderCircle } from "lucide-react"
+import type { CSSProperties, ReactElement, ReactNode } from "react"
+import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
 import type { useHoverCard } from "./hover-card.ts"
@@ -67,8 +68,9 @@ export function ComponentCard({ name, path, instance, note, preview, status, act
 }
 
 /**
- * The picture's box. A made picture sits on the project's page as it was drawn there, framed so its edge shows on a
- * light card too; anything else sits on the card's own muted fill, so a placeholder never passes for a picture.
+ * The picture's box. A made picture sits on the project's page as it was drawn there, light or dark, framed so its edge
+ * shows on a card of the same shade; anything else sits on the card's own muted fill, so a placeholder never passes
+ * for a picture.
  */
 function PreviewStage({ preview }: { preview: PreviewState | undefined }) {
   const box = "flex items-center justify-center overflow-hidden rounded-md"
@@ -78,6 +80,18 @@ function PreviewStage({ preview }: { preview: PreviewState | undefined }) {
         <CircleAlert className="size-4 text-destructive" />
         <span className="text-xs text-destructive">Its preview fails to draw</span>
         <span className="line-clamp-3 font-mono text-[11px] break-all text-muted-foreground">{preview.error}</span>
+      </div>
+    )
+  }
+  if (preview?.state === "empty") {
+    // As Parity / Explorations / Previews / Components: States designs "draws nothing" (PAR-517).
+    return (
+      <div
+        className={`${box} flex-col gap-1.5 bg-muted px-4 py-3 text-center text-xs text-muted-foreground`}
+        style={{ minHeight: lowest }}
+      >
+        <EyeOff className="size-4" />
+        Draws nothing of its own
       </div>
     )
   }
@@ -97,7 +111,7 @@ function PreviewStage({ preview }: { preview: PreviewState | undefined }) {
   // The box fits the picture with a margin round it, so a small part isn't lost in a large white page.
   const height = Math.max(lowest, Math.min(stageHeight, (image.height / 2) * scale + margin))
   return (
-    <div className={`${box} relative bg-white ring-1 ring-border ring-inset`} style={{ height }}>
+    <div className={`${box} relative ring-1 ring-border ring-inset`} style={{ height, ...pageOf(image) }}>
       <img
         src={image.large}
         alt=""
@@ -114,6 +128,19 @@ function PreviewStage({ preview }: { preview: PreviewState | undefined }) {
       )}
     </div>
   )
+}
+
+/**
+ * The page a picture was drawn on, in the mode matching Parity's theme, light or dark (PAR-521): its top left pixel,
+ * which is in the room round the component, drawn larger than the box so it fills it. Nothing else says the page's
+ * color, and the picture is already loaded for the box.
+ */
+function pageOf(image: PreviewImage): CSSProperties {
+  return {
+    backgroundImage: `url("${image.large}")`,
+    backgroundSize: `${image.width * stageWidth}px ${image.height * stageHeight}px`,
+    backgroundRepeat: "no-repeat"
+  }
 }
 
 /**

@@ -330,7 +330,7 @@ Gaps: a label beside a line near the canvas's edge can run past it, as the centr
 
 A right-click on a design opens Figma's canvas menu, as far as Parity's commands go, for what's selected. Each item
 shows its keys from the keymap as the menubar shows them (`ContextMenuShortcut`, through `formatKeys`), and runs the
-menubar's command. The Layers panel's menu is unchanged.
+menubar's command. A row in the Layers panel has a menu of its own, built the same way (below).
 
 - **The items**, in groups with a line between them: Select layer; Copy, Paste here, Paste over selection, Paste to
   replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make component
@@ -385,6 +385,12 @@ menubar's command. The Layers panel's menu is unchanged.
   page, so tldraw never hears of that press: the menu stays open, and when the button comes up the canvas under the
   backdrop gets the `contextmenu` tldraw would have sent, which moves the menu there.
 - **Interact mode:** the design gets the right-click, and no menu opens.
+- **A row in Layers** (PAR-571) opens a shorter menu: Rename and Duplicate; for a layer, Hide in or Show in where the
+  change lands (see Edits in the state and variant shown); then Delete. A right-click on a row selects it first, unless
+  it's in the selection, so the menu acts on all of it, as on the canvas. Each item has the keymap's label and keys, and
+  runs the menubar's command, Rename excepted, which renames the row in place. So Hide reads and hides in the state the
+  selection was picked in, as Ctrl+Shift+H does, rather than the one the board shows (PAR-586), and Duplicate and Delete
+  act on every selected layer or design. The design's root can be renamed only, and a design can be duplicated too.
 - **Keys after an item** are the canvas's at once (PAR-424). A menu holds focus for the 100 ms or so it takes to fade
   out, so the canvas's shortcuts treat a menu, list or dialog that's closing (`data-closed`) as gone, a field in it
   included: Ctrl+Z pressed straight after Duplicate undoes it, where it used to go to the closing menu and do nothing.
@@ -400,7 +406,9 @@ under the pointer with `hitTest` and `pickLayer`, outlines Select layer's entrie
 `pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
 through `canvas/paste-here.ts`, where `measureHere` measures the layout or component's slot under the pointer in its
 frame, and `pasteHere` in `packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys
-an open menu keeps is `inMenu` in `canvas/shortcuts.ts`.
+an open menu keeps is `inMenu` in `canvas/shortcuts.ts`. The Layers row's menu is `layersMenu` in
+`chrome/layers-menu.ts`, which reuses `canvasMenu`'s items and `layerCommands`, and `rowSelection` there is what a
+right-click on a row selects; `chrome/LayerTree.tsx` selects on opening and runs the items through `actions.ts`.
 
 Tests:
 
@@ -411,6 +419,12 @@ Tests:
   frame's background, around the frames, the root, inside the selection, outside it, and in a selected design; and
   `layerCommands`, which the menubar shares, for the design's own layers, one or several, and for a layer inside an
   instance, the root, and one of each.
+- `chrome/layers-menu.test.ts` (7, PAR-571): a layer's row menu in order with the keymap's labels and keys, a design's,
+  the root's with only Rename available, Hide reading every selected layer, Hide in the state the selection was picked
+  in rather than the one the board shows (PAR-586, which the menu before got wrong), and what a right-click on a row
+  selects, inside the selection and outside it.
+- `chrome/LayerTree.stories.tsx`, LayerMenu and DesignMenu (under Parity/Left panel/Layers): a right-click on a row
+  selects it and opens its menu.
 - `packages/editor/src/paste-here.test.ts` (23): the dashboard's stats row, at the slot under the pointer, first and
   last, several copies together, fresh ids, a hidden card skipped, an empty layout; an absolutely placed layout at half
   size, half steps, a copy's own insets replaced; an absolutely placed copy in the slot; a state that places the row
@@ -1300,7 +1314,9 @@ through `formatKeys` so it reads as one chord:
 
 Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`. The kit's `Kbd` and its menus' and Search actions'
 `*Shortcut` parts show what they're given, so each place that shows keys passes them through `formatKeys` itself, as
-`AppMenu.tsx`, `CanvasMenu.tsx`, `ActionsSearch.tsx`, `Toolbar.tsx` and `ShortcutsDialog.tsx` do.
+`AppMenu.tsx`, `CanvasMenu.tsx`, `ActionsSearch.tsx`, `Toolbar.tsx` and `ShortcutsDialog.tsx` do. The Layers row's menu,
+the toolbar's tools, history and zoom, and the Wrap in layout button for several layers take their labels and keys from
+the keymap too, so none types a shortcut by hand (PAR-571).
 
 Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
 and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)
@@ -1954,24 +1970,26 @@ separate setting that could disagree with them, and the resize handles change it
   keeps its own size, and each one's own parent decides whether `grow` goes. In a selection of text and other layers,
   Resizing changes only the text. In a state, a variant or an instance, a height or `grow` the design sets would show
   again if the change only dropped it, so auto width and auto height set the height to hug, and `grow` to false, over
-  it.
+  it. Resetting Resizing there takes back all three of width, height and `grow`, so no `grow: false` stays behind
+  (PAR-582).
 
 Code: what the editor selects, the modes and switching between them are `packages/editor/src/text-editing.ts` (`wordAt`,
-`openingSelection`, `textSizing`, `withTextSizing`). Drawing hug text as `max-content` is `textCss` in
-`packages/core/src/render.ts`. The editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character
-under the double-click from the text's own ranges, measures the text each frame, and handles the keys. The double-click
-passes its point through `SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing
-control is `TextResizing` in `chrome/StyleSections.tsx`, whose edit is `textSizingEdit` in
-`packages/editor/src/style-editing.ts`, rounding each layer's measure up with `stepUp`. The agent's skill says how text
-sizes in `packages/cli/skills/document.md`.
+`openingSelection`, `textSizing`, `withTextSizing`, and `textSizingKeys`, the properties a switch writes and a reset
+clears). Drawing hug text as `max-content` is `textCss` in `packages/core/src/render.ts`. The editor is
+`apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character under the double-click from the text's own
+ranges, measures the text each frame, and handles the keys. The double-click passes its point through
+`SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing control is `TextResizing` in
+`chrome/StyleSections.tsx`, whose edit is `textSizingEdit` in `packages/editor/src/style-editing.ts`, rounding each
+layer's measure up with `stepUp`. The agent's skill says how text sizes in `packages/cli/skills/document.md`.
 
 Tests:
 
-- `packages/editor/src/text-editing.test.ts` (12): the word holding a character, from any of its letters; a space or
+- `packages/editor/src/text-editing.test.ts` (13): the word holding a character, from any of its letters; a space or
   punctuation on its own; the end of the text and an empty one; apostrophes and digits kept in a word; the whole text
   without a point on it; the mode read from widths and heights; each switch, keeping fill and a fixed height; the height
   set to hug and `grow` to false over the design's in a state; `grow` dropped by auto height and fixed in a column and
-  kept in a row; and every switch landing where `textSizing` reads it back.
+  kept in a row; every switch in a state writing only the keys Resizing's reset clears, so resetting leaves the state as
+  it was (PAR-582); and every switch landing where `textSizing` reads it back.
 - `packages/core/src/render.test.ts`, sizing: hug text drawn `max-content`, still wrapped by a maximum width, and other
   widths as before.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
@@ -2192,9 +2210,10 @@ as that state's or variant's changes ("changes only this state", "changes only t
 - **Edits start from what the board shows.** The inspector, the text editor and Hide read a layer as the board draws it
   in the state being edited: with the variant shown, the state's changes, and the params it binds. The text editor opens
   on the state's text: in Pricing's Yearly state, the Pro plan's price opens as $19, not Monthly's $24. Hide or show
-  (Ctrl+Shift+H, or Hide in and Show in on a row in Layers) hides what the state shows and shows what it hides, so a
-  layer the state, the variant or a param hides counts as hidden, and Layers marks it so. The canvas menu's Hide says
-  Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer the variant already hides.
+  (Ctrl+Shift+H, or Hide in and Show in on a row in Layers, which runs the same command, PAR-586) hides what the state
+  shows and shows what it hides, so a layer the state, the variant or a param hides counts as hidden, and Layers marks
+  it so. The canvas menu's Hide says Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a
+  layer the variant already hides.
 - **Hide in and Show in name where the change lands** (PAR-497). In the base state, with a variant option other than the
   default shown, the change goes to that option, so the row's menu names it: Show in Compact, not Show in Default. In
   any other state the state takes it, and the menu names the state. Core's `editTargetName` gives the name, which the
@@ -2243,11 +2262,11 @@ with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layer
 `packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation reads with,
 `packages/editor/src/style-editing.ts` (`styleSelection`, `editingState`) the style rows' reads, edits and resets, and
 `canvas/view.ts`'s `frameViewport` gives the viewport of the frame a layer was picked in. In the app,
-`canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark and
-its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it, `BaseDesignNote` in the Image and
-Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`,
-`readValue`) and `chrome/fields.tsx` (`ValueInput`), used by `PropsSection.tsx`, `LayerPanel.tsx`'s instance params and
-`ComponentsSection.tsx`'s defaults.
+`canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark),
+`chrome/layers-menu.ts` (its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it,
+`BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words),
+`chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by `PropsSection.tsx`,
+`LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
 
 Tests:
 
@@ -2373,15 +2392,16 @@ to draw, so its row shows the number. Beside the name is what the token comes to
   search says "Search tokens", without a count, which didn't fit (PAR-437).
 
 Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
-`valueLabel`, `valueProblem`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx`
-(`panelItems`, the virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); what a token comes
-to and the order built from it are `token-values.ts` (`comesTo`, `inTokenOrder`); lengths the browser measures are
-`lengths.ts` (`px`); the copy parts are `chrome/Copy.tsx`; the keyframes and the shared order are `tokens-store.ts`
-(`keyframesNamed`, `TokenStore.keyframes`, `TokenStore.inOrder`, `useTokenList`); a token's kind, the Copy as forms and
-the value helpers are `packages/tokens/src/kinds.ts`, and matching the tokens a `.lib.par` describes to the stylesheet's
-custom properties is `matchDescribed` in `packages/tokens/src/matching.ts`; the order itself is
-`packages/tokens/src/token-order.ts` (`orderTokens`, `scaleValue`, `shadowReach`, `compareNames`). The Storybook
-explorations under `explorations/previews` draw with the same module, from sample tokens.
+`valueLabel`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx` (`panelItems`, the
+virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); what a token comes to and the order
+built from it are `token-values.ts` (`comesTo`, `inTokenOrder`); lengths the browser measures are `lengths.ts` (`px`);
+the copy parts are `chrome/Copy.tsx`; the keyframes and the shared order are `tokens-store.ts` (`keyframesNamed`,
+`TokenStore.keyframes`, `TokenStore.inOrder`, `useTokenList`); a token's kind, the Copy as forms and the value helpers
+are `packages/tokens/src/kinds.ts`, the checks a value must pass to be its kind are `packages/tokens/src/checks.ts`
+(`valueProblem`, PAR-569), and matching the tokens a `.lib.par` describes to the stylesheet's custom properties is
+`matchDescribed` in `packages/tokens/src/matching.ts`; the order itself is `packages/tokens/src/token-order.ts`
+(`orderTokens`, `scaleValue`, `shadowReach`, `compareNames`). The Storybook explorations under `explorations/previews`
+draw with the same module, from sample tokens.
 
 Tests:
 
@@ -2460,10 +2480,17 @@ at once as one undoable step, unsaved, as any edit is (see "One history, saved t
 
 Code: `apps/desktop/src/renderer/chrome/TokenDetail.tsx` (`TokenDetail`, `DetailPreview`, `themeLabel`, `CopyMenu`); the
 panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name themes with `themeNamesOf` from the
-project's modes and apply through `TokenStore.set`. The Storybook exploration's own detail
-(`explorations/previews/token-panels.tsx`) is the design it came from, with Save in place of Apply.
+project's modes and apply through `TokenStore.set`. What an edit may write is decided in `packages/tokens/src/checks.ts`
+(PAR-569): `checkTokenEdit` gives each theme's problem and the smallest changes to save, from `loopProblem` and
+`valueProblem`, with `builtOn` for the tokens another is built on; the detail passes in the browser's `CSS.supports`,
+and keeps only the view. The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design
+it came from, with Save in place of Apply.
 
-Tests: `chrome/TokensPanel.stories.tsx`: Detail (Light and Dark, never `.dark`; Copy and Copy as), EditingAColor,
+Tests: `packages/tokens/src/checks.test.ts` (14): a value of its kind with references filled in, an empty one, a bracket
+left open, a reference to no token, a value the browser refuses named with an example, a blur checked as its filter, a
+kind with no property; a token built on itself and one leading back to it; a step's base and references by theme; an
+edit saving only the themes that change, each theme's problem with a loop first, and nothing typed.
+`chrome/TokensPanel.stories.tsx`: Detail (Light and Dark, never `.dark`; Copy and Copy as), EditingAColor,
 EditingAPaletteShade, SpacingStep (Built on `--spacing × 4`, Edit off), InvalidValue and UnclosedBracket (refused as
 typed, a token built on itself too, Apply off), ReferenceToAnotherToken (Apply as one unsaved step, Edit and Cancel
 keeping Undo, then the detail's Undo), ReferenceLoop (refused through another token), and SaveFails. All 24 of the
@@ -2659,7 +2686,10 @@ back in, a sleeping frame keeps showing its bitmap until it wakes, then draws it
   of the view's size, as boards out of view are), one frame each animation frame, in the order they asked. A frame out
   of view stays asleep, still showing its bitmap, until it comes near. Selecting a board wakes its frames at any zoom.
 - **A frame whose design changes while it sleeps** (an agent's edit, a token, a reloaded project) wakes wherever it is,
-  so its board lays out the new size, and sleeps again once its new bitmap is taken.
+  so its board lays out the new size, and sleeps again once its new bitmap is taken. A change to the project's code does
+  this to every frame, each waking once and sleeping once. A frame falls asleep just after React has run its effects,
+  not while it runs them, so a project's frames waking one after another don't make React report an update loop
+  (PAR-606).
 - **A frame that hasn't drawn waits on a placeholder (PAR-525).** Zoomed far out, a frame not drawn yet doesn't draw its
   design while its bitmap is to come, whether kept from an earlier session or still to be captured: it shows a plain
   block in the muted color, at its mode's width and its own height, or for a frame that grows with its content, its
@@ -2681,20 +2711,23 @@ in `canvas/ContainerShapeUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`;
 `styles.css`; `capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture.
 
 Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
-by at least the elements the awake frames held, and no board changes size; back at 100% the design's frames draw again
-with their layers while boards out of view stay asleep, still at the same sizes; and the selected board's frames wake at
-a far zoom, picked in Layers since its title is hidden there, and sleep again once nothing is selected).
-`apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to sleep keeps its host and height with nothing inside, and
-draws its design again when it wakes). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture
-isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not drawn again).
-Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that frame never
-slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. The retry delays, and
-that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked by reading
-`useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in `e2e/app.ts` waits
-for a design's board to wake, and `App.show` brings a design into view before finding a layer in it, so the other files'
-tests work on frames that slept. Gaps: the order frames wake in, and waking on a changed design, have no test of their
-own; the first was checked by reading `wakeNext`, the second by reading `useAwake`. The memory it gives back and the
-time waking takes were measured by hand in a debug copy (see [decisions.md](decisions.md), Canvas), not by the suite.
+by at least the elements the awake frames held, and no frame changes size (its board grows on the canvas, as its gutter
+keeps its screen size, PAR-602); back at 100% the design's frames draw again with their layers while boards out of view
+stay asleep, still at the same sizes; and the selected board's frames wake at a far zoom, picked in Layers since its
+title is hidden there, and sleep again once nothing is selected). `apps/desktop/src/renderer/ModeView.test.ts` (1: a
+frame put to sleep keeps its host and height with nothing inside, and draws its design again when it wakes).
+`apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (2, in Chrome: a dormant frame whose `shows` changes wakes once
+and sleeps once; and 64 frames, each slow to draw, all do so through one change without React's "Maximum update depth
+exceeded", which React reported there before the fix). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a
+failed capture isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not
+drawn again). Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that
+frame never slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. The retry
+delays, and that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked
+by reading `useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in
+`e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design into view before finding a layer in it,
+so the other files' tests work on frames that slept. Gaps: the order frames wake in has no test of its own; it was
+checked by reading `wakeNext`. The memory it gives back and the time waking takes were measured by hand in a debug copy
+(see [decisions.md](decisions.md), Canvas), not by the suite.
 
 ### A hidden tab's frames sleep (PAR-153)
 
@@ -2879,15 +2912,26 @@ shows it in a component's card, opened by resting the pointer on its row as a to
 picture on the project's page in a framed box that fits it, then its name, file and, when it fails on the canvas, why.
 PAR-208 gives it the List and Grid views and the picker. The card is `ComponentCard` and `ComponentPopover` in
 `chrome/ComponentCard.tsx`, with the stories Pictures (six real previews of different shapes), States (waiting, being
-drawn, updating and failing), BesideItsRow and Tooltips in `chrome/ComponentCard.stories.tsx`; `AssetEntry` in
-`chrome/AssetsPanel.tsx` opens it. Tooltips are raised in the theme's own colors, a step lighter than a popover in the
-dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
+drawn, updating, drawing nothing of its own and failing), BesideItsRow and Tooltips in
+`chrome/ComponentCard.stories.tsx`; `AssetEntry` in `chrome/AssetsPanel.tsx` opens it. Tooltips are raised in the
+theme's own colors, a step lighter than a popover in the dark theme, through the variables shadcn's tooltip reads, set
+in `styles.css`.
 
 - **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
   layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same
-  every time. It's drawn in the project's first mode, inside an element as wide as the component up to 640 pixels with 8
-  pixels around it, in a window the mode's width, at twice its size, and cropped to that element. Unsaved token previews
-  aren't drawn. A story's args aren't read yet; PAR-209 gives a component sample props, its first story's args first.
+  every time. It's drawn in the project's mode that matches Parity's theme (below), inside an element as wide as the
+  component up to 640 pixels with 8 pixels around it, in a window the mode's width, at twice its size, and cropped to
+  that element. Unsaved token previews aren't drawn. A story's args aren't read yet; PAR-209 gives a component sample
+  props, its first story's args first.
+- **In the mode that matches Parity's light or dark theme (PAR-521).** Every preview was drawn in the project's first
+  mode, light on the example, so in Parity's dark theme the pictures were white boxes. A mode is dark when one of its
+  theme options' id, name or class is the word "dark" (shadcn's `dark` class), light otherwise (`modeAppearance`).
+  Previews are drawn in the first mode when it matches Parity's theme, else in the first mode that does with the first
+  mode's viewport and locale, else with its viewport, else any that does, else the first (`previewMode`); a project
+  without a theme variable keeps its first mode. The mode is in the preview's key, so each theme's pictures are kept
+  apart: switching themes looks the previews up again, draws those not kept for that theme, and switching back shows the
+  ones kept without drawing them. The card's box takes the page's color from the picture's own corner, which is in the
+  room round the component, so a dark picture sits on its dark page rather than in white.
 - **Two pictures each,** scaled down in the main process to fit 240 by 152 pixels (rows, tiles, the picker) and 608 by
   352 (the card), never larger than drawn. They go in the project's `previews` folder in the bitmap store, named by
   their key, with `index.json` holding each component's latest key and, for one that fails to draw, its error. The
@@ -2908,11 +2952,30 @@ dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
   at a time (`nextPreview`): a component whose row is on screen first, whatever the person is doing; the rest only after
   2 seconds with no pointer, key, wheel or drag and no edit, the person's or an agent's, and the pass stops before its
   next one as soon as they work. The offscreen windows' idle close still shuts them a minute after the last job.
+- **Drawn open, with what it portals drawn in place (PAR-517).** A dialog, popover or menu renders its content only once
+  it's opened, and then in a portal, outside the frame's shadow root and the box the picture is cropped to, so its
+  preview showed the trigger alone, and its parts (a dialog's title, a menu's items) a blank or an empty trigger. The
+  tree is now drawn open (`drawnOpen`): the first component that takes `defaultOpen`, and the first within it, is given
+  `defaultOpen: true` unless it's given `open` or `defaultOpen`, so a menubar opens one menu, and a part opens with the
+  parents it's placed in. A component that takes `defaultValue` and chooses none of the items inside it that take
+  `value` (an accordion, a navigation menu, tabs, around a part) chooses the first, giving it a value if it has none; a
+  sample that already chooses one is left as it is. Which props a component takes comes from its library file
+  (`openProps` on its source). The job then asks the offscreen page to draw its portals in place (`inlinePortals`):
+  what's been added to the page's body is moved into the preview's element, after what's there, where the project's
+  styles reach it; what in it was placed over the page (fixed or absolute) is put in the flow, shown, and as tall as
+  what's in it with no limit from the room it had where it was placed, and what holds nothing (a backdrop, a focus
+  guard, an empty toast region) is left out; transitions and animations are off there, so it's drawn at rest. It goes
+  back in the body before the next job, where its library removes it from.
+- **Draws nothing of its own (PAR-517).** A picture with every pixel alike (`drawsNothing`), the page and nothing on it,
+  isn't kept: the index says the component drew nothing for its key, so it isn't drawn again on every open, and the card
+  says "Draws nothing of its own" on its muted fill, with the eye-off icon the Previews exploration's States story gives
+  it. On the example that's a provider, and parts whose sample holds nothing to see, as MessageGroup's two messages with
+  no text.
 - **States:** waiting, being made, made, updating (the last picture, dimmed, with "Updating its preview" until the new
-  one is made) and fails to draw (with the error, kept, so the same code isn't drawn again on every open). One the
-  offscreen window couldn't finish isn't kept and is tried again after the next lookup. The window looks every preview
-  up again, 50 at a time, when the guest, its theme, the components, their props, the modes or the component designs
-  change.
+  one is made), draws nothing of its own, and fails to draw (with the error, kept, so the same code isn't drawn again on
+  every open). One the offscreen window couldn't finish isn't kept and is tried again after the next lookup. The window
+  looks every preview up again, 50 at a time, when the guest, its theme, the components, their props, the modes or the
+  component designs change.
 - **Kept under PAR-158's cleanup:** previews count toward the same 200 MB and 30 days, showing a picture counts as using
   it, and Clear bitmap cache removes them too.
 - **A void element gets no children (PAR-513).** React declares `children` for every element, so a component whose props
@@ -2926,47 +2989,117 @@ dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
   sentence within them ends, else after the last whole word with "…" (`sampleText`), and the registry's files were
   shortened the same way. Since a preview's key covers its tree, both changes give the affected components new keys and
   new pictures without raising `previewFormat`.
+- **The offscreen window never scrolls (PAR-520).** For a capture the window is made as tall as the frame, so anything
+  reaching past it, such as a name below a 1px Separator, ItemSeparator or AlertAction, or Bubble's reactions hanging
+  below it, made the page scroll. The scrollbars took room from the window, and the one along its bottom was captured
+  inside the picture. The render page's root hides its overflow (`render.ts`), so the window has no scrollbars. On
+  `examples/shadcn-vite` this took the scrollbar out of Separator, AlertAction, Bubble, BubbleGroup and BubbleReactions,
+  which the survey found, and of ItemSeparator, SidebarSeparator, SidebarMenu, SidebarMenuAction, Slider, the Toast
+  parts, AspectRatio and Portal. What reaches past the box is still cut off: BubbleReactions, alone in an empty Bubble,
+  hangs wholly below it, so its picture is empty. `previewFormat` went up to 2, so pictures kept with a scrollbar are
+  made again.
 - **No cut-off names (PAR-518).** A part that sets its own size, or whose library's samples give it no text, is drawn
   without its name, as it's inserted (see Inserting, Make component and new designs). On `examples/shadcn-vite`, Avatar,
   AvatarGroupCount, CardHeader and Separator, and nova's MarkerIcon, AttachmentAction, AttachmentMedia, AlertAction and
   Separator, no longer show "Avata", "C" or the like; their new trees give them new keys. ItemSeparator and
   SidebarSeparator still do, and nova's Card is still a narrow column (see decisions.md).
 
-Code: `componentPreviewTree` in `packages/editor/src/component-preview.ts`; `renderQueue`, `nextPreview` and `fitInside`
-in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`,
+Code: `componentPreviewTree` and `drawnOpen` in `packages/editor/src/component-preview.ts`; `openProps` and
+`librarySource` in `packages/core/src/project.ts` and `library-insert.ts`; `renderQueue`, `nextPreview`, `fitInside` and
+`drawsNothing` in `packages/core/src/preview-order.ts`; `inlinePortals` in
+`apps/desktop/src/renderer/inline-portals.ts`, which `canvasRender` in `renderer/render.ts` calls for a job with
+`inlinePortals`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`, `resolveModule`, `importedFiles`,
+`moduleClosure` and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot` in
+`packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the `previews.lookup`
+and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of `utility/bitmap-store.ts`;
+`renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
+`startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`;
+`ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
+`shortenedText` in `packages/libgen/src/sample-text.ts`. Code: `componentPreviewTree` in
+`packages/editor/src/component-preview.ts`; `renderQueue`, `nextPreview` and `fitInside` in
+`packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`,
 `resolveModule`, `importedFiles`, `moduleClosure` and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`;
 `codeSnapshot` in `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the
 `previews.lookup` and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of
 `utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
-`previewJob`, `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in
-`apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow`
-in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
-`packages/code/src/props.ts`; `sampleText` and `shortenedText` in `packages/libgen/src/sample-text.ts`.
+the offscreen page, `apps/desktop/src/renderer/render.ts`; `previewJob`, `startPreviews`, `useComponentPreview` and
+`usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in
+`renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
+`shortenedText` in `packages/libgen/src/sample-text.ts`. `previewJob`, `startPreviews`, `useComponentPreview` and
+`usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `previewMode` and `modeAppearance` in
+`packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in
+`renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
+`shortenedText` in `packages/libgen/src/sample-text.ts`.
 
 Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
 and those before the idle pass, one job at a time with one window, one job in each window at once in the lowest free,
 one preview at a time with the other windows left to bitmaps, and a failure going to its caller with the next job still
 run; 5 for `nextPreview`: nothing until the canvas settles, the first on screen even while the person works, the rest in
-order once idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`).
-`packages/project/src/preview-key.test.ts` (9 for `resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for
-`sharedPreviewFiles`, and 6 for `previewKey` on files on disk: the same for the same code and tree, new for a component
-importing the changed file and not for one that doesn't, new for every component when a stylesheet or one it imports
-changes or when the dependencies do, new with what's drawn, and 40 hex characters).
-`packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by path).
-`packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts` (3: what
-inserting places inside the sized element, a part inside its parents, and the same tree every time).
-`apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index kept
-across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
-project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (6, with the project and the offscreen
+order once idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`; 2 for `drawsNothing`: a
+picture with every pixel alike, and one with a pixel a channel apart). `packages/project/src/preview-key.test.ts` (9 for
+`resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for `sharedPreviewFiles`, and 6 for `previewKey` on
+files on disk: the same for the same code and tree, new for a component importing the changed file and not for one that
+doesn't, new for every component when a stylesheet or one it imports changes or when the dependencies do, new with
+what's drawn, and 40 hex characters). `packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by
+path). `packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts`
+(4: what inserting places inside the sized element, a part inside its parents, the same tree every time, and a dialog's
+part inside its dialog given `defaultOpen`; and 6 for `drawnOpen`: the first menu and the first submenu in it opened but
+not the menu beside it, one given `open` left and the next opened, an accordion's item its sample doesn't choose chosen
+beside the ones it does, an item with no value given `previewValue`, a sample that chooses one of its items or is given
+its value left as it is, and components that don't say what's open left alone).
+`packages/core/src/library-insert.test.ts` (1 for `librarySource`: the `openProps` a library component declares).
+`apps/desktop/src/renderer/render.test.ts` (2 of its 4), in Chrome: a preview job's portaled popup drawn inside the
+preview's element under its trigger, shown though its positioner hid it and as tall as what's in it, with its backdrop
+left out and the cropped box holding both; and the portal left where its library put it for any other job, also after a
+preview. `apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index
+kept across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
+project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (7, with the project and the offscreen
 window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
-component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
-again; two asks at once drawing once; and none for code the project hasn't served). `packages/code/src/props.test.ts` (3
-for void elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a
+component importing what changed, with its last picture meanwhile; a draw failure kept; one that drew nothing to see
+kept as that across a restart, with no picture standing in once its code changes; one that didn't finish tried again;
+two asks at once drawing once; and none for code the project hasn't served). `packages/code/src/props.test.ts` (3 for
+void elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a
 component's own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long
 one ended at a sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut
 before shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut
 mid-word, and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`),
-the queue's use in main and the protocol have no test of their own; they were tried in the app.
+the queue's use in main and the protocol have no test of their own; they were tried in the app. order once idle, waiting
+out the rest of the idle time, and nothing left; 4 for `fitInside`). `packages/project/src/preview-key.test.ts` (9 for
+`resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for `sharedPreviewFiles`, and 6 for `previewKey` on
+files on disk: the same for the same code and tree, new for a component importing the changed file and not for one that
+doesn't, new for every component when a stylesheet or one it imports changes or when the dependencies do, new with
+what's drawn, and 40 hex characters). `packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by
+path). `packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts`
+(3: what inserting places inside the sized element, a part inside its parents, and the same tree every time).
+`apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index kept
+across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
+project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (7, with the project and the offscreen
+window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
+component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
+again; two asks at once drawing once; and none for code the project hasn't served).
+`apps/desktop/src/renderer/render.test.ts` (1, in Chrome with its scrollbars shown: a part whose name runs below the
+frame leaves no scrollbar once the window is as tall as the frame). `packages/code/src/props.test.ts` (3 for void
+elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a component's
+own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a
+sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut before
+shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word,
+and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`), the queue's
+use in main and the protocol have no test of their own; they were tried in the app. again; a light and a dark picture
+kept apart under their own keys, the light one shown again without drawing; two asks at once drawing once; and none for
+code the project hasn't served). `packages/core/src/modes.test.ts` (4 for `previewMode` and `modeAppearance`: the first
+mode when it matches and the dark one with its options when it doesn't; the first mode's viewport kept over a matching
+mode listed first, else the first that matches; the first mode when none matches or there's no theme; and dark read from
+a theme option's id, name or class as a word). `packages/code/src/props.test.ts` (3 for void elements: no `children` for
+`<input>` attributes or a ref to an `<hr>`, kept for other elements and for a component's own, and none for shadcn's
+Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a sentence, at a whole word
+with "…", not at a too-short first sentence, text without spaces, and text cut before shortened as the whole would be).
+`packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word, and nova's Accordion ending its
+sentence). Gaps: the window's store and scheduler (`component-previews.ts`), including looking previews up again when
+Parity's theme changes, the card's page color from the picture's corner, the queue's use in main and the protocol have
+no test of their own; they were tried in the app.
 
 Tried in a debug copy on `examples/shadcn-vite`, with 587 components: the canvas's 119 bitmaps were taken in 16 seconds
 and the first preview was made a second after the last. The idle pass then made 555 previews and kept 13 failures (parts
@@ -3001,32 +3134,75 @@ was tried in a debug copy on `examples/shadcn-vite`: zooming in steadily from th
 board, the board was still blurry 8 seconds after the camera stopped; with the redraw, it was sharp once the zoom
 settled. Its cost wasn't timed, as the copy's window was minimized; it's one paint of the layer for each zoom.
 
-### Titles and labels zoomed far out (PAR-151)
+### Titles and labels zoomed far out (PAR-151, PAR-155)
 
 A board's labels are its design's title above it, the state labels beside its rows when it shows every state, and the
 captions naming each frame's mode. Up close they keep their screen size. Past 40% they shrink with the canvas, so they
 stay beside what they label instead of growing over the boards around it.
 
-- **A title is a name, so it stays.** It shrinks to 60% of its screen size and no smaller, and is as wide on screen as
-  its board: a long name truncates, and the design's icon is clipped with it, so nothing runs past the board's edge.
-- **Detail goes first.** State labels and mode captions shrink as titles do, but fade as they shrink and are gone by
-  25%, while titles show at any zoom.
-- **Too narrow to read, a label hides.** Once a board is narrower than 24 screen pixels, its title hides, and its state
+- **Titles and state labels are names, so they stay.** They shrink to 60% of their screen size and no smaller. A title
+  is as wide on screen as its board: a long name truncates, and the design's icon is clipped with it, so nothing runs
+  past the board's edge.
+- **Captions are detail, and go first.** They shrink as titles do, but fade as they shrink and are gone by 25%.
+- **Too small to read, a label hides.** Once a board is narrower than 24 screen pixels, its title hides, and its state
   labels with it. A caption hides once its frame is that narrow. So at 1% a board 2,400 pixels wide or more keeps its
   title, clipped to its 24 or more pixels, and a narrower one shows none. A narrow component's labels hide this way even
-  above 25%, before detail would have faded, so a board's detail never shows once its title has gone. A hidden label
-  doesn't take the pointer.
+  above 25%, before a caption would have faded, so a board's state labels and captions never show once its title has
+  gone. A hidden label doesn't take the pointer.
+- **A state's label needs space before the next row's (PAR-155).** It hides once the space from its top to where the
+  next row's label starts, past the dashed line between rows, is under 24 screen pixels, so a row of component boards
+  showing every state doesn't pile its labels on top of each other zoomed out: at 5% a component's rows have a few
+  pixels each and show none, while a screen's rows, hundreds of pixels tall, keep theirs at 60%. The last row is
+  measured the same way. A row's height is measured, since a frame that grows with its content sets it.
 
 Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every label; `useCanvasLabel` in
 `apps/desktop/src/renderer/canvas/labels.ts`, which applies it to a label's style as the zoom changes; `TitleBar`,
-`StateLabel` and `FrameCaption` in `canvas/ContainerView.tsx`, which pass each the board's or the frame's width.
+`StateLabel` and `FrameCaption` in `canvas/ContainerView.tsx`, which pass each the board's or the frame's width, and a
+state's label the space beside its row (`useLabelSpace`, from `stateLabelSpace` in the package).
 
-Tests: `packages/editor/src/canvas-labels.test.ts` (5: every label at screen size up close; names shrinking to 60% and
+Tests: `packages/editor/src/canvas-labels.test.ts` (8: every label at screen size up close; names shrinking to 60% and
 showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by 25%; a label hiding
 once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail hiding with its
-title at 30%, where it would otherwise still show). Gaps: applying the look to the DOM (the transform, the width it fits
-and the clipped icon) has no automated test. It was checked in Storybook on the example's boards at 100%, 25%, 5% and
-1%.
+title at 30%, where it would otherwise still show; a state's label shrinking as a title does beside a tall row; its
+space measured from its top to the next row's label; and hiding without that space on screen, or on a board too narrow
+for its title). Gaps: applying the look to the DOM (the transform, the width it fits, the clipped icon and the row's
+measured height) has no automated test. It was checked in Storybook on the example's boards at 100%, 25%, 5% and 1%, and
+for PAR-155 on a row of component boards showing every state.
+
+### A board's gutter keeps its screen size up close (PAR-602)
+
+A board's gutter is the band around and between its frames. Up close it's the same on screen at every zoom, as the
+Frames exploration draws it, rather than thick zoomed in and gone zoomed out.
+
+- **12 at the sides and bottom, a 36 band above the frames for their captions, and 24 between frames,** in screen
+  pixels. The dashed line before the first companion sits halfway across its gap: 12, the line, 12. Between rows of
+  states there are 36, the line and 36. Each caption is centred in its band.
+- **Past 40% it shrinks with the canvas,** as the labels do, so on the canvas a board is never larger than at 40% and
+  boards zoomed far out keep their distance. At 25% the sides are 7.5 on screen, at 5% 1.5.
+- **Lines stay a screen pixel wide.** The board's edge is a pixel at any zoom and takes no room. The dashed lines are a
+  pixel up close and thin with the gutter past 40%. Its corners round 10 pixels, shrinking with the gutter, and tldraw's
+  outline of the board rounds with them.
+- **A board grows and shrinks from its top left corner,** where the design's position is, so its frames move a little on
+  the canvas as the zoom changes the gutter. The canvas takes the board's new size, for its outline, snapping and hit
+  testing, once the camera stops, rather than on every frame of a zoom.
+- **The agent's estimate of a board it hasn't drawn takes the gutter at 40%,** where it's widest on the canvas, so it's
+  never smaller than the board will be drawn. A drawn board's size is as the canvas has it at its zoom.
+
+Code: `boardLayout` (in screen pixels), `boardLayoutAt` and `boardSize` in `packages/core/src/board.ts`; `boardParts`
+and `useGutterStyle` in `apps/desktop/src/renderer/canvas/board-gutter.ts`, which lay each part of a board out for the
+zoom; `ContainerView` in `canvas/ContainerView.tsx`; the shape's size and outline in `canvas/ContainerShapeUtil.tsx`;
+`stateLabelSpace` in `packages/editor/src/canvas-labels.ts`.
+
+Tests: `packages/core/src/board.test.ts` (9: the gutter keeping its screen size from 400% to 40%, and its size on the
+canvas past that; the estimate's main frame, its own size for a viewport, a fixed height, companions with the divider
+and gaps, rows of states, a frame's own size, and never being smaller than the board drawn at any zoom);
+`apps/desktop/src/renderer/canvas/board-gutter.test.ts` (7: each part's spacing on screen up close, the same on the
+canvas past 40%, the divider's and the row line's split gaps, dashed lines and the edge a screen pixel wide, each place
+clearing what another set, and a board laid out from the parts matching the estimate at 40% and 5% and smaller at 100%);
+`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%). Gaps:
+applying the parts to the DOM, and the shape waiting for the camera, have no automated test. They were checked in
+Storybook on the example's Pricing board and Sign in showing every state, measured on screen at 400%, 100%, 40%, 25% and
+5%. The cost of laying boards out again on each frame of a zoom wasn't timed.
 
 ## What the editor itself loads
 
@@ -3603,6 +3779,48 @@ Gaps: nothing checks automatically that the lights stay on opacity and transform
 
 How the project's code runs in the canvas's frames.
 
+### rem follows the project's root font (PAR-156)
+
+A project that sets `html { font-size: 62.5% }` gets 10px to the rem in its frames, as in Chrome, where it used to get
+Parity's 16px. Without a root font size of its own, a frame counts a browser's 16px, as before.
+
+- **Every `rem` the project writes measures the frame's root:** in its stylesheets, custom properties included, in
+  inline styles, in text in `<style>` elements and in rules its code adds while it runs. Each becomes a `calc()` of
+  `--canvas-rem`, which the frame's root sets to its own font size. Outside a frame the property isn't set, and `rem` is
+  Parity's. `rem` in media and container queries is left alone, as a media query counts a browser's 16px.
+- **The root's font size counts from a browser's 16px,** not from the canvas text around the frame: `62.5%`, `1.25em`
+  and `1.25rem` in a `:root` or `html` rule's `font-size` come to 10px, 20px and 20px. An `html, body` rule with a font
+  size is split, so the body's own `62.5%` stays relative to the root.
+- **Tokens show the values the project wrote,** `0.25rem` rather than the `calc()` frames draw it with. A token's
+  previewed value and the theme values the compiled CSS left out are rewritten for frames like the rest.
+- **Not covered** (see [decisions.md](decisions.md), "`rem` measures the project's root font"): a root font size inside
+  a width media query, which applies in no frame, since the root is the container those queries ask; `larger`, `smaller`
+  and the `font` shorthand on the root; a root font size from a variable holding a percentage or `rem`; and a root font
+  set by CSS-in-JS. Fields and spacing steps in the inspector still count 16px to the rem.
+
+Code: `rewriteFrameUnits`, `rewriteSheetFrameUnits`, `rewriteRootFontSize` and `serialize` in
+`packages/core/src/css.ts`, with `remProperty` and `rootFontSizeProperty`; `frameRootSheet` and `registerRootFontSize`
+in `apps/desktop/src/renderer/frame.ts`, which also rewrites inline styles, `<style>` text and added rules; `load` and
+`previewToken` in `apps/desktop/src/renderer/guest.ts`, which read tokens with `units: false` and rewrite previewed and
+theme values.
+
+Tests: `packages/core/src/css.test.ts` (8 of its tests: `rem` in declarations and custom properties rewritten, and once
+only; in selectors, strings, urls and media and container queries left alone; rules added at run time rewritten but not
+their selectors or queries; a root's `62.5%`, `1.25rem`, `em` in `clamp()` with `!important`, and a root rule inside a
+media query or with one inside it, worked out from 16px; other elements' font sizes and the root's other lengths and
+custom properties untouched; `html, body, .a:is(.b, .c)` split, while `:root, :host` and an `html, body` rule with no
+font size stay whole; lengths kept as written with `units: false`). `apps/desktop/src/renderer/guest.test.ts` (2 of its
+7, in Chrome: a previewed `0.5rem` and `10vh` rewritten in the rule edited or added; an offscreen frame's overrides
+rewritten the same way). `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 4, in Chrome: a token edit to `1rem`
+shows rewritten in the shared sheet while the override sent to offscreen frames keeps `1rem`).
+`apps/desktop/src/renderer/frame.test.ts` (3), in Chrome, with the frame on the canvas's 12px text: with
+`html { font-size: 62.5% }`, a box, Tailwind-style `--spacing`, an inline style and a rule added at run time have the
+same sizes and font sizes in the frame as on a fresh page, while Parity's root stays 16px; with no root font size, 16px
+to the rem; and roots of `20px`, `1.25em`, `1.25rem` and a `@media screen` rule, the same as on the page. Gaps: a root
+font size in a width media query doesn't work in frames yet, and no test covers it. `load` reading tokens with
+`units: false` has no test of its own; `packages/libgen/src/tokens.test.ts` and the fixtures' detection snapshot read
+tokens the same way.
+
 ### Parity's variables stay out of frames (PAR-157)
 
 A frame shows what the project's CSS gives on its own page in Chrome, not Parity's variables. Custom properties inherit
@@ -3820,10 +4038,19 @@ booleans and screenshot scale before RPC, use the same defaults, and signal scre
 failures with details preserved. CLI relative-path resolution and output formatting stay at the edge. Local skill
 reading shares validation and a reader without requiring the app.
 
+Each operation's input and the app's answer are zod schemas in `packages/agent/src/contracts.ts`
+(`@parity-app/agent/contracts`), which the app can import too (PAR-590). `requests` has each RPC method's input,
+`replies` its answer, and `readRequest` checks a request and throws `invalid_input` with the schema's message and the
+field as its path. MCP's input schemas come from them through `z.toJSONSchema`, without `$schema`. Execute's input is a
+union of two strict objects, a snippet or an `editId` with edits; MCP's `input` and `description` are renamed to `code`
+and `label` before the check, and its discovery schema lists both kinds' fields with a `oneOf` rule for each. A selector
+is published as `anyOf` nonblank text or a nonempty list of it.
+
 `packages/cli/src/operations.test.ts` launches both real entry points against local RPC, covering each operation's
 defaults, explicit tab/options, human and JSON output, invalid inputs, RPC errors, image blocks, audit and screenshot
-failures, local skill reads and errors, and MCP discovery. `transport-fixture.ts` also supports execute's existing
-contract tests. The running app is checked with read-only state and component/token/prop reads through both transports.
+failures, local skill reads and errors, MCP discovery, the selector's published schema, and an answer the CLI can't
+read. `transport-fixture.ts` also supports execute's existing contract tests. The running app is checked with read-only
+state and component/token/prop reads through both transports.
 
 The RPC boundary uses `packages/agent/src/caller.ts` to preserve complete names and bound only explicit ids. Its
 `caller.test.ts` covers long shared prefixes, id bounds, fallback ids and invalid names. The renderer caps name width in
@@ -3853,19 +4080,25 @@ the same composition and text.
 ### Structured results and coded errors (PAR-472)
 
 Every shared operation returns the same data as CLI `--json` and MCP `structuredContent`, beside the text and images
-people read. Each operation's output schema stays in its contract; `tools/list` leaves them out, which keeps it under 12
-KiB (PAR-510). Failures carry a stable `code`, the `message`, `retryable`, a JSON-pointer `path` to the input at fault,
-up to 20 `alternatives` (valid ids for an unknown or ambiguous one) and a failed snippet's `editId`. Unknown tabs,
-designs, nodes, states, modes, viewports, components, icon sets and retry ids are coded where the app finds them;
-invalid input is coded before anything reaches the app; a missing app is `not_running`. Tokens and the console are
-bounded by `limit`, with `total` and `truncated`.
+people read. Each operation's answer has a zod schema in `@parity-app/agent/contracts`; `tools/list` leaves them out,
+which keeps it under 12 KiB (PAR-510). The client checks the HTTP reply and each answer before reading it, and its
+response types come from the schemas (PAR-590). An answer it can't read fails as `app_error` naming the field, as
+`/unsaved/0/kind: expected one of "document", "stylesheet"`. Objects stay open, so a field a newer app adds passes
+through; a field older apps leave out is optional. The MCP server checks each JSON-RPC line from stdin too: text that
+isn't JSON gets `-32700`, a message without a method `-32600`, and `tools/call` without a tool name `-32602`. Failures
+carry a stable `code`, the `message`, `retryable`, a JSON-pointer `path` to the input at fault, up to 20 `alternatives`
+(valid ids for an unknown or ambiguous one) and a failed snippet's `editId`. Unknown tabs, designs, nodes, states,
+modes, viewports, components, icon sets and retry ids are coded where the app finds them; invalid input is coded before
+anything reaches the app; a missing app is `not_running`. Tokens and the console are bounded by `limit`, with `total`
+and `truncated`.
 
 Implementation: `packages/core/src/errors.ts` (codes, `CodedError`, `closest`, `readErrorDetails`);
-`packages/cli/src/errors.ts` (the operation error, its schema and path mapping); `operations.ts` and `execute.ts`
-(output schemas, canonical results, bounds); `mcp.ts` and `bin.ts` (structured output in each transport);
-`packages/agent/src/workspace.ts` and `run.ts` (coded lookups, conflicts and retries, `ExecResult.details`);
-`apps/desktop/src/utility/agent.ts` (RPC `details`), `utility/index.ts`, `preload/index.ts` and
-`renderer/agent/handlers.ts` (details across the window channel, `ServeAnswer`, coded tab lookup).
+`packages/cli/src/errors.ts` (the operation error, its schema and path mapping); `packages/agent/src/contracts.ts`
+(request and answer schemas); `operations.ts` and `execute.ts` (canonical results, bounds); `client.ts` (checked
+answers); `mcp.ts` and `bin.ts` (structured output in each transport); `packages/agent/src/workspace.ts` and `run.ts`
+(coded lookups, conflicts and retries, `ExecResult.details`); `apps/desktop/src/utility/agent.ts` (RPC `details`),
+`utility/index.ts`, `preload/index.ts` and `renderer/agent/handlers.ts` (details across the window channel,
+`ServeAnswer`, coded tab lookup).
 
 Tests: `packages/core/src/errors.test.ts` (defaults, bounded closest-first alternatives, checking details from another
 process, coded unknown state). `packages/agent/src/run.test.ts` ("coded failures": unknown design, state, mode,
@@ -3873,8 +4106,9 @@ component and node, ambiguous node, uncoded throw, unknown retry id, a patch tha
 `packages/cli/src/operations.test.ts` and `execute.test.ts` launch the real CLI and MCP: structured data equal to CLI
 `--json` for every operation, app codes with paths and alternatives for unknown tab, design, state and component,
 unknown codes read as `app_error`, invalid input paths in each transport's names, `not_running`, bounds and limits,
-image data kept out of structured results, and every tool's output schema. `client.test.ts` covers the truncated token
-text.
+image data kept out of structured results, no output schemas in `tools/list`, and an unreadable answer as `app_error`.
+`client.test.ts` covers the truncated token text. `packages/core/src/schema.test.ts` covers `checkData`, which returns
+the first problem for the CLI to word.
 
 Checked in the running app on `examples/shadcn-vite`: unknown tab, component, design and state through the CLI with
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the
@@ -4036,6 +4270,7 @@ then reads the status; deltas since a revision are PAR-267.
 viewports (the ids `Responsive` takes) with each window's height, each mode (the ids renders take) resolved with its
 option per variable, classes and attributes, and each design's shown state or states, main mode and beside modes. Naming
 a design returns just it, with each frame's width, fixed height when it has one, and window. Reading changes nothing.
+`get_app_state` lists the same modes in short (id, name, width), with the project's first mode marked `primary`.
 
 Implementation: `packages/core/src/mode-report.ts` (`modesReport`, `designModes`); `GetModes` in
 `packages/agent/src/workspace.ts`; the `modes` RPC in `apps/desktop/src/utility/agent.ts`; the `modes` operation and
@@ -4044,9 +4279,10 @@ schema in `packages/cli/src/operations.ts`, `describeModes` in `client.ts`, and 
 Tests: `packages/core/src/mode-report.test.ts` (viewport windows, a device's own height, resolved values including
 defaults, theme classes and locale attributes, a design's main, beside, every-state and fixed-height frames).
 `packages/agent/src/run.test.ts` (`GetModes` with and without a design, no writes or changes, and `unknown_design` with
-alternatives). `packages/core/src/errors.test.ts` (a typo ranked first). `packages/cli/src/operations.test.ts` (CLI and
-MCP defaults, a named design, structured output, invalid and unknown input, an unknown design's code and alternatives)
-and `client.test.ts` (the text). Checked in the running app on `examples/shadcn-vite`: `parity modes dashboard`,
+alternatives). `apps/desktop/src/utility/agent.test.ts` (`state` marks the first resolved mode primary and no other,
+PAR-579). `packages/core/src/errors.test.ts` (a typo ranked first). `packages/cli/src/operations.test.ts` (CLI and MCP
+defaults, a named design, structured output, invalid and unknown input, an unknown design's code and alternatives) and
+`client.test.ts` (the text). Checked in the running app on `examples/shadcn-vite`: `parity modes dashboard`,
 `parity modes`, and a mistyped design with `--json`. Gap: locale and custom variables are reported as set; whether a
 project's code reads them is up to its decorators.
 

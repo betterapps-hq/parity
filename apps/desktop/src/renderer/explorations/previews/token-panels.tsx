@@ -20,7 +20,14 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import { codeForms, type PreviewKind, substituteReferences, tokenReferences, valueParts } from "@parity-app/tokens"
+import {
+  codeForms,
+  type PreviewKind,
+  substituteReferences,
+  tokenReferences,
+  valueParts,
+  valueProblem
+} from "@parity-app/tokens"
 import { Check, ChevronDown, ChevronsUpDown, LayoutGrid, List, Pause, Pencil, Play, Search } from "lucide-react"
 import { Fragment, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useId, useState } from "react"
 import { CopyButton, CopyOnClick, useCopy } from "../../chrome/Copy.tsx"
@@ -45,8 +52,7 @@ import {
   TokenTile,
   useHoverPlay,
   useReducedMotion,
-  valueLabel,
-  valueProblem
+  valueLabel
 } from "../../chrome/token-previews.tsx"
 import { keepEditing } from "../../chrome/TokenDetail.tsx"
 import {
@@ -466,7 +472,12 @@ export function TokenDetail({
   const themes = themesOf(token)
   const editing = editor && drafts !== undefined
   const problems: Record<string, string | undefined> = Object.fromEntries(
-    themes.map((theme) => [theme, drafts ? valueProblem(token.kind, drafts[theme] ?? "", sampleValue) : undefined])
+    themes.map((theme) => [
+      theme,
+      drafts
+        ? valueProblem(token.kind, drafts[theme] ?? "", sampleValue, (property, value) => CSS.supports(property, value))
+        : undefined
+    ])
   )
   const valid = themes.every((theme) => !problems[theme])
   const changed = drafts !== undefined && themes.some((theme) => (drafts[theme] ?? "").trim() !== saved[theme])

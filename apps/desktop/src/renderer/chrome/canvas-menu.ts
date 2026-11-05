@@ -209,20 +209,21 @@ function makeLabel(alone: ContainerSpec | undefined): string | undefined {
   return alone ? "Convert to component" : undefined
 }
 
-function item(action: MenuAction, enabled: boolean, label?: string): MenuItem {
+/** An item for a command, labelled and with keys from the keymap unless `label` says otherwise. */
+export function item(action: MenuAction, enabled: boolean, label?: string): MenuItem {
   if (action === "pasteHere") return { kind: "item", action, label: label ?? "Paste here", enabled }
   return { kind: "item", action, label: label ?? keymap[action].label, keys: keymap[action].keys[0], enabled }
 }
 
 /** Groups of items with a line between each, leaving out the empty ones. */
-function sections(groups: readonly (readonly MenuEntry[])[]): MenuEntry[] {
+export function sections(groups: readonly (readonly MenuEntry[])[]): MenuEntry[] {
   return groups
     .filter((group) => group.length > 0)
     .flatMap((group, index): MenuEntry[] => (index === 0 ? [...group] : [{ kind: "separator" }, ...group]))
 }
 
 /** The state being edited: the one the selection was picked in, else the one the board shows. */
-function editingState(container: ContainerSpec, picked: string | undefined): StateSpec {
+export function editingState(container: ContainerSpec, picked: string | undefined): StateSpec {
   return container.states.find((state) => state.id === picked) ?? activeState(container)
 }
 

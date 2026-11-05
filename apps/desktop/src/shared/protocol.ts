@@ -521,6 +521,11 @@ export interface RenderJob {
   /** When auditing, the color tokens to read the values of in the frame, for contrast fixes. */
   colorTokens?: string[]
   /**
+   * Draw what the frame's components portal out of it (a dialog, a popover's popup, a menu) inside it, in the flow after
+   * the rest, as a component preview does (PAR-517).
+   */
+  inlinePortals?: true
+  /**
    * Every token value that differs from the project's compiled CSS, such as unsaved edits: the complete set, not
    * changes. Each frame starts from the compiled stylesheet and lays these over it, so no frame inherits another's.
    */
@@ -581,6 +586,8 @@ export interface ComponentPreview {
   image?: PreviewImage
   /** Why it couldn't be drawn for this key. */
   error?: string
+  /** It drew for this key, but nothing to see: its picture showed only the page (PAR-517). */
+  empty?: true
   /** The latest made before, for older code, to show dimmed until this key's is made. */
   last?: PreviewImage
 }

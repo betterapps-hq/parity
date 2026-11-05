@@ -42,8 +42,11 @@ export interface ComponentProp {
   description?: string
 }
 
-export type PropKind = "string" | "number" | "boolean" | "enum" | "node" | "function" | "object" | "unknown"
-export type PropGroup = "variant" | "own" | "html" | "aria" | "event"
+/** Every kind of prop, so a schema can check one (PAR-590). */
+export const propKinds = ["string", "number", "boolean", "enum", "node", "function", "object", "unknown"] as const
+export type PropKind = (typeof propKinds)[number]
+export const propGroups = ["variant", "own", "html", "aria", "event"] as const
+export type PropGroup = (typeof propGroups)[number]
 
 /** The props a person sets on the canvas: variants and own props first, then the element's attributes. */
 export function editableProps(info: ComponentInfo | undefined): ComponentProp[] {

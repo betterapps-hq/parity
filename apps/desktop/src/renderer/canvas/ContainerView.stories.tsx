@@ -36,8 +36,8 @@ export const EveryState: Story = onCanvas(["Button"], () =>
 )
 
 /**
- * Every state, zoomed out to a third: the labels beside the states and the captions above the frames shrink with the
- * canvas and fade, and are gone by a quarter, while the title shrinks but stays.
+ * Every state, zoomed out to a third: the labels beside the states shrink with the canvas as the title does, and stay
+ * beside rows tall enough to hold them, while the captions above the frames shrink and fade, and are gone by a quarter.
  */
 export const EveryStateZoomedOut: Story = onCanvas(
   ["Button"],
@@ -61,8 +61,8 @@ export const OneState: Story = onCanvas(["Sign in"], () =>
 
 /**
  * Zoomed far out: boards are small, and their titles shrink with them, clipped to each board, and stay above every board
- * at least 24 pixels wide on screen. State labels and frame captions have faded out, even on boards showing every
- * state, so they don't crowd the boards around them.
+ * at least 24 pixels wide on screen. Frame captions have faded out, and state labels show only beside rows tall enough
+ * on screen to hold them, so they don't crowd the boards around them.
  */
 export const ZoomedOut: Story = onCanvas(
   [],
