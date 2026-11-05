@@ -3084,6 +3084,41 @@ for its title). Gaps: applying the look to the DOM (the transform, the width it 
 measured height) has no automated test. It was checked in Storybook on the example's boards at 100%, 25%, 5% and 1%, and
 for PAR-155 on a row of component boards showing every state.
 
+### A board's gutter keeps its screen size up close (PAR-602)
+
+A board's gutter is the band around and between its frames. Up close it's the same on screen at every zoom, as the
+Frames exploration draws it, rather than thick zoomed in and gone zoomed out.
+
+- **12 at the sides and bottom, a 36 band above the frames for their captions, and 24 between frames,** in screen
+  pixels. The dashed line before the first companion sits halfway across its gap: 12, the line, 12. Between rows of
+  states there are 36, the line and 36. Each caption is centred in its band.
+- **Past 40% it shrinks with the canvas,** as the labels do, so on the canvas a board is never larger than at 40% and
+  boards zoomed far out keep their distance. At 25% the sides are 7.5 on screen, at 5% 1.5.
+- **Lines stay a screen pixel wide.** The board's edge is a pixel at any zoom and takes no room. The dashed lines are a
+  pixel up close and thin with the gutter past 40%. Its corners round 10 pixels, shrinking with the gutter, and tldraw's
+  outline of the board rounds with them.
+- **A board grows and shrinks from its top left corner,** where the design's position is, so its frames move a little on
+  the canvas as the zoom changes the gutter. The canvas takes the board's new size, for its outline, snapping and hit
+  testing, once the camera stops, rather than on every frame of a zoom.
+- **The agent's estimate of a board it hasn't drawn takes the gutter at 40%,** where it's widest on the canvas, so it's
+  never smaller than the board will be drawn. A drawn board's size is as the canvas has it at its zoom.
+
+Code: `boardLayout` (in screen pixels), `boardLayoutAt` and `boardSize` in `packages/core/src/board.ts`; `boardParts`
+and `useGutterStyle` in `apps/desktop/src/renderer/canvas/board-gutter.ts`, which lay each part of a board out for the
+zoom; `ContainerView` in `canvas/ContainerView.tsx`; the shape's size and outline in `canvas/ContainerShapeUtil.tsx`;
+`stateLabelSpace` in `packages/editor/src/canvas-labels.ts`.
+
+Tests: `packages/core/src/board.test.ts` (9: the gutter keeping its screen size from 400% to 40%, and its size on the
+canvas past that; the estimate's main frame, its own size for a viewport, a fixed height, companions with the divider
+and gaps, rows of states, a frame's own size, and never being smaller than the board drawn at any zoom);
+`apps/desktop/src/renderer/canvas/board-gutter.test.ts` (7: each part's spacing on screen up close, the same on the
+canvas past 40%, the divider's and the row line's split gaps, dashed lines and the edge a screen pixel wide, each place
+clearing what another set, and a board laid out from the parts matching the estimate at 40% and 5% and smaller at 100%);
+`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%). Gaps:
+applying the parts to the DOM, and the shape waiting for the camera, have no automated test. They were checked in
+Storybook on the example's Pricing board and Sign in showing every state, measured on screen at 400%, 100%, 40%, 25% and
+5%. The cost of laying boards out again on each frame of a zoom wasn't timed.
+
 ## What the editor itself loads
 
 What Parity's own UI costs the window, apart from the projects it shows.
