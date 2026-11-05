@@ -206,6 +206,51 @@ export function useFrameBitmap(
   return { pending: failedKey !== key }
 }
 
+/**
+ * What the frames in each board's first row show, by project, then design and mode: what a project's picture is taken
+ * from (PAR-607), so it shows the bitmaps the canvas has rather than drawing its own.
+ */
+const firstRows = new Map<string, Map<string, FrameShows>>()
+
+/** Notes what a frame in its board's first row shows, for the project's picture, while it's on the canvas. */
+export function useFirstRowFrame(projectId: string, design: string, mode: string, shows: FrameShows, first: boolean) {
+  useEffect(() => {
+    if (!first) return undefined
+    const frames = firstRows.get(projectId) ?? new Map<string, FrameShows>()
+    firstRows.set(projectId, frames)
+    const id = `${design}\n${mode}`
+    frames.set(id, shows)
+    return () => {
+      if (frames.get(id) === shows) frames.delete(id)
+      if (frames.size === 0 && firstRows.get(projectId) === frames) firstRows.delete(projectId)
+    }
+  }, [projectId, design, mode, shows, first])
+}
+
+/** What a board's frame in a mode shows, in its first row, while it's on the canvas. */
+export function firstRowFrame(projectId: string, design: string, mode: string): FrameShows | undefined {
+  return firstRows.get(projectId)?.get(`${design}\n${mode}`)
+}
+
+/**
+ * The bitmap a frame shows now, as a data URL: the one the canvas has, else one kept on disk, else captured. Nothing
+ * when the frame didn't render or couldn't be captured.
+ */
+export async function frameBitmap({ key, job }: FrameShows): Promise<string | undefined> {
+  if (!bitmaps.has(key)) {
+    const kept = await stored(key, job)
+    if (kept) return kept.src
+  }
+  // Wanted while it's taken, so it's captured even where no frame on the canvas waits for it any more.
+  want(key, 1)
+  try {
+    const src = await capture(key, job)
+    return typeof src === "string" ? src : undefined
+  } finally {
+    want(key, -1)
+  }
+}
+
 /** A frame that hasn't drawn its design yet, as `holdsFirstDraw` decides whether it waits. */
 export interface UndrawnFrame {
   bitmap: FrameBitmap
