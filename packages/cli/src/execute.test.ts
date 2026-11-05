@@ -1,5 +1,7 @@
 import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { type AgentHooks, type AgentSnapshot, execute } from "@parity-app/agent"
+import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { describeExec } from "./client.ts"
 import { type ExecReply, execResponse, executeRequest, structuredExec } from "./execute.ts"
@@ -243,6 +245,74 @@ describe("execute transport contract", () => {
     expect(cli.code).toBe(1)
     expect(cli.stdout.trim()).toBe(describeExec(canonical))
     expect(cli.stdout).toContain('retrying with editId "retry-id"')
+    expect(json.code).toBe(1)
+    expect(JSON.parse(json.stdout)).toEqual(structuredExec(canonical))
+    expect(toolReply(protocol.stdout)).toEqual({
+      jsonrpc: "2.0",
+      id: 2,
+      result: {
+        content: [{ type: "text", text: describeExec(canonical) }],
+        structuredContent: structuredExec(canonical),
+        isError: true
+      }
+    })
+  })
+
+  it("explains Measure's single frame the same way in both transports (PAR-461)", async () => {
+    const signup: ContainerSpec = {
+      id: "signup",
+      name: "Sign up",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "page", children: [] },
+      states: [
+        { id: "default", name: "Default" },
+        { id: "loading", name: "Loading" }
+      ]
+    }
+    const project: AgentSnapshot = {
+      tab: "measure",
+      components: [],
+      tokens: [],
+      theme: [],
+      modes: defaultModeSettings,
+      documents: [{ path: "app.par", document: { version: 3, containers: [signup] } }],
+      libraryDesigns: [],
+      tokenOverrides: [],
+      mainDocument: "app.par",
+      props: {},
+      selection: {},
+      bounds: {}
+    }
+    const render: AgentHooks["render"] = async () => {
+      throw new Error("Measure rendered before checking its options")
+    }
+    const code = `await Measure("signup", { state: "all" })`
+    // The reply as the app builds it from the agent's result.
+    const { changes: _changes, ...result } = await execute({ label: "Measure", code }, project, {
+      presence: () => undefined,
+      render
+    })
+    const reply: ExecReply = { ...result, applied: false, screenshots: [] }
+    fixture.response = { result: reply }
+    const [cli, json, protocol] = await Promise.all([
+      run(["exec"], code),
+      run(["exec", "--json"], code),
+      mcp({ input: code })
+    ])
+    const canonical = execResponse(reply)
+    expect(canonical.error).toEqual({
+      code: "invalid_input",
+      message: expect.stringMatching(
+        /^Measure lays out one frame, so state takes one state id, not "all"\. .* States in Sign up: default \(Default\), loading \(Loading\)\./
+      ),
+      retryable: false,
+      // invalid_input keeps the field it names, as every snippet check does.
+      path: "/state",
+      alternatives: ["default", "loading"],
+      editId: result.editId
+    })
+    expect(cli.code).toBe(1)
+    expect(cli.stdout.trim()).toBe(describeExec(canonical))
     expect(json.code).toBe(1)
     expect(JSON.parse(json.stdout)).toEqual(structuredExec(canonical))
     expect(toolReply(protocol.stdout)).toEqual({

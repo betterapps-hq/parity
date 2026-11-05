@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util"
 import {
   addState,
+  alternativeLimit,
   boardRoot,
   boardSize,
   type CanvasDocument,
@@ -943,6 +944,7 @@ export class AgentWorkspace {
   }
 
   private async measure(reference: string, options: FrameOptions = {}) {
+    this.expectOneFrame(this.findDesign(reference).container, options)
     const { container, state, mode, frame } = await this.render(reference, options, "measure")
     if (frame.error) throw new Error(`The frame failed to render: ${frame.error}`)
     const names = nodeNames(container, this.designName)
@@ -953,6 +955,41 @@ export class AgentWorkspace {
       height: frame.height,
       overflowsX: frame.overflowsX,
       nodes: frame.nodes.map((node) => ({ ...node, name: names.get(node.id) }))
+    }
+  }
+
+  /**
+   * Measure draws one frame, so a list, "all" or "shown" (which the checks take) fails before anything renders, saying
+   * so and naming the ids it does take.
+   */
+  private expectOneFrame(container: ContainerSpec, options: { state?: unknown; mode?: unknown }): void {
+    const shown = shownModes(this.modes, container)
+    const choices = {
+      state: {
+        ids: container.states.map((state) => state.id),
+        listed: `States in ${container.name}: ${container.states.map((state) => `${state.id} (${state.name})`).join(", ")}.`,
+        matrix: 'a list or "all"'
+      },
+      mode: {
+        ids: container.kind === "frame" ? [shown.main.id] : shown.all.map((mode) => mode.id),
+        listed:
+          container.kind === "frame"
+            ? `${container.name} is a frame, drawn only in the primary mode, ${shown.main.id}.`
+            : `Modes: ${shown.all.map((mode) => mode.id).join(", ")}.`,
+        matrix: 'a list, "shown" or "all"'
+      }
+    }
+    for (const field of ["state", "mode"] as const) {
+      const value = options[field]
+      const matrix = Array.isArray(value) || value === "all" || (field === "mode" && value === "shown")
+      if (value === undefined || (typeof value === "string" && !matrix)) continue
+      const given = Array.isArray(value) ? "a list" : JSON.stringify(value)
+      const { ids, listed, matrix: takes } = choices[field]
+      throw new CodedError(
+        `Measure lays out one frame, so ${field} takes one ${field} id, not ${given}. To compare ${field}s, call ` +
+          `Measure once for each; Problems, Screenshot and Accessibility take ${takes}. ${listed}`,
+        { code: "invalid_input", field, alternatives: ids.slice(0, alternativeLimit) }
+      )
     }
   }
 
