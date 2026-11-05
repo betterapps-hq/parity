@@ -85,12 +85,14 @@ export async function storeBitmap(served: ServedCode, job: RenderJob, webp: Uint
 export type PreviewSize = "thumb" | "large"
 
 /**
- * What the index says of a component's latest preview: the key it was made for, and why it couldn't be drawn when it
- * couldn't. The pictures themselves say whether they're made.
+ * What the index says of a component's latest preview: the key it was made for, why it couldn't be drawn when it
+ * couldn't, and whether it drew nothing to see. The pictures themselves say whether they're made.
  */
 export interface PreviewRecord {
   key: string
   error?: string
+  /** It drew, but its picture showed nothing but the page (PAR-517). */
+  empty?: true
 }
 
 /** Each component's latest preview by id, for a project, as kept in its `previews/index.json`. */
@@ -260,7 +262,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isRecord(value: unknown): value is PreviewRecord {
   if (!isObject(value) || typeof value.key !== "string" || !/^[0-9a-f]{40}$/.test(value.key)) return false
-  return value.error === undefined || typeof value.error === "string"
+  return (value.error === undefined || typeof value.error === "string") && (value.empty ?? true) === true
 }
 
 /** Writes a file beside its name and then renames it, so a reader never finds half of it. */

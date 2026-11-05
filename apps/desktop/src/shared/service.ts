@@ -5,13 +5,15 @@ export type MainMessage =
   | { type: "connect" }
   | { type: "render-result"; id: number; frame?: RenderedFrame; png?: string; error?: string }
   /**
-   * A component preview's pictures, base64 PNGs, and the large one's size; or `error`, why its component couldn't be
-   * drawn; or `failed`, why the offscreen window couldn't finish it, which a later try may not hit.
+   * A component preview's pictures, base64 PNGs, and the large one's size; or `empty`, when its picture showed nothing
+   * but the page; or `error`, why its component couldn't be drawn; or `failed`, why the offscreen window couldn't
+   * finish it, which a later try may not hit.
    */
   | {
       type: "preview-result"
       id: number
       pictures?: { thumb: string; large: string; width: number; height: number }
+      empty?: true
       error?: string
       failed?: string
     }

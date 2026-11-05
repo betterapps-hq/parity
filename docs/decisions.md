@@ -3892,3 +3892,31 @@ event and returns the next list, and every path goes through it. My calls:
 - **An export the person puts on the list shows at once,** before its file is read again. One they take back off waits
   for the read, as before. PAR-604 is the case where it stays listed after that.
 - **The program cache stays in the app's worker for now.** Moving it into `@parity-app/code` is its own issue, PAR-603.
+
+## A component preview draws what opens, open and in place (PAR-517)
+
+A dialog, popover or menu's preview showed its trigger alone, and its parts a blank or an empty trigger, since their
+content renders only once opened, in a portal outside the frame (see editor.md, Component previews, made offscreen and
+kept on disk). My calls in fixing it:
+
+- **Opened through the props a library declares, not a list of components.** The preview's tree gives `defaultOpen` to
+  what takes it and chooses an item for what takes `defaultValue`, reading the props each component's library file lists
+  (`openProps`). That covers Base UI's and Radix's dialogs, popovers, menus, selects and accordions in every library
+  without naming them. Only the first that opens, and the first within it, opens, so a menubar shows one menu rather
+  than four over each other. A sample that already chooses an item, as tabs' and radio groups' do, is left as it is, so
+  their pictures don't change. A value given to choose an item is a list when the sample's own choice is (an
+  accordion's), else a single value: nothing else says which a component takes, since props aren't read from Base UI's
+  types (the type checker gives library components no props here).
+- **Portals are moved into the frame after drawing, not given a container.** Neither Base UI nor Radix lets a project
+  say where every portal goes, and a component's own portal is inside it (`AlertDialogContent` wraps its portal), so the
+  offscreen page moves what's been added to its body into the preview's element once the component has drawn, and back
+  before the next job. React keeps rendering into a portal's node wherever it is.
+- **Placed content is put in the flow by the page, not by each library's classes.** What's fixed or absolute in a moved
+  portal is made relative, unmoved and shown, and what holds nothing is left out, by a stylesheet in the frame keyed by
+  attributes the page sets. A positioner that hid its popup for want of a trigger to place it by (a part drawn without
+  one) is shown, and positioning libraries that set inline styles again don't undo it. Only preview jobs do this: agents
+  and bitmaps draw portals where the project puts them.
+- **"Draws nothing of its own" is a picture with every pixel alike.** It's what the person would see, whatever the
+  reason: a provider, a part whose sample holds nothing, or content that couldn't be opened. It follows the Previews
+  exploration's States story (an eye-off icon and "Draws nothing of its own" on the muted fill), which designs it.
+  Previews made before are made again once, as `previewFormat` went up to 2.

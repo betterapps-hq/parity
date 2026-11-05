@@ -2777,9 +2777,10 @@ shows it in a component's card, opened by resting the pointer on its row as a to
 picture on the project's page in a framed box that fits it, then its name, file and, when it fails on the canvas, why.
 PAR-208 gives it the List and Grid views and the picker. The card is `ComponentCard` and `ComponentPopover` in
 `chrome/ComponentCard.tsx`, with the stories Pictures (six real previews of different shapes), States (waiting, being
-drawn, updating and failing), BesideItsRow and Tooltips in `chrome/ComponentCard.stories.tsx`; `AssetEntry` in
-`chrome/AssetsPanel.tsx` opens it. Tooltips are raised in the theme's own colors, a step lighter than a popover in the
-dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
+drawn, updating, drawing nothing of its own and failing), BesideItsRow and Tooltips in
+`chrome/ComponentCard.stories.tsx`; `AssetEntry` in `chrome/AssetsPanel.tsx` opens it. Tooltips are raised in the
+theme's own colors, a step lighter than a popover in the dark theme, through the variables shadcn's tooltip reads, set
+in `styles.css`.
 
 - **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
   layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same
@@ -2806,11 +2807,30 @@ dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
   at a time (`nextPreview`): a component whose row is on screen first, whatever the person is doing; the rest only after
   2 seconds with no pointer, key, wheel or drag and no edit, the person's or an agent's, and the pass stops before its
   next one as soon as they work. The offscreen windows' idle close still shuts them a minute after the last job.
+- **Drawn open, with what it portals drawn in place (PAR-517).** A dialog, popover or menu renders its content only once
+  it's opened, and then in a portal, outside the frame's shadow root and the box the picture is cropped to, so its
+  preview showed the trigger alone, and its parts (a dialog's title, a menu's items) a blank or an empty trigger. The
+  tree is now drawn open (`drawnOpen`): the first component that takes `defaultOpen`, and the first within it, is given
+  `defaultOpen: true` unless it's given `open` or `defaultOpen`, so a menubar opens one menu, and a part opens with the
+  parents it's placed in. A component that takes `defaultValue` and chooses none of the items inside it that take
+  `value` (an accordion, a navigation menu, tabs, around a part) chooses the first, giving it a value if it has none; a
+  sample that already chooses one is left as it is. Which props a component takes comes from its library file
+  (`openProps` on its source). The job then asks the offscreen page to draw its portals in place (`inlinePortals`):
+  what's been added to the page's body is moved into the preview's element, after what's there, where the project's
+  styles reach it; what in it was placed over the page (fixed or absolute) is put in the flow, shown, and as tall as
+  what's in it with no limit from the room it had where it was placed, and what holds nothing (a backdrop, a focus
+  guard, an empty toast region) is left out; transitions and animations are off there, so it's drawn at rest. It goes
+  back in the body before the next job, where its library removes it from.
+- **Draws nothing of its own (PAR-517).** A picture with every pixel alike (`drawsNothing`), the page and nothing on it,
+  isn't kept: the index says the component drew nothing for its key, so it isn't drawn again on every open, and the card
+  says "Draws nothing of its own" on its muted fill, with the eye-off icon the Previews exploration's States story gives
+  it. On the example that's a provider, and parts whose sample holds nothing to see, as MessageGroup's two messages with
+  no text.
 - **States:** waiting, being made, made, updating (the last picture, dimmed, with "Updating its preview" until the new
-  one is made) and fails to draw (with the error, kept, so the same code isn't drawn again on every open). One the
-  offscreen window couldn't finish isn't kept and is tried again after the next lookup. The window looks every preview
-  up again, 50 at a time, when the guest, its theme, the components, their props, the modes or the component designs
-  change.
+  one is made), draws nothing of its own, and fails to draw (with the error, kept, so the same code isn't drawn again on
+  every open). One the offscreen window couldn't finish isn't kept and is tried again after the next lookup. The window
+  looks every preview up again, 50 at a time, when the guest, its theme, the components, their props, the modes or the
+  component designs change.
 - **Kept under PAR-158's cleanup:** previews count toward the same 200 MB and 30 days, showing a picture counts as using
   it, and Clear bitmap cache removes them too.
 - **A void element gets no children (PAR-513).** React declares `children` for every element, so a component whose props
@@ -2825,36 +2845,48 @@ dark theme, through the variables shadcn's tooltip reads, set in `styles.css`.
   shortened the same way. Since a preview's key covers its tree, both changes give the affected components new keys and
   new pictures without raising `previewFormat`.
 
-Code: `componentPreviewTree` in `packages/editor/src/component-preview.ts`; `renderQueue`, `nextPreview` and `fitInside`
-in `packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`,
-`resolveModule`, `importedFiles`, `moduleClosure` and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`;
-`codeSnapshot` in `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the
-`previews.lookup` and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of
-`utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
-`previewJob`, `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in
-`apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow`
-in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in
-`packages/code/src/props.ts`; `sampleText` and `shortenedText` in `packages/libgen/src/sample-text.ts`.
+Code: `componentPreviewTree` and `drawnOpen` in `packages/editor/src/component-preview.ts`; `openProps` and
+`librarySource` in `packages/core/src/project.ts` and `library-insert.ts`; `renderQueue`, `nextPreview`, `fitInside` and
+`drawsNothing` in `packages/core/src/preview-order.ts`; `inlinePortals` in
+`apps/desktop/src/renderer/inline-portals.ts`, which `canvasRender` in `renderer/render.ts` calls for a job with
+`inlinePortals`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`, `resolveModule`, `importedFiles`,
+`moduleClosure` and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot` in
+`packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the `previews.lookup`
+and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of `utility/bitmap-store.ts`;
+`renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
+`startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`;
+`ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
+`shortenedText` in `packages/libgen/src/sample-text.ts`.
 
 Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
 and those before the idle pass, one job at a time with one window, one job in each window at once in the lowest free,
 one preview at a time with the other windows left to bitmaps, and a failure going to its caller with the next job still
 run; 5 for `nextPreview`: nothing until the canvas settles, the first on screen even while the person works, the rest in
-order once idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`).
-`packages/project/src/preview-key.test.ts` (9 for `resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for
-`sharedPreviewFiles`, and 6 for `previewKey` on files on disk: the same for the same code and tree, new for a component
-importing the changed file and not for one that doesn't, new for every component when a stylesheet or one it imports
-changes or when the dependencies do, new with what's drawn, and 40 hex characters).
-`packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by path).
-`packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts` (3: what
-inserting places inside the sized element, a part inside its parents, and the same tree every time).
-`apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index kept
-across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
-project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (6, with the project and the offscreen
+order once idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`; 2 for `drawsNothing`: a
+picture with every pixel alike, and one with a pixel a channel apart). `packages/project/src/preview-key.test.ts` (9 for
+`resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for `sharedPreviewFiles`, and 6 for `previewKey` on
+files on disk: the same for the same code and tree, new for a component importing the changed file and not for one that
+doesn't, new for every component when a stylesheet or one it imports changes or when the dependencies do, new with
+what's drawn, and 40 hex characters). `packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by
+path). `packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts`
+(4: what inserting places inside the sized element, a part inside its parents, the same tree every time, and a dialog's
+part inside its dialog given `defaultOpen`; and 6 for `drawnOpen`: the first menu and the first submenu in it opened but
+not the menu beside it, one given `open` left and the next opened, an accordion's item its sample doesn't choose chosen
+beside the ones it does, an item with no value given `previewValue`, a sample that chooses one of its items or is given
+its value left as it is, and components that don't say what's open left alone).
+`packages/core/src/library-insert.test.ts` (1 for `librarySource`: the `openProps` a library component declares).
+`apps/desktop/src/renderer/render.test.ts` (2 of its 4), in Chrome: a preview job's portaled popup drawn inside the
+preview's element under its trigger, shown though its positioner hid it and as tall as what's in it, with its backdrop
+left out and the cropped box holding both; and the portal left where its library put it for any other job, also after a
+preview. `apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index
+kept across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
+project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (7, with the project and the offscreen
 window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
-component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
-again; two asks at once drawing once; and none for code the project hasn't served). `packages/code/src/props.test.ts` (3
-for void elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a
+component importing what changed, with its last picture meanwhile; a draw failure kept; one that drew nothing to see
+kept as that across a restart, with no picture standing in once its code changes; one that didn't finish tried again;
+two asks at once drawing once; and none for code the project hasn't served). `packages/code/src/props.test.ts` (3 for
+void elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a
 component's own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long
 one ended at a sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut
 before shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut

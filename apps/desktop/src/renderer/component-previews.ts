@@ -26,11 +26,14 @@ export type PreviewState =
   | { state: "making"; last?: PreviewImage }
   | { state: "made"; image: PreviewImage }
   | { state: "failed"; error: string }
+  /** Drawn, open, but with nothing to see: a provider or wrapper, or a part with nothing in it (PAR-517). */
+  | { state: "empty" }
 
 /**
- * The job that draws a component's preview: what inserting it would place (see `componentPreviewTree`), in the
- * project's first mode, at its own width up to the preview's, in a window the mode's width, at `previewScale`. Unsaved
- * token previews aren't drawn, so trying a token re-makes nothing.
+ * The job that draws a component's preview: what inserting it would place, drawn open (see `componentPreviewTree`), in
+ * the project's first mode, at its own width up to the preview's, in a window the mode's width, at `previewScale`, with
+ * what it portals out of the frame drawn inside it (PAR-517). Unsaved token previews aren't drawn, so trying a token
+ * re-makes nothing.
  */
 export function previewJob(session: ProjectSession, component: string): PreviewJob | undefined {
   const mode = resolveModes(session.store.getModes())[0]
@@ -51,7 +54,8 @@ export function previewJob(session: ProjectSession, component: string): PreviewJ
       theme: session.info.theme,
       tree,
       mode: renderJobMode(mode, { width: previewFrameWidth, viewport }),
-      scale: previewScale
+      scale: previewScale,
+      inlinePortals: true
     }
   }
 }
@@ -202,6 +206,7 @@ class ProjectPreviews {
   private stateOf(preview: ComponentPreview): PreviewState {
     if (preview.image) return { state: "made", image: preview.image }
     if (preview.error) return { state: "failed", error: preview.error }
+    if (preview.empty) return { state: "empty" }
     // The picture shown before, for older code, until this code's is made.
     const before = this.entries.get(preview.component)?.preview
     let shown: PreviewImage | undefined

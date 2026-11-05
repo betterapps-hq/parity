@@ -15,6 +15,7 @@ import {
   setDrawnNodes
 } from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
+import { inlinePortalSheet, inlinePortals } from "./inline-portals.ts"
 
 declare global {
   interface Window {
@@ -26,6 +27,8 @@ declare global {
 }
 
 let current: { unmount(): void } | undefined
+/** Puts what the last frame portaled out of it, and a preview drew inside it, back where its library put it. */
+let putBack: (() => void) | undefined
 /** The frame drawn last, for the audit that may follow once the window is as tall as the frame. */
 let currentHost: HTMLElement | undefined
 /** The guest each project's frames were drawn with last, to let go of when its project reopens at a new address. */
@@ -39,6 +42,8 @@ window.canvasSettle = async () => {
 }
 
 window.canvasRender = async (job) => {
+  putBack?.()
+  putBack = undefined
   current?.unmount()
   current = undefined
   currentHost = undefined
@@ -87,6 +92,13 @@ window.canvasRender = async (job) => {
     // Let React commit, components that load on demand arrive, images and fonts load, and layout settle.
     await new Promise((resolve) => setTimeout(resolve, 30))
     await loaded.guest.loaded?.()
+    if (job.inlinePortals) {
+      // A component preview draws what its component portals out of the frame inside it, after the rest (PAR-517).
+      const shadow = host.shadowRoot!
+      shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, inlinePortalSheet()]
+      const root = (tree[0] && "nodeId" in tree[0] && findNodeElement(host, tree[0].nodeId)) || target
+      putBack = inlinePortals(host, root)
+    }
     await window.canvasSettle()
     await Promise.race([imagesLoaded(host), new Promise((resolve) => setTimeout(resolve, 1500))])
 

@@ -126,7 +126,8 @@ export const Pictures: Story = {
 
 /**
  * Everything else a preview can be: waiting its turn, being drawn, updating after its code changed (the last picture,
- * dimmed), and failing to draw. Only a made picture sits on the project's white page.
+ * dimmed), drawing nothing of its own (PAR-517), and failing to draw. Only a made picture sits on the project's white
+ * page.
  */
 export const States: Story = {
   render: () => (
@@ -143,6 +144,9 @@ export const States: Story = {
           path="src/components/nova/select.tsx"
           preview={{ state: "making", last: pictures.select }}
         />
+      </Surface>
+      <Surface label="Draws nothing of its own">
+        <ComponentCard name="nova/MessageGroup" path="src/components/nova/message.tsx" preview={{ state: "empty" }} />
       </Surface>
       <Surface label="Fails to draw">
         <ComponentCard

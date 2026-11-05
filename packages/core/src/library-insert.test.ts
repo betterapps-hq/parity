@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import type { DesignNode } from "./document.ts"
-import { componentNode, withLibraryContext } from "./library-insert.ts"
+import { componentNode, librarySource, withLibraryContext } from "./library-insert.ts"
 import type { ComponentSource } from "./project.ts"
 import type { ComponentInfo } from "./props.ts"
 
@@ -267,5 +267,16 @@ describe("a library part's parents and samples", () => {
     const placed = withLibraryContext(root, accordion, [], new Set(["a"]))
     expect(shape(placed)).toEqual({ Accordion: [{ AccordionItem: ["AccordionTrigger"] }] })
     expect(placed.type === "component" && placed.props).toBeFalsy()
+  })
+})
+
+describe("librarySource", () => {
+  it("names the props it declares that say what's open or chosen, for its preview", () => {
+    const declares = (props: Record<string, string>) =>
+      librarySource("acme", "Part", { as: "function", props }, "@acme/ui").openProps
+    expect(declares({ "defaultOpen?": "1", "open?": "1", "className?": "2" })).toEqual(["defaultOpen"])
+    expect(declares({ "defaultValue?": "3", "value?": "3" })).toEqual(["defaultValue", "value"])
+    expect(declares({ value: "3" })).toEqual(["value"])
+    expect(declares({ "className?": "2" })).toBeUndefined()
   })
 })

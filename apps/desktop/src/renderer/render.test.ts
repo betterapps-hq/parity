@@ -27,6 +27,32 @@ export default {
 }
 `
 
+// A guest whose component portals its popup out of the frame, as a dialog does: a backdrop over the page and the popup
+// placed by a positioning library, hidden until it has a place and sized shorter than what's in it, with the frame's
+// root drawing only its trigger.
+const portalGuest = `
+export default {
+  renderer: "test",
+  components: [],
+  hasComponent: () => false,
+  css: ".trigger { display: block; height: 30px } .popup { position: fixed; top: 50%; left: 50%; width: 200px; height: 40px } .popup p { margin: 0; height: 100px }",
+  mount(target, tree) {
+    const root = document.createElement("div")
+    root.setAttribute("data-canvas-node", tree[0].nodeId)
+    root.style.width = "max-content"
+    root.innerHTML = '<button class="trigger">Delete chat</button>'
+    target.append(root)
+    const portal = document.createElement("div")
+    portal.innerHTML =
+      '<div class="backdrop" style="position: fixed; inset: 0"></div>' +
+      '<div class="positioner" style="position: absolute; left: 900px; top: 700px; opacity: 0">' +
+      '<div class="popup"><p>Delete this chat?</p></div></div>'
+    document.body.append(portal)
+    return { update() {}, unmount() { root.remove(); portal.remove() } }
+  }
+}
+`
+
 beforeAll(async () => {
   const bundle = await build({
     entryPoints: [fileURLToPath(new URL("render.ts", import.meta.url))],
@@ -42,6 +68,9 @@ beforeAll(async () => {
   page.on("pageerror", (error) => errors.push(error.message))
   await page.route("http://parity.test/guest.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: guest })
+  )
+  await page.route("http://parity.test/portal-guest.js", (route) =>
+    route.fulfill({ contentType: "text/javascript", body: portalGuest })
   )
   await page.route("http://parity.test/render.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: bundle.outputFiles[0]!.text })
@@ -98,5 +127,51 @@ describe("canvasRender", () => {
     expect(mountedIn).toEqual({ width: 1280, height: 1234 })
     expect(vh).toBe(1234)
     expect(frame).toMatchObject({ width: 1280, height: 600 })
+  })
+})
+
+/** Draws the portal guest's component as a preview job does, or as any other job when `inline` is off. */
+async function renderPortal(inline: boolean) {
+  const job: RenderJob = {
+    projectId: "portals",
+    guestUrl: "http://parity.test/portal-guest.js",
+    theme: [],
+    tree: [{ kind: "element", nodeId: "preview", tag: "div", style: {}, children: [] }],
+    mode: { width: 656, viewport: { width: 1280, height: 800 }, classNames: [], attributes: {} },
+    scale: 1,
+    ...(inline ? { inlinePortals: true as const } : {})
+  }
+  return page.evaluate(async (job) => {
+    const frame: RenderedFrame = await window.canvasRender(job)
+    const shadow = document.querySelector("div")!.shadowRoot!
+    const inFrame = (selector: string) => shadow.querySelector<HTMLElement>(selector)
+    const popup = inFrame(".popup") ?? document.querySelector<HTMLElement>(".popup")!
+    const box = popup.getBoundingClientRect()
+    return {
+      frame,
+      inFrame: inFrame(".popup") !== null,
+      popup: { top: box.top, opacity: getComputedStyle(popup.parentElement!).opacity },
+      backdrop: getComputedStyle(inFrame(".backdrop") ?? document.querySelector(".backdrop")!).display,
+      trigger: inFrame(".trigger")!.getBoundingClientRect().bottom
+    }
+  }, job)
+}
+
+describe("a preview's portals", () => {
+  it("are drawn inside the frame, in the flow under what's there, shown and with their backdrop left out", async () => {
+    const { frame, inFrame, popup, backdrop, trigger } = await renderPortal(true)
+    expect(frame.error).toBeUndefined()
+    expect(inFrame).toBe(true)
+    expect(popup).toEqual({ top: trigger, opacity: "1" })
+    expect(backdrop).toBe("none")
+    // The preview's box, which its picture is cropped to, holds the trigger and the whole popup.
+    expect(frame.nodes.find((node) => node.id === "preview")).toMatchObject({ height: 130 })
+  })
+
+  it("stay where their library put them for any other job, and after a preview", async () => {
+    await renderPortal(true)
+    const { inFrame, backdrop } = await renderPortal(false)
+    expect(inFrame).toBe(false)
+    expect(backdrop).toBe("block")
   })
 })

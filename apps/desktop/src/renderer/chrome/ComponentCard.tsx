@@ -1,5 +1,5 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { CircleAlert, Component, Diamond, LoaderCircle } from "lucide-react"
+import { CircleAlert, Component, Diamond, EyeOff, LoaderCircle } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
@@ -78,6 +78,18 @@ function PreviewStage({ preview }: { preview: PreviewState | undefined }) {
         <CircleAlert className="size-4 text-destructive" />
         <span className="text-xs text-destructive">Its preview fails to draw</span>
         <span className="line-clamp-3 font-mono text-[11px] break-all text-muted-foreground">{preview.error}</span>
+      </div>
+    )
+  }
+  if (preview?.state === "empty") {
+    // As Parity / Explorations / Previews / Components: States designs "draws nothing" (PAR-517).
+    return (
+      <div
+        className={`${box} flex-col gap-1.5 bg-muted px-4 py-3 text-center text-xs text-muted-foreground`}
+        style={{ minHeight: lowest }}
+      >
+        <EyeOff className="size-4" />
+        Draws nothing of its own
       </div>
     )
   }
