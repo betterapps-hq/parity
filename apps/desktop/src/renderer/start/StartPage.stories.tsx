@@ -150,14 +150,14 @@ export const CardFlipsThroughScreens: Story = {
   play: async ({ canvasElement }) => {
     const card = within(canvasElement).getByRole("button", { name: "cloud-console" }).closest("article")!
     const art = card.firstElementChild!
-    const across = (share: number) => {
+    const across = async (share: number) => {
       const box = art.getBoundingClientRect()
-      fireEvent.pointerMove(card, { clientX: box.left + box.width * share, clientY: box.top + box.height / 2 })
+      await fireEvent.pointerMove(card, { clientX: box.left + box.width * share, clientY: box.top + box.height / 2 })
     }
     await userEvent.hover(card)
-    across(0.9)
+    await across(0.9)
     await expect(within(card).getByText("Pricing")).toBeInTheDocument()
-    across(0.5)
+    await across(0.5)
     await expect(within(card).getByText("Settings")).toBeInTheDocument()
     await userEvent.unhover(card)
     await expect(within(card).getByText("Dashboard")).toBeInTheDocument()
