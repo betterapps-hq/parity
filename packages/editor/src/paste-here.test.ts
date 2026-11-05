@@ -55,7 +55,14 @@ function dashboard(): ContainerSpec {
             }
           ]
         },
-        { type: "layout", id: "footer", children: [] }
+        { type: "layout", id: "footer", children: [] },
+        // A code component with layers in two of its slots, as a card with actions does.
+        {
+          type: "component",
+          id: "toolbar",
+          component: "ui/Toolbar",
+          slots: { children: [text("save"), text("share")], end: [text("help")] }
+        }
       ]
     },
     states: [
@@ -101,8 +108,22 @@ const events = (point: { x: number; y: number }): HereLayout => ({
   unit: 4
 })
 
-const children = (container: ContainerSpec, id: string) => {
+/** The toolbar's default slot, Save and Share in a row, 80px wide with 8px between them. */
+const toolbar = (point: { x: number; y: number }, slot = "children"): HereLayout => ({
+  layout: "toolbar",
+  slot,
+  children: [0, 1].map((index) => ({ index, box: box(100 + index * 88, 700, 80, 32) })),
+  flow: { direction: "row", wraps: false, reversed: false, linesReversed: false },
+  box: box(100, 700, 168, 32),
+  point,
+  origin: { x: 90, y: 690 },
+  scale: 1,
+  unit: 4
+})
+
+const children = (container: ContainerSpec, id: string, slot?: string) => {
   const node = findNode(container.root, id)
+  if (node?.type === "component") return (node.slots?.[slot ?? "children"] ?? []).map((child) => child.id)
   return node?.type === "layout" ? node.children.map((child) => child.id) : []
 }
 
@@ -245,6 +266,44 @@ describe("paste here", () => {
     expect(placed.map((style) => style?.left)).toEqual([50, 134, 178, 178])
     expect(placed.map((style) => style?.top)).toEqual([100, 100, 100, 100])
   })
+
+  it("keeps the right and bottom of a copy stretched between its insets, at the pointer", () => {
+    const stretched = text("overlay", { position: "absolute", top: 1, right: 2, bottom: 3, left: 4 })
+    // Stretched across but given a height: it keeps its right, not its bottom.
+    const bar = text("bar", { position: "absolute", left: 0, right: "gutter", top: 4, bottom: 2, height: 2 })
+    const { container, copies } = pasteHere(dashboard(), [stretched, bar], events({ x: 160, y: 280 }), base)
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({
+      position: "absolute",
+      left: 50,
+      top: 100,
+      right: 2,
+      bottom: 3
+    })
+    expect(findNode(container.root, copies[1]!)?.style).toEqual({
+      position: "absolute",
+      height: 2,
+      left: 50,
+      top: 100,
+      right: "gutter"
+    })
+  })
+
+  it("puts layers in a component's slot, in the place under the pointer", () => {
+    // Past the middle of Save, short of Share's: between them, and the other slot as it was.
+    const { container, copies } = pasteHere(dashboard(), [card], toolbar({ x: 150, y: 710 }), base)
+    expect(children(container, "toolbar")).toEqual(["save", copies[0], "share"])
+    expect(children(container, "toolbar", "end")).toEqual(["help"])
+    const end = pasteHere(dashboard(), [card], { ...toolbar({ x: 120, y: 710 }, "end"), children: [] }, base)
+    expect(children(end.container, "toolbar", "end")).toEqual(["help", end.copies[0]])
+  })
+
+  it("pastes nothing into a slot the component doesn't have", () => {
+    expect(pasteHere(dashboard(), [card], toolbar({ x: 150, y: 710 }, "start"), base).copies).toEqual([])
+    // Nor into the component when no slot is named.
+    const { slot, ...unnamed } = toolbar({ x: 150, y: 710 })
+    expect(slot).toBe("children")
+    expect(pasteHere(dashboard(), [card], unnamed, base).copies).toEqual([])
+  })
 })
 
 describe("the slot here", () => {
@@ -286,6 +345,18 @@ describe("the slot here", () => {
       at: { left: 50, top: 100 }
     })
     expect(slotHere(dashboard(), stats({ x: 280, y: 230 }), floating)).toMatchObject({ free: true, index: 4 })
+  })
+
+  it("marks the place under the pointer in a component's slot, and names the slot", () => {
+    // Before Share, with the line just left of it.
+    expect(slotHere(dashboard(), toolbar({ x: 150, y: 710 }), base)).toEqual({
+      layout: "toolbar",
+      slot: "children",
+      free: false,
+      index: 1,
+      at: { left: 15, top: 5 },
+      line: { x: 186, y: 700, w: 2, h: 32 }
+    })
   })
 
   it("has none for what isn't one of the design's layouts", () => {
