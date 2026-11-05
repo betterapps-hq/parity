@@ -98,6 +98,8 @@ function run(args: string[], cwd = tmpdir(), input?: string) {
       },
       stdio: ["pipe", "pipe", "pipe"]
     })
+    // A process that exits before reading its input closes the pipe; its code and output say what happened.
+    child.stdin.on("error", () => undefined)
     child.stdin.end(input ?? "")
     let stdout = ""
     let stderr = ""

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { applyLibraryEdits, type LibraryEdits } from "@parity-app/core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
-import { covers, registryDir, registryEntries, registryEntryFor } from "./index.ts"
+import { covers, newestEntries, registryDir, registryEntries, registryEntryFor, withEdits } from "./index.ts"
 
 let dir: string
 
@@ -44,6 +44,51 @@ describe("registryEntryFor", () => {
 
   it("skips a file that doesn't name its package", async () => {
     expect((await registryEntries(dir)).map((entry) => entry.file)).not.toContain("broken.lib.par")
+  })
+})
+
+describe("newestEntries", () => {
+  it("keeps each package's newest file by semver, with its hand edits applied", async () => {
+    const newest = await mkdtemp(join(tmpdir(), "parity-registry-newest-"))
+    const file = (version: string, edits?: unknown) => ({
+      version: 3,
+      id: "mui",
+      name: `Material UI ${version}`,
+      package: { name: "@mui/material", version },
+      components: { list: { Button: { as: "function" }, Fab: { as: "function" } } },
+      ...(edits === undefined ? {} : { edits })
+    })
+    // As text, 9.5.0 is newer than 10.0.0, and "mui-10" sorts before "mui-9".
+    await writeFile(join(newest, "mui-9.lib.par"), JSON.stringify(file("9.5.0")))
+    await writeFile(join(newest, "mui-10.lib.par"), JSON.stringify(file("10.0.0", "shared.edits.json")))
+    await writeFile(
+      join(newest, "shared.edits.json"),
+      '{\n  // Fab is gone from 10.\n  "components": { "Fab": false, "Button": { "group": "Actions" } },\n}'
+    )
+    try {
+      const [entry, ...rest] = await newestEntries(newest)
+      expect(rest).toEqual([])
+      expect(entry?.file).toBe("mui-10.lib.par")
+      expect(entry?.manifest.components?.list).toEqual({ Button: { as: "function", group: "Actions" } })
+    } finally {
+      await rm(newest, { recursive: true, force: true })
+    }
+  })
+})
+
+describe("withEdits", () => {
+  it("reports edits for exports the file doesn't have, and fails on edits it can't read", async () => {
+    const manifest = {
+      version: 3 as const,
+      name: "Acme",
+      components: { list: { Button: { as: "function" as const } } }
+    }
+    const edited = await withEdits(join(dir, "acme.lib.par"), { ...manifest, edits: { components: { Gone: false } } })
+    expect(edited.orphans).toEqual(["Gone"])
+    expect(edited.manifest.components).toEqual(manifest.components)
+    await expect(withEdits(join(dir, "acme.lib.par"), { ...manifest, edits: "missing.edits.json" })).rejects.toThrow(
+      "missing.edits.json"
+    )
   })
 })
 

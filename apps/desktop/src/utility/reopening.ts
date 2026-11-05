@@ -14,6 +14,8 @@ export interface Reopening {
   remember(roots: readonly string[]): void
   /** Resolves once the last list asked to be kept is written. */
   written(): Promise<void>
+  /** Resolves once the list kept last time is read and its projects asked to open; at once without a file. */
+  reopened(): Promise<void>
 }
 
 export function startReopening({
@@ -31,6 +33,7 @@ export function startReopening({
   const claimed = new Set<string>()
   let writing = Promise.resolve()
   let last: string | undefined
+  let reading = Promise.resolve()
 
   const reopening: Reopening = {
     claim(root) {
@@ -45,11 +48,12 @@ export function startReopening({
       last = text
       writing = writing.then(() => write(file, text))
     },
-    written: () => writing
+    written: () => writing,
+    reopened: () => reading
   }
 
   if (file) {
-    void remembered(file).then((roots) => {
+    reading = remembered(file).then((roots) => {
       for (const root of roots) {
         // A window that asked first is opening it already, and keeps it.
         if (claimed.has(root) || unclaimed.has(root)) continue
