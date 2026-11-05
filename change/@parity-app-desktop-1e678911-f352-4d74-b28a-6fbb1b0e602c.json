@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Execute results group warnings by category and message, with a severity, a count and every place, and the text lists them under render failures, warnings and suggestions",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

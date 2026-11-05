@@ -2,6 +2,101 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 10:01:48 GMT",
+      "version": "0.9.0",
+      "tag": "@parity-app/desktop_v0.9.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ce0d7a100ccecef41a8493908646af1f77f141d6",
+            "comment": "Execute results group warnings by category and message, with a severity, a count and every place, and the text lists them under render failures, warnings and suggestions"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7f88286a49b078af266f2751dcd17ea2c383b69e",
+            "comment": "Problems names the node that overflows, what it overflows (the frame or the ancestor that clips it), both boxes and the pixels past each edge; Measure gives each node's parent and the state and mode it drew"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dac6eb0f4eb1056d7c6cd2a8b33c9b758743a3bc",
+            "comment": "Suggest the project's color token that fixes each contrast failure, and apply it in one click"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e3cd293b2f7c720586edf2fff13fb2e307c75660",
+            "comment": "Open a project with no Parity file on a Home screen that draws the app's / page on desktop and mobile"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7ee17172bc6c7a1ce8b1dd283794017d3540cbed",
+            "comment": "Execute results list the responsive, state and variant patches each Replace discarded, in discarded and under Discarded by Replace (PAR-455)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f11f4d3841fc3d94b6a340d014b2c542de32b4db",
+            "comment": "Props reports a component's composition: the parents or provider it goes inside, the parts it holds, its slots and an example to insert (PAR-454)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d13c42e6c2234f97219f00d7791ac6f7d4c7c6e2",
+            "comment": "New screen and New component in the File and Object menus, the canvas menu, Search actions and Layers, and what lands on the empty canvas makes a screen named after it (PAR-546)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0b3ab8ba5c7980d8b5b1b86bc30d39a4a7284657",
+            "comment": "A project file keeps tables, operations and routes placed on the canvas, typed links drawn by hand, and the source each lens reads (PAR-16)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "743f0ad69e028399ff02f5817420896899071f9e",
+            "comment": "Frames in a theme's mode get the attribute the stylesheet switches it on with, so [data-theme=dark] themes show in Dark frames"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1f033466c0eb71f9d8b2b0218e7e3ad405a7aede",
+            "comment": "List the props a library's component declares beside its element's attributes, such as Nova's isActive, as its own, with their defaults"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0b8cdf416ac1733dae61b7e41b310e93c920b8b9",
+            "comment": "A tsconfig change while a project is open sorts the app's sources again, so components it now leaves out drop off the list (PAR-492)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d47c5110c4f103ee94f92b5f09715a0c75d59439",
+            "comment": "Storybook now starts and stops through a shared process manager, which keeps each server's port and output and stops what it started when the project closes (PAR-20)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "246c23164983cf1a20fafca1b4352aa3a37f2053",
+            "comment": "Take radius-full, Tailwind's rounded-full, in the radius field, and list it with GetTokens as a keyword"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "018194f322dc666a47f3c7ade364a48158130aa9",
+            "comment": "An unknown state now says calls take a state's id, lists each id beside its name, and points a state's name to its id"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 07:14:25 GMT",
       "version": "0.8.1",
       "tag": "@parity-app/desktop_v0.8.1",
