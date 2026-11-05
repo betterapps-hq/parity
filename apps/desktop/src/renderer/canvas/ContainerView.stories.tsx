@@ -1,3 +1,4 @@
+import { newDesign, turnInto } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
 import { AppWindow } from "../App.tsx"
@@ -71,6 +72,47 @@ export const ZoomedOut: Story = onCanvas(
   },
   () => example().editor?.zoomToFit()
 )
+
+/**
+ * Frames, the light kind (PAR-539), on today's board until PAR-545 gives them their own: a new one at 480 by 320, and the
+ * Sign in screen turned into one. Each shows one preview, in the primary mode, at its own size.
+ */
+export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], () => {
+  const { store } = example()
+  const taken = store.getEntries().map((entry) => entry.container.id)
+  const blank = newDesign("frame", taken, { x: -1400, y: -900 }, { size: { width: 480, height: 320 } })
+  store.addContainer(store.mainPath, {
+    ...blank,
+    id: "pricing-ideas",
+    name: "Pricing ideas",
+    root: {
+      ...blank.root,
+      ...(blank.root.type === "layout"
+        ? {
+            children: [
+              {
+                id: "fp-title",
+                type: "text",
+                tag: "h2",
+                text: "Pricing ideas",
+                style: { size: "text-xl", weight: 600 }
+              },
+              { id: "fp-body", type: "text", text: "Three tiers, yearly discount up front?" },
+              { id: "fp-cta", type: "component", component: "Button", props: { children: "Compare plans" } }
+            ]
+          }
+        : {})
+    }
+  })
+  const signIn = store.getEntries().find((entry) => entry.container.name === "Sign in")!.container
+  const { design: turned } = turnInto(signIn, "frame", store.getModes())
+  store.addContainer(store.mainPath, {
+    ...turned,
+    id: "sign-in-sketch",
+    name: "Sign in sketch",
+    position: { x: -1400, y: -300 }
+  })
+})
 
 /** Free text notes beside a design, for comments and to-dos on the canvas. */
 export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
