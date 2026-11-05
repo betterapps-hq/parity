@@ -1,6 +1,6 @@
 import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
-import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail } from "@parity-app/agent"
-import { type ContainerSpec, findNode, type ModeSettings, shownModes } from "@parity-app/core"
+import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail, TokenFix } from "@parity-app/agent"
+import { type ContainerSpec, findNode, mapNode, type ModeSettings, shownModes } from "@parity-app/core"
 import { kindName } from "@parity-app/editor"
 import {
   ArrowUpRight,
@@ -14,13 +14,14 @@ import {
   MousePointerClick,
   OctagonAlert,
   RefreshCw,
-  TriangleAlert
+  TriangleAlert,
+  Undo2
 } from "lucide-react"
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { setTabOrderShown, useTabOrderShown } from "../canvas/tab-order.ts"
-import { type ContainerEntry, useContainerEntry, useModeSettings } from "../design-store.ts"
+import { type ContainerEntry, useContainerEntry, useHistory, useModeSettings } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { ruleWords } from "./accessibility-rules.ts"
@@ -29,11 +30,14 @@ import { IconButton } from "./IconButton.tsx"
 import { PanelError } from "./PanelError.tsx"
 
 /** A check of one design, kept with what it checked so a later change shows it's out of date. */
-type Check = { container: ContainerSpec; modes: ModeSettings } & (
-  | { status: "checking" }
-  | { status: "done"; findings: AccessibilityFinding[]; frames: number; warnings: string[] }
-  | { status: "failed"; error: string }
-)
+type Check = { container: ContainerSpec; modes: ModeSettings } &
+  /** Checking again keeps the last check's findings, to show faded until this one's arrive. */
+  (
+    | { status: "checking"; previous?: DoneCheck }
+    | { status: "done"; findings: AccessibilityFinding[]; frames: number; warnings: string[] }
+    | { status: "failed"; error: string }
+  )
+type DoneCheck = Extract<Check, { status: "done" }>
 
 const checks = new Map<string, Check>()
 const listeners = new Set<() => void>()
@@ -54,11 +58,19 @@ function useCheck(key: string): Check | undefined {
   )
 }
 
+/** The findings to show for a check: its own, or while it checks again, the last check's. */
+function findingsOf(check: Check | undefined): DoneCheck | undefined {
+  if (check?.status === "done") return check
+  if (check?.status === "checking") return check.previous
+  return undefined
+}
+
 /** Renders the design offscreen in every state and shown mode, and checks each frame with axe-core. */
 async function runCheck(session: ProjectSession, entry: ContainerEntry): Promise<void> {
   const key = checkKey(session, entry.key)
   const checked = { container: entry.container, modes: session.store.getModes() }
-  setCheck(key, { ...checked, status: "checking" })
+  const previous = findingsOf(checks.get(key))
+  setCheck(key, { ...checked, status: "checking", ...(previous ? { previous } : {}) })
   try {
     const result = await window.canvasHost.request("accessibility.check", { projectId: session.id, design: entry.key })
     setCheck(key, { ...checked, status: "done", ...result })
@@ -146,10 +158,10 @@ export function AccessibilityPanel() {
   const entry = useContainerEntry(store, selected.design)
   if (!entry) {
     return (
-      <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto px-6 py-12 text-center text-sm text-muted-foreground">
         <MousePointerClick className="size-5" />
-        Select a screen or component to check its accessibility.
-        <span className="text-xs">Every state is checked, in the modes it shows.</span>
+        Select a screen or component to check it.
+        <span className="text-xs">Every state and mode is checked.</span>
       </div>
     )
   }
@@ -169,47 +181,83 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
   }, [entry, key, session])
 
   const checking = check?.status === "checking"
-  const stale = check && check.status !== "checking" && changedSince(check, container, modes)
+  const stale = check?.status === "done" && changedSince(check, container, modes)
+  // While checking again, the last check's findings show faded, like out-of-date ones.
+  const shown = findingsOf(check)
+  let refreshLabel = "Check again"
+  if (checking) refreshLabel = "Checking"
+  else if (stale) refreshLabel = "Check again, out of date"
+  const faded = stale || (checking && !!shown)
   const checkAgain = () => void runCheck(session, entry)
   return (
     <>
-      <div className="flex items-center gap-2 border-b py-2 pr-2 pl-4">
-        <DesignIcon kind={container.kind} className="size-4 shrink-0" style={{ color: designColor(container.kind) }} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{container.name}</span>
-        <IconButton label={checking ? "Checking" : "Check again"} disabled={checking} onClick={checkAgain}>
-          <RefreshCw className={checking ? "animate-spin" : undefined} />
-        </IconButton>
+      {/* The findings scroll above the note, which stays at the panel's foot. */}
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="flex items-center gap-2 border-b py-2 pr-2 pl-4">
+          <DesignIcon
+            kind={container.kind}
+            className="size-4 shrink-0"
+            style={{ color: designColor(container.kind) }}
+          />
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{container.name}</span>
+          {shown && shown.findings.length > 0 && (
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+              {shown.frames === 1 ? "1 preview" : `${shown.frames} previews`}
+            </span>
+          )}
+          <IconButton label={refreshLabel} disabled={checking} onClick={checkAgain} className="relative">
+            <RefreshCw className={checking ? "animate-spin" : undefined} />
+            {stale && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-amber-500" aria-hidden />}
+          </IconButton>
+        </div>
+        <TabOrderSwitch />
+        {stale && (
+          <div className="flex items-center gap-2 border-b bg-amber-500/10 py-2 pr-2 pl-4 text-xs">
+            <TriangleAlert className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="min-w-0 flex-1">{`This ${kindName(container.kind)} changed after it was checked.`}</span>
+            <Button size="xs" onClick={checkAgain}>
+              Check again
+            </Button>
+          </div>
+        )}
+        {checking && shown && (
+          <div className="flex items-center gap-2 border-b bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
+            <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+            Checking again
+          </div>
+        )}
+        {checking && !shown && (
+          <div className="flex flex-col items-center gap-2 px-6 py-10 text-center text-sm text-muted-foreground">
+            <LoaderCircle className="size-5 animate-spin" />
+            Checking every state and mode
+          </div>
+        )}
+        {check?.status === "failed" && (
+          <div className="p-4">
+            <PanelError
+              title={`Couldn't check ${container.name}`}
+              action={
+                <Button size="xs" variant="outline" onClick={checkAgain}>
+                  <RefreshCw /> Check again
+                </Button>
+              }
+            >
+              {check.error}
+            </PanelError>
+          </div>
+        )}
+        {shown && (
+          <div className={faded ? "opacity-50 transition-opacity" : "transition-opacity"}>
+            <Findings entry={entry} check={shown} />
+          </div>
+        )}
       </div>
-      <TabOrderSwitch />
-      {stale && (
-        <div className="flex items-center gap-2 border-b bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
-          <span className="flex-1">{`This ${kindName(container.kind)} changed after it was checked.`}</span>
-          <button type="button" className="font-medium text-foreground hover:underline" onClick={checkAgain}>
-            Check again
-          </button>
-        </div>
+      {shown && (
+        <p className="flex shrink-0 items-start gap-2 border-t px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <Info className="mt-0.5 size-3.5 shrink-0" />
+          <span>Automated checks miss some issues. Try a keyboard and a screen reader too.</span>
+        </p>
       )}
-      {checking && (
-        <div className="flex flex-col items-center gap-2 px-6 py-10 text-center text-sm text-muted-foreground">
-          <LoaderCircle className="size-5 animate-spin" />
-          Checking every state and mode
-        </div>
-      )}
-      {check?.status === "failed" && (
-        <div className="p-4">
-          <PanelError
-            title={`Couldn't check ${container.name}`}
-            action={
-              <Button size="xs" variant="outline" onClick={checkAgain}>
-                <RefreshCw /> Check again
-              </Button>
-            }
-          >
-            {check.error}
-          </PanelError>
-        </div>
-      )}
-      {check?.status === "done" && <Findings entry={entry} check={check} />}
     </>
   )
 }
@@ -277,23 +325,10 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
             <CircleCheck className="size-5" />
           </span>
           <span className="font-medium">No issues found</span>
-          <span className="text-xs text-muted-foreground">{frames} checked, every state in the modes it shows.</span>
+          <span className="text-xs text-muted-foreground">{frames} checked, in every state and mode.</span>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-xs">
-          {impactOrder.map((impact) => {
-            const count = groups.filter((group) => group.impact === impact).length
-            if (count === 0) return null
-            const { icon: Icon, label, tone } = impactLooks[impact]
-            return (
-              <span key={impact} className={`flex items-center gap-1 font-medium ${tone}`}>
-                <Icon className="size-3.5" />
-                {count} {label}
-              </span>
-            )
-          })}
-          <span className="ml-auto text-muted-foreground">{frames} checked</span>
-        </div>
+        <ImpactTally groups={groups} />
       )}
       {groups.map((group) => (
         <RuleSection
@@ -314,14 +349,34 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
           {warning}
         </p>
       ))}
-      <p className="flex items-start gap-2 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-        <Info className="mt-0.5 size-3.5 shrink-0" />
-        <span>
-          Checked with axe-core against WCAG 2.2 AA. Automated checks find some issues, not all, so try the{" "}
-          {kindName(check.container.kind)} with a keyboard and a screen reader too.
-        </span>
-      </p>
     </div>
+  )
+}
+
+/**
+ * How many rules the design breaks at each impact, worst first, in four even columns so the counts line up at any
+ * width. An impact with none is shown faintly, so the columns stay put from one design to the next.
+ */
+function ImpactTally({ groups }: { groups: RuleGroup[] }) {
+  return (
+    <ul className="grid grid-cols-4 divide-x border-b" aria-label="Rules broken by impact">
+      {impactOrder.map((impact) => {
+        const count = groups.filter((group) => group.impact === impact).length
+        const { icon: Icon, label, tone } = impactLooks[impact]
+        return (
+          <li
+            key={impact}
+            className={`flex flex-col items-center gap-0.5 py-2.5 ${count === 0 ? "text-muted-foreground/50" : tone}`}
+          >
+            <span className="flex items-center gap-1 text-base leading-none font-semibold tabular-nums">
+              <Icon className="size-3.5" aria-hidden />
+              {count}
+            </span>
+            <span className={`text-[11px] ${count === 0 ? "" : "text-muted-foreground"}`}>{label}</span>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -467,6 +522,9 @@ function LayerRow({
       <div className="pointer-events-none relative">
         {layer.contrast ? <ContrastSample contrast={layer.contrast} /> : <Detail text={layer.detail} />}
       </div>
+      {layer.contrast?.fix && layer.nodes.length > 0 && (
+        <ContrastFixRow entry={entry} nodes={layer.nodes} contrast={layer.contrast} fix={layer.contrast.fix} />
+      )}
       <div className="pointer-events-none relative mt-1.5 flex flex-wrap gap-1">
         {inEvery ? (
           <span className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-[11px] text-muted-foreground">
@@ -537,6 +595,88 @@ function ContrastSample({ contrast }: { contrast: ContrastDetail }) {
           {background}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The project's token that fixes the contrast, drawn on the same background, with Apply to color the layers' text with
+ * it as one undoable step. Once applied, Undo shows while that's still the last step.
+ */
+function ContrastFixRow({
+  entry,
+  nodes,
+  contrast,
+  fix
+}: {
+  entry: ContainerEntry
+  nodes: string[]
+  contrast: ContrastDetail
+  fix: TokenFix | "none"
+}) {
+  const session = useProject()
+  const { undoLabel } = useHistory(session.store)
+  const [appliedHere, setAppliedHere] = useState(false)
+  if (fix === "none") {
+    return (
+      <p className="relative mt-1.5 text-xs leading-normal text-muted-foreground">
+        None of the project&apos;s colors pass on this background. Try a different background.
+      </p>
+    )
+  }
+  const step = `Use ${fix.token}`
+  // Another row's fix can take the same step name, so each row knows whether the last step was its own.
+  const applied = appliedHere && undoLabel === step
+  // A fix is only known to work once it's checked, so the design is checked again as soon as it changes.
+  const checkChanged = () => {
+    const changed = session.store.getEntry(entry.key)
+    if (changed) void runCheck(session, changed)
+  }
+  const apply = () => {
+    setAppliedHere(true)
+    session.store.updateContainer(entry.key, step, (container) => ({
+      ...container,
+      root: nodes.reduce(
+        (root, id) => mapNode(root, id, (node) => ({ ...node, style: { ...node.style, foreground: fix.token } })),
+        container.root
+      )
+    }))
+    checkChanged()
+  }
+  return (
+    <div className="relative mt-1.5 flex items-center gap-2.5">
+      <span
+        className="grid h-7 w-12 shrink-0 place-items-center rounded-md border text-[13px]"
+        style={{ color: fix.color, background: contrast.background, fontWeight: contrast.bold ? 700 : 500 }}
+        aria-hidden
+      >
+        Aa
+      </span>
+      <div className="min-w-0 flex-1 text-xs">
+        <div className="flex min-w-0 items-baseline gap-1 text-foreground">
+          Use
+          <code className="truncate rounded-sm bg-foreground/[0.07] px-1 py-px font-mono text-[11px]">{fix.token}</code>
+        </div>
+        <div className="mt-0.5 text-muted-foreground tabular-nums">Reaches {fix.ratio}:1</div>
+      </div>
+      {applied ? (
+        <Button
+          size="xs"
+          variant="ghost"
+          className="pointer-events-auto"
+          onClick={() => {
+            setAppliedHere(false)
+            session.store.undo()
+            checkChanged()
+          }}
+        >
+          <Undo2 /> Undo
+        </Button>
+      ) : (
+        <Button size="xs" variant="outline" className="pointer-events-auto" onClick={apply}>
+          Apply
+        </Button>
+      )}
     </div>
   )
 }

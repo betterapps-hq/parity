@@ -1481,6 +1481,11 @@ recommended answer to each of its questions.
   settings might not be there."
 - **Agents call `Accessibility(design, { state, mode })`,** which returns one finding per layer and frame, with the
   rule, its impact, axe's help link and what's wrong, plus the measured colours for contrast failures.
+- **Contrast failures suggest a fix from the project's tokens (PAR-21).** My call: the closest token, in OKLab, that
+  passes in every frame the text was measured in, passing frames too; semantic tokens before the palette; and no fix
+  where coloring the layer wouldn't reach the text, such as inside an instance or a component's own classes. Apply
+  checks the design again at once. You approved the design in Storybook on 2026-11-05, with the impact tally in four
+  columns, the note pinned to the panel's foot, and an out-of-date check shown in amber with its findings faded.
 - **Show tab order** numbers the selected design's tab stops on the canvas, in every frame, joined in the order Tab
   visits them. Positive `tabindex` comes first, then document order; hidden, disabled and inert elements are skipped, as
   is every radio button in a group but one.

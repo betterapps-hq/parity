@@ -2,6 +2,7 @@ import { defaultModeSettings, type DesignNode, findNode, frameGeometry, resolveM
 import { describe, expect, it } from "vite-plus/test"
 import { execute } from "./run.ts"
 import type {
+  AccessibilityFinding,
   AgentChangeSet,
   AgentEvent,
   AgentHooks,
@@ -653,6 +654,77 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     // An element that isn't one of the design's nodes is reported on the frame.
     expect(findings[1]).not.toHaveProperty("node")
     expect(findings[1]).toMatchObject({ detail: "Outside any node" })
+  })
+
+  it("gives contrast failures the token that passes in every frame", async () => {
+    const project = snapshot()
+    project.tokens.push(
+      { name: "muted", category: "color", source: "semantic", values: { default: "#999999" } },
+      { name: "neutral-500", category: "color", source: "theme", values: { default: "#767676" } }
+    )
+    const requested: (string[] | undefined)[] = []
+    const base = hooks()
+    // The title fails on white in light, and passes on black in mobile, where primary would fail.
+    const render: AgentHooks["render"] = async (request) => {
+      requested.push(request.colorTokens)
+      const frame = await base.render(request)
+      const mobile = request.mode.id === "mobile-light"
+      return {
+        ...frame,
+        contrast: {
+          tokens: {
+            background: mobile ? "#000000" : "#ffffff",
+            primary: "#1d4ed8",
+            muted: "#999999",
+            "neutral-500": "#767676"
+          },
+          texts: [
+            mobile
+              ? { id: "title", foreground: "#999999", background: "#000000", ratio: 7.37, required: 4.5, follows: true }
+              : { id: "title", foreground: "#999999", background: "#ffffff", ratio: 2.84, required: 4.5, follows: true }
+          ]
+        }
+      }
+    }
+    const result = await execute(
+      {
+        label: "Check",
+        code: `Print(JSON.stringify(await Accessibility("signup", {mode: ["desktop-light", "mobile-light"]})))`
+      },
+      project,
+      { presence: () => undefined, render }
+    )
+    expect(result.ok).toBe(true)
+    // Only color tokens are read, in every frame.
+    expect(requested).toEqual([
+      ["background", "primary", "muted", "neutral-500"],
+      ["background", "primary", "muted", "neutral-500"]
+    ])
+    const findings = JSON.parse(result.output[0]!) as AccessibilityFinding[]
+    const title = findings.find((finding) => finding.node === "title" && finding.mode === "desktop-light")
+    // primary would pass on white, but not on black, where the title passes now. Only neutral-500 passes on both, so it's
+    // suggested though it isn't semantic, at its lower ratio of the two.
+    expect(title?.contrast?.fix).toEqual({ token: "neutral-500", color: "#767676", ratio: 4.54 })
+  })
+
+  it("gives no contrast fix when coloring the layer wouldn't reach its text", async () => {
+    const base = hooks()
+    const render: AgentHooks["render"] = async (request) => ({
+      ...(await base.render(request)),
+      contrast: {
+        tokens: { primary: "#000000" },
+        texts: [
+          { id: "title", foreground: "#999999", background: "#ffffff", ratio: 2.84, required: 4.5, follows: false }
+        ]
+      }
+    })
+    const result = await execute(
+      { label: "Check", code: `Print(JSON.stringify(await Accessibility("signup")))` },
+      snapshot(),
+      { presence: () => undefined, render }
+    )
+    const findings = JSON.parse(result.output[0]!) as AccessibilityFinding[]
+    expect(findings[0]?.contrast).not.toHaveProperty("fix")
   })
 
   it("names an instance after its design", async () => {

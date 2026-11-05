@@ -156,6 +156,24 @@ describe("describeAccessibility", () => {
     )
     expect(text.split("\n")[0]).toBe("1 rule broken in Team (team), 3 frames, with axe-core against WCAG 2.2 AA.")
   })
+
+  it("gives a contrast failure's fix as the style to set, or says no token passes", () => {
+    const fixed = { ...finding("row-1", "default"), contrast: { fix: { token: "foreground", ratio: 18.16 } } }
+    const unfixable = { ...finding("row-2", "error"), name: "Badge", contrast: { fix: "none" as const } }
+    const text = describeAccessibility({
+      tab,
+      design: { id: "team", name: "Team" },
+      frames: 2,
+      warnings: [],
+      findings: [fixed, unfixable]
+    })
+    expect(text).toContain(
+      '  Member row (row-1), in default in desktop: #737373 on #f5f5f5 is 4.34:1, and 14px text needs 4.5:1.\n    Fix: set style.foreground to "foreground", which reaches 18.16:1 in every frame checked.'
+    )
+    expect(text).toContain(
+      "\n    Fix: none of the project's color tokens pass on this background; change the background."
+    )
+  })
 })
 
 describe("describeModes", () => {

@@ -121,6 +121,7 @@ async function keyFor({ job }: PreviewJob): Promise<string | undefined> {
     components: _given,
     previews: _tokens,
     audit: _audit,
+    colorTokens: _colors,
     projectId: _project,
     ...drawn
   } = job

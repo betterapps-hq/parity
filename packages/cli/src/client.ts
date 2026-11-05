@@ -380,6 +380,8 @@ export interface AccessibilityFinding {
   node?: string
   name?: string
   detail: string
+  /** For a contrast failure: the token to color the layer's text with, or `"none"` when none of the project's pass. */
+  contrast?: { fix?: { token: string; ratio: number } | "none" }
 }
 
 export interface AccessibilityResponse {
@@ -396,6 +398,7 @@ interface LayerLine {
   name: string
   nodes: string[]
   detail: string
+  fix?: string
   frames: { state: string; mode: string }[]
 }
 
@@ -426,6 +429,7 @@ export function describeAccessibility(result: AccessibilityResponse): string {
         name: finding.name ?? "The design",
         nodes: finding.node ? [finding.node] : [],
         detail: finding.detail,
+        ...(fixLine(finding) ? { fix: fixLine(finding) } : {}),
         frames: []
       }
       layer.frames.push({ state: finding.state, mode: finding.mode })
@@ -442,12 +446,20 @@ export function describeAccessibility(result: AccessibilityResponse): string {
       const where = layer.frames.length === frames && frames > 1 ? "every frame" : frameList(layer.frames)
       const ids = layer.nodes.length > 0 ? ` (${layer.nodes.join(", ")})` : ""
       lines.push(`  ${layer.name}${ids}, in ${where}: ${layer.detail}`)
+      if (layer.fix) lines.push(`    ${layer.fix}`)
     }
     lines.push(`  How to fix it: ${helpUrl}`)
   }
   if (result.warnings.length > 0) lines.push("", "Warnings:", ...result.warnings.map((warning) => `  ${warning}`))
   lines.push("", "Automated checks find some issues, not all. Try the design with a keyboard and a screen reader too.")
   return lines.join("\n")
+}
+
+/** A contrast failure's fix in a sentence, naming the style to set so it can be passed to execute. */
+function fixLine(finding: AccessibilityFinding): string | undefined {
+  const fix = finding.contrast?.fix
+  if (fix === "none") return "Fix: none of the project's color tokens pass on this background; change the background."
+  return fix && `Fix: set style.foreground to "${fix.token}", which reaches ${fix.ratio}:1 in every frame checked.`
 }
 
 export interface ProblemsResponse {

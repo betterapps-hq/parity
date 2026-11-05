@@ -555,10 +555,12 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
 function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: RenderedFrame; png?: string }> {
   return renderOffscreen("render", job, capture || !!job.audit, async (window, frame, width, height) => {
     if (job.audit) {
-      frame.issues = (await window.webContents.executeJavaScript(
-        "window.canvasAudit()",
+      const audited = (await window.webContents.executeJavaScript(
+        `window.canvasAudit(${JSON.stringify(job.colorTokens ?? [])})`,
         true
-      )) as RenderedFrame["issues"]
+      )) as Pick<RenderedFrame, "issues" | "contrast">
+      frame.issues = audited.issues
+      frame.contrast = audited.contrast
     }
     if (!capture) return { frame }
     const image = await window.webContents.capturePage({ x: 0, y: 0, width, height })

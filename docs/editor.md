@@ -2343,6 +2343,49 @@ and the design taking it without a warning while a color named `radius-full` is 
 `--radius-full` listed as its token). Gaps: the inspector's radius picker doesn't offer Full yet, and the Tokens panel
 doesn't list it; a node an agent rounds this way shows `radius-full` in the field as it would an unknown token.
 
+## Accessibility
+
+How the Accessibility tab checks a design and helps fix what it finds.
+
+### Contrast fixes from the project's tokens (PAR-21)
+
+Each contrast failure in the Accessibility tab suggests the project's color token closest to the text's color that
+passes, drawn as a second text sample on the same background with the ratio it reaches ("Use `foreground`, Reaches
+18.16:1"). Apply sets it as the layers' `foreground` as one undoable step named "Use foreground", then checks the design
+again, since only a check shows the fix worked; the row offers Undo while that's still the last step, and Undo checks
+again too. Undo from the keyboard leaves the check out of date instead. When no token passes on that background, the row
+says so and has no Apply. `check_accessibility` and `Accessibility()` give agents the same fix on each contrast finding
+(`contrast.fix`: the token, its color in that frame and its lowest ratio, or `"none"`), and `parity a11y` prints it as
+the style to set.
+
+- **Every frame counts, passing ones too.** The token must pass in every frame the layer's text was measured in,
+  including frames where it passes now, so fixing light mode can't break dark. axe-core's passes for `color-contrast`
+  give those frames' colors.
+- **Closest means least change.** Distance is in OKLab, from the measured text color, added up over the frames. A
+  token's own transparency is laid over the background first.
+- **The project's own tokens first.** Semantic tokens (`foreground`, `primary`…) are tried before the framework's
+  palette, so text that follows a theme still does; the palette is tried only when no semantic token passes.
+- **Only where coloring the layer reaches the text.** The frame sets an unused color on the layer's element and sees
+  whether the text takes it. Text colored inside a component, by its own classes, or inside an instance gets no fix,
+  since setting the layer's color wouldn't change it.
+- **Out of date, and checking again.** A check whose design changed since shows an amber warning with Check again, a dot
+  on the refresh button, and its findings faded. Checking again keeps the last findings, faded, under "Checking again",
+  rather than emptying the panel.
+
+Code: `contrastFix`, `contrastRatio` and `colorDistance` in `packages/tokens/src/contrast.ts`; the frame's readings
+(`contrastReadings`, `follows`, `tokenColors`) in `apps/desktop/src/renderer/render.ts`; `addContrastFixes` in
+`packages/agent/src/workspace.ts`; `ContrastFixRow`, `ImpactTally` and `DesignCheck` in
+`apps/desktop/src/renderer/chrome/AccessibilityPanel.tsx`; `fixLine` in `packages/cli/src/client.ts`.
+
+Tests: `packages/tokens/src/contrast.test.ts` (WCAG ratios, translucent colors, the closest passing token, passing
+frames, preferred tokens and the fallback, large text, no token); `packages/agent/src/run.test.ts` ("gives contrast
+failures the token that passes in every frame", "gives no contrast fix when coloring the layer wouldn't reach its
+text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as the style to set"); and
+`chrome/AccessibilityPanel.stories.tsx`: ContrastFix (Apply, the change, checking again), NoPassingToken, OutOfDate,
+CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the frame's readings
+in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so a state that
+sets its own `foreground` keeps it.
+
 ## Libraries
 
 How a library's own designs reach the projects that install it.

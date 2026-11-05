@@ -1,3 +1,4 @@
+export * from "./contrast.ts"
 export * from "./dtcg.ts"
 export * from "./kinds.ts"
 export * from "./matching.ts"
