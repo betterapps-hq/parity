@@ -3633,6 +3633,16 @@ same screen. My calls:
 - **A file that couldn't be read gets no Home screen,** so saving can't write over it. A file whose designs were all
   deleted opens with none, as the person left it.
 
+## Agents name states by id, and a name points to its id (PAR-459)
+
+A state's name can repeat and change, and an id made from a name stops matching it after a rename, so every call keeps
+taking a state's id and never resolves a name, even one that matches a single state. A miss still teaches the id: core's
+`findState`, which every state lookup goes through, says ids are expected, lists each id beside its name, and names the
+id of any state the reference names, ignoring case and spaces at the ends. A name several states share lists all their
+ids and picks none. The ids a name points to lead `alternatives`, ahead of the rest, so an agent reading only the
+details finds them. The code stays `unknown_state`, since the reference isn't a state id at all, rather than
+`ambiguous_reference`, which is for references that match more than one valid thing.
+
 ## Data Parity didn't make is checked with zod (PAR-578)
 
 Asked how PAR-565's channel module should check request params, by hand as core's `validate.ts` does or with zod, you

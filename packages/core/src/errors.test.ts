@@ -61,12 +61,52 @@ describe("coded errors", () => {
         { id: "empty", name: "Empty" }
       ]
     }
-    expect(() => findState(container, "loading")).toThrow('No state "loading" in Home. States: default, empty')
+    expect(() => findState(container, "loading")).toThrow(
+      'No state with id "loading" in Home. Calls take a state\'s id, as Designs() lists it. ' +
+        "States: default (Default), empty (Empty)"
+    )
     expect(errorDetails(thrown(() => findState(container, "loading")))).toEqual({
       code: "unknown_state",
       retryable: false,
       field: "state",
       alternatives: ["default", "empty"]
+    })
+  })
+
+  describe("a state named instead of given by id", () => {
+    const container = {
+      id: "home",
+      name: "Home",
+      position: { x: 0, y: 0 },
+      root: { type: "layout" as const, id: "root", name: "Root", children: [] },
+      states: [
+        { id: "default", name: "Default" },
+        // Renamed after it was added, so its id and name have diverged.
+        { id: "empty", name: "No results" },
+        { id: "busy", name: "Loading" },
+        { id: "busy-2", name: "Loading" }
+      ]
+    }
+
+    it("points a name to its id, ignoring case and spaces at the ends", () => {
+      const error = thrown(() => findState(container, " no RESULTS"))
+      expect(error).toHaveProperty("message", expect.stringContaining('" no RESULTS" is the name of state "empty"'))
+      expect(errorDetails(error)?.alternatives).toEqual(["empty", "default", "busy", "busy-2"])
+    })
+
+    it("lists every state a repeated name matches without choosing one", () => {
+      const error = thrown(() => findState(container, "Loading"))
+      expect(error).toHaveProperty(
+        "message",
+        expect.stringContaining('"Loading" names 2 states, "busy" and "busy-2"; use the id of the one you mean.')
+      )
+      expect(errorDetails(error)?.alternatives?.slice(0, 2)).toEqual(["busy", "busy-2"])
+    })
+
+    it("finds nothing by a name a state no longer has, and still lists the ids", () => {
+      const error = thrown(() => findState(container, "Empty"))
+      expect(error).toHaveProperty("message", expect.not.stringContaining("is the name of"))
+      expect(error).toHaveProperty("message", expect.stringContaining("empty (No results)"))
     })
   })
 })
