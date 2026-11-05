@@ -29,8 +29,7 @@ import { selectedNodes, toggleLayer, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
-import { onGestureEnd } from "./gesture-end.ts"
-import { holdCursor } from "./held-cursor.ts"
+import { type Drag, followPress, gestures } from "./gesture.ts"
 import {
   frameAt,
   frameScale,
@@ -780,38 +779,6 @@ function redline(from: Point, to: Point, length: number, unit: number): Redline 
   return { x1: from.x, y1: from.y, x2: to.x, y2: to.y, px, steps: Number.isInteger(steps * 2) ? steps : undefined }
 }
 
-/**
- * Follows the pointer until it's released, showing a cursor wherever it goes, as the drag writes to a design in one
- * gesture, so it's one undo step. Escape cancels: everything the drag wrote is taken back, leaving nothing to undo, and
- * the release that follows does nothing. The pointer cancelled or the window losing focus ends it as a release does.
- * `done` runs once it's over, whichever way it ended.
- */
-function drag(
-  session: ProjectSession,
-  design: string,
-  cursor: string,
-  move: (event: PointerEvent, gesture: string) => void,
-  done?: () => void
-): void {
-  const { store } = session
-  const gesture = store.beginGesture()
-  const checkpoint = store.checkpoint(design, gesture)
-  const releaseCursor = holdCursor(cursor)
-  const onMove = (event: PointerEvent) => {
-    event.preventDefault()
-    move(event, gesture)
-  }
-  window.addEventListener("pointermove", onMove)
-  // Released, cancelled or cut short, it keeps what it did; Escape takes it all back.
-  onGestureEnd(window, (how) => {
-    if (how === "escape" && checkpoint) store.revert(checkpoint)
-    releaseCursor()
-    window.removeEventListener("pointermove", onMove)
-    store.endGesture(gesture)
-    done?.()
-  })
-}
-
 /** How close, in screen pixels, an edge has to come to snap. */
 const snapDistance = 6
 
@@ -820,7 +787,8 @@ const snapDistance = 6
  * content's height. A layer takes a fixed size in whole spacing steps, or fill when its edge comes back to the inside
  * of its parent, changing only the handle's own axes (see `resizeGesture`); an absolutely placed layer keeps its far
  * edge where it was, and its dragged edges snap to its siblings' and its parent's (see `LayerSnapping`). Shift on a
- * corner keeps its proportions, and Escape takes the whole drag back.
+ * corner keeps its proportions. The drag writes as it goes, as one undo step: Escape takes it all back, and the pointer
+ * cancelled or the window losing focus keeps what it did (see `gestures.resize`).
  */
 function startResize(
   session: ProjectSession,
@@ -834,7 +802,7 @@ function startResize(
   const host = findFrames(area, handles.design, { mode: handles.mode, state: handles.state })[0]
   if (!entry || !editor || !host) return
   const scale = editor.getZoomLevel() * frameScale(host)
-  const start = { x: event.clientX, y: event.clientY }
+  const start = { clientX: event.clientX, clientY: event.clientY }
   const { width: horizontal, height: vertical } = edgeAxes(edge)
   let last = ""
 
@@ -846,24 +814,28 @@ function startResize(
     // Starting from the content's height, coming back to it snaps to hugging it again.
     const content = size.height === undefined ? rect.height / scale : undefined
     const startHeight = size.height ?? rect.height / scale
-    drag(session, entry.key, resizeCursors[edge], (moveEvent, gesture) => {
-      const next: FrameSize = { ...entry.container.frames?.[mode.viewport] }
-      if (horizontal) {
-        const width = Math.round(size.width + (moveEvent.clientX - start.x) / scale)
-        if (Math.abs(width - mode.width) * scale < snapDistance) delete next.width
-        else next.width = Math.max(160, width)
+    followPress(gestures.resize, store, start, {
+      design: entry.key,
+      cursor: resizeCursors[edge],
+      move(moveEvent, { gesture }) {
+        const next: FrameSize = { ...entry.container.frames?.[mode.viewport] }
+        if (horizontal) {
+          const width = Math.round(size.width + (moveEvent.clientX - start.clientX) / scale)
+          if (Math.abs(width - mode.width) * scale < snapDistance) delete next.width
+          else next.width = Math.max(160, width)
+        }
+        if (vertical) {
+          const height = Math.round(startHeight + (moveEvent.clientY - start.clientY) / scale)
+          if (content !== undefined && Math.abs(height - content) * scale < snapDistance) delete next.height
+          else next.height = Math.max(80, height)
+        }
+        const serialized = JSON.stringify(next)
+        if (serialized === last) return
+        last = serialized
+        store.updateContainer(entry.key, "Resize preview", (container) => withFrame(container, mode.viewport, next), {
+          gesture
+        })
       }
-      if (vertical) {
-        const height = Math.round(startHeight + (moveEvent.clientY - start.y) / scale)
-        if (content !== undefined && Math.abs(height - content) * scale < snapDistance) delete next.height
-        else next.height = Math.max(80, height)
-      }
-      const serialized = JSON.stringify(next)
-      if (serialized === last) return
-      last = serialized
-      store.updateContainer(entry.key, "Resize preview", (container) => withFrame(container, mode.viewport, next), {
-        gesture
-      })
     })
     return
   }
@@ -899,9 +871,8 @@ function startResize(
   // proportions.
   const snapping = drawn ? LayerSnapping.measure(editor, host, entry.container, location.node.id, scale) : undefined
 
-  // The snap guides go when the drag ends, however it ends.
-  const moveEdge = (moveEvent: PointerEvent, undoStep: string) => {
-    const delta = { x: moveEvent.clientX - start.x, y: moveEvent.clientY - start.y }
+  const moveEdge = (moveEvent: PointerEvent, drag: Drag) => {
+    const delta = { x: moveEvent.clientX - start.clientX, y: moveEvent.clientY - start.clientY }
     const proportional = moveEvent.shiftKey && horizontal && vertical
     if (proportional) snapping?.clear()
     const change = gesture({
@@ -923,10 +894,16 @@ function startResize(
       "Resize layer",
       (container) =>
         editNode(container, boardTarget(container, state.id), location.node.id, { style: style as NodeStyle }),
-      { gesture: undoStep }
+      { gesture: drag.gesture }
     )
   }
-  drag(session, entry.key, resizeCursors[edge], moveEdge, () => snapping?.clear())
+  followPress(gestures.resize, store, start, {
+    design: entry.key,
+    cursor: resizeCursors[edge],
+    move: moveEdge,
+    // The snap guides go when the drag ends, however it ends.
+    end: () => snapping?.clear()
+  })
 }
 
 /** Double-clicking a handle goes back to the default size on its axes. */

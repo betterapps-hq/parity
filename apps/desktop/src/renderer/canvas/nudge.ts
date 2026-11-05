@@ -14,6 +14,7 @@ import { boardReader, type Flow, flowOf } from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
 import { findNodeElement, flowingBoxes } from "../frame.ts"
 import { selectedDesigns, selectedNodes, type SelectionStore, selectionKey } from "../selection.ts"
+import { GestureRun } from "./gesture.ts"
 import { selectionFrame } from "./hit.ts"
 import { type DrawnSteps, type Side, shiftInsets } from "./insets.ts"
 import { activeState, frameViewport } from "./view.ts"
@@ -243,8 +244,8 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
   return undefined
 }
 
-/** Each store's run of arrow presses: what it nudges, by `selectionKey`, its gesture, and how it stops listening. */
-const runs = new WeakMap<DesignStore, { key: string; gesture: string; stop: () => void }>()
+/** Each store's run of arrow presses, keyed by what it nudges (see `GestureRun`). */
+const runs = new WeakMap<DesignStore, GestureRun>()
 
 /**
  * The gesture a press nudging what's selected is in. A run of presses on one selection is one gesture, however long it
@@ -253,24 +254,11 @@ const runs = new WeakMap<DesignStore, { key: string; gesture: string; stop: () =
  * in `@parity-app/editor`).
  */
 function runGesture(store: DesignStore, selection: SelectionStore): string {
-  const key = selectionKey(selection.get())
-  const run = runs.get(store)
-  if (run?.key === key) return run.gesture
-  if (run) endRun(store)
-  const gesture = store.beginGesture()
-  const stop = selection.subscribe(() => {
-    if (runs.get(store)?.gesture === gesture && selectionKey(selection.get()) !== key) endRun(store)
-  })
-  runs.set(store, { key, gesture, stop })
-  return gesture
-}
-
-function endRun(store: DesignStore): void {
-  const run = runs.get(store)
-  if (!run) return
-  runs.delete(store)
-  run.stop()
-  store.endGesture(run.gesture)
+  const run = runs.get(store) ?? new GestureRun(store)
+  runs.set(store, run)
+  return run.gesture(selectionKey(selection.get()), () =>
+    selection.subscribe(() => run.select(selectionKey(selection.get())))
+  )
 }
 
 function moved(position: { x: number; y: number }, by: { x: number; y: number }) {
