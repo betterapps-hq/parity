@@ -53,7 +53,7 @@ and writing back after that. Tests, coverage, the gaps report and performance wa
   decide to open them up.
 - **One process manager.** It starts, watches and stops what the lenses need: dev servers and `wrangler dev` now, and
   test runners and preview builds later. It tracks ports and logs, stops everything when a project closes, and keeps to
-  a memory limit. Starting and stopping Storybook is its first piece.
+  a memory limit. Starting and stopping Storybook is its first piece, which landed with PAR-20.
 - **Connections and secrets.** Database URLs and service keys are entered by you and stored with the system keychain
   (Electron's safeStorage), never in the project or `.par`. Database connections are read-only.
 - **A full-stack example.** A project from the Buildkit scaffolder, with a router, an API and a database, to build every

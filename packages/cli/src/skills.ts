@@ -23,6 +23,11 @@ export async function readSkill(path = "SKILL.md"): Promise<string> {
   }
 }
 
+/** Every file in the skill, as paths `readSkill` takes. */
+export async function skillFiles(): Promise<string[]> {
+  return list()
+}
+
 async function list(directory = root): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true })
   const files = await Promise.all(

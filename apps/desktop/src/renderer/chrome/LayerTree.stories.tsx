@@ -17,7 +17,7 @@ const meta = {
   decorators: [
     (Story, { parameters }) =>
       parameters.blank ? (
-        <ProjectStage project="empty">
+        <ProjectStage project="designless">
           <Story />
         </ProjectStage>
       ) : (
@@ -84,10 +84,10 @@ async function rightClick(target: HTMLElement): Promise<void> {
 /** Every design closed: component designs first, then screens, each with how many states it has. */
 export const Designs: Story = { loaders: [() => openProjects("example")] }
 
-/** A project with no designs yet: both groups say so. */
+/** A project whose designs were all deleted: both groups say so. */
 export const EmptyProject: Story = {
   parameters: { blank: true },
-  loaders: [() => openProjects("empty")]
+  loaders: [() => openProjects("designless")]
 }
 
 /** A design opened by its arrow, then its page: its first level of layers shows, and nothing is selected. */

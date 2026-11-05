@@ -1,0 +1,138 @@
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import {
+  adoptServer,
+  freePort,
+  knownServers,
+  serverLog,
+  type ServerSpec,
+  startServer,
+  stopProject
+} from "./process-manager.ts"
+import { listProcesses } from "./processes.ts"
+
+let state: string
+
+beforeEach(async () => {
+  // No Portless routes, so the list names nothing.
+  state = await mkdtemp(join(tmpdir(), "parity-portless-"))
+  process.env.PORTLESS_STATE_DIR = state
+})
+
+afterEach(async () => {
+  stopProject("D:/projects/shop")
+  delete process.env.PORTLESS_STATE_DIR
+  await rm(state, { recursive: true, force: true })
+})
+
+const project = { projectId: "D:/projects/shop", project: "shop" } as const
+
+/** A small HTTP server on Node, which says so once it listens. */
+const httpServer = `
+const server = require("node:http").createServer((_, response) => response.end("ok"))
+server.listen(Number(process.argv[1]), () => console.log("listening on " + process.argv[1]))
+`
+
+async function storybook(overrides: Partial<ServerSpec> = {}): Promise<ServerSpec> {
+  const port = await freePort()
+  return {
+    ...project,
+    id: "storybook:shop",
+    kind: "storybook",
+    name: "Storybook",
+    command: process.execPath,
+    args: ["-e", httpServer, String(port)],
+    cwd: process.cwd(),
+    url: `http://localhost:${port}`,
+    ready: (url) => fetch(url).then((response) => response.ok),
+    ...overrides
+  }
+}
+
+// Each test starts real Node processes, which take seconds on a busy machine.
+describe("startServer", { timeout: 60_000 }, () => {
+  it("waits until a server answers, then knows its port and keeps what it printed", async () => {
+    const spec = await storybook()
+    const server = startServer(spec)
+    expect((await listProcesses())[0]).toMatchObject({ status: "starting", canStop: true, startedBy: "parity" })
+
+    await expect(server.ready).resolves.toBe(spec.url)
+    expect((await listProcesses())[0]).toMatchObject({ status: "running", url: spec.url, pid: server.pid })
+    expect(knownServers("D:/projects/shop")).toEqual([
+      {
+        id: "storybook:shop",
+        kind: "storybook",
+        projectId: "D:/projects/shop",
+        url: spec.url,
+        port: server.port,
+        pid: server.pid,
+        startedBy: "parity"
+      }
+    ])
+    expect(serverLog("storybook:shop")).toContain(`listening on ${server.port}`)
+  })
+
+  it("stops everything it started for a project when the project closes", async () => {
+    const server = startServer(await storybook())
+    await server.ready
+
+    stopProject("D:/projects/shop")
+    await server.exited
+    expect(knownServers()).toEqual([])
+    expect(await listProcesses()).toEqual([])
+  })
+
+  it("shows a server stopped from the list as stopped, not crashed", async () => {
+    const server = startServer(await storybook())
+    await server.ready
+
+    server.stop()
+    await server.exited
+    const [listed] = await listProcesses()
+    expect(listed?.status).toBe("stopped")
+    expect(listed?.error).toBeUndefined()
+  })
+
+  it("fails with the end of what a server printed when it stops by itself before answering", async () => {
+    const server = startServer(
+      await storybook({ args: ["-e", 'console.error("Port 6006 is in use"); process.exit(2)'] })
+    )
+
+    await expect(server.ready).rejects.toThrow(/exit code 2[\s\S]*Port 6006 is in use/)
+    const [listed] = await listProcesses()
+    expect(listed?.status).toBe("failed")
+    expect(listed?.error).toMatch(/exit code 2[\s\S]*Port 6006 is in use/)
+    expect(knownServers()).toEqual([])
+  })
+
+  it("stops a server that doesn't answer in time", async () => {
+    const server = startServer(await storybook({ ready: () => Promise.resolve(false), startTimeout: 500 }))
+
+    await expect(server.ready).rejects.toThrow("didn't start within 0.5 seconds")
+    await server.exited
+    expect((await listProcesses())[0]).toMatchObject({
+      status: "failed",
+      error: expect.stringContaining("didn't start")
+    })
+  })
+})
+
+describe("adoptServer", () => {
+  it("lists a server it didn't start, knows its port, and only lets go of it when the project closes", async () => {
+    adoptServer({
+      ...project,
+      id: "storybook:shop",
+      kind: "storybook",
+      name: "Storybook",
+      url: "http://localhost:6006"
+    })
+    expect((await listProcesses())[0]).toMatchObject({ status: "running", startedBy: "elsewhere", canStop: false })
+    expect(knownServers()).toMatchObject([{ port: 6006, startedBy: "elsewhere" }])
+
+    stopProject("D:/projects/shop")
+    expect(knownServers()).toEqual([])
+    expect(await listProcesses()).toEqual([])
+  })
+})
