@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 05 Nov 2026 02:45:34 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 03:41:17 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.4.0
+
+Thu, 05 Nov 2026 03:41:17 GMT
+
+### Minor changes
+
+- Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API
+  (ajcraswell@gmail.com)
 
 ## 0.3.1
 

@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 03:41:17 GMT",
+      "version": "0.4.0",
+      "tag": "@parity-app/cli_v0.4.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "892d47dc7132ac4659696e300090c4cb78c231fe",
+            "comment": "Add frames, a light kind of design drawn once at its own size, to the project file, the editor and the agent API"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 02:45:34 GMT",
       "version": "0.3.1",
       "tag": "@parity-app/cli_v0.3.1",
