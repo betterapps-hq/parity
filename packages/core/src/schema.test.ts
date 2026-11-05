@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
 import { packageManifest } from "./adapters.ts"
 import { CodedError, errorDetails } from "./errors.ts"
-import { finiteNumber, jsonText, nonBlankString, parseData, parseInput, plainObject } from "./schema.ts"
+import { fileObject, finiteNumber, jsonText, nonBlankString, parseData, parseInput, plainObject } from "./schema.ts"
 
 function thrown(run: () => unknown): unknown {
   try {
@@ -75,6 +75,16 @@ describe("parseInput", () => {
     expect(error).toHaveProperty("message", "/edits/0/find: expected a string")
     expect(errorDetails(error)).toEqual({ code: "invalid_input", retryable: false, field: "edits/0/find" })
     expect(errorDetails(thrown(() => parseInput(edits, null)))).toEqual({ code: "invalid_input", retryable: false })
+  })
+})
+
+describe("fileObject", () => {
+  it("refuses keys it doesn't know, and leaves out keys set to undefined, as JSON does", () => {
+    const size = fileObject({ width: finiteNumber.optional(), height: finiteNumber.optional() })
+    expect(() => parseData(size, { width: 400, depth: 2 })).toThrow("/depth: unknown property")
+    const read = parseData(size, { width: 400, height: undefined })
+    expect(read).toEqual({ width: 400 })
+    expect(read).not.toHaveProperty("height")
   })
 })
 

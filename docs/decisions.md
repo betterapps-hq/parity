@@ -3720,6 +3720,8 @@ below. My calls on how they move:
     without the leading slash, which the CLI and MCP report as the error's `path`.
   - `plainObject`, `nonBlankString` (trimmed) and `finiteNumber` are the shared pieces, and `jsonText(schema)` parses
     JSON text, then checks it with the schema.
+  - `fileObject(shape)` is an object in a file Parity owns (PAR-589). It's strict, and it leaves out a key set to
+    `undefined`, as `validate.ts`'s `compact` did, so what the window saves from memory reads as it would from the file.
   - `packageManifest`, in core's `adapters.ts`, is the package manifest schema, and `PackageManifest` its type. PAR-573
     added the fields its package reader needs.
   - A read that returns nothing when the data is malformed calls the schema's own `safeParse(value).data`, as
@@ -3733,6 +3735,18 @@ below. My calls on how they move:
 - **Errors read as they do now.** A failed check throws `TypeError` with `/json/pointer: message`, as `validate.ts`
   does, so people and tests see the same messages. Agent input throws `CodedError` with `invalid_input` and the pointer
   as its `path` (PAR-472).
+- **`.par` files are zod schemas (PAR-589).** `parseCanvasDocument`, `parseDesignNode`, `parseNodePatch` and
+  `parseModeSettings` check with them, and the types of `document.ts` and the mode settings come from `z.infer`.
+  - The node tree is a discriminated union on `type`. Each type of node extends one base schema, since spreading the
+    base's shape loses the recursive type.
+  - Rules that span fields are refinements, each reported at the field at fault: node ids used twice, patch keys that
+    name no node, what a frame may hold, a variant's options, links' ends and mode values. A refinement runs after the
+    fields it reads pass their own checks, so a file with several problems can report a different one first.
+  - Positions of designs and notes are strict too, as canvas objects' already were.
+  - A few messages say more than before. A length that's neither a number nor a string says
+    `expected a number or a string`, padding names its three forms, and a problem in a file's modes points inside
+    `/modes`.
+  - `validate.ts` is left only for `library.ts`, until PAR-594.
 - **Everything that crosses into Parity is checked:**
   - project and library files
   - the clipboard, drag payloads and saved preferences
