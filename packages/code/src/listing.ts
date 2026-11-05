@@ -317,7 +317,9 @@ export function checkedChanges(
 }
 
 /**
- * The list with the person's corrections: the exports they put on it are added, marked `included` and loading as they're drawn, with ids that don't clash. Libraries' components aren't
+ * The list with the person's corrections: the exports they put on it are added, marked `included` and loading as
+ * they're drawn, with ids that don't clash. One they took back off loses its mark, so it waits for the type checker as
+ * any export the parse can't decide does, and stays listed only if detection lists it. Libraries' components aren't
  * touched. Applied after each pass of detection, so the corrections outlast files changing. New ids start with a library
  * project's `namespace`.
  */
@@ -326,11 +328,15 @@ export function correctedSources(
   corrections: DetectionCorrections | undefined,
   namespace?: string
 ): Record<string, ComponentSource> {
-  if (!corrections?.include) return sources
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
+  const include = corrections?.include ?? []
+  const kept = new Set(include.map(key))
+  const listed = new Set(Object.values(sources).map(key))
+  const missing = include.filter((ref) => !listed.has(key(ref)))
+  const takenBack = Object.entries(sources).filter(([, source]) => source.included && !kept.has(key(source)))
+  if (missing.length === 0 && takenBack.length === 0) return sources
   const next = { ...sources }
-  const listed = new Set(Object.values(next).map(key))
-  const missing = corrections.include.filter((ref) => !listed.has(key(ref)))
+  for (const [id, { included: _, ...detected }] of takenBack) next[id] = detected
   const added = componentIds(
     missing.map((ref) => ({ name: refName(ref), path: ref.path, export: ref.export, uiKit: false })),
     new Set(Object.keys(next)),

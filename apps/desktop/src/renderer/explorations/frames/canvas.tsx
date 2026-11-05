@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { companionScale, type ResolvedMode } from "@parity-app/core"
+import { labelLook } from "@parity-app/editor"
 import { AppWindow, ChevronDown, Component, Crown, Frame, type LucideProps } from "lucide-react"
 import {
   type CSSProperties,
@@ -24,7 +25,6 @@ import {
   useState
 } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { labelLook } from "../../canvas/labels.ts"
 import { ModesMenu } from "../../canvas/ModesMenu.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { modes, primaryMode } from "./data.ts"
