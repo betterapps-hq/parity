@@ -3,6 +3,7 @@ import {
   type AccessibilityFinding,
   describeAccessibility,
   describeComponents,
+  describeExec,
   describeModes,
   describeProblems,
   describeStatus,
@@ -32,6 +33,34 @@ describe("describeProblems", () => {
         "2 problems in Dashboard (dashboard), 4 frames:",
         "  content is wider than the 390px frame, in default, loading in mobile",
         "  stats: cut off by a parent that clips, in every frame"
+      ].join("\n")
+    )
+  })
+
+  it("names the layer a layout problem is on, and says what it overflows by how much", () => {
+    const text = describeProblems({
+      tab,
+      design: { id: "checkout", name: "Checkout" },
+      frames: 2,
+      warnings: [],
+      problems: [
+        {
+          state: "default",
+          mode: "mobile",
+          kind: "frame-overflow",
+          problem: "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the right",
+          node: "pay",
+          name: "Pay",
+          box: { x: 340, y: 100, width: 60, height: 36 },
+          container: { box: { x: 0, y: 0, width: 390, height: 600 } },
+          overflow: { right: 10 }
+        }
+      ]
+    })
+    expect(text).toBe(
+      [
+        "1 problem in Checkout (checkout), 2 frames:",
+        "  Pay (pay): at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the right, in default in mobile"
       ].join("\n")
     )
   })
@@ -289,5 +318,45 @@ describe("describeTokens", () => {
       '532 tokens, the first 1 shown. Name them in styles without "--".',
       "Narrow them with category, source or search, or raise limit, to see the rest."
     ])
+  })
+})
+
+describe("describeExec", () => {
+  const done = { ok: true, applied: true, output: [], created: {}, screenshots: [] }
+
+  it("puts render failures, warnings and suggestions under their own headings", () => {
+    const text = describeExec({
+      ...done,
+      warnings: [
+        "Home (Default, Mobile): failed to render: boom",
+        'home/cta: Button has no prop "tone". Check Props("Button").',
+        "12 places (home/a, home/b, home/c, home/d, home/e and 7 more): name layouts that group things"
+      ],
+      warningGroups: [
+        { category: "render_failed", severity: "error", message: "failed to render: boom", count: 1, at: ["x"] },
+        { category: "unknown_prop", severity: "warning", message: "no prop", count: 1, at: ["home/cta"] },
+        { category: "unnamed_layout", severity: "suggestion", message: "name layouts", count: 12, at: [] }
+      ]
+    })
+    expect(text).toBe(
+      [
+        "Done. The changes are on the canvas as one undoable step.",
+        "",
+        "Render failures (these frames weren't checked):",
+        "  Home (Default, Mobile): failed to render: boom",
+        "",
+        "Warnings (fix these next):",
+        '  home/cta: Button has no prop "tone". Check Props("Button").',
+        "",
+        "Suggestions:",
+        "  12 places (home/a, home/b, home/c, home/d, home/e and 7 more): name layouts that group things"
+      ].join("\n")
+    )
+  })
+
+  it("reads every line as a warning from an app that sends no groups", () => {
+    expect(describeExec({ ...done, warnings: ["home/a: something"] })).toContain(
+      "Warnings (fix these next):\n  home/a: something"
+    )
   })
 })

@@ -195,6 +195,33 @@ describe("dropping a component from the panel", () => {
     await expect.poll(() => app.children("Projects", grid)).toEqual(cards)
   })
 
+  it("makes a screen named after it where it's dropped on the empty canvas (PAR-546)", async () => {
+    await app.page.keyboard.press("Alt+2")
+    await app.page.getByRole("textbox", { name: "Search components" }).fill("Badge")
+    const badge = app.page
+      .getByRole("button")
+      .filter({ hasText: /^Badge$/ })
+      .first()
+    const from = center((await badge.boundingBox())!)
+    const { screen, page } = await app.showEmptyCanvas()
+    const before = await app.designs()
+    const shown = await app.drag(from, screen, async () => {
+      await expect.poll(() => app.page.locator("[data-drop-corner]").count()).toBe(1)
+      return app.page.locator("[data-drop-outline]").count()
+    })
+    // A corner marks where the screen starts, and there's no layout to outline.
+    expect(shown).toBe(0)
+    await expect.poll(async () => (await app.designs()).length).toBe(before.length + 1)
+    const added = (await app.designs()).find((design) => !before.some((old) => old.key === design.key))!
+    expect(added).toMatchObject({ name: "Badge", position: page })
+    expect(await app.selection()).toEqual({ design: added.key })
+    const [child] = await app.children(added.name, await rootOf(added.name))
+    expect(await app.node(added.name, child!)).toMatchObject({ type: "component", component: "Badge" })
+    expect(await app.undoLabel()).toBe("Add Badge")
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(async () => (await app.designs()).length).toBe(before.length)
+  })
+
   it("lands at the pointer, last, in a layout that's placed absolutely", async () => {
     // Calendar's Events: placed absolutely over the day's timeline, holding the event slots, the first at top 16.
     const events = "zEb2T"

@@ -12,7 +12,8 @@ import {
   callerIdentity,
   execute,
   type ExecRequest,
-  type ExecResult
+  type ExecResult,
+  type Problem
 } from "@parity-app/agent"
 import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry"
 import { registryVersion } from "@parity-app/agent/routing"
@@ -456,10 +457,7 @@ async function accessibility(
 /** The agent API's checks, which render frames offscreen. */
 interface CheckApi {
   Accessibility(design: string, options: { state: unknown; mode: unknown }): Promise<AccessibilityFinding[]>
-  Problems(
-    design: string,
-    options: { state: unknown; mode: unknown }
-  ): Promise<{ state: string; mode: string; problem: string; node?: string }[]>
+  Problems(design: string, options: { state: unknown; mode: unknown }): Promise<Problem[]>
   GetDesign(reference: string): { id: string; name: string }
 }
 

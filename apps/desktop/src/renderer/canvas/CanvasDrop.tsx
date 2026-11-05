@@ -4,8 +4,9 @@ import { toast } from "sonner"
 import { useProject } from "./context.ts"
 import { carriesFiles, draggedTypes, dropFiles, type FileDrop, fileDropAt, overFileField } from "./drop-files.ts"
 import type { Point } from "./hit.ts"
-import { dropTarget, insertItem, insertMime } from "./insert.ts"
+import { addScreenOfItem, dropTarget, insertItem, insertMime } from "./insert.ts"
 import { kindColors } from "./kinds.tsx"
+import { emptyCanvasAt } from "./new-screen.ts"
 
 type Box = { x: number; y: number; w: number; h: number }
 
@@ -24,9 +25,9 @@ interface Indicator {
 /**
  * Drops onto the canvas, from the Assets panel and from the system's files. While dragging over a design, the layout
  * under the pointer is outlined and a line shows the slot the item lands in, found as a dragged layer's is (`slotAt`),
- * or a corner where it goes in an absolutely placed layout; dropping inserts it there as one undoable step. Image files
- * from Explorer or Finder also say what a drop does, and on the empty canvas mark where the new design they make starts
- * (see drop-files.ts).
+ * or a corner where it goes in an absolutely placed layout; dropping inserts it there as one undoable step. On the
+ * empty canvas a corner marks where the new screen it makes starts, named after it (PAR-546). Image files from
+ * Explorer or Finder also say what a drop does (see drop-files.ts).
  */
 export function CanvasDrop() {
   const session = useProject()
@@ -90,15 +91,21 @@ export function CanvasDrop() {
       event.preventDefault()
       const point = pointOf(event)
       const target = dropTarget(session, area, point)
-      if (event.dataTransfer) event.dataTransfer.dropEffect = target ? "copy" : "none"
-      // The layout it goes into, and the slot, or the corner where it goes in an absolutely placed layout.
+      // Over no layout, the empty canvas takes it as a new screen there.
+      const canvas = !target && !!emptyCanvasAt(session, area, point)
+      if (event.dataTransfer) event.dataTransfer.dropEffect = target || canvas ? "copy" : "none"
+      // The layout it goes into, and the slot, or the corner where it goes in an absolutely placed layout or where the
+      // new screen starts.
       const at = relative({ ...point, w: 0, h: 0 })
-      show(
-        target && {
-          outline: relative(target.box),
-          ...(target.line ? { line: relative(target.line) } : { corner: { at, color: kindColors.component } })
-        }
-      )
+      if (canvas) show({ corner: { at, color: kindColors.screen } })
+      else {
+        show(
+          target && {
+            outline: relative(target.box),
+            ...(target.line ? { line: relative(target.line) } : { corner: { at, color: kindColors.component } })
+          }
+        )
+      }
     }
     const onDragLeave = (event: DragEvent) => {
       if (!area.contains(event.relatedTarget as Node | null)) show(undefined)
@@ -119,13 +126,13 @@ export function CanvasDrop() {
       if (!carrying(event)) return
       event.preventDefault()
       show(undefined)
-      const target = dropTarget(session, area, pointOf(event))
-      if (!target) {
-        toast.info("Drop it inside a screen or component, onto one of its layouts")
-        return
-      }
+      const point = pointOf(event)
+      const target = dropTarget(session, area, point)
+      const canvas = target ? undefined : emptyCanvasAt(session, area, point)
       const item = JSON.parse(event.dataTransfer!.getData(insertMime)) as InsertItem
-      insertItem(session, target, item)
+      if (target) insertItem(session, target, item)
+      else if (canvas) addScreenOfItem(session, item, canvas)
+      else toast.info("There's no layout here to drop into")
     }
 
     area.addEventListener("dragover", onDragOver)

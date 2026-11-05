@@ -177,6 +177,29 @@ describe("right-click menus", () => {
     await expect.poll(() => app.children("Pricing", hero)).toEqual([badge, headline, lede, billing])
   })
 
+  it("makes a new screen where the canvas around the designs was right-clicked (PAR-546)", async () => {
+    const { screen, page } = await app.showEmptyCanvas()
+    const before = await app.designs()
+    await app.rightClick(screen)
+    expect(await items()).toEqual([
+      "New screen Ctrl+Alt+N",
+      "New component Ctrl+Alt+Shift+N",
+      "Insert… /",
+      "Paste here",
+      "Select all Ctrl+A",
+      "Zoom to fit Shift+1"
+    ])
+    await menu()
+      .getByRole("menuitem", { name: /^New screen/ })
+      .click()
+    await expect.poll(async () => (await app.designs()).length).toBe(before.length + 1)
+    const added = (await app.designs()).find((design) => !before.some((old) => old.key === design.key))!
+    expect(added).toMatchObject({ name: "Untitled screen", position: page })
+    expect(await app.selection()).toEqual({ design: added.key })
+    expect(await app.undoLabel()).toBe("New screen")
+    await closed()
+  })
+
   it("opens no menu in Interact mode, where the design gets the right-click", async () => {
     await app.show("Sign in", 0.5)
     await app.selectDesign("Sign in")

@@ -372,20 +372,42 @@ export function saveFailure(history: DesignHistory): string | undefined {
   return history.failures.values().next().value
 }
 
-/** The documents and modes as one project file, as Save a copy writes it, with the main file's component corrections. */
+/**
+ * The documents and modes as one project file, as Save a copy writes it: every file's designs, notes, canvas objects and
+ * links, with the main file's component corrections and lens sources.
+ */
 export function mergedDocument(history: DesignHistory): CanvasDocument {
   const { documents, modes } = history.current
   const all = [...documents.values()]
   const notes = all.flatMap((document) => document.notes ?? [])
+  // Two files may place the same table or reuse a link id; the first keeps it, so the copy still opens.
+  const objects = firstOfEach(
+    all.flatMap((document) => document.objects ?? []),
+    (object) => JSON.stringify([object.kind, object.ref])
+  )
+  const links = firstOfEach(
+    all.flatMap((document) => document.links ?? []),
+    (link) => link.id
+  )
   const custom = JSON.stringify(modes) !== JSON.stringify(defaultModeSettings)
-  const detection = documents.get(history.mainPath)?.detection
+  const main = documents.get(history.mainPath)
+  const detection = main?.detection
+  const sources = main?.sources
   return {
     version: 3,
     containers: all.flatMap((document) => document.containers),
     ...(notes.length > 0 ? { notes } : {}),
     ...(custom ? { modes } : {}),
-    ...(detection ? { detection } : {})
+    ...(detection ? { detection } : {}),
+    ...(objects.length > 0 ? { objects } : {}),
+    ...(links.length > 0 ? { links } : {}),
+    ...(sources ? { sources } : {})
   }
+}
+
+function firstOfEach<T>(items: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>()
+  return items.filter((item) => !seen.has(key(item)) && seen.add(key(item)))
 }
 
 /** A document without the modes, which the history keeps apart. */

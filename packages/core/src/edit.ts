@@ -1,5 +1,5 @@
 import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, PatchUnset, StateSpec } from "./document.ts"
-import { CodedError, unknownReference } from "./errors.ts"
+import { alternativeLimit, closest, CodedError } from "./errors.ts"
 import { uniqueId } from "./modes.ts"
 import {
   applyPatch,
@@ -209,19 +209,29 @@ export function isBaseState(container: ContainerSpec, stateId: string): boolean 
   return container.states[0]?.id === stateId
 }
 
+/**
+ * A state by its id. States are only ever named by id, since names can repeat and change; a reference that misses
+ * says so, lists each id beside its name, and points to the id of any state whose name it matches.
+ */
 export function findState(container: ContainerSpec, stateId: string): StateSpec {
   const state = container.states.find((candidate) => candidate.id === stateId)
-  if (!state) {
-    const ids = container.states.map((candidate) => candidate.id)
-    throw unknownReference(
-      "unknown_state",
-      `No state "${stateId}" in ${container.name}. States: ${ids.join(", ")}`,
-      stateId,
-      ids,
-      "state"
-    )
+  if (state) return state
+  const wanted = stateId.trim().toLowerCase()
+  const named = container.states.filter((candidate) => candidate.name.trim().toLowerCase() === wanted)
+  const listed = container.states.map((candidate) => `${candidate.id} (${candidate.name})`).join(", ")
+  let hint = ""
+  if (named.length === 1) hint = ` "${stateId}" is the name of state "${named[0]!.id}"; use that id.`
+  if (named.length > 1) {
+    const ids = named.map((candidate) => `"${candidate.id}"`).join(" and ")
+    hint = ` "${stateId}" names ${named.length} states, ${ids}; use the id of the one you mean.`
   }
-  return state
+  // The ids a matching name points to lead the alternatives, so an agent reading only those picks the state it meant.
+  const ids = container.states.map((candidate) => candidate.id)
+  const alternatives = [...new Set([...named.map((candidate) => candidate.id), ...closest(stateId, ids)])]
+  throw new CodedError(
+    `No state with id "${stateId}" in ${container.name}. Calls take a state's id, as Designs() lists it.${hint} States: ${listed}`,
+    { code: "unknown_state", field: "state", alternatives: alternatives.slice(0, alternativeLimit) }
+  )
 }
 
 export function changeCount(state: StateSpec): number {

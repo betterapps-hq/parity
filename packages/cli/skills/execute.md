@@ -29,6 +29,20 @@ held.
   patches with a nonempty `find`, string `replace` (which can be empty), and optional boolean `all`. Invalid requests
   are rejected before reaching the app.
 
+### Warnings
+
+A call that applies can still return warnings. Each finding comes once, with every place it was found. The text puts
+them under "Render failures", "Warnings" and "Suggestions". The structured result's `warningGroups` gives each one's
+`category`, `severity` (`error`, `warning` or `suggestion`), `message`, `count` and `at`, which lists the places as
+`design/node` paths or frames. A render failure means a screenshot or check is missing for that frame, so look into it
+first. `unnamed_layout` is a suggestion for layouts this call added: give each one a name with `Update`.
+
+```js
+// Unnamed rows come back as one suggestion, such as 12 places (team-members/k3x9a, … and 7 more). Name them:
+const rows = Get("team-members", (node, at) => (node.type === "layout" && !node.name ? at.path : undefined))
+rows.forEach((path, index) => Update(path, { name: `Member row ${index + 1}` }))
+```
+
 ## API
 
 ```ts
@@ -90,6 +104,9 @@ Print(...values): void
 A design is named by its id or its name. A node is named by `design/node`, where `node` is the node's id or its name, or
 by its id alone when only one design has that id. Names aren't unique, so prefer ids once you have them; `Insert`,
 `Copy` and `CreateDesign` return them, and nodes you create with a `name` are listed under "Created" in the result.
+
+A state is named by its id only, as `Designs()` lists it and `AddState` returns it. A state's name in its place fails
+with `unknown_state`, and the error names the id it belongs to.
 
 ## Reading
 
@@ -396,8 +413,29 @@ Frames draw as the canvas does: instances of a library's component designs (from
 token values not yet saved show, the person's edits and this call's own `SetTokens` alike, so
 `SetTokens({ primary: "red" }); await Screenshot(id)` shows the new value in the same call.
 
-`Measure` lays out one frame and returns its size, whether it overflows sideways, and every node's box (`clipped` when a
-parent cuts it off). `Problems` checks frames for render errors, overflow, clipping and unknown components.
+`Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node's box
+with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
+`Problems` checks frames for render errors, overflow, clipping and unknown components. Each layout problem has its
+`kind`: `frame-overflow` for a node that sticks out of the frame, by its position or its width, or `clipped` for one an
+ancestor that hides overflow cuts off. It names the `node`, its `box`, the `container` it overflows (the clipping node,
+or the frame, which has no `node`) with that box, and the pixels past each edge in `overflow`. A node past a parent that
+doesn't clip, inside the frame, shows, so it isn't a problem; children going no further than a reported parent are left
+out.
+
+```js
+const id = CreateDesign({ name: "Checkout" })
+Insert(id, { type: "component", component: "Button", name: "Pay", props: { children: "Pay" } })
+// Each one, such as { kind: "frame-overflow", node: "pay", name: "Pay", box: { x: 340, y: 100, width: 60, height: 36 },
+// container: { box: { x: 0, y: 0, width: 390, height: 600 } }, overflow: { right: 10 }, problem: "at x 340, …" }
+for (const problem of await Problems(id, { mode: "shown" })) Print(problem.kind, problem.name, problem.overflow)
+const layout = await Measure(id)
+Print(
+  layout.state,
+  layout.mode,
+  layout.nodes.map((node) => `${node.id} in ${node.parent}`)
+)
+```
+
 `Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong.
 
 These frames are drawn in the same window as the canvas's: as wide as the frame, and as tall as the design's fixed

@@ -1,5 +1,7 @@
 import {
+  designOfItem,
   type InsertAt,
+  type InsertContext,
   type InsertItem,
   insertIntoDesign,
   insertLabel,
@@ -11,6 +13,7 @@ import type { ContainerEntry } from "../design-store.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { hitTest, type Point } from "./hit.ts"
+import { designNames, viewCenter } from "./new-screen.ts"
 import { measureHere } from "./paste-here.ts"
 import { frameViewport } from "./view.ts"
 
@@ -69,18 +72,23 @@ export function dropTarget(session: ProjectSession, area: ParentNode, point: Poi
   }
 }
 
+/** What inserting an item needs to know from the project: its component's props, the sources and the library. */
+export function insertContext(session: ProjectSession, item: InsertItem): InsertContext {
+  return {
+    info: item.kind === "component" ? session.components.get()[item.component] : undefined,
+    sources: session.info.sources,
+    library: session.store.getComponentLibrary()
+  }
+}
+
 /** Inserts an item into a layout, as one undoable step, and selects it. Returns its id, unless the design is gone. */
 export function insertItem(
   session: ProjectSession,
   target: InsertAt & { entry: ContainerEntry; mode?: string; state?: string },
   item: InsertItem
 ): string | undefined {
-  const { store, selection, components } = session
-  const context = {
-    info: item.kind === "component" ? components.get()[item.component] : undefined,
-    sources: session.info.sources,
-    library: store.getComponentLibrary()
-  }
+  const { store, selection } = session
+  const context = insertContext(session, item)
   let node: string | undefined
   store.updateContainer(target.entry.key, insertLabel(item), (container) => {
     const inserted = insertIntoDesign(container, target, item, context)
@@ -92,12 +100,36 @@ export function insertItem(
 }
 
 /**
+ * An item with no design to go into, dropped on the empty canvas or inserted with nothing selected, makes a new screen
+ * holding it, with its top left `at`, named after it (`designOfItem`, PAR-546). One undo step, and the screen is
+ * selected, as a paste there selects the screen it makes.
+ */
+export function addScreenOfItem(session: ProjectSession, item: InsertItem, at = viewCenter(session)): string {
+  const { store, selection } = session
+  const { design } = designOfItem(
+    item,
+    insertContext(session, item),
+    store.getEntries().map((entry) => entry.container.id),
+    at,
+    designNames(session)
+  )
+  const key = store.addContainer(store.mainPath, design, insertLabel(item))
+  selection.set({ design: key })
+  return key
+}
+
+/**
  * Inserts at the selection, for a click instead of a drag: into a selected layout, after any other selected layer, or
- * at the end of a selected design. Returns false when nothing is selected to insert into.
+ * at the end of a selected design. With no design selected, it lands on the canvas, so it makes a new screen there, in
+ * the middle of the view (PAR-546). Returns false when the selected design has nowhere to insert it.
  */
 export function insertAtSelection(session: ProjectSession, item: InsertItem): boolean {
   const current = session.selection.get()
-  const entry = current.design ? session.store.getEntry(current.design) : undefined
+  if (!current.design) {
+    addScreenOfItem(session, item)
+    return true
+  }
+  const entry = session.store.getEntry(current.design)
   if (!entry) return false
   const at = whereToInsert(entry.container.root, current.node)
   if (!at) return false

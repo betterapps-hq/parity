@@ -512,13 +512,76 @@ Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
     )
     expect(result.ok).toBe(true)
     expect(result.output[0]).toBe("390 Title")
-    // Every mode's title is wider than its viewport, and the mobile frame also overflows.
-    expect(result.output[1]).toBe("5")
+    // Every mode's title is wider than its viewport; that accounts for the mobile frame's overflow.
+    expect(result.output[1]).toBe("4")
     expect(result.output[2]).toBe("2")
     expect(result.screenshots.map((shot) => shot.mode)).toEqual(["desktop-light", "tablet-light"])
     // Each look shows as what it is, so the agent's cursor can say so.
     const looks = new Set(events.filter((event) => event.design).map((event) => event.kind))
     expect(looks).toEqual(new Set(["measure", "problems", "screenshot"]))
+  })
+
+  it("says which node overflows what, and by how much, in each mode", async () => {
+    const result = await execute(
+      {
+        label: "Check",
+        code: `const m = await Measure("signup", {mode: "mobile-light"})
+Print(m.state, m.mode, m.nodes.find((node) => node.id === "submit").parent)
+Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
+      },
+      snapshot(),
+      {
+        ...hooks(),
+        render: async ({ mode }) => ({
+          width: mode.width,
+          height: 600,
+          overflowsX: mode.width < 400,
+          unknownComponents: [],
+          nodes: [
+            { id: "page", x: 0, y: 0, width: mode.width, height: 600 },
+            // Narrower than any viewport, but placed so its right edge passes the phone's.
+            { id: "submit", parent: "page", x: 340, y: 100, width: 60, height: 36 },
+            {
+              id: "title",
+              parent: "page",
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 40,
+              clipped: true,
+              clip: { node: "page", x: 0, y: 10, width: mode.width, height: 590 }
+            }
+          ]
+        })
+      }
+    )
+    expect(result.ok).toBe(true)
+    expect(result.output[0]).toBe("default mobile-light page")
+    const problems = JSON.parse(result.output[1]!) as { kind: string; mode: string }[]
+    expect(problems.filter((problem) => problem.kind === "frame-overflow")).toEqual([
+      {
+        state: "default",
+        mode: "mobile-light",
+        kind: "frame-overflow",
+        problem: "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the right",
+        node: "submit",
+        name: "Submit",
+        box: { x: 340, y: 100, width: 60, height: 36 },
+        container: { box: { x: 0, y: 0, width: 390, height: 600 } },
+        overflow: { right: 10 }
+      }
+    ])
+    // The phone's overflow is the button's, so it isn't reported again as the frame's.
+    expect(problems.some((problem) => problem.kind === "content-wider")).toBe(false)
+    const clipped = problems.filter((problem) => problem.kind === "clipped")
+    expect(clipped.length).toBe(new Set(problems.map((problem) => problem.mode)).size)
+    expect(clipped[0]).toMatchObject({
+      node: "title",
+      name: "Title",
+      container: { node: "page", name: "Page" },
+      overflow: { top: 10 },
+      problem: "10px at the top cut off by Page (page), which clips its overflow"
+    })
   })
 
   it("draws each frame in the window the canvas gives it", async () => {
@@ -982,6 +1045,56 @@ Insert("dashboard/Toolbar", {
   })
 })
 
+describe("warning groups", () => {
+  it("reports each finding once with its places, render failures first and naming tips last", async () => {
+    const base = snapshot()
+    const page = base.documents[0]!.document.containers[0]!.root
+    if (page.type !== "layout") throw new Error("Expected a layout")
+    // An unnamed layout that was there before the call isn't this call's to name.
+    page.children.push({
+      type: "layout",
+      id: "old",
+      children: [
+        { type: "text", id: "old-a", text: "A" },
+        { type: "text", id: "old-b", text: "B" }
+      ]
+    })
+    const failing: AgentHooks = {
+      ...hooks(),
+      render: async (request) => ({ ...(await hooks().render(request)), error: "boom" })
+    }
+    const result = await execute(
+      {
+        label: "Rows",
+        code: `for (let i = 0; i < 8; i++) {
+  Insert("page", { type: "layout", children: [{ type: "text", text: "Name" }, { type: "text", text: "Role" }] })
+}
+Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
+Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
+Update("submit", { style: { background: "hotpink" } })
+await Screenshot("signup")`
+      },
+      base,
+      failing
+    )
+    expect(result.error).toBeUndefined()
+    expect(result.warningGroups.map(({ severity, category, count }) => [severity, category, count])).toEqual([
+      ["error", "render_failed", 1],
+      ["warning", "not_a_token", 1],
+      ["warning", "unknown_prop", 2],
+      ["suggestion", "unnamed_layout", 8]
+    ])
+    const [failed, token, prop, unnamed] = result.warningGroups
+    expect(failed).toMatchObject({ message: "failed to render: boom", at: ["Sign up (Default, Desktop Light)"] })
+    expect(prop!.at).toHaveLength(2)
+    expect(token).toMatchObject({ at: ["signup/submit"] })
+    expect(unnamed!.at).toHaveLength(8)
+    expect(unnamed!.at).not.toContain("signup/old")
+    expect(result.warnings).toHaveLength(4)
+    expect(result.warnings[3]).toMatch(/^8 places \(signup\/\w+, .* and 3 more\): name layouts that group things/)
+  })
+})
+
 describe("component props", () => {
   it("lists a component's props and warns about values it doesn't take", async () => {
     const result = await execute(
@@ -1179,6 +1292,53 @@ describe("coded failures", () => {
       retryable: false,
       alternatives: ["signup/title", "register/title"]
     })
+  })
+
+  it("asks for a state's id in every call that takes one, pointing a name to its id", async () => {
+    const base = snapshot()
+    base.documents[0]!.document.containers[0]!.states = [
+      { id: "default", name: "Default" },
+      { id: "loading", name: "Busy" },
+      { id: "error", name: "Failed" },
+      { id: "error-2", name: "Failed" }
+    ]
+    const calls = [
+      `UpdateState("signup", "Busy", { name: "Waiting" })`,
+      `DeleteState("signup", "Busy")`,
+      `Update("submit", { hidden: true }, { state: "Busy" })`,
+      `Get("submit", { state: "Busy" })`,
+      `UpdateDesign("signup", { state: "Busy" })`,
+      `await Screenshot("signup", { state: "Busy" })`,
+      `await Measure("signup", { state: "Busy" })`,
+      `await Problems("signup", { state: ["default", "Busy"] })`,
+      `await Accessibility("signup", { state: "Busy" })`
+    ]
+    for (const code of calls) {
+      const result = await execute({ label: "Try", code }, base, hooks())
+      // The call rides along, so a failure names which one went wrong.
+      expect({ code, error: result.error, details: result.details }).toEqual({
+        code,
+        error: expect.stringMatching(
+          /^No state with id "Busy" in Sign up\..*"Busy" is the name of state "loading"; use/
+        ),
+        details: {
+          code: "unknown_state",
+          retryable: false,
+          field: "state",
+          alternatives: ["loading", "default", "error", "error-2"]
+        }
+      })
+    }
+    const duplicate = await execute({ label: "Try", code: `DeleteState("signup", "Failed")` }, base, hooks())
+    expect(duplicate.error).toContain('"Failed" names 2 states, "error" and "error-2"; use the id of the one you mean.')
+    expect(duplicate.details?.alternatives?.slice(0, 2)).toEqual(["error", "error-2"])
+    const byId = await execute(
+      { label: "Try", code: `UpdateState("signup", "loading", { name: "Waiting" })` },
+      base,
+      hooks()
+    )
+    expect(byId.error).toBeUndefined()
+    expect(byId.changes.designs[0]!.after!.states[1]).toEqual({ id: "loading", name: "Waiting" })
   })
 
   it("throws coded errors for a retry it can't patch, before running anything", async () => {

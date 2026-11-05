@@ -738,6 +738,13 @@ recommended answer to each of its questions.
   included, and any lockfile name appearing in the folders `findLockfiles` searches (`lockfileFolders`,
   `changesLockfiles`), and reads props and the type check again a moment after one changes, so the answers match a
   project opened afresh. The saved detection needs nothing more: its fingerprint already changes with them.
+- **A config change sorts the app's sources again, as opening does.** My call (PAR-492): `rediscoveredSources` reads
+  every file the config includes now, and the files the list came from, through `filesChanged`, so components in files
+  it leaves out are removed, those in files it newly includes are added, and the rest keep their ids. Exports only the
+  type checker decided lose `as` and wait for it again, which the full type check that follows gives back, so the list
+  matches a fresh open. Libraries' and workspace packages' components aren't touched, and the person's corrections are
+  applied after, so an export they included stays even when its file is left out. The UI kit folder isn't looked for
+  again; that still takes reopening.
 - **Changed files are read again on their own, without reopening the project.** My call: the parse reads the changed
   files about half a second after the last change, so added, renamed and deleted components show at once, and the type
   checker then reads only those files and the files that import them, since an export's type can come from an import. A
@@ -1658,6 +1665,21 @@ recommended answer to each of its questions.
   for each frame. The render window starts each job's stylesheet from the compiled CSS and lays the set over it
   (`showTokenOverrides` in `renderer/guest.ts`), going back only when the set changed, so no frame inherits another's
   values, and an undone edit leaves nothing behind. The canvas's own stylesheet is still edited in place, as before.
+- **Problems reports where a node overflows, not only that it does** (PAR-456). Each measured node carries the node it's
+  drawn inside (`parent`), and Measure says which state and mode it drew. A layout finding names the node, what it
+  overflows and both boxes, and how far past each edge, in CSS pixels. Three cases are kept apart:
+  - **Clipped:** the nearest ancestor that hides overflow cuts part of it off. That ancestor is named, or given by its
+    box alone when it's an element outside the design's layers.
+  - **Frame overflow:** it reaches past the frame's left or right edge, or the bottom of a frame with a fixed height, by
+    its position as much as its width, so a 60px button at x 340 overflows a 375px frame.
+  - **Visible overflow** of a parent that doesn't clip, inside the frame, is drawn, so it's taken as intended (a badge
+    over a card's corner) and isn't reported.
+
+  Half a CSS pixel of overflow is allowed for subpixel layout, as before. A node that goes no further past the same
+  edges of the same container than an ancestor already reported is left out, so the finding is on the node to fix.
+  "Content is wider than the frame" now shows only when no node accounts for it. The old "wider than the frame" finding
+  on each node is replaced by frame overflow, which also catches a node pushed out by its position.
+
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
   215 MB for the whole session and grew each time a project reopened (452 MB after five). A job counts from when it's
@@ -2502,6 +2524,19 @@ A lens is a view of one layer of an app, such as its routes, data, API, permissi
   system keychain.
 - **The second example is a Buildkit scaffolder project,** once the scaffolder can make one. You said: "I don't know if
   scaffolder is ready, but yeah, that's the preferred route."
+- **`.par` keeps canvas objects, hand-drawn links and lens sources, and none of the models** (PAR-16). You approved this
+  shape on 2026-11-05. All three keys are optional, so the format stays at version 3, and core's `document.ts` parses
+  them with the rest of `.par`.
+  - **`objects`** places a table, operation or route on the canvas: its `kind`, its `ref` and its `position`. The ref is
+    the model's own key: `schema.table` for a table, the operation's id, or the route's URL pattern. Each is placed
+    once. One whose model is gone stays in the file, shown as missing, until the person removes it.
+  - **`links`** are typed, and each type joins set kinds: `shows` goes from a screen to a route, `calls` from a screen,
+    route or component to an operation, and `reads` and `writes` from an operation to a table. A screen or component end
+    is the design's id. Any other pairing is rejected when the file opens. Only links drawn by hand are saved; links
+    from code or traces are read each time.
+  - **`sources`** names the adapter or standard the `data`, `api` or `routes` lens reads, and is written only when the
+    person switches from the one Parity picked.
+  - **Save a copy** keeps every file's objects and links, each once, and the main file's sources.
 
 ## Extensions
 
@@ -3623,6 +3658,16 @@ same screen. My calls:
 - **A file that couldn't be read gets no Home screen,** so saving can't write over it. A file whose designs were all
   deleted opens with none, as the person left it.
 
+## Agents name states by id, and a name points to its id (PAR-459)
+
+A state's name can repeat and change, and an id made from a name stops matching it after a rename, so every call keeps
+taking a state's id and never resolves a name, even one that matches a single state. A miss still teaches the id: core's
+`findState`, which every state lookup goes through, says ids are expected, lists each id beside its name, and names the
+id of any state the reference names, ignoring case and spaces at the ends. A name several states share lists all their
+ids and picks none. The ids a name points to lead `alternatives`, ahead of the rest, so an agent reading only the
+details finds them. The code stays `unknown_state`, since the reference isn't a state id at all, rather than
+`ambiguous_reference`, which is for references that match more than one valid thing.
+
 ## Data Parity didn't make is checked with zod (PAR-578)
 
 Asked how PAR-565's channel module should check request params, by hand as core's `validate.ts` does or with zod, you
@@ -3691,3 +3736,52 @@ Four issues from the architecture review build on these:
 - PAR-564 declares its method map with PAR-590's schemas.
 - PAR-572 checks decorator values with PAR-594's grammar.
 - PAR-573 reads manifests through PAR-588's schema.
+
+## Agent warnings come grouped, with a category and severity (PAR-460)
+
+A large insertion used to return a warning per unnamed layout, each a sentence with the place in front. Now each finding
+comes once, with a count and every place:
+
+- **Grouped by category and message.** Findings that say the same thing go together, whatever node they're on. A
+  repeated finding at the same place counts once. Different props or tokens stay apart, since each needs its own fix.
+- **Stable categories, three severities.** `error` is a render that failed, because a screenshot or check is missing for
+  that frame. `suggestion` is a name for the layers tree. Everything else is a `warning`. Groups are sorted by severity,
+  then kept in the order found.
+- **`warnings` stays, beside `warningGroups`.** As with PAR-472's coded errors, an older CLI and text-only clients keep
+  reading lines, now one per group in the same order. A CLI talking to an older app reads every line as a warning. The
+  CLI's schema names the categories in prose, not as an enum, so it doesn't import the agent package for them.
+- **The place is kept apart from the message,** a node's `design/node` path where there is one, so an agent can act on
+  every place without parsing. Overlaps and kind changes name their boards in the message and have no place.
+- **No automatic names.** As the issue said, Parity doesn't name layers or require unique names; it only reports.
+
+## New screen, New component and the empty canvas are built (PAR-546)
+
+PAR-546 builds what PAR-541 designed and PAR-560 kept (above), as editor.md's "New screen, New component and the empty
+canvas" describes. The exploration's stories now sit beside the stories of the components that draw them, and the
+exploration is gone. My calls:
+
+- **One rule covers every way something lands with no design to go into,** not only a drop: a component or image clicked
+  in the Components panel or picked in the insert picker with nothing selected makes a screen too, in the middle of the
+  view, where pasted layers and the picker's layouts already went. Before, a layout made a screen there and a component
+  was refused, which is the disagreement the audit found.
+- **The name is what's in it:** one layer as Layers names it, a component without its library; several images Images, as
+  dropped files already were; several other layers the first one's name and how many more ("Nav and 6 more"), so the
+  name still says what's inside. With nothing in it, "Untitled screen", as New screen names one.
+- **The screen is selected, not what's in it,** as a paste and a dropped image already did, so what happened is what's
+  shown. Its undo step names what landed: "Paste layer" or "Paste 7 layers" (it was "Paste layers" for any number), and
+  an item's own, "Add Badge".
+- **One situation, one message.** An item dropped over a design where there's no layout says "There's no layout here to
+  drop into", as files do, where it said "Drop it inside a screen or component, onto one of its layouts". The insert
+  picker, with a design selected that has nowhere for an item, says what the Components panel says, "Select a layout, or
+  a layer to add it after".
+- **Search actions' word matching takes each typed word in any order,** so "fit zoom" finds Zoom to fit, which matching
+  the whole text against the start of a word wouldn't. A name that starts with what's typed comes first.
+- **New screen from the canvas menu doesn't move the view,** since it's made where the pointer was. The keys, the
+  menubar, Search actions and Layers' + make it right of everything and zoom to it, as the + did.
+- **Enter and Space on Layers' + or an empty row make one.** The tree's own keys skip buttons outside its rows, where
+  Enter used to rename the selected row and the button never ran.
+- **Storybook's stand-in project service answers `frames.stored`** with no bitmap, as the real one does on a first
+  launch. It answered nothing, which failed the canvas menu's stories once a frame slept.
+
+Left for later: a screen made with nothing selected can land over a design in the middle of the view, as pasted layers
+always could, and a component in a new screen fills its width, where the proposal says it should keep its own.

@@ -76,12 +76,11 @@ import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 
-/** Adds an item where the selection is, or says what to select first. */
+/**
+ * Adds an item where the selection is, or as a new screen in the middle of the view with nothing selected, or says
+ * what to select when the selected design has nowhere for it.
+ */
 function addAtSelection(session: ProjectSession, item: InsertItem): void {
-  if (!session.selection.get().design) {
-    toast.info("Select a screen, component or layer first, or drag it onto one")
-    return
-  }
   if (!insertAtSelection(session, item)) toast.info("Select a layout, or a layer to add it after")
 }
 

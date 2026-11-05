@@ -4,7 +4,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
 import { portFree, viteBuilder } from "@parity-app/builder-vite"
-import { checkedAppFiles, configInputs, correctedSources, leftOutChanges } from "@parity-app/code"
+import { checkedAppFiles, configInputs, correctedSources, leftOutChanges, rediscoveredSources } from "@parity-app/code"
 import {
   type BuilderAdapter,
   type BuilderDetection,
@@ -680,17 +680,37 @@ function isConfigInput(project: OpenProject, file: string): boolean {
 }
 
 /**
- * Reads props and the type check again after a config input changed. The type checker makes the project's program
- * again from the config as it is now (see `utility/props-worker.ts`), so the answers match a project opened afresh.
+ * Sorts the app's sources again, then reads props and the type check again, after a config input changed. Components
+ * in files the config now leaves out drop off the list and those in files it newly includes join it, as on opening.
+ * The type checker makes the project's program again from the config as it is now (see `utility/props-worker.ts`), so
+ * the answers match a project opened afresh.
  */
 async function rereadConfig(project: OpenProject, changed: () => void): Promise<void> {
   const { root, id } = project.info
   const tsconfig = readTsconfig(root)
   await followConfig(project, changed, tsconfig)
   if (projects.get(root) !== project) return
-  console.log(`[service] ${project.info.name}'s config or dependencies changed, so props are read again`)
+  console.log(`[service] ${project.info.name}'s config or dependencies changed, so its components are found again`)
+  const update = await rediscoveredSources(
+    root,
+    project.renderer,
+    tsconfig,
+    project.uiKit,
+    project.sources,
+    project.namespace
+  )
   // The files discovery gives the checker, so never the entry that mounts the app, which the guest must not import.
   const files = await checkedAppFiles(root, project.renderer, tsconfig)
+  if (projects.get(root) !== project) return
+  const next = correctedSources(update.sources, project.corrections, project.namespace)
+  // In place, since the project's info and its builder's start options share this list.
+  for (const name of Object.keys(project.sources)) if (!(name in next)) delete project.sources[name]
+  Object.assign(project.sources, next)
+  serveSources(project)
+  project.info.componentCount = Object.keys(project.sources).length
+  if (update.added.length > 0 || update.removed.length > 0) {
+    console.log(`[service]   ${update.added.length} components added, ${update.removed.length} left out`)
+  }
   project.components = inferProps(root, project.sources, files)
   if (files.length > 0) {
     await checkTypes(project, files)

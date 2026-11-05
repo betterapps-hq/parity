@@ -1,0 +1,145 @@
+import { describe, expect, it } from "vite-plus/test"
+import { describeLayoutFinding, describeOverflow, layoutFindings, overflowPast } from "./overflow.ts"
+import type { MeasuredNode } from "./types.ts"
+
+const phone = { width: 375, height: 800, fixedHeight: false }
+
+describe("overflowPast", () => {
+  it("gives how far a box reaches past each edge, beyond half a pixel", () => {
+    const outer = { x: 0, y: 0, width: 100, height: 100 }
+    expect(overflowPast({ x: -10, y: 20, width: 130, height: 90 }, outer)).toEqual({ left: 10, right: 20, bottom: 10 })
+    expect(overflowPast({ x: 0, y: 0, width: 100.4, height: 100 }, outer)).toBeUndefined()
+    expect(overflowPast({ x: 0, y: 0, width: 100.6, height: 100 }, outer)).toEqual({ right: 0.6 })
+  })
+})
+
+describe("layoutFindings", () => {
+  it("finds a node narrower than the frame whose position takes its right edge past it", () => {
+    const nodes: MeasuredNode[] = [
+      { id: "page", x: 0, y: 0, width: 375, height: 400 },
+      { id: "pay", parent: "page", x: 340, y: 20, width: 60, height: 32 }
+    ]
+    expect(layoutFindings(nodes, phone)).toEqual([
+      {
+        kind: "frame-overflow",
+        node: "pay",
+        box: { x: 340, y: 20, width: 60, height: 32 },
+        container: { box: { x: 0, y: 0, width: 375, height: 800 } },
+        overflow: { right: 25 }
+      }
+    ])
+  })
+
+  it("leaves out overflow within the tolerance", () => {
+    const nodes: MeasuredNode[] = [{ id: "row", x: 0, y: 0, width: 375.5, height: 40 }]
+    expect(layoutFindings(nodes, phone)).toEqual([])
+    expect(layoutFindings([{ ...nodes[0]!, width: 375.6 }], phone).map((finding) => finding.overflow)).toEqual([
+      { right: 0.6 }
+    ])
+  })
+
+  it("leaves out a node that overflows a parent that doesn't clip, inside the frame", () => {
+    const nodes: MeasuredNode[] = [
+      { id: "card", x: 20, y: 20, width: 200, height: 100 },
+      { id: "badge", parent: "card", x: 200, y: 10, width: 30, height: 20 }
+    ]
+    expect(layoutFindings(nodes, phone)).toEqual([])
+  })
+
+  it("names the nearest ancestor that clips, at each level of nested clipping", () => {
+    const card = { x: 20, y: 20, width: 300, height: 200 }
+    const list = { x: 40, y: 40, width: 300, height: 100 }
+    const nodes: MeasuredNode[] = [
+      { id: "card", ...card },
+      { id: "list", parent: "card", ...list, clipped: true, clip: { node: "card", ...card } },
+      {
+        id: "item",
+        parent: "list",
+        x: 40,
+        y: 120,
+        width: 200,
+        height: 40,
+        clipped: true,
+        clip: { node: "list", ...list }
+      }
+    ]
+    expect(layoutFindings(nodes, phone)).toEqual([
+      { kind: "clipped", node: "list", box: list, container: { node: "card", box: card }, overflow: { right: 20 } },
+      {
+        kind: "clipped",
+        node: "item",
+        box: { x: 40, y: 120, width: 200, height: 40 },
+        container: { node: "list", box: list },
+        overflow: { bottom: 20 }
+      }
+    ])
+  })
+
+  it("names an ancestor outside the design's layers by its box alone", () => {
+    const clip = { x: 0, y: 0, width: 100, height: 50 }
+    const nodes: MeasuredNode[] = [{ id: "title", x: 0, y: 0, width: 140, height: 20, clipped: true, clip }]
+    expect(layoutFindings(nodes, phone)[0]?.container).toEqual({ box: clip })
+  })
+
+  it("reports the outermost node to fix, not its children that go no further", () => {
+    const nodes: MeasuredNode[] = [
+      { id: "row", x: 0, y: 0, width: 415, height: 40 },
+      { id: "left", parent: "row", x: 0, y: 0, width: 200, height: 40 },
+      { id: "right", parent: "row", x: 215, y: 0, width: 200, height: 40 },
+      { id: "icon", parent: "right", x: 395, y: 0, width: 20, height: 20 },
+      // Positioned further out than the row reaches, so it's its own problem.
+      { id: "tip", parent: "right", x: 400, y: 0, width: 40, height: 20 }
+    ]
+    expect(layoutFindings(nodes, phone).map(({ node, overflow }) => ({ node, overflow }))).toEqual([
+      { node: "row", overflow: { right: 40 } },
+      { node: "tip", overflow: { right: 65 } }
+    ])
+  })
+
+  it("has a bottom edge only for a frame with a fixed height", () => {
+    const nodes: MeasuredNode[] = [{ id: "footer", x: 0, y: 780, width: 375, height: 60 }]
+    expect(layoutFindings(nodes, phone)).toEqual([])
+    expect(layoutFindings(nodes, { ...phone, fixedHeight: true })[0]?.overflow).toEqual({ bottom: 40 })
+  })
+
+  it("checks a node against the frame when what clips it doesn't cut it beyond the tolerance", () => {
+    const nodes: MeasuredNode[] = [
+      { id: "wide", x: 0, y: 0, width: 400, height: 20, clipped: true, clip: { x: 0, y: 0, width: 399.8, height: 20 } }
+    ]
+    expect(layoutFindings(nodes, phone).map((finding) => finding.kind)).toEqual(["frame-overflow"])
+  })
+
+  it("leaves out nodes drawn at no size", () => {
+    expect(layoutFindings([{ id: "input", x: 500, y: 0, width: 0, height: 0 }], phone)).toEqual([])
+  })
+})
+
+describe("describing findings", () => {
+  const names = new Map([["list", "Results"]])
+  const name = (id: string) => names.get(id)
+
+  it("puts the amounts past each edge in words", () => {
+    expect(describeOverflow({ right: 24 })).toBe("24px on the right")
+    expect(describeOverflow({ left: 4, right: 24, bottom: 8 })).toBe(
+      "4px on the left, 24px on the right and 8px at the bottom"
+    )
+  })
+
+  it("says where a node that sticks out of the frame is, and by how much", () => {
+    const [finding] = layoutFindings([{ id: "pay", x: 340, y: 20, width: 60, height: 32 }], phone)
+    expect(describeLayoutFinding(finding!, name)).toBe(
+      "at x 340, y 20 and 60 × 32px, it sticks out of the 375px frame by 25px on the right"
+    )
+  })
+
+  it("names the ancestor that clips", () => {
+    const list = { x: 0, y: 0, width: 100, height: 100 }
+    const [finding] = layoutFindings(
+      [{ id: "item", x: 0, y: 90, width: 100, height: 30, clip: { node: "list", ...list } }],
+      phone
+    )
+    expect(describeLayoutFinding(finding!, name)).toBe(
+      "20px at the bottom cut off by Results (list), which clips its overflow"
+    )
+  })
+})

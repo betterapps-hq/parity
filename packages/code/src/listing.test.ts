@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { RendererAdapter } from "@parity-app/core"
+import type { ComponentSource, RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import {
   checkedAppFiles,
@@ -14,7 +14,8 @@ import {
   importSpecifiers,
   leftOutChanges,
   type ParsedComponent,
-  readChangedFiles
+  readChangedFiles,
+  rediscoveredSources
 } from "./listing.ts"
 import { importAlias, readTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
@@ -423,6 +424,46 @@ describe("files changing", () => {
       "src/b.tsx"
     ])
     expect(await importersOf(root, files, ["src/components/ui/index.ts"], tsconfig)).toEqual(["src/c.tsx"])
+  })
+})
+
+describe("the config changing while open", () => {
+  /** The list a fresh open makes, before the type checker. */
+  const fresh = async () =>
+    componentIds((await findAppComponents(root, renderer, readTsconfig(root), undefined, [])).found)
+  const rediscover = (sources: Record<string, ComponentSource>) =>
+    rediscoveredSources(root, renderer, readTsconfig(root), undefined, sources)
+
+  it("matches a fresh open after include is widened, then narrowed", async () => {
+    await write("tsconfig.json", '{ "include": ["src/components"] }')
+    await write("src/components/button.tsx", "export function Button() {}")
+    await write("src/pages/home.tsx", "export function Home() {}\nexport const Shell = Layout.Shell")
+    const library = { path: "../packages/ui/src/card.tsx", export: "Card", library: "ui", lazy: true }
+    let sources: Record<string, ComponentSource> = { ...(await fresh()), "ui/Card": library }
+
+    await write("tsconfig.json", '{ "include": ["src"] }')
+    const widened = await rediscover(sources)
+    expect(widened.added).toEqual(["Home"])
+    expect(widened.sources).toEqual({ ...(await fresh()), "ui/Card": library })
+    sources = widened.sources
+
+    await write("tsconfig.json", '{ "include": ["src/components"] }')
+    const narrowed = await rediscover(sources)
+    expect(narrowed.removed).toEqual(["Home"])
+    expect(narrowed.sources).toEqual({ ...(await fresh()), "ui/Card": library })
+  })
+
+  it("drops what the person included from a file now left out, for their corrections to put back", async () => {
+    await write("tsconfig.json", '{ "include": ["src"] }')
+    await write("src/access.tsx", "export const ForAdmins = Gate.Admins")
+    await write("src/components/button.tsx", "export function Button() {}")
+    const corrections = { include: [{ path: "src/access.tsx", export: "ForAdmins" }] }
+    const sources = correctedSources(await fresh(), corrections)
+
+    await write("tsconfig.json", '{ "include": ["src/components"] }')
+    const narrowed = await rediscover(sources)
+    expect(narrowed.removed).toEqual(["ForAdmins"])
+    expect(correctedSources(narrowed.sources, corrections)).toEqual(sources)
   })
 })
 

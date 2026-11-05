@@ -229,6 +229,8 @@ const tabSchema = object(
   ["error"]
 )
 const frameSchema = { state: string, mode: string }
+const number = { type: "number" }
+const boxSchema = object({ x: number, y: number, width: number, height: number })
 const designSchema = object(
   {
     id: string,
@@ -295,7 +297,30 @@ const consoleSchema = object({
 const problemsSchema = object({
   tab: ref,
   design: ref,
-  problems: { type: "array", items: object({ ...frameSchema, problem: string, node: string }, ["node"]) },
+  problems: {
+    type: "array",
+    items: object(
+      {
+        ...frameSchema,
+        kind: {
+          type: "string",
+          enum: ["render-error", "unknown-component", "content-wider", "frame-overflow", "clipped"]
+        },
+        problem: string,
+        node: string,
+        name: string,
+        box: boxSchema,
+        container: object({ node: string, name: string, box: boxSchema }, ["node", "name"]),
+        overflow: object({ left: number, right: number, top: number, bottom: number }, [
+          "left",
+          "right",
+          "top",
+          "bottom"
+        ])
+      },
+      ["kind", "node", "name", "box", "container", "overflow"]
+    )
+  },
   frames: integer,
   warnings: strings
 })

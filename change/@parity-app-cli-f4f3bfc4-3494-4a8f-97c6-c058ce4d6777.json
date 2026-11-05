@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "A project file keeps tables, operations and routes placed on the canvas, typed links drawn by hand, and the source each lens reads (PAR-16)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

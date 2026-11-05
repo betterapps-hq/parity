@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import { design, example } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, InspectorStage, slowly } from "./inspector-stories.tsx"
@@ -25,8 +25,18 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Nothing selected: a prompt to select a design, and how to reach its layers. */
-export const NothingSelected: Story = { loaders: [inspecting("design")] }
+/**
+ * Nothing selected: it asks for a screen or component on the canvas or in Layers, in the glossary's words, and says how
+ * to reach their layers. It says the same whatever is on the canvas, since every project opens on a screen (PAR-560).
+ */
+export const NothingSelected: Story = {
+  loaders: [inspecting("design")],
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText("Select a screen or component on the canvas or in Layers.")
+    ).toBeVisible()
+  }
+}
 
 /** A screen selected: Pricing, with its two states, the button that finds repeated parts, and its modes. */
 export const ScreenSelected: Story = { loaders: [inspecting("design", () => ({ design: design("Pricing") }))] }

@@ -6,7 +6,15 @@ import { frameAttributes } from "@parity-app/tokens"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { componentsGone } from "../shared/render-job.ts"
-import { drawnNodeIds, findNodeElement, nodeBox, nodeOfElement, prepareFrame, setDrawnNodes } from "./frame.ts"
+import {
+  drawnNodeIds,
+  findNodeElement,
+  nodeBox,
+  nodeOfElement,
+  nodeParent,
+  prepareFrame,
+  setDrawnNodes
+} from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
 
 declare global {
@@ -90,14 +98,21 @@ window.canvasRender = async (job) => {
       const element = findNodeElement(host, id)
       const rect = nodeBox(host, id)
       if (!element || !rect) continue
-      const measured: MeasuredNode = {
-        id,
-        x: round((rect.left - origin.left) / job.scale),
-        y: round((rect.top - origin.top) / job.scale),
-        width: round(rect.width / job.scale),
-        height: round(rect.height / job.scale)
+      const inFrame = (box: DOMRect) => ({
+        x: round((box.left - origin.left) / job.scale),
+        y: round((box.top - origin.top) / job.scale),
+        width: round(box.width / job.scale),
+        height: round(box.height / job.scale)
+      })
+      const measured: MeasuredNode = { id, ...inFrame(rect) }
+      const parent = nodeParent(host, id)
+      if (parent) measured.parent = parent
+      const clip = clipper(element, rect, body)
+      if (clip) {
+        const by = nodeOfElement(host, clip)
+        measured.clipped = true
+        measured.clip = { ...inFrame(clip.getBoundingClientRect()), ...(by && by !== id ? { node: by } : {}) }
       }
-      if (clipped(element, rect, body)) measured.clipped = true
       nodes.push(measured)
     }
     const known = new Set(loaded.guest.components)
@@ -297,23 +312,26 @@ function contrastOf(data: unknown): ContrastDetail | undefined {
   }
 }
 
-/** Whether an ancestor that hides overflow cuts part of the element off. */
-function clipped(element: HTMLElement, rect: DOMRect, body: HTMLElement): boolean {
-  if (rect.width === 0 || rect.height === 0) return false
+/** Half a CSS pixel, for subpixel layout: the agent's `overflowTolerance`, which judges what this reports. */
+const overflowTolerance = 0.5
+
+/** The nearest ancestor that hides overflow and cuts part of the element off, past `overflowTolerance`. */
+function clipper(element: HTMLElement, rect: DOMRect, body: HTMLElement): HTMLElement | undefined {
+  if (rect.width === 0 || rect.height === 0) return undefined
   for (let parent = element.parentElement; parent && parent !== body; parent = parent.parentElement) {
     const style = getComputedStyle(parent)
     if (style.overflowX === "visible" && style.overflowY === "visible") continue
     const outer = parent.getBoundingClientRect()
     if (
-      rect.left < outer.left - 0.5 ||
-      rect.right > outer.right + 0.5 ||
-      rect.top < outer.top - 0.5 ||
-      rect.bottom > outer.bottom + 0.5
+      rect.left < outer.left - overflowTolerance ||
+      rect.right > outer.right + overflowTolerance ||
+      rect.top < outer.top - overflowTolerance ||
+      rect.bottom > outer.bottom + overflowTolerance
     ) {
-      return true
+      return parent
     }
   }
-  return false
+  return undefined
 }
 
 /**

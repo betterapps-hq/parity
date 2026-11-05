@@ -32,12 +32,26 @@ export interface Discarded {
   nodes: { id: string; name?: string; viewports?: string[]; states?: string[]; variants?: string[] }[]
 }
 
+/**
+ * Findings with the same category and message, once, with every place they were found (PAR-460). The app's
+ * `warnings` are these as lines, in the same order.
+ */
+export interface WarningGroup {
+  category: string
+  severity: "error" | "warning" | "suggestion"
+  message: string
+  count: number
+  at: string[]
+}
+
 /** What the app answers: a failure's message, with its details beside it when the app knew the cause. */
 export interface ExecReply {
   ok: boolean
   applied: boolean
   output: string[]
   warnings: string[]
+  /** Missing from a copy of the app older than PAR-460. */
+  warningGroups?: WarningGroup[]
   error?: string
   details?: unknown
   editId?: string
@@ -52,6 +66,7 @@ export interface ExecResponse {
   applied: boolean
   output: string[]
   warnings: string[]
+  warningGroups?: WarningGroup[]
   /** Set when the call failed, with the editId to retry a snippet by. */
   error?: OperationError
   created: Record<string, string>
@@ -123,6 +138,33 @@ const discardedSchema = {
   }
 }
 
+const warningGroupsSchema = {
+  type: "array",
+  description:
+    "The warnings as data, in the same order: each finding once, with how many places and which. Errors come first, " +
+    "then warnings, then suggestions.",
+  items: {
+    type: "object",
+    properties: {
+      category: {
+        type: "string",
+        description:
+          "Stable: render_failed, unknown_component, unknown_component_design, unknown_prop, invalid_option, " +
+          "not_a_token, not_a_length_token, overlap, kind_changed or unnamed_layout."
+      },
+      severity: {
+        type: "string",
+        enum: ["error", "warning", "suggestion"],
+        description: "error: a render failed, so a check or screenshot is missing. suggestion: worth doing, not wrong."
+      },
+      message: { type: "string", description: "What's wrong and what to do about it." },
+      count: { type: "integer", minimum: 1, description: "How many places it was found." },
+      at: { ...strings, description: "Every place: a node's design/node path, or a frame. Empty for a whole board." }
+    },
+    required: ["category", "severity", "message", "count", "at"]
+  }
+}
+
 /** Execute's and screenshot's structured result. */
 export const execOutputSchema = {
   type: "object",
@@ -130,7 +172,8 @@ export const execOutputSchema = {
     ok: { type: "boolean" },
     applied: { type: "boolean", description: "Changes landed on the canvas as one undoable step." },
     output: { type: "array", items: { type: "string" }, description: "Lines from Print." },
-    warnings: { type: "array", items: { type: "string" } },
+    warnings: { ...strings, description: "One line per warning group, places first." },
+    warningGroups: warningGroupsSchema,
     created: {
       type: "object",
       additionalProperties: { type: "string" },
