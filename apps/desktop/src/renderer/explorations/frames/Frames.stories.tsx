@@ -25,6 +25,7 @@ import {
 import { mode } from "./data.ts"
 import { PlanCard, PricingPage, TextLayer, WelcomeSketch } from "./designs.tsx"
 import { BackToAFrameDialog, FrameInspector, frameDrops, InspectorPanel, KindHeader } from "./inspector.tsx"
+import { LiveCanvas } from "./live.tsx"
 import { type ExploreTool, FramesToolbar } from "./toolbar.tsx"
 
 /**
@@ -147,52 +148,48 @@ export const ThreeWeights: Story = {
   )
 }
 
-function Clipped({ height, children }: { height: number; children: ReactNode }) {
-  return (
-    <div className="relative overflow-hidden pt-12" style={{ height }}>
-      {children}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-b from-transparent to-[#f9fafb] dark:to-[#101011]" />
-    </div>
-  )
-}
-
 /**
- * The three titles up close, as when each is hovered: what tells them apart at a glance. The screen's names its state
- * and the modes it shows, with its icon in the screen color; the component's the same in purple; the frame's is only
- * its name, smaller and quieter, with Figma's frame icon.
+ * The three titles on a canvas you can zoom, so you can check each at any zoom instead of one. The screen's names its
+ * state and the modes it shows, with its icon in the screen color; the component's the same in purple; the frame's is
+ * only its name, smaller and quieter, with Figma's frame icon. Up close, a board's gutter stays 8px at the sides and
+ * bottom with a 28px band for the captions, whatever the zoom; past 40% it shrinks with the labels. Captions drop their
+ * chips, then the mode's name, before anything is cut off, and a title drops its menus before its name.
  */
 export const Titles: Story = {
   render: () => (
-    <CanvasStage className="flex flex-col gap-6 p-12">
-      {[
+    <LiveCanvas
+      initialZoom={0.5}
+      placed={[
         {
-          title: "Screen",
-          note: "Name, state menu and modes menu. A board around a preview for each mode.",
-          drawing: <Board kind="screen" name="Pricing" zoom={0.3} previews={pricing} controls />
+          key: "pricing",
+          x: 0,
+          y: 0,
+          draw: (zoom) => <Board kind="screen" name="Pricing" zoom={zoom} previews={pricing} controls />
         },
         {
-          title: "Component",
-          note: "The same menus in the component color, on a board that hugs its one preview.",
-          drawing: <Board kind="component" name="Plan card" zoom={1} previews={planCard} controls />
+          key: "plan-card",
+          x: 0,
+          y: 1800,
+          draw: (zoom) => <Board kind="component" name="Plan card" zoom={zoom} previews={planCard} controls />
         },
         {
-          title: "Frame",
-          note: "Only its name. No board, no menus: the design starts right under it.",
-          drawing: (
-            <CanvasFrame name="Welcome" zoom={0.7}>
+          key: "welcome",
+          x: 1000,
+          y: 1800,
+          draw: (zoom) => (
+            <CanvasFrame name="Welcome" zoom={zoom}>
               <WelcomeSketch width={640} height={400} />
             </CanvasFrame>
           )
         }
-      ].map(({ title, note, drawing }) => (
-        <div key={title} className="flex items-start gap-12">
-          <div className="w-56 shrink-0 pt-12">
-            <Explainer title={title}>{note}</Explainer>
-          </div>
-          <Clipped height={170}>{drawing}</Clipped>
-        </div>
-      ))}
-    </CanvasStage>
+      ]}
+    >
+      <div className="absolute top-4 right-4 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur">
+        <Explainer title="Zoom to check each zoom">
+          Hold Ctrl or ⌘ and scroll, or pinch, to zoom around the pointer. Scroll to pan.
+        </Explainer>
+      </div>
+    </LiveCanvas>
   )
 }
 

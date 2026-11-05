@@ -1,6 +1,6 @@
 import { companionScale, type ResolvedMode } from "@parity-app/core"
 import { AppWindow, ChevronDown, Component, Crown, Frame, type LucideProps } from "lucide-react"
-import type { CSSProperties, ReactNode } from "react"
+import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -87,12 +87,45 @@ export function At({
 const menuTrigger =
   "flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent data-[state=open]:bg-accent"
 
-/** The name above a board or frame, drawn at screen size whatever the zoom. */
-function TitleBar({ children }: { children: ReactNode }) {
+/**
+ * Steps something down until it fits its box: `steps` versions of it, fullest first, each tried in turn until one no
+ * longer overflows. Remounted at each width (see its callers' keys), so it starts again from the fullest.
+ */
+function useFitStep(steps: number) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [step, setStep] = useState(0)
+  useLayoutEffect(() => {
+    const box = ref.current
+    if (box && step < steps - 1 && box.scrollWidth > box.clientWidth + 0.5) setStep(step + 1)
+  }, [step, steps])
+  return { ref, step }
+}
+
+/**
+ * The name above a board, drawn at screen size whatever the zoom, with the board's menus at the right. The menus show
+ * only while they fit beside the whole name; past that only the name shows, and it can run past the board's edge
+ * rather than be cut off.
+ */
+function TitleBar({
+  name,
+  controls,
+  zoom,
+  width
+}: {
+  name: ReactNode
+  controls?: ReactNode
+  zoom: number
+  /** The board's width on screen. */
+  width: number
+}) {
+  const { ref, step } = useFitStep(controls ? 2 : 1)
+  // Zoomed out past 40%, it shrinks with the canvas, as every name does, down to 60%.
+  const { scale } = labelLook("name", zoom)
   return (
-    <div className="absolute bottom-full left-0 w-full pb-2.5">
-      <div className="flex h-8 w-max items-center gap-3" style={{ minWidth: "100%" }}>
-        {children}
+    <div className="absolute bottom-full left-0 pb-2" style={{ zoom: scale, width: width / scale }}>
+      <div ref={ref} className="flex h-8 w-full items-center gap-3 whitespace-nowrap">
+        {name}
+        {step === 0 && controls}
       </div>
     </div>
   )
@@ -134,7 +167,7 @@ function DesignName({
   const color = kindColor(kind)
   return (
     <span
-      className={`flex min-w-0 items-center gap-1.5 px-1 py-0.5 ${
+      className={`flex shrink-0 items-center gap-1.5 px-1 py-0.5 ${
         quiet ? "text-[13px] text-muted-foreground" : "text-sm font-medium text-foreground/90"
       }`}
       style={selected ? { color } : undefined}
@@ -144,7 +177,7 @@ function DesignName({
         className={`shrink-0 ${quiet ? "size-3.5" : "size-4"}`}
         style={{ color: quiet && !selected ? undefined : color }}
       />
-      <span className="truncate">{name}</span>
+      <span>{name}</span>
     </span>
   )
 }
@@ -181,35 +214,40 @@ export function Board({
 }) {
   const [main, ...beside] = previews
   const gutter = gutterAt(zoom)
-  // The board's width on screen. As on the canvas, its menus hide while it's narrower than 22rem, so they never crowd
-  // its name; zoomed out, a component's board shows only its name.
-  const onScreen =
+  // The board's width on screen, which the title bar's menus have to fit in.
+  const onScreen = Math.round(
     previews.reduce((sum, preview, index) => sum + preview.width * (index ? companionScale(preview.width) : 1), 0) *
       zoom +
-    gutter.padding * 2 +
-    beside.length * gutter.between
+      gutter.side * 2 +
+      beside.length * gutter.between
+  )
   return (
     <div className="relative w-max">
-      <TitleBar>
-        <DesignName kind={kind} name={name} selected={selected} />
-        {controls && main && onScreen >= 352 && (
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
-            <StateTrigger states={states} />
-            <ModesMenu
-              modes={[...modes]}
-              main={main.mode}
-              beside={beside.map((preview) => preview.mode)}
-              triggerClassName={menuTrigger}
-              onChange={() => undefined}
-            />
-          </div>
-        )}
-      </TitleBar>
+      <TitleBar
+        key={onScreen}
+        zoom={zoom}
+        width={onScreen}
+        name={<DesignName kind={kind} name={name} selected={selected} />}
+        controls={
+          controls &&
+          main && (
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              <StateTrigger states={states} />
+              <ModesMenu
+                modes={[...modes]}
+                main={main.mode}
+                beside={beside.map((preview) => preview.mode)}
+                triggerClassName={menuTrigger}
+                onChange={() => undefined}
+              />
+            </div>
+          )
+        }
+      />
       <div
-        className="relative w-max rounded-xl border bg-card text-card-foreground shadow-2xl"
+        className="relative w-max rounded-lg border bg-card text-card-foreground shadow-2xl"
         style={{
-          padding: gutter.padding,
-          paddingTop: gutter.padding - 4,
+          padding: `0 ${gutter.side}px ${gutter.side}px`,
           ...(selected ? { boxShadow: `0 0 0 2px ${kindColor(kind)}` } : {})
         }}
       >
@@ -221,6 +259,7 @@ export function Board({
               zoom={zoom}
               gutter={gutter}
               first={index === 0}
+              last={index === previews.length - 1}
               divider={index === 1}
             />
           ))}
@@ -231,12 +270,13 @@ export function Board({
 }
 
 /**
- * The board's gutter in screen pixels: the same at every zoom up close, so the band around the previews never swells
- * or vanishes as you zoom, and shrinking with the canvas only past 40%, with the captions in it.
+ * The board's gutter in screen pixels, so the band around the previews is the same at every zoom up close: 8px at the
+ * sides and bottom, and a 28px band at the top for the captions. Past 40% it shrinks with the canvas, with the
+ * captions in it, as every label does.
  */
 function gutterAt(zoom: number) {
   const s = labelLook("detail", zoom).scale
-  return { padding: 16 * s, caption: 24 * s, captionGap: 8 * s, between: 24 * s }
+  return { side: 8 * s, caption: 28 * s, between: 16 * s }
 }
 
 function PreviewTile({
@@ -244,20 +284,20 @@ function PreviewTile({
   zoom,
   gutter,
   first,
+  last,
   divider
 }: {
   preview: Preview
   zoom: number
   gutter: ReturnType<typeof gutterAt>
   first: boolean
+  last: boolean
   divider: boolean
 }) {
   const scale = first ? 1 : companionScale(preview.width)
   const look = labelLook("detail", zoom)
-  // The room its caption has on screen: the preview's width and the gutter beside it. Narrower than the whole caption,
-  // the width chips go first, and only then does the name truncate.
-  const room = preview.width * scale * zoom + gutter.padding
-  const fits = (px: number) => room / look.scale >= px
+  // The room its caption has on screen: the preview's width, and the last one the gutter past it too.
+  const room = Math.round(preview.width * scale * zoom + (last ? gutter.side : 0))
   // The first preview starts at the gutter, the divider sits halfway to the next, and the rest follow at the gap.
   let spacing: CSSProperties | undefined
   if (divider) {
@@ -270,34 +310,44 @@ function PreviewTile({
   } else if (!first) spacing = { marginLeft: gutter.between }
   return (
     <figure className="m-0" style={spacing}>
-      <figcaption className="relative" style={{ height: gutter.caption, marginBottom: gutter.captionGap }}>
+      <figcaption className="relative" style={{ height: gutter.caption }}>
         <div
-          className="absolute bottom-0 left-0"
-          style={{ zoom: look.scale, opacity: look.opacity, height: 24, width: room / look.scale }}
+          className="absolute inset-y-0 left-0 flex items-center"
+          style={{ zoom: look.scale, opacity: look.opacity, width: room / look.scale }}
         >
-          <div className="flex h-full items-center gap-2 text-sm">
-            <span className="flex min-w-0 items-center gap-1.5 font-medium">
-              {preview.mode.id === primaryMode.id && (
-                <Crown className="size-3.5 shrink-0 text-amber-400" aria-label="Primary mode" />
-              )}
-              <ModeViewportIcon of={preview.mode} className="size-3.5 shrink-0 opacity-70" aria-hidden />
-              <span className="truncate">{preview.mode.name}</span>
-            </span>
-            {fits(184) && (
-              <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
-                {preview.width}
-              </span>
-            )}
-            {scale < 1 && fits(232) && (
-              <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
-                {Math.round(scale * 100)}%
-              </span>
-            )}
-          </div>
+          <Caption key={room} preview={preview} scale={scale} />
         </div>
       </figcaption>
       <div style={{ zoom: scale * zoom }}>{preview.content}</div>
     </figure>
+  )
+}
+
+/**
+ * A preview's caption, which never truncates. Short of room it drops the shrink, then the width, then the mode's name,
+ * leaving its icon, and hides altogether before anything is cut off.
+ */
+function Caption({ preview, scale }: { preview: Preview; scale: number }) {
+  const { ref, step } = useFitStep(5)
+  const chip = "shrink-0 rounded bg-muted px-1 text-[11px] leading-4 text-muted-foreground tabular-nums"
+  return (
+    <div
+      ref={ref}
+      className="flex w-full items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap"
+      title={preview.mode.name}
+    >
+      {step < 4 && (
+        <span className="flex shrink-0 items-center gap-1 font-medium">
+          {preview.mode.id === primaryMode.id && (
+            <Crown className="size-3 shrink-0 text-amber-400" aria-label="Primary mode" />
+          )}
+          <ModeViewportIcon of={preview.mode} className="size-3 shrink-0 opacity-70" aria-hidden />
+          {step < 3 && <span>{preview.mode.name}</span>}
+        </span>
+      )}
+      {step < 2 && <span className={chip}>{preview.width}</span>}
+      {step < 1 && scale < 1 && <span className={chip}>{Math.round(scale * 100)}%</span>}
+    </div>
   )
 }
 
@@ -342,12 +392,12 @@ export function CanvasFrame({
 }) {
   return (
     <div className="relative w-max">
-      <div className="absolute bottom-full left-0 w-full pb-1">
+      <div className="absolute bottom-full left-0 pb-1" style={{ zoom: labelLook("name", zoom).scale }}>
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <button
               type="button"
-              className="flex max-w-full cursor-default rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="flex cursor-default rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               <DesignName kind="frame" name={name} selected={selected} quiet />
             </button>
