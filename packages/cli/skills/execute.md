@@ -153,7 +153,7 @@ Its `composition` says what it needs around it and holds, before you insert it:
 // A sidebar goes inside its provider: insert the example, then fill it in.
 const { composition } = Props("nova/Sidebar")
 Print(composition.parents.chain.map((parent) => parent.component))
-const sidebar = Insert("page", composition.example.node)
+const sidebar = Insert("dashboard/Page", composition.example.node)
 ```
 
 ### Icons

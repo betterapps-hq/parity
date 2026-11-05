@@ -81,7 +81,31 @@ const designs: ContainerSpec[] = [
 function project(tab: string): AgentSnapshot {
   return {
     tab,
-    components: ["Badge", "Button", "Card", "CardDescription", "CardHeader", "CardTitle", "Input", "Label", "Skeleton"],
+    components: [
+      "Badge",
+      "Button",
+      "Card",
+      "CardDescription",
+      "CardHeader",
+      "CardTitle",
+      "Input",
+      "Label",
+      "Skeleton",
+      "nova/Sidebar",
+      "nova/SidebarProvider"
+    ],
+    // Nova's sidebar, which needs its provider, for the composition example.
+    sources: {
+      "nova/SidebarProvider": { path: "@buildkit/nova", library: "nova", export: "SidebarProvider", visual: false },
+      "nova/Sidebar": {
+        path: "@buildkit/nova",
+        library: "nova",
+        export: "Sidebar",
+        parents: ["nova/SidebarProvider"],
+        parentsFrom: "example"
+      }
+    },
+    renderStatus: { "nova/Sidebar": { drawn: true } },
     iconSets: [{ id: "lucide", name: "Lucide", package: "lucide-react", version: "0.500.0" }],
     tokens: [
       { name: "background", category: "color", source: "semantic", values: { default: "white", dark: "black" } },
