@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 03:41:00 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 05 Nov 2026 05:14:33 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.7.1
+
+Thu, 05 Nov 2026 05:14:33 GMT
+
+### Patches
+
+- The insert picker takes the keys as soon as it opens, and is gone as soon as it closes, so Escape straight after /
+  closes it and the next click reaches the canvas. (ajcraswell@gmail.com)
 
 ## 0.7.0
 

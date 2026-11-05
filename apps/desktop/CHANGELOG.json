@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 05 Nov 2026 05:14:33 GMT",
+      "version": "0.7.1",
+      "tag": "@parity-app/desktop_v0.7.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "df633d4eb3ba64b7afdcb333ae62d720726540df",
+            "comment": "The insert picker takes the keys as soon as it opens, and is gone as soon as it closes, so Escape straight after / closes it and the next click reaches the canvas."
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 03:41:00 GMT",
       "version": "0.7.0",
       "tag": "@parity-app/desktop_v0.7.0",

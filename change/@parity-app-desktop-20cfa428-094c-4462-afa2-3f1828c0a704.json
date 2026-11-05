@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "The insert picker takes the keys as soon as it opens, and is gone as soon as it closes, so Escape straight after / closes it and the next click reaches the canvas.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
