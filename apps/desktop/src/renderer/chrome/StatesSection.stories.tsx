@@ -41,12 +41,12 @@ const showing = (designName: string, state?: string, change?: (key: string) => v
   inspecting("design", () => {
     const key = design(designName)
     change?.(key)
-    if (state) example().store.updateView(key, (view) => ({ ...view, state, allStates: false }))
+    if (state) example().store.updateView(key, `Show ${state}`, (view) => ({ ...view, state, allStates: false }))
     return { design: key }
   })
 
-/** Sign in showing its base state: Default marked, the others with their number of changes. */
-export const BaseShown: Story = { loaders: [showing("Sign in", "default")] }
+/** Sign in showing its first state: Default marked, the others with their number of changes. */
+export const DefaultShown: Story = { loaders: [showing("Sign in", "default")] }
 
 /** Sign in showing Signing in: its eight changes listed by layer, each with what it sets. */
 export const StateShown: Story = { loaders: [showing("Sign in", "signing-in")] }
@@ -100,7 +100,7 @@ export const EveryStateShown: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Sign in")
-      example().store.updateView(key, (view) => ({ ...view, allStates: true }))
+      example().store.updateView(key, "Show every state", (view) => ({ ...view, allStates: true }))
       return { design: key }
     })
   ]
@@ -142,8 +142,8 @@ export const StateMenu: Story = {
   }
 }
 
-/** The base state's menu open: it can't be deleted, since it's the design itself. */
-export const BaseStateMenu: Story = {
+/** The first state's menu open: it can't be deleted, since every other state changes it. */
+export const DefaultStateMenu: Story = {
   loaders: [showing("Sign in", "default")],
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Default actions" }))

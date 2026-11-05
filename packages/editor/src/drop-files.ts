@@ -107,7 +107,7 @@ export function dropHint(count: number, where: "layout" | "canvas" | "none"): st
   if (count === 0) return `Only ${imageKinds} images can be dropped`
   if (where === "none") return "Drop onto a layout, or onto the empty canvas"
   const images = count === 1 ? "the image" : `${count} images`
-  return where === "layout" ? `Add ${images} here` : `New design with ${images}`
+  return where === "layout" ? `Add ${images} here` : `New screen with ${images}`
 }
 
 /** The undo step's label for a drop of this many images. */

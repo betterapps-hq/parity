@@ -171,11 +171,11 @@ function FileItems() {
       </Item>
       <MenubarSeparator />
       <MenubarItem disabled={!session?.selection.get().design} onSelect={() => void exportImages("selection")}>
-        <Images /> Export selected design…
+        <Images /> Export selected…
         <MenubarShortcut>{keymap.exportSelection.keys[0]}</MenubarShortcut>
       </MenubarItem>
       <MenubarItem disabled={designs === 0} onSelect={() => void exportImages("all")}>
-        <Images /> Export all designs…
+        <Images /> Export all…
       </MenubarItem>
       <MenubarSeparator />
       <Item command="closeTab" icon={X} />
@@ -249,7 +249,7 @@ function ViewItems() {
         <Grid3x3 /> Layout grid <MenubarShortcut>{keymap.layoutGrid.keys[0]}</MenubarShortcut>
       </MenubarCheckboxItem>
       <MenubarCheckboxItem checked={preferences.snapping} onCheckedChange={(snapping) => setPreferences({ snapping })}>
-        <Magnet /> Snap to designs
+        <Magnet /> Snap to screens and components
       </MenubarCheckboxItem>
       <MenubarCheckboxItem
         checked={preferences.performanceStats}
@@ -294,7 +294,9 @@ function ObjectItems() {
       <Item command="sendToBack" icon={SendToBack} />
       <MenubarSeparator />
       <Item command="hide" icon={EyeOff} />
-      {!current.design && !current.note && <SelectionHint>Select layers or a design to act on them</SelectionHint>}
+      {!current.design && !current.note && (
+        <SelectionHint>Select layers, a screen or a component to act on them</SelectionHint>
+      )}
     </>
   )
 }
@@ -318,7 +320,7 @@ function ArrangeItems() {
       <MenubarSeparator />
       <Item command="distributeHorizontal" icon={AlignHorizontalSpaceAround} />
       <Item command="distributeVertical" icon={AlignVerticalSpaceAround} />
-      {unavailable && <SelectionHint>Select layers or designs to arrange them</SelectionHint>}
+      {unavailable && <SelectionHint>Select layers, screens or components to arrange them</SelectionHint>}
     </>
   )
 }

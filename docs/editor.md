@@ -309,7 +309,7 @@ menubar's command. The Layers panel's menu is unchanged.
   at an entry, or reaching it with the arrow keys, outlines its layer in the frame that was right-clicked; choosing it
   selects it there, and choosing the design selects the design.
 - **Paste here** pastes what's on the clipboard where the pointer was, whatever's selected, as one undo step ("Paste
-  layer here", "Paste design here"), and selects the copies.
+  layer here", "Paste screen here"), and selects the copies.
   - Designs go on the canvas with their top left at the pointer, sitting as they sat together. Notes do the same.
   - Layers, text and images go into the deepest of the design's own layouts under the pointer, in the frame there, at
     the slot under the pointer, where a dragged layer would land (`slotAt`). A hidden layer isn't a slot. A layout
@@ -1661,8 +1661,8 @@ decisions.md's "Saving is explicit" sets out.
   here too, counts as applied. A design the call created conflicts when one with its id was added here, and modes the
   call set conflict when they changed here since. Any conflict refuses the whole call: nothing changes, not its other
   designs or its tokens either, and the agent is told which designs, or that the modes, conflicted.
-- **The token editor** says this before anything changes: "Every frame shows it at once. Saving the project writes it to
-  src/index.css, and Undo takes it back." Its button is Apply.
+- **The token editor** says this before anything changes: "Every preview shows it at once. Saving the project writes it
+  to src/index.css, and Undo takes it back." Its button is Apply.
 - **A theme's value goes where the stylesheet keeps it** (PAR-468): the preview and the save find a theme's blocks by
   the rules the Tokens tab read it with (`themeOfSelector` in `packages/tokens/src/policy.ts`), so `dark` is `.dark`,
   `[data-theme="dark"]` or `html.dark` alike. Every block that declares the token gets the new value, so a later
@@ -1785,7 +1785,7 @@ tldraw's drag of a board isn't covered.
 
 ### Edits in the state and variant shown (PAR-164)
 
-The inspector's Editing control says where edits go: in the base state ("Editing Monthly changes the design") they
+The inspector's Editing control says where edits go: in the base state ("Editing Monthly changes every state") they
 change the design; in another state, or with a variant other than the default shown on a component's board, they're kept
 as that state's or variant's changes ("changes only this state", "changes only the Large variant").
 
@@ -2077,7 +2077,7 @@ have taken; and they keep it as files change, the checker adds one and the perso
 ### A library's component designs in the Components panel (PAR-125)
 
 The component designs in a dependency's `.lib.par` canvas show in that library's section of the Components panel, under
-"Component designs", before its components. Screens on the library's canvas aren't listed; they're the author's own
+"Ready-made components", before its components. Screens on the library's canvas aren't listed; they're the author's own
 showcase.
 
 - **They're named by the library:** `settings-row` is `nova/settings-row`, so it never clashes with the project's own
@@ -2097,7 +2097,7 @@ screens left out). `packages/project/src/index.test.ts` (1: a dependency's canva
 `apps/desktop/src/renderer/design-store.test.ts` (1: a project design reaches a library design it places, which isn't an
 entry and isn't saved). Gaps: the panel's section has no automated test. It was checked in an isolated copy of the app
 on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen: the library's section
-listed the design under Component designs and left the screen out.
+listed the design under Ready-made components and left the screen out.
 
 ### Placing a library's design, linked or detached (PAR-126)
 
@@ -2716,6 +2716,43 @@ above.
 ## The window
 
 How the app's window holds the canvas and the panels around it.
+
+### One word for each thing (PAR-538)
+
+The editor's labels, menus, hints, toasts and undo labels use the glossary in [decisions.md](decisions.md), "Starting
+from scratch, and what things are called (PAR-537)":
+
+- **A thing on the canvas is a screen or a component,** never a design. A label that knows which says so ("Rename
+  screen", "Delete 2 components", "Move 3 screens and components"); one that can't says both ("Select a screen or
+  component on the canvas or in Layers", "Next screen or component"). The inspector's Design tab keeps its name. A menu
+  item that acts on any selection stays short: Export selected…, Export all….
+- **A mode's tile on a board is a preview:** "Drag to resize this preview", "Resize preview", "Show beside the first
+  preview", the modes menu's Previews, "Some previews had problems" after an export, and "12 previews checked" in the
+  Accessibility tab. Frames a second, and the accessibility rule about HTML frames, are still frames.
+- **Main is only a main component.** The preview a board shows first is "Shown first", and the modes menu offers Show
+  first and Only Desktop Light (the mode's own name), as the inspector's Modes section does. The project's first mode is
+  still Primary.
+- **The first state is named, never Base.** The state menu, the state labels beside the every-state grid and the States
+  section show its name alone, without a count of changes; a field's reset says "Reset to Default", or the first state's
+  own name; and the Editing control says "changes every state".
+- **Undoing a view change has no step, but its label says what changed** ("Show Dark", "Show every state"), for anything
+  that lists it later.
+- **A screen's icon is lucide's AppWindow,** a window with its title bar, and a component's is still Component. The
+  status bar says how many components are in code ("587 components in code"), the screen inspector's section that finds
+  repeated parts is Repeated parts, and the Components panel lists the project's own as Local components and a library's
+  ready-made ones as Ready-made components.
+
+Code: `kindName`, `kindTitle` and `kindsName` in `packages/editor/src/kind-names.ts` name screens and components for a
+label; `DesignStore.designsLabel` names selected ones by key, and `modeNames` in
+`apps/desktop/src/renderer/canvas/view.ts` names modes.
+
+Tests: `packages/editor/src/kind-names.test.ts` (3: one by kind, several of one kind, a mix with screens first),
+`packages/editor/src/drop-files.test.ts` ("New screen with the image"),
+`apps/desktop/src/renderer/chrome/edit-scope.test.ts` ("change every state"). End to end,
+`apps/desktop/e2e/keyboard.e2e.ts` (the View menu and the Keyboard shortcuts dialog), `selecting.e2e.ts` ("Move
+screen"), `dropping.e2e.ts` and `inserting.e2e.ts` (Local components). The stories that show these labels are the modes
+menu, the inspector's Design tab, the States section, the board and the status bar. Gaps: the strings themselves are
+checked by reading them, not by tests, as [conventions.md](conventions.md) says of prose.
 
 ### Installed app updates (PAR-160)
 

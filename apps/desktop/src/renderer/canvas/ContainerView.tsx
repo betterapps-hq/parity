@@ -12,6 +12,7 @@ import {
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
+import { kindTitle } from "@parity-app/editor"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
@@ -57,7 +58,7 @@ import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
-import { activeState, containerModes, withShownModes } from "./view.ts"
+import { activeState, containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
   ref?: Ref<HTMLDivElement>
@@ -90,9 +91,11 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
   const columns = [primary, ...companions]
   const color = designColor(container.kind)
 
-  const selectState = (state: string) => store.updateView(key, (view) => ({ ...view, state, allStates: false }))
+  const stateName = (id: string) => container.states.find((state) => state.id === id)?.name ?? id
+  const selectState = (state: string) =>
+    store.updateView(key, `Show ${stateName(state)}`, (view) => ({ ...view, state, allStates: false }))
   const showModes = (main: string, shown: string[]) =>
-    store.updateView(key, (view) => withShownModes(view, main, shown, all))
+    store.updateView(key, `Show ${modeNames(all, shown)}`, (view) => withShownModes(view, main, shown, all))
 
   const titleBar = (
     <TitleBar showControls={hovered || isSelected}>
@@ -108,7 +111,11 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
             params={container.params!}
             choices={variantChoices(container.params, container.view?.variants)}
             onSelect={(param, option) =>
-              store.updateView(key, (view) => ({ ...view, variants: { ...view.variants, [param]: option } }))
+              store.updateView(
+                key,
+                `Show ${container.params?.[param]?.options?.find(({ id }) => id === option)?.name ?? option}`,
+                (view) => ({ ...view, variants: { ...view.variants, [param]: option } })
+              )
             }
           />
         )}
@@ -117,7 +124,12 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
           active={active.id}
           allStates={allStates}
           onSelect={selectState}
-          onShowAll={(on) => store.updateView(key, (view) => ({ ...view, allStates: on }))}
+          onShowAll={(on) =>
+            store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (view) => ({
+              ...view,
+              allStates: on
+            }))
+          }
         />
         <ModesMenu modes={all} main={primary} beside={companions} triggerClassName={menuTrigger} onChange={showModes} />
       </TitleControls>
@@ -272,7 +284,7 @@ function TitleButton({
         <input
           ref={focusAndSelect}
           defaultValue={container.name}
-          aria-label="Design name"
+          aria-label={`${kindTitle(container.kind)} name`}
           className="h-7 w-56 min-w-0 rounded-md border bg-background px-2 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           onBlur={(event) => {
             renameDesign(session, entry, event.currentTarget.value)
@@ -409,9 +421,9 @@ function StateMenu({
             return (
               <DropdownMenuRadioItem key={state.id} value={state.id}>
                 <span className="flex-1 truncate">{state.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {index === 0 ? "Base" : `${changes} change${changes === 1 ? "" : "s"}`}
-                </span>
+                {index > 0 && (
+                  <span className="text-xs text-muted-foreground">{`${changes} change${changes === 1 ? "" : "s"}`}</span>
+                )}
               </DropdownMenuRadioItem>
             )
           })}
@@ -460,9 +472,9 @@ function StateLabel({
         style={{ top: offset }}
       >
         <span className="text-sm font-medium text-foreground">{state.name}</span>
-        <span className="text-xs text-muted-foreground">
-          {base ? "Base state" : `${changes} change${changes === 1 ? "" : "s"}`}
-        </span>
+        {!base && (
+          <span className="text-xs text-muted-foreground">{`${changes} change${changes === 1 ? "" : "s"}`}</span>
+        )}
       </button>
     </Hint>
   )

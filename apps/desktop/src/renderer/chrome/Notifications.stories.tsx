@@ -118,7 +118,7 @@ export const Exporting: Story = {
   play: async () => {
     await frameDesigns("Pricing")
     void exportImages("selection")
-    await holdToast("Exporting the design…")
+    await holdToast("Exporting Pricing…")
   }
 }
 
@@ -157,7 +157,7 @@ export const ExportedWithWarnings: Story = {
   play: async () => {
     await frameDesigns("Pricing")
     void exportImages("selection")
-    await holdToast("Some frames had problems")
+    await holdToast("Some previews had problems")
   }
 }
 
@@ -187,7 +187,7 @@ export const NothingSelectedToExport: Story = {
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
     void exportImages("selection")
-    await holdToast("Select a design to export it")
+    await holdToast("Select a screen or component to export it")
   }
 }
 

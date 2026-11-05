@@ -231,7 +231,7 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
   if (designs.length > 0) {
     store.updateContainers(
       designs,
-      designs.length === 1 ? "Nudge design" : `Nudge ${designs.length} designs`,
+      `Nudge ${store.designsLabel(designs)}`,
       (containers) => containers.map((container) => ({ ...container, position: moved(container.position, by) })),
       { gesture }
     )

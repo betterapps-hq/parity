@@ -13,7 +13,7 @@ import {
 
 const sources: Record<string, { origin: InsertOrigin; sourceName: string }> = {
   basics: { origin: "basic", sourceName: "Basics" },
-  designs: { origin: "design", sourceName: "Component designs" },
+  designs: { origin: "design", sourceName: "Local components" },
   "project:kit": { origin: "kit", sourceName: "UI kit" },
   project: { origin: "app", sourceName: "shadcn-vite" },
   "project:pages": { origin: "page", sourceName: "Pages" },
@@ -199,9 +199,10 @@ describe("insertRows", () => {
   })
 
   it("doesn't show them for a search that only matches their description", () => {
-    // App and ThemeProvider are listed under `src`, as MemberRow is under `src/components`.
+    // App and ThemeProvider are listed under `src`, as MemberRow is under `src/components`. The project's own
+    // components match `components` by their heading, Local components.
     expect(names(insertRows(example, "src"))).toEqual(["MemberRow"])
-    expect(names(insertRows(example, "components"))).toEqual(["MemberRow"])
+    expect(names(insertRows(example, "components"))).toEqual(["Member row", "Stat card", "MemberRow"])
   })
 
   it("puts hidden ones a search partly names after the rest, and ones it names in full with them", () => {

@@ -13,13 +13,13 @@ import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import { kindColors } from "./kinds.tsx"
 import { toggleShownMode } from "./view.ts"
 
-/** The main frame's tint, in the mode color. */
+/** The tint of the preview shown first, in the mode color. */
 const mainTint = { background: `color-mix(in oklch, ${kindColors.mode} 18%, transparent)`, color: kindColors.mode }
 
 /**
- * Which modes a board shows as frames. Each of the project's modes is listed once, checked while it's on the board,
- * and one of the checked ones is Main: the large frame the others sit beside. The trigger shows a chip for each frame,
- * the main one first.
+ * Which modes a board shows as previews. Each of the project's modes is listed once, checked while it's on the board,
+ * and one of the checked ones is shown first: the large preview the others sit beside. The trigger shows a chip for
+ * each preview, the first one first.
  */
 export function ModesMenu({
   modes,
@@ -50,7 +50,7 @@ export function ModesMenu({
         <ChevronDown className="size-3.5 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel>Frames on this board</DropdownMenuLabel>
+        <DropdownMenuLabel>Previews</DropdownMenuLabel>
         {modes.map((mode) => {
           const on = shown.includes(mode.id)
           return (
@@ -74,10 +74,13 @@ export function ModesMenu({
                 <span className="flex-1 truncate">{mode.name}</span>
                 <span className="text-xs text-muted-foreground tabular-nums">{mode.width}</span>
               </DropdownMenuItem>
-              <div className="flex w-20 shrink-0 justify-end">
+              <div className="flex w-24 shrink-0 justify-end">
                 {mode.id === main.id ? (
-                  <span className="mr-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style={mainTint}>
-                    Main
+                  <span
+                    className="mr-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                    style={mainTint}
+                  >
+                    Shown first
                   </span>
                 ) : (
                   <DropdownMenuItem
@@ -87,7 +90,7 @@ export function ModesMenu({
                       onChange(mode.id, on ? shown : [...shown, mode.id])
                     }}
                   >
-                    Make main
+                    Show first
                   </DropdownMenuItem>
                 )}
               </div>
@@ -97,11 +100,11 @@ export function ModesMenu({
         <DropdownMenuSeparator />
         <div className="flex gap-1">
           <DropdownMenuItem
-            className="flex-1 justify-center"
+            className="min-w-0 flex-1 justify-center"
             disabled={frames.length === 1}
             onSelect={() => onChange(main.id, [main.id])}
           >
-            Main only
+            <span className="truncate">Only {main.name}</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             className="flex-1 justify-center"
@@ -121,10 +124,10 @@ export function ModesMenu({
   )
 }
 
-/** A frame on the board, as its viewport and theme: the main one tinted and named, the rest named on hover. */
+/** A preview on the board, as its viewport and theme: the first one tinted and named, the rest named on hover. */
 function ModeChip({ mode, main }: { mode: ResolvedMode; main: boolean }) {
   return (
-    <Hint label={main ? `${mode.name}, the main frame` : mode.name} wait>
+    <Hint label={main ? `${mode.name}, shown first` : mode.name} wait>
       <span
         className={`flex h-5 items-center gap-0.5 rounded px-1 ${main ? "" : "bg-muted text-muted-foreground"}`}
         style={main ? mainTint : undefined}

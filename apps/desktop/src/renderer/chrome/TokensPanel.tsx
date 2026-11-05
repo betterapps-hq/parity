@@ -461,7 +461,7 @@ function panelItems({
     items.push({
       type: "note",
       key: "note described only",
-      text: "A .lib.par describes these, but no custom property in the stylesheet matches them, so frames can't use them."
+      text: "A .lib.par describes these, but no custom property in the stylesheet matches them, so previews can't use them."
     })
     for (const token of unmatched) {
       items.push({ type: "described", key: `described ${token.library}:${token.path}`, token })

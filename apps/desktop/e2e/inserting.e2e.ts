@@ -101,7 +101,7 @@ describe("the insert picker", () => {
       "Text",
       "Vertical layout",
       "Horizontal layout",
-      "# Component designs"
+      "# Local components"
     ])
     // Only the lines in view are drawn, so the list is scrolled a screen at a time to read every heading. Each scroll
     // is announced at once, as a wheel's would be a frame later, since frames are slow in a window in the background.
@@ -121,14 +121,7 @@ describe("the insert picker", () => {
     })
     // The example has no pages, and App and ThemeProvider aren't listed until searched for, so the app's own section
     // holds the run's MemberRow, MemberNames and EmailField.
-    expect(headings).toEqual([
-      "Basics",
-      "Component designs",
-      "UI kit",
-      "shadcn-vite",
-      "Shadcn Nova",
-      "Radix Primitives"
-    ])
+    expect(headings).toEqual(["Basics", "Local components", "UI kit", "shadcn-vite", "Shadcn Nova", "Radix Primitives"])
   })
 
   it("finds Badge for `badge`, once, with both its sources, and nothing that only scatters its letters", async () => {

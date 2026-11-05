@@ -478,7 +478,7 @@ function RowContent({ row, searching, onPick }: { row: InsertRow; searching: boo
 
 function insert(session: ProjectSession, item: InsertItem): void {
   setOpen(false)
-  if (!insertAtSelection(session, item)) toast.info("Select a design or a layout to insert into")
+  if (!insertAtSelection(session, item)) toast.info("Select a screen, component or layout to insert into")
 }
 
 function insertBasic(session: ProjectSession, { node: make, label }: (typeof basics)[number]): void {

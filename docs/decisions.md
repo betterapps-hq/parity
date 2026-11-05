@@ -3174,3 +3174,23 @@ You chose these on 2026-11-04 from the new-user audit
   out (`detection.include`, "List it") stays, as you didn't ask for that to go.
 - **A project file with an `exclude` list still opens.** It's read and dropped, so the next save leaves it out, rather
   than the file failing to open over a list no version reads now.
+
+## The labels that follow the glossary (PAR-538)
+
+Calls made on 2026-11-04 while renaming the editor's labels to the glossary above, for you to approve in the pull
+request's Storybook preview:
+
+- **The modes menu offers "Only Desktop Light", by the mode's name,** rather than the issue's "Only this one", which
+  says nothing beside Show all. The inspector's Modes section already said "Only Desktop Light". The preview a board
+  shows first is marked "Shown first", and the others offer Show first.
+- **The first state shows its name alone.** With Base gone, the state menu, the every-state grid's labels and the States
+  section show no tag beside the first state rather than a count of changes, and a field's reset says "Reset to
+  Default", or whatever the first state is called.
+- **A label names the kind when it knows it,** counted for several ("Delete 2 components", "Move 3 screens and
+  components", screens first), and says "screen or component" when it can't. Export stays short in the File menu (Export
+  selected…, Export all…), and Interact is "Interact with previews".
+- **A screen's icon is lucide's AppWindow,** which reads as a window of the app.
+- **The Components panel calls the project's own components Local components,** as Figma's assets do, and a library's
+  ready-made ones Ready-made components, so neither is "Component designs".
+- **Left as they were:** the explorations under `apps/desktop/src/renderer/explorations/`, which are design sketches;
+  the agent tools' and `packages/core`'s messages ("No component design"), which agents read; and "Pasted" (PAR-546).

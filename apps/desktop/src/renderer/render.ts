@@ -199,7 +199,7 @@ function detailOf(node: NodeResult): { detail: string; contrast?: ContrastDetail
         const [, name, value] = /^([\w-]+)="(.*)"$/s.exec(String(pair)) ?? []
         if (!name) return `\`${String(pair)}\` isn't valid.`
         return idReferences.has(name)
-          ? `\`${name}\` points at an element that isn't in the design.`
+          ? `\`${name}\` points at an element that isn't on the page.`
           : `\`${name}\` can't be \`${value}\`.`
       })
       .join(" ")
