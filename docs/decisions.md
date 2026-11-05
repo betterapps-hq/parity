@@ -570,6 +570,12 @@ section has the details. The user asked for "variants, instance overrides and th
   patch's values: agents' `Update` already reads `null` as "take back this change", and a prop can be `null` on purpose,
   so a list says it apart from both. Paste style in a state takes away what the copy doesn't set, so it replaces the
   look there as it does in the base, and the inspector marks a value taken away as changed, with Reset.
+- **Clearing a prop in a state takes it away there (PAR-421):** a switch back to its default, emptied text or a removed
+  attribute is the prop taken away in the state being edited, not the state's change taken back, so a prop the design
+  turns on can be off in one state. Reset is how to take the change back. My call over writing the default's value
+  (`false`) into the state: a prop's declared default isn't always known, and taking the prop away shows what the
+  component does without it, as clearing does in the base. An attribute taken away stays listed in the props, so it can
+  be set again or reset.
 - **The variant grid shows each variant on its own, plus combinations someone pins.** You chose this on 2026-10-28 over
   every combination, which multiplies fast.
 - **A component design in `.par` stays the source, linked to a real component file.** You set the direction on

@@ -30,6 +30,7 @@ import {
   type NodeStyle,
   overrideCount,
   type PatchField,
+  propChange,
   patchSize,
   pushOverrides,
   resetInstance,
@@ -150,7 +151,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           node={node}
           own={location.node as InstanceNode}
           changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
+          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -289,7 +290,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           entry={entry}
           node={node}
           changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value) => change(`Change ${name}`, { props: { [name]: value } })}
+          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -413,7 +414,8 @@ function LayerSections({
           node={node}
           info={components[node.component]}
           changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
+          taken={override?.unset?.props}
+          onChange={(name, value, gesture) => change(`Change ${name}`, propChange(name, value), gesture)}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}

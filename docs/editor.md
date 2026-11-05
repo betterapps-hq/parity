@@ -1883,12 +1883,18 @@ as that state's or variant's changes ("changes only this state", "changes only t
   this as JSON: check its quotes, commas and brackets" under it, changing nothing, where it used to become a string. A
   prop of any type reads JSON when what's typed is JSON, and text otherwise. The instance's params, a component design's
   param defaults and component props all work this way.
+- **Clearing a prop in a state turns it off there** (PAR-421). A switch turned back to its default, a text emptied or an
+  attribute removed takes the prop away in the state being edited, so a prop the base design turns on can be off in one
+  state: Sign in's button, disabled in the base, enabled in Wrong password. The field is marked as changed, an attribute
+  taken away stays listed, and Reset takes the state's change back. An instance's param cleared in a state goes back to
+  its default there. In the base state, clearing removes the prop from the design, as before.
 
-Code: in `packages/core`, `edit.ts` (`nodeOnBoard`, `hiddenOnBoard`, `toggleHidden`, `editNode` keeping the bound
-param's default in step and a state's patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` gives
-a board, and `paramDefaults`, shared with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers
-or one inside an instance). `packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation
-reads with, and `canvas/view.ts`'s `frameViewport` gives the viewport of the frame a layer was picked in. In the app,
+Code: in `packages/core`, `edit.ts` (`propChange`, how the inspector sets and clears a prop; `nodeOnBoard`,
+`hiddenOnBoard`, `toggleHidden`, `editNode` keeping the bound param's default in step and a state's patch against the
+board) and `render.ts` (`boardArgs`, which `resolveDesign` gives a board, and `paramDefaults`, shared with instances);
+`instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside an instance).
+`packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation reads with, and
+`canvas/view.ts`'s `frameViewport` gives the viewport of the frame a layer was picked in. In the app,
 `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark and
 its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it, `BaseDesignNote` in the Image and
 Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`,
@@ -1910,6 +1916,11 @@ Tests:
   value's own type, JSON refused rather than kept as text, and any value read as JSON or text.
 - `chrome/LayerPanel.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
   Yearly.
+- `packages/core/src/edit.test.ts`, "clearing a prop, as the inspector does" (2, PAR-421): a prop the design turns on,
+  cleared in one state, off there and still on in the design, and Reset taking it back; and clearing in the base state
+  removing it, with a value set as before.
+- `chrome/LayerPanel.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
+  `disabled` switch turned off in Wrong password, then Reset, which turns it back on and leaves nothing to reset.
 
 Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, Layers' Hide in label, the notes in
 the inspector, the typed fields). All of it, and the history above, was checked in an isolated copy of the app on a copy
@@ -1922,8 +1933,6 @@ icon, and Ctrl+Shift+H on Falling showed it and turned `showFalling`'s default o
 Yearly and $24 in Monthly; the notes showed in Yearly and not in Monthly; and 12 typed in a number param with no default
 gave the number 12. Known limits:
 
-- Clearing a prop in a state (a boolean switched back to its default, a text emptied) takes back the state's change
-  rather than setting the prop, so a prop the base design sets can't be turned off in one state.
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
 
 ## Tokens

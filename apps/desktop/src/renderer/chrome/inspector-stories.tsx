@@ -1,4 +1,12 @@
-import { editNode, isBaseState, locateNode, type NodeChange, type NodeStyle, resetOverride } from "@parity-app/core"
+import {
+  editNode,
+  isBaseState,
+  locateNode,
+  type NodeChange,
+  type NodeStyle,
+  propChange,
+  resetOverride
+} from "@parity-app/core"
 import { boardReader } from "@parity-app/editor"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
@@ -118,7 +126,7 @@ export function SelectedProps() {
       node={node}
       info={components[node.component]}
       changed={(name) => override?.props?.[name] !== undefined}
-      onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
+      onChange={(name, value, gesture) => change(`Change ${name}`, propChange(name, value), gesture)}
       onReset={(name) => reset({ kind: "props", key: name })}
     />
   )
