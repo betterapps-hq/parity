@@ -1104,6 +1104,14 @@ recommended answer to each of its questions.
   first, and the layer's other props over the parent's. A ref goes to the component, since React 19 passes `ref` to a
   function component as a prop. A parent that clones with plain `cloneElement` would replace a class rather than join
   it; layers set from the canvas rarely have one, so the one rule covers both.
+- **A component that puts its style inside is drawn in a div that takes it (PAR-201, the user's call):** when a layer
+  draws a component with a size or other style, and the component puts its `style` on an element inside another it drew,
+  as a field passes its props to its input, the guest draws a plain div around the component and gives the div the
+  style, so W 320 makes the whole field 320 wide. The design and the layers panel don't change, and nothing tells the
+  person, since all they need to see is the style working. The guest finds where the style went in React's tree once a
+  component first draws with one and keeps that for every frame, and draws the div before the frame is painted. The user
+  chose this over a note in the inspector, with or without a Wrap in layout button. Code generated from a design, when
+  there is some, has to draw the same div. A component that takes no `style` keeps its note.
 - **`parity lib` tries parts with React's server renderer,** from the project's own React, rather than in the app: it
   needs no window, runs in seconds, and still throws the context errors that name a part's parents. The library's
   decorator providers wrap each try, with their imports and calls made, a mode's default value, and no frame, so

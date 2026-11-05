@@ -134,6 +134,55 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
   }
 }
 
+/** Where a component put the `style` it was given, among the elements it drew. */
+export type StylePlacement = "root" | "inner" | "none"
+
+/**
+ * Where a component, from its fiber, put the `style` it was given: on an element at its top level (`root`), on one
+ * inside another element it drew (`inner`), as a field passing its props to its input does, or on none of them
+ * (`none`). The element is the first whose `style` has every value of the one given, its top-level elements looked at
+ * first. Fibers `isLayer` says are another layer's are left out, since a slot's layers draw their own styles. Undefined
+ * when it was given no style or drew no element, as one still loading or failing hasn't. Throws when the tree isn't
+ * shaped as expected.
+ */
+export function stylePlacement(component: Fiber, isLayer: (fiber: Fiber) => boolean): StylePlacement | undefined {
+  const given = styleOf(component)
+  if (!given) return undefined
+  const top: Fiber[] = []
+  const collect = (first: Fiber | null): void => {
+    for (let fiber = first; fiber; fiber = fiber.sibling) {
+      if (!isFiber(fiber)) throw new Error("Not a fiber")
+      if (isLayer(fiber)) continue
+      if (elementOf(fiber.stateNode)) top.push(fiber)
+      else collect(fiber.child)
+    }
+  }
+  const carries = (fiber: Fiber) => {
+    const style = styleOf(fiber)
+    return style !== undefined && Object.entries(given).every(([key, value]) => style[key] === value)
+  }
+  const inside = (first: Fiber | null): boolean => {
+    for (let fiber = first; fiber; fiber = fiber.sibling) {
+      if (!isFiber(fiber)) throw new Error("Not a fiber")
+      if (isLayer(fiber)) continue
+      if ((elementOf(fiber.stateNode) && carries(fiber)) || inside(fiber.child)) return true
+    }
+    return false
+  }
+  collect(component.child)
+  if (top.length === 0) return undefined
+  if (top.some(carries)) return "root"
+  return top.some((fiber) => inside(fiber.child)) ? "inner" : "none"
+}
+
+/** The `style` a fiber was given, when it has any values. */
+function styleOf(fiber: Fiber): Record<string, unknown> | undefined {
+  const style = (fiber.memoizedProps as { style?: unknown } | null)?.style
+  return typeof style === "object" && style !== null && Object.keys(style).length > 0
+    ? (style as Record<string, unknown>)
+    : undefined
+}
+
 /** A host fiber's DOM element. */
 function elementOf(stateNode: unknown): Element | undefined {
   return typeof stateNode === "object" && stateNode !== null && (stateNode as Node).nodeType === 1

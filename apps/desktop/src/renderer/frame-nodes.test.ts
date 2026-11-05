@@ -582,3 +582,57 @@ describe("props a component hands to its slot", () => {
     expect(errors.filter((error) => error.includes("same key"))).toEqual([])
   })
 })
+
+describe("a component that puts its style on an element inside it (PAR-201)", () => {
+  const sized = { width: "320px", marginTop: "4px" }
+  const styled: Node[] = [
+    {
+      kind: "element",
+      nodeId: "page",
+      tag: "div",
+      style: { display: "flex", flexDirection: "column", alignItems: "start", gap: "10px" },
+      children: [
+        component("sized-field", "Field", { placeholder: "you@example.com", style: sized }),
+        component("plain-field", "Field", { placeholder: "Plain" }),
+        component("sized-link", "Link", { children: "Docs", style: { display: "block", width: "120px" } })
+      ]
+    }
+  ]
+
+  /** A layer's elements, its box, and its field's and input's widths and inline width. */
+  function measure(id: string) {
+    return page.evaluate((id) => {
+      const host = document.querySelector("#host")!
+      // @ts-expect-error The bundle's global.
+      const { findNodeElements, nodeBox } = frame
+      const elements = findNodeElements(host, id) as HTMLElement[]
+      const field = elements[0]!.querySelector<HTMLElement>(".field") ?? elements[0]!
+      const input = field.querySelector<HTMLInputElement>("input")
+      return {
+        elements: elements.map((element) => element.className || element.localName),
+        width: (nodeBox(host, id) as DOMRect).width,
+        field: field.getBoundingClientRect().width,
+        input: input && { width: input.getBoundingClientRect().width, inline: input.style.width }
+      }
+    }, id)
+  }
+
+  it("draws a div around it with the style, which the whole field fills", async () => {
+    await mount(styled)
+    const found = await measure("sized-field")
+    expect(found.elements).toEqual(["div"])
+    expect(found.width).toBe(320)
+    expect(found.field).toBe(320)
+    // The input is the field's to size, as the component lays it out.
+    expect(found.input?.inline).toBe("")
+    expect(found.input!.width).toBeLessThan(320)
+  })
+
+  it("leaves a layer of it without a style as it is, and a component that puts its style on its root", async () => {
+    await mount(styled)
+    expect((await measure("plain-field")).elements).toEqual(["field"])
+    const link = await measure("sized-link")
+    expect(link.elements).toEqual(["link"])
+    expect(link.width).toBe(120)
+  })
+})

@@ -13,6 +13,7 @@ import type {
 import {
   Component,
   type ComponentType,
+  createContext,
   createElement,
   Fragment,
   type Key,
@@ -20,11 +21,12 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
-  useState
+  useState,
+  useSyncExternalStore
 } from "react"
 import { flushSync } from "react-dom"
 import { createRoot, type Root } from "react-dom/client"
-import { currentRootFiber, type Fiber, indexDrawnNodes } from "./drawn-nodes.ts"
+import { currentRootFiber, type Fiber, indexDrawnNodes, type StylePlacement, stylePlacement } from "./drawn-nodes.ts"
 import { FrameWindowContext, frameWindow } from "./viewport.ts"
 
 type Props = Record<string, unknown>
@@ -130,11 +132,48 @@ interface LayerDrawing {
  */
 function ComponentLayer({ layer, ...given }: { layer: LayerDrawing } & Props) {
   const props = Object.keys(given).length === 0 ? layer.props : mergeGiven(given, layer.props)
-  const element = layer.children
-    ? createElement(layer.component, props, ...layer.children)
-    : createElement(layer.component, props)
-  return createElement(ComponentBoundary, layer.boundary, element)
+  const { name, nodeId } = layer.boundary
+  const styles = useContext(LayerStylesContext)
+  const styled = hasStyle(props.style)
+  const inner = useSyncExternalStore(styles.subscribe, () => styles.placement(name) === "inner")
+  useLayoutEffect(() => {
+    if (styled && styles.placement(name) === undefined) styles.check()
+  })
+  const draw = (props: Props) =>
+    layer.children ? createElement(layer.component, props, ...layer.children) : createElement(layer.component, props)
+  if (!(inner && styled)) return createElement(ComponentBoundary, layer.boundary, draw(props))
+  // It puts its style on an element inside it, so the style goes on a div around it instead, which it fills.
+  const { style, ...rest } = props
+  const wrapper = createElement(
+    "div",
+    { style: { ...wrapperStyle, ...(style as object) }, "data-canvas-node": nodeId },
+    draw(rest)
+  )
+  return createElement(ComponentBoundary, layer.boundary, wrapper)
 }
+
+/** A one-cell grid, so the component in it fills the div however the div is sized, and can shrink with it. */
+const wrapperStyle = { display: "grid", gridTemplate: "minmax(0, 1fr) / minmax(0, 1fr)" }
+
+function hasStyle(style: unknown): boolean {
+  return typeof style === "object" && style !== null && Object.keys(style).length > 0
+}
+
+/**
+ * What a frame knows of where components put their styles: each component's placement once a layer of it has drawn
+ * with a style, and a way to look when one hasn't. Layers hear when a component turns out to put it inside.
+ */
+interface LayerStyles {
+  placement: (name: string) => StylePlacement | undefined
+  check: () => void
+  subscribe: (listener: () => void) => () => void
+}
+
+const LayerStylesContext = createContext<LayerStyles>({
+  placement: () => undefined,
+  check: () => undefined,
+  subscribe: () => () => undefined
+})
 
 /** What a parent gives a layer, under the layer's own props, as Radix's Slot merges them. */
 function mergeGiven(given: Props, own: Props): Props {
@@ -183,6 +222,8 @@ export function createGuest(init: GuestInit): Guest {
   const added = new Map<string, string>()
   /** How many times each component has come from a new file, for its boundaries. */
   const moves = new Map<string, number>()
+  /** Where each component puts the style it's given, once a layer of it has drawn with one, in any frame. */
+  const placements = new Map<string, StylePlacement>()
   let revision = 0
   const revisionListeners = new Set<() => void>()
   let statuses: Record<string, ComponentRenderStatus> = {}
@@ -260,6 +301,11 @@ export function createGuest(init: GuestInit): Guest {
         // throws never gets here.
         useEffect(() => {
           if (ready) report.drawn(name)
+        })
+        // Its layer looked for where its style went before it loaded, so it looks again once it has.
+        const styles = useContext(LayerStylesContext)
+        useLayoutEffect(() => {
+          if (ready && hasStyle(props.style) && styles.placement(name) === undefined) styles.check()
         })
         // Thrown while drawing, so the component's boundary shows why it couldn't load.
         if (failure) throw failure.error
@@ -480,6 +526,7 @@ export function createGuest(init: GuestInit): Guest {
         delete components[id]
         deferred.delete(id)
         loadedOnDemand.delete(id)
+        placements.delete(id)
         if (!names.includes(id)) names.push(id)
       }
       if (!moved) return
@@ -496,6 +543,7 @@ export function createGuest(init: GuestInit): Guest {
         delete components[id]
         deferred.delete(id)
         loadedOnDemand.delete(id)
+        placements.delete(id)
         // One the guest loaded with is drawn as it loaded again; one it was only given is gone.
         const component = loadedWith.components[id]
         const loader = loadedWith.loaders[id]
@@ -541,14 +589,19 @@ export function createGuest(init: GuestInit): Guest {
       })
       const own = options.viewport && frameWindow(target, options.viewport)
       const drawn = watchDrawnNodes(root, target)
+      const styles = frameStyles(root, target, placements, (work) => (own ? own.run(() => flushSync(work)) : work()))
       const draw = (nodes: RenderNode[]) =>
         createElement(
           FrameWindowContext.Provider,
           { value: own },
           createElement(
-            Committed,
-            { onCommit: drawn.changed },
-            decorate(nodes.map((node, index) => toReact(node, index)))
+            LayerStylesContext.Provider,
+            { value: styles },
+            createElement(
+              Committed,
+              { onCommit: drawn.changed },
+              decorate(nodes.map((node, index) => toReact(node, index)))
+            )
           )
         )
       if (!own) {
@@ -557,6 +610,7 @@ export function createGuest(init: GuestInit): Guest {
           update: (nodes) => root.render(draw(nodes)),
           unmount: () => {
             drawn.dispose()
+            styles.dispose()
             root.unmount()
             frame.undo()
           },
@@ -589,6 +643,7 @@ export function createGuest(init: GuestInit): Guest {
         unmount: () => {
           unmounted = true
           drawn.dispose()
+          styles.dispose()
           root.unmount()
           own.dispose()
           frame.undo()
@@ -655,6 +710,79 @@ function readDrawnNodes(root: Root, target: HTMLElement, frame: Node): DrawnNode
   const marked = (frame as ParentNode).querySelector("[data-canvas-node]")
   if (!drawn || (marked && drawn.nodeOf(marked) !== marked.getAttribute("data-canvas-node"))) return undefined
   return drawn
+}
+
+/**
+ * A frame's side of where components put their styles. A layer that draws a component with a style before anyone knows
+ * where the component puts it asks the frame to look, once React has committed: the frame reads React's tree, and when
+ * a component puts its style inside, tells its layers, which draw a div around it before the frame is painted. What it
+ * finds is kept for every frame (`placements`). `run` draws the layers again as the frame's code has to be drawn.
+ */
+function frameStyles(
+  root: Root,
+  target: HTMLElement,
+  placements: Map<string, StylePlacement>,
+  run: (work: () => void) => void
+): LayerStyles & { dispose(): void } {
+  const listeners = new Set<() => void>()
+  let looking = false
+  let disposed = false
+  return {
+    placement: (name) => placements.get(name),
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => void listeners.delete(listener)
+    },
+    check() {
+      if (looking) return
+      looking = true
+      queueMicrotask(() => {
+        looking = false
+        if (disposed || !readPlacements(root, target, placements)) return
+        run(() => {
+          for (const listener of listeners) listener()
+        })
+      })
+    },
+    dispose() {
+      disposed = true
+      listeners.clear()
+    }
+  }
+}
+
+/**
+ * Notes where each component a frame drew with a style puts it, when that isn't known yet, and says whether a layer
+ * drew its component as it is, though the component puts its style inside. Nothing is noted when React's tree isn't
+ * the shape React 19 gives it.
+ */
+function readPlacements(root: Root, target: HTMLElement, placements: Map<string, StylePlacement>): boolean {
+  const fiber = currentRootFiber(root, target)
+  if (!fiber) return false
+  const isLayer = (fiber: Fiber) => fiber.stateNode instanceof ComponentBoundary
+  let unwrapped = false
+  const visit = (first: Fiber | null): void => {
+    for (let fiber = first; fiber; fiber = fiber.sibling) {
+      // A layer draws its component straight inside its boundary, or a div around it, or the box of an error.
+      const component = isLayer(fiber) ? fiber.child : null
+      if (component && typeof component.type !== "string") {
+        const name = (fiber.stateNode as ComponentBoundary).props.name
+        let placement = placements.get(name)
+        if (placement === undefined) {
+          placement = stylePlacement(component, isLayer)
+          if (placement) placements.set(name, placement)
+        }
+        if (placement === "inner" && hasStyle((component.memoizedProps as Props | null)?.style)) unwrapped = true
+      }
+      visit(fiber.child)
+    }
+  }
+  try {
+    visit(fiber.child)
+  } catch {
+    return false
+  }
+  return unwrapped
 }
 
 function nodeOfFiber(fiber: Fiber): string | undefined {
