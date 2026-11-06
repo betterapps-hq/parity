@@ -19,7 +19,7 @@ import { passedLink } from "../shared/account.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
 import { readConsole } from "./console.ts"
-import { readCopyEnvironment } from "./environment.ts"
+import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
 import { renderOffscreen } from "./render.ts"
 
@@ -48,7 +48,7 @@ export async function startAgentServer(window: () => WindowChannel): Promise<voi
   const address = server.address()
   if (!address || typeof address === "string") throw new Error("The agent server has no port")
   // The main process names the copy, so a service it restarts writes the same entry.
-  const copy = readCopyEnvironment(process.env)
+  const copy = environment()
   const app = copy.PARITY_APP_PID ?? process.ppid
   const registry = agentRegistry(process.env, homedir())
   writeEntry(registry, {

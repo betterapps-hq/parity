@@ -3911,8 +3911,28 @@ below. My calls on how they move:
   - The window's handlers take their agent params' types from the schemas' output, through `WindowMethods`, and answer
     from a map typed by it rather than a cast in each case. The service made those params, so they aren't checked again.
   - `PARITY_APP_PID` and `PARITY_APP_STARTED` are read once through `utility/environment.ts`. Unset, they fall back to
-    the parent's process id and the service's start, as before. A value that isn't a whole number stops the agent server
-    there, naming the variable, since only main sets them.
+    the parent's process id and the service's start, as before. A value that isn't a whole number stops the service
+    there, naming the variable, since only main sets them (PAR-593 made this the service's whole environment).
+- **The project service checks its files, caches and environment (PAR-593).** My calls:
+  - The service's environment is one schema in `utility/environment.ts`, read the first time `environment()` is asked
+    for: the allowed origins (a list from commas), the project it started with, the dev runner, the checker's idle time,
+    the cache, bitmap and picture folders, the reopen file, Portless's state folder and the copy's process id and start.
+    A bad value stops the service, naming the variable, as main's does. An empty variable counts as unset. The open
+    projects take the three they use as an option, so their tests give their own.
+  - Read once means a test that changes a variable starts the module again (`vi.resetModules()`), as the bitmap store's
+    tests already did. `readPortless` takes its folder, so its tests pass their own.
+  - The caches fall back to empty when they don't match. The previews index needs its format and an object of
+    components, and each record is checked on its own, so one bad record loses only itself. The local `isObject` and
+    `isRecord` are gone. The detection cache checks its outer shape: the fingerprint, each component's file and export,
+    each component's name, file and list of props, and the left-out exports. What's inside the props isn't checked,
+    since the records are large and the checker wrote them under the same fingerprint.
+  - `open-projects.json` is `{ roots: string[] }`. A list it can't read opens nothing, where a list with a non-string
+    root used to open the rest; the service writes the file itself, so a bad one is a broken one.
+  - Portless's files are someone else's, so they're read leniently: each route is checked on its own (a hostname and a
+    whole-number port), `proxy.port` must be a port number, else 443, and `proxy.tls` is a yes or no, else no.
+  - Storybook's `/index.json` must be an object whose `entries` is an object. Entries are checked one by one, and one of
+    a kind Parity doesn't know, such as a `page`, is left out. An index that doesn't match rejects, so a server
+    answering something else isn't taken for a Storybook serving the project.
 - **Package manifests and tool configs are read through schemas (PAR-597).** My calls:
   - Core's `parseManifest(text, file)` is the one reader of package.json text. It throws `TypeError` naming the file and
     the field, as `/app/package.json: /bin: expected a string or an object`. Project's `readPackage` and `findPackage`
