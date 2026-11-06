@@ -259,7 +259,8 @@ export class App {
 
   /**
    * What a click at a point met, for a failure to quote: the elements there, top first, inside a frame's shadow root
-   * too, and the selection, tool, hovered layer, camera and focus at the time. The window can't be seen on CI.
+   * too, and the selection, tool, hovered layer, camera, focus and open tooltips at the time, with what the last press
+   * went to and the tooltips open as it did. The window can't be seen on CI.
    */
   async describe(point: Point): Promise<string> {
     const seen = await this.page.evaluate((point) => {
@@ -582,13 +583,7 @@ export class App {
       box = again
     }
     if (!box) throw new Error(`${design}'s title isn't drawn`)
-    // PAR-657, for its diagnostic runs only: the tooltips open as the title is clicked, in passing runs too.
-    const open = await this.page.evaluate(() => window.e2e!.tooltips())
-    if (open.length > 0) process.stderr.write(`[PAR-657] clicking ${design}'s title, with ${open.join("; ")}\n`)
     await this.click(center(box))
-    const pressed = await this.page.evaluate(() => window.e2e!.pressed)
-    if (pressed.tooltips?.length)
-      process.stderr.write(`[PAR-657] ${design}'s title press: ${JSON.stringify(pressed)}\n`)
     if (!(await until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key })))) {
       throw new Error(
         `Clicking ${design}'s title selected ${JSON.stringify(await this.selection())}. ` +
@@ -883,8 +878,8 @@ function install(): void {
     },
     true
   )
-  // An open tooltip takes a press meant for what it covers (PAR-657), and moves on before a failure is described, so
-  // each press notes what it went to and the tooltips open then.
+  // An open tooltip takes a press meant for what it covers, and may have moved on by the time a failure is described
+  // (PAR-657), so each press notes what it went to and the tooltips open then.
   const round = (rect: DOMRect) => [rect.x, rect.y, rect.width, rect.height].map((value) => Math.round(value)).join(",")
   const tag = (element: Element) =>
     `${element.tagName.toLowerCase()}${[...element.classList]
@@ -892,9 +887,9 @@ function install(): void {
       .map((name) => `.${name}`)
       .join("")} "${(element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 40)}"`
   const tooltips = () => [
-    ...[...document.querySelectorAll("[data-slot=tooltip-content]")].map((popup) => {
+    ...[...document.querySelectorAll<HTMLElement>("[data-slot=tooltip-content]")].map((popup) => {
       const shown = getComputedStyle(popup.parentElement ?? popup).opacity
-      return `tooltip "${popup.textContent?.trim().slice(0, 60)}" at ${round(popup.getBoundingClientRect())}, ${
+      return `tooltip "${popup.innerText.replace(/\s+/g, " ").trim().slice(0, 60)}" at ${round(popup.getBoundingClientRect())}, ${
         popup.getAttribute("data-side") ?? "unplaced"
       }, opacity ${shown}`
     }),
