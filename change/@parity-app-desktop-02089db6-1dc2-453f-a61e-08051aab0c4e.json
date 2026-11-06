@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Home's first time offers the example where Parity has it, empty lists and For you say what will show up, and projects whose folders are gone are flagged (PAR-188)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

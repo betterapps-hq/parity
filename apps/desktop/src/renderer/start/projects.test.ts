@@ -25,6 +25,19 @@ describe("knownProjects", () => {
     expect(site).toEqual({ root: "C:\\apps\\site", name: "site", starred: false, recent: true })
     expect(shop).toMatchObject({ name: "shop", opened: 42 })
   })
+
+  it("flags the ones whose folders weren't there when last checked (PAR-188)", () => {
+    const projects = knownProjects(
+      ["/apps/site", "/apps/gone"],
+      { "/apps/old": { starred: true } },
+      new Set(["/apps/gone", "/apps/old"])
+    )
+    expect(projects.map(({ root, missing }) => ({ root, missing }))).toEqual([
+      { root: "/apps/site", missing: undefined },
+      { root: "/apps/gone", missing: true },
+      { root: "/apps/old", missing: true }
+    ])
+  })
 })
 
 describe("inScope", () => {
