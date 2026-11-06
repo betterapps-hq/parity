@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Keep hover and selection outlines on their layers in every frame of a zoom, and stop the overlays laying the page out partway through each frame",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

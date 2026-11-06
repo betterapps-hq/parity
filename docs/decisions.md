@@ -3249,6 +3249,30 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
 
+## The selection overlay follows the camera in the frame it moves (PAR-653)
+
+With a layer hovered or selected, zooming dropped the window to a few frames a second, and outlines and redlines trailed
+the zoom until it stopped (see editor.md, Outlines follow the camera in the frame it moves). The camera and the wheel no
+longer wake the measuring PAR-522 set up; the overlay follows the camera on its own. My calls:
+
+- **Measured once in each frame the camera moves, once that frame is laid out.** A reaction to tldraw's camera changes
+  the width of a hidden element in the overlay, and a ResizeObserver on it measures and commits with `flushSync`.
+  ResizeObserver callbacks run after every animation frame callback and the frame's layout, and before it's painted, so
+  the boxes read are the ones about to be painted, and reading them lays nothing out. Before, the overlay measured in an
+  animation frame of its own. Whether that ran before or after tldraw's decided whether outlines were drawn from the old
+  camera or the new one, its reads laid the page out mid-frame, and React drew the result after the frame was painted.
+- **Not in a microtask after tldraw's frame.** Tried second: outlines landed, but frames came 25 to 33% slower while
+  hovering, since animation frame callbacks after tldraw's wrote to the page again after the overlay had laid it out.
+- **Not kept in page units.** Measuring once and placing boxes from the camera would avoid measuring during a zoom, and
+  was tried first: outlines were still off by up to 18 px, since a board's gutter is in screen pixels (PAR-602), so a
+  frame's place in the page changes with the zoom.
+- **A change to tldraw's store that only moves the view doesn't wake per-frame measuring:** the camera, the pointer, or
+  the instance's `cameraState` alone (`movesOnlyTheView`). Nor does the wheel. Anything else in the store, such as a
+  board moving or resizing once the camera stops, still does.
+- **The element inspector's overlay (PAR-167) reads the canvas area's box only when it has a mark to place.** It
+  measures every animation frame, and read that box each frame even with nothing to mark, laying the page out mid-frame
+  through every zoom.
+
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
 The speed audit of 2026-11-04 found most of what still felt slow under `pnpm dev` was React's development build in
