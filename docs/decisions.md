@@ -3801,7 +3801,21 @@ below. My calls on how they move:
   - A few messages say more than before. A length that's neither a number nor a string says
     `expected a number or a string`, padding names its three forms, and a problem in a file's modes points inside
     `/modes`.
-  - `validate.ts` is left only for `library.ts`, until PAR-594.
+- **`.lib.par` files and edits are zod schemas (PAR-594).** `parseLibraryManifest` and `parseLibraryEdits` check with
+  them, and the library types come from `z.infer`. Core's `validate.ts` is gone. My calls:
+  - `canvas` is PAR-589's document schema, so a problem in it points inside `/canvas`.
+  - A decorator's one effect and an icon pattern that compiles are refinements. Breakpoints are sorted by a transform.
+  - Decorator values are checked when the file loads. An object with `$import`, `$call`, `$global`, `$frame` or
+    `$function` must be that form, and any other object is plain JSON. Each form is checked only when its key is there,
+    so a broken one reports its own mistake rather than the closest other form. The value types stay `unknown` until
+    PAR-572 builds the one evaluator on this grammar.
+  - Samples' props aren't checked against the value grammar yet; PAR-572 brings samples' made values under it.
+  - Unions put a type check before a literal (`"export"` for an icon set's renderer, `false` for a dropped component),
+    so a malformed renderer or edit reports its own mistake rather than `expected "export"`.
+  - The registry's schema is the manifest's shape with `package` required. A file without one is skipped with
+    `/package: a registry file names the package it describes`, as before.
+  - Booleans in a component entry keep `expected a boolean`. A problem in a decorator of a manifest's own `edits` now
+    points at `/edits/decorators/…`, not `/decorators/…`.
 - **Everything that crosses into Parity is checked:**
   - project and library files
   - the clipboard, drag payloads and saved preferences

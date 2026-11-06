@@ -32,7 +32,7 @@ describe("parseData", () => {
     expect(parseData(z.object({ name: nonBlankString }), { name: " Card " })).toEqual({ name: "Card" })
   })
 
-  it("throws a TypeError naming the first problem by its JSON pointer, in validate.ts's words", () => {
+  it("throws a TypeError naming the first problem by its JSON pointer, in the words of core's old validate.ts", () => {
     const fails = (schema: z.ZodType, value: unknown) => () => parseData(schema, value)
     expect(fails(plainObject, [])).toThrow(new TypeError("/: expected an object"))
     expect(fails(z.object({ list: z.array(z.object({ on: z.boolean() })) }), { list: [{ on: 1 }] })).toThrow(
