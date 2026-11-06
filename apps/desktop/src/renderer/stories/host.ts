@@ -432,6 +432,9 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     case "pictures.read":
       // No project's picture kept, as on a first launch: the start page shows placeholders.
       return {}
+    case "start.check":
+      // Every folder is there, and this copy has no example to offer.
+      return { missing: [] }
     default:
       return undefined
   }

@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react"
 import { toast } from "sonner"
+import type { ProjectPicture } from "../../shared/protocol.ts"
 import { openDialog } from "../chrome/app-dialogs.ts"
 import { openProjectFile, openProjectFolder } from "../chrome/commands.ts"
 import { workspace } from "../workspace.ts"
@@ -11,6 +12,11 @@ export interface StartActions {
   star: (root: string, starred: boolean) => void
   /** Takes a project off the recent list. */
   forget: (root: string) => void
+  /**
+   * Acme, the example project, when this copy of Parity has it. It opens like any other project, by its folder;
+   * `picture` stands in until its own is kept.
+   */
+  example?: { root: string; name: string; picture?: ProjectPicture }
   openFolder: () => void
   openFile: () => void
   search: () => void

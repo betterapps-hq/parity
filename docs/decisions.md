@@ -4391,10 +4391,10 @@ page), with whatever Parity can't do yet stubbed. My calls:
   on Home and in a new tab, and last in a project.
 - **What can't work yet is in place and says so.** Each project's picture is a placeholder, a board and a phone in a
   color of its own with its initial, until Parity keeps a render of each project. For you says nothing needs you, and
-  Shared with you is empty. New project and New project from this wait on the scaffolder (PAR-284) and offer to open a
-  folder instead; cloning, Copy link, Invite people and New organization say they aren't ready yet. The organization
-  switcher shows Personal alone. The exploration's inbox and account in the title bar, and people working in a project
-  right now, are left out until they exist.
+  Shared with you is empty. New project waits on the scaffolder (PAR-284) and offers to open a folder instead (a
+  project's menu has no New project from this until then, PAR-188); cloning, Copy link, Invite people and New
+  organization say they aren't ready yet. The organization switcher shows Personal alone. The exploration's inbox and
+  account in the title bar, and people working in a project right now, are left out until they exist.
 - **Home names the page and, in a project, its first screen.** A project with no `.par` file still opens on a Home
   screen (PAR-561). The two don't meet: the page is a tab in the window's strip, and the screen is on a project's
   canvas.
@@ -5194,3 +5194,31 @@ in Parity's window, a mantine frame in the Light mode turned dark whenever Parit
 Gaps: a frame's root (its shadow host) never gets the colour scheme, so a custom property the root defines from another
 (`--alias: var(--surface)`) keeps its light value in a dark frame, as with a `.dark` class theme. A custom property a
 `body` rule declares inside the block reads as a dark value in the preview but not in the Tokens tab.
+
+## The first run offers the example, and gone folders are flagged (PAR-188)
+
+Called on 2026-11-06, with your approval in Storybook. PAR-188 asked for the first run to open the example with three
+dismissible tasks to try, and for the start page to show thumbnails, remove a recent project and flag missing folders.
+Thumbnails and removing came with PAR-607 and PAR-605. Your calls and mine:
+
+- **The three tasks are kept as an exploration,** Parity/Explorations/First steps, not shipped: you didn't want them
+  yet. A card over the example's canvas with Change a prop, Wrap in a layout and Check accessibility is there if they
+  come back.
+- **Home offers the example rather than opening it.** The first time, Acme sits where Continue will be, with Open Acme,
+  and Bring your own app beside it, so nothing moves once there's a project. Without the example, that place says what
+  Parity does with your app and offers Open a folder and Open a project file.
+- **Only a copy run from the repository has the example for now.** The service looks for `examples/shadcn-vite` above
+  where Parity runs, with its packages installed. Shipping it in the installer means copying it somewhere you can write
+  and installing its packages on first run, which needs its own progress and error states: that's a follow-up. Its first
+  two screens ship as its picture until its own is kept, about 26 KB.
+- **For you shows only once you're signed in,** since what needs you comes through an organization; signed out there's
+  no section and no Sign in in it. The account control at the top left (PAR-612) is where you sign in.
+- **Empty lists say what will show up there,** in a dashed box a row of cards tall, with an icon, rather than a line of
+  grey text.
+- **A gone folder stays listed, greyed,** with Folder not found, until you remove it: a drive that isn't plugged in
+  comes back. Opening it says where it was and offers Remove; Continue skips it. A folder Parity can't read for another
+  reason, such as permissions, isn't counted as gone.
+- **New project from this is out of a project's menu** until projects can be made (PAR-284), rather than a toast saying
+  it isn't ready.
+- **A frame's edge in a project's picture is mid-grey,** not the theme's text color, so a phone over a desktop frame
+  shows against it whether the screens are light or dark.
