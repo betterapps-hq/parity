@@ -118,6 +118,37 @@ export function toggleRow(expansion: Expansion, id: string, open?: boolean): Exp
   return { opened, revealed }
 }
 
+/** Several rows opened, or closed, by hand at once, as `toggleRow` opens or closes one. */
+export function toggleRows(expansion: Expansion, ids: readonly string[], open: boolean): Expansion {
+  return ids.reduce((current, id) => toggleRow(current, id, open), expansion)
+}
+
+/** A row's id and the id of every row inside it with layers of its own: what Alt+click on its arrow opens or closes. */
+export function branchIds(design: TreeDesign, node?: DesignNode): string[] {
+  const ids = node ? [] : [design.key]
+  const visit = (layer: DesignNode) => {
+    const children = childNodes(layer)
+    if (children.length === 0) return
+    ids.push(layerRowId(design.key, layer.id))
+    children.forEach(visit)
+  }
+  visit(node ?? design.container.root)
+  return ids
+}
+
+/** The rows beside `rows[index]` with layers of their own, itself included: what `*` opens, as trees do. */
+export function siblingIds(rows: readonly TreeRow[], index: number): string[] {
+  const row = rows[index]
+  if (!row) return []
+  const ids: string[] = []
+  const take = (candidate: TreeRow) => {
+    if (candidate.depth === row.depth && candidate.hasChildren) ids.push(candidate.id)
+  }
+  for (let at = index; at >= 0 && rows[at]!.depth >= row.depth; at--) take(rows[at]!)
+  for (let at = index + 1; at < rows.length && rows[at]!.depth >= row.depth; at++) take(rows[at]!)
+  return ids
+}
+
 /**
  * The rows that have to be open for layers of a design to show: the design's, then each layer's ancestors'. With no
  * layers, the design's alone, since a selected design shows its page.

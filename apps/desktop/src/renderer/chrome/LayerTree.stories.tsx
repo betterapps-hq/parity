@@ -94,14 +94,14 @@ async function rightClick(target: HTMLElement): Promise<void> {
 }
 
 /**
- * Every design closed: component designs first, then screens, each with how many states it has. Each heading has its
- * count, then a + that makes a new one, always showing (PAR-546).
+ * Every design closed: component designs first, then screens, those with more than one state saying how many. Each
+ * heading has a + that makes a new one, always showing (PAR-546).
  */
 export const Designs: Story = { loaders: [() => openProjects("example")] }
 
 /**
- * A project whose designs were all deleted: each heading's + shows, the count is left out since the row below says so,
- * and that row is a button that makes the first one, its action in the kind's color.
+ * A project whose designs were all deleted: each heading's + shows, and the row below it is a button that makes the
+ * first one, its action in the kind's color.
  */
 export const EmptyProject: Story = {
   parameters: { blank: true },
@@ -448,6 +448,34 @@ export const CollapsedAll: Story = {
     await reveal("Plan card", "Feature 3 text")
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Collapse all" }))
     await waitFor(() => expect(row("Plan card")).toHaveAttribute("aria-expanded", "false"))
+  }
+}
+
+/**
+ * Alt+click on Plan card's arrow opens it with every layer inside it, down to each feature's text (PAR-187). Another
+ * Alt+click closes them all.
+ */
+export const OpenedWithEverythingInside: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    const arrow = within(row("Plan card")).getByRole("button", { name: "Expand" })
+    await fireEvent.click(arrow, { altKey: true })
+    await waitFor(() => expect(row("Plan card", "Feature 4")).toHaveAttribute("aria-expanded", "true"))
+    await expect(row("Plan card", "Price block")).toHaveAttribute("aria-expanded", "true")
+  }
+}
+
+/**
+ * * pressed on Pricing opens every screen beside it, as in any tree, and no component, since those are another group
+ * (PAR-187).
+ */
+export const OpenedWithItsSiblings: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await userEvent.click(row("Pricing"))
+    await userEvent.keyboard("*")
+    await waitFor(() => expect(row("Dashboard")).toHaveAttribute("aria-expanded", "true"))
+    await expect(row("Plan card")).toHaveAttribute("aria-expanded", "false")
   }
 }
 

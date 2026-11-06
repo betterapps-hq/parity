@@ -17,6 +17,7 @@ import {
 } from "@parity-app/core"
 import {
   activeState,
+  branchIds,
   closedTree,
   designsSelection,
   expandedRows,
@@ -29,7 +30,9 @@ import {
   searchRows,
   selectedDesigns,
   selectedNodes,
+  siblingIds,
   toggleRow,
+  toggleRows,
   type TreeRow,
   treeRows
 } from "@parity-app/editor"
@@ -102,8 +105,8 @@ const lineHeights: Record<Line["type"], number> = { heading: 28, empty: 28, row:
 
 /**
  * Every design in the project as a tree, Figma style: components, then screens, at the top level, their layers
- * nested inside. Selecting, hovering and renaming here act on the canvas too. Each group's heading has its count and a
- * + that makes a new one, always showing, with its keys in the tooltip; an empty group's row is a button that makes
+ * nested inside. Selecting, hovering and renaming here act on the canvas too. Each group's heading has a + that makes a
+ * new one, always showing, with its keys in the tooltip; an empty group's row is a button that makes
  * the first one (PAR-546). A search above the tree finds layers and designs by name, and Collapse all closes every
  * row. Only the rows in view are drawn (PAR-187).
  */
@@ -202,6 +205,9 @@ export function LayerTree() {
   }
 
   const toggle = (id: string, open?: boolean) => setExpansion((current) => toggleRow(current, id, open))
+  // Alt+click on an arrow opens or closes the row with everything inside it, as Finder does.
+  const toggleBranch = (row: Row) =>
+    setExpansion((current) => toggleRows(current, branchIds(row.design, row.node), !row.expanded))
 
   /**
    * A click selects the row. Ctrl or Cmd adds it to the selection or takes it out; Shift selects every row between it
@@ -369,6 +375,12 @@ export function LayerTree() {
       event.preventDefault()
       if (row.hasChildren && row.expanded && !search) toggle(row.id, false)
       else move(rows.slice(0, index).findLast((candidate) => candidate.depth < row.depth))
+    } else if (event.key === "*") {
+      // As in any tree, * opens the row and every row beside it, in its own group.
+      event.preventDefault()
+      const group = (candidate: Row) => candidate.design.container.kind ?? "screen"
+      const among = rows.filter((candidate) => group(candidate) === group(row))
+      if (!search) setExpansion((current) => toggleRows(current, siblingIds(among, among.indexOf(row)), true))
     } else if (event.key === "F2" || event.key === "Enter") {
       event.preventDefault()
       setRenaming(row.id)
@@ -394,7 +406,7 @@ export function LayerTree() {
         setDropAt(undefined)
         setDraggedDesign(undefined)
       },
-      toggle: (row) => toggle(row.id),
+      toggle: (row, branch) => (branch ? toggleBranch(row) : toggle(row.id)),
       select,
       hover: hoverRow,
       rename: (row) => setRenaming(row.id),
@@ -410,7 +422,7 @@ export function LayerTree() {
     dragLeave: (row) => latest.current?.dragLeave(row),
     drop: (row, event) => latest.current?.drop(row, event),
     dragEnd: () => latest.current?.dragEnd(),
-    toggle: (row) => latest.current?.toggle(row),
+    toggle: (row, branch) => latest.current?.toggle(row, branch),
     select: (row, event) => latest.current?.select(row, event),
     hover: (row, on) => latest.current?.hover(row, on),
     rename: (row) => latest.current?.rename(row),
@@ -526,15 +538,13 @@ function addDesign(session: Session, kind: ContainerKind): void {
   else createDesign(session, kind)
 }
 
-/** A group's heading: its title, how many it has, and a + that makes a new one. */
+/** A group's heading: its title and a + that makes a new one. */
 function GroupHeading({ group }: { group: Group }) {
   const session = useProject()
   return (
     // Positioned, so nothing in it is ever placed against the window, which made the page taller (PAR-424).
     <div className="relative flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
       <span className="flex-1">{group.title}</span>
-      {/* At none, the empty row says so. */}
-      {group.entries.length > 0 && <span className="tabular-nums">{group.entries.length}</span>}
       <IconButton
         label={keymap[group.command].label}
         shortcut={keymap[group.command].keys[0]}
@@ -574,7 +584,8 @@ interface RowActions {
   dragLeave: (row: Row) => void
   drop: (row: Row, event: DragEvent) => void
   dragEnd: () => void
-  toggle: (row: Row) => void
+  /** Opens or closes the row; with `branch`, everything inside it too. */
+  toggle: (row: Row, branch?: boolean) => void
   select: (row: Row, event?: MouseEvent | KeyboardEvent) => void
   hover: (row: Row, on: boolean) => void
   rename: (row: Row) => void
@@ -706,7 +717,7 @@ const LayerRow = memo(function LayerRow({
               aria-label={row.expanded ? "Collapse" : "Expand"}
               onClick={(event) => {
                 event.stopPropagation()
-                handlers.toggle(row)
+                handlers.toggle(row, event.altKey)
               }}
               className={`grid size-4 shrink-0 place-items-center rounded-sm text-muted-foreground hover:text-foreground ${
                 row.hasChildren && !searching ? "" : "invisible"
@@ -762,10 +773,11 @@ const LayerRow = memo(function LayerRow({
                   }
                 />
               )}
-              {row.depth === 0 && (
-                <Hint label={container.states.length === 1 ? "1 state" : `${container.states.length} states`} wait>
-                  <span className="text-xs tabular-nums opacity-70">{container.states.length}</span>
-                </Hint>
+              {/* A design with one state says nothing; with more, how many, in words. */}
+              {row.depth === 0 && container.states.length > 1 && (
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {container.states.length} states
+                </span>
               )}
             </span>
           </div>

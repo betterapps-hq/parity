@@ -1,13 +1,16 @@
-import type { ContainerSpec, DesignNode } from "@parity-app/core"
+import { type ContainerSpec, type DesignNode, locateNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
+  branchIds,
   closedTree,
   expandedRows,
   layerRowId,
   revealIds,
   revealRows,
   searchRows,
+  siblingIds,
   toggleRow,
+  toggleRows,
   type TreeDesign,
   type TreeRow,
   treeRows
@@ -122,6 +125,24 @@ describe("opening and closing rows", () => {
     const revealed = revealRows(closedTree, revealIds(pricing, ["pro-price"]), false)
     expect(expandedRows(toggleRow(revealed, id("plans"))).has(id("plans"))).toBe(false)
     expect(toggleRow(closedTree, "pricing", false)).toBe(closedTree)
+  })
+
+  it("opens a whole branch at once, and closes it the same way", () => {
+    const plans = locateNode(pricing.container.root, "plans")?.node
+    expect(branchIds(pricing, plans)).toEqual([id("plans"), id("basic"), id("pro")])
+    const all = branchIds(pricing)
+    expect(all).toEqual(["pricing", id("page"), id("hero"), id("plans"), id("basic"), id("pro")])
+    const opened = toggleRows(closedTree, all, true)
+    expect(outline(treeRows(designs, expandedRows(opened)))).toHaveLength(10)
+    expect(expandedRows(toggleRows(opened, all, false)).size).toBe(0)
+  })
+
+  it("finds the rows beside a row that can open, wherever it is among them", () => {
+    const rows = treeRows(designs, new Set(["pricing", id("page"), id("plans")]))
+    const at = (node: string) => rows.findIndex((row) => row.id === id(node))
+    expect(siblingIds(rows, at("plans"))).toEqual([id("plans"), id("hero")])
+    expect(siblingIds(rows, at("basic"))).toEqual([id("basic"), id("pro")])
+    expect(siblingIds(rows, 0)).toEqual(["pricing", "about"])
   })
 
   it("reveals the design, its page and every layer above what's selected", () => {
