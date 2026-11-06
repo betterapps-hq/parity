@@ -12,7 +12,7 @@ import ts from "typescript"
 import { componentOptions, findComponents, reactProbe, withReactProbe } from "./checker.ts"
 import { type CheckResult, checkedChanges, componentIds, findAppComponents } from "./listing.ts"
 import { inferProps, propsFiles } from "./props.ts"
-import { importAlias, readTsconfig } from "./tsconfig.ts"
+import { importAlias, type ProjectTsconfig, readTsconfig } from "./tsconfig.ts"
 
 /**
  * One of the app's components as Parity lists it, whatever the framework: its id, the file and export it comes from,
@@ -40,7 +40,9 @@ export interface AppComponent {
 export interface ComponentFinder {
   /** The renderer it finds components for, by id, as `react`. */
   framework: string
-  /** A program over the app's files and what they import, for one-off callers; the app keeps its own between calls. */
+  /** How its programs for the project at `root` are made, from the project's config as `tsconfig` reads it now. */
+  programSetup(root: string, tsconfig: ProjectTsconfig): ProgramSetup
+  /** A program over the app's files and what they import, for one-off callers; `programCache` keeps one per project. */
   program(root: string, files: readonly string[]): ts.Program
   /** Which exports of the app's `files`, relative to the root, are components, and why the others aren't. */
   check(root: string, files: readonly string[], program?: ts.Program): CheckResult
@@ -50,15 +52,29 @@ export interface ComponentFinder {
   propsFiles(root: string, sources: Record<string, ComponentSource>): string[]
 }
 
+/**
+ * What a finder's programs for one project are made with: the compiler options, a host wrapped to serve any file the
+ * finder adds, and those added files, which every program holds as well as the app's.
+ */
+export interface ProgramSetup {
+  options: ts.CompilerOptions
+  host(base: ts.CompilerHost): ts.CompilerHost
+  rootNames: string[]
+}
+
 export const reactFinder: ComponentFinder = {
   framework: "react",
+  programSetup: (root, tsconfig) => ({
+    options: componentOptions({ allowImportingTsExtensions: true, ...tsconfig.app?.options }),
+    host: (base) => withReactProbe(base, root),
+    rootNames: [reactProbe(root)]
+  }),
   program(root, files) {
-    const options = componentOptions({ allowImportingTsExtensions: true, ...readTsconfig(root).app?.options })
-    const host = withReactProbe(ts.createCompilerHost(options, true), root)
+    const setup = reactFinder.programSetup(root, readTsconfig(root))
     return ts.createProgram({
-      rootNames: [...files.map((file) => resolve(root, file)), reactProbe(root)],
-      options,
-      host
+      rootNames: [...files.map((file) => resolve(root, file)), ...setup.rootNames],
+      options: setup.options,
+      host: setup.host(ts.createCompilerHost(setup.options, true))
     })
   },
   check(root, files, program) {

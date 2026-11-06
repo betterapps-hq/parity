@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Keep each project's TypeScript program in @parity-app/code's program cache, which the type checker worker calls",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
