@@ -337,7 +337,14 @@ const instanceNode = nodeBase.extend({
    * What this copy changes inside the component, keyed by the inner node's id, or `nested/inner` for a node inside a
    * nested instance. The copy stays linked: everything it doesn't change follows the component.
    */
-  overrides: nodePatches.optional()
+  overrides: nodePatches.optional(),
+  /**
+   * What this copy fills the component's slots with, by slot name: layers of the design it sits in, shown in place of
+   * the slot's placeholder. A slot it doesn't fill, or fills with nothing, shows the placeholder.
+   */
+  get slots(): z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodArray<typeof designNode>>> {
+    return z.record(z.string(), z.array(designNode)).optional()
+  }
 })
 
 /** A placed copy of one of the project's component designs, with values for its params. */
@@ -381,7 +388,7 @@ export const nodeTree = designNode.superRefine((root, context) => {
     ids.add(node.id)
     if (node.type === "layout") {
       for (const [index, child] of node.children.entries()) visit(child, [...path, "children", index])
-    } else if (node.type === "component") {
+    } else if (node.type === "component" || node.type === "instance") {
       for (const [slot, children] of Object.entries(node.slots ?? {})) {
         for (const [index, child] of children.entries()) visit(child, [...path, "slots", slot, index])
       }
@@ -395,7 +402,7 @@ export function walkNodes(node: DesignNode, visit: (node: DesignNode, depth: num
   visit(node, depth)
   let children: DesignNode[] = []
   if (node.type === "layout") children = node.children
-  else if (node.type === "component") children = Object.values(node.slots ?? {}).flat()
+  else if (node.type === "component" || node.type === "instance") children = Object.values(node.slots ?? {}).flat()
   for (const child of children) walkNodes(child, visit, depth + 1)
 }
 

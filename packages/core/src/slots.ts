@@ -1,5 +1,6 @@
-import type { ContainerSpec, DesignNode, LayoutNode } from "./document.ts"
+import type { ContainerSpec, DesignNode, InstanceNode, LayoutNode } from "./document.ts"
 import { childNodes, locateNode, mapNode } from "./edit.ts"
+import type { ComponentLibrary } from "./render.ts"
 import { slotName, slotNameProblem } from "./slot-names.ts"
 
 /** A layout a component design leaves for its instances to fill. */
@@ -25,6 +26,29 @@ export function designSlots(container: ContainerSpec): DesignSlot[] {
   }
   visit(container.root)
   return slots
+}
+
+/** One of an instance's slots: the component's slot, and the layers the instance fills it with, if any. */
+export interface InstanceSlot extends DesignSlot {
+  /** Layers of the design the instance sits in; empty while the slot shows its placeholder. */
+  fill: DesignNode[]
+}
+
+/** The slots of an instance's component, in its order, each with what the instance fills it with. */
+export function instanceSlots(instance: InstanceNode, library: ComponentLibrary): InstanceSlot[] {
+  const component = library.get(instance.design)
+  if (!component) return []
+  return designSlots(component).map((slot) => ({ ...slot, fill: instance.slots?.[slot.name] ?? [] }))
+}
+
+/** Empties the slot an instance fills, deleting its layers, so it shows the placeholder again. */
+export function clearSlot(root: DesignNode, instanceId: string, slot: string): DesignNode {
+  return mapNode(root, instanceId, (node) => {
+    if (node.type !== "instance") throw new Error(`"${instanceId}" isn't an instance`)
+    const { [slot]: _cleared, ...rest } = node.slots ?? {}
+    const { slots: _slots, ...instance } = node
+    return Object.keys(rest).length > 0 ? { ...instance, slots: rest } : instance
+  })
 }
 
 /** How many layers a layer holds below itself. */

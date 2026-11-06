@@ -1,10 +1,25 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type ContainerSpec, type DesignNode, type LayoutNode, parseCanvasDocument } from "./document.ts"
-import { findNode, mapNode, withFreshIds } from "./edit.ts"
+import {
+  type ContainerSpec,
+  type DesignNode,
+  type InstanceNode,
+  type LayoutNode,
+  parseCanvasDocument
+} from "./document.ts"
+import { findNode, insertNode, locateNode, mapNode, withFreshIds } from "./edit.ts"
 import { detachInstance } from "./instances.ts"
-import { componentLibrary } from "./render.ts"
+import { componentLibrary, type RenderNode, resolveDesign } from "./render.ts"
 import { slotName, slotNameProblem } from "./slot-names.ts"
-import { childrenSlot, designSlots, enclosingSlot, freeSlotName, setSlot, slotProblem } from "./slots.ts"
+import {
+  childrenSlot,
+  clearSlot,
+  designSlots,
+  enclosingSlot,
+  freeSlotName,
+  instanceSlots,
+  setSlot,
+  slotProblem
+} from "./slots.ts"
 
 const card: ContainerSpec = {
   id: "card",
@@ -138,6 +153,82 @@ describe("the slot code nests between the tags", () => {
     const even = setSlot(setSlot(card, "footer", "actions"), "inner", "extra")
     expect(childrenSlot(designSlots(even))?.name).toBe("extra")
     expect(childrenSlot([])).toBeUndefined()
+  })
+})
+
+describe("filling an instance's slots", () => {
+  const component = setSlot(setSlot(card, "body", "content"), "footer", "actions")
+  const library = componentLibrary([component])
+  const page: ContainerSpec = {
+    id: "page",
+    name: "Page",
+    position: { x: 0, y: 0 },
+    root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] },
+    states: [{ id: "default", name: "Default" }]
+  }
+  const filled = (container: ContainerSpec): ContainerSpec => ({
+    ...container,
+    root: insertNode(container.root, "copy", { type: "text", id: "mine", text: "Mine" }, { slot: "content" })
+  })
+  const texts = (nodes: RenderNode[]): string[] =>
+    nodes.flatMap((node) => {
+      if (node.kind === "text") return [node.text]
+      if (node.kind === "element") return texts(node.children)
+      return Object.values(node.slots).flatMap(texts)
+    })
+  const ids = (nodes: RenderNode[]): string[] =>
+    nodes.flatMap((node) => {
+      if (node.kind === "text") return []
+      if (node.kind === "element") return [node.nodeId, ...ids(node.children)]
+      return [node.nodeId, ...Object.values(node.slots).flatMap(ids)]
+    })
+
+  it("keeps the fill on the instance as the design's own layers, in the slot it fills", () => {
+    const page2 = filled(page)
+    expect(locateNode(page2.root, "mine")).toMatchObject({ slot: "content", index: 0 })
+    expect(() => insertNode(page.root, "copy", { type: "text", id: "x", text: "X" })).toThrow("Say which")
+    expect(
+      instanceSlots(findNode(page2.root, "copy") as InstanceNode, library).map((slot) => [slot.name, slot.fill.length])
+    ).toEqual([
+      ["content", 1],
+      ["actions", 0]
+    ])
+  })
+
+  it("draws the fill in place of the placeholder, with its own ids, and the placeholder where it's empty", () => {
+    const drawn = resolveDesign(filled(page).root, undefined, "desktop", library)
+    expect(texts(drawn)).toEqual(["Title", "Mine"])
+    expect(ids(drawn)).toContain("mine")
+    expect(ids(drawn)).toContain("copy/footer")
+    expect(texts(resolveDesign(page.root, undefined, "desktop", library))).toEqual(["Title", "Content goes here"])
+  })
+
+  it("is cleared, deleting its layers, so the placeholder shows again", () => {
+    const cleared = clearSlot(filled(page).root, "copy", "content")
+    expect(findNode(cleared, "copy")).toEqual(page.root.type === "layout" ? page.root.children[0] : undefined)
+  })
+
+  it("is baked in by Detach, its layers keeping their ids where the placeholder was", () => {
+    const detached = detachInstance(filled(page), "copy", library)
+    const body = locateNode(detached.root, "mine")
+    expect(body?.ancestors.at(-1)?.type).toBe("layout")
+    expect(JSON.stringify(detached.root)).not.toContain("Content goes here")
+  })
+
+  it("is read from a project file, which refuses a fill reusing one of the design's ids", () => {
+    const file = (container: ContainerSpec) => ({ version: 3, containers: [component, container] })
+    expect(parseCanvasDocument(file(filled(page))).containers[1]).toEqual(filled(page))
+    const clash = {
+      ...page,
+      root: insertNode(page.root, "copy", { type: "text", id: "taken", text: "A" }, { slot: "content" })
+    }
+    const doubled = JSON.parse(
+      JSON.stringify(clash).replace(
+        '"slots":{"content":[',
+        '"slots":{"content":[{"type":"text","id":"page","text":"B"},'
+      )
+    )
+    expect(() => parseCanvasDocument(file(doubled))).toThrow('duplicate node id "page"')
   })
 })
 
