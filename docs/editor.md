@@ -2815,11 +2815,12 @@ with the same code offscreen, so zoomed out it doesn't keep showing the old one.
 change to what it shows, and sleeps again once its new bitmap is taken. Before, the guest swapped the component's loader
 and nothing else, so frames and bitmaps kept what they had drawn until their design next changed.
 
-- **One place says what a frame shows.** `useFrameShows` works out, for each frame, `drawn` (the guest, the revision of
-  its code, the mode and the design's tree) and `key` (that, with the size and the tokens previewed), and the job that
-  draws it offscreen. The live frame draws again when `drawn` changes; its bitmap, its skeleton and its sleep go by
-  `key`. The live frame follows size and previewed tokens by itself, so a token preview doesn't draw every frame's React
-  tree again.
+- **One place says what a frame shows.** `useFrameShows` builds, for each frame, the job that draws it offscreen
+  (`renderJob`), and names it with `frameKeys` (PAR-575): `drawn` (the guest, the revision of its code, the mode and the
+  design's tree) and `key` (that, with the tokens previewed, the size, its window and the scale). The live frame draws
+  again when `drawn` changes; its bitmap, its skeleton and its sleep go by `key`. The live frame follows size and
+  previewed tokens by itself, so a token preview doesn't draw every frame's React tree again. `frameKeys` sits in
+  `shared/render-job.ts` beside the two names kept on disk, a bitmap's and a preview's, so what each leaves out shows.
 - **The guest's code revision** goes up only when `addComponents` changes where a component comes from: a component
   given again from the same file changes nothing, and its module isn't loaded again. One revision covers the project, so
   a component that moves redraws every frame and retakes every bitmap, one at a time in the background; frames whose
@@ -2839,11 +2840,11 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
   canvas nor the offscreen window picks them up until the project's guest loads again at a new address, which changes
   every key (see decisions.md on PAR-422 and PAR-165).
 
-Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in
-`canvas/ContainerView.tsx`, which passes `drawn` to `ModeView`'s `shows`; `revision`, `addComponents` and
-`removeComponents` in `packages/renderer-react/src/guest.ts`, declared on `Guest` in `packages/core/src/adapters.ts`;
-`guestChanges` in `packages/core/src/guest-changes.ts`, which `setSources` in `renderer/workspace.ts` and
-`renderer/render.ts` call.
+Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
+`frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
+to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `packages/renderer-react/src/guest.ts`,
+declared on `Guest` in `packages/core/src/adapters.ts`; `guestChanges` in `packages/core/src/guest-changes.ts`, which
+`setSources` in `renderer/workspace.ts` and `renderer/render.ts` call.
 
 Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
 moved or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back
@@ -2852,12 +2853,15 @@ given, and adds one given again). `packages/core/src/guest-changes.test.ts` (6 f
 one gone, one moved, everything to a guest given nothing yet, nothing when every component stays where it was, and
 nothing when only what else the list says about one changes). `apps/desktop/src/renderer/ModeView.test.ts` (2: a
 component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
-and one that failed draws from its new file instead of its error). Gaps: that `FrameTile`'s keys follow the revision,
-and that the bitmap job carries the added components, have no test of their own; both were checked by reading
-`useFrameShows`. That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying
-no components changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it
-means changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
-`addComponents` on.
+and one that failed draws from its new file instead of its error). `apps/desktop/src/shared/render-job.test.ts` (for
+`renderJob`, 2: what a frame doesn't have left out, the added components and the rest kept when it does, and a job built
+with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest, its
+code and its address, `key` new with the tree, the mode, the size, the window and the scale, and with the tokens
+previewed while `drawn` stays, and neither new for a field the job gains or for a check). Gaps: that `FrameTile`'s keys
+follow the revision has no test of its own; it was checked by reading `useFrameShows`. That `setSources` and `render.ts`
+give and take back what `guestChanges` says, and that a job carrying no components changes nothing, was checked by
+reading them. A component moving in the running app wasn't tried, since it means changing the example's files, which
+other sessions share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
 
 ### Bitmaps kept between sessions (PAR-158)
 
@@ -2865,14 +2869,17 @@ Frame bitmaps are kept on disk, so a project opened again, or Parity started aga
 they're read rather than capturing every one again, one at a time, before frames can sleep. They're kept in Parity's app
 data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
 
-- **A bitmap is named by what it shows:** the project's code as the guest drawing it was loaded, the render job less the
-  guest's address, which is new each time a project opens, and where each component the frame draws comes from, whether
-  the guest was served it or given it since, as when the type checker finds one (PAR-179). The code is a fingerprint of
-  the path, size and modification time of every file in the project and of the lockfiles above it, skipping
-  dependencies, build output, dot-folders and designs, with the guest module Parity draws it with and a format number.
-  It's taken when each address is first served and kept for that address, since the page never loads a module twice: a
-  builder started again on the same port keeps it. Any edit to code, CSS or config gives a new name, so a bitmap of old
-  code is never shown for new.
+- **A bitmap is named by what it shows:** the project's code as the guest drawing it was loaded, and `bitmapName`'s name
+  for the job: the project, the theme, the tree, the mode, the scale and the tokens previewed, field by field, and where
+  each component the frame draws comes from, whether the guest was served it or given it since, as when the type checker
+  finds one (PAR-179). It leaves out the guest's address, which is new each time a project opens, and a frame's check,
+  which changes nothing drawn. Since PAR-575 the name lists the fields it's made of rather than taking all but the
+  address, so a field added to the job is in no name until `shared/render-job.ts` says so; bitmaps kept before it have
+  the same names. The code is a fingerprint of the path, size and modification time of every file in the project and of
+  the lockfiles above it, skipping dependencies, build output, dot-folders and designs, with the guest module Parity
+  draws it with and a format number. It's taken when each address is first served and kept for that address, since the
+  page never loads a module twice: a builder started again on the same port keeps it. Any edit to code, CSS or config
+  gives a new name, so a bitmap of old code is never shown for new.
 - **Kept as lossless WebP (PAR-535).** The offscreen window captures a PNG, and the project service encodes it again as
   a lossless WebP with sharp's libwebp before keeping it, the same pixels in about 40% less: the example project's 119
   bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
@@ -2905,12 +2912,12 @@ Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and 
 `packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `renderOffscreen`,
 `ensureRenderWindow` and `closeRenderWindows` in `apps/desktop/src/main/index.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt` and the
-`fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `drawnComponents` in
-`apps/desktop/src/shared/render-job.ts`; `withWebpText`, `webpText` and `webpSize` in `packages/core/src/webp-text.ts`;
-`losslessWebp` in `apps/desktop/src/utility/webp.ts`, and the build shipping sharp beside the service
-(`apps/desktop/scripts/build.ts`, `electron-builder.yml`); the `frames.capture`, `frames.stored` and
-`frames.clearStored` handlers in `utility/index.ts`; `useFrameBitmap` and `stored` in
-`apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
+`fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `bitmapName`,
+`drawnComponents`, `devicePixels` and `frameHeight` in `apps/desktop/src/shared/render-job.ts`; `withWebpText`,
+`webpText` and `webpSize` in `packages/core/src/webp-text.ts`; `losslessWebp` in `apps/desktop/src/utility/webp.ts`, and
+the build shipping sharp beside the service (`apps/desktop/scripts/build.ts`, `electron-builder.yml`); the
+`frames.capture`, `frames.stored` and `frames.clearStored` handlers in `utility/index.ts`; `useFrameBitmap` and `stored`
+in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
 menu (`AppMenu.tsx`) and the actions search (`ActionsSearch.tsx`); `PARITY_BITMAP_DIR`, which main gives the service.
 
 Tests: `packages/core/src/turns.test.ts` (2: no more than the limit run at once, the earliest waiting next, and a failed
@@ -2920,15 +2927,18 @@ and one with a recent bitmap keeps its older ones, the least recently used go pa
 limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its project).
 `packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt, new for an
 edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs added).
-`apps/desktop/src/utility/bitmap-store.test.ts` (7: a bitmap kept from one address is found from another with its
-frame's height, one whose guest was given a component is found from a guest served it and not from one served it from
-another file, none for a file without a height, none for other code or another frame, no partial file left behind, an
-old project and an old partial file swept, and nothing once cleared). `apps/desktop/src/shared/render-job.test.ts` (2
-for `drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same
-whether served or given). `packages/core/src/webp-text.test.ts` (5: text kept after the image behind the extended header
-a plain WebP needs, with its size and alpha, for lossless and lossy images; replaced under the same keyword and kept
-under others; none without it, and what isn't a WebP left alone; and the size read from either header).
-`apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
+`apps/desktop/src/utility/bitmap-store.test.ts` (6: a bitmap kept from one address is found from another with its
+frame's height, none for a file without a height, none for other code, no partial file left behind, an old project and
+an old partial file swept, and nothing once cleared). `apps/desktop/src/shared/render-job.test.ts` (2 for
+`drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same whether
+served or given; for `bitmapName`, among the names' 9: the same from another address, for a field the job or its mode
+gains and for a check, new with the tree, the mode, the size, the window, the scale and the tokens previewed, the same
+for a guest given a component and one served it but new for one served it from another file, and the same as the name
+before PAR-575 for a job the service has checked; 3 for the scale: the window in whole device pixels, at least one, a
+crop covering its box, and boxes and heights measured back in CSS pixels). `packages/core/src/webp-text.test.ts` (5:
+text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
+images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
+the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
 `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (4: a kept bitmap stands in for its key, with its height, so no
 capture is asked for, frames with the same key share a read, none when none was kept, and a capture taken during the
 read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
@@ -2975,14 +2985,20 @@ in `styles.css`.
   their key, with `index.json` holding each component's latest key and, for one that fails to draw, its error. The
   window shows them as plain `<img>`s from `parity-preview://<project>/<key>-<size>.png`, which main serves from the
   store, so Chromium decodes only what's on screen and the window holds an address per picture, not its data.
-- **Keyed by what it depends on** (`previewKey`): the job less where it's drawn from (the tree, the mode, its size, the
-  theme, the scale), and the size and time of each file it depends on, as the address the job draws from first served
-  them (`codeSnapshot`, which also gives PAR-158's fingerprint). Those files are the components' own files and
-  everything they import, followed through relative paths, tsconfig aliases, `index` files and stylesheet `@import`s
-  (`importedFiles`, `moduleClosure`); the project's stylesheets and what they import; and the root's package.json,
-  tsconfigs, tool configs and every lockfile, which stand for the packages imported (`sharedPreviewFiles`). So an edit
-  changes only the keys of components that import what changed, a saved token or a stylesheet changes them all, and the
-  same code gives the same keys after a restart. Library parts whose tree is their parent's share its key and picture.
+- **Keyed by what it depends on** (`previewKey`): the job as `previewName` names it (the tree, the mode, its size, the
+  theme, the scale and that it draws its portals in place), field by field so a field added to the job is in no key
+  until `shared/render-job.ts` says so (PAR-575), and the size and time of each file it depends on, as the address the
+  job draws from first served them (`codeSnapshot`, which also gives PAR-158's fingerprint). Those files are the
+  components' own files and everything they import, followed through relative paths, tsconfig aliases, `index` files and
+  stylesheet `@import`s (`importedFiles`, `moduleClosure`); the project's stylesheets and what they import; and the
+  root's package.json, tsconfigs, tool configs and every lockfile, which stand for the packages imported
+  (`sharedPreviewFiles`). So an edit changes only the keys of components that import what changed, a saved token or a
+  stylesheet changes them all, and the same code gives the same keys after a restart. Library parts whose tree is their
+  parent's share its key and picture.
+- **The service's check keeps `inlinePortals` (PAR-575).** PAR-565's check on what the window asks the service left the
+  field out of a preview's job, so previews made since drew their portals outside the box they're cropped to, and their
+  keys lost it. It's in the check now, and in `previewName`, so those previews are made again, once, with their portals
+  drawn in place.
 - **Canvas and agents first.** The offscreen windows' jobs are one queue (`renderQueue`): canvas bitmaps and agents'
   renders, then previews of rows on screen, then the rest. Previews are made one at a time, in one window, so with the
   others free a preview never holds up a bitmap or an agent's render (PAR-523). Nothing is made until the tab is the one
@@ -3044,28 +3060,15 @@ in `styles.css`.
 
 Code: `componentPreviewTree` and `drawnOpen` in `packages/editor/src/component-preview.ts`; `openProps` and
 `librarySource` in `packages/core/src/project.ts` and `library-insert.ts`; `renderQueue`, `nextPreview`, `fitInside` and
-`drawsNothing` in `packages/core/src/preview-order.ts`; `inlinePortals` in
-`apps/desktop/src/renderer/inline-portals.ts`, which `canvasRender` in `renderer/render.ts` calls for a job with
-`inlinePortals`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`, `resolveModule`, `importedFiles`,
-`moduleClosure` and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot` in
+`drawsNothing` in `packages/core/src/preview-order.ts`; the offscreen page, `apps/desktop/src/renderer/render.ts`, whose
+`canvasRender` calls `inlinePortals` in `renderer/inline-portals.ts` for a job with `inlinePortals`;
+`renderedComponents` in `packages/core/src/render.ts`; `previewKey`, `resolveModule`, `importedFiles`, `moduleClosure`
+and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the `previews.lookup`
-and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of `utility/bitmap-store.ts`;
-`renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
-`startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`;
-`ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
-`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
-`shortenedText` in `packages/libgen/src/sample-text.ts`. Code: `componentPreviewTree` in
-`packages/editor/src/component-preview.ts`; `renderQueue`, `nextPreview` and `fitInside` in
-`packages/core/src/preview-order.ts`; `renderedComponents` in `packages/core/src/render.ts`; `previewKey`,
-`resolveModule`, `importedFiles`, `moduleClosure` and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`;
-`codeSnapshot` in `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the
-`previews.lookup` and `previews.make` handlers, `apps/desktop/src/utility/previews.ts` and the preview half of
-`utility/bitmap-store.ts`; `renderPreview`, `renderOffscreen` and `servePreview` in `apps/desktop/src/main/index.ts`;
-the offscreen page, `apps/desktop/src/renderer/render.ts`; `previewJob`, `startPreviews`, `useComponentPreview` and
-`usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `ComponentCard` in
-`renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
-`renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
-`shortenedText` in `packages/libgen/src/sample-text.ts`. `previewJob`, `startPreviews`, `useComponentPreview` and
+and `previews.make` handlers and their checks in `apps/desktop/src/shared/service-checks.ts`,
+`apps/desktop/src/utility/previews.ts` and the preview half of `utility/bitmap-store.ts`; `renderJob`, `previewName`,
+`deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; `renderPreview`, `renderOffscreen` and
+`servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`, `startPreviews`, `useComponentPreview` and
 `usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `previewMode` and `modeAppearance` in
 `packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in
 `renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
@@ -3089,51 +3092,28 @@ not the menu beside it, one given `open` left and the next opened, an accordion'
 beside the ones it does, an item with no value given `previewValue`, a sample that chooses one of its items or is given
 its value left as it is, and components that don't say what's open left alone).
 `packages/core/src/library-insert.test.ts` (1 for `librarySource`: the `openProps` a library component declares).
-`apps/desktop/src/renderer/render.test.ts` (2 of its 4), in Chrome: a preview job's portaled popup drawn inside the
+`apps/desktop/src/renderer/render.test.ts` (3 of its 5), in Chrome: a preview job's portaled popup drawn inside the
 preview's element under its trigger, shown though its positioner hid it and as tall as what's in it, with its backdrop
-left out and the cropped box holding both; and the portal left where its library put it for any other job, also after a
-preview. `apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index
-kept across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
-project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (7, with the project and the offscreen
-window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
-component importing what changed, with its last picture meanwhile; a draw failure kept; one that drew nothing to see
-kept as that across a restart, with no picture standing in once its code changes; one that didn't finish tried again;
-two asks at once drawing once; and none for code the project hasn't served). `packages/code/src/props.test.ts` (3 for
-void elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a
-component's own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long
-one ended at a sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut
-before shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut
-mid-word, and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`),
-the queue's use in main and the protocol have no test of their own; they were tried in the app. order once idle, waiting
-out the rest of the idle time, and nothing left; 4 for `fitInside`). `packages/project/src/preview-key.test.ts` (9 for
-`resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for `sharedPreviewFiles`, and 6 for `previewKey` on
-files on disk: the same for the same code and tree, new for a component importing the changed file and not for one that
-doesn't, new for every component when a stylesheet or one it imports changes or when the dependencies do, new with
-what's drawn, and 40 hex characters). `packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by
-path). `packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts`
-(3: what inserting places inside the sized element, a part inside its parents, and the same tree every time).
+left out and the cropped box holding both; the portal left where its library put it for any other job, also after a
+preview; and, with its scrollbars shown, a part whose name runs below the frame leaving no scrollbar once the window is
+as tall as the frame. `apps/desktop/src/shared/render-job.test.ts` (for `previewName`, among the names' 9: the same from
+another address, for a field the job or its mode gains, for a check and for the tokens previewed, which previews never
+draw, and new with the tree, the mode, the size, the window and the scale, so a light and a dark picture are kept apart
+and switching back finds the one made; and a preview's job, `inlinePortals` and all, passing the service's check whole).
 `apps/desktop/src/utility/bitmap-store.test.ts` (6: addresses and size for a kept preview, pictures and index kept
 across a restart, none for a key not made, kept in the previews folder with no partial file, swept with an unused
 project, and none once cleared). `apps/desktop/src/utility/previews.test.ts` (7, with the project and the offscreen
 window standing in: drawn once and not again after a restart with the same code; after an edit, drawn again only for the
-component importing what changed, with its last picture meanwhile; a draw failure kept; one that didn't finish tried
-again; two asks at once drawing once; and none for code the project hasn't served).
-`apps/desktop/src/renderer/render.test.ts` (1, in Chrome with its scrollbars shown: a part whose name runs below the
-frame leaves no scrollbar once the window is as tall as the frame). `packages/code/src/props.test.ts` (3 for void
-elements: no `children` for `<input>` attributes or a ref to an `<hr>`, kept for other elements and for a component's
-own, and none for shadcn's Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a
-sentence, at a whole word with "…", not at a too-short first sentence, text without spaces, and text cut before
-shortened as the whole would be). `packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word,
-and nova's Accordion ending its sentence). Gaps: the window's store and scheduler (`component-previews.ts`), the queue's
-use in main and the protocol have no test of their own; they were tried in the app. again; a light and a dark picture
-kept apart under their own keys, the light one shown again without drawing; two asks at once drawing once; and none for
-code the project hasn't served). `packages/core/src/modes.test.ts` (4 for `previewMode` and `modeAppearance`: the first
-mode when it matches and the dark one with its options when it doesn't; the first mode's viewport kept over a matching
-mode listed first, else the first that matches; the first mode when none matches or there's no theme; and dark read from
-a theme option's id, name or class as a word). `packages/code/src/props.test.ts` (3 for void elements: no `children` for
-`<input>` attributes or a ref to an `<hr>`, kept for other elements and for a component's own, and none for shadcn's
-Input). `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a sentence, at a whole word
-with "…", not at a too-short first sentence, text without spaces, and text cut before shortened as the whole would be).
+component importing what changed, with its last picture meanwhile; a draw failure kept; one that drew nothing to see
+kept as that across a restart, with no picture standing in once its code changes; one that didn't finish tried again;
+two asks at once drawing once; and none for code the project hasn't served). `packages/core/src/modes.test.ts` (4 for
+`previewMode` and `modeAppearance`: the first mode when it matches and the dark one with its options when it doesn't;
+the first mode's viewport kept over a matching mode listed first, else the first that matches; the first mode when none
+matches or there's no theme; and dark read from a theme option's id, name or class as a word).
+`packages/code/src/props.test.ts` (3 for void elements: no `children` for `<input>` attributes or a ref to an `<hr>`,
+kept for other elements and for a component's own, and none for shadcn's Input).
+`packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a sentence, at a whole word with
+"…", not at a too-short first sentence, text without spaces, and text cut before shortened as the whole would be).
 `packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word, and nova's Accordion ending its
 sentence). Gaps: the window's store and scheduler (`component-previews.ts`), including looking previews up again when
 Parity's theme changes, the card's page color from the picture's corner, the queue's use in main and the protocol have

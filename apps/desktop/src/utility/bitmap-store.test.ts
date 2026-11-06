@@ -20,11 +20,11 @@ afterEach(async () => {
   await rm(folder, { recursive: true, force: true })
 })
 
-const job = (guestUrl: string, text = "Sign in"): RenderJob => ({
+const job = (guestUrl: string): RenderJob => ({
   projectId: "D:/shop",
   guestUrl,
   theme: [],
-  tree: [{ nodeId: "a", type: "text", text }] as unknown as RenderJob["tree"],
+  tree: [{ nodeId: "a", type: "text", text: "Sign in" }] as unknown as RenderJob["tree"],
   mode: { width: 320, height: 200, viewport: { width: 320, height: 200 } } as RenderJob["mode"],
   scale: 0.25
 })
@@ -50,22 +50,6 @@ describe("the frame bitmap store", () => {
     expect(read.includes(webp.subarray(12))).toBe(true)
   })
 
-  it("finds a bitmap whose guest was given a component in a session whose guest was served it", async () => {
-    const card = { path: "src/card.tsx", export: "Card" }
-    const drawsCard = (guestUrl: string, components?: RenderJob["components"]): RenderJob => ({
-      ...job(guestUrl),
-      tree: [{ kind: "component", nodeId: "a", component: "Card", props: {}, slots: {} }],
-      ...(components ? { components } : {})
-    })
-    // The first session's type checker found Card after the guest loaded, so its jobs gave it to the guest.
-    await store.storeBitmap(code("code-1"), drawsCard("http://localhost:5001", { Card: card }), webp, 100)
-    // The next session's guest is served it from the start.
-    expect(await store.storedBitmap(code("code-1", { Card: card }), drawsCard("http://localhost:5002"))).toBeDefined()
-    // Served from another file, it's another bitmap.
-    const moved = code("code-1", { Card: { path: "src/cards.tsx", export: "Card" } })
-    expect(await store.storedBitmap(moved, drawsCard("http://localhost:5002"))).toBeUndefined()
-  })
-
   it("has none for a file without its frame's height, as an earlier version kept", async () => {
     await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     const [project] = await readdir(folder)
@@ -74,10 +58,10 @@ describe("the frame bitmap store", () => {
     expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001"))).toBeUndefined()
   })
 
-  it("has none for other code or another frame", async () => {
+  // What else names a bitmap, `bitmapName` says, and its tests check.
+  it("has none for other code", async () => {
     await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     expect(await store.storedBitmap(code("code-2"), job("http://localhost:5001"))).toBeUndefined()
-    expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001", "Sign up"))).toBeUndefined()
   })
 
   it("leaves no partial file behind a write", async () => {

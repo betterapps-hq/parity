@@ -16,7 +16,7 @@ import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry
 import { registryVersion } from "@parity-app/agent/routing"
 import { errorDetails } from "@parity-app/core"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
-import { renderJobMode } from "../shared/render-job.ts"
+import { renderJob } from "../shared/render-job.ts"
 import { readConsole } from "./console.ts"
 import { readCopyEnvironment } from "./environment.ts"
 import { renderOffscreen } from "./render.ts"
@@ -119,18 +119,23 @@ async function renderFrame(
   { tree, mode, height, viewport, scale, capture, audit, colorTokens, tokens }: FrameRequest
 ): Promise<FrameResult> {
   const { frame, png } = await renderOffscreen(
-    {
-      projectId: snapshot.projectId,
-      guestUrl: snapshot.guestUrl,
-      ...(snapshot.addedComponents ? { components: snapshot.addedComponents } : {}),
-      theme: snapshot.theme,
-      tree,
-      mode: renderJobMode(mode, { width: mode.width, ...(height === undefined ? {} : { height }), viewport }),
-      scale,
-      ...(audit ? { audit } : {}),
-      ...(audit && colorTokens?.length ? { colorTokens } : {}),
-      ...(tokens.length > 0 ? { previews: tokens } : {})
-    },
+    renderJob(
+      {
+        projectId: snapshot.projectId,
+        guestUrl: snapshot.guestUrl,
+        ...(snapshot.addedComponents ? { components: snapshot.addedComponents } : {}),
+        theme: snapshot.theme
+      },
+      {
+        tree,
+        mode,
+        frame: { width: mode.width, ...(height === undefined ? {} : { height }), viewport },
+        scale,
+        ...(audit ? { audit } : {}),
+        ...(colorTokens ? { colorTokens } : {}),
+        tokens
+      }
+    ),
     capture
   )
   return { ...frame, ...(png ? { png } : {}) }
