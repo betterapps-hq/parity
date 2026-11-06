@@ -1,5 +1,7 @@
 import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { useEffect } from "react"
+import { accountActions, startAccount, useAccount } from "./account/account.ts"
+import { SignInDialog, SignInScreen, UntilQuitDialog } from "./account/SignIn.tsx"
 import { serveAgents } from "./agent/handlers.ts"
 import { useAppShortcuts } from "./canvas/shortcuts.ts"
 import { AboutDialog } from "./chrome/AboutDialog.tsx"
@@ -28,24 +30,34 @@ export function App() {
     window.canvasHost.onClosing(() => workspace.confirmQuit())
     window.canvasHost.onReconnect(() => void workspace.reconnect())
     startUpdates()
+    startAccount()
   }, [])
 
   return <AppWindow />
 }
 
-/** The window's contents: the tabs, Home, each open project or new tab, and the app's dialogs. */
+/**
+ * The window's contents: the tabs, Home, each open project or new tab, and the app's dialogs. On first launch the
+ * sign-in screen shows in Home's place, until the person signs in, goes on without, or opens a project another way.
+ */
 export function AppWindow() {
   const tabs = useTabs()
   const active = useActiveTabId()
   const home = useHomeActive()
   const theme = useResolvedTheme()
+  const account = useAccount()
+  const signInScreen = account.place === "screen"
   useAppShortcuts()
+  useEffect(() => {
+    if (signInScreen && tabs.length > 0) accountActions.leaveScreen()
+  }, [signInScreen, tabs.length])
 
   return (
     <TooltipProvider>
       <div className="flex h-full flex-col bg-background text-foreground">
         <TabBar />
-        <HomePage active={home} />
+        {signInScreen && tabs.length === 0 && <SignInScreen state={account.state} />}
+        <HomePage active={home && !(signInScreen && tabs.length === 0)} />
         {tabs.map((tab) =>
           tab.blank ? (
             <NewTabPage key={tab.id} active={tab.id === active} />
@@ -66,6 +78,8 @@ export function AppWindow() {
       <ShortcutsDialog />
       <AboutDialog />
       <UnsavedPrompt />
+      <SignInDialog />
+      <UntilQuitDialog />
     </TooltipProvider>
   )
 }

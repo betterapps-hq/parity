@@ -33,6 +33,11 @@ export interface MainMethods {
   }
   /** What code from a project's builder at `origin` wrote to the console, forgotten once read when `clear` is set. */
   console: { params: { origin: string; clear: boolean }; result: ConsoleEntry[] }
+  /**
+   * A link another copy of Parity got from the browser, which it passes on through this copy's local service: taken
+   * when it's the sign-in this copy is waiting for (PAR-612).
+   */
+  signInLink: { params: { link: string }; result: { taken: boolean } }
 }
 
 /** Requests the main process sends to the project service. */

@@ -5,6 +5,7 @@ const defaults = {
   theme: "dark",
   snapping: true,
   exportScale: 2,
+  exportSizes: [{ format: "png", scale: 2 }],
   layoutGrid: false,
   autosave: false,
   performanceStats: false,

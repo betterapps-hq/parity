@@ -69,7 +69,7 @@ export interface MenuTarget {
  * the order, Wrap in layout and Hide) are left out with designs selected, and Go to the main component unless an
  * instance is. Each is unavailable when the menubar's would be, and, for layers inside an instance, when it can't act
  * on them: Copy, Duplicate, the order, Wrap in layout and Hide. Paste over and Paste to replace stay, and say why they
- * can't.
+ * can't. Export, at the Export section's sizes, ends the menu (PAR-185).
  */
 export function canvasMenu(
   target: MenuTarget | undefined,
@@ -117,7 +117,8 @@ export function canvasMenu(
         ? [item("goToMain", true, `Go to ${designName(entries, instance.design) ?? "the main component"}`)]
         : [])
     ],
-    layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : []
+    layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : [],
+    [item("exportSelection", true, "Export…")]
   ])
 }
 

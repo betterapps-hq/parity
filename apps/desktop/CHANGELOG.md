@@ -1,8 +1,50 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 01:41:30 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 03:55:31 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.14.0
+
+Fri, 06 Nov 2026 03:55:31 GMT
+
+### Minor changes
+
+- Export layers and designs as PNG or JPG at 1x to 3x from the Design tab's Export section, the canvas and Layers menus,
+  and Ctrl+Shift+E (ajcraswell@gmail.com)
+
+## 0.13.0
+
+Fri, 06 Nov 2026 03:23:07 GMT
+
+### Minor changes
+
+- Sign in to Parity with Google, GitHub, Microsoft or a work email, in your browser through WorkOS
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Read the project service's caches, Portless's files, Storybook's index and its environment through zod schemas, so a
+  corrupt cache reads as empty (ajcraswell@gmail.com)
+
+## 0.12.7
+
+Fri, 06 Nov 2026 02:49:03 GMT
+
+### Patches
+
+- Check agents' requests to the app with the CLI's schemas, so a malformed body, an unknown method or bad params get
+  invalid_input with their path (ajcraswell@gmail.com)
+- Check and evaluate decorator and sample values in one core module, with one copy of icon alias grouping
+  (ajcraswell@gmail.com)
+- Read package manifests, shadcn's components.json and tool configs through zod schemas, naming the file and field at
+  fault (ajcraswell@gmail.com)
+- Render jobs are built, named and scaled in one module, and component previews draw their portals in place again
+  (ajcraswell@gmail.com)
+- Snippet API functions check their arguments with zod and refuse a wrong one as invalid_input naming its field
+  (ajcraswell@gmail.com)
+- Open projects through a factory that takes its adapters, and keep .par saves inside the project folder
+  (ajcraswell@gmail.com)
 
 ## 0.12.6
 

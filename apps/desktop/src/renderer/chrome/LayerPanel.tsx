@@ -53,6 +53,7 @@ import type { ProjectSession } from "../workspace.ts"
 import { wrapSelection } from "./commands.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
+import { ExportSection } from "./ExportSection.tsx"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { keymap } from "./keymap.ts"
@@ -302,6 +303,8 @@ function LayerSections({
 }) {
   const session = useProject()
   const components = useComponents(session.components)
+  const entries = useContainerEntries(session.store)
+  const name = layerLabel(node, entries, session.store.getComponentLibrary())
   const styleEditor = useStyleEditor(entry, [nodeId])
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
   const propPreview = useChangePreview(session.store, entry.key)
@@ -370,6 +373,8 @@ function LayerSections({
       )}
 
       {styleEditor && <StyleSections editor={styleEditor} node={node} />}
+
+      <ExportSection targets={[{ design: entry.key, node: nodeId, name }]} label={`Export ${name}`} />
     </>
   )
 }

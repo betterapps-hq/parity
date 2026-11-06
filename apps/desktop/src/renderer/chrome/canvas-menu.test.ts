@@ -102,7 +102,9 @@ describe("the canvas menu", () => {
       "wrap",
       "makeComponent",
       "---",
-      "hide"
+      "hide",
+      "---",
+      "exportSelection"
     ])
     const items = menu.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
     expect(items.map((entry) => entry.keys)).toEqual(
@@ -138,7 +140,9 @@ describe("the canvas menu", () => {
       "wrap",
       "makeComponent (unavailable)",
       "---",
-      "hide"
+      "hide",
+      "---",
+      "exportSelection"
     ])
   })
 
@@ -183,9 +187,12 @@ describe("the canvas menu", () => {
       "pasteOver",
       "duplicate",
       "---",
-      "makeComponent"
+      "makeComponent",
+      "---",
+      "exportSelection"
     ])
     expect(labelOf(menu, "makeComponent")).toBe("Convert to component")
+    expect(labelOf(menu, "exportSelection")).toBe("Export…")
     const card = canvasMenu({ design: component, path: ["card"] }, { design: component }, entries)
     expect(labelOf(card, "makeComponent")).toBe("Convert to screen")
   })
@@ -198,7 +205,9 @@ describe("the canvas menu", () => {
       "pasteOver",
       "duplicate",
       "---",
-      "makeComponent (unavailable)"
+      "makeComponent (unavailable)",
+      "---",
+      "exportSelection"
     ])
     expect(labelOf(menu, "makeComponent")).toBe(keymap.makeComponent.label)
   })
@@ -220,7 +229,9 @@ describe("the canvas menu", () => {
       "wrap (unavailable)",
       "makeComponent (unavailable)",
       "---",
-      "hide (unavailable)"
+      "hide (unavailable)",
+      "---",
+      "exportSelection"
     ])
   })
 

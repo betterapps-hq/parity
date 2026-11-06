@@ -1,6 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { House, LoaderCircle, Plus, TriangleAlert, X } from "lucide-react"
 import { useEffect, useRef, useSyncExternalStore } from "react"
+import { AccountMenu } from "../account/AccountMenu.tsx"
 import type { DesignStore } from "../design-store.ts"
 import { homeTab, type Tab, useActiveTabId, useHomeActive, useTabs, workspace } from "../workspace.ts"
 import { AppMenu } from "./AppMenu.tsx"
@@ -116,8 +117,8 @@ function HomeTab() {
 }
 
 /**
- * The app's menus, then Home and the open tabs. The strip doubles as the window's title bar; the system's window buttons
- * sit at its end.
+ * The app's menus, then Home and the open tabs, and your account at the end. The strip doubles as the window's title
+ * bar; the system's window buttons sit after it.
  */
 export function TabBar() {
   const tabs = useTabs()
@@ -169,6 +170,7 @@ export function TabBar() {
           New tab <Kbd>{formatKeys("Ctrl T")}</Kbd>
         </TooltipContent>
       </Tooltip>
+      <AccountMenu />
     </div>
   )
 }

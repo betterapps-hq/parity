@@ -21,10 +21,11 @@ import type {
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
-import type { EditStatus } from "@parity-app/editor"
+import type { EditStatus, ExportSize } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
+import type { SignInRequest } from "./account.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
 
 /**
@@ -94,6 +95,20 @@ export interface ServiceMethods {
    */
   "designs.export": {
     params: { projectId: string; folder: string; designs: string[]; scale: number }
+    result: { files: string[]; warnings: string[] }
+  }
+  /**
+   * Draws layers and designs offscreen as the canvas has them and writes each file asked for to `folder` (PAR-185): a
+   * PNG or JPG of the layer's box at its scale, a JPG's see-through parts filled with white. `layers` are by design key, and a layer's id when it isn't the
+   * design; each file names the layer it's of by its index there.
+   */
+  "layers.export": {
+    params: {
+      projectId: string
+      folder: string
+      layers: { design: string; node?: string }[]
+      files: { layer: number; name: string; size: ExportSize }[]
+    }
     result: { files: string[]; warnings: string[] }
   }
   /**
@@ -326,6 +341,20 @@ export interface CanvasHost {
     act: () => Promise<void>
     subscribe: (listener: (state: UpdateState) => void) => () => void
     onShow: (listener: () => void) => () => void
+  }
+  /**
+   * Signing in, which main does (PAR-612). What main says is unchecked here: the window checks it against
+   * `accountState` in `shared/account.ts` as it arrives.
+   */
+  account: {
+    get: () => Promise<unknown>
+    subscribe: (listener: (state: unknown) => void) => () => void
+    signIn: (request: SignInRequest) => Promise<void>
+    /** Opens the waiting sign-in's page in the browser again. */
+    reopen: () => Promise<void>
+    /** Stops waiting, and puts away what went wrong or the session that ended. */
+    cancel: () => Promise<void>
+    signOut: () => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
