@@ -2,7 +2,7 @@ import { type FrameGeometry, offscreenWindows, type RenderNode, type ResolvedMod
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { react } from "tldraw"
 import type { RenderJob } from "../../shared/protocol.ts"
-import { renderJobMode } from "../../shared/render-job.ts"
+import { type FrameKeys, frameKeys, renderJob } from "../../shared/render-job.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import type { BoardRest } from "./frame-sleep.ts"
@@ -49,17 +49,7 @@ const guests = new WeakMap<object, number>()
 let nextGuest = 1
 
 /** What a frame shows, as keys, and the job that draws it offscreen. */
-export interface FrameShows {
-  /**
-   * What the frame's design renders: the project's guest and the revision of its code, the mode and the design's tree.
-   * The live frame draws again when it changes; its size and previewed tokens it follows by itself.
-   */
-  drawn: string
-  /**
-   * `drawn`, with the size, its window and the tokens previewed: everything a bitmap shows. Bitmaps, skeletons and sleep
-   * go by it.
-   */
-  key: string
+export interface FrameShows extends FrameKeys {
   job: RenderJob
 }
 
@@ -82,38 +72,30 @@ export function useFrameShows(
   const { guest } = session.loaded
   const revision = guest.revision ?? noRevision
   const code = useSyncExternalStore(revision.subscribe, revision.get)
-  const treeKey = useMemo(() => JSON.stringify(tree), [tree])
   const { guestUrl, theme } = session.info
   const { added } = session
   const { width, height } = frame
   const { width: viewportWidth, height: viewportHeight } = frame.viewport
-  const job = useMemo<RenderJob>(
-    () => ({
-      projectId: session.id,
-      guestUrl,
-      ...(added ? { components: added } : {}),
-      theme,
-      tree,
-      mode: renderJobMode(mode, {
-        width,
-        ...(height === undefined ? {} : { height }),
-        viewport: { width: viewportWidth, height: viewportHeight }
-      }),
-      scale: bitmapScale * scale,
-      ...(previews.length > 0 ? { previews: [...previews] } : {})
-    }),
+  const job = useMemo(
+    () =>
+      renderJob(
+        { projectId: session.id, guestUrl, ...(added ? { components: added } : {}), theme },
+        {
+          tree,
+          mode,
+          frame: {
+            width,
+            ...(height === undefined ? {} : { height }),
+            viewport: { width: viewportWidth, height: viewportHeight }
+          },
+          scale: bitmapScale * scale,
+          tokens: previews
+        }
+      ),
     [session.id, guestUrl, added, theme, tree, mode, width, height, viewportWidth, viewportHeight, scale, previews]
   )
-  const previewsKey = useMemo(() => JSON.stringify(previews), [previews])
-  const drawn = [
-    guestId(guest),
-    code,
-    guestUrl,
-    JSON.stringify([mode.classNames, mode.attributes, job.mode.globals]),
-    treeKey
-  ].join("|")
-  const key = [drawn, previewsKey, width, height, viewportWidth, viewportHeight, scale].join("|")
-  return useMemo(() => ({ drawn, key, job }), [drawn, key, job])
+  const id = guestId(guest)
+  return useMemo(() => ({ ...frameKeys(job, { id, code }), job }), [job, id, code])
 }
 
 /** A frame's bitmap, as `useFrameBitmap` has it. */

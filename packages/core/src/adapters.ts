@@ -3,6 +3,7 @@ import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
 import type { ComponentSource, ProjectConfig } from "./project.ts"
 import type { ComponentRenderStatus } from "./render-status.ts"
 import type { RenderNode } from "./render.ts"
+import { jsonText, parseData } from "./schema.ts"
 import type { TokenCategory } from "./token-types.ts"
 
 const packageVersions = z.record(z.string(), z.string())
@@ -27,6 +28,7 @@ export const packageManifest = z.looseObject({
   version: z.string().optional(),
   dependencies: packageVersions.optional(),
   devDependencies: packageVersions.optional(),
+  optionalDependencies: packageVersions.optional(),
   scripts: z.record(z.string(), z.string()).optional(),
   /** Entry points by subpath (`.`, `./tailwind.css`), or where the package's one entry point leads. */
   exports: exportsTarget.optional(),
@@ -37,10 +39,30 @@ export const packageManifest = z.looseObject({
   /** The stylesheet a project imports to use the package, as some packages name it. */
   style: z.string().optional(),
   /** A workspace root's package folders, as npm, Yarn and Bun write them. */
-  workspaces: z.union([z.array(z.string()), z.looseObject({ packages: z.array(z.string()).optional() })]).optional()
+  workspaces: z.union([z.array(z.string()), z.looseObject({ packages: z.array(z.string()).optional() })]).optional(),
+  /** The command line it installs: one file named after the package, or files by command name. */
+  bin: z.union([z.string(), z.record(z.string(), z.string())]).optional(),
+  /** Where its source is, which libgen reads examples from. */
+  repository: z
+    .union([z.string(), z.looseObject({ url: z.string().optional(), directory: z.string().optional() })])
+    .optional(),
+  /** The package manager and version a project asks for, as Corepack writes it (`pnpm@10.4.0`). */
+  packageManager: z.string().optional()
 })
 
 export type PackageManifest = z.infer<typeof packageManifest>
+
+/**
+ * A package.json's text, read through {@link packageManifest}. Throws `TypeError` naming the file and the field at
+ * fault, as in `/app/package.json: /scripts/dev: expected a string`, or `/: expected JSON`.
+ */
+export function parseManifest(text: string, file: string): PackageManifest {
+  try {
+    return parseData(jsonText(packageManifest), text)
+  } catch (error) {
+    throw new TypeError(`${file}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+  }
+}
 
 /**
  * Mounts components of one UI framework (React, Vue, Svelte…).

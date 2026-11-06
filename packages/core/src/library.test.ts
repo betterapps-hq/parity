@@ -4,7 +4,6 @@ import type { ContainerSpec } from "./document.ts"
 import { detachInstance } from "./instances.ts"
 import {
   applyLibraryEdits,
-  isSampleRender,
   libraryImports,
   parseLibraryEdits,
   remapLibraryImports,
@@ -15,6 +14,7 @@ import {
   withLibraryCanvas
 } from "./library.ts"
 import { componentLibrary, resolveDesign } from "./render.ts"
+import { isSampleRender } from "./values/evaluate.ts"
 
 describe("parseLibraryManifest", () => {
   it("reads a library's name, styles and breakpoints, smallest first", () => {
@@ -302,6 +302,36 @@ describe("library manifest fields", () => {
     expect(() => parseLibraryManifest({ version: 3, name: "x", components: { list: { A: { as: "guess" } } } })).toThrow(
       /\/components\/list\/A\/as/
     )
+  })
+
+  it("checks a decorator's values when the file loads, and says where a value form is wrong", () => {
+    const decorated = (value: unknown) => () =>
+      parseLibraryManifest({ version: 3, name: "x", decorators: [{ attributes: { "data-x": value } }] })
+    const at = "/decorators/0/attributes/data-x"
+    expect(decorated({ $frame: "window" })).toThrow(`${at}/$frame: expected one of "root", "host"`)
+    expect(decorated({ $call: { export: "createTheme" } })).toThrow(`${at}/$call/import: expected a string`)
+    expect(decorated({ $global: "theme", values: { dark: { $frame: "page" } } })).toThrow(
+      `${at}/values/dark/$frame: expected one of`
+    )
+    expect(decorated({ theme: { $call: { import: "pkg", export: "make" }, args: "x" } })).toThrow(
+      `${at}/theme/args: expected an array`
+    )
+    // Any other object is plain JSON, whatever it holds.
+    const plain = { mode: "dark", sizes: [1, 2], nested: { on: true, off: null } }
+    expect(parseLibraryManifest({ version: 3, name: "x", decorators: [{ style: plain }] }).decorators).toEqual([
+      { style: plain }
+    ])
+    const forms = [
+      { $import: "pkg", export: "theme" },
+      { $call: { import: "pkg", export: "make" }, args: [{ $frame: "host" }], methods: [{ method: "create" }] },
+      { $global: "theme", values: { dark: "dark" }, default: "light" },
+      { $function: { $frame: "body" } }
+    ]
+    for (const value of forms) expect(decorated(value)).not.toThrow()
+  })
+
+  it("points at the decorators in a manifest's edits where they sit", () => {
+    expect(() => parseLibraryEdits({ decorators: [{}] }, "/edits")).toThrow(/^\/edits\/decorators\/0: expected one of/)
   })
 
   it("rejects obsolete manifest formats instead of keeping compatibility paths", () => {

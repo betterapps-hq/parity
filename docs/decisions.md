@@ -780,8 +780,9 @@ recommended answer to each of its questions.
 - **A framework's component finding is a `ComponentFinder` in `@parity-app/code`.** My call: the renderer adapter keeps
   the quick parse it already has, and the finder adds the thorough pass and props, each taking the project's one
   program, since every framework Parity expects (React, Vue through vue-component-meta, Svelte) reads types with
-  TypeScript. The props worker calls React's through the contract. `findAll` runs all three passes in one call and
-  returns each component's id, file, export, import, role, evidence and props, for callers without the app's service.
+  TypeScript. The props worker's program cache calls React's through the contract (PAR-603). `findAll` runs all three
+  passes in one call and returns each component's id, file, export, import, role, evidence and props, for callers
+  without the app's service.
 
 ## Libraries, icons and images
 
@@ -3801,7 +3802,21 @@ below. My calls on how they move:
   - A few messages say more than before. A length that's neither a number nor a string says
     `expected a number or a string`, padding names its three forms, and a problem in a file's modes points inside
     `/modes`.
-  - `validate.ts` is left only for `library.ts`, until PAR-594.
+- **`.lib.par` files and edits are zod schemas (PAR-594).** `parseLibraryManifest` and `parseLibraryEdits` check with
+  them, and the library types come from `z.infer`. Core's `validate.ts` is gone. My calls:
+  - `canvas` is PAR-589's document schema, so a problem in it points inside `/canvas`.
+  - A decorator's one effect and an icon pattern that compiles are refinements. Breakpoints are sorted by a transform.
+  - Decorator values are checked when the file loads. An object with `$import`, `$call`, `$global`, `$frame` or
+    `$function` must be that form, and any other object is plain JSON. Each form is checked only when its key is there,
+    so a broken one reports its own mistake rather than the closest other form. The value types stay `unknown` until
+    PAR-572 builds the one evaluator on this grammar.
+  - Samples' props aren't checked against the value grammar yet; PAR-572 brings samples' made values under it.
+  - Unions put a type check before a literal (`"export"` for an icon set's renderer, `false` for a dropped component),
+    so a malformed renderer or edit reports its own mistake rather than `expected "export"`.
+  - The registry's schema is the manifest's shape with `package` required. A file without one is skipped with
+    `/package: a registry file names the package it describes`, as before.
+  - Booleans in a component entry keep `expected a boolean`. A problem in a decorator of a manifest's own `edits` now
+    points at `/edits/decorators/…`, not `/decorators/…`.
 - **Everything that crosses into Parity is checked:**
   - project and library files
   - the clipboard, drag payloads and saved preferences
@@ -3868,6 +3883,64 @@ below. My calls on how they move:
     project that isn't a root is left out.
   - axe-core's `check.data` for color contrast is a schema that turns into `ContrastDetail`. Data that doesn't match
     gives no contrast detail, and axe-core's own message shows instead.
+- **The main process checks its inputs (PAR-592).** My calls:
+  - Each `ipcMain.handle` argument has a schema in `shared/ipc-checks.ts`, and `checked(schema, handler)` refuses a bad
+    one with `TypeError` and the pointer before the handler runs. Open in editor's request is a strict object whose
+    `file` must be an absolute path, so it can't reach the editor's command as an option such as `--goto`. The window's
+    types for these come from the schemas, through `import type`, so the window doesn't load zod for them.
+  - Main's environment variables are one schema in `main/environment.ts`, read once as main starts. A bad value stops
+    main there, naming the variable, since only scripts, tests and the AppImage runtime set them. An empty variable
+    counts as unset. `PARITY_WINDOW_SIZE` is read as a width and height, the ports and process ids as numbers.
+  - `theme.json` and `updates.json` are saved preferences, so a malformed one falls back to dark and the stable channel.
+    `installed-build.json` is a cache, and the app's package.json and GitHub's releases are third-party JSON, read
+    through loose objects.
+  - The preload's `--parity-version=` and `--parity-initial-project=` stay hand-split. The preload is sandboxed and can
+    only require Electron, and in development zod loads from `node_modules`, so it can't load zod. Main makes both
+    values, the second from the checked `PARITY_PROJECT`.
+  - The render page's `canvasRender()`, `canvasAudit()` and `canvasHeight()` are checked, since the page runs project
+    code. Checking a frame of 1,000 nodes took 0.09 ms and one of 5,000 0.39 ms, where copying the same frame with
+    `structuredClone` took 0.8 ms and 7.5 ms. An audit of 30 issues and 300 texts took 0.13 ms.
+- **The app checks agents' requests (PAR-598)**, since any local process holding the token can post to `/rpc`. My calls:
+  - `answerRequest` in `@parity-app/agent` reads the body with `rpcRequest`: JSON text holding an object with a string
+    `method`. Text that isn't JSON gets "expected JSON", and anything else in the body is dropped. The caller's name and
+    id stay lenient, as `callerIdentity` reads them, since they're only shown on the canvas.
+  - `dispatch` reads each method's params with its schema in `requests` before the host is asked anything, so the app
+    applies the same defaults the CLI does. `copy` takes no params, as `tabs` doesn't. A bad request gets
+    `invalid_input` with the schema's message and its whole path under `params`, as `edits/0/find`, since only a process
+    that skipped the CLI's own check reaches it.
+  - The window's handlers take their agent params' types from the schemas' output, through `WindowMethods`, and answer
+    from a map typed by it rather than a cast in each case. The service made those params, so they aren't checked again.
+  - `PARITY_APP_PID` and `PARITY_APP_STARTED` are read once through `utility/environment.ts`. Unset, they fall back to
+    the parent's process id and the service's start, as before. A value that isn't a whole number stops the agent server
+    there, naming the variable, since only main sets them.
+- **Package manifests and tool configs are read through schemas (PAR-597).** My calls:
+  - Core's `parseManifest(text, file)` is the one reader of package.json text. It throws `TypeError` naming the file and
+    the field, as `/app/package.json: /bin: expected a string or an object`. Project's `readPackage` and `findPackage`
+    use it, and so do the readers outside project: builder-vite, Storybook's command line, the app's build scripts, the
+    fixtures and the Storybook example. Both `readJson` helpers are gone.
+  - `packageManifest` gained `optionalDependencies`, `bin`, `repository` and `packageManager`, the fields those readers
+    take. Opening a project whose package.json has one of its fields of the wrong type fails, naming it.
+  - Two reads stay lenient, since the manifest only decides a detail there: package manager detection's evidence
+    wording, and a tool's config under a package.json key, which reads as absent when the manifest doesn't match.
+  - The fixtures' generator spreads the checked manifest over the file's own object, so keys keep their order.
+  - shadcn's `components.json` is a loose schema of `tailwind.css` and `aliases.ui`. A file it refuses is skipped with a
+    note, as one that isn't JSON was.
+  - `loadConfig(root, folder, source, schema)` takes a schema and returns what it reads. A config it refuses throws with
+    the config's path and the pointer.
+- **The snippet API checks its arguments (PAR-596).** My calls:
+  - Each function's arguments have a schema in `packages/agent/src/arguments.ts`, and `api()` reads every argument
+    through it before the function runs. The argument types come from the schemas. A node is core's `nodeTree`, after it
+    and everything in it get fresh ids, and a patch is core's node patch with each field also taking `null`.
+  - `null` still takes a value away: in `Update`'s change, a state's changes and `Responsive`. Core exports `nodeStyle`,
+    `patchUnset` and `textTags` for these.
+  - A wrong argument fails as `invalid_input`, through core's `checkData`, with a field and a message that start with
+    the same path. An options object's fields name themselves (`width`, `style/gap`). A node starts at `node` or `root`,
+    and anything else at its parameter's name (`design`, `patch`). `SetTokens` keeps its `SetTokens/…` paths.
+  - Options objects and nodes are strict, so a key a function doesn't take is an error. It used to be ignored, apart
+    from nodes and `Update`, which said so in plain errors. `Update` keeps its hint to use Replace, Move or Responsive.
+  - Errors that used to be plain `TypeError`s or `Error`s are now `invalid_input`: a file that doesn't end in `.par`,
+    `Update` changing a name, tag or component in a state, and every "expected an object". The workspace's own
+    `expectObject` is gone.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
@@ -4658,6 +4731,86 @@ doing it:
   options.
 - **The rest stays together.** The working copy, lookup, reads, edits and presence share the working copy, lookup and
   `emit`, so they stay in `workspace.ts`, now about 1,640 lines.
+
+## Each project's TypeScript program is kept by `@parity-app/code` (PAR-603)
+
+The program per project, its caching compiler host, when it's made again and how many are kept lived in the app's type
+checker worker, which also used the React finder's internals to build it. My calls in moving it:
+
+- **The cache is `programCache(finder)`,** in `packages/code/src/program-cache.ts`. It answers `check` and `props`
+  requests as the worker's methods take them, with the root, the files to read, the files an earlier worker read
+  (`known`) and the lockfiles, and `close` lets a project's program go. `program` and `roots` are there for callers and
+  tests that need the program itself or which projects are kept.
+- **A finder says how its programs are made,** with `programSetup(root, tsconfig)`: the compiler options, a host wrapper
+  and the files every program holds besides the app's. React's gives the probe file and its host, so neither the cache
+  nor the worker imports `reactProbe`, `withReactProbe` or `componentOptions`. They stay exported, since libgen uses
+  them.
+- **The limits are the cache's defaults:** two projects kept, and no program built below a gigabyte free. Free memory is
+  an option, so the tests set it rather than mocking `node:os`. Which project was used last is a counter, not the clock,
+  so two requests in one millisecond still order.
+- **The worker's tests moved with the code,** as the cache's tests, and added the cases the issue asks for: a program
+  reused while nothing changed, made again after a file, config or lockfile change or a new file asked for, and the
+  least recently used project let go past the limit.
+
+## Decorator and sample values are checked and evaluated in one core module (PAR-572)
+
+The architecture review of 2026-11-04 found the value language carried out three times, by the guest's `resolve` for
+decorators, its `madeValue` for samples, and libgen's `trialValue`, and the copies disagreed. `@parity-app/core`'s
+`values/` module is now the one place: `grammar.ts` checks values with PAR-594's zod grammar, and `evaluate.ts` collects
+a value's imports (`valueImports`), works it out against a host (`evaluateValue`), and writes and reads render slot keys
+(`renderSlotKey`, `readRenderSlotKey`). My calls:
+
+- **`$import` without `export` is the module's default export, and `$call` must name its export,** as PAR-594's grammar
+  says. The guest's decorators let a `$call` fall back to `default`, which the grammar had already stopped allowing. A
+  host decides what a module's default export is: libgen's trial host, which loads modules in Node, takes a module
+  without a `default` as its own default export, as `trialValue` did.
+- **A `$call`'s `methods` run wherever the call is,** in decorators too, which the guest's `resolve` ignored. They run
+  in order, once, when the value is made. A method that's missing or throws is passed over, as libgen did, since a call
+  the examples make may need what the app has around it; the guest's samples let a throw break the frame.
+- **Samples hold made values only.** A sample's props, and the design node props that copy them, are checked with a
+  sample grammar where `$call` is the one form, and any other object is plain JSON. The guest had made only `$call`s in
+  node props, and the builder already left a design's literal `$import` unloaded. Samples are now checked when the file
+  loads, which PAR-594 left to this issue. The guest now also makes a `$call` nested inside a plain object in a prop.
+- **The evaluator is synchronous and imports nothing at runtime.** The guest bundles it into the project's code, without
+  zod, from `@parity-app/core/values/evaluate`, and icon grouping from `@parity-app/core/icon-names`. In development the
+  guest is served as source, so the builder also allows core's `src` folder. Libgen loads a value's imports first, then
+  evaluates against its trial host: a mode's value is its default, the frame's nodes are undefined, and `dir` and `lang`
+  are `ltr` and `en-US`. A `$function` is worked out when it's called, in libgen too, which worked it out at once.
+- **Plain JSON keeps its identity.** An array or object with no form inside comes back as the same value, so a prop
+  doesn't change between draws.
+- **A render slot is keyed one way.** Inserting a part into a parent whose render function spreads what it's called with
+  now keys the slot `$renderWith:`, as the parent's own sample does; it wrote `$render:`, so the part didn't get what it
+  was called with.
+- **Icon aliases are grouped once,** by `iconAliases` in `icon-names.ts`, so libgen's `icons.count` and the guest's icon
+  list agree. `byCodeUnit` and `shorterName` live there too, in place of four copies.
+
+## A render job is built, named and scaled in `shared/render-job.ts` (PAR-575)
+
+The canvas's bitmaps, component previews and agents' frames each built their render job, three stores each named it, and
+the arithmetic between CSS and device pixels was split between main and the offscreen page. Both disk names took the job
+less a few fields, so a field added to the job joined them unasked. My calls:
+
+- **One builder, `renderJob(guest, frame)`.** It takes where the job is drawn (the project, its guest, its components
+  and theme) and what it draws (the tree, the mode with its frame geometry, the scale, the tokens previewed, the check,
+  and inline portals), and leaves out what a frame doesn't have, so the three callers can't disagree about when a field
+  is there.
+- **Each name lists its fields.** `frameKeys`, `bitmapName` and `previewName` sit side by side, with a comment saying
+  why they differ: memory goes by the guest and its address, which live as long as it does, and leaves out the theme;
+  the disk names go by the code the guest was served instead, which the stores add; only a bitmap names the tokens
+  previewed and the project, since previews never draw unsaved tokens and each project has its own folder of them; no
+  name has the check (`audit`, `colorTokens`), which changes nothing drawn. The stores still do the hashing, since
+  `node:crypto` isn't in the page.
+- **Kept bitmaps keep their names.** `bitmapName` writes the fields in the order the service's check gives them, so a
+  bitmap's name is what it was, and a test holds it to the old formula. Previews' keys change, once, because of the next
+  call.
+- **`inlinePortals` is in the service's check.** PAR-565's check dropped it from preview jobs, so previews made since
+  were drawn with their portals outside the crop. A test now passes a job built with every field through the check and
+  expects it back whole.
+- **The scale arithmetic is four functions:** `devicePixels` and `deviceBox` for the window and the crop main makes,
+  `frameBox` and `frameHeight` for what the page measures back. `host.style.zoom` stays in the page, as it isn't
+  arithmetic.
+- **Pure tests replace two disk-backed ones.** That a bitmap is found from a guest given a component, and that a light
+  and a dark preview are kept apart, are now tests of the names; the stores' tests keep what needs the disk.
 
 ## Layers export as PNG or JPG from the Design tab (PAR-185)
 

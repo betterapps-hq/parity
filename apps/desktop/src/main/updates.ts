@@ -1,24 +1,39 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import type { UpdateState } from "@parity-app/core"
+import { jsonText, type UpdateState } from "@parity-app/core"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
+import { z } from "zod"
+import type { MainEnvironment } from "./environment.ts"
 import { noStableRelease } from "./github-releases.ts"
 import { isPackaged } from "./packaged.ts"
 import { UpdateSession } from "./update-session.ts"
 
+/** The update preference, as `updates.json` keeps it. A missing or malformed file is the stable channel. */
+const updatesFile = jsonText(z.object({ beta: z.boolean().catch(false) }))
+
+/** Whether `updates.json`'s text, if there is a file, asks for betas. */
+export function savedBeta(text: string | undefined): boolean {
+  return updatesFile.safeParse(text).data?.beta ?? false
+}
+
 /** Installed builds use electron-builder's embedded app-update.yml. Tests can package their own local feed. */
-export function createUpdates(changed: (state: UpdateState) => void): UpdateSession {
+export function createUpdates(
+  changed: (state: UpdateState) => void,
+  environment: Pick<MainEnvironment, "PARITY_DEV_RUNNER" | "APPIMAGE">
+): UpdateSession {
   const file = join(app.getPath("userData"), "updates.json")
-  let beta = false
+  let text: string | undefined
   try {
-    const saved: unknown = JSON.parse(readFileSync(file, "utf8"))
-    beta = typeof saved === "object" && saved !== null && "beta" in saved && saved.beta === true
+    text = readFileSync(file, "utf8")
   } catch {
     /* A fresh install starts on the stable channel. */
   }
+  const beta = savedBeta(text)
 
-  const enabled = isPackaged(app.isPackaged, process.env) && (process.platform !== "linux" || !!process.env.APPIMAGE)
+  const enabled =
+    isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER) &&
+    (process.platform !== "linux" || !!environment.APPIMAGE)
   // Only an installed build has an updater. Making one checks the app's version, which a copy run from its bundles, as
   // `pnpm dev` runs on any port but 5310, doesn't have: it was "0.0", and main stopped before its window opened.
   const autoUpdater = enabled ? electronUpdater.autoUpdater : undefined

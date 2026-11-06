@@ -554,7 +554,8 @@ Print(JSON.stringify(Overlaps()))`
       hooks()
     )
     expect(result.ok).toBe(false)
-    expect(result.error).toContain("unknown properties fontSize")
+    expect(result.error).toContain("node/fontSize: unknown property")
+    expect(result.details).toEqual({ code: "invalid_input", retryable: false, field: "node/fontSize" })
   })
 
   it("measures, finds problems and screenshots any state in any mode", async () => {
@@ -1542,6 +1543,85 @@ await Problems("signup", { state: "all", mode: "all" })`
     await expect(
       execute({ label: "Retry", editId: failed.editId, edits: [{ find: "absent", replace: "x" }] }, snapshot(), hooks())
     ).rejects.toMatchObject({ details: { code: "invalid_input", field: "edits/0/find" } })
+  })
+
+  // One bad argument to each function, refused before the function reads it (PAR-596).
+  it.each([
+    { code: `GetDesign(1)`, field: "design", message: "expected a string" },
+    { code: `Get(1)`, field: "path", message: "expected a path, or a function to call for every node" },
+    { code: `Get("signup", { depth: -1 })`, field: "depth", message: "expected at least 0" },
+    { code: `Get("signup", (node) => node.id, { deep: true })`, field: "deep", message: "unknown property" },
+    { code: `Props("Button", { every: true })`, field: "every", message: "unknown property" },
+    { code: `await Icons("lucide", { limit: 0 })`, field: "limit", message: "expected more than 0" },
+    { code: `GetTokens({ category: 1 })`, field: "category", message: "expected a string" },
+    { code: `GetModes(1)`, field: "design", message: "expected a string" },
+    { code: `CreateDesign("Home")`, field: "spec", message: "expected an object" },
+    { code: `CreateDesign({ name: "Home", file: "home.json" })`, field: "file", message: "expected a .par file" },
+    { code: `CreateDesign({ name: "Home", root: { type: "card" } })`, field: "root/type", message: "expected one of" },
+    { code: `UpdateDesign("signup", { x: "10" })`, field: "x", message: "expected a number" },
+    { code: `DeleteDesign()`, field: "design", message: "expected a string" },
+    { code: `Insert("page", { type: "text", text: 1 })`, field: "node/text", message: "expected a string" },
+    { code: `Insert("page", { type: "text", text: "Hi" }, { index: -1 })`, field: "index", message: "at least 0" },
+    { code: `Insert(document, { type: "layout" }, { kind: "page" })`, field: "kind", message: "expected one of" },
+    { code: `Update("title", { style: { gap: true } })`, field: "style/gap", message: "a number or a string" },
+    { code: `Update("title", { width: 3 })`, field: "width", message: "use Replace, Move or Responsive" },
+    { code: `Update("title", { text: "Hi" }, { state: 1 })`, field: "state", message: "expected a string" },
+    { code: `Replace("title", "text")`, field: "node", message: "expected an object" },
+    { code: `Move("title", "page", { slot: 1 })`, field: "slot", message: "expected a string" },
+    { code: `Copy("title", "page", { name: 1 })`, field: "name", message: "expected a string" },
+    { code: `Delete(["title"])`, field: "path", message: "expected a string" },
+    { code: `Responsive("title", "mobile", { hidden: "no" })`, field: "patch/hidden", message: "true or false" },
+    {
+      code: `AddState("signup", { name: "Error", changes: { title: { text: 1 } } })`,
+      field: "changes/title/text",
+      message: "expected a string"
+    },
+    { code: `UpdateState("signup", "default", { name: 1 })`, field: "name", message: "expected a string" },
+    { code: `DeleteState("signup", 1)`, field: "state", message: "expected a string" },
+    { code: `SetModes({ ...GetModes().settings, version: 2 })`, field: "version", message: "expected 1" },
+    { code: `SetTokens({ primary: 1 })`, field: "SetTokens/primary", message: "a string or an object" },
+    { code: `await Measure("signup", { scale: 2 })`, field: "scale", message: "unknown property" },
+    { code: `await Problems("signup", { state: 1 })`, field: "state", message: "a string or an array" },
+    { code: `await Screenshot("signup", { scale: "big" })`, field: "scale", message: "expected a number" },
+    { code: `await Accessibility("signup", { mode: [1] })`, field: "mode/0", message: "expected a string" },
+    { code: `FindEmptySpace({ width: 100 })`, field: "height", message: "expected a number" },
+    { code: `Overlaps(1)`, field: "design", message: "expected a string" },
+    { code: `FindRepeats({})`, field: "design", message: "expected a string" },
+    { code: `ExtractComponent("signup", [], { name: "Title" })`, field: "nodes", message: "at least 1 item" },
+    { code: `ExtractComponent("signup", "title", {})`, field: "name", message: "expected a string" }
+  ])("refuses $code with invalid_input at $field", async ({ code, field, message }) => {
+    const result = await execute({ label: "Try", code }, snapshot(), hooks())
+    expect(result.ok).toBe(false)
+    expect(result.error?.startsWith(`${field}: `)).toBe(true)
+    expect(result.error).toContain(message)
+    expect(result.details).toEqual({ code: "invalid_input", retryable: false, field })
+    expect(result.changes).toEqual({ designs: [], tokens: [] })
+  })
+
+  it("still reads null as taking a value away", async () => {
+    const base = snapshot()
+    const signup = base.documents[0]!.document.containers[0]!
+    signup.root = {
+      ...signup.root,
+      responsive: { mobile: { style: { gap: 2 } } }
+    } as DesignNode
+    const result = await execute(
+      {
+        label: "Clear",
+        code: `Update("title", { name: null, style: { size: "text-2xl" } })
+Update("title", { style: { size: null } })
+Responsive("page", "mobile", null)
+AddState("signup", { name: "Error", changes: { title: { text: "Try again" } } })
+UpdateState("signup", "error", { changes: { title: null } })`
+      },
+      base,
+      hooks()
+    )
+    expect(result.error).toBeUndefined()
+    const after = result.changes.designs[0]!.after!
+    expect(findNode(after.root, "title")).toEqual({ type: "text", id: "title", text: "Create an account" })
+    expect(after.root.responsive).toBeUndefined()
+    expect(after.states[1]).toEqual({ id: "error", name: "Error" })
   })
 })
 

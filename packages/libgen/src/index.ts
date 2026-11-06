@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url"
 import { appFiles, type ComponentReport, findComponents, readTsconfig, relativePath } from "@parity-app/code"
 import {
   applyLibraryEdits,
+  iconAliases,
   iconVariants,
   type LibraryBreakpoint,
   type LibraryComponent,
@@ -676,28 +677,13 @@ async function exportedIcons(
   icons: LibraryIcons
 ): Promise<{ count: number; icons: ExportedIcon[]; groups: string[][] }> {
   const module = await load(specifier).catch(() => ({}) as Record<string, unknown>)
-  const pattern = icons.match ? new RegExp(icons.match) : /^[A-Z]/
-  const excluded = new Set(icons.exclude)
   const drawable = (value: unknown) =>
     icons.render !== "export"
       ? value !== undefined && typeof value !== "function"
       : typeof value === "function" || (typeof value === "object" && value !== null && "$$typeof" in value)
-  // Every capitalised export of an icon, so aliases the pattern leaves out (Hugeicons' `Gear`) are known too.
-  const byValue = new Map<unknown, string[]>()
-  for (const [key, value] of Object.entries(module)) {
-    if (!/^[A-Z]/.test(key) || excluded.has(key) || !drawable(value)) continue
-    const names = byValue.get(value)
-    if (names) names.push(key)
-    else byValue.set(value, [key])
-  }
-  // Labelled as the panel labels them: the shortest name the pattern matches, without a style or size for sets that
-  // write those in.
-  const kept = [...byValue.values()].flatMap((names) => {
-    const name = names
-      .filter((candidate) => pattern.test(candidate))
-      .sort((a, b) => a.length - b.length || byCodeUnit(a, b))[0]
-    return name ? [{ name, names }] : []
-  })
+  // Each icon once, by the name the guest lists it under, as core's one grouping gives both. Labelled as the panel
+  // labels them, without a style or size for sets that write those in.
+  const kept = iconAliases(module, icons, drawable)
   const read = icons.variants?.pattern
     ? iconVariants(
         kept.map(({ name }) => name),
@@ -716,12 +702,6 @@ async function exportedIcons(
     icons: [...byLabel].map(([label, names]) => ({ label, names: [...names] })),
     groups: kept.map(({ names }) => names)
   }
-}
-
-/** Compares two strings by their UTF-16 code units, as `sort` does without a comparer. */
-function byCodeUnit(a: string, b: string): number {
-  if (a < b) return -1
-  return a > b ? 1 : 0
 }
 
 /** Draws an icon with the project's own React, to tell a set's styles apart; nothing draws where React can't load. */

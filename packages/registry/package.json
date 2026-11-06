@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",
-    "semver": "^7.8.5"
+    "semver": "^7.8.5",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/semver": "^7.8.0"

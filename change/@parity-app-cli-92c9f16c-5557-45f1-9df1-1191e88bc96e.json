@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "The text editor writes an edit to the state whose text it showed, even when the state it was picked in is gone",
+  "comment": "Check and evaluate decorator and sample values in one core module, with one copy of icon alias grouping",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

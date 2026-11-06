@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { applyLibraryEdits, type LibraryEdits } from "@parity-app/core"
-import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test"
 import { covers, newestEntries, registryDir, registryEntries, registryEntryFor, withEdits } from "./index.ts"
 
 let dir: string
@@ -43,7 +43,12 @@ describe("registryEntryFor", () => {
   })
 
   it("skips a file that doesn't name its package", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
     expect((await registryEntries(dir)).map((entry) => entry.file)).not.toContain("broken.lib.par")
+    expect(warn).toHaveBeenCalledWith(
+      "Skipping registry file broken.lib.par: /package: a registry file names the package it describes"
+    )
+    warn.mockRestore()
   })
 })
 

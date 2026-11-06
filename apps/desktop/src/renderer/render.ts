@@ -6,6 +6,7 @@ import { frameAttributes } from "@parity-app/tokens"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import { z } from "zod"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import { frameBox, frameHeight } from "../shared/render-job.ts"
 import {
   drawnNodeIds,
   findNodeElement,
@@ -116,12 +117,7 @@ window.canvasRender = async (job) => {
       const element = findNodeElement(host, id)
       const rect = nodeBox(host, id)
       if (!element || !rect) continue
-      const inFrame = (box: DOMRect) => ({
-        x: round((box.left - origin.left) / job.scale),
-        y: round((box.top - origin.top) / job.scale),
-        width: round(box.width / job.scale),
-        height: round(box.height / job.scale)
-      })
+      const inFrame = (box: DOMRect) => frameBox(box, origin, job.scale)
       const measured: MeasuredNode = { id, ...inFrame(rect) }
       const parent = nodeParent(host, id)
       if (parent) measured.parent = parent
@@ -136,7 +132,7 @@ window.canvasRender = async (job) => {
     const known = new Set(loaded.guest.components)
     return {
       width: job.mode.width,
-      height: job.mode.height ?? Math.ceil(origin.height / job.scale),
+      height: job.mode.height ?? frameHeight(origin.height, job.scale),
       nodes,
       overflowsX: body.scrollWidth > body.clientWidth + 1,
       unknownComponents: [
@@ -373,8 +369,4 @@ function imagesLoaded(host: HTMLElement): Promise<unknown> {
   return Promise.all(
     images.map((image) => (image.complete ? Promise.resolve() : image.decode().catch(() => undefined)))
   )
-}
-
-function round(value: number): number {
-  return Math.round(value * 10) / 10
 }

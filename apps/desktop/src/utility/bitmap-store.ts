@@ -11,14 +11,13 @@ import {
 } from "@parity-app/core"
 import type { CodeSnapshot } from "@parity-app/project"
 import type { PreviewImage, RenderJob } from "../shared/protocol.ts"
-import { drawnComponents } from "../shared/render-job.ts"
+import { bitmapName } from "../shared/render-job.ts"
 
 /**
  * Frame bitmaps and component previews kept on disk, so a project opened again shows them at once (PAR-158, PAR-207).
  * They live in Parity's app data, which main names (`PARITY_BITMAP_DIR`), one folder per project, as lossless WebP
  * (PAR-535). A frame bitmap is named by what it shows: the project's code as the guest drawing it was loaded
- * (`codeSnapshot`), the render job, less the guest's address, which is new each time the project opens, and where the
- * components it draws come from. Each carries its frame's height. Component previews are in the project's `previews`
+ * (`codeSnapshot`) and the render job, as `bitmapName` names it. Each carries its frame's height. Component previews are in the project's `previews`
  * folder, two pictures each, named by `previewKey`, with an index of each component's latest. Without a folder, as in
  * tests, nothing is kept.
  */
@@ -304,19 +303,12 @@ function previewFile(projectId: string, key: string, size: PreviewSize): string 
   return join(previewFolder(projectId), `${key}-${size}.webp`)
 }
 
-/**
- * A bitmap's file, named by the code its guest was served and the job less the guest's address, which is new each time
- * the project opens. The components the job gave the guest are named with those it was served, by where each one the
- * frame draws comes from (`drawnComponents`), so the name is the same in a session whose guest was served them all.
- */
+/** A bitmap's file, named by the code its guest was served and by the job, as `bitmapName` names it. */
 function bitmapFile(fingerprint: string, served: ServedCode, job: RenderJob): string {
-  const { guestUrl: _address, components, ...drawn } = job
   const name = createHash("sha256")
     .update(fingerprint)
     .update("\0")
-    .update(JSON.stringify(drawn))
-    .update("\0")
-    .update(JSON.stringify(drawnComponents(job.tree, served.sources, components)))
+    .update(bitmapName(job, served.sources))
     .digest("hex")
   return join(projectFolder(job.projectId), `${name.slice(0, 40)}.webp`)
 }

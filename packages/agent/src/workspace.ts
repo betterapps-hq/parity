@@ -32,15 +32,15 @@ import {
   locateNode,
   mapNode,
   type ModeSettings,
+  modeSettings,
   modesReport,
   moveNode,
   type NodeChange,
   nodeIds,
   type NodePatch,
+  nodeTree,
   parseCanvasDocument,
-  parseDesignNode,
-  parseModeSettings,
-  parseNodePatch,
+  plainObject,
   projectComponentLibrary,
   radiusKeywords,
   removeState,
@@ -51,6 +51,7 @@ import {
   type StateSpec,
   uniqueId,
   unknownReference,
+  walkNodes,
   withFreshIds
 } from "@parity-app/core"
 import { componentComposition, type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
@@ -62,6 +63,41 @@ import {
   previewKind,
   substituteReferences
 } from "@parity-app/tokens"
+import { z } from "zod"
+import {
+  copyOptions,
+  type DesignInput,
+  designInput,
+  designReference,
+  type DesignUpdate,
+  designUpdate,
+  documentPlacement,
+  extractNodes,
+  extractOptions,
+  getOptions,
+  type GetOptions,
+  getPath,
+  iconOptions,
+  matrixOptions,
+  type MatrixOptions,
+  newState,
+  nodeReference,
+  type PatchInput,
+  patchInput,
+  type PlaceOptions,
+  placeOptions,
+  propsOptions,
+  readArgument,
+  readFields,
+  screenshotOptions,
+  spaceOptions,
+  stateUpdate,
+  tokenFilter,
+  tokenValues,
+  type UpdateChange,
+  updateChange,
+  updateOptions
+} from "./arguments.ts"
 import {
   type Board,
   boardOverlaps,
@@ -135,30 +171,10 @@ function discardedPatches(before: ContainerSpec, removed: DesignNode, after: Con
   return [...nodes.values()]
 }
 
-const nodeKeys = new Set([
-  "type",
-  "name",
-  "hidden",
-  "style",
-  "responsive",
-  "children",
-  "component",
-  "props",
-  "slots",
-  "text",
-  "tag",
-  "design",
-  "args",
-  "state",
-  "bind",
-  "src",
-  "alt",
-  "fit",
-  "credit"
-])
-
 /** The functions a snippet can call, as globals, as the workspace's `api()` returns them. */
 export type AgentApi = ReturnType<AgentWorkspace["api"]>
+
+export type { MatrixOptions } from "./arguments.ts"
 
 /**
  * One agent call's view of a tab: a working copy of its designs, modes and tokens. Every function the snippet calls
@@ -196,47 +212,81 @@ export class AgentWorkspace {
     this.modes = structuredClone(snapshot.modes)
   }
 
-  /** The functions a snippet can call, as globals. */
+  /**
+   * The functions a snippet can call, as globals. Each checks its arguments with its schema in `arguments.ts` before it
+   * reads them, since a snippet can pass anything.
+   */
   api() {
+    const design = (value: string) => readArgument(designReference, value, "design")
+    const path = (value: string) => readArgument(nodeReference, value, "path")
+    const parent = (value: string) => readArgument(nodeReference, value, "parent")
+    const text = (value: string, name: string) => readArgument(z.string(), value, name)
     return {
       document: "document",
       Designs: () => this.listDesigns(),
-      GetDesign: (design: string) => this.getDesign(design),
+      GetDesign: (reference: string) => this.getDesign(design(reference)),
       Get: (...args: unknown[]) => this.get(args),
       Components: () => [...this.snapshot.components].sort(),
-      Props: (component: string, options?: { all?: boolean }) => this.componentProps(component, options),
-      Icons: (set?: string, options?: IconOptions) =>
-        set === undefined ? describeIconSets(this.snapshot.iconSets ?? []) : this.icons(set, options),
-      GetTokens: (filter?: { category?: string; source?: string; search?: string }) => this.getTokens(filter),
-      GetModes: (design?: string) => this.getModes(design),
+      Props: (component: string, options?: z.infer<typeof propsOptions>) =>
+        this.componentProps(text(component, "component"), readFields(propsOptions, options, "options")),
+      Icons: (set?: string, options?: z.infer<typeof iconOptions>) =>
+        set === undefined
+          ? describeIconSets(this.snapshot.iconSets ?? [])
+          : this.icons(text(set, "set"), readFields(iconOptions, options, "options")),
+      GetTokens: (filter?: z.infer<typeof tokenFilter>) => this.getTokens(readFields(tokenFilter, filter, "filter")),
+      GetModes: (reference?: string) => this.getModes(readArgument(designReference.optional(), reference, "design")),
       Selection: () => this.selection(),
-      CreateDesign: (spec: DesignInput) => this.createDesign(spec),
-      UpdateDesign: (design: string, update: DesignUpdate) => this.updateDesign(design, update),
-      DeleteDesign: (design: string) => this.deleteDesign(design),
-      Insert: (parent: string, node: unknown, options?: PlaceOptions) => this.insert(parent, node, options),
-      Update: (path: string, change: unknown, options?: { state?: string }) => this.update(path, change, options),
-      Replace: (path: string, node: unknown) => this.replace(path, node),
-      Move: (path: string, parent: string, options?: PlaceOptions) => this.move(path, parent, options),
-      Copy: (path: string, parent: string, options?: PlaceOptions) => this.copy(path, parent, options),
-      Delete: (path: string) => this.delete(path),
-      Responsive: (path: string, viewport: string, patch: unknown) => this.responsive(path, viewport, patch),
-      AddState: (design: string, spec: { name: string; changes?: Record<string, unknown> }) =>
-        this.addState(design, spec),
-      UpdateState: (design: string, state: string, spec: { name?: string; changes?: Record<string, unknown> }) =>
-        this.updateState(design, state, spec),
-      DeleteState: (design: string, state: string) => this.deleteState(design, state),
-      SetModes: (settings: unknown) => this.setModes(settings),
-      SetTokens: (values: Record<string, string | Record<string, string>>) => this.setTokens(values),
-      Measure: (design: string, options?: FrameOptions) => this.measure(design, options),
-      Problems: (design: string, options?: MatrixOptions) => this.problems(design, options),
-      Screenshot: (design: string, options?: MatrixOptions & { scale?: number }) => this.screenshot(design, options),
-      Accessibility: (design: string, options?: MatrixOptions) => this.accessibility(design, options),
-      FindEmptySpace: (options: SpaceOptions) => this.findEmptySpace(options),
-      Overlaps: (design?: string) => this.overlaps(design),
+      CreateDesign: (spec: DesignInput) => this.createDesign(readFields(designInput, spec, "spec")),
+      UpdateDesign: (reference: string, update: DesignUpdate) =>
+        this.updateDesign(design(reference), readFields(designUpdate, update, "update")),
+      DeleteDesign: (reference: string) => this.deleteDesign(design(reference)),
+      Insert: (into: string, node: unknown, options?: PlaceOptions | z.infer<typeof documentPlacement>) =>
+        this.insert(parent(into), node, options),
+      Update: (reference: string, change: UpdateChange, options?: z.infer<typeof updateOptions>) =>
+        this.update(
+          path(reference),
+          readFields(updateChange, change, "change"),
+          readFields(updateOptions, options, "options")
+        ),
+      Replace: (reference: string, node: unknown) => this.replace(path(reference), node),
+      Move: (reference: string, into: string, options?: PlaceOptions) =>
+        this.move(path(reference), parent(into), readFields(placeOptions, options, "options")),
+      Copy: (reference: string, into: string, options?: z.infer<typeof copyOptions>) =>
+        this.copy(path(reference), parent(into), readFields(copyOptions, options, "options")),
+      Delete: (reference: string) => this.delete(path(reference)),
+      Responsive: (reference: string, viewport: string, patch: PatchInput | null) =>
+        this.responsive(
+          path(reference),
+          text(viewport, "viewport"),
+          readArgument(patchInput.nullable(), patch, "patch")
+        ),
+      AddState: (reference: string, spec: z.infer<typeof newState>) =>
+        this.addState(design(reference), readFields(newState, spec, "spec")),
+      UpdateState: (reference: string, state: string, spec: z.infer<typeof stateUpdate>) =>
+        this.updateState(design(reference), text(state, "state"), readFields(stateUpdate, spec, "spec")),
+      DeleteState: (reference: string, state: string) => this.deleteState(design(reference), text(state, "state")),
+      SetModes: (settings: unknown) => this.setModes(readFields(modeSettings, settings, "settings")),
+      SetTokens: (values: z.infer<typeof tokenValues>) =>
+        this.setTokens(readArgument(tokenValues, values, "SetTokens")),
+      Measure: (reference: string, options?: MatrixOptions) =>
+        this.measure(design(reference), readFields(matrixOptions, options, "options")),
+      Problems: (reference: string, options?: MatrixOptions) =>
+        this.problems(design(reference), readFields(matrixOptions, options, "options")),
+      Screenshot: (reference: string, options?: z.infer<typeof screenshotOptions>) =>
+        this.screenshot(design(reference), readFields(screenshotOptions, options, "options")),
+      Accessibility: (reference: string, options?: MatrixOptions) =>
+        this.accessibility(design(reference), readFields(matrixOptions, options, "options")),
+      FindEmptySpace: (options: z.infer<typeof spaceOptions>) =>
+        this.findEmptySpace(readFields(spaceOptions, options, "options")),
+      Overlaps: (reference?: string) => this.overlaps(readArgument(designReference.optional(), reference, "design")),
       Print: (...values: unknown[]) => this.print(values),
-      FindRepeats: (design: string) => this.findRepeats(design),
-      ExtractComponent: (design: string, nodes: string | string[], options: ExtractInput) =>
-        this.extractComponent(design, nodes, options)
+      FindRepeats: (reference: string) => this.findRepeats(design(reference)),
+      ExtractComponent: (reference: string, nodes: string | string[], options: z.infer<typeof extractOptions>) =>
+        this.extractComponent(
+          design(reference),
+          readArgument(extractNodes, nodes, "nodes"),
+          readFields(extractOptions, options, "options")
+        )
     }
   }
 
@@ -350,19 +400,20 @@ export class AgentWorkspace {
     return structuredClone(found.container)
   }
 
+  /** `Get(path, options?)`, `Get(path, visit, options?)` or `Get(visit)`. */
   private get(args: unknown[]): unknown {
     const [first, second, third] = args
-    if (typeof first === "function") return this.visit(undefined, first as Visit)
-    if (typeof first !== "string") throw new TypeError("Get(path, options?), Get(path, visit) or Get(visit)")
-    if (typeof second === "function") return this.visit(first, second as Visit, third as GetOptions | undefined)
-    const options = (second ?? {}) as GetOptions
+    if (isVisit(first)) return this.visit(undefined, first)
+    const reference = readArgument(getPath, first, "path")
+    if (isVisit(second)) return this.visit(reference, second, readFields(getOptions, third, "options"))
+    const options = readFields(getOptions, second, "options") ?? {}
     if (shownRead(options)) {
-      const { layer, read } = this.shownLayer(first, options)
+      const { layer, read } = this.shownLayer(reference, options)
       this.emit(read)
       return elide(structuredClone(layer.node), options.depth)
     }
-    const design = this.tryDesign(first)
-    const found = design ? { ...design, node: design.container.root } : this.findNode(first)
+    const design = this.tryDesign(reference)
+    const found = design ? { ...design, node: design.container.root } : this.findNode(reference)
     this.emit({ kind: "read", design: key(found.path, found.container.id), node: design ? undefined : found.node.id })
     return elide(structuredClone(found.node), options.depth)
   }
@@ -435,7 +486,7 @@ export class AgentWorkspace {
    * design, a node (`design/node`, or a node id alone when one design has it) or a layer inside an instance
    * (`design/card/title`). Only the instances on the way to the layer are expanded, not ones inside it.
    */
-  private shownLayer(reference: string, options: GetOptions) {
+  private shownLayer(reference: string, options: NonNullable<GetOptions>) {
     const found = this.findLayer(reference)
     const { container } = found
     const mode = this.designMode(container, options.mode)
@@ -488,7 +539,7 @@ export class AgentWorkspace {
     return [...this.snapshot.tokens, ...keywords]
   }
 
-  private getTokens(filter: { category?: string; source?: string; search?: string } = {}) {
+  private getTokens(filter: z.infer<typeof tokenFilter> = {}) {
     return this.tokensAndKeywords()
       .filter(
         (token) =>
@@ -509,7 +560,6 @@ export class AgentWorkspace {
    * board shows. Naming a design gives just that one, with each of its frames' sizes. Reading changes nothing.
    */
   private getModes(reference?: string) {
-    if (reference !== undefined && typeof reference !== "string") throw new TypeError("GetModes(design?)")
     const designs =
       reference === undefined
         ? this.all().map(({ container }) => designModes(this.modes, container))
@@ -526,13 +576,10 @@ export class AgentWorkspace {
   // Designs -----------------------------------------------------------------------------------------------------------
 
   private createDesign(spec: DesignInput): string {
-    if (!spec || typeof spec.name !== "string")
-      throw new TypeError("CreateDesign({ name, kind?, file?, x?, y?, root?, width?, height? })")
     const kind = spec.kind ?? "screen"
     const taken = this.all().map((entry) => entry.container.id)
     const id = uniqueId(spec.name, taken)
     const path = spec.file ?? this.snapshot.mainDocument
-    if (!path.endsWith(".par")) throw new Error(`Project files end in .par, not ${path}`)
     const size = frameSizeInput(spec, kind, spec.name)
     const ids = new Set<string>()
     // Without a root, a frame starts as the editor starts one, and anything else as a page.
@@ -545,7 +592,7 @@ export class AgentWorkspace {
     const root =
       !spec.root && kind === "frame"
         ? newDesign("frame", [], { x: 0, y: 0 }).root
-        : this.prepareNode(spec.root ?? page, ids)
+        : this.prepareNode(spec.root ?? page, ids, "root")
     if (kind === "frame" && root.type !== "layout") {
       throw new CodedError("A frame's root is a layout", { code: "invalid_input", field: "root" })
     }
@@ -638,59 +685,49 @@ export class AgentWorkspace {
 
   // Nodes -------------------------------------------------------------------------------------------------------------
 
-  private insert(parent: string, input: unknown, options: PlaceOptions = {}): string {
+  /** Into `document`, the node becomes a design, and the options are `CreateDesign`'s. */
+  private insert(parent: string, input: unknown, given: unknown): string {
     if (parent === "document") {
-      const node = input as Values
-      return this.createDesign({
-        name: String((node.name ?? "Untitled") as unknown),
-        root: input,
-        ...(options as object)
-      })
+      const placed = readFields(documentPlacement, given, "options")
+      const name = z.object({ name: z.string() }).safeParse(input).data?.name ?? "Untitled"
+      return this.createDesign({ name, ...placed, root: input })
     }
+    const options = readFields(placeOptions, given, "options") ?? {}
     const target = this.tryDesign(parent)
     const found = target ? { ...target, node: target.container.root } : this.findNode(parent)
-    const node = this.prepareNode(input, nodeIds(found.container.root))
+    const node = this.prepareNode(input, nodeIds(found.container.root), "node")
     const root = insertNode(found.container.root, found.node.id, node, options)
     this.setContainer(found.path, { ...found.container, root }, node.id)
     return node.id
   }
 
-  private update(path: string, input: unknown, options: { state?: string } = {}): void {
+  private update(path: string, input: UpdateChange, options: z.infer<typeof updateOptions> = {}): void {
     const { path: file, container, node } = this.findNode(path)
-    const change = { ...expectObject(input, "Update") }
-    if ("args" in change) {
-      change.props = { ...(change.props as Values | undefined), ...expectObject(change.args, "args") }
-      delete change.args
-    }
-    const unknown = Object.keys(change).filter(
-      (name) => !["name", "text", "tag", "hidden", "props", "style", "unset", "component"].includes(name)
-    )
-    if (unknown.length > 0)
-      throw new Error(`Update can't change ${unknown.join(", ")}; use Replace, Move or Responsive`)
+    const { args, ...change } = input
+    if (args) change.props = { ...change.props, ...args }
     const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
     const base = stateId === container.states[0]!.id
-    if (!base && ("name" in change || "tag" in change || "component" in change)) {
-      throw new Error("A state can only change hidden, text, props, style and unset")
+    const renames = (["name", "tag", "component"] as const).filter((name) => change[name] !== undefined)
+    if (!base && renames.length > 0) {
+      throw new CodedError("A state can only change hidden, text, props, style and unset", {
+        code: "invalid_input",
+        field: renames[0]
+      })
     }
     if (node.type === "component" && change.props) {
-      this.checkProps(
-        String((change.component ?? node.component) as unknown),
-        change.props as Values,
-        `${container.id}/${node.id}`
-      )
+      this.checkProps(change.component ?? node.component, change.props, `${container.id}/${node.id}`)
     }
     let next = editNode(container, stateId, node.id, toChange(change))
-    if (base && ("name" in change || "tag" in change || "component" in change)) {
+    if (base && renames.length > 0) {
       next = {
         ...next,
         root: mapNode(next.root, node.id, (current) => {
-          const updated = { ...current } as DesignNode & Values
-          if ("name" in change) {
-            if (change.name === null) delete updated.name
-            else updated.name = String(change.name as unknown)
-          }
-          if ("tag" in change && updated.type === "text") updated.tag = change.tag as never
-          if ("component" in change && updated.type === "component") updated.component = String(change.component)
+          const updated = { ...current }
+          if (change.name === null) delete updated.name
+          else if (change.name !== undefined) updated.name = change.name
+          if (updated.type === "text" && change.tag === null) delete updated.tag
+          else if (updated.type === "text" && change.tag) updated.tag = change.tag
+          if (updated.type === "component" && change.component !== undefined) updated.component = change.component
           return updated
         })
       }
@@ -703,7 +740,7 @@ export class AgentWorkspace {
     const location = locateNode(container.root, node.id)!
     const parent = location.ancestors.at(-1)
     const ids = nodeIds(container.root)
-    const replacement = this.prepareNode(input, ids)
+    const replacement = this.prepareNode(input, ids, "node")
     let next: ContainerSpec
     if (parent) {
       const withoutOld = deleteNode(container, node.id)
@@ -737,7 +774,7 @@ export class AgentWorkspace {
     this.setContainer(from.path, { ...from.container, root }, from.node.id)
   }
 
-  private copy(path: string, parent: string, options: PlaceOptions & { name?: string } = {}): string {
+  private copy(path: string, parent: string, options: z.infer<typeof copyOptions> = {}): string {
     const source = this.findNode(path)
     const target = this.tryDesign(parent)
     const to = target ? { ...target, node: target.container.root } : this.findNode(parent)
@@ -757,7 +794,8 @@ export class AgentWorkspace {
     this.setContainer(file, deleteNode(container, node.id), node.id)
   }
 
-  private responsive(path: string, viewport: string, input: unknown): void {
+  /** A viewport's patch on a node, merged over what it has; `null` takes the whole patch away. */
+  private responsive(path: string, viewport: string, input: PatchInput | null): void {
     const viewports = new Set(
       this.modes.variables
         .filter((variable) => variable.kind === "viewport")
@@ -773,7 +811,7 @@ export class AgentWorkspace {
       )
     }
     const { path: file, container, node } = this.findNode(path)
-    const patch = input === null ? undefined : parseNodePatch(stripNulls(input), `Responsive(${viewport})`)
+    const patch = input === null ? undefined : stripNulls(input)
     const root = mapNode(container.root, node.id, (current) => {
       const responsive = { ...current.responsive }
       if (patch) responsive[viewport] = { ...responsive[viewport], ...patch }
@@ -787,7 +825,7 @@ export class AgentWorkspace {
 
   // States ------------------------------------------------------------------------------------------------------------
 
-  private addState(reference: string, spec: { name: string; changes?: Record<string, unknown> }): string {
+  private addState(reference: string, spec: z.infer<typeof newState>): string {
     const { path, container } = this.findDesign(reference)
     const added = addState(container, spec.name)
     const next = this.applyChanges(added.container, added.id, spec.changes)
@@ -795,11 +833,7 @@ export class AgentWorkspace {
     return added.id
   }
 
-  private updateState(
-    reference: string,
-    stateId: string,
-    spec: { name?: string; changes?: Record<string, unknown> }
-  ): void {
+  private updateState(reference: string, stateId: string, spec: z.infer<typeof stateUpdate>): void {
     const { path, container } = this.findDesign(reference)
     findState(container, stateId)
     let next = spec.name ? renameState(container, stateId, spec.name) : container
@@ -816,7 +850,7 @@ export class AgentWorkspace {
   private applyChanges(
     container: ContainerSpec,
     stateId: string,
-    changes: Record<string, unknown> | undefined
+    changes: Record<string, PatchInput | null> | undefined
   ): ContainerSpec {
     let next = container
     for (const [reference, value] of Object.entries(changes ?? {})) {
@@ -833,16 +867,15 @@ export class AgentWorkspace {
         }
         continue
       }
-      parseNodePatch(stripNulls(value), `changes/${reference}`)
-      next = editNode(next, stateId, node.id, toChange(expectObject(value, `changes/${reference}`)))
+      next = editNode(next, stateId, node.id, toChange(value))
     }
     return next
   }
 
   // Modes and tokens --------------------------------------------------------------------------------------------------
 
-  private setModes(settings: unknown): void {
-    this.modes = structuredClone(parseModeSettings(settings))
+  private setModes(settings: ModeSettings): void {
+    this.modes = structuredClone(settings)
     this.modesChanged = true
   }
 
@@ -851,15 +884,12 @@ export class AgentWorkspace {
    * a token built on itself. Nothing in the call is kept when one is refused. Whether each value is its kind's (a color
    * a color) needs the browser, so `checkTokenKinds` asks once the snippet has finished, before anything is applied.
    */
-  private setTokens(values: Record<string, string | Record<string, string>>): void {
+  private setTokens(values: z.infer<typeof tokenValues>): void {
     const changes: TokenChange[] = []
-    for (const [rawName, value] of Object.entries(expectObject(values, "SetTokens"))) {
+    for (const [rawName, value] of Object.entries(values)) {
       const name = rawName.replace(/^--/, "")
-      const themes = typeof value === "string" ? { default: value } : expectObject(value, `SetTokens/${name}`)
-      for (const [theme, themed] of Object.entries(themes)) {
-        if (typeof themed !== "string") throw new TypeError(`SetTokens/${name}/${theme}: expected a CSS value`)
-        changes.push({ name, theme, value: themed.trim() })
-      }
+      const themes = typeof value === "string" ? { default: value } : value
+      for (const [theme, themed] of Object.entries(themes)) changes.push({ name, theme, value: themed.trim() })
     }
     // Checked with the whole call's values in, so one token may refer to another set beside it.
     const reading = this.tokenReading([...this.tokenChanges, ...changes])
@@ -1007,9 +1037,9 @@ export class AgentWorkspace {
     return { container, state, mode, frame }
   }
 
-  private async measure(reference: string, options: FrameOptions = {}) {
-    this.expectOneFrame(this.findDesign(reference).container, options)
-    const { container, state, mode, frame } = await this.render(reference, options, "measure")
+  private async measure(reference: string, options: MatrixOptions = {}) {
+    const one = this.oneFrame(this.findDesign(reference).container, options)
+    const { container, state, mode, frame } = await this.render(reference, one, "measure")
     if (frame.error) throw new Error(`The frame failed to render: ${frame.error}`)
     const names = nodeNames(container, this.designName)
     return {
@@ -1026,7 +1056,7 @@ export class AgentWorkspace {
    * Measure draws one frame, so a list, "all" or "shown" (which the checks take) fails before anything renders, saying
    * so and naming the ids it does take.
    */
-  private expectOneFrame(container: ContainerSpec, options: { state?: unknown; mode?: unknown }): void {
+  private oneFrame(container: ContainerSpec, options: NonNullable<MatrixOptions>): FrameOptions {
     const shown = shownModes(this.modes, container)
     const choices = {
       state: {
@@ -1043,10 +1073,14 @@ export class AgentWorkspace {
         matrix: 'a list, "shown" or "all"'
       }
     }
+    const one: FrameOptions = {}
     for (const field of ["state", "mode"] as const) {
       const value = options[field]
-      const matrix = Array.isArray(value) || value === "all" || (field === "mode" && value === "shown")
-      if (value === undefined || (typeof value === "string" && !matrix)) continue
+      if (value === undefined) continue
+      if (typeof value === "string" && value !== "all" && !(field === "mode" && value === "shown")) {
+        one[field] = value
+        continue
+      }
       const given = Array.isArray(value) ? "a list" : JSON.stringify(value)
       const { ids, listed, matrix: takes } = choices[field]
       throw new CodedError(
@@ -1055,6 +1089,7 @@ export class AgentWorkspace {
         { code: "invalid_input", field, alternatives: ids.slice(0, alternativeLimit) }
       )
     }
+    return one
   }
 
   private async problems(reference: string, options: MatrixOptions = {}): Promise<Problem[]> {
@@ -1069,7 +1104,7 @@ export class AgentWorkspace {
     return found
   }
 
-  private async screenshot(reference: string, options: MatrixOptions & { scale?: number } = {}): Promise<number> {
+  private async screenshot(reference: string, options: z.infer<typeof screenshotOptions> = {}): Promise<number> {
     const { container } = this.findDesign(reference)
     const scale = Math.min(Math.max(options.scale ?? 1, 0.25), 3)
     let count = 0
@@ -1185,8 +1220,11 @@ export class AgentWorkspace {
     return findRepeats(container.root)
   }
 
-  private extractComponent(reference: string, nodes: string | string[], options: ExtractInput): string {
-    if (!options?.name) throw new TypeError("ExtractComponent(design, nodes, { name, file?, params? })")
+  private extractComponent(
+    reference: string,
+    nodes: string | string[],
+    options: z.infer<typeof extractOptions>
+  ): string {
     const { path, container } = this.findDesign(reference)
     const occurrences = [nodes].flat().map((node) => resolveInDesign(container, node).id)
     const id = uniqueId(
@@ -1208,7 +1246,6 @@ export class AgentWorkspace {
     })
     this.setContainer(path, design)
     const file = options.file ?? this.snapshot.mainDocument
-    if (!file.endsWith(".par")) throw new Error(`Project files end in .par, not ${file}`)
     const target = this.documents.get(file) ?? { version: 3, containers: [] }
     this.documents.set(file, { ...target, containers: [...target.containers, component] })
     this.changed.add(file)
@@ -1244,34 +1281,17 @@ export class AgentWorkspace {
 
   // Helpers -----------------------------------------------------------------------------------------------------------
 
-  /** Validates an agent's node, gives it and everything in it fresh ids, and records the names it created. */
-  private prepareNode(input: unknown, taken: Set<string>): DesignNode {
-    const assign = (value: unknown, path: string): Values => {
-      const node = { ...expectObject(value, path) }
-      const unknown = Object.keys(node).filter((name) => !nodeKeys.has(name) && name !== "id")
-      if (unknown.length > 0)
-        throw new Error(`${path}: unknown properties ${unknown.join(", ")}. Nodes take ${[...nodeKeys].join(", ")}.`)
-      const id = generateId(taken)
-      taken.add(id)
-      node.id = id
-      if (typeof node.name === "string") this.created[node.name] = id
-      this.inserted.add(id)
-      if (Array.isArray(node.children))
-        node.children = node.children.map((child, index) => assign(child, `${path}/children/${index}`))
-      if (node.slots && typeof node.slots === "object") {
-        node.slots = Object.fromEntries(
-          Object.entries(node.slots as Values).map(([slot, children]) => [
-            slot,
-            (Array.isArray(children) ? children : [children]).map((child, index) =>
-              assign(child, `${path}/slots/${slot}/${index}`)
-            )
-          ])
-        )
-      }
-      if (node.type === "layout" && !node.children) node.children = []
-      return node
-    }
-    return parseDesignNode(assign(input, "node"), "node")
+  /**
+   * Checks an agent's node as a node tree, once it and everything in it have fresh ids, and records the names it
+   * created. `name` is the parameter it came in, which starts the field of an error in it.
+   */
+  private prepareNode(input: unknown, taken: Set<string>, name: string): DesignNode {
+    const node = readArgument(nodeTree, withNewIds(input, taken), name)
+    walkNodes(node, (each) => {
+      if (each.name !== undefined) this.created[each.name] = each.id
+      this.inserted.add(each.id)
+    })
+    return node
   }
 
   private findDesign(reference: string): Located {
@@ -1349,7 +1369,7 @@ export class AgentWorkspace {
    * attributes it passes through to its element. With them, its composition: the parents it needs, the parts it holds,
    * its slots, and an example `Insert` takes as it is.
    */
-  private componentProps(component: string, options: { all?: boolean } = {}) {
+  private componentProps(component: string, options: z.infer<typeof propsOptions> = {}) {
     if (!this.snapshot.components.includes(component)) {
       throw unknownReference(
         "unknown_component",
@@ -1416,73 +1436,19 @@ export class AgentWorkspace {
   }
 }
 
-interface ExtractInput {
-  name: string
-  file?: string
-  /** Better names for the params found, by the name they were given. */
-  params?: Record<string, string>
-}
-
-interface DesignInput {
-  name: string
-  kind?: ContainerKind
-  file?: string
-  x?: number
-  y?: number
-  root?: unknown
-  baseState?: string
-  /** A frame's own size, in pixels. */
-  width?: number
-  height?: number
-}
-
-interface DesignUpdate {
-  name?: string
-  /** Becoming a frame drops what a frame doesn't have, and says so in the call's warnings. */
-  kind?: ContainerKind
-  x?: number
-  y?: number
-  /** A frame's own size, in pixels. */
-  width?: number
-  height?: number
-  /** The main frame's mode. */
-  mode?: string
-  /** Modes shown beside the main frame. */
-  showModes?: string[]
-  state?: string
-  allStates?: boolean
-}
-
-interface PlaceOptions {
-  index?: number
-  slot?: string
-}
-
-interface GetOptions {
-  depth?: number
-  /** Read the nodes as the board draws this state; the state the design shows when only `mode` is given. */
-  state?: string
-  /** Read the nodes as the board draws this mode; the design's main mode when only `state` is given. */
-  mode?: string
-}
-
 interface FrameOptions {
   state?: string
   mode?: string
-}
-
-/** Which frames a check draws: the states and modes asked for. */
-export interface MatrixOptions {
-  /** A state id, a list of them, or "all". Defaults to the state the design shows. */
-  state?: string | string[]
-  /** A mode id, a list, "shown" (what the design shows) or "all". Defaults to the primary mode. */
-  mode?: string | string[]
 }
 
 type Visit = (
   node: DesignNode,
   context: { design: string; path: string; depth: number; index: number; parent?: string; skipChildren(): void }
 ) => unknown
+
+function isVisit(value: unknown): value is Visit {
+  return typeof value === "function"
+}
 
 function key(path: string, id: string): string {
   return `${path}#${id}`
@@ -1511,7 +1477,7 @@ function resolveInDesign(container: ContainerSpec, reference: string): DesignNod
 }
 
 /** Whether a read asks for what the board draws rather than the stored nodes. */
-function shownRead(options: GetOptions): boolean {
+function shownRead(options: NonNullable<GetOptions>): boolean {
   return options.state !== undefined || options.mode !== undefined
 }
 
@@ -1568,40 +1534,64 @@ function elide(node: DesignNode, depth: number | undefined, level = 0): unknown 
   return copy
 }
 
-function toChange(change: Values): NodeChange {
+/** A patch as `editNode` takes it, where `undefined` takes away what `null` did. */
+function toChange(change: PatchInput): NodeChange {
   const result: NodeChange = {}
-  if ("hidden" in change) result.hidden = change.hidden === null ? undefined : Boolean(change.hidden)
-  if ("text" in change) result.text = change.text === null ? undefined : String(change.text as unknown)
-  if (change.props !== undefined) result.props = nullsToUndefined(expectObject(change.props, "props"))
-  if (change.style !== undefined)
-    result.style = nullsToUndefined(expectObject(change.style, "style")) as NodeChange["style"]
-  // Props and style keys a state takes away from the base, checked as a patch's are.
-  if (change.unset !== undefined && change.unset !== null) result.unset = parseNodePatch({ unset: change.unset }).unset
+  if (change.hidden !== undefined) result.hidden = change.hidden ?? undefined
+  if (change.text !== undefined) result.text = change.text ?? undefined
+  if (change.props) result.props = nullsToUndefined(change.props)
+  if (change.style) result.style = nullsToUndefined(change.style)
+  if (change.unset) result.unset = change.unset
   return result
 }
 
-function nullsToUndefined(values: Values): Values {
-  return Object.fromEntries(Object.entries(values).map(([name, value]) => [name, value === null ? undefined : value]))
+function nullsToUndefined<T extends object>(values: T): { [K in keyof T]: Exclude<T[K], null> | undefined } {
+  return Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [name, value === null ? undefined : value])
+  ) as { [K in keyof T]: Exclude<T[K], null> | undefined }
 }
 
-function stripNulls(value: unknown): unknown {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value
-  return Object.fromEntries(
-    Object.entries(value as Values)
-      .filter(([, entry]) => entry !== null)
-      .map(([name, entry]) => [name, name === "props" || name === "style" ? stripNulls(entry) : entry])
-  )
+/** What isn't `null` in an object. */
+function withoutNulls<T extends object>(values: T): { [K in keyof T]?: Exclude<T[K], null> } {
+  return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== null)) as {
+    [K in keyof T]?: Exclude<T[K], null>
+  }
+}
+
+/** A patch as a viewport keeps it: without what's `null` in it, nor in its props and style. */
+function stripNulls(patch: PatchInput): NodePatch {
+  const { props, style, ...rest } = withoutNulls(patch)
+  return { ...rest, ...(props ? { props: withoutNulls(props) } : {}), ...(style ? { style: withoutNulls(style) } : {}) }
+}
+
+/**
+ * A node an agent gave, with a fresh id on it and on every node in its children and slots. A slot holding one node
+ * holds a list of it, and a layout without children holds none. Anything that isn't an object is left for the check.
+ */
+function withNewIds(value: unknown, taken: Set<string>): unknown {
+  const node = plainObject.safeParse(value).data
+  if (!node) return value
+  const id = generateId(taken)
+  taken.add(id)
+  const copy: Values = { ...node, id }
+  if (Array.isArray(copy.children)) copy.children = copy.children.map((child) => withNewIds(child, taken))
+  const slots = plainObject.safeParse(copy.slots).data
+  if (slots) {
+    copy.slots = Object.fromEntries(
+      Object.entries(slots).map(([slot, children]) => [
+        slot,
+        (Array.isArray(children) ? children : [children]).map((child) => withNewIds(child, taken))
+      ])
+    )
+  }
+  if (copy.type === "layout" && copy.children === undefined) copy.children = []
+  return copy
 }
 
 function withOverrides(state: StateSpec, overrides: Record<string, NodePatch>): StateSpec {
   return Object.keys(overrides).length > 0
     ? { id: state.id, name: state.name, overrides }
     : { id: state.id, name: state.name }
-}
-
-function expectObject(value: unknown, where: string): Values {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new TypeError(`${where}: expected an object`)
-  return value as Values
 }
 
 /** A token value refused as the token detail refuses it, naming the token, its theme and the problem. */
@@ -1615,7 +1605,7 @@ function refusedToken(change: TokenChange, problem: string): CodedError {
  * frame takes them, since screens and components size their frames per viewport.
  */
 function frameSizeInput(
-  input: { width?: unknown; height?: unknown },
+  input: { width?: number; height?: number },
   kind: ContainerKind,
   name: string,
   current: FrameSize = {}
@@ -1629,13 +1619,7 @@ function frameSizeInput(
     })
   }
   const size: FrameSize = { ...current }
-  for (const side of given) {
-    const value = input[side]
-    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-      throw new CodedError(`A frame's ${side} is a number of pixels above 0.`, { code: "invalid_input", field: side })
-    }
-    size[side] = value
-  }
+  for (const side of given) size[side] = input[side]
   return size
 }
 
