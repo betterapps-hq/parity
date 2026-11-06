@@ -37,7 +37,8 @@ import {
   trackCss,
   placementCss,
   type Span,
-  trackLabel
+  trackLabel,
+  usedColors
 } from "./data.ts"
 
 /** What the exploration starts on: the layer, which child is selected, and any picker open. */
@@ -49,6 +50,8 @@ export interface Start {
   fillPicker?: "tokens" | "custom"
   /** The design's frame row instead of a layer. */
   frame?: boolean
+  /** The project's Tokens only setting, which refuses plain colors. */
+  tokensOnly?: boolean
 }
 
 /** The canvas's stand-in for a layer and the inspector beside it, both on one draft style. */
@@ -62,8 +65,8 @@ export function StylingPrototype({ start }: { start: Start }) {
     <>
       <LayoutSection draft={draft} set={set} />
       <SizeSection draft={draft} set={set} />
-      <AppearanceSection draft={draft} set={set} fillPicker={start.fillPicker} />
-      <StrokeSection draft={draft} set={set} />
+      <AppearanceSection draft={draft} set={set} tokensOnly={start.tokensOnly} fillPicker={start.fillPicker} />
+      <StrokeSection draft={draft} set={set} tokensOnly={start.tokensOnly} />
       <TextSection draft={draft} set={set} />
     </>
   )
@@ -87,6 +90,7 @@ export function StylingPrototype({ start }: { start: Start }) {
         <aside aria-label="Inspector" className="flex w-80 shrink-0 flex-col overflow-y-auto border-l bg-background">
           <p className="border-b px-4 py-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
             Prototype · {selected}
+            {start.tokensOnly && " · Tokens only"}
           </p>
           {panel}
         </aside>
@@ -98,6 +102,7 @@ export function StylingPrototype({ start }: { start: Start }) {
 interface SectionProps {
   draft: Draft
   set: (change: Partial<Draft>) => void
+  tokensOnly?: boolean
 }
 
 function LayoutSection({ draft, set }: SectionProps) {
@@ -469,7 +474,12 @@ const corners = ["Top left", "Top right", "Bottom right", "Bottom left"] as cons
 /** The corners' indices in reading order across the two-by-two grid of fields. */
 const cornersAsLaidOut = [0, 1, 3, 2] as const
 
-function AppearanceSection({ draft, set, fillPicker }: SectionProps & { fillPicker?: "tokens" | "custom" }) {
+function AppearanceSection({
+  draft,
+  set,
+  tokensOnly,
+  fillPicker
+}: SectionProps & { fillPicker?: "tokens" | "custom" }) {
   const perCorner = Array.isArray(draft.radius)
   const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
   return (
@@ -478,6 +488,8 @@ function AppearanceSection({ draft, set, fillPicker }: SectionProps & { fillPick
         <Field label="Fill">
           <ColorInput
             label="Fill"
+            tokensOnly={tokensOnly}
+            used={usedColors}
             value={draft.background}
             alpha={draft.backgroundAlpha}
             open={fillPicker !== undefined}
@@ -659,7 +671,7 @@ function TokenChoice({
 
 const sides = ["Top", "Right", "Bottom", "Left"] as const
 
-function StrokeSection({ draft, set }: SectionProps) {
+function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
   const perSide = Array.isArray(draft.borderWidth)
   const widths = Array.isArray(draft.borderWidth)
     ? draft.borderWidth
@@ -670,6 +682,8 @@ function StrokeSection({ draft, set }: SectionProps) {
         <Field label="Color">
           <ColorInput
             label="Stroke"
+            tokensOnly={tokensOnly}
+            used={usedColors}
             value={draft.border}
             alpha={draft.borderAlpha}
             onChange={(border, borderAlpha) => set({ border, borderAlpha })}

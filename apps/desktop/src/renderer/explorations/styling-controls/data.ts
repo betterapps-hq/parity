@@ -25,11 +25,24 @@ export const colorTokens: ColorToken[] = [
   { name: "chart-2", hex: "#009689" },
   { name: "chart-3", hex: "#104e64" },
   { name: "chart-4", hex: "#ffb900" },
-  { name: "chart-5", hex: "#fe9a00" }
+  { name: "chart-5", hex: "#fe9a00" },
+  // A few of the palette's shades, as a project with Tailwind's colors lists them after its semantic tokens.
+  { name: "blue-500", hex: "#3b82f6" },
+  { name: "blue-600", hex: "#2563eb" },
+  { name: "teal-600", hex: "#0d9488" },
+  { name: "orange-600", hex: "#ea580c" },
+  { name: "amber-400", hex: "#fbbf24" }
 ]
 
-export const hexOf = (name: string | undefined): string | undefined =>
-  colorTokens.find((token) => token.name === name)?.hex
+/** A style's color as CSS: a token's color by its name, or a plain color (`#2563eb`, `oklch(…)`) as it's written. */
+export const hexOf = (value: string | undefined): string | undefined => {
+  if (value === undefined) return undefined
+  if (/^#|^oklch\(/i.test(value)) return value
+  return colorTokens.find((token) => token.name === value)?.hex
+}
+
+/** Colors the stand-in design already uses: the shapes behind Plans, and a plain blue a layer was given. */
+export const usedColors = ["#f54900", "#009689", "#ffb900", "#2f6fed"]
 
 export const radiusTokens = [
   { name: "radius-xs", px: 2 },

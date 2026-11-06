@@ -45,11 +45,33 @@ export const Appearance: Story = {
 
 /**
  * The fill's picker on Custom: the saturation and brightness square, the hue strip, hex and HSB, and the eyedropper.
- * Below it, the token nearest the picked color, with a button to use it. Drag in the square to see the suggestion
- * follow.
+ * Below it, the token nearest the picked color, with Use for the color as it is and Use for the token; when they're
+ * the same color, only the token is offered. In this design starts the square from a color the design already uses.
+ * Drag in the square to see the suggestion follow.
  */
 export const PickingAColor: Story = {
   render: () => <StylingPrototype start={{ draft: { background: "chart-2" }, fillPicker: "custom" }} />
+}
+
+/**
+ * Plans filled with a plain blue, #2f6fed, that isn't one of the project's tokens. Its swatch is round rather than
+ * square, the line under Fill says it isn't a token, and Use blue-600 there swaps in the nearest token in one click.
+ * Opacity is written into the plain color's own alpha (#2f6fed80) rather than after a token's name.
+ */
+export const PlainColor: Story = {
+  render: () => <StylingPrototype start={{ draft: { background: "#2f6fed", radius: "radius-lg" } }} />
+}
+
+/**
+ * The same plain blue in a project set to Tokens only: the line under Fill turns red and says the project takes tokens
+ * only, and the picker's Custom tab offers only the nearest token, never the color as it is.
+ */
+export const TokensOnly: Story = {
+  render: () => (
+    <StylingPrototype
+      start={{ draft: { background: "#2f6fed", radius: "radius-lg" }, tokensOnly: true, fillPicker: "custom" }}
+    />
+  )
 }
 
 /** The fill's picker on Tokens: the project's colors with swatches. The opacity after the button stays as it was. */

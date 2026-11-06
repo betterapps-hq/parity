@@ -15,6 +15,7 @@ import {
   type Hsb,
   hsbToRgba,
   nearestColor,
+  parseColor,
   parseHex,
   rgbaToHsb,
   sameColorDistance
@@ -39,8 +40,8 @@ function hexToHsb(hex: string): Hsb {
 const hsbToHex = (hsb: Hsb) => formatHex(hsbToRgba(hsb))
 
 /** The stand-in token whose color looks closest to `hex`, and how far off it is. */
-function nearestToken(hex: string): { token: ColorToken; distance: number } | undefined {
-  const color = parseHex(hex)
+function nearestToken(value: string): { token: ColorToken; distance: number } | undefined {
+  const color = parseColor(value)
   const nearest = color && nearestColor(color, Object.fromEntries(colorTokens.map((token) => [token.name, token.hex])))
   const token = colorTokens.find((other) => other.name === nearest?.name)
   return nearest && token && { token, distance: nearest.distance }
@@ -191,15 +192,23 @@ export function ColorEditor({ hex, onChange }: { hex: string; onChange: (hex: st
   )
 }
 
+/** Whether a style's color is a plain value (`#2563eb`, `oklch(…)`) rather than a token's name. */
+export const isPlainColor = (value: string | undefined): value is string =>
+  value !== undefined && parseColor(value) !== undefined
+
 /**
- * A style's color: the token button, the opacity after it (`primary/50`), and a picker with the project's color
- * tokens and a Custom tab whose color is answered with the nearest token.
+ * A style's color: a token by name, or a plain color marked as not a token with the nearest token one click away. The
+ * opacity after it is written with a token (`primary/50`) or into a plain color's own alpha. The picker has the
+ * project's color tokens and a Custom tab, whose color can be used as it is or answered with the nearest token. A
+ * project that takes tokens only refuses plain colors: the mark says so, and Custom offers only the token.
  */
 export function ColorInput({
   label,
   value,
   alpha,
   onChange,
+  tokensOnly = false,
+  used = [],
   open: openAtStart = false,
   tab: tabAtStart = "tokens"
 }: {
@@ -207,113 +216,182 @@ export function ColorInput({
   value: string | undefined
   alpha: number | undefined
   onChange: (value: string | undefined, alpha: number | undefined) => void
+  /** The project's Tokens only setting. */
+  tokensOnly?: boolean
+  /** Colors the design already uses, offered at the bottom of Custom. */
+  used?: string[]
   open?: boolean
   tab?: "tokens" | "custom"
 }) {
   const [open, setOpen] = useState(openAtStart)
   const [tab, setTab] = useState(tabAtStart)
   const current = colorTokens.find((token) => token.name === value)
-  const [custom, setCustom] = useState(current?.hex ?? "#3b82f6")
+  const plain = isPlainColor(value)
+  const swatch = plain ? value : current?.hex
+  // Custom works in hex; a plain color written as oklch() starts it from the same color.
+  const [custom, setCustom] = useState(() => (plain ? formatHex(parseColor(value)!) : (current?.hex ?? "#3b82f6")))
+  // The editor starts again from a color picked from Used in this design.
+  const [round, setRound] = useState(0)
   const nearest = nearestToken(custom)
+  const nearestToValue = plain ? nearestToken(value) : undefined
   const [typedAlpha, setTypedAlpha] = useState(alpha === undefined ? "" : String(alpha))
+  const choose = (next: string) => {
+    onChange(next, alpha)
+    setOpen(false)
+  }
+  const same = nearest !== undefined && nearest.distance < sameColorDistance
   return (
-    <div className="flex items-center gap-1">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label={`${label}: ${value ?? "none"}`}
-              className="h-7 min-w-0 flex-1 justify-between gap-1.5 px-2 text-xs font-normal"
-            >
-              <span className="flex min-w-0 items-center gap-1.5">
-                {current && <Checker hex={current.hex} alpha={alpha} />}
-                <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>{value ?? "None"}</span>
-              </span>
-              <ChevronsUpDown className="size-3 opacity-50" />
-            </Button>
-          }
-        />
-        <PopoverContent className="w-64 gap-0 p-0" align="start">
-          <Tabs value={tab} onValueChange={(next) => setTab(next as "tokens" | "custom")}>
-            <TabsList className="m-2 mb-0 w-[calc(100%-1rem)]">
-              <TabsTrigger value="tokens" className="text-xs">
-                Tokens
-              </TabsTrigger>
-              <TabsTrigger value="custom" className="text-xs">
-                Custom
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="tokens" className="max-h-64 overflow-y-auto p-1">
-              {colorTokens.map((token) => (
-                <button
-                  key={token.name}
-                  type="button"
-                  onClick={() => {
-                    onChange(token.name, alpha)
-                    setOpen(false)
-                  }}
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent"
-                >
-                  <Checker hex={token.hex} />
-                  <span className="min-w-0 flex-1 truncate font-mono">{token.name}</span>
-                  {token.name === value && <Check className="size-3.5" />}
-                </button>
-              ))}
-            </TabsContent>
-            <TabsContent value="custom" className="flex flex-col gap-3 p-2">
-              <ColorEditor hex={custom} onChange={setCustom} />
-              {nearest && (
-                <div className="flex flex-col gap-2 rounded-md border p-2">
-                  <p className="text-xs text-muted-foreground">
-                    {"Styles use the project's color tokens. The nearest to this color:"}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="flex -space-x-1">
-                      <Checker hex={custom} className="size-5 ring-2 ring-popover" />
-                      <Checker hex={nearest.token.hex} className="size-5 ring-2 ring-popover" />
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs">{nearest.token.name}</span>
-                    <span className="text-[11px] text-muted-foreground">{closeness(nearest.distance)}</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => {
-                      onChange(nearest.token.name, alpha)
-                      setOpen(false)
-                    }}
-                  >
-                    Use {nearest.token.name}
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </PopoverContent>
-      </Popover>
-      <Hint label={`${label} opacity`} detail="Written with the token, as bg-primary/50">
-        <div className="flex h-7 w-14 shrink-0 items-center rounded-md border bg-transparent pr-1.5 focus-within:ring-2 focus-within:ring-ring dark:bg-input/30">
-          <input
-            aria-label={`${label} opacity`}
-            inputMode="numeric"
-            placeholder="100"
-            disabled={!value}
-            value={typedAlpha}
-            onChange={(event) => setTypedAlpha(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
-            onBlur={() => {
-              const number = Number(typedAlpha)
-              const next = typedAlpha === "" || number >= 100 ? undefined : Math.max(0, Math.round(number))
-              setTypedAlpha(next === undefined ? "" : String(next))
-              onChange(value, next)
-            }}
-            className="w-full min-w-0 bg-transparent px-1.5 text-right text-xs tabular-nums outline-none placeholder:text-muted-foreground"
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1">
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={`${label}: ${value ?? "none"}${plain ? ", not a token" : ""}`}
+                aria-invalid={plain && tokensOnly}
+                className="h-7 min-w-0 flex-1 justify-between gap-1.5 px-2 text-xs font-normal"
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {swatch && (
+                    <Checker hex={swatch} alpha={alpha} className={plain ? "size-3.5 rounded-full" : undefined} />
+                  )}
+                  <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>
+                    {value ?? "None"}
+                  </span>
+                </span>
+                <ChevronsUpDown className="size-3 opacity-50" />
+              </Button>
+            }
           />
-          <span className="text-xs text-muted-foreground">%</span>
-        </div>
-      </Hint>
+          <PopoverContent className="w-64 gap-0 p-0" align="start">
+            <Tabs value={tab} onValueChange={(next) => setTab(next as "tokens" | "custom")}>
+              <TabsList className="m-2 mb-0 w-[calc(100%-1rem)]">
+                <TabsTrigger value="tokens" className="text-xs">
+                  Tokens
+                </TabsTrigger>
+                <TabsTrigger value="custom" className="text-xs">
+                  Custom
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="tokens" className="max-h-64 overflow-y-auto p-1">
+                {colorTokens.map((token) => (
+                  <button
+                    key={token.name}
+                    type="button"
+                    onClick={() => choose(token.name)}
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent"
+                  >
+                    <Checker hex={token.hex} />
+                    <span className="min-w-0 flex-1 truncate font-mono">{token.name}</span>
+                    {token.name === value && <Check className="size-3.5" />}
+                  </button>
+                ))}
+              </TabsContent>
+              <TabsContent value="custom" className="flex flex-col gap-3 p-2">
+                <ColorEditor key={round} hex={custom} onChange={setCustom} />
+                {nearest && (
+                  <div className="flex flex-col gap-2 rounded-md border p-2">
+                    <div className="flex items-center gap-2">
+                      <span className="flex -space-x-1">
+                        <Checker hex={custom} className="size-5 rounded-full ring-2 ring-popover" />
+                        <Checker hex={nearest.token.hex} className="size-5 ring-2 ring-popover" />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-xs">
+                        Nearest token <span className="font-mono">{nearest.token.name}</span>
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">{closeness(nearest.distance)}</span>
+                    </div>
+                    {tokensOnly && (
+                      <p className="text-[11px] text-muted-foreground">
+                        This project takes tokens only, so a color is set by its nearest token.
+                      </p>
+                    )}
+                    <div className="flex gap-1">
+                      {!tokensOnly && !same && (
+                        <Button size="sm" className="h-7 flex-1 text-xs" onClick={() => choose(custom)}>
+                          Use {custom}
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant={tokensOnly || same ? "default" : "outline"}
+                        className="h-7 min-w-0 flex-1 text-xs"
+                        onClick={() => choose(nearest.token.name)}
+                      >
+                        <span className="truncate">Use {nearest.token.name}</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {used.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-[11px] text-muted-foreground">In this design</p>
+                    <div className="flex flex-wrap gap-1">
+                      {used.map((color) => (
+                        <Hint key={color} label={color}>
+                          <button
+                            type="button"
+                            aria-label={`Start from ${color}`}
+                            onClick={() => {
+                              setCustom(color)
+                              setRound(round + 1)
+                            }}
+                            className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <Checker hex={color} className="size-5 rounded-full" />
+                          </button>
+                        </Hint>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </PopoverContent>
+        </Popover>
+        <Hint
+          label={`${label} opacity`}
+          detail={plain ? "Written into the color, as #2563eb80" : "Written with the token, as bg-primary/50"}
+        >
+          <div className="flex h-7 w-14 shrink-0 items-center rounded-md border bg-transparent pr-1.5 focus-within:ring-2 focus-within:ring-ring dark:bg-input/30">
+            <input
+              aria-label={`${label} opacity`}
+              inputMode="numeric"
+              placeholder="100"
+              disabled={!value}
+              value={typedAlpha}
+              onChange={(event) => setTypedAlpha(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
+              onBlur={() => {
+                const number = Number(typedAlpha)
+                const next = typedAlpha === "" || number >= 100 ? undefined : Math.max(0, Math.round(number))
+                setTypedAlpha(next === undefined ? "" : String(next))
+                onChange(value, next)
+              }}
+              className="w-full min-w-0 bg-transparent px-1.5 text-right text-xs tabular-nums outline-none placeholder:text-muted-foreground"
+            />
+            <span className="text-xs text-muted-foreground">%</span>
+          </div>
+        </Hint>
+      </div>
+      {plain && nearestToValue && (
+        <p
+          role={tokensOnly ? "alert" : "status"}
+          className={`flex flex-wrap items-center gap-x-1 text-[11px] leading-snug ${tokensOnly ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          {tokensOnly ? "Not a token, and this project takes tokens only." : "Not a token."}
+          <button
+            type="button"
+            onClick={() => onChange(nearestToValue.token.name, alpha)}
+            className="inline-flex items-center gap-1 rounded-sm font-medium text-foreground underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <Checker hex={nearestToValue.token.hex} className="size-2.5" />
+            Use {nearestToValue.token.name}
+          </button>
+        </p>
+      )}
     </div>
   )
 }
@@ -329,7 +407,7 @@ function closeness(distance: number): string {
 export function Checker({ hex, alpha, className = "size-3.5" }: { hex: string; alpha?: number; className?: string }) {
   return (
     <span
-      className={`${className} relative shrink-0 overflow-hidden rounded-sm`}
+      className={`${className} relative inline-block shrink-0 overflow-hidden rounded-sm`}
       style={{ background: "repeating-conic-gradient(#ccc 0 25%, #fff 0 50%) 0 0 / 6px 6px" }}
     >
       <span className="absolute inset-0" style={{ background: hex, opacity: (alpha ?? 100) / 100 }} />
