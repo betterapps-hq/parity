@@ -9,7 +9,6 @@ import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@pari
 import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
-  CodeEditorChoice,
   ChangeConflict,
   ComponentInfo,
   ComponentSource,
@@ -28,6 +27,8 @@ import type {
 } from "@parity-app/core"
 import type { EditStatus } from "@parity-app/editor"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
+import type { z } from "zod"
+import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -399,7 +400,7 @@ export interface CanvasHost {
   /** Opens the window's developer tools, or closes them. */
   toggleDevTools(): Promise<void>
   /** The app's theme, so the window's title bar buttons and system dialogs match it. */
-  setTheme(theme: "light" | "dark" | "system"): Promise<void>
+  setTheme(theme: ThemeSource): Promise<void>
   /**
    * Runs when the window is asked to close, which waits for it: true closes it, false keeps it open, as when the
    * person cancels on being asked about unsaved changes.
@@ -425,20 +426,9 @@ export interface ProcessUsage {
 }
 
 /** A file to open in the person's editor (PAR-527). */
-export interface OpenInEditorRequest {
-  /** Its absolute path. */
-  file: string
-  /** The export to open it at, as a component's source names it. */
-  export?: string
-  /** What Settings says to open it with. */
-  editor: CodeEditorChoice
-}
+export type OpenInEditorRequest = z.infer<typeof openInEditorRequest>
 
-export interface SaveDialogOptions {
-  title: string
-  defaultPath?: string
-  filters?: { name: string; extensions: string[] }[]
-}
+export type SaveDialogOptions = z.infer<typeof saveDialogOptions>
 
 /** A frame the offscreen render window draws, to measure it or capture it. */
 export interface RenderJob {

@@ -3868,6 +3868,23 @@ below. My calls on how they move:
     project that isn't a root is left out.
   - axe-core's `check.data` for color contrast is a schema that turns into `ContrastDetail`. Data that doesn't match
     gives no contrast detail, and axe-core's own message shows instead.
+- **The main process checks its inputs (PAR-592).** My calls:
+  - Each `ipcMain.handle` argument has a schema in `shared/ipc-checks.ts`, and `checked(schema, handler)` refuses a bad
+    one with `TypeError` and the pointer before the handler runs. Open in editor's request is a strict object whose
+    `file` must be an absolute path, so it can't reach the editor's command as an option such as `--goto`. The window's
+    types for these come from the schemas, through `import type`, so the window doesn't load zod for them.
+  - Main's environment variables are one schema in `main/environment.ts`, read once as main starts. A bad value stops
+    main there, naming the variable, since only scripts, tests and the AppImage runtime set them. An empty variable
+    counts as unset. `PARITY_WINDOW_SIZE` is read as a width and height, the ports and process ids as numbers.
+  - `theme.json` and `updates.json` are saved preferences, so a malformed one falls back to dark and the stable channel.
+    `installed-build.json` is a cache, and the app's package.json and GitHub's releases are third-party JSON, read
+    through loose objects.
+  - The preload's `--parity-version=` and `--parity-initial-project=` stay hand-split. The preload is sandboxed and can
+    only require Electron, and in development zod loads from `node_modules`, so it can't load zod. Main makes both
+    values, the second from the checked `PARITY_PROJECT`.
+  - The render page's `canvasRender()`, `canvasAudit()` and `canvasHeight()` are checked, since the page runs project
+    code. Checking a frame of 1,000 nodes took 0.09 ms and one of 5,000 0.39 ms, where copying the same frame with
+    `structuredClone` took 0.8 ms and 7.5 ms. An audit of 30 issues and 300 texts took 0.13 ms.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
