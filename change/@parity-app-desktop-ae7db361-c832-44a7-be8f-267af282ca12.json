@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Choose your organization when WorkOS asks at sign-in, switch organizations from Home's account menu, and give project pictures' phone frame a shadow of its own.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

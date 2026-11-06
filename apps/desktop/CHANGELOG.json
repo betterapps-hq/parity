@@ -2,6 +2,55 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 10:42:47 GMT",
+      "version": "0.21.0",
+      "tag": "@parity-app/desktop_v0.21.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1a1bae91b9a37a7ed12a90cb87c0153062f328dc",
+            "comment": "Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2dd7d7e82b5be7b8f6ad76d1229d87bd71f0aff2",
+            "comment": "Choose your organization when WorkOS asks at sign-in, switch organizations from Home's account menu, and give project pictures' phone frame a shadow of its own."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "00f3fc2236e1663479f5bde292f639d7a23ec72d",
+            "comment": "Send errors, crashes and hangs from every process to Sentry, on by default"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aeaacd836cb13d0765b3c25a84289a3fe338edb5",
+            "comment": "Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom when frames run slow"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8a577ec84c18da4379451f28e068ec447762e61c",
+            "comment": "Scrub keys, tokens and passwords from the errors and breadcrumbs sent to Sentry"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8bd8d77143b89970aefa3d5be663b6ae77f8f191",
+            "comment": "Say what a press went to and which tooltips were open in the e2e helpers' failures"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 10:01:34 GMT",
       "version": "0.20.0",
       "tag": "@parity-app/desktop_v0.20.0",

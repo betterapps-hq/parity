@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Say what a press went to and which tooltips were open in the e2e helpers' failures",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

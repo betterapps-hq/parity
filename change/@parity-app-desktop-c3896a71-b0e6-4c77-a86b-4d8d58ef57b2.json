@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Send errors, crashes and hangs from every process to Sentry, on by default",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

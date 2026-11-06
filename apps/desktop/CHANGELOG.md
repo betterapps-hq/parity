@@ -1,8 +1,26 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 10:01:34 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 10:42:47 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.21.0
+
+Fri, 06 Nov 2026 10:42:47 GMT
+
+### Minor changes
+
+- Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them
+  (ajcraswell@gmail.com)
+- Choose your organization when WorkOS asks at sign-in, switch organizations from Home's account menu, and give project
+  pictures' phone frame a shadow of its own. (ajcraswell@gmail.com)
+- Send errors, crashes and hangs from every process to Sentry, on by default (ajcraswell@gmail.com)
+
+### Patches
+
+- Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom
+  when frames run slow (ajcraswell@gmail.com)
+- Scrub keys, tokens and passwords from the errors and breadcrumbs sent to Sentry (ajcraswell@gmail.com)
 
 ## 0.20.0
 
