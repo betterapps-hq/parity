@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 01:01:59 GMT",
+      "version": "0.7.5",
+      "tag": "@parity-app/cli_v0.7.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0a9ad70f93fddb613ef0dcb12c54794e5ad5dbd0",
+            "comment": "Work out which design, state and viewport an edit lands on in one place, and place the text tool's text where a drop would land"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 00:40:25 GMT",
       "version": "0.7.4",
       "tag": "@parity-app/cli_v0.7.4",

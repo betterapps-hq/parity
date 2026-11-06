@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 00:40:25 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 01:01:59 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.7.5
+
+Fri, 06 Nov 2026 01:01:59 GMT
+
+### Patches
+
+- Work out which design, state and viewport an edit lands on in one place, and place the text tool's text where a drop
+  would land (ajcraswell@gmail.com)
 
 ## 0.7.4
 
