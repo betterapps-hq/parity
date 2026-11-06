@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Home's account menu becomes a workspace menu, and your accounts move to a panel in the title bar where each has its own Sign out (exploration); on a phone, Home's search spans its row and Show more follows the cards",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
