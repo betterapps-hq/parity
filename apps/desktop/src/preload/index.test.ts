@@ -4,6 +4,7 @@ import { runInNewContext } from "node:vm"
 import { build } from "esbuild"
 import { beforeAll, describe, expect, it, vi } from "vite-plus/test"
 import type { CanvasHost } from "../shared/protocol.ts"
+import type { TelemetryHost } from "./telemetry.ts"
 
 let code = ""
 beforeAll(async () => {
@@ -22,24 +23,46 @@ beforeAll(async () => {
 function preload() {
   const ipc = new EventEmitter()
   const invoke = vi.fn<(channel: string) => Promise<unknown>>(async () => ({ version: "0.3.0", channel: "beta" }))
+  const send = vi.fn<(channel: string, value: unknown) => void>()
   let host: CanvasHost | undefined
+  let telemetry: TelemetryHost | undefined
   runInNewContext(code, {
     require: (name: string) => {
       if (name !== "electron") throw new Error(`Unexpected preload dependency ${name}`)
       return {
-        ipcRenderer: Object.assign(ipc, { invoke }),
+        ipcRenderer: Object.assign(ipc, { invoke, send }),
         contextBridge: {
-          exposeInMainWorld: (_key: string, value: CanvasHost) => {
-            host = value
+          exposeInMainWorld: (key: string, value: unknown) => {
+            if (key === "canvasHost") host = value as CanvasHost
+            if (key === "parityTelemetry") telemetry = value as TelemetryHost
           }
         }
       }
     },
-    process: { argv: [] }
+    process: { argv: [`--parity-telemetry-run=${encodeURIComponent(JSON.stringify(run))}`] }
   })
   if (!host) throw new Error("Preload did not expose the canvas host")
-  return { ipc, host, invoke }
+  if (!telemetry) throw new Error("Preload did not expose telemetry")
+  return { ipc, host, invoke, send, telemetry }
 }
+
+const run = { installId: "install", sessionId: "session", check: true }
+
+it("gives the page main's run and sends main what it records", () => {
+  const { telemetry, send } = preload()
+  expect(telemetry.run).toEqual(run)
+  const envelope = {
+    installId: "install",
+    sessionId: "session",
+    process: "renderer",
+    name: "app.started",
+    time: "2026-11-06T17:00:00.000Z",
+    level: "info",
+    attributes: {}
+  } as const
+  telemetry.record(envelope)
+  expect(send).toHaveBeenCalledExactlyOnceWith("canvas:telemetry", envelope)
+})
 
 it("exposes installed build identity through its own IPC request", async () => {
   const { host, invoke } = preload()

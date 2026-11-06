@@ -44,5 +44,7 @@ export const ipc = {
   /** The window answers at once that it's deciding, then that it's ready to close or wants to stay open. */
   closePending: "canvas:close-pending",
   closeReady: "canvas:close-ready",
-  closeCancel: "canvas:close-cancel"
+  closeCancel: "canvas:close-cancel",
+  /** A window or render window sends main an event or span it recorded, for the local copy and Sentry (PAR-627). */
+  telemetry: "canvas:telemetry"
 } as const

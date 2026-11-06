@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Send events as Sentry logs, breadcrumbs and spans through main, and keep a local copy in rotating log files",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

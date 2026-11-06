@@ -14,9 +14,10 @@
     },
     "apps/desktop": {
       "entry": [
-        // The processes scripts/dev.ts bundles: main, the preload script, and the project service with its workers.
+        // The processes scripts/dev.ts bundles: main, the windows' preload scripts, and the project service with its
+        // workers.
         "src/main/index.ts",
-        "src/preload/index.ts",
+        "src/preload/{index,render}.ts",
         "src/utility/{index,props-worker,builder-process}.ts",
         // The renderer's pages, index.html and render.html, load these.
         "src/renderer/{main.tsx,render.ts}",
