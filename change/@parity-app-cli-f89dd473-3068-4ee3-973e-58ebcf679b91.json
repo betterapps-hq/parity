@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Errors and warnings from the designs show with a count in the status bar, on each board and by design in a Console panel",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
