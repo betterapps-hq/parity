@@ -582,7 +582,13 @@ export class App {
       box = again
     }
     if (!box) throw new Error(`${design}'s title isn't drawn`)
+    // PAR-657, for its diagnostic runs only: the tooltips open as the title is clicked, in passing runs too.
+    const open = await this.page.evaluate(() => window.e2e!.tooltips())
+    if (open.length > 0) process.stderr.write(`[PAR-657] clicking ${design}'s title, with ${open.join("; ")}\n`)
     await this.click(center(box))
+    const pressed = await this.page.evaluate(() => window.e2e!.pressed)
+    if (pressed.tooltips?.length)
+      process.stderr.write(`[PAR-657] ${design}'s title press: ${JSON.stringify(pressed)}\n`)
     if (!(await until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key })))) {
       throw new Error(
         `Clicking ${design}'s title selected ${JSON.stringify(await this.selection())}. ` +
