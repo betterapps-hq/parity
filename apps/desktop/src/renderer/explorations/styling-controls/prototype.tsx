@@ -1,5 +1,9 @@
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -13,11 +17,16 @@ import {
   ArrowDownUp,
   ArrowRight,
   Baseline,
+  Ellipsis,
   Grid3x3,
+  Lock,
+  LockOpen,
   Plus,
   Repeat,
+  SlidersHorizontal,
   SquareDashed,
   SquareRoundCorner,
+  WrapText,
   X
 } from "lucide-react"
 import { type CSSProperties, type ReactNode, useState } from "react"
@@ -105,11 +114,37 @@ interface SectionProps {
   tokensOnly?: boolean
 }
 
+/**
+ * Layout, as PAR-652's panel lays it out: Type with Wrap beside it, and Reverse once it's set from More; the nine-spot
+ * box, which stays physical when reversed, with Baseline under it in a row; and a grid's columns as a count until its
+ * tracks are edited.
+ */
 function LayoutSection({ draft, set }: SectionProps) {
   const grid = draft.columns !== undefined
   const mode = grid ? "grid" : (draft.direction ?? "column")
   return (
-    <PanelSection title="Layout">
+    <PanelSection
+      title="Layout"
+      action={
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="More layout options"
+            className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+          >
+            <Ellipsis className="size-3.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuCheckboxItem
+              checked={draft.reverse ?? false}
+              disabled={grid}
+              onCheckedChange={(reverse) => set({ reverse: reverse || undefined })}
+            >
+              Reverse direction
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      }
+    >
       <div className="flex flex-col gap-1">
         <Field label="Type">
           <div className="flex items-center gap-1.5">
@@ -140,13 +175,30 @@ function LayoutSection({ draft, set }: SectionProps) {
               </Hint>
             </ToggleGroup>
             {!grid && (
-              <Hint label="Reverse order" detail="Lays the children out last to first, as flex-row-reverse does">
+              <Hint label="Wrap onto new lines">
                 <Toggle
                   variant="outline"
                   size="sm"
                   className="h-7 px-2"
-                  aria-label="Reverse order"
-                  pressed={draft.reverse ?? false}
+                  aria-label="Wrap"
+                  pressed={draft.wrap ?? false}
+                  onPressedChange={(wrap) => set({ wrap: wrap || undefined })}
+                >
+                  <WrapText />
+                </Toggle>
+              </Hint>
+            )}
+            {!grid && draft.reverse && (
+              <Hint
+                label="Reverse direction"
+                detail="Lays the children out last to first. The reading order no longer matches what's seen."
+              >
+                <Toggle
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2"
+                  aria-label="Reverse direction"
+                  pressed
                   onPressedChange={(reverse) => set({ reverse: reverse || undefined })}
                 >
                   <ArrowDownUp />
@@ -162,28 +214,19 @@ function LayoutSection({ draft, set }: SectionProps) {
           </>
         ) : (
           <Field label="Alignment">
-            <div className="flex items-center gap-1.5">
-              <ChoiceInput
-                value={draft.align === "baseline" ? undefined : draft.align}
-                options={[
-                  { value: "start", label: "Start" },
-                  { value: "center", label: "Center" },
-                  { value: "end", label: "End" }
-                ]}
-                placeholder="Stretch"
-                onChange={(align) => set({ align })}
-              />
+            <div className="flex flex-col items-start gap-1.5">
+              <AlignmentBox draft={draft} set={set} />
               {mode === "row" && (
-                <Hint label="Align to the text's baseline" detail="Lines up the first line of text in each child">
+                <Hint label="Align text on its baseline" detail="Lines up the first line of text in each child">
                   <Toggle
                     variant="outline"
                     size="sm"
-                    className="h-7 px-2"
-                    aria-label="Align to baseline"
+                    className="h-7 gap-1 px-2 text-xs"
+                    aria-label="Align text on its baseline"
                     pressed={draft.align === "baseline"}
                     onPressedChange={(on) => set({ align: on ? "baseline" : undefined })}
                   >
-                    <Baseline />
+                    <Baseline /> Baseline
                   </Toggle>
                 </Hint>
               )}
@@ -195,6 +238,50 @@ function LayoutSection({ draft, set }: SectionProps) {
   )
 }
 
+const spots = ["start", "center", "end"] as const
+
+/**
+ * The nine-spot box, physical: the top-left spot is the top left whichever way the layout runs. A reversed layout
+ * keeps it so, and what's written flips (flex-end for the top of a reversed column), as Webflow's box does.
+ */
+function AlignmentBox({ draft, set }: Pick<SectionProps, "draft" | "set">) {
+  const column = (draft.direction ?? "column") === "column"
+  const justify = draft.justify ?? "start"
+  // Unset is stretch, which no spot shows, as in the app's box.
+  const align = draft.align ?? "stretch"
+  return (
+    <div className="grid size-[60px] shrink-0 grid-cols-3 grid-rows-3 rounded-md border bg-muted/40 p-0.5">
+      {spots.flatMap((row) =>
+        spots.map((across) => {
+          // A column runs down, so rows are its main axis; a row runs across, so columns are.
+          const main = column ? row : across
+          const cross = column ? across : row
+          // Stretched or on the baseline, children fill the cross axis, so the whole line at their end is lit.
+          const fillsAcross = align === "stretch" || align === "baseline"
+          const active = justify === main && (fillsAcross || align === cross)
+          return (
+            <button
+              key={`${row}-${across}`}
+              type="button"
+              aria-label={`Align ${verticalNames[row]} ${horizontalNames[across]}`}
+              aria-pressed={active}
+              onClick={() => set({ justify: main, align: draft.align === "baseline" ? "baseline" : cross })}
+              className="group grid place-items-center rounded-sm hover:bg-accent"
+            >
+              <span
+                className={`block rounded-full ${active ? "size-2 bg-[#0d99ff]" : "size-1 bg-muted-foreground/50 group-hover:bg-muted-foreground"}`}
+              />
+            </button>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+const verticalNames = { start: "top", center: "middle", end: "bottom" } as const
+const horizontalNames = { start: "left", center: "center", end: "right" } as const
+
 const fr = (value: number): Track => ({ kind: "fr", value })
 
 /**
@@ -203,6 +290,7 @@ const fr = (value: number): Track => ({ kind: "fr", value })
  */
 function ColumnsField({ columns, onChange }: { columns: Columns | undefined; onChange: (columns: Columns) => void }) {
   const fit = columns !== undefined && !Array.isArray(columns)
+  const [editing, setEditing] = useState(false)
   const toggle = (
     <Hint
       label="Repeat to fit"
@@ -219,7 +307,38 @@ function ColumnsField({ columns, onChange }: { columns: Columns | undefined; onC
       </Toggle>
     </Hint>
   )
-  if (!fit) return <TracksField label="Columns" tracks={columns ?? []} onChange={onChange} after={toggle} />
+  const tracks = Array.isArray(columns) ? columns : []
+  // Equal Fill tracks are a count, as grid-cols-3 writes them, until Edit tracks opens the list.
+  const equal = tracks.length > 0 && tracks.every((track) => track.kind === "fr" && track.value === 1)
+  if (!fit && equal && !editing) {
+    return (
+      <Field label="Columns" hint="Equal columns. Edit tracks to size each one.">
+        <div className="flex items-center gap-1">
+          <div className="min-w-0 flex-1">
+            <Num
+              label="Columns"
+              value={tracks.length}
+              min={1}
+              onChange={(count) => onChange(Array.from({ length: count ?? 1 }, () => fr(1)))}
+            />
+          </div>
+          <Hint label="Edit tracks" detail="Size each column on its own: Fill, Fixed, Hug, Min, Max or a Range">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-7"
+              aria-label="Edit tracks"
+              onClick={() => setEditing(true)}
+            >
+              <SlidersHorizontal />
+            </Button>
+          </Hint>
+          {toggle}
+        </div>
+      </Field>
+    )
+  }
+  if (!fit) return <TracksField label="Columns" tracks={tracks} onChange={onChange} after={toggle} />
   return (
     <Field label="Columns" hint="As many as fit, each at least this wide">
       <div className="flex items-center gap-1">
@@ -302,7 +421,8 @@ function TrackChip({
     { value: "px", label: "Fixed", detail: "A fixed length, typed in px or rem" },
     { value: "auto", label: "Hug", detail: "As big as its content, sharing any space left" },
     { value: "min", label: "Min", detail: "As narrow as its content goes, min-content" },
-    { value: "max", label: "Max", detail: "As wide as its content without wrapping, max-content" }
+    { value: "max", label: "Max", detail: "As wide as its content without wrapping, max-content" },
+    { value: "range", label: "Range", detail: "At least a length, then a share of the space left, minmax()" }
   ] as const
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -329,6 +449,7 @@ function TrackChip({
           onValueChange={([kind]) => {
             if (kind === "fr") onChange(fr(1))
             else if (kind === "px") onChange({ kind: "px", value: 200 })
+            else if (kind === "range") onChange({ kind: "range", min: 192, max: 1 })
             else if (kind === "auto" || kind === "min" || kind === "max") onChange({ kind })
           }}
         >
@@ -349,6 +470,25 @@ function TrackChip({
             min={track.kind === "fr" ? 1 : 0}
             onChange={(value) => onChange({ kind: track.kind, value: value ?? 1 })}
           />
+        )}
+        {track.kind === "range" && (
+          <div className="grid grid-cols-2 gap-1">
+            <Num
+              label="At least"
+              inner="Min"
+              pixels
+              value={track.min}
+              onChange={(min) => onChange({ ...track, min: min ?? 0 })}
+            />
+            <Num
+              label="Share of the space left"
+              inner="Max"
+              suffix="fr"
+              value={track.max}
+              min={1}
+              onChange={(max) => onChange({ ...track, max: max ?? 1 })}
+            />
+          </div>
         )}
         <Button
           variant="ghost"
@@ -448,25 +588,102 @@ function AxisPlacement({
   )
 }
 
+/**
+ * W and H on one line with the aspect lock between them, as Figma UI3 has it. Locking keeps the ratio the layer has
+ * now and leaves the height to it (Auto), since a ratio is ignored when both sizes are set; the ratio then shows as its
+ * own row, with named ratios. Typing H while locked changes W to keep the ratio.
+ */
 function SizeSection({ draft, set }: SectionProps) {
+  const width = draft.width ?? 520
+  const ratio = draft.aspect === undefined ? undefined : ratioOf(draft.aspect)
+  const lock = (on: boolean) => {
+    if (!on) {
+      // Unlocking keeps the height the ratio gave, so nothing moves.
+      set({ aspect: undefined, height: ratio ? Math.round(width / ratio) : draft.height })
+      return
+    }
+    const drawn = document.querySelector<HTMLElement>("section[aria-label='Plans']")?.getBoundingClientRect()
+    const height = draft.height ?? Math.round(drawn?.height ?? width)
+    const shown = Math.round(drawn?.width ?? width)
+    // Within a percent of a named ratio is that ratio: whole pixels can't make 16:9 exactly.
+    const near = namedRatios.find((option) => Math.abs(ratioOf(option.value)! / (shown / height) - 1) < 0.01)
+    set({ aspect: near?.value ?? reducedRatio(shown, height), height: undefined })
+  }
+  const named = namedRatios.some((option) => option.value === draft.aspect)
   return (
     <PanelSection title="Size">
-      <Field label="Aspect ratio" hint="Keeps the height in step with the width">
-        <ChoiceInput
-          value={draft.aspect}
-          options={[
-            { value: "1/1", label: "Square, 1:1" },
-            { value: "16/9", label: "Video, 16:9" },
-            { value: "4/3", label: "4:3" },
-            { value: "3/2", label: "3:2" },
-            { value: "9/16", label: "Portrait, 9:16" }
-          ]}
-          placeholder="Free"
-          onChange={(aspect) => set({ aspect })}
-        />
-      </Field>
+      <div className="flex flex-col gap-1">
+        <Field label="Size">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
+            <Num
+              label="Width"
+              inner="W"
+              pixels
+              value={width}
+              min={1}
+              onChange={(next) => set({ width: next ?? 520 })}
+            />
+            <Hint label={ratio ? "Unlock aspect ratio" : "Lock aspect ratio"}>
+              <Toggle
+                size="sm"
+                className="size-7 min-w-7 p-0"
+                aria-label="Lock aspect ratio"
+                pressed={ratio !== undefined}
+                onPressedChange={lock}
+              >
+                {ratio ? <Lock /> : <LockOpen />}
+              </Toggle>
+            </Hint>
+            <Num
+              label="Height"
+              inner="H"
+              pixels
+              value={ratio ? undefined : draft.height}
+              placeholder={ratio ? "Auto" : "Hug"}
+              min={1}
+              onChange={(next) => {
+                if (ratio && next !== undefined) set({ width: Math.round(next * ratio) })
+                else set({ height: next })
+              }}
+            />
+          </div>
+        </Field>
+        {draft.aspect !== undefined && (
+          <Field label="Ratio" hint="Height follows the width at this ratio">
+            <ChoiceInput
+              value={draft.aspect}
+              options={[
+                ...namedRatios,
+                ...(named ? [] : [{ value: draft.aspect, label: draft.aspect.replace(" / ", ":") }])
+              ]}
+              placeholder="Free"
+              onChange={(aspect) => (aspect ? set({ aspect }) : lock(false))}
+            />
+          </Field>
+        )}
+      </div>
     </PanelSection>
   )
+}
+
+const namedRatios = [
+  { value: "1 / 1", label: "Square, 1:1" },
+  { value: "4 / 3", label: "4:3" },
+  { value: "16 / 9", label: "16:9" },
+  { value: "21 / 9", label: "21:9" }
+]
+
+/** A ratio as CSS writes it, `16 / 9`, in its lowest terms. */
+function reducedRatio(width: number, height: number): string {
+  const divisor = (a: number, b: number): number => (b === 0 ? a : divisor(b, a % b))
+  const common = divisor(width, height) || 1
+  return `${width / common} / ${height / common}`
+}
+
+/** Width over height, from `16 / 9`. */
+function ratioOf(aspect: string): number | undefined {
+  const [width, height] = aspect.split("/").map((part) => Number(part.trim()))
+  return width && height ? width / height : undefined
 }
 
 /** Corners in CSS's order, clockwise from the top left, as the file keeps them. */
@@ -908,6 +1125,15 @@ const rgba = (hex: string | undefined, alpha: number | undefined): string | unde
   return `color-mix(in srgb, ${hex} ${alpha}%, transparent)`
 }
 
+const flipped = { start: "end", center: "center", end: "start" } as const
+const flexValues = {
+  start: "flex-start",
+  center: "center",
+  end: "flex-end",
+  stretch: "stretch",
+  baseline: "baseline"
+} as const
+
 /** CSS's grid-template-columns for the columns: the tracks, or as many as fit, each at least the width given. */
 function columnsCss(columns: Columns | undefined): string | undefined {
   if (columns === undefined) return undefined
@@ -929,16 +1155,22 @@ function LayerPreview({
   const widths = Array.isArray(draft.borderWidth) ? draft.borderWidth : [0, 0, 0, 0].map(() => draft.borderWidth ?? 0)
   const Tag = (draft.tag ?? "p") as "p"
   const direction = `${draft.direction ?? "column"}${draft.reverse ? "-reverse" : ""}` as const
+  // The box is physical, so a reversed layout writes the other end: its top is flex-end.
+  const justify = draft.reverse ? flipped[draft.justify ?? "start"] : (draft.justify ?? "start")
   const style: CSSProperties = {
     display: grid ? "grid" : "flex",
     flexDirection: grid ? undefined : direction,
-    alignItems: grid ? undefined : (draft.align ?? "stretch"),
+    flexWrap: draft.wrap ? "wrap" : undefined,
+    justifyContent: grid ? undefined : flexValues[justify],
+    alignItems: grid ? undefined : flexValues[draft.align ?? "stretch"],
     gridTemplateColumns: columnsCss(draft.columns),
     gridTemplateRows: draft.rows?.length ? draft.rows.map(trackCss).join(" ") : undefined,
     gap: 12,
     padding: 20,
-    width: "100%",
-    maxWidth: 520,
+    width: draft.width ?? 520,
+    maxWidth: "100%",
+    // A ratio only takes hold when one axis is left to it.
+    height: draft.aspect ? undefined : draft.height,
     aspectRatio: draft.aspect,
     background: rgba(hexOf(draft.background), draft.backgroundAlpha),
     borderColor: rgba(hexOf(draft.border), draft.borderAlpha) ?? "transparent",

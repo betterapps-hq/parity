@@ -71,6 +71,8 @@ export type Track =
   | { kind: "auto" }
   | { kind: "min" }
   | { kind: "max" }
+  /** At least `min` pixels, and at most `max` shares of what's left: CSS's `minmax(12rem, 1fr)`. */
+  | { kind: "range"; min: number; max: number }
 
 const contentTracks = {
   auto: { label: "Hug", css: "auto" },
@@ -81,12 +83,14 @@ const contentTracks = {
 export const trackLabel = (track: Track): string => {
   if (track.kind === "fr") return `${track.value}fr`
   if (track.kind === "px") return `${track.value}px`
+  if (track.kind === "range") return `${track.min}px–${track.max}fr`
   return contentTracks[track.kind].label
 }
 
 export const trackCss = (track: Track): string => {
   if (track.kind === "fr") return `${track.value}fr`
   if (track.kind === "px") return `${track.value}px`
+  if (track.kind === "range") return `minmax(${track.min}px, ${track.max}fr)`
   return contentTracks[track.kind].css
 }
 
@@ -117,8 +121,15 @@ export interface Draft {
   aspect?: string
   tag?: string
   direction?: "row" | "column"
+  wrap?: boolean
   reverse?: boolean
+  /** Where children sit along the layout's direction, physically: start is the top of a column, the left of a row. */
+  justify?: "start" | "center" | "end"
+  /** Where they sit across it; baseline lines up their text. */
   align?: "start" | "center" | "end" | "stretch" | "baseline"
+  /** The layer's own size in pixels; unset height hugs. */
+  width?: number
+  height?: number
   columns?: Columns
   rows?: Track[]
   /** The selected child's place in the grid: the line it starts at, from 1, or from the end when negative. */

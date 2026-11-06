@@ -91,8 +91,10 @@ export const EditingAColorToken: Story = {
 }
 
 /**
- * Plans as a grid: three columns of 1fr, 2fr and 120px, and one auto row. Each track is a chip that opens to Fill,
- * Fixed, Hug or Min and its size; + adds one. A fixed track is a length like Width, typed in px or rem.
+ * Plans as a grid: three columns of 1fr, 2fr and at least 120px, and one auto row. Each track is a chip that opens to
+ * Fill, Fixed, Hug, Min, Max or Range (CSS's `minmax()`, at least a length, then a share) and its size; + adds one.
+ * Fixed and Range lengths are typed in px or rem. Equal Fill columns show as a count instead, as Grid placement's do,
+ * until Edit tracks opens this list.
  */
 export const GridTracks: Story = {
   render: () => (
@@ -104,7 +106,7 @@ export const GridTracks: Story = {
           columns: [
             { kind: "fr", value: 1 },
             { kind: "fr", value: 2 },
-            { kind: "px", value: 120 }
+            { kind: "range", min: 120, max: 1 }
           ],
           rows: [{ kind: "auto" }]
         }
@@ -126,8 +128,8 @@ export const RepeatToFit: Story = {
 
 /**
  * Pro plan selected inside Plans' grid: the column and row it starts at and how many it spans, in place of Align self.
- * A negative start counts from the end, and All spans every column, as a header across the grid does. Click Hobby or
- * Team on the canvas to go back to Plans.
+ * A negative start counts from the end, and All spans every column, as a header across the grid does. Click Pro plan
+ * on the canvas to go back to Plans, whose three equal columns show as a count with Edit tracks beside it.
  */
 export const GridPlacement: Story = {
   render: () => (
@@ -151,23 +153,36 @@ export const GridPlacement: Story = {
 }
 
 /**
- * Plans as a horizontal row, reversed and aligned to the text's baseline: Pro plan's larger text lines up with the
- * others' first line. Baseline shows only for a horizontal layout, where it means something.
+ * Plans as a horizontal row, reversed and aligned on its text's baseline: Pro plan's larger text lines up with the
+ * others' first line. Reverse direction is set from Layout's More (the dots in its title) and then shows beside Wrap.
+ * The nine-spot box stays as it looks: its left spots are still the left, though a reversed row writes flex-end there.
+ * Baseline sits under the box, and shows only for a horizontal layout, where it means something.
  */
 export const BaselineAndReverse: Story = {
   render: () => (
     <StylingPrototype
       start={{
-        draft: { background: "muted", radius: "radius-lg", direction: "row", reverse: true, align: "baseline" }
+        draft: {
+          background: "muted",
+          radius: "radius-lg",
+          direction: "row",
+          reverse: true,
+          justify: "start",
+          align: "baseline"
+        }
       }}
     />
   )
 }
 
-/** Plans at 16:9 with the headline as Heading 2: the aspect ratio under Size, and the tag at the top of Text. */
+/**
+ * Plans locked at 16:9, with the headline as Heading 2. The lock sits between W and H, as in Figma UI3; locking keeps
+ * the ratio the layer has, leaves H to it (Auto), and shows the ratio as its own row with named ratios. Typing H while
+ * locked changes W to keep the ratio. Unlock to fix the height where the ratio left it. The tag is at the top of Text.
+ */
 export const AspectRatioAndTag: Story = {
   render: () => (
-    <StylingPrototype start={{ draft: { background: "muted", radius: "radius-lg", aspect: "16/9", tag: "h2" } }} />
+    <StylingPrototype start={{ draft: { background: "muted", radius: "radius-lg", aspect: "16 / 9", tag: "h2" } }} />
   )
 }
 
