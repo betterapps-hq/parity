@@ -97,7 +97,7 @@ gradient, a shadow of more than one layer, a spring or a `clamp()`, offers Save 
 replaces the arbitrary class, and Copy as Tailwind shows the class that will be written, so a designer sees an
 unreadable class before it's written. Classes are written in the order prettier-plugin-tailwindcss produces.
 
-**The hover shows the code.** Hovering a row's label shows the declarations it writes
+**The hint shows the code.** Hovering a row's label shows the declarations it writes
 (`border-radius: var(--radius-lg)`), including what frames add for every layer of its type (`margin: 0` on text, which
 Tailwind's preflight already writes), in the selector and query it writes them in for the state and mode shown
 (`:hover { … }` or `hover:bg-primary/90`; `@media (width >= 48rem) { … }` or `md:p-6`), so the code shown is the code
@@ -194,8 +194,8 @@ variants, and says so. One that takes neither gets none, as today.
 A row set for a theme mode on a layer is written with the variant the project's CSS defines for that theme (`dark:bg-…`,
 from `@custom-variant dark (&:where(.dark, .dark *))` or a `data-theme` variant). A theme with no variant can't take a
 value per layer, and the row says so. Under Tokens only, the value set for a theme must itself be on the system: a
-token, or a step that Framework steps in [design-options-tokens.md](design-options-tokens.md) leaves unmarked
-(`dark:bg-zinc-900`, not `dark:bg-[#18181b]`).
+token, or a value Levels always allows, such as a step Framework steps leaves unmarked, `transparent` or `0`
+([design-options-tokens.md](design-options-tokens.md), Levels) (`dark:bg-zinc-900`, not `dark:bg-[#18181b]`).
 
 ## States
 
@@ -233,7 +233,7 @@ prefix is the project's widest breakpoint token at or below its width and above 
 (`md:` for 768 with Tailwind's `--breakpoint-md: 48rem`). Where no breakpoint fits, an arbitrary one is written
 (`min-[900px]:`), and the Modes panel offers to add a breakpoint token. The frame draws a viewport's values at every
 width from its prefix up to the next one, so a frame resized between viewports draws what the code does. A value that
-holds in a middle viewport only gets a range (`md:max-lg:p-6`). A row's hover and Copy as Tailwind show this form.
+holds in a middle viewport only gets a range (`md:max-lg:p-6`). A row's hint and Copy as Tailwind show this form.
 
 ## Animation triggers
 

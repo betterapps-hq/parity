@@ -116,9 +116,9 @@ Grow and shrink, Order, Layer order, Iterations, Max lines, Columns and Rows, Te
 ## Color
 
 - **At rest:** a swatch (a checkerboard under translucency, split diagonally when Mixed), the value in its model in
-  short form (`2563EB`, `oklch 62% .19 260`) with the full CSS in the hover, then the alpha as its own % field, as
+  short form (`2563EB`, `oklch 62% .19 260`) with the full CSS in the hint, then the alpha as its own % field, as
   Figma's. A token is a chip with its swatch and name, then the alpha. `currentColor` shows as Text color, with
-  `current` in the hover; `transparent` as Transparent over a checkerboard. None is kept for `none` and for an empty
+  `current` in the hint; `transparent` as Transparent over a checkerboard. None is kept for `none` and for an empty
   list. An alpha that's an opacity token shows its name after the slash (`primary / muted`), with its percentage faint
   after it.
 - **Typing:** any CSS color: hex with or without `#`, of 3, 4, 6 or 8 digits; a named color; `rgb()`, `hsl()`, `oklch()`
@@ -158,7 +158,7 @@ Fill's list of solids, gradients and images.
   and on the canvas. Keys and scrubbing are as in every field. CSS's gradient line spans the box at its angle, so
   dragging the line's ends sets the angle and moves the first and last stops. Radial's handles set the ellipse's two
   radii and center (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as Figma's do; Angular's set a center and start
-  angle, and its hover names `conic-gradient`. An Angle field, which Figma lacks, sits beside the line, with Flip and
+  angle, and its hint names `conic-gradient`. An Angle field, which Figma lacks, sits beside the line, with Flip and
   Rotate 90° as in Figma. Delete removes the selected stop, and Left and Right move it 1%, Shift 10%. Two stops at one
   position make a hard edge; a midpoint dragged between two stops writes a color hint (`red, 30%, blue`), which Figma
   lacks. Repeat writes `repeating-*-gradient`. Interpolation is `in oklab`, as Tailwind v4's, with `in oklch` and sRGB
@@ -206,7 +206,7 @@ Fill's list of solids, gradients and images.
   the first four), written in Tailwind's filter order between blur and drop shadow. Brightness, contrast and saturation
   are centered sliders from −100 to 100 with 0 as no change, as Figma's and every photo editor's adjustments are; +25
   brightness writes `brightness-125`. Hue runs from −180° to 180°. Grayscale, sepia and invert run from 0 to 100. Each
-  slider's hover shows the class it writes. A slider at its neutral value writes nothing.
+  slider's hint shows the class it writes. A slider at its neutral value writes nothing.
 - **States:** a filter read from code in another order, or with a function twice, is one Custom entry, edited as text,
   with Put in order where that doesn't change what's drawn. Figma's image adjustments are converted
   ([design-options-research.md](design-options-research.md), Bringing a design from Figma).
@@ -289,7 +289,7 @@ Motion's Transitions.
 ## Font family
 
 - **At rest:** the first family's name in its own face, with `+2` when the stack has fallbacks and the stack in the
-  hover. Choosing another font keeps the fallbacks.
+  hint. Choosing another font keeps the fallbacks.
 - **Editing:** a searchable list set in each font, the project's fonts first.
 - **States:** a font the frame can't load (not in the project) is Missing font, drawn in the fallback with its name
   struck through, with Replace font and Add font, as Figma's missing fonts are.
@@ -300,7 +300,7 @@ Motion's Transitions.
 
 ## Weight
 
-- **At rest:** the name (Semibold), with the number in the hover and the menu; a weight with no name shows its number.
+- **At rest:** the name (Semibold), with the number in the hint and the menu; a weight with no name shows its number.
 - **Editing:** a menu of named weights; a variable font adds a number field with a slider over its weight axis.
 - **States:** a weight the font lacks is marked "Faked by the browser" (`font-synthesis`).
 - **Tokens:** font-weight.
@@ -339,12 +339,15 @@ A text style, border, shadow, transition or animation token.
   in the override color with its reset arrow, and puts a dot on the chip. Where the framework can't override that part
   ([design-options-code.md](design-options-code.md), Overrides in classes), editing it offers Detach. Detach, Edit token
   and Go to definition are in the field's menu, as for any token.
+- **Tokens:** those Fields and token kinds in [design-options-tokens.md](design-options-tokens.md) offers for the row
+  that holds it: Text style's (type-style and the others that table lists), border, shadow and inset-shadow, transition
+  tokens (which have no kind) and animation.
 - **Writes:** the token's class, then one class per overridden part.
 
 ## Keyword sets
 
 Icon toggles or a menu, as each row in [design-options-panel.md](design-options-panel.md) says, each option previewed on
-hover where it shows (blend modes, cursors) and its hover naming the CSS keyword it writes (principle 1).
+hover where it shows (blend modes, cursors) and its hint naming the CSS keyword it writes (principle 1).
 
 - **States:** unset, the option the layer inherits or starts with shows faintly (unset text Align shows Left faintly);
   setting it presses it fully and colors the label. Mixed presses none, with Mixed after the label. A menu shows the
@@ -409,7 +412,7 @@ Image's Position, Transform's Origin, a fill image's position.
 ## Expression
 
 - **At rest:** `clamp · 24` (the function and what it comes to); `ƒ` only where the field is under 96px. The full text
-  is in the hover.
+  is in the hint.
 - **Editing:** `=` in any field opens an expression, with completion for `var()`, `calc()`, `min()`, `max()`, `clamp()`
   and `color-mix()`, as Webflow's fields do; maths that mixes units becomes `calc()`. Focusing widens the field to the
   row and shows the text, as Webflow's `=` editor opens wide, with each `var()` drawn as an inline token chip. Clicking

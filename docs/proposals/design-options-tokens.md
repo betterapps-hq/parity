@@ -83,11 +83,11 @@ As PAR-194 already plans for lengths off the scale, a value that isn't a token i
 click away. A token is matched within its kind only, by its value in the mode shown. A color's nearest token is the one
 with the smallest ΔE OK (Euclidean distance in OKLab), offered only for a near match, Semantic before Primitive; a
 length's in a spacing field (the first row of Framework steps) is the nearest spacing token or unmarked step
-(`spacingScale` and the fractions, Framework steps below), offered within half a whole step (2px at Tailwind's default
-`--spacing`). When the matched token has a different value in another theme, the offer says so ("primary: the same in
-Light, darker in Dark"), since replacing the value changes the design there. Past that, the mark offers Create token,
-which opens the Tokens panel's editor with the value, a name and the kind filled in, and replaces the value with the new
-token.
+(`spacingScale`, and the fractions where the field takes them, Framework steps below), offered within half a whole step
+(2px at Tailwind's default `--spacing`). When the matched token has a different value in another theme, the offer says
+so ("primary: the same in Light, darker in Dark"), since replacing the value changes the design there. Past that, the
+mark offers Create token, which opens the Tokens panel's editor with the value, a name and the kind filled in, and
+replaces the value with the new token.
 
 Create token writes where the field's utility will find it. A Primitive goes into `@theme` under the kind's namespace
 (`--color-brand`, `--radius-card`, `--shadow-card`), so it's written `bg-brand`, as stylesheet.ts already places theme
@@ -106,22 +106,23 @@ below).
 Tailwind v4 takes bare numbers for many utilities whose theme has no tokens by default. A value such a utility takes is
 a Step, written without brackets. Each field's steps, checked against Tailwind 4.3.3:
 
-| Fields                                                                                                                                | Steps                                       | Example                                                   | Not a step                     |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------- | ------------------------------ |
-| Spacing fields: padding, margin, gap, sizes and their limits, insets, translate, indent, scroll padding and margin, line height in px | Multiples of 0.25 of `--spacing`; fractions | `p-3.25`, `w-1/2`, `leading-6`                            | `p-[13.3px]`                   |
-| Border, outline, ring and divider width, outline offset, underline offset, decoration thickness                                       | Whole px                                    | `border-3`, `ring-3`, `outline-offset-2`                  | `border-[1.5px]`               |
-| Opacity, a color's alpha                                                                                                              | Multiples of 0.25%                          | `opacity-47.5`, `bg-black/20`                             | `opacity-[.473]`               |
-| Scale, filter amounts                                                                                                                 | Whole %                                     | `scale-105`, `brightness-110`                             | `scale-[1.025]`                |
-| Rotation, hue rotation, a gradient's angle                                                                                            | Whole degrees                               | `rotate-45`, `rotate-22`, `hue-rotate-15`, `bg-linear-45` | `rotate-[22.5deg]`             |
-| Transition duration and delay                                                                                                         | Whole ms                                    | `duration-150`, `duration-1234`                           | `duration-[0.2s]`              |
-| Z-index, order, grow and shrink, Max lines, grid counts and spans, text column count                                                  | Whole numbers                               | `z-37`, `order-7`, `line-clamp-3`, `columns-3`            | None                           |
-| Gradient stop positions                                                                                                               | Whole %                                     | `from-10%`                                                | `from-[12.5%]`                 |
-| Aspect ratio                                                                                                                          | A ratio of multiples of 0.25                | `aspect-16/9`, `aspect-1.5/1`                             | `aspect-[1.618]`               |
-| Radius, blur, font size, letter spacing, a shadow's offsets, blur and spread (a Ring's width is a step, above), grid tracks           | None                                        | None                                                      | `rounded-[6px]`, `text-[13px]` |
+| Fields                                                                                                                                | Steps                                                                                                   | Example                                                   | Not a step                     |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------ |
+| Spacing fields: padding, margin, gap, sizes and their limits, insets, translate, indent, scroll padding and margin, line height in px | Multiples of 0.25 of `--spacing`; fractions in sizes and their limits, flex basis, insets and translate | `p-3.25`, `w-1/2`, `leading-6`                            | `p-[13.3px]`                   |
+| Border, outline, ring and divider width, outline offset, underline offset, decoration thickness                                       | Whole px                                                                                                | `border-3`, `ring-3`, `outline-offset-2`                  | `border-[1.5px]`               |
+| Opacity, a color's alpha                                                                                                              | Multiples of 0.25%                                                                                      | `opacity-47.5`, `bg-black/20`                             | `opacity-[.473]`               |
+| Scale, filter amounts                                                                                                                 | Whole %                                                                                                 | `scale-105`, `brightness-110`                             | `scale-[1.025]`                |
+| Rotation, hue rotation, a gradient's angle                                                                                            | Whole degrees                                                                                           | `rotate-45`, `rotate-22`, `hue-rotate-15`, `bg-linear-45` | `rotate-[22.5deg]`             |
+| Transition duration and delay                                                                                                         | Whole ms                                                                                                | `duration-150`, `duration-1234`                           | `duration-[0.2s]`              |
+| Z-index, order, grow and shrink, Max lines, grid counts and spans, text column count                                                  | Whole numbers                                                                                           | `z-37`, `order-7`, `line-clamp-3`, `columns-3`            | None                           |
+| Gradient stop positions                                                                                                               | Whole %                                                                                                 | `from-10%`                                                | `from-[12.5%]`                 |
+| Aspect ratio                                                                                                                          | A ratio of multiples of 0.25                                                                            | `aspect-16/9`, `aspect-1.5/1`                             | `aspect-[1.618]`               |
+| Radius, blur, font size, letter spacing, a shadow's offsets, blur and spread (a Ring's width is a step, above), grid tracks           | None                                                                                                    | None                                                      | `rounded-[6px]`, `text-[13px]` |
 
-A fraction is any ratio of whole numbers, which Tailwind takes bare (`w-1/2`, `w-5/13`, `basis-1/3`, `top-1/2`,
-`-translate-x-1/2`); a typed percentage is written as one when its denominator is 12 or less (50% → `w-1/2`). 100% is
-`w-full`, 100vw `w-screen`, 100dvh `h-dvh` and 100svh `h-svh`, each a keyword (`{ keyword: "full" }`), as Size in
+A fraction is any ratio of whole numbers, which Tailwind takes bare in sizes and their limits, flex basis, insets and
+translate (`w-1/2`, `w-5/13`, `basis-1/3`, `top-1/2`, `-translate-x-1/2`); a typed percentage in those fields is written
+as one when its denominator is 12 or less (50% → `w-1/2`; 50% padding is `p-[50%]`). 100% is `w-full`, 100vw `w-screen`,
+100dvh `h-dvh` and 100svh `h-svh`, each a keyword (`{ keyword: "full" }`), as Size in
 [design-options-values.md](design-options-values.md) stores it. A step stores the utility's own number (`{ step: 50 }`
 is `opacity-50`, `{ step: 47.5 }` is `opacity-47.5`); a value stores the CSS number (`{ value: 0.473 }` is
 `opacity-[.473]`), so each class reads back into one form.
@@ -152,9 +153,10 @@ paragraph says.
   follow the same levels.
 - **Always allowed:** `0`, `auto`, `none`, `100%`, `currentColor`, `transparent`, `inherit`, a framework step that
   Framework steps leaves unmarked, and expressions on the system, such as `calc(100% - var(--spacing) * 8)`. An
-  expression is on the system only when every number in it is a step multiplier, 0, 1, −1 or 100%, and every value in it
-  is a token: `calc(var(--spacing-card) * 1.37)` isn't. Tokens inside an expression are tracked as references
-  (`tokenReferences` in `@parity-app/tokens`), so renaming, Missing, `$deprecated` and Off-system cover them.
+  expression is on the system only when every number in it is a step multiplier that Framework steps leaves unmarked
+  (one in `spacingScale` for `--spacing`), 0, 1, −1 or 100%, and every value in it is a token:
+  `calc(var(--spacing-card) * 1.37)` isn't. Tokens inside an expression are tracked as references (`tokenReferences` in
+  `@parity-app/tokens`), so renaming, Missing, `$deprecated` and Off-system cover them.
 - **Allow here,** in a refused or marked value's menu, keeps the value with a reason and marks it as an exception. The
   reason is stored on the value (`{ value: "#18181b", allow: "Photo backdrop" }`), so it moves with the layer when it's
   copied, pasted or made into a component; the off-system state itself is worked out, never stored. CI passes an
@@ -178,10 +180,10 @@ writes a value for each theme as that theme's patch (States, Set for a theme, in
 
 ## A token can be overridden in part
 
-A token that stands for several values (a text style, a shadow, a border, an animation) stays applied when one of its
-parts is changed. The changed part is marked as an override on that row, with a reset arrow back to the token's value,
-as Figma marks an override on a component instance (Figma itself detaches a text or effect style when one of its values
-changes). It's written the way the framework overrides one: `text-xl leading-7` for a line height,
+A token that stands for several values (a text style, a shadow, a border, a transition, an animation) stays applied when
+one of its parts is changed. The changed part is marked as an override on that row, with a reset arrow back to the
+token's value, as Figma marks an override on a component instance (Figma itself detaches a text or effect style when one
+of its values changes). It's written the way the framework overrides one: `text-xl leading-7` for a line height,
 `shadow-lg shadow-black/20` for a shadow's color, `drop-shadow-md drop-shadow-primary/40`, and a border token's width by
 replacing its width class ([design-options-code.md](design-options-code.md), Overrides in classes).
 

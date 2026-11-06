@@ -13,10 +13,10 @@ can be set for one state and one mode, as rows are today, and its label is color
 
 A section with nothing set shows only its title and +: Fill, Stroke, Effects, Transform, Interaction and Motion start
 this way, as Stroke does today with its Add button, and so does Spacing on text, image and icon layers. Inside a
-section, a row the layer rarely needs (Min and max, Margin, Layer order on a layer in the flow, Corner shape) shows once
-it's set, or is added from the section's More or from the field it belongs to. Each section's menu has Copy as CSS and
-Copy as Tailwind. Copy properties and Paste properties carry a whole layer's style, or one section's, to the selected
-layers, as Figma's Ctrl+Alt+C and Ctrl+Alt+V do.
+section, a row the layer rarely needs (Min and max, Margin, Layer order on a layer In layout or Relative, Corner shape)
+shows once it's set, or is added from the section's More or from the field it belongs to. Each section's menu has Copy
+as CSS and Copy as Tailwind. Copy properties and Paste properties carry a whole layer's style, or one section's, to the
+selected layers, as Figma's Ctrl+Alt+C and Ctrl+Alt+V do.
 
 ## Which layers get which sections
 
@@ -76,9 +76,9 @@ Shows for every layer but a design's root.
 | Layer order | Number field, with z-index tokens; shown by default when Absolute, Fixed or Sticky, otherwise under More           | `z-index`                                                            | None: order in Layers only                                                           |
 | Rotation    | Angle field with a dial, and the canvas's rotate handle; clockwise, as CSS is                                      | `rotate`                                                             | Rotation, counter-clockwise                                                          |
 
-The Align buttons are today's Align and Distribute commands (editor.md, "Arranging layers"), moved to the top of
-Position. On an Absolute or Fixed layer, Center aligns with the pin box's Center. The pin box is a field on each side of
-a small box, each side pinned or not. The presets are Figma's constraints, each written in CSS:
+The Align buttons are today's Align and Distribute commands (editor.md, "Arranging layers and designs"), moved to the
+top of Position. On an Absolute or Fixed layer, Center aligns with the pin box's Center. The pin box is a field on each
+side of a small box, each side pinned or not. The presets are Figma's constraints, each written in CSS:
 
 | Preset         | Writes                                                                                         |
 | -------------- | ---------------------------------------------------------------------------------------------- |
@@ -102,8 +102,8 @@ stacking context it orders within and what makes it one.
 
 Fixed and Sticky outline the frame's window and are previewed by scrolling in Play (decisions.md, CAN-25).
 
-**More:** Relative placement, shown as a fifth toggle once set, Layer order on a layer in the flow, Anchor (name this
-layer as an anchor, or place it against one with a nine-spot `position-area` picker and fallbacks) and Float.
+**More:** Relative placement, shown as a fifth toggle once set, Layer order on a layer In layout or Relative, Anchor
+(name this layer as an anchor, or place it against one with a nine-spot `position-area` picker and fallbacks) and Float.
 
 ## Size
 
@@ -328,7 +328,7 @@ Shows for images, videos and other replaced elements, right after Appearance.
 | Row         | Control                                                                                                                                           | Writes            | Figma                 |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | --------------------- |
 | Source      | The project's images (`public/images/`), Replace, and an image dropped or pasted onto the row or the layer, which is copied into `public/images/` | `src`             | Image fill            |
-| Fit         | Fill (cover), Fit (contain), Stretch, Original size, Shrink to fit, with the CSS keyword in each option's hover                                   | `object-fit`      | Fill, Fit, Crop, Tile |
+| Fit         | Fill (cover), Fit (contain), Stretch, Original size, Shrink to fit, with the CSS keyword in each option's hint                                    | `object-fit`      | Fill, Fit, Crop, Tile |
 | Position    | Nine-spot box, and X and Y                                                                                                                        | `object-position` | Crop                  |
 | Adjustments | One entry of sliders: brightness, contrast and saturation centered on no change, then hue (Filter list)                                           | `filter`          | Image adjustments     |
 
@@ -442,7 +442,7 @@ values.
 | Layer blur             | Blur, with blur tokens                                                                                                 | `filter: blur()`                                                               | Layer blur             |
 | Background blur        | Blur, with blur and backdrop blur tokens; says when what it can see is cut short (below)                               | `backdrop-filter: blur()`                                                      | Background blur        |
 | Adjustments            | One entry of sliders: brightness, contrast and saturation centered on no change, then hue, grayscale, sepia and invert | `filter` functions, in Tailwind's order (Filter list)                          | Image adjustments only |
-| Background adjustments | The same sliders, for what's behind; its hover says "brightness, contrast and saturation of what's behind"             | `backdrop-filter` functions                                                    | None                   |
+| Background adjustments | The same sliders, for what's behind; its hint says "brightness, contrast and saturation of what's behind"              | `backdrop-filter` functions                                                    | None                   |
 
 Follow shape draws a drop shadow around what's drawn rather than the box, with no spread, and offers drop shadow tokens;
 it's on by default for icons and images with transparency. On a text layer with no fill or stroke, Drop shadow writes

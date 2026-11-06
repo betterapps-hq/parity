@@ -175,22 +175,22 @@ marked † by principle 7.
 
 ### Stroke
 
-| Concept                                                            | Properties                                                                                                                      | Where   | Tokens                      |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------- | --------------------------- |
-| Border                                                             | `border`, `border-*` (44)                                                                                                       | Control | color, border-width, border |
-| Outline (Stroke's Inside, Center and Outside, and a second stroke) | `outline`, `outline-color`, `outline-style`, `outline-width`, `outline-offset`                                                  | Control | color, border-width         |
-| Border image                                                       | `border-image`, `border-image-outset`, `border-image-repeat`, `border-image-slice`, `border-image-source`, `border-image-width` | CSS row |                             |
-| Box decoration break                                               | `box-decoration-break†`                                                                                                         | CSS row |                             |
-| Table borders                                                      | `border-collapse`, `border-spacing`, `caption-side`, `empty-cells`, `table-layout`                                              | CSS row |                             |
+| Concept                                                            | Properties                                                                                                                      | Where   | Tokens                                    |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------------------------------------- |
+| Border                                                             | `border`, `border-*` (44)                                                                                                       | Control | color, border-width, border, stroke style |
+| Outline (Stroke's Inside, Center and Outside, and a second stroke) | `outline`, `outline-color`, `outline-style`, `outline-width`, `outline-offset`                                                  | Control | color, border-width                       |
+| Border image                                                       | `border-image`, `border-image-outset`, `border-image-repeat`, `border-image-slice`, `border-image-source`, `border-image-width` | CSS row |                                           |
+| Box decoration break                                               | `box-decoration-break†`                                                                                                         | CSS row |                                           |
+| Table borders                                                      | `border-collapse`, `border-spacing`, `caption-side`, `empty-cells`, `table-layout`                                              | CSS row |                                           |
 
 ### Effects
 
-| Concept                                    | Properties         | Where   | Tokens                      |
-| ------------------------------------------ | ------------------ | ------- | --------------------------- |
-| Shadows (Stroke never writes `box-shadow`) | `box-shadow`       | Control | shadow, inset-shadow, color |
-| Text shadow (Drop shadow on a text layer)  | `text-shadow`      | Control | text-shadow, color          |
-| Layer blur and adjustments                 | `filter`           | Control | blur, drop-shadow, color    |
-| Background blur and adjustments            | `backdrop-filter‡` | Control | backdrop-blur, blur         |
+| Concept                                    | Properties         | Where   | Tokens                                    |
+| ------------------------------------------ | ------------------ | ------- | ----------------------------------------- |
+| Shadows (Stroke never writes `box-shadow`) | `box-shadow`       | Control | shadow, inset-shadow, color, border-width |
+| Text shadow (Drop shadow on a text layer)  | `text-shadow`      | Control | text-shadow, color                        |
+| Layer blur and adjustments                 | `filter`           | Control | blur, drop-shadow, color                  |
+| Background blur and adjustments            | `backdrop-filter‡` | Control | backdrop-blur, blur                       |
 
 ### Transform
 
@@ -225,7 +225,7 @@ marked † by principle 7.
 
 | Concept                                                  | Properties                                                                                                                                                                                                                      | Where   | Tokens                                           |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------ |
-| Transitions                                              | `transition`, `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `transition-behavior†`                                                                                            | Control | duration, easing                                 |
+| Transitions                                              | `transition`, `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `transition-behavior†`                                                                                            | Control | transition, duration, easing                     |
 | Animation                                                | `animation`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state`, `animation-composition` | Control | animation, duration, easing, number (iterations) |
 | Animate to auto size                                     | `interpolate-size†`                                                                                                                                                                                                             | More    |                                                  |
 | Play on scroll (Animation's Trigger menu)                | `animation-timeline‡`, `animation-range‡`, `animation-range-start‡`, `animation-range-end‡`                                                                                                                                     | Control |                                                  |
