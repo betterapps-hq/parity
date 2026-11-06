@@ -29,7 +29,9 @@ when it's spread through UI code. Today:
 
 - **`@parity-app/core` is the `.par` model and the operations on it:** documents, edits, instances, render resolution,
   modes, CSS and the library manifest, with the token types its contracts name. It imports nothing from Node, Electron
-  or React, and has 12 test files.
+  or React, and has 12 test files. Its `values/` module checks and evaluates decorator and sample values (PAR-572); the
+  guest imports its evaluator and `icon-names.ts` alone, as `@parity-app/core/values/evaluate` and
+  `@parity-app/core/icon-names`, since they import nothing at runtime.
 - **Framework-specific code sits behind adapter interfaces:** `@parity-app/renderer-react`, `@parity-app/builder-vite`
   and `@parity-app/styles-tailwind`.
 - **The agent API calls core's edits** (`setContainer`, `insertNode`, `moveNode`, `applyChanges` and the rest) rather

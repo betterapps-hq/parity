@@ -3913,6 +3913,20 @@ below. My calls on how they move:
   - `PARITY_APP_PID` and `PARITY_APP_STARTED` are read once through `utility/environment.ts`. Unset, they fall back to
     the parent's process id and the service's start, as before. A value that isn't a whole number stops the agent server
     there, naming the variable, since only main sets them.
+- **Package manifests and tool configs are read through schemas (PAR-597).** My calls:
+  - Core's `parseManifest(text, file)` is the one reader of package.json text. It throws `TypeError` naming the file and
+    the field, as `/app/package.json: /bin: expected a string or an object`. Project's `readPackage` and `findPackage`
+    use it, and so do the readers outside project: builder-vite, Storybook's command line, the app's build scripts, the
+    fixtures and the Storybook example. Both `readJson` helpers are gone.
+  - `packageManifest` gained `optionalDependencies`, `bin`, `repository` and `packageManager`, the fields those readers
+    take. Opening a project whose package.json has one of its fields of the wrong type fails, naming it.
+  - Two reads stay lenient, since the manifest only decides a detail there: package manager detection's evidence
+    wording, and a tool's config under a package.json key, which reads as absent when the manifest doesn't match.
+  - The fixtures' generator spreads the checked manifest over the file's own object, so keys keep their order.
+  - shadcn's `components.json` is a loose schema of `tailwind.css` and `aliases.ui`. A file it refuses is skipped with a
+    note, as one that isn't JSON was.
+  - `loadConfig(root, folder, source, schema)` takes a schema and returns what it reads. A config it refuses throws with
+    the config's path and the pointer.
 - **The snippet API checks its arguments (PAR-596).** My calls:
   - Each function's arguments have a schema in `packages/agent/src/arguments.ts`, and `api()` reads every argument
     through it before the function runs. The argument types come from the schemas. A node is core's `nodeTree`, after it
@@ -4737,3 +4751,35 @@ checker worker, which also used the React finder's internals to build it. My cal
 - **The worker's tests moved with the code,** as the cache's tests, and added the cases the issue asks for: a program
   reused while nothing changed, made again after a file, config or lockfile change or a new file asked for, and the
   least recently used project let go past the limit.
+
+## Decorator and sample values are checked and evaluated in one core module (PAR-572)
+
+The architecture review of 2026-11-04 found the value language carried out three times, by the guest's `resolve` for
+decorators, its `madeValue` for samples, and libgen's `trialValue`, and the copies disagreed. `@parity-app/core`'s
+`values/` module is now the one place: `grammar.ts` checks values with PAR-594's zod grammar, and `evaluate.ts` collects
+a value's imports (`valueImports`), works it out against a host (`evaluateValue`), and writes and reads render slot keys
+(`renderSlotKey`, `readRenderSlotKey`). My calls:
+
+- **`$import` without `export` is the module's default export, and `$call` must name its export,** as PAR-594's grammar
+  says. The guest's decorators let a `$call` fall back to `default`, which the grammar had already stopped allowing. A
+  host decides what a module's default export is: libgen's trial host, which loads modules in Node, takes a module
+  without a `default` as its own default export, as `trialValue` did.
+- **A `$call`'s `methods` run wherever the call is,** in decorators too, which the guest's `resolve` ignored. They run
+  in order, once, when the value is made. A method that's missing or throws is passed over, as libgen did, since a call
+  the examples make may need what the app has around it; the guest's samples let a throw break the frame.
+- **Samples hold made values only.** A sample's props, and the design node props that copy them, are checked with a
+  sample grammar where `$call` is the one form, and any other object is plain JSON. The guest had made only `$call`s in
+  node props, and the builder already left a design's literal `$import` unloaded. Samples are now checked when the file
+  loads, which PAR-594 left to this issue. The guest now also makes a `$call` nested inside a plain object in a prop.
+- **The evaluator is synchronous and imports nothing at runtime.** The guest bundles it into the project's code, without
+  zod, from `@parity-app/core/values/evaluate`, and icon grouping from `@parity-app/core/icon-names`. In development the
+  guest is served as source, so the builder also allows core's `src` folder. Libgen loads a value's imports first, then
+  evaluates against its trial host: a mode's value is its default, the frame's nodes are undefined, and `dir` and `lang`
+  are `ltr` and `en-US`. A `$function` is worked out when it's called, in libgen too, which worked it out at once.
+- **Plain JSON keeps its identity.** An array or object with no form inside comes back as the same value, so a prop
+  doesn't change between draws.
+- **A render slot is keyed one way.** Inserting a part into a parent whose render function spreads what it's called with
+  now keys the slot `$renderWith:`, as the parent's own sample does; it wrote `$render:`, so the part didn't get what it
+  was called with.
+- **Icon aliases are grouped once,** by `iconAliases` in `icon-names.ts`, so libgen's `icons.count` and the guest's icon
+  list agree. `byCodeUnit` and `shorterName` live there too, in place of four copies.

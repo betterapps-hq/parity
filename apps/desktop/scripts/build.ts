@@ -4,6 +4,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync,
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { basename, dirname, join, resolve } from "node:path"
+import { parseManifest } from "@parity-app/core"
 import { build, type BuildOptions } from "esbuild"
 
 const appDir = resolve(import.meta.dirname, "..")
@@ -102,10 +103,7 @@ function shipPackage(name: string, from: string, shipped = new Set<string>()): v
   if (!folder || shipped.has(folder)) return
   shipped.add(folder)
   cpSync(folder, join(out, "node_modules", name), { recursive: true, dereference: true })
-  const manifest = JSON.parse(readFileSync(join(folder, "package.json"), "utf8")) as {
-    dependencies?: Record<string, string>
-    optionalDependencies?: Record<string, string>
-  }
+  const manifest = readManifest(folder)
   for (const dependency of Object.keys({ ...manifest.dependencies, ...manifest.optionalDependencies })) {
     shipPackage(dependency, folder, shipped)
   }
@@ -120,14 +118,17 @@ function installed(name: string, from: string): string | undefined {
   }
 }
 
+function readManifest(folder: string) {
+  const file = join(folder, "package.json")
+  return parseManifest(readFileSync(file, "utf8"), file)
+}
+
 /** Adds sharp's binaries for the Mac architecture this runner isn't, from npm, at the versions sharp asks for. */
 function shipOtherMacBinaries(): void {
   const other = process.arch === "arm64" ? "x64" : "arm64"
-  const sharp = JSON.parse(readFileSync(join(out, "node_modules/sharp/package.json"), "utf8")) as {
-    optionalDependencies: Record<string, string>
-  }
+  const sharp = readManifest(join(out, "node_modules/sharp"))
   for (const name of [`@img/sharp-darwin-${other}`, `@img/sharp-libvips-darwin-${other}`]) {
-    const version = sharp.optionalDependencies[name]
+    const version = sharp.optionalDependencies?.[name]
     if (!version) throw new Error(`sharp doesn't list ${name}`)
     const target = join(out, "node_modules", name)
     if (existsSync(target)) continue
@@ -139,9 +140,7 @@ function shipOtherMacBinaries(): void {
   }
 }
 
-const { name, version, license, description, author, homepage } = JSON.parse(
-  readFileSync(join(appDir, "package.json"), "utf8")
-)
+const { name, version, license, description, author, homepage } = readManifest(appDir)
 writeFileSync(
   join(out, "package.json"),
   JSON.stringify(

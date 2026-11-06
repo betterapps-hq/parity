@@ -4,10 +4,8 @@ import { dirname, join, resolve } from "node:path"
 import {
   type ComponentEvidence,
   type ExportsTarget,
-  jsonText,
   type PackageManifest,
-  packageManifest,
-  parseData,
+  parseManifest,
   type RendererAdapter
 } from "@parity-app/core"
 
@@ -42,7 +40,7 @@ export async function findPackage(from: string, name: string): Promise<Installed
     const installedAt = join(folder, "node_modules", name)
     const text = await readFile(join(installedAt, "package.json"), "utf8").catch(() => undefined)
     if (text !== undefined) {
-      const manifest = readManifest(text, join(installedAt, "package.json"))
+      const manifest = parseManifest(text, join(installedAt, "package.json"))
       return { dir: await realpath(installedAt), installedAt, manifest }
     }
     if (dirname(folder) === folder) return undefined
@@ -53,15 +51,7 @@ export async function findPackage(from: string, name: string): Promise<Installed
 export async function readPackage(dir: string): Promise<PackageFolder | undefined> {
   const file = join(dir, "package.json")
   const text = await readFile(file, "utf8").catch(() => undefined)
-  return text === undefined ? undefined : { dir, manifest: readManifest(text, file) }
-}
-
-function readManifest(text: string, file: string): PackageManifest {
-  try {
-    return parseData(jsonText(packageManifest), text)
-  } catch (error) {
-    throw new TypeError(`${file}: ${error instanceof Error ? error.message : String(error)}`)
-  }
+  return text === undefined ? undefined : { dir, manifest: parseManifest(text, file) }
 }
 
 /** A bare specifier's package and the entry point in it: `@acme/ui/button` is `@acme/ui` and `./button`. */
