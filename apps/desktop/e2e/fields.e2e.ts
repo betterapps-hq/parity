@@ -38,7 +38,7 @@ describe("typing in a length field", () => {
     await width().click()
     await width().press("ControlOrMeta+a")
     for (const [key, shown] of [
-      ["3", 4],
+      ["3", 3],
       ["2", 32],
       ["0", 320]
     ] as const) {

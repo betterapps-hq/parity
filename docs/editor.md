@@ -2286,7 +2286,7 @@ Tests:
   width flagged, with Use 280px putting it on the scale and the flag gone; insets of 3px and 281px each flagged; and 281
   typed in Width kept and flagged.
 - `apps/desktop/e2e/fields.e2e.ts` (10), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
-  the real store and frames: 320 typed in Width drawn at each keystroke (4, 32 and 320px) while the design keeps its
+  the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
   width, and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 kept as
   70.25 steps and flagged, and Use 280px for width putting it at 70 (PAR-194); `abc` kept with its reason, and Escape
   putting the value back; a value set underneath leaving `12` in the field; Up, Shift+Up and Down, more than a second
