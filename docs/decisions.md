@@ -4556,6 +4556,12 @@ My calls:
   A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
 - **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
 - **The client IDs go in the code,** since they're public. The API key never ships in the app.
+- **Better Apps checks the desktop's access token with the WorkOS SDK, not a new JWT library** (PAR-615). Its WorkOS
+  identity takes the token as a bearer, checks the signature against WorkOS's JWKS, and checks the issuer against the
+  one WorkOS publishes. A dev copy's real Staging token, decoded in main on 2026-11-06, has the published issuer,
+  `https://api.workos.com/user_management/client_01M6Q2PGV0Z2R7CXZBFRJH150R`. It names Staging's own client, not
+  Parity's (`client_01M6Q30XB58AF2CEHTE79ACMWS`), so the expected issuer comes from WorkOS's
+  `/.well-known/openid-configuration`, never from Parity's client ID.
 
 ## Signing in is data in and data out in `@parity-app/account` (PAR-613)
 
@@ -4990,6 +4996,18 @@ You asked on 2026-11-05 for the main process's side of signing in and the window
   PAR-616 can switch organizations from the app, once its service lists them.
 - **The access token names the organization by ID only.** Until Parity's service can look one up (PAR-616), the app
   calls it Your organization.
+- **Finishing with a pending token needs the client secret.** The organization-selection grant
+  (`urn:workos:oauth:grant-type:organization-selection`) and the email-verification grant
+  (`urn:workos:oauth:grant-type:email-verification:code`) both answered 400 `invalid_client`, "Invalid client secret.",
+  with the client ID alone. So Parity can't finish either itself; whatever needs the secret stays in AuthKit's pages
+  until Parity has a server.
+- **Choosing an organization happens in Parity, and AuthKit finishes it.** WorkOS's 403
+  `organization_selection_required` names the user and their organizations (ID and name), so the app lists them.
+  Choosing one opens AuthKit with `organization_id`, whose page loads and keeps it, to sign in to that organization.
+  `organization_id` with a provider such as `GoogleOAuth` fails instead, with `organization_invalid` "No Connection
+  associated with Organization", since there it names the organization's single sign-on.
+- **Email verification stays in AuthKit.** Its grant needs the secret, and AuthKit verifies on its own page, which
+  Staging never asked for while signing in with Google.
 - **The token's `iss` is the environment's client** (`client_01M6Q2PGV0Z2R7CXZBFRJH150R`), as its OpenID configuration
   says, which the PAR-615 adapter reads.
 
@@ -5000,6 +5018,11 @@ Your calls, from trying it in `pnpm dev`:
 - **The account menu keeps Settings and Sign in or Sign out,** and leaves Keyboard shortcuts and the keys to the app's
   menus. It has no agents yet, since connecting one isn't built.
 - **Under the ways in, one short line,** "Parity never sees your password", with a shield.
+- **Waiting for the browser shows one button at a time:** Cancel, then Open it again once it's slow, with the other ways
+  round a page that didn't show as a line of links under it.
+- **The browser's hand-back page badges the mark** with a green check or an amber warning, so a failure reads at a
+  glance. Choosing an organization or single sign-on isn't a failure, so it says Continue in Parity, with a purple
+  arrow.
 
 My calls:
 

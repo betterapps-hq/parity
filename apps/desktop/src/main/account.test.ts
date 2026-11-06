@@ -175,13 +175,40 @@ describe("signing in", () => {
     const test = setUp()
     await test.account.signIn({ provider: "GoogleOAuth" })
     test.answer(403, { code: "sso_required", message: "Use single sign-on.", email: "ada@kestrel.dev" })
-    await test.account.takeLink(test.callback({ code: "1" }))
+    expect(await test.account.takeLink(test.callback({ code: "1" }))).toBe("continue")
     expect(test.account.state().attempt).toMatchObject({ problem: "single-sign-on", email: "ada@kestrel.dev" })
 
     await test.account.signIn({ provider: "MicrosoftOAuth" })
     test.answer(403, { code: "user_not_allowed", message: "Not allowed.", email: "ada@hey.com" })
-    await test.account.takeLink(test.callback({ code: "2" }))
+    expect(await test.account.takeLink(test.callback({ code: "2" }))).toBe("problem")
     expect(test.account.state().attempt).toMatchObject({ problem: "refused", email: "ada@hey.com" })
+  })
+
+  it("offers the organizations WorkOS names, and signs in to the one chosen through AuthKit", async () => {
+    const test = setUp()
+    await test.account.signIn({ provider: "GoogleOAuth" })
+    const organizations = [
+      { id: "org_01KESTREL", name: "Kestrel" },
+      { id: "org_01ENGINES", name: "Engines" }
+    ]
+    test.answer(403, {
+      code: "organization_selection_required",
+      message: "Choose an organization.",
+      user: { email: "ada@kestrel.dev" },
+      organizations
+    })
+    // The browser's page says to continue in Parity, not that signing in failed.
+    expect(await test.account.takeLink(test.callback({ code: "1" }))).toBe("continue")
+    expect(test.account.state().attempt).toMatchObject({
+      problem: "choose-organization",
+      email: "ada@kestrel.dev",
+      organizations
+    })
+
+    await test.account.signIn({ provider: "authkit", organizationId: "org_01ENGINES", email: "ada@kestrel.dev" })
+    const url = new URL(test.opened.at(-1)!)
+    expect(url.searchParams.get("provider")).toBe("authkit")
+    expect(url.searchParams.get("organization_id")).toBe("org_01ENGINES")
   })
 
   it("doesn't sign in when canceled while the code was traded", async () => {
@@ -201,6 +228,70 @@ describe("signing in", () => {
     await test.account.takeLink(test.callback({ code: "1" }))
     expect(test.account.state().account?.untilQuit).toBe(true)
     expect(test.store.kept).toBeUndefined()
+  })
+})
+
+describe("switching organizations", () => {
+  const organizations = [
+    { id: "org_1", name: "Kestrel" },
+    { id: "org_2", name: "Engines" }
+  ]
+  /** WorkOS's session in `organization`. */
+  const sessionIn = (organization: string, refresh: string, now: number) => ({
+    ...session(refresh, now, { org_id: organization }),
+    organization_id: organization
+  })
+
+  /** Signed in to Kestrel after WorkOS asked which organization. */
+  async function chose() {
+    const test = setUp()
+    await test.account.signIn({ provider: "GoogleOAuth" })
+    test.answer(403, { code: "organization_selection_required", message: "Choose.", organizations })
+    await test.account.takeLink(test.callback({ code: "1" }))
+    await test.account.signIn({ provider: "authkit", organizationId: "org_1" })
+    test.answer(200, sessionIn("org_1", "refresh_1", test.now()))
+    await test.account.takeLink(test.callback({ code: "2" }))
+    return test
+  }
+
+  it("remembers the organizations WorkOS named, through refreshes and in the kept session", async () => {
+    const test = await chose()
+    expect(test.account.state().account).toMatchObject({ organizationId: "org_1", organizations })
+    expect(test.store.kept?.person.organizations).toEqual(organizations)
+    test.answer(200, sessionIn("org_1", "refresh_2", test.now() + 240_000))
+    await test.tick()
+    expect(test.account.state().account?.organizations).toEqual(organizations)
+  })
+
+  it("switches with a refresh naming the organization, in the background", async () => {
+    const test = await chose()
+    test.answer(200, sessionIn("org_2", "refresh_2", test.now()))
+    await test.account.switchOrganization("org_2")
+    expect(test.requests.at(-1)).toEqual({
+      grant_type: "refresh_token",
+      client_id: "client_test",
+      refresh_token: "refresh_1",
+      organization_id: "org_2"
+    })
+    expect(test.account.state().account).toMatchObject({ organizationId: "org_2", organizations })
+    expect(test.store.kept?.refreshToken).toBe("refresh_2")
+    expect(test.opened).toHaveLength(2)
+  })
+
+  it("stays where it was when WorkOS won't switch", async () => {
+    const test = await chose()
+    test.answer(403, { error: "invalid_grant", error_description: "Not a member." })
+    await expect(test.account.switchOrganization("org_2")).rejects.toThrow(/Not a member/)
+    expect(test.account.state().account?.organizationId).toBe("org_1")
+  })
+
+  it("forgets them on signing out, and for a sign-in that doesn't choose", async () => {
+    const test = await chose()
+    test.account.signOut()
+    await test.account.signIn({ provider: "GoogleOAuth" })
+    test.answer(200, session("refresh_3", test.now()))
+    await test.account.takeLink(test.callback({ code: "3" }))
+    expect(test.account.state().account?.organizations).toBeUndefined()
   })
 })
 

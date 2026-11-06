@@ -37,6 +37,8 @@ export const ipc = {
   accountReopen: "canvas:account-reopen",
   accountCancel: "canvas:account-cancel",
   accountSignOut: "canvas:account-sign-out",
+  /** The window asks main to move the session to another organization, with a refresh. */
+  accountSwitch: "canvas:account-switch",
   /** Main asks a window whether it may close. */
   closing: "canvas:closing",
   /** The window answers at once that it's deciding, then that it's ready to close or wants to stay open. */

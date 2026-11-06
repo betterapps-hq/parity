@@ -96,7 +96,8 @@ const host: CanvasHost = {
     signIn: (request) => ipcRenderer.invoke(ipc.accountSignIn, request) as Promise<void>,
     reopen: () => ipcRenderer.invoke(ipc.accountReopen) as Promise<void>,
     cancel: () => ipcRenderer.invoke(ipc.accountCancel) as Promise<void>,
-    signOut: () => ipcRenderer.invoke(ipc.accountSignOut) as Promise<void>
+    signOut: () => ipcRenderer.invoke(ipc.accountSignOut) as Promise<void>,
+    switchOrganization: (organizationId) => ipcRenderer.invoke(ipc.accountSwitch, organizationId) as Promise<void>
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
