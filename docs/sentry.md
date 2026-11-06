@@ -38,8 +38,9 @@ so there's nothing to set up ahead of the SDKs.
   resolves the other.
 - **GitHub** is installed for `betterapps-hq`, limited to `parity`, for commits in releases, suspect commits and stack
   trace links.
-- **Sentry's MCP server** is how agents read an issue's events, trace and replay. It signs in with OAuth, as
-  `admin@betterapps.io`.
+- **Sentry's MCP server** is how agents read an issue's events, trace and replay. `.mcp.json` and `.codex/config.toml`
+  give it to every session in this repository, scoped to `better-apps`, and it signs in with OAuth, as
+  `admin@betterapps.io`. Picking up a bug with it is in [work.md](work.md#bugs-from-sentry).
 
 ## Alerts
 
