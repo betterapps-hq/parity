@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 00:40:25 GMT",
+      "version": "0.7.4",
+      "tag": "@parity-app/cli_v0.7.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c706564b4fd41596c99db71d73cf0d4854f1349f",
+            "comment": "Style rows reset everything their edits write, and read a layer's parent inside instances as the copy shows it (PAR-567)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a24c9dd1a9212f57c3cf8d0d7e67020f5dc655e1",
+            "comment": "Answer each agent method from @parity-app/agent's dispatch, typed by one method map the CLI client shares"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 00:18:54 GMT",
       "version": "0.7.3",
       "tag": "@parity-app/cli_v0.7.3",

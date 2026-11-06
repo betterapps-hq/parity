@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Style rows reset everything their edits write, and read a layer's parent inside instances as the copy shows it (PAR-567)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

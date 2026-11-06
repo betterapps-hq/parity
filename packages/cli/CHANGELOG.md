@@ -1,8 +1,19 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 00:18:54 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 00:40:25 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.7.4
+
+Fri, 06 Nov 2026 00:40:25 GMT
+
+### Patches
+
+- Style rows reset everything their edits write, and read a layer's parent inside instances as the copy shows it
+  (PAR-567) (ajcraswell@gmail.com)
+- Answer each agent method from @parity-app/agent's dispatch, typed by one method map the CLI client shares
+  (ajcraswell@gmail.com)
 
 ## 0.7.3
 
