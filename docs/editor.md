@@ -1869,31 +1869,33 @@ actions, since each needs to know which arrow was pressed.
 - **In a component's slot,** the direction is read from the element the slot's layers are drawn in; plain blocks count
   as a column. When a layer isn't drawn, the layout's direction comes from the design (a column unless it says row, a
   grid by its columns).
-- **An absolutely placed layer** moves one step of the spacing scale, or ten with Shift, in the state being edited.
-  Along each axis it moves by the side it's placed from (the left or top, unless only the right or bottom is set), or by
-  both sides when it's stretched between them, so it keeps its size. A negative inset is kept. A side set to a length
-  token, or left unset, moves from where the frame draws it, in half steps, as dragging moves it. When the layer isn't
-  drawn, an unset side counts from 0, and an axis set by a token stays put, with a message saying so.
+- **An absolutely placed layer** moves 1px, or 10px with Shift, in the state being edited (PAR-194), as Figma's do. Its
+  insets can leave the spacing scale that way, and the Design tab flags them with the nearest step one click away (see
+  Typing, stepping and scrubbing). Along each axis it moves by the side it's placed from (the left or top, unless only
+  the right or bottom is set), or by both sides when it's stretched between them, so it keeps its size. A negative inset
+  is kept. A side set to a length token, or left unset, moves from where the frame draws it, in half steps, as dragging
+  moves it. When the layer isn't drawn, an unset side counts from 0, and an axis set by a token stays put, with a
+  message saying so. Insets are kept to the hundredth of a pixel, so a run of presses with a spacing unit 1px doesn't
+  divide, such as 6px, doesn't drift.
 - **Designs and text notes** move 1px, or 10px with Shift. A selected mode column moves its design.
 - **One undo step per run** (PAR-441). Presses on the same selection are one step (Undo nudge layer), however long the
   pauses between them, and however often the same layers are selected again meanwhile, in any order. Another edit, an
   undo or a redo, or selecting something else, also when the selection comes back, starts another; selecting something
   else ends the run as it happens. A run that comes back where it began leaves no step, and Redo as it was.
-- **Moving a layer by 1px** waits for PAR-194, since it would leave the spacing scale.
 - **Layers inside an instance don't move,** as they can't be dragged.
 - **The keys.** On the canvas, the arrows with Ctrl or Alt do nothing, so tldraw never moves a design behind the
   keymap's back. On a focused control, such as a Layers row, the arrows stay the control's. A layer that moves stays in
   view.
 
 Code: the rules are `packages/editor/src/move-resize.ts` (`@parity-app/editor`): `arrowOf`, `reorderStep` and `reorder`,
-`nudgeLayers`, which moves absolutely placed layers by `shiftInsets` as dragging does, and `nudgedPosition` for designs
-and notes. `apps/desktop/src/renderer/canvas/nudge.ts` has `nudgeSelection`, which nudges what's selected in the store,
-and `frameDrawn`, which reads a layout's flow, through `@parity-app/editor`'s `flowOf` with its children's boxes from
-`frame.ts`'s `flowingBoxes`, and a layer's drawn insets from its frame. Then `chrome/commands.ts` (`nudge`),
-`chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are
-written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event to the action and keeps the other
-arrows from tldraw. A run's gesture is `runGesture` in `nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the
-selection's `selectionKey` (`selection.ts`).
+`nudgeLayers`, which moves absolutely placed layers by `shiftInsets` as dragging does, by a pixel in steps of the `unit`
+it's given, and `nudgedPosition` for designs and notes. `apps/desktop/src/renderer/canvas/nudge.ts` has
+`nudgeSelection`, which nudges what's selected in the store, and `frameDrawn`, which reads a layout's flow, through
+`@parity-app/editor`'s `flowOf` with its children's boxes from `frame.ts`'s `flowingBoxes`, and a layer's drawn insets
+from its frame. Then `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions),
+`chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which
+passes the key event to the action and keeps the other arrows from tldraw. A run's gesture is `runGesture` in
+`nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the selection's `selectionKey` (`selection.ts`).
 
 Tests:
 
@@ -1901,18 +1903,19 @@ Tests:
   reordering a layer, a block, past absolutely placed layers and down a grid; nudging a design's layers in a state,
   following the frame's direction, and leaving instances alone; moving insets from each side, both sides, tokens and
   unset sides with and without where they're drawn (`shiftInsets`, shared with dragging); and designs and notes moving
-  1px or 10px, to the whole pixel.
-- `apps/desktop/src/renderer/canvas/nudge.test.ts`, with the real stores: a run of presses with pauses of four seconds
-  as one undo step, another edit or an undo between presses starting another, a run there and back leaving no step, a
-  new selection starting another, also back to the one before, the same layers selected again in another order keeping
-  the run, designs moving together and a mode column and a note moving.
+  1px or 10px, to the whole pixel; an absolutely placed layer moving 1px or 10px with a 4px and an 8px unit, and landing
+  on whole pixels after six presses with a 6px unit (PAR-194).
+- `apps/desktop/src/renderer/canvas/nudge.test.ts`, with the real stores, 1px a press: a run of presses with pauses of
+  four seconds as one undo step, another edit or an undo between presses starting another, a run there and back leaving
+  no step, a new selection starting another, also back to the one before, the same layers selected again in another
+  order keeping the run, designs moving together and a mode column and a note moving.
 - `apps/desktop/src/renderer/ModeView.test.ts`: `frameDrawn` reads a row, a column and a grid's columns from a design
   rendered as the canvas renders it, and an absolutely placed layer's insets in steps, at full size and at half scale.
 - `apps/desktop/src/renderer/chrome/keymap.test.ts`: the arrows match with and without Shift, and show as `⇧←` on a Mac.
 - `apps/desktop/e2e/keyboard.e2e.ts` (4), end to end (PAR-202): a link in Pricing's footer moved two places right by two
   presses, nothing across the row, and one undo; the same two presses a second and a half apart, still one undo
-  (PAR-441); Calendar's Planning slot moved down a step, then ten with Shift, and right on both of its sides; and
-  Pricing moved 1px and 10px, with Ctrl and Alt arrows moving neither the design nor tldraw's board.
+  (PAR-441); Calendar's Planning slot moved down 1px, then 10px with Shift, and right on both of its sides; and Pricing
+  moved 1px and 10px, with Ctrl and Alt arrows moving neither the design nor tldraw's board.
 
 Gaps: the key handler's wiring is the end-to-end test above, apart from keeping a moved layer in view, which was checked
 in an isolated copy of the app on the example project.
@@ -2235,22 +2238,28 @@ numbers. A component's number props take any number.
   fill or hug, as Figma's sizes are always numbers. Unset limits, rows, max lines and props have no value, so such maths
   says "There's no value here to work from". A layer whose value is a token has no number either: it keeps its value,
   and the field says how many layers did.
-- **Off the spacing scale, until PAR-194.** Before, a length field read steps and took any number, so `7.3` became
-  29.2px, which Tailwind can't write as a class, without a word. Now a typed length lands on the nearest half step (2px
-  with a 4px unit), which is what Tailwind's scale lists below 4 and what dragging already writes, and the field says so
-  under its row: "Snapped to 282px, the nearest step on the spacing scale". A value already off it shows as it is (29.2)
-  until it's edited. Keeping and flagging lengths off the scale is PAR-194.
+- **Off the spacing scale (PAR-194).** The scale is whole and half steps (2px apart with a 4px unit), which is what
+  Tailwind's scale lists below 4 and what dragging writes. A size or an inset can leave it, as a sidebar 280px wide is a
+  fact of real apps: Width, Height, Min, Max and an absolutely placed layer's insets keep what's typed, to the hundredth
+  of a pixel, so 281 stays 281px (70.25 steps). Padding, Margin and Gap still land on the nearest half step and say so
+  under the row: "Snapped to 282px, the nearest step on the spacing scale".
+- **A length off the scale is flagged** under its row, in amber, whether it was typed, nudged or came from the file:
+  "281px is off the scale", with a button at the line's end for the nearest step, "Use 280px" (named "Use 280px for
+  width"). Halfway between a whole step and a half step, it offers the whole step. The flag waits while the field is
+  typed in or scrubbed, and the field points to it (`aria-describedby`). Its hint says "Width, off the spacing scale"
+  rather than a step's name. Colours, type, radius and shadows stay tokens: only lengths leave the scale.
 - **Limits.** Sizes, padding, margin, gaps and limits can't go below 0; insets can. Opacity is a whole percentage within
   0 and 100 (PAR-203). Counts are whole numbers from 1. A value past a limit is kept at it ("Kept at 0px: it can't go
   lower"), and a count or an opacity with a fraction is rounded ("Rounded to 2: it takes whole numbers", "Rounded to
   33%: it takes whole percentages"), each said under the row. An opacity already off a whole percentage shows as it is
   until it's edited, and Up and Down go from the whole percentage nearest it.
-- **Up and Down** move a length one step of the spacing scale (4px with a 4px unit) and Shift ten steps, the same
-  distance nudging moves an absolutely placed layer; a half step goes to the whole step beside it. Opacity, counts and
-  numbers move by 1, and Shift by 10. Each press is made at once, and a run of presses is one undo step, however slow
-  (PAR-441): typing, Enter, Escape, leaving the field or scrubbing it ends the run, and so does another selection while
-  the field keeps focus, so one undo never takes back edits to two layers. With something readable typed, it steps from
-  that; with something it can't read, nothing changes and the reason shows.
+- **Up and Down** move a length one step of the spacing scale (4px with a 4px unit) and Shift ten steps; a half step, or
+  a length off the scale, goes to the whole step beside it. Nudging on the canvas moves 1px instead, as Figma's does, so
+  the field's arrows are the way back onto the scale. Opacity, counts and numbers move by 1, and Shift by 10. Each press
+  is made at once, and a run of presses is one undo step, however slow (PAR-441): typing, Enter, Escape, leaving the
+  field or scrubbing it ends the run, and so does another selection while the field keeps focus, so one undo never takes
+  back edits to two layers. With something readable typed, it steps from that; with something it can't read, nothing
+  changes and the reason shows.
 - **Scrubbing.** Dragging a field's label changes the value by one step for every 2px the pointer moves, ten with Shift,
   left to lower. The label is the row's (Width, Gap, Opacity, Max lines) when the row holds one field without a letter
   of its own, else the letter inside the field (V and H, T, R, B and L, X and Y, Cols and Rows). Such a label has a
@@ -2286,9 +2295,11 @@ numbers. A component's number props take any number.
 Code:
 
 - `packages/core/src/fields.ts`: reading what's typed (`readFieldInput`), working it out against a value
-  (`applyFieldInput`), landing on the scale and the limits, steps (`stepFieldValue`), scrubbing (`scrubSteps`), showing
-  a value (`formatFieldValue`) and what the field says (`describeFieldNote`, `summarizeFieldNotes`). It takes data and
-  returns data; it can move to `@parity-app/editor` when PAR-7 makes it.
+  (`applyFieldInput`), landing on the scale or keeping a length off it (`offScale` in `FieldRules`) and the limits, the
+  flag for a length off the scale with its nearest step (`offScaleFlag`, `nearestSpacingStep`), steps
+  (`stepFieldValue`), scrubbing (`scrubSteps`), showing a value (`formatFieldValue`) and what the field says
+  (`describeFieldNote`, `summarizeFieldNotes`). It takes data and returns data; it can move to `@parity-app/editor` when
+  PAR-7 makes it.
 - `packages/core/src/style-changes.ts`: which inline styles an edit changes between two renders of a design
   (`styleChanges`).
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
@@ -2296,8 +2307,9 @@ Code:
 - `chrome/fields.tsx`: `NumberField`, which runs those effects, handles keys and scrubbing, and begins and ends the
   gesture a run of steps or a scrub commits in, a `GestureRun` from `canvas/gesture.ts` (`runEnders` says what ends a
   run, and `FieldTarget`, which `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits),
-  `NumberInput`, and `Field`, whose label scrubs a lone field and which shows what its fields say under the row.
-  `NumberValueInput` is a prop's or param's number, which works its edits out from the value as it was before a preview.
+  `NumberInput`, and `Field`, whose label scrubs a lone field and which shows what its fields say under the row, and a
+  field's `flag` with its button (`FieldFlag`). `NumberValueInput` is a prop's or param's number, which works its edits
+  out from the value as it was before a preview.
 - `packages/editor/src/style-editing.ts` (PAR-567): the selected layers' style as rows. `styleSelection` takes the
   design, the selected ids and the state they were picked in, and gives the state and variant edits go to, the style the
   layers share, what differs, what the state changes, and the layout they sit in, read as the board shows it. Each row's
@@ -2305,22 +2317,25 @@ Code:
   keys its edit can write. A row's edit is worked out once from each layer's own style and written to every layer
   (`fieldEdit` is what `Mixed+8` goes through), and the edits that need more than a value are there too: `sidesField`,
   `sizeField` and `sizeEdit`, `layoutTypeEdit`, `placementEdit` and `textSizingEdit`.
-- `chrome/StyleSections.tsx`: each style field's rules, with `LengthInput` and `CompactNumber`, naming the row each
-  field shows. `chrome/style-editor.ts`'s `useStyleEditor` is the one way the inspector's rows are wired: it measures
-  layers, previews a row's edit and makes it or its reset through the store, for `chrome/LayerPanel.tsx`,
-  `chrome/MultiPanel.tsx` and the stories. `chrome/PropsSection.tsx` has the number props, which `chrome/LayerPanel.tsx`
-  previews through `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and taken back to its
-  checkpoint unless it's made. `chrome/MultiPanel.tsx` has the note on what differs.
+- `chrome/StyleSections.tsx`: each style field's rules, with `LengthInput`, which keeps sizes and insets off the scale
+  and flags any length off it, and `CompactNumber`, naming the row each field shows. `chrome/style-editor.ts`'s
+  `useStyleEditor` is the one way the inspector's rows are wired: it measures layers, previews a row's edit and makes it
+  or its reset through the store, for `chrome/LayerPanel.tsx`, `chrome/MultiPanel.tsx` and the stories.
+  `chrome/PropsSection.tsx` has the number props, which `chrome/LayerPanel.tsx` previews through
+  `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and taken back to its checkpoint unless it's
+  made. `chrome/MultiPanel.tsx` has the note on what differs.
 - `canvas/style-preview.ts`: `StylePreview`, which writes previews onto the frames, takes them back, and settles them
   for the change. `chrome/style-editor.ts` wires it into the inspector.
 
 Tests:
 
-- `packages/core/src/fields.test.ts` (44): 320 as pixels, `16px`, `rem` and step names, tokens, maths with units, `%` of
-  the value there, leading operators, a leading minus, Mixed per layer, landing on the scale with its note, limits,
-  another spacing unit, clearing, `50-10` in Opacity, whole percentages in Opacity with their note and stepping from a
-  fraction (PAR-203), counts and numbers, each reason for input it can't read, steps, scrubbing, and notes across
-  layers. The cases the audit found broken fail without the change.
+- `packages/core/src/fields.test.ts` (47): 320 as pixels, `16px`, `rem` and step names, tokens, maths with units, `%` of
+  the value there, leading operators, a leading minus, Mixed per layer, a size or an inset kept off the scale to the
+  hundredth of a pixel, the flag and its nearest step within the limits and with an 8px unit, a tie going to the whole
+  step (PAR-194), landing on the scale with its note, limits, another spacing unit, clearing, `50-10` in Opacity, whole
+  percentages in Opacity with their note and stepping from a fraction (PAR-203), counts and numbers, each reason for
+  input it can't read, steps, scrubbing, and notes across layers. The cases the audit found broken fail without the
+  change.
 - `packages/editor/src/style-editing.test.ts` (20, PAR-567): the variant option an edit lands in; what several layers
   share and what differs, read in the state being edited; `Mixed+8` adding to each layer's own padding; a row marked
   changed by any of its keys on any layer, and its reset taking every key back on every layer, Placement's insets with
@@ -2350,15 +2365,18 @@ Tests:
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
 - `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
   inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
-  whole. Both fail on the layout before PAR-496.
+  whole. Both fail on the layout before PAR-496. OffScaleSize, OffScaleInsets and TypingOffScale (PAR-194): a 281px
+  width flagged, with Use 280px putting it on the scale and the flag gone; insets of 3px and 281px each flagged; and 281
+  typed in Width kept and flagged.
 - `apps/desktop/e2e/fields.e2e.ts` (10), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
-  the real store and frames: 320 typed in Width drawn at each keystroke (4, 32 and 320px) while the design keeps its
-  width, and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 landing
-  on 282px with its note; `abc` kept with its reason, and Escape putting the value back; a value set underneath leaving
-  `12` in the field; Up, Shift+Up and Down, more than a second apart, as one undo step; `50-10` in Opacity; scrubbing
-  the Width label, drawn while dragging and one undo step on release; and `Mixed+8` on Brand mark and Plans, with the
-  note naming it. On App sidebar's Seats bar (PAR-203): 25 typed in its `value` drawn at each keystroke and made as one
-  undo step, and `/20` drawn as 3.5 from 70, then taken back by Escape with nothing to undo.
+  the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
+  width, and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 kept as
+  70.25 steps and flagged, and Use 280px for width putting it at 70 (PAR-194); `abc` kept with its reason, and Escape
+  putting the value back; a value set underneath leaving `12` in the field; Up, Shift+Up and Down, more than a second
+  apart, as one undo step; `50-10` in Opacity; scrubbing the Width label, drawn while dragging and one undo step on
+  release; and `Mixed+8` on Brand mark and Plans, with the note naming it. On App sidebar's Seats bar (PAR-203): 25
+  typed in its `value` drawn at each keystroke and made as one undo step, and `/20` drawn as 3.5 from 70, then taken
+  back by Escape with nothing to undo.
 
 Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
 each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play

@@ -12,7 +12,8 @@ import { SelectionStore } from "../selection.ts"
 import { nudgeSelection } from "./nudge.ts"
 
 // The rules nudging follows, how far each arrow moves what, are `@parity-app/editor`'s, tested in move-resize.test.ts.
-// These are the presses on the real stores: what's selected moving, and each run of presses as one undo step.
+// These are the presses on the real stores: what's selected moving, 1px a press or 10px with Shift, and each run of
+// presses as one undo step.
 
 const text = (id: string, extra: { style?: NodeStyle } = {}): DesignNode => ({ type: "text", id, text: id, ...extra })
 
@@ -56,7 +57,12 @@ function session() {
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }
   )
-  return { store, selection: new SelectionStore() }
+  return { store, selection: new SelectionStore(), unit: 4 }
+}
+
+/** The badge's top, in pixels: 8 to begin with, 2 steps of 4px. */
+function topPixels(store: DesignStore): number {
+  return (findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top as number) * 4
 }
 
 afterEach(() => {
@@ -69,15 +75,15 @@ describe("nudging what's selected", () => {
     const nudging = session()
     const { store, selection } = nudging
     selection.set({ design: "app.par#card", node: "badge" })
-    const top = () => findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top
+    const top = () => topPixels(store)
     for (let press = 0; press < 5; press++) {
       nudgeSelection(nudging, "down", false)
       vi.advanceTimersByTime(press % 2 === 0 ? 30 : 4000)
     }
     nudgeSelection(nudging, "down", true)
-    expect(top()).toBe(17)
+    expect(top()).toBe(23)
     store.undo()
-    expect(top()).toBe(2)
+    expect(top()).toBe(8)
     expect(store.getHistory().canUndo).toBe(false)
   })
 
@@ -85,16 +91,16 @@ describe("nudging what's selected", () => {
     const nudging = session()
     const { store, selection } = nudging
     selection.set({ design: "app.par#card", node: "badge" })
-    const top = () => findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top
+    const top = () => topPixels(store)
     nudgeSelection(nudging, "down", false)
     store.updateContainer("app.par#card", "Rename", (container) => ({ ...container, name: "Profile" }))
     nudgeSelection(nudging, "down", false)
-    expect(top()).toBe(4)
+    expect(top()).toBe(10)
     store.undo()
-    expect(top()).toBe(3)
+    expect(top()).toBe(9)
     nudgeSelection(nudging, "down", true)
     store.undo()
-    expect(top()).toBe(3)
+    expect(top()).toBe(9)
     expect(store.getHistory().undoLabel).toBe("Rename")
   })
 
@@ -120,30 +126,30 @@ describe("nudging what's selected", () => {
     expect(store.getHistory().undoLabel).toBe("Nudge layer")
     store.redo()
 
-    const top = () => findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top
+    const top = () => topPixels(store)
     selection.set({ design: "app.par#card", node: "badge" })
     nudgeSelection(nudging, "down", false)
     // Away and back with no press between: the next press starts a run of its own.
     selection.set({ design: "app.par#card", node: "title" })
     selection.set({ design: "app.par#card", node: "badge" })
     nudgeSelection(nudging, "down", false)
-    expect(top()).toBe(5)
+    expect(top()).toBe(11)
     store.undo()
-    expect(top()).toBe(4)
+    expect(top()).toBe(10)
   })
 
   it("keeps a run going when the same layers are selected again, picked in another order", () => {
     const nudging = session()
     const { store, selection } = nudging
-    const top = () => findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top
+    const top = () => topPixels(store)
     selection.set({ design: "app.par#card", node: "badge", nodes: ["title", "badge"] })
     nudgeSelection(nudging, "down", false)
     // As syncing the canvas's selection can set it: the same layers, so the same run.
     selection.set({ design: "app.par#card", node: "title", nodes: ["badge", "title"] })
     nudgeSelection(nudging, "down", false)
-    expect(top()).toBe(4)
+    expect(top()).toBe(10)
     store.undo()
-    expect(top()).toBe(2)
+    expect(top()).toBe(8)
     expect(store.getHistory().canUndo).toBe(false)
   })
 

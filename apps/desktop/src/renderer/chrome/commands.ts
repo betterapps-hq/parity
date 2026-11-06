@@ -353,6 +353,7 @@ export function nudge(event: KeyboardEvent | undefined, session = activeSession(
     {
       store: session.store,
       selection: session.selection,
+      unit,
       drawn: area ? (design) => frameDrawn(area, design, session.selection.get(), unit) : undefined
     },
     arrow,

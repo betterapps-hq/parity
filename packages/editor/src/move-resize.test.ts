@@ -663,11 +663,11 @@ describe("nudging a design's layers", () => {
   const base = card().states[0]!
 
   it("reorders a layer along its layout, and leaves it across", () => {
-    const right = nudgeLayers(card(), ["save"], base, "right", false, nothingDrawn).container
+    const right = nudgeLayers(card(), ["save"], base, "right", false, 4, nothingDrawn).container
     expect(order(right, "actions")).toEqual(["cancel", "save"])
-    const down = nudgeLayers(card(), ["save"], base, "down", false, nothingDrawn).container
+    const down = nudgeLayers(card(), ["save"], base, "down", false, 4, nothingDrawn).container
     expect(order(down, "actions")).toEqual(["save", "cancel"])
-    expect(order(nudgeLayers(card(), ["title"], base, "up", false, nothingDrawn).container)).toEqual([
+    expect(order(nudgeLayers(card(), ["title"], base, "up", false, 4, nothingDrawn).container)).toEqual([
       "title",
       "actions",
       "badge",
@@ -678,41 +678,53 @@ describe("nudging a design's layers", () => {
 
   it("moves one place with Shift too, and steps over absolutely placed layers", () => {
     // The badge is placed absolutely, so it keeps its place in the list while the title passes the body.
-    const moved = nudgeLayers(card(), ["title"], base, "down", true, nothingDrawn).container
+    const moved = nudgeLayers(card(), ["title"], base, "down", true, 4, nothingDrawn).container
     expect(order(moved)).toEqual(["actions", "body", "badge", "title", "stat"])
   })
 
   it("steps over a layer the state hides", () => {
     const loading = card().states[1]!
-    const moved = nudgeLayers(card(), ["title"], loading, "down", false, nothingDrawn).container
+    const moved = nudgeLayers(card(), ["title"], loading, "down", false, 4, nothingDrawn).container
     expect(order(moved)).toEqual(["actions", "stat", "badge", "body", "title"])
   })
 
   it("follows the layout as the frame draws it, as a viewport can turn a row into a column", () => {
     const drawn: Drawn = { flow: (layer) => (layer === "save" ? column : undefined), insets: () => undefined }
-    const moved = nudgeLayers(card(), ["save"], base, "down", false, drawn).container
+    const moved = nudgeLayers(card(), ["save"], base, "down", false, 4, drawn).container
     expect(order(moved, "actions")).toEqual(["cancel", "save"])
   })
 
-  it("moves an absolutely placed layer a step, or ten with Shift", () => {
-    const step = nudgeLayers(card(), ["badge"], base, "right", false, nothingDrawn).container
-    expect(findNode(step.root, "badge")?.style).toEqual({ position: "absolute", top: 2, left: 3 })
-    const ten = nudgeLayers(card(), ["badge"], base, "up", true, nothingDrawn).container
-    expect(findNode(ten.root, "badge")?.style).toEqual({ position: "absolute", top: -8, left: 2 })
+  it("moves an absolutely placed layer 1px, or 10px with Shift, off the spacing scale", () => {
+    const pixel = nudgeLayers(card(), ["badge"], base, "right", false, 4, nothingDrawn).container
+    expect(findNode(pixel.root, "badge")?.style).toEqual({ position: "absolute", top: 2, left: 2.25 })
+    const ten = nudgeLayers(card(), ["badge"], base, "up", true, 4, nothingDrawn).container
+    expect(findNode(ten.root, "badge")?.style).toEqual({ position: "absolute", top: -0.5, left: 2 })
+    // With MUI's 8px unit, 1px is an eighth of a step.
+    const mui = nudgeLayers(card(), ["badge"], base, "down", false, 8, nothingDrawn).container
+    expect(findNode(mui.root, "badge")?.style?.top).toBe(2.125)
+  })
+
+  it("lands on whole pixels after many presses with a unit that doesn't divide evenly", () => {
+    let container = card()
+    for (let press = 0; press < 6; press++) {
+      container = nudgeLayers(container, ["badge"], base, "right", false, 6, nothingDrawn).container
+    }
+    // 2 steps of 6px is 12px; six presses make it 18px, 3 steps exactly.
+    expect(findNode(container.root, "badge")?.style?.left).toBe(3)
   })
 
   it("moves an absolutely placed layer in the state being edited only", () => {
     const loading = card().states[1]!
-    const moved = nudgeLayers(card(), ["badge"], loading, "down", false, nothingDrawn).container
+    const moved = nudgeLayers(card(), ["badge"], loading, "down", false, 4, nothingDrawn).container
     expect(findNode(moved.root, "badge")?.style?.top).toBe(2)
-    expect(moved.states[1]?.overrides?.badge).toEqual({ style: { top: 3 } })
+    expect(moved.states[1]?.overrides?.badge).toEqual({ style: { top: 2.25 } })
   })
 
   it("names a token it couldn't move by", () => {
     const container = card()
     const badge = findNode(container.root, "badge")!
     badge.style = { position: "absolute", top: "header", left: 2 }
-    expect(nudgeLayers(container, ["badge"], base, "down", false, nothingDrawn).blocked).toEqual({
+    expect(nudgeLayers(container, ["badge"], base, "down", false, 4, nothingDrawn).blocked).toEqual({
       layer: "badge",
       side: "top",
       token: "header"
@@ -721,7 +733,7 @@ describe("nudging a design's layers", () => {
 
   it("leaves layers inside instances where they are", () => {
     const container = card()
-    expect(nudgeLayers(container, ["stat/value"], base, "up", false, nothingDrawn).container).toBe(container)
+    expect(nudgeLayers(container, ["stat/value"], base, "up", false, 4, nothingDrawn).container).toBe(container)
   })
 })
 
