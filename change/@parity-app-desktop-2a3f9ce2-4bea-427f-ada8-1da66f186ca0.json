@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The window answers the project service's agent.supports requests again",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
