@@ -4922,6 +4922,32 @@ My calls:
 - **Signing in is checked in an installed build later.** The scheme and passing links between copies only work in an
   installed app, which wasn't tried here.
 
+## Telemetry's event model is data in and data out in `@parity-app/telemetry` (PAR-618)
+
+The package holds the envelope, the event registry, spans, sinks and the ring buffer, as
+[proposals/product-telemetry.md](proposals/product-telemetry.md) sets out, with no Electron, React, Node-only APIs or
+Sentry. Nothing records an event yet: Sentry's sink is PAR-627. My calls:
+
+- **Each process makes one telemetry from the events it may record,**
+  `createTelemetry({ events, context, sinks, check })`, rather than a registry every module adds to as it loads.
+  `track()` and `startSpan()` then type-check only those names, with each event's attributes typed from its zod schema,
+  and a name registered twice throws.
+- **Checking is a switch the app sets,** on in development and tests, where a mismatch or an unknown name throws a
+  `TelemetryError`. Off in installed builds, events go as given and an unknown name is dropped, so recording costs no
+  parse.
+- **A span's event carries its outcome and parent in the envelope,** as `outcome` (`ok`, `error` or `cancelled`) and
+  `parentSpanId`, beside its `durationMs`, so its schema describes only its own attributes. Its `time` is when it
+  started, and it keeps the window and project it started in.
+- **A span sampled out still has IDs,** so spans under it keep their trace. Sampling is decided when an event is tracked
+  or a span starts.
+- **Trace and span IDs are W3C Trace Context's,** 16 and 8 random bytes from Web Crypto, never all zeros.
+  `formatTraceparent` and `parseTraceparent` write and read the header for PAR-629; a header the standard holds invalid
+  reads as none.
+- **A sink's failure never reaches the code that recorded the event.** It goes to `onSinkError` when given, and the
+  other sinks still get the event.
+- **The ring buffer keeps events and ended spans together,** the last 500, oldest first, for breadcrumbs and Report a
+  problem.
+
 ## Each element's source line, in a Code tab and for agents (PAR-167)
 
 Called on 2026-11-05, with your approval in Storybook. PAR-167 asked for a development-only transform that tags each JSX
