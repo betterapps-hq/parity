@@ -5,7 +5,7 @@ token picker and lists set in [design-options-fields.md](design-options-fields.m
 what differs. Which tokens a field offers is in [design-options-tokens.md](design-options-tokens.md), and how classes
 are put together in [design-options-code.md](design-options-code.md).
 
-Each type gives At rest, Forms, Editing, Tokens, Writes and Compared, and States only where they differ from
+Each type gives At rest, Forms, Editing, Tokens, Writes and Compared, and Typing and States only where they differ from
 [design-options-fields.md](design-options-fields.md), States. A missing heading means the type does what that page says:
 with no Editing, the type has only typing, keys and the token button; with no Tokens, it has no token button.
 
@@ -240,8 +240,11 @@ Fill's list of solids, gradients and images.
 
 - **At rest:** ms with its unit. A typed `0.2s` becomes 200ms; one read from code keeps `s` (Typing, in
   [design-options-fields.md](design-options-fields.md)).
-- **Forms:** any whole ms is a step in Tailwind v4 (`duration-200`, `duration-1200`, `delay-75`), so it never needs
-  brackets, and it's unmarked while the project has no duration tokens (`--transition-duration-*`).
+- **Forms:** any whole ms of a transition's duration or delay is a step in Tailwind v4 (`duration-200`, `duration-1200`,
+  `delay-75`), so it never needs brackets, and it's unmarked while the project has no duration tokens
+  ([design-options-tokens.md](design-options-tokens.md), Framework steps). An animation's duration and delay have no
+  Tailwind utility, so they're written in the animation's own value or as an arbitrary property
+  (`[animation-duration:200ms]`), as Iterations is.
 - **Tokens:** duration, as a track against half a second.
 - **Writes:** `duration-200`, `delay-75`, or `duration-[0.2s]` as read from code.
 - **Compared:** Figma's Motion has timing variables.
@@ -255,8 +258,8 @@ Fill's list of solids, gradients and images.
 - **States:** a spring decides how long the motion takes, so with a spring the Duration field shows its settle time, set
   by Easing.
 - **Tokens:** easing, as a curve.
-- **Writes:** `ease-out`, `ease-(--ease-snappy)`, `ease-[cubic-bezier(0.2,0.8,0.2,1)]`; a spring as `ease-[linear(…)]`,
-  which offers Save as token first, since its class runs to hundreds of characters.
+- **Writes:** `ease-out`, `ease-snappy` (a project token, `--ease-snappy`), `ease-[cubic-bezier(0.2,0.8,0.2,1)]`; a
+  spring as `ease-[linear(…)]`, which offers Save as token first, since its class runs to hundreds of characters.
 - **Compared:** Figma's prototype transitions have a custom bezier editor and springs set by stiffness, damping and
   mass, dragged on a graph; Framer's springs are set by time and bounce or by physics; DevTools has the curve but no
   spring. Only Parity writes a spring as CSS (`linear()`).
@@ -305,10 +308,11 @@ Motion's Transitions.
 
 ## Line height and letter spacing
 
-- **At rest:** line height as Auto for `normal`, a multiple with × (1.5×), px for a step or a px value, or % when typed
-  as % (150%). Unset beside a size token, the size's paired value shows faint, labeled From size. Letter spacing shows
-  as a percentage of the font size, as Figma's does (`tracking-tight` shows `tight · −2.5%`), or in px when typed in px;
-  a % is written as em (`tracking-[0.05em]`) and a px value as px (`tracking-[-0.5px]`).
+- **At rest:** line height as Auto for `normal`, a multiple with × (1.5×), or px for a step or a px value; a typed %
+  becomes its multiple (150% → 1.5×), as it's written ([design-options-code.md](design-options-code.md), Line height
+  beside a size). Unset beside a size token, the size's paired value shows faint, labeled From size. Letter spacing
+  shows as a percentage of the font size, as Figma's does (`tracking-tight` shows `tight · −2.5%`), or in px when typed
+  in px; a % is written as em (`tracking-[0.05em]`) and a px value as px (`tracking-[-0.5px]`).
 - **Forms:** leading tokens; a spacing token or step for a line height in px (`leading-6` is 24px); a multiple or em as
   a value; `normal`; tracking tokens. A size's pairs (`--text-sm--line-height`) aren't offered as tokens.
 - **Typing:** a bare number keeps the unit shown. A multiple above 4 asks "Did you mean 24px?", and a px value below 4
@@ -338,12 +342,12 @@ A text style, border, shadow, transition or animation token.
 
 ## Keyword sets
 
-Icon toggles for up to five options, a menu for more, each option previewed on hover where it shows (blend modes,
-cursors) and its hover naming the CSS keyword it writes (principle 1).
+Icon toggles or a menu, as each row in [design-options-panel.md](design-options-panel.md) says, each option previewed on
+hover where it shows (blend modes, cursors) and its hover naming the CSS keyword it writes (principle 1).
 
 - **States:** unset, the option the layer inherits or starts with shows faintly (unset text Align shows Left faintly);
   setting it presses it fully and colors the label. Mixed presses none, with Mixed after the label. A menu shows the
-  inherited option as its placeholder ("Inherit: Left"). A keyword outside the set, read from code
+  inherited option as its muted placeholder (Left), as an unset field does. A keyword outside the set, read from code
   (`justify-content: safe center`), shows as a text chip with Custom, edited as text, never dropped or snapped.
 - **Forms:** `inherit`, `initial`, `unset` and `revert` are keywords every field takes, shown in words. Inherit is in
   the menu wherever the property inherits or Tailwind has an `-inherit` utility (`text-inherit`); the others are typed.
@@ -420,4 +424,4 @@ The CSS row, and More rows with no control.
   inline previews in the value (a swatch, a curve, a shadow card), as DevTools' Styles pane has them; clicking one opens
   that type's editor.
 - **Editing:** completion, and the invalid state every field has.
-- **Writes:** an arbitrary property (`[mask-type:luminance]`).
+- **Writes:** an arbitrary property (`[interpolate-size:allow-keywords]`).

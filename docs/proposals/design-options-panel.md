@@ -192,9 +192,10 @@ needed.
 **More:** Block, shown as a fourth Type toggle once set, Reverse direction (`flex-direction: *-reverse`), shown as a
 toggle beside Wrap once set, Freeform (below), Areas (named and painted over the grid on the canvas), Flow (rows or
 columns, and Dense), the size of tracks made by overflow (`grid-auto-rows`, `grid-auto-columns`), Dividers between
-items, Text columns (count, width, the rule between them), Stacking (Last on top, as CSS paints; First on top, Figma's
-canvas stacking, writes descending `z-index` on the children) and Size container (lets modes ask this layer's width
-rather than the screen's; its breakpoints are the container tokens, as Tailwind v4's `@md:` reads `--container-md`).
+items, Text columns (count and width; the rule between them is Dividers' In the gap, `column-rule`), Stacking (Last on
+top, as CSS paints; First on top, Figma's canvas stacking, writes descending `z-index` on the children) and Size
+container (lets modes ask this layer's width rather than the screen's; its breakpoints are the container tokens, as
+Tailwind v4's `@md:` reads `--container-md`).
 
 Freeform is Figma's frame without auto layout: every child is Absolute, placed where it's dropped (`relative` on the
 layout, insets on each child). Its width and height are Fixed or Fill, never Hug, since absolute children don't size
@@ -214,10 +215,10 @@ Shows for every layer. It follows Layout, so padding sits next to gap. On layout
 image and icon layers, Spacing starts as a title with + until a padding or margin is set, since padding on these is rare
 (a badge is usually a layout with text in it).
 
-| Row     | Control                                                                                                 | Writes                  | Figma                 |
-| ------- | ------------------------------------------------------------------------------------------------------- | ----------------------- | --------------------- |
-| Padding | The four-sides field, two fields on a layout (today: two, with a per-side toggle); the box-model widget | `padding` and its sides | Auto layout's padding |
-| Margin  | The box-model widget's outer ring, shown once set or added from More; takes `auto` and negatives        | `margin` and its sides  | None                  |
+| Row     | Control                                                                                                                                                         | Writes                  | Figma                 |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | --------------------- |
+| Padding | The four-sides field, two fields on a layout (today: two, with a per-side toggle); the box-model widget                                                         | `padding` and its sides | Auto layout's padding |
+| Margin  | The four-sides field, shown once set or added from More, and the box-model widget's outer ring; takes `auto` and negatives (today: a sides field, as Padding's) | `margin` and its sides  | None                  |
 
 The box-model widget opens from Custom in the per-side button's menu and shows margin's ring once a margin is set.
 Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and hovering a side highlights it.
@@ -273,9 +274,9 @@ has no Mixed state for part of a text.
 
 Text style, the section's first row, shows when the project has one
 ([design-options-tokens.md](design-options-tokens.md), What a text style is); in a stock Tailwind project, whose sizes
-pair only a line height, Size leads with its line height as From size. With a style applied, the rows it sets fold into
-its row as a summary ("Inter 20/28 Semibold"), as Figma's Typography does, with a disclosure to show them. An overridden
-row stays shown, marked, with its reset arrow. Detach is in the style row's menu.
+pair only a line height, Size's token shows its line height as From size. With a style applied, the rows it sets fold
+into its row as a summary ("Inter 20/28 Semibold"), as Figma's Typography does, with a disclosure to show them. An
+overridden row stays shown, marked, with its reset arrow. Detach is in the style row's menu.
 
 | Row                 | Control                                                                                                                 | Writes                                                                              | Figma                                                      |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -345,9 +346,9 @@ Shows for icons and other SVGs placed as layers, right after Appearance.
 | Color        | Color popover; follows the text color by default | `color`, which `currentColor` icons draw in                                                  |
 | Stroke width | Number field, with border width tokens           | The icon's `strokeWidth` prop where the component takes one (Lucide); a token as CSS (below) |
 
-A border width token goes in CSS (`[stroke-width:var(--…)]`), since an SVG presentation attribute can't hold `var()`.
-Icon's Color is Text's Color for an icon component (one owner, `color`), so Text doesn't show for icons. **More:** a
-fill and stroke of its own, for an SVG that doesn't draw in `currentColor`.
+A border width token goes in CSS (`stroke-(length:--…)`), since an SVG presentation attribute can't hold `var()`. Icon's
+Color is Text's Color for an icon component (one owner, `color`), so Text doesn't show for icons. **More:** a fill and
+stroke of its own, for an SVG that doesn't draw in `currentColor`.
 
 ## Fill
 
@@ -423,7 +424,7 @@ A gradient stroke keeps the radius by writing the fills as `padding-box` layers 
 becomes a layer. It needs a solid border style and an opaque bottom fill, or the gradient shows through, and the row
 says so. These layers are set by another control ([design-options-css.md](design-options-css.md)) and shown in Fill as
 set by Stroke. `border-image` ignores radius, so it stays in the CSS row. Figma's dash lengths, caps and joins have no
-CSS for a box's border; an SVG's own strokes have them, in its file (Left out in
+CSS for a box's border; an SVG's own strokes have them, in its file (Icon's SVG strokes and geometry, Left out, in
 [design-options-css.md](design-options-css.md)).
 
 ## Effects
@@ -551,8 +552,9 @@ Always the last section. A list of declarations, one a row, `property: value` (R
 - **Off without deleting:** a checkbox on each row ([design-options-fields.md](design-options-fields.md), Lists and
   States).
 - **Tokens set here:** a token given its own value for this layer and everything inside it, edited with the token's own
-  editor, listed by name and marked as an override of the system. Under Tokens only, its value must be another token
-  (`--primary: var(--brand-600)`, Chakra's `colorPalette`, a shadcn theme scoped to one card).
+  editor, listed by name and marked as an override of the system. Under Tokens only, its value must be on the system:
+  another token (`--primary: var(--brand-600)`, Chakra's `colorPalette`, a shadcn theme scoped to one card), or a value
+  Levels always allows ([design-options-tokens.md](design-options-tokens.md), Levels).
 - **From the component's code,** read-only: what a component's own classes set on its root, so a designer can see why it
   looks as it does without opening the file. Where a code component's own class sets a property this layer also sets,
   whichever value loses shows struck through under the row (the component's when the layer's wins, as DevTools shows an

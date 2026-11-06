@@ -18,8 +18,8 @@ used as soon as it's in the stylesheet.
 | Fill color, text color, border, outline and decoration color, shadow color, accent, caret and scrollbar color                                                                                | color                                                                                                                                                                                                |
 | A fill                                                                                                                                                                                       | color, gradient                                                                                                                                                                                      |
 | A mask                                                                                                                                                                                       | gradient                                                                                                                                                                                             |
-| Padding, margin, gap, insets, translate, scroll padding and margin                                                                                                                           | spacing                                                                                                                                                                                              |
-| Width, height, min and max, grid tracks, column width                                                                                                                                        | spacing, container                                                                                                                                                                                   |
+| Padding, margin, gap, insets, translate, text indent, scroll padding and margin                                                                                                              | spacing                                                                                                                                                                                              |
+| Width, height, min and max, flex basis, grid tracks, column width                                                                                                                            | spacing, container                                                                                                                                                                                   |
 | Radius (one or each corner)                                                                                                                                                                  | radius, and Full                                                                                                                                                                                     |
 | Border width, outline width, decoration thickness, divider width, icon stroke width, outline offset and underline offset (px, as Tailwind's `outline-offset-2` and `underline-offset-4` are) | border-width                                                                                                                                                                                         |
 | A whole border (width, style and color)                                                                                                                                                      | border                                                                                                                                                                                               |
@@ -49,7 +49,7 @@ used as soon as it's in the stylesheet.
 
 A token is offered in Text style or in Size, never both, so a class reads back into one key. A size token whose only
 pair is its line height is a size. It's chosen in Size, and its line height shows as From size. In a project with no
-text styles, the Text style row is hidden and Size leads the section.
+text styles, the Text style row is hidden, and Font is the section's first row.
 
 One kind doesn't exist yet: angles, for a gradient's angle, a rotation and a hue rotation. It's worth adding once a
 project has angle tokens; until then those fields take values, and steps where Framework steps lists them, with no token
@@ -103,18 +103,18 @@ below).
 Tailwind v4 takes bare numbers for many utilities whose theme has no tokens by default. A value such a utility takes is
 a Step, written without brackets. Each field's steps, checked against Tailwind 4.3.3:
 
-| Fields                                                                                                                                | Steps                                       | Example                                   | Not a step                     |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------- | ------------------------------ |
-| Spacing fields: padding, margin, gap, sizes and their limits, insets, translate, indent, scroll padding and margin, line height in px | Multiples of 0.25 of `--spacing`; fractions | `p-3.25`, `w-1/2`, `leading-6`            | `p-[13.3px]`                   |
-| Border and outline width, outline offset, underline offset, decoration thickness                                                      | Whole px                                    | `border-3`, `outline-offset-2`            | `border-[1.5px]`               |
-| Opacity, a color's alpha                                                                                                              | Multiples of 0.25%                          | `opacity-47.5`, `bg-black/20`             | `opacity-[.473]`               |
-| Scale, filter amounts                                                                                                                 | Whole %                                     | `scale-105`, `brightness-110`             | `scale-[1.025]`                |
-| Rotation, hue rotation                                                                                                                | Whole degrees                               | `rotate-45`, `rotate-22`, `hue-rotate-15` | `rotate-[22.5deg]`             |
-| Duration, delay                                                                                                                       | Whole ms                                    | `duration-150`, `duration-1234`           | `duration-[0.2s]`              |
-| Z-index, order, grow and shrink, Max lines, grid counts and spans                                                                     | Whole numbers                               | `z-37`, `order-7`, `line-clamp-3`         | None                           |
-| Gradient stop positions                                                                                                               | Whole %                                     | `from-10%`                                | `from-[12.5%]`                 |
-| Aspect ratio                                                                                                                          | A ratio of whole numbers                    | `aspect-16/9`                             | `aspect-[1.618]`               |
-| Radius, blur, font size, letter spacing, a shadow's numbers, grid tracks                                                              | None                                        | None                                      | `rounded-[6px]`, `text-[13px]` |
+| Fields                                                                                                                                | Steps                                       | Example                                                   | Not a step                     |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------- | ------------------------------ |
+| Spacing fields: padding, margin, gap, sizes and their limits, insets, translate, indent, scroll padding and margin, line height in px | Multiples of 0.25 of `--spacing`; fractions | `p-3.25`, `w-1/2`, `leading-6`                            | `p-[13.3px]`                   |
+| Border, outline, ring and divider width, outline offset, underline offset, decoration thickness                                       | Whole px                                    | `border-3`, `ring-3`, `outline-offset-2`                  | `border-[1.5px]`               |
+| Opacity, a color's alpha                                                                                                              | Multiples of 0.25%                          | `opacity-47.5`, `bg-black/20`                             | `opacity-[.473]`               |
+| Scale, filter amounts                                                                                                                 | Whole %                                     | `scale-105`, `brightness-110`                             | `scale-[1.025]`                |
+| Rotation, hue rotation, a gradient's angle                                                                                            | Whole degrees                               | `rotate-45`, `rotate-22`, `hue-rotate-15`, `bg-linear-45` | `rotate-[22.5deg]`             |
+| Transition duration and delay                                                                                                         | Whole ms                                    | `duration-150`, `duration-1234`                           | `duration-[0.2s]`              |
+| Z-index, order, grow and shrink, Max lines, grid counts and spans                                                                     | Whole numbers                               | `z-37`, `order-7`, `line-clamp-3`                         | None                           |
+| Gradient stop positions                                                                                                               | Whole %                                     | `from-10%`                                                | `from-[12.5%]`                 |
+| Aspect ratio                                                                                                                          | A ratio of multiples of 0.25                | `aspect-16/9`, `aspect-1.5/1`                             | `aspect-[1.618]`               |
+| Radius, blur, font size, letter spacing, a shadow's offsets, blur and spread, grid tracks                                             | None                                        | None                                                      | `rounded-[6px]`, `text-[13px]` |
 
 A fraction is any ratio of whole numbers, which Tailwind takes bare (`w-1/2`, `w-5/13`, `basis-1/3`, `top-1/2`,
 `-translate-x-1/2`); a typed percentage is written as one when its denominator is 12 or less (50% → `w-1/2`). 100% is
@@ -131,12 +131,12 @@ step 4. A spacing token the project names itself (`--spacing-card`) stays a toke
 
 At Tokens only, a step is allowed where it would be unmarked under Marked, as below; another multiple (`p-3.25`) is
 refused, as a marked value is. Under Marked, a kind's steps stay unmarked only while the project defines no tokens of
-that kind (`--opacity-*`, `--z-index-*`, `--border-width-*`, `--transition-duration-*`); once it does, steps of that
-kind are marked as values are, and a project can turn this off per kind. Spacing steps unmarked by default are
-Tailwind's documented scale (`spacingScale` in `@parity-app/tokens`) and the fractions. Another multiple (`p-3.25`) is
-written bare but marked. A project can widen or narrow that list. A value that needs brackets (`border-[1.5px]`,
-`bg-[#2563eb]`, `rounded-[6px]`, `rotate-[22.5deg]`, `opacity-[.473]`) is always off the system; a bare step is off it
-only as this paragraph says.
+that kind (any token `previewKind` reads as opacity, z-index, border width or duration, inside the theme's namespace,
+such as `--opacity-*`, or outside it, such as `--brand-alpha`); once it does, steps of that kind are marked as values
+are, and a project can turn this off per kind. Spacing steps unmarked by default are Tailwind's documented scale
+(`spacingScale` in `@parity-app/tokens`) and the fractions. Another multiple (`p-3.25`) is written bare but marked. A
+project can widen or narrow that list. A value that needs brackets (`border-[1.5px]`, `bg-[#2563eb]`, `rounded-[6px]`,
+`rotate-[22.5deg]`, `opacity-[.473]`) is always off the system; a bare step is off it only as this paragraph says.
 
 ## Levels
 

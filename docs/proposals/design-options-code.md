@@ -10,10 +10,12 @@ Values in classes, below.
 `NodeStyle` was built for a token-locked subset. For the rest:
 
 - **Values in five forms.** PAR-194 decides how a length that isn't a step or a token is stored. Every other value type
-  takes the same forms, so a color, a radius or a shadow's blur can be a token, a value, a keyword or an expression, and
-  a value is a step where its utility takes a bare number. Each value is stored with its form:
-  `{ token: "primary", alpha?: { step: 50 } | { value: 0.473 } | { token: "opacity-muted" } }`, `{ value: "#2563eb" }`,
-  `{ step: 2 }`, `{ keyword: "auto" }` or `{ expr: "clamp(…)" }`, width and height also take `{ size: "hug" }` or
+  takes the same forms, so a color, a radius or a layer blur can be a token, a value, a keyword or an expression, and a
+  value is a step where its utility takes a bare number. Each value is stored with its form:
+  `{ token: "primary", alpha?: { step: 50 } | { value: 0.473 } | { token: "opacity-muted" } }`,
+  `{ value: "#2563eb", alpha?: … }` (a color value keeps its alpha apart, in the same forms as a token's, only when code
+  wrote it as a modifier, `bg-[#2563eb]/50`; otherwise the alpha is in the value, `#2563eb80`), `{ step: 2 }`,
+  `{ keyword: "auto" }` or `{ expr: "clamp(…)" }`, width and height also take `{ size: "hug" }` or
   `{ size: "fill", share?: 2 }`, and a grid track `{ fr: 1 }`, so whether a value is a token is never guessed from its
   text. Today Hug and Fill are strings among `Length` (`document.ts`), where a token named `fill` would be read as Fill.
   An exception keeps its reason on the value (`{ value: "#18181b", allow: "Photo backdrop" }`), and a preset its
@@ -25,9 +27,10 @@ Values in classes, below.
   others, spacing steps for padding, margin, gap, width and height with their limits, insets, translate, text indent,
   scroll padding and margin, and a line height in px (`leading-6`); whole px for border and outline width, outline
   offset and underline offset (`border-3`); and the steps of opacity, z-index, order, scale, rotation, duration and
-  delay. Radius, blur, font size, letter spacing, a shadow's numbers and a grid's fixed tracks have no bare-number
-  utility (`rounded-3`, `blur-3` and `text-13` compile to nothing), so they're kept as a token's name, or as a value
-  (`rounded-[6px]`), never as steps. px and rem stay ways of typing and showing a value, as `FieldUnit` has them today.
+  delay. Radius, blur, font size, letter spacing, a shadow's offsets, blur and spread and a grid's fixed tracks have no
+  bare-number utility (`rounded-3`, `blur-3` and `text-13` compile to nothing), so they're kept as a token's name, or as
+  a value (`rounded-[6px]`), never as steps. px and rem stay ways of typing and showing a value, as `FieldUnit` has them
+  today.
 - **Units that can't become pixels are kept as written.** A percentage, em, ch, vw, vh, dvh or container unit comes to a
   size that depends on the parent, the font or the screen, so it's stored with its unit rather than worked out when it's
   typed. Frames already turn vw and vh into the mode's screen. `fr` belongs to grid tracks (`{ fr: 1 }`, beside a
@@ -86,12 +89,12 @@ the variable as a color: `text-(length:--font-size-body)`, `font-(family-name:--
 choose the key.
 
 A value becomes an arbitrary value (`rounded-[6px]`, `bg-[#2563eb]`), and a property Tailwind has no utility for an
-arbitrary property (`[mask-type:luminance]`), so every declaration has a class. Arbitrary values write spaces as
-underscores (`w-[calc(100%-2rem)]`, `grid-cols-[200px_minmax(0,1fr)]`), relying on Tailwind to put back the spaces
-around `-` and `+` in `calc()`. A value that isn't a token and would make a long arbitrary class, such as a gradient, a
-shadow of more than one layer, a spring or a `clamp()`, offers Save as token first. The new token's utility replaces the
-arbitrary class, and Copy as Tailwind shows the class that will be written, so a designer sees an unreadable class
-before it's written. Classes are written in the order prettier-plugin-tailwindcss produces.
+arbitrary property (`[interpolate-size:allow-keywords]`), so every declaration has a class. Arbitrary values write
+spaces as underscores (`w-[calc(100%-2rem)]`, `grid-cols-[200px_minmax(0,1fr)]`), relying on Tailwind to put back the
+spaces around `-` and `+` in `calc()`. A value that isn't a token and would make a long arbitrary class, such as a
+gradient, a shadow of more than one layer, a spring or a `clamp()`, offers Save as token first. The new token's utility
+replaces the arbitrary class, and Copy as Tailwind shows the class that will be written, so a designer sees an
+unreadable class before it's written. Classes are written in the order prettier-plugin-tailwindcss produces.
 
 **The hover shows the code.** Hovering a row's label shows the declarations it writes
 (`border-radius: var(--radius-lg)`), including what frames add for every layer of its type (`margin: 0` on text, which

@@ -57,20 +57,20 @@ marked † by principle 7.
 
 ### Size
 
-| Concept                                                                       | Properties                                                                                                                                       | Where   | Tokens             |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------------------ |
-| Width and height                                                              | `width`, `height`, `inline-size`, `block-size`                                                                                                   | Control | spacing, container |
-| Grow and shrink (Fill, Hug and Fixed write these; the numbers are under More) | `flex`, `flex-grow`, `flex-shrink`, `flex-basis`                                                                                                 | Control | number             |
-| Min and max                                                                   | `min-width`, `max-width`, `min-height`, `max-height`, `min-inline-size`, `max-inline-size`, `min-block-size`, `max-block-size`                   | Control | spacing, container |
-| Aspect ratio                                                                  | `aspect-ratio`                                                                                                                                   | Control | aspect             |
-| Align self                                                                    | `align-self`, `justify-self`, `place-self`                                                                                                       | Control |                    |
-| Grid placement (end lines and the area are under Size's More)                 | `grid-area`, `grid-column`, `grid-row`, `grid-column-start`, `grid-column-end`, `grid-row-start`, `grid-row-end`                                 | Control |                    |
-| Order                                                                         | `order`                                                                                                                                          | More    | number             |
-| Box sizing                                                                    | `box-sizing`                                                                                                                                     | More    |                    |
-| Fields grow with their text                                                   | `field-sizing‡`                                                                                                                                  | More    |                    |
-| Intrinsic size placeholders                                                   | `contain-intrinsic-size`, `contain-intrinsic-width`, `contain-intrinsic-height`, `contain-intrinsic-inline-size`, `contain-intrinsic-block-size` | CSS row |                    |
-| Zoom                                                                          | `zoom‡`                                                                                                                                          | CSS row |                    |
-| Frame sizing                                                                  | `frame-sizing†`                                                                                                                                  | CSS row |                    |
+| Concept                                                                       | Properties                                                                                                                                       | Where   | Tokens                               |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------------------------------------ |
+| Width and height                                                              | `width`, `height`, `inline-size`, `block-size`                                                                                                   | Control | spacing, container                   |
+| Grow and shrink (Fill, Hug and Fixed write these; the numbers are under More) | `flex`, `flex-grow`, `flex-shrink`, `flex-basis`                                                                                                 | Control | number; spacing, container for basis |
+| Min and max                                                                   | `min-width`, `max-width`, `min-height`, `max-height`, `min-inline-size`, `max-inline-size`, `min-block-size`, `max-block-size`                   | Control | spacing, container                   |
+| Aspect ratio                                                                  | `aspect-ratio`                                                                                                                                   | Control | aspect                               |
+| Align self                                                                    | `align-self`, `justify-self`, `place-self`                                                                                                       | Control |                                      |
+| Grid placement (end lines and the area are under Size's More)                 | `grid-area`, `grid-column`, `grid-row`, `grid-column-start`, `grid-column-end`, `grid-row-start`, `grid-row-end`                                 | Control |                                      |
+| Order                                                                         | `order`                                                                                                                                          | More    | number                               |
+| Box sizing                                                                    | `box-sizing`                                                                                                                                     | More    |                                      |
+| Fields grow with their text                                                   | `field-sizing‡`                                                                                                                                  | More    |                                      |
+| Intrinsic size placeholders                                                   | `contain-intrinsic-size`, `contain-intrinsic-width`, `contain-intrinsic-height`, `contain-intrinsic-inline-size`, `contain-intrinsic-block-size` | CSS row |                                      |
+| Zoom                                                                          | `zoom‡`                                                                                                                                          | CSS row |                                      |
+| Frame sizing                                                                  | `frame-sizing†`                                                                                                                                  | CSS row |                                      |
 
 ### Layout
 
@@ -185,12 +185,12 @@ marked † by principle 7.
 
 ### Effects
 
-| Concept                                    | Properties         | Where   | Tokens               |
-| ------------------------------------------ | ------------------ | ------- | -------------------- |
-| Shadows (Stroke never writes `box-shadow`) | `box-shadow`       | Control | shadow, inset-shadow |
-| Text shadow (Drop shadow on a text layer)  | `text-shadow`      | Control | text-shadow          |
-| Layer blur and adjustments                 | `filter`           | Control | blur, drop-shadow    |
-| Background blur and adjustments            | `backdrop-filter‡` | Control | backdrop-blur, blur  |
+| Concept                                    | Properties         | Where   | Tokens                      |
+| ------------------------------------------ | ------------------ | ------- | --------------------------- |
+| Shadows (Stroke never writes `box-shadow`) | `box-shadow`       | Control | shadow, inset-shadow, color |
+| Text shadow (Drop shadow on a text layer)  | `text-shadow`      | Control | text-shadow, color          |
+| Layer blur and adjustments                 | `filter`           | Control | blur, drop-shadow, color    |
+| Background blur and adjustments            | `backdrop-filter‡` | Control | backdrop-blur, blur         |
 
 ### Transform
 

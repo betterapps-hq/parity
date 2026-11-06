@@ -60,8 +60,8 @@ What holds it back:
 
 Figma's panel is the bar: designers know it, and Dev Mode turns it into CSS. But Figma draws its own model, so some of
 it has no CSS (a diamond gradient, noise), and what CSS can do that Figma can't (sticky, z-index, transitions, filters,
-`clamp()`) has no control at all. Parity's frames are CSS, so its panel can offer every property, write each one as a
-developer would, and show that code beside the control.
+`clamp()`) has no control in its Design panel. Parity's frames are CSS, so its panel can offer every property, write
+each one as a developer would, and show that code beside the control.
 
 1. **Named like Figma, true to CSS.** A section and its controls use the words designers know (Fill, Stroke, Effects,
    Hug, Clip content). Each control writes exactly one CSS concept, and hovering a row's label shows the declarations it

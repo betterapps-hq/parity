@@ -33,7 +33,7 @@ from each. Sources are linked under each tool.
 | Sticky and fixed                | In prototypes only; Figma Sites publishes both                           | No                             | Yes                                      | Yes                                                                                       | Fixed, in prototypes                                                | No                                 |
 | Z-index                         | No: layer order                                                          | No                             | Yes                                      | Yes                                                                                       | Not found                                                           | No                                 |
 | Units beyond px                 | % for line height and letter spacing only                                | No                             | %, em, rem, vw, vh, dvh, ch, fr          | %, em, rem, vw, vh, fr                                                                    | No                                                                  | px, rem and % typed, kept as steps |
-| `calc()`, `clamp()`             | No                                                                       | No                             | Yes, after `=`                           | Not found                                                                                 | No                                                                  | No                                 |
+| `calc()`, `clamp()`             | No                                                                       | No                             | Yes, after `=`                           | No: a length is a number with a unit                                                      | No                                                                  | No                                 |
 | Decoration style, color, offset | Yes                                                                      | No                             | Yes                                      | Yes                                                                                       | Not found                                                           | No                                 |
 | Balance and pretty wrapping     | Yes (2026)                                                               | No                             | Only as a custom property                | Balance                                                                                   | Not found                                                           | No                                 |
 | Max lines                       | Yes                                                                      | No                             | One line                                 | Yes                                                                                       | Not found                                                           | Yes                                |
@@ -134,10 +134,10 @@ other than an inside one (Parity draws that as a border over a gradient layer,
 texture and glass, progressive blur (a mask and a backdrop blur come close), temperature and tint on images, and text on
 a path. Corner smoothing comes close with `corner-shape`.
 
-**Take:** the names designers know, Auto gap, the alignment box with baseline, stacked paints and effects with a + menu,
-the picker's contrast checker, scopes for variables, Hug and Fill, and the updated layout version's strokes, which
-Parity's Stroke and Fill already match. **Leave:** paints and effects CSS can't draw, and a model where scrolling and
-sticky are prototype settings rather than the design's.
+**Take:** the names designers know, Auto gap, the alignment box with baseline, stacked paints and effects, each + adding
+the usual entry at once, the picker's contrast checker, scopes for variables, Hug and Fill, and the updated layout
+version's strokes, which Parity's Stroke and Fill already match. **Leave:** paints and effects CSS can't draw, and a
+model where scrolling and sticky are prototype settings rather than the design's.
 
 ## pen.dev
 
@@ -171,9 +171,9 @@ Fill and Hug checkboxes), Appearance (opacity, radius, clip content), Fill, Stro
 drop shadow, inner shadow, layer blur, background blur, shader), Theme, Code (HTML and CSS or Tailwind) and Export. A
 bound value shows purple.
 
-**Take:** stacked paints with a blend mode each, the + menu for effects, and Fill and Hug as plain words. **Leave:** a
-model that's a second, smaller copy of CSS. Everything pen.dev can't say is a property its own format has no key for,
-which is the gap Parity avoids by writing CSS.
+**Take:** stacked paints with a blend mode each, and Fill and Hug as plain words. **Leave:** a model that's a second,
+smaller copy of CSS. Everything pen.dev can't say is a property its own format has no key for, which is the gap Parity
+avoids by writing CSS.
 
 ## Webflow
 
