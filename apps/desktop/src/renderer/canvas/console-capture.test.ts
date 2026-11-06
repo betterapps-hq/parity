@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import type { ConsoleContext } from "../../shared/protocol.ts"
-import { type CaptureTarget, captureConsole, frameContext } from "./console-capture.ts"
+import { type CaptureTarget, callSite, captureConsole, frameContext } from "./console-capture.ts"
 
 /** A frame's host as ModeView marks it, and an element inside it. */
 const host = { dataset: { frame: "", design: "app.par#pricing", state: "yearly", mode: "desktop-light" } }
@@ -61,6 +61,20 @@ describe("which frame a console message comes from", () => {
       ["warning", pricing],
       ["error", pricing]
     ])
+  })
+
+  it("says where the frame's code called the console, past the wrapper's own frame", () => {
+    const stack = [
+      "Error",
+      "    at wrapper (http://localhost:5199/assets/index.js:40:12)",
+      "    at http://localhost:5199/assets/index.js:41:3",
+      "    at onClick (http://127.0.0.1:5173/src/member-row.tsx?t=17:9:58)",
+      "    at http://127.0.0.1:5173/node_modules/.vite/deps/react-dom.js:120:9"
+    ].join("\n")
+    expect(callSite(stack)).toEqual({ source: "http://127.0.0.1:5173/src/member-row.tsx?t=17", line: 9 })
+    // Parity's own call has none, so the console's own source stands.
+    expect(callSite(stack.split("\n").slice(0, 3).join("\n"))).toBeUndefined()
+    expect(callSite(undefined)).toBeUndefined()
   })
 
   it("leaves the console alone for events outside frames, and leaves a wrapper added since in place", () => {
