@@ -688,11 +688,13 @@ Tests:
   layout outside its own taking the drop; from another design, a card that's a layout taking it, and the dragged card
   counting as a slot; children that aren't drawn left out; and nothing found in a layout that wasn't measured or a
   design whose root isn't a layout.
-- `packages/editor/src/move-layers.test.ts` (13): within a design, before what was at the index, several together, ids
-  and states' changes kept, into a component's slot, and the same design back when dropped where it is, into itself or
-  into a layout that isn't there; into another design, copies in order with ids new there, as the state being edited
-  shows them, as the shared fixture's card shows them on mobile with its bound title kept only where the destination has
-  the param, only the outermost of nested layers, into a slot, and nothing changed when the layers aren't there.
+- `packages/editor/src/move-layers.test.ts` (15): what the Layers panel drags read back, and a drag holding something
+  else read as nothing, so the drop does nothing (PAR-595); within a design, before what was at the index, several
+  together, ids and states' changes kept, into a component's slot, and the same design back when dropped where it is,
+  into itself or into a layout that isn't there; into another design, copies in order with ids new there, as the state
+  being edited shows them, as the shared fixture's card shows them on mobile with its bound title kept only where the
+  destination has the param, only the outermost of nested layers, into a slot, and nothing changed when the layers
+  aren't there.
 - `apps/desktop/src/renderer/canvas/drop-target.test.ts`, in Chrome, measuring as the canvas does: the stat cards laid
   out as a real grid, dragged right and left; the line where the layout was, also after the camera zooms and pans; a
   card that stays in its own slot though its neighbour slid there, against the same layout measured after the card was
@@ -1179,29 +1181,30 @@ design and zooms to it.
 Tests: `packages/editor/src/insert.test.ts`: the layer for a component (required props, given props, a library's name),
 an instance and an image (its size, alt text and credit, and a tiny one); the labels; inserting between children, at the
 end, in a slot, at the pointer in an absolutely placed layout, inside a library part's parents or among them already,
-and a detached copy; and where a click inserts (a layout, after a layer, in a slot, the root, and nowhere). Where a drop
-lands is `slotHere`'s, in `packages/editor/src/paste-here.test.ts`: the slot and its line in a row, a grid's second row
-where one line along every child would pick the first, and the pointer's place in an absolutely placed layout; and,
-under "placing at a point" (2, PAR-570), a new text layer landing where a drop would, before the layer under the pointer
-and at the pointer in an absolutely placed layout. `components.test.ts`: making a component into the project file, a
-taken id and param names, a project file that doesn't exist yet, and the errors; and instances in layouts and slots
-across designs. `create.test.ts`: a new screen and component, and a taken id. `placement.test.ts`: a new design beside
-everything, one the canvas hasn't drawn, an empty canvas, and a component above everything. A library part's parents and
-samples are core's, in `packages/core/src/library-insert.test.ts`. The extraction and its check are core's
+and a detached copy; where a click inserts (a layout, after a layer, in a slot, the root, and nowhere); and an item
+dragged from the Assets panel read back, and a drag that isn't an item read as nothing, so the drop does nothing
+(PAR-595). Where a drop lands is `slotHere`'s, in `packages/editor/src/paste-here.test.ts`: the slot and its line in a
+row, a grid's second row where one line along every child would pick the first, and the pointer's place in an absolutely
+placed layout; and, under "placing at a point" (2, PAR-570), a new text layer landing where a drop would, before the
+layer under the pointer and at the pointer in an absolutely placed layout. `components.test.ts`: making a component into
+the project file, a taken id and param names, a project file that doesn't exist yet, and the errors; and instances in
+layouts and slots across designs. `create.test.ts`: a new screen and component, and a taken id. `placement.test.ts`: a
+new design beside everything, one the canvas hasn't drawn, an empty canvas, and a component above everything. A library
+part's parents and samples are core's, in `packages/core/src/library-insert.test.ts`. The extraction and its check are
+core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same,
+a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
+variant option that changes the part, whether the board shows it or not (PAR-493), but not one that changes what's
+outside it; each option of two variant params checked in turn, refused for one the board doesn't show; and refused when
+a layer in the part shows a param's default. `packages/core/src/library-insert.test.ts`, with three for names that fit
+(PAR-518): none for a component that sets its own size, unless given; none for a part whose sample gives no children;
+and a part without a sample taking the children its library's other samples give it (none for an icon's box or one used
+without any, their text), else its name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's
+Avatar, AvatarGroupCount, CardHeader and Separator but not Card, Badge or Button, and a library's compiled parts,
+leaving out classes for what's inside or taken from a parent. The extraction and its check are core's
 `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state
 changing the part refused, a single part's texts as params, and the check against the board, refused under a variant
-option that changes the part, whether the board shows it or not (PAR-493), but not one that changes what's outside it;
-each option of two variant params checked in turn, refused for one the board doesn't show; and refused when a layer in
-the part shows a param's default. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518):
-none for a component that sets its own size, unless given; none for a part whose sample gives no children; and a part
-without a sample taking the children its library's other samples give it (none for an icon's box or one used without
-any, their text), else its name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar,
-AvatarGroupCount, CardHeader and Separator but not Card, Badge or Button, and a library's compiled parts, leaving out
-classes for what's inside or taken from a parent. The extraction and its check are core's `extractComponent`, in
-`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
-refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
-the part but not one that changes what's outside it or isn't shown, and refused when a layer in the part shows a param's
-default.
+option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer in the
+part shows a param's default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
@@ -1499,7 +1502,9 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
   notes, and the project they came from. Text that starts like a Parity copy but isn't a complete envelope of a known
   kind, such as cut-off JSON or an unknown version, pastes nothing and shows a message. So does an envelope whose
   layers, designs or notes are empty or don't match the `.par` schema, rather than failing halfway or pasting its JSON
-  as text.
+  as text. The envelope is a zod schema (PAR-595), with the payload a union on `kind` of core's node tree, design and
+  note schemas, so a copy from a newer version with a property or a type of layer this one doesn't know is refused whole
+  and the design stays as it was.
 - **Pasted layers get fresh ids,** for them and everything in them. They go into the selected layout when it's the only
   layer selected, else just after the last selected layer in its layout or slot, else into the design's root. With no
   design selected, or a root that isn't a layout, they become a new screen named after them, laid out in a padded column
@@ -1522,21 +1527,22 @@ their boxes on the canvas, applies the rules to the selection and the store, and
 
 Tests: `packages/editor/src/clipboard.test.ts`: writing and reading the envelope, and text, a cut-off envelope, another
 version, a project that isn't text, an unknown kind, a payload without its list or with an empty one, and invalid
-layers, designs and notes, all rejected; telling a Parity copy, readable or not, from other text; designs and notes read
-back; SVG markup, and text that only looks like it; copying the outermost layers as a state shows them; where layers
-paste (a lone selected layout, after the last selected layer, in a slot, the root, and a root that isn't a layout);
-fresh ids in order, last, inside copies and in a slot; with the shared fixture's card, copying in a variant, state and
-viewport, the bound title as it shows, and pasting it into a design with and without the param, and bindings fitted all
-the way down; designs' ids, kept when free even when not made from the name, and whole-pixel moves; notes beside where
-they were and at a place; copying style in a state, and in a variant and viewport, and pasting it in the base and in
-another state, where the state shows only the copied style, taking away the design's values and keeping nothing for what
-the design doesn't set; and missing components at any depth, and none while the project's aren't known. The new screen
-layers make, its name and the bindings it keeps none of, are in `packages/editor/src/new-screen.test.ts` (PAR-546). What
-a state takes away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a prop taken away in one state,
-a value the state set taken away with nothing kept, setting it again and Reset, and removal in the base;
-`render.test.ts`, a state taking style and props away over the design and the viewport's patch, layered patches, an
-instance's param back to its default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update`
-taking the base's gap away in one state and refusing an unknown key.
+layers, designs and notes, all rejected; a newer version's layers with an unknown property, an unknown type or an id
+used twice, rejected (PAR-595); telling a Parity copy, readable or not, from other text; designs and notes read back;
+SVG markup, and text that only looks like it; copying the outermost layers as a state shows them; where layers paste (a
+lone selected layout, after the last selected layer, in a slot, the root, and a root that isn't a layout); fresh ids in
+order, last, inside copies and in a slot; with the shared fixture's card, copying in a variant, state and viewport, the
+bound title as it shows, and pasting it into a design with and without the param, and bindings fitted all the way down;
+designs' ids, kept when free even when not made from the name, and whole-pixel moves; notes beside where they were and
+at a place; copying style in a state, and in a variant and viewport, and pasting it in the base and in another state,
+where the state shows only the copied style, taking away the design's values and keeping nothing for what the design
+doesn't set; and missing components at any depth, and none while the project's aren't known. The new screen layers make,
+its name and the bindings it keeps none of, are in `packages/editor/src/new-screen.test.ts` (PAR-546). What a state
+takes away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a prop taken away in one state, a value
+the state set taken away with nothing kept, setting it again and Reset, and removal in the base; `render.test.ts`, a
+state taking style and props away over the design and the viewport's patch, layered patches, an instance's param back to
+its default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update` taking the base's gap
+away in one state and refusing an unknown key.
 
 Gaps: reading and writing the system clipboard, images and the messages have no automated test. The inspector's mark on
 a value a state takes away has no automated DOM test.

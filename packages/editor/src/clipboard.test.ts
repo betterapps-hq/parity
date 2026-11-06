@@ -114,6 +114,15 @@ describe("the clipboard's envelope", () => {
     expect(envelope({ kind: "notes", notes: [{ id: "note-a", text: "Flow starts here" }] })).toBeUndefined()
   })
 
+  it("reads nothing from a newer version's copy whose layers this one can't read", () => {
+    const envelope = (payload: object) =>
+      readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload }))
+    expect(envelope({ kind: "layers", nodes: [{ ...text("heading"), blur: 4 }] })).toBeUndefined()
+    expect(envelope({ kind: "layers", nodes: [{ type: "video", id: "intro" }] })).toBeUndefined()
+    const repeated = { type: "layout", id: "row", children: [text("a"), text("a")] }
+    expect(envelope({ kind: "layers", nodes: [repeated] })).toBeUndefined()
+  })
+
   it("tells a Parity copy that can't be read from other text, so it never pastes as text", () => {
     const broken = JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload: { kind: "rows" } })
     expect(readEnvelope(broken)).toBeUndefined()

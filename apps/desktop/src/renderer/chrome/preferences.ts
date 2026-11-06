@@ -1,35 +1,41 @@
-import type { CodeEditorChoice } from "@parity-app/core"
+import { type CodeEditorChoice, jsonText } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
-
-/** How the app looks and behaves, set from the File and View menus. Shared by every tab, and remembered between runs. */
-export interface Preferences {
-  /** The app's own theme. Designs show whichever theme their mode picks. */
-  theme: ThemePreference
-  /** Designs lock to the edges and centers of the designs around them while dragged. */
-  snapping: boolean
-  /** How many pixels each CSS pixel becomes in exported images. */
-  exportScale: 1 | 2 | 3
-  /** Column grids over every frame, sized for its viewport. */
-  layoutGrid: boolean
-  /** Each change saves itself a moment after it's made, instead of waiting for Save. */
-  autosave: boolean
-  /** Frame rate, memory and CPU in the status bar, for spotting what slows the app down. */
-  performanceStats: boolean
-  /** The editor View code opens a component's file in: one, the first installed, or the system's default app. */
-  codeEditor: CodeEditorChoice
-}
-
-export type ThemePreference = "light" | "dark" | "system"
+import { z } from "zod"
 
 const storageKey = "parity.preferences"
-const defaults: Preferences = {
-  theme: "dark",
-  snapping: true,
-  exportScale: 2,
-  layoutGrid: false,
-  autosave: false,
-  performanceStats: false,
-  codeEditor: "auto"
+
+/**
+ * How the app looks and behaves, set from the File and View menus. Shared by every tab, and remembered between runs.
+ * A saved value that doesn't read, as from an older version, falls back to its default without resetting the rest.
+ */
+const savedPreferences = z.object({
+  /** The app's own theme. Designs show whichever theme their mode picks. */
+  theme: z.enum(["light", "dark", "system"]).catch("dark"),
+  /** Designs lock to the edges and centers of the designs around them while dragged. */
+  snapping: z.boolean().catch(true),
+  /** How many pixels each CSS pixel becomes in exported images. */
+  exportScale: z.union([z.literal(1), z.literal(2), z.literal(3)]).catch(2),
+  /** Column grids over every frame, sized for its viewport. */
+  layoutGrid: z.boolean().catch(false),
+  /** Each change saves itself a moment after it's made, instead of waiting for Save. */
+  autosave: z.boolean().catch(false),
+  /** Frame rate, memory and CPU in the status bar, for spotting what slows the app down. */
+  performanceStats: z.boolean().catch(false),
+  /** The editor View code opens a component's file in: one, the first installed, or the system's default app. */
+  codeEditor: z
+    .enum(["vscode", "cursor", "windsurf", "zed", "auto", "system"])
+    .catch("auto") satisfies z.ZodType<CodeEditorChoice>
+})
+
+export type Preferences = z.infer<typeof savedPreferences>
+
+export type ThemePreference = Preferences["theme"]
+
+/** The preferences saved as `text`, each one that's missing or doesn't read at its default. */
+export function readPreferences(text: string | null): Preferences {
+  return jsonText(savedPreferences)
+    .catch(() => savedPreferences.parse({}))
+    .parse(text ?? "{}")
 }
 
 let preferences = load()
@@ -37,10 +43,10 @@ const listeners = new Set<() => void>()
 
 function load(): Preferences {
   try {
-    const saved = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as Partial<Preferences>
-    return { ...defaults, ...saved }
+    return readPreferences(localStorage.getItem(storageKey))
   } catch {
-    return defaults
+    // Storage can be unavailable; the defaults then apply.
+    return readPreferences(null)
   }
 }
 

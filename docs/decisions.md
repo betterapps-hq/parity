@@ -3857,6 +3857,17 @@ below. My calls on how they move:
   - A stroke style's dash pattern is written as `dashed`, since a CSS border can't draw one.
   - `parseData` passes over a union's options for another type of value, so a malformed shadow reports its bad part
     rather than `expected a string`.
+- **The clipboard, drag payloads and saved values are zod schemas (PAR-595).** My calls:
+  - The clipboard's envelope is a plain object, so a field a newer copy adds to the envelope is ignored, but what it
+    holds isn't: the payload is a discriminated union on `kind` of core's `nodeTree`, `containerSpec` and `noteSpec`,
+    which core now exports, each list at least one long. A copy that doesn't match pastes nothing, as before.
+  - Drags read through `readInsertItem` and `readLayersDrag` in `@parity-app/editor`. A drop whose data doesn't read
+    does nothing.
+  - Preferences, the panel layout and the saved tabs put `.catch` on each field. Text that isn't JSON or isn't an object
+    reads as the defaults. A panel width outside `panelLimits` falls back to its default, and a saved tab or recent
+    project that isn't a root is left out.
+  - axe-core's `check.data` for color contrast is a schema that turns into `ContrastDetail`. Data that doesn't match
+    gives no contrast detail, and axe-core's own message shows instead.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.

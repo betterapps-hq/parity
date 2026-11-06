@@ -125,7 +125,8 @@ export function includeComponent(
   return { include: [...listed, ref] }
 }
 
-const noteSpec = fileObject({
+/** Text on the canvas outside any design, as a project file or the clipboard holds it. */
+export const noteSpec = fileObject({
   id: z.string(),
   text: z.string(),
   position,
@@ -335,7 +336,8 @@ export type InstanceNode = z.infer<typeof instanceNode>
 
 export const imageFits = ["cover", "contain", "fill"] as const
 
-const imageCredit = fileObject({
+/** Who made a stock image and where it came from, as an image node or a dragged image holds it. */
+export const imageCredit = fileObject({
   name: z.string(),
   url: z.string(),
   /** The library it came from. */
@@ -363,7 +365,7 @@ const designNode = z.discriminatedUnion("type", [layoutNode, componentNode, text
 export type DesignNode = z.infer<typeof designNode>
 
 /** A node tree as a design or an insertion holds it, each node with an id of its own. */
-const nodeTree = designNode.superRefine((root, context) => {
+export const nodeTree = designNode.superRefine((root, context) => {
   const ids = new Set<string>()
   const visit = (node: DesignNode, path: PropertyKey[]): void => {
     if (ids.has(node.id)) problem(context, [...path, "id"], `duplicate node id "${node.id}"`)
@@ -465,7 +467,8 @@ const stateSpec = fileObject({
 
 export type StateSpec = z.infer<typeof stateSpec>
 
-const containerSpec = fileObject({
+/** One design, as a project file or the clipboard holds it (see `ContainerSpec`). */
+export const containerSpec = fileObject({
   id: z.string(),
   name: z.string(),
   /** Defaults to `screen`. */
