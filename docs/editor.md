@@ -3535,8 +3535,8 @@ the `[data-measured]` and `.frame-placeholder` rules in `styles.css`; `window.ca
 which `renderFrame` in `main/index.ts` asks after a capture, and the `frames.capture` handler in `utility/index.ts`,
 which keeps it; the first fit in `handleMount` in `canvas/CanvasEditor.tsx`; `withoutPatternFills` in
 `canvas/tldraw-fills.ts`; `startReopening` in `apps/desktop/src/utility/reopening.ts`, wired in `utility/index.ts`, with
-`openRoots` in `utility/projects.ts` and `PARITY_REOPEN_FILE`, which main gives the service; the opening timings in
-`apps/desktop/scripts/perf.ts`.
+`roots` of `openProjects` in `utility/projects.ts` and `PARITY_REOPEN_FILE`, which main gives the service; the opening
+timings in `apps/desktop/scripts/perf.ts`.
 
 Tests: `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (3 for `holdsFirstDraw`: a frame zoomed far out waits
 while its bitmap is to come, kept or captured, and once it has come, until it falls asleep on it; draws once its capture
@@ -3584,11 +3584,11 @@ opened again.
   loaded and lets the moved one go. When restarts overlap, the tab draws from the latest move, whichever guest loads
   first.
 
-Code: `serveBuilder` and `restartBuilder` in `apps/desktop/src/utility/projects.ts`, with `newGuestPort`, `restartPort`,
-`guestMove` and `followGuest` in `guest-ports.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`;
-`releaseGuest` in `apps/desktop/src/renderer/guest.ts`, called from `workspace.ts` and `render.ts`; `guestId` in
-`apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened guest's bitmaps apart from the last one's;
-`ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
+Code: `serveBuilder` and `restartBuilder` in `openProjects`, `apps/desktop/src/utility/projects.ts`, with
+`newGuestPort`, `restartPort`, `guestMove` and `followGuest` in `guest-ports.ts`; `moveGuest` in
+`apps/desktop/src/renderer/workspace.ts`; `releaseGuest` in `apps/desktop/src/renderer/guest.ts`, called from
+`workspace.ts` and `render.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened
+guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window ends
 within 5,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over after two. The
@@ -3597,9 +3597,14 @@ allowance is for tldraw, which sometimes keeps the editor closed last, with its 
 a canvas kept on each reopen still fails the test (PAR-445). `apps/desktop/src/utility/guest-ports.test.ts` covers which
 port a builder takes, skipping ports guests had, and when the windows are told a guest moved, and told again after a
 move they couldn't load; `apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still
-loading, one reopened meanwhile and overlapping moves. Gaps: the offscreen renderer's side has no automated test, nor
-has `restartBuilder` sending `project.guestMoved` to the window. A project service started again forgets the ports,
-while the window keeps what it loaded from them.
+loading, one reopened meanwhile and overlapping moves. `apps/desktop/src/utility/projects.test.ts` (6) opens a project
+folder through `openProjects`, with its builder, type checker and watcher standing in: its files, components and guest
+are read and served, what the type checker found is saved and taken on a reopen with nothing changed, a project file
+changed outside the canvas is told to the windows while the canvas's own save isn't, a `.par` outside the root (even in
+a sibling folder whose name starts with the root's) isn't saved, and closing stops the builder and the watcher before a
+reopen serves the project on a new port. Gaps: the offscreen renderer's side has no automated test, nor has
+`restartBuilder` sending `project.guestMoved` to the window. A project service started again forgets the ports, while
+the window keeps what it loaded from them.
 
 ### A tab closed while its project opens (PAR-427)
 

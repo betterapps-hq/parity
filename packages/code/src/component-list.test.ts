@@ -4,7 +4,8 @@ import {
   type ComponentList,
   type ComponentListEvent,
   type ComponentListStep,
-  nextComponentList
+  nextComponentList,
+  typeCheckSummary
 } from "./component-list.ts"
 import type { CheckedComponent } from "./listing.ts"
 
@@ -322,5 +323,20 @@ describe("nextComponentList", () => {
     ]
     const end = events.reduce((list, event) => nextComponentList(list, event).list, start)
     expect(end.sources).toEqual(expected)
+  })
+})
+
+describe("typeCheckSummary", () => {
+  const step = (add: string[], drop: string[]) => ({
+    guest: { add: Object.fromEntries(add.map((id) => [id, button])), drop }
+  })
+
+  it.each([
+    { files: 1, add: [], drop: [], summary: "Read 1 file, no changes" },
+    { files: 12, add: ["Select", "Menu"], drop: [], summary: "Read 12 files and found 2 more components" },
+    { files: 3, add: ["Select"], drop: ["cn"], summary: "Read 3 files and found 1 more component and left 1 out" },
+    { files: 3, add: [], drop: ["cn", "cva"], summary: "Read 3 files and left 2 out" }
+  ])("says $summary", ({ files, add, drop, summary }) => {
+    expect(typeCheckSummary(files, step(add, drop))).toBe(summary)
   })
 })

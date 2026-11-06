@@ -9,7 +9,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { checkAnatomy, readAnatomy } from "./anatomy.ts"
 import { readExamples } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
-import { compareComponents, loader, selectComponents } from "./index.ts"
+import { compareComponents, loader, mergeManifest, selectComponents } from "./index.ts"
 import { completeChains, guessParent, type PartRelation, relateParts, spelledOut } from "./parts.ts"
 import { cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
@@ -538,6 +538,21 @@ describe("loading a package", () => {
 })
 
 describe("regenerating", () => {
+  it("keeps what a person wrote in the file being replaced, and stops at one that doesn't read", () => {
+    const existing = { $schema: "./lib.schema.json", version: 3, name: "Acme", description: "Ours", styles: "old.css" }
+    expect(mergeManifest(existing, { version: 3, name: "acme", styles: "new.css" })).toEqual({
+      version: 3,
+      name: "Acme",
+      styles: "new.css",
+      $schema: "./lib.schema.json",
+      description: "Ours"
+    })
+    expect(mergeManifest(undefined, { version: 3, name: "acme" })).toEqual({ version: 3, name: "acme" })
+    expect(() => mergeManifest({ version: 3, name: 1 }, { version: 3, name: "acme" })).toThrow(
+      "The library file being replaced doesn't read, so fix or delete it first: /name: expected a string"
+    )
+  })
+
   const before = {
     Button: { as: "function", fingerprint: "a", props: { "size?": "111111", variant: "222222" } },
     Old: { as: "function", fingerprint: "b" },
