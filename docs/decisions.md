@@ -3927,6 +3927,20 @@ below. My calls on how they move:
     note, as one that isn't JSON was.
   - `loadConfig(root, folder, source, schema)` takes a schema and returns what it reads. A config it refuses throws with
     the config's path and the pointer.
+- **The snippet API checks its arguments (PAR-596).** My calls:
+  - Each function's arguments have a schema in `packages/agent/src/arguments.ts`, and `api()` reads every argument
+    through it before the function runs. The argument types come from the schemas. A node is core's `nodeTree`, after it
+    and everything in it get fresh ids, and a patch is core's node patch with each field also taking `null`.
+  - `null` still takes a value away: in `Update`'s change, a state's changes and `Responsive`. Core exports `nodeStyle`,
+    `patchUnset` and `textTags` for these.
+  - A wrong argument fails as `invalid_input`, through core's `checkData`, with a field and a message that start with
+    the same path. An options object's fields name themselves (`width`, `style/gap`). A node starts at `node` or `root`,
+    and anything else at its parameter's name (`design`, `patch`). `SetTokens` keeps its `SetTokens/…` paths.
+  - Options objects and nodes are strict, so a key a function doesn't take is an error. It used to be ignored, apart
+    from nodes and `Update`, which said so in plain errors. `Update` keeps its hint to use Replace, Move or Responsive.
+  - Errors that used to be plain `TypeError`s or `Error`s are now `invalid_input`: a file that doesn't end in `.par`,
+    `Update` changing a name, tag or component in a state, and every "expected an object". The workspace's own
+    `expectObject` is gone.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.

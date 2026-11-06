@@ -99,6 +99,15 @@ Overlaps(design?): Overlap[]
 Print(...values): void
 ```
 
+Every function checks its arguments before it does anything. A wrong one fails the call with an `invalid_input` error
+whose path names it, and the message starts with that path:
+
+- An option or field by its key: `width`, `style/gap`, `changes/title/text`.
+- A node by `node` (or `root` in `CreateDesign`) and where in it: `node/fontSize: unknown property`.
+- Any other argument by its name: `design`, `path`, `patch`, `nodes`.
+
+An option a function doesn't take is an error too, so check its spelling against the list above.
+
 ## Paths
 
 A design is named by its id or its name. A node is named by `design/node`, where `node` is the node's id or its name, or
