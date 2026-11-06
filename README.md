@@ -114,6 +114,7 @@ serves them as MCP tools, and `parity skill` prints the skill that teaches an ag
 | `packages/icons`           | Lists an icon set's icons and searches them by name, alias and tag.                            |
 | `packages/agent`           | The agent runtime that runs snippets against designs.                                          |
 | `packages/fixtures`        | Generates and checks the validation projects.                                                  |
+| `packages/telemetry`       | Parity's own telemetry; [docs/telemetry.md](docs/telemetry.md) lists what it sends.            |
 | `fixtures`                 | The validation projects: real projects on other stacks, each with the detection it expects.    |
 | `examples/shadcn-vite`     | The example project, Acme: React 19, Vite, Tailwind CSS v4 and shadcn, with its designs.       |
 | `docs`                     | What's decided, what's supported, the editor's features, conventions and proposals.            |
