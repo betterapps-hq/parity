@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 02:49:12 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 03:55:41 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.8.0
+
+Fri, 06 Nov 2026 03:55:41 GMT
+
+### Minor changes
+
+- Export layers and designs as PNG or JPG at 1x to 3x from the Design tab's Export section, the canvas and Layers menus,
+  and Ctrl+Shift+E (ajcraswell@gmail.com)
 
 ## 0.7.7
 

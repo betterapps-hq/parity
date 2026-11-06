@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 03:55:31 GMT",
+      "version": "0.14.0",
+      "tag": "@parity-app/desktop_v0.14.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c59039eae4bb107c092887e52199e2919c17edd3",
+            "comment": "Export layers and designs as PNG or JPG at 1x to 3x from the Design tab's Export section, the canvas and Layers menus, and Ctrl+Shift+E"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 03:23:07 GMT",
       "version": "0.13.0",
       "tag": "@parity-app/desktop_v0.13.0",
