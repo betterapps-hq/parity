@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Library files, their edits and decorator values are checked with zod schemas, and a decorator value's form is checked when the file loads.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
