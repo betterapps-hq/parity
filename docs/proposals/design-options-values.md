@@ -28,7 +28,8 @@ with no Editing, the type has only typing, keys and the token button; with no To
 - **Tokens:** spacing, and container for sizes, as a spacing bar at true size.
 - **Writes:** `p-4`, `p-[13.3px]`, `w-1/2`, `w-full`, `h-dvh`, `w-(--sidebar-width)`, `w-[clamp(16rem,30vw,24rem)]`,
   `-mt-4`, `-top-2`.
-- **Compared:** Figma takes px only; Webflow takes every unit but shows no token chip or computed value.
+- **Compared:** Figma takes px only; Webflow takes every unit and shows an unset field's inherited value, but no token
+  chip, and not what a relative unit comes to.
 
 ## Size
 
@@ -40,8 +41,10 @@ with no Editing, the type has only typing, keys and the token button; with no To
   with Min content and Max content under it); Add min and Add max. Hug covers `fit-content`, so it isn't listed twice.
   Fill's share is chosen in its menu (Fill, Fill ×2, Fill ×3, Custom) or typed as `2fr`; a bare number stays a length.
   Typing a length in a Hug or Fill field makes it Fixed, as in Figma, and Up or Down on Hug, Fill or Auto makes it Fixed
-  at its measured size and steps from there. Auto is listed only when the value is `auto` from code, labeled by what it
-  does in this parent ("Auto (fills)", "Auto (hugs)"), since elsewhere Hug and Fill already write `auto`.
+  at its measured size and steps from there. Auto is listed only when the value is `auto` from code or freed by the
+  aspect lock, labeled by what it does in this parent ("Auto (fills)", "Auto (hugs)"), since elsewhere Hug and Fill
+  already write `auto`. Freed by the aspect lock, it shows as set by Aspect ratio
+  ([design-options-css.md](design-options-css.md), Properties set by another control).
 - **Tokens:** spacing, container.
 - **Writes:** `flex-1 min-w-0`, `flex-2 min-w-0` (`min-h-0` in a column), `self-stretch`, `w-fit`, `w-full`, or nothing,
   by the parent.
@@ -84,10 +87,11 @@ Padding, margin, border width and scroll padding.
 Grow and shrink, Order, Layer order, Iterations, Max lines, Columns and Rows, Span.
 
 - **At rest:** the number, with no suffix; Iterations' `infinite` as ∞. Counts are whole.
-- **Tokens:** z-index for Layer order; elsewhere number tokens whose value is a plain number.
+- **Tokens:** z-index for Layer order; none for Span; elsewhere number tokens whose value is a plain number.
 - **Writes:** steps, since Tailwind takes any whole number bare: `z-10`, `z-37`, `-z-5`, `order-7`, `grow-2`,
-  `line-clamp-2`, `grid-cols-13`. A count never needs brackets.
-- **Compared:** Figma has only Max lines and grid counts.
+  `line-clamp-2`, `grid-cols-13`. A count never needs brackets, except Iterations, which has no Tailwind utility
+  (`[animation-iteration-count:3]`, or inside the animation's own value).
+- **Compared:** Figma has only Max lines, grid counts and spans.
 
 ## Percentage and opacity
 
@@ -101,10 +105,11 @@ Grow and shrink, Order, Layer order, Iterations, Max lines, Columns and Rows, Sp
   alpha), shown as the % beside the swatch and as the popover's alpha slider: one value in two places. A solid fill's
   opacity is that alpha. An image fill has none. A gradient fill has none of its own: its % sets every stop's alpha and
   shows Mixed when they differ, so `bg-primary/50` and `from-blue-500/50 to-red-500/50` read back as written.
-- **Tokens:** opacity.
+- **Tokens:** opacity, for Opacity and a color's alpha; none for Scale.
 - **Writes:** `opacity-50`, `opacity-47.5`, `scale-105`, `scale-x-90`, `-scale-x-100` for a flip; a color's alpha as
-  `/50` or `/47.5`. A percentage on the field's steps (0.25% for opacity and alpha, 1% for scale) is a step and isn't
-  marked; a finer one (`opacity-[.473]`, `scale-[1.025]`) is written in brackets and marked.
+  `/50` or `/47.5`. A percentage on the field's steps (0.25% for opacity and alpha, 1% for scale) is a step, unmarked
+  while the project has no tokens of its kind; a finer one (`opacity-[.473]`, `scale-[1.025]`) is written in brackets
+  and marked.
 - **Compared:** Figma's fill opacity is the paint's alpha too.
 
 ## Color
@@ -125,8 +130,8 @@ Grow and shrink, Order, Layer order, Iterations, Max lines, Columns and Rows, Sp
   design's colors, the nearest token, and the contrast against the layer behind in every theme, worst first, with AA and
   AAA lines on the square, as DevTools' picker draws them. It opens in the value's model and remembers the last one
   chosen; a new value starts in OKLCH in a Tailwind v4 project and in Hex otherwise. A value outside sRGB or Display P3
-  is marked, and one that isn't a token says it stays the same in every theme. Tokens lists Semantic first, then
-  Primitive shades as a grid; under Semantic only, the grid is hidden and Custom is read-only.
+  says so in the popover, and one that isn't a token says it stays the same in every theme. Tokens lists Semantic first,
+  then Primitive shades as a grid; under Semantic only, the grid is hidden and Custom is read-only.
 - **Tokens:** color, as a swatch per theme. When the layer behind is filled with a token that has a foreground pair
   (shadcn's `primary` and `primary-foreground`, `card` and `card-foreground`: a `<name>-foreground` token, or one named
   by `$extensions.parity.pair`), the text, icon and stroke color pickers list that pair first. If a color fails contrast
@@ -152,12 +157,12 @@ Fill's list of solids, gradients and images.
   and on the canvas. Keys and scrubbing are as in every field. CSS's gradient line spans the box at its angle, so
   dragging the line's ends sets the angle and moves the first and last stops. Radial's handles set the ellipse's two
   radii and center (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as Figma's do; Angular's set a center and start
-  angle, and its hover names `conic-gradient`. An Angle field sits beside the line, with Flip and Rotate 90°, as in
-  Figma. Delete removes the selected stop, and Left and Right move it 1%, Shift 10%. Two stops at one position make a
-  hard edge; a midpoint dragged between two stops writes a color hint (`red, 30%, blue`), which Figma lacks. Repeat
-  writes `repeating-*-gradient`. Interpolation is `in oklab`, as Tailwind v4's, with `in oklch` and sRGB in its menu.
-  Image takes the project's images (`public/images/`) or one dropped or pasted, copied there, with Fill, Fit, Crop and
-  Tile (`background-size` and `background-repeat`) and a nine-spot position.
+  angle, and its hover names `conic-gradient`. An Angle field, which Figma lacks, sits beside the line, with Flip and
+  Rotate 90° as in Figma. Delete removes the selected stop, and Left and Right move it 1%, Shift 10%. Two stops at one
+  position make a hard edge; a midpoint dragged between two stops writes a color hint (`red, 30%, blue`), which Figma
+  lacks. Repeat writes `repeating-*-gradient`. Interpolation is `in oklab`, as Tailwind v4's, with `in oklch` and sRGB
+  in its menu. Image takes the project's images (`public/images/`) or one dropped or pasted, copied there, with Fill,
+  Fit, Crop and Tile (`background-size` and `background-repeat`) and a nine-spot position.
 - **Tokens:** color and gradient. A gradient token is one fill's paint; editing its stops offers Detach.
 - **Writes:** the bottom solid as `background-color`; the rest as `background-image` layers, a solid above the bottom as
   `linear-gradient(c, c)`. A simple gradient is utilities (`bg-linear-to-r from-blue-500 to-teal-400`), a longer one is
@@ -172,22 +177,28 @@ Fill's list of solids, gradients and images.
 - **At rest:** Drop shadow, Inner shadow or Ring, its card (which shows the color), type, summary
   (`0 4 12 0 · black 10%`), the eye and −; a token shows as a chip with its card. Entries are in two groups, Inside
   (inner shadows, then inset rings) and Outside (rings, then drop shadows), top first, as Tailwind paints them, and are
-  dragged within a group. Inside and outside shadows never overlap, so the order between the groups changes nothing.
+  dragged within a group. A Drop shadow with Follow shape is a Filter list entry (`drop-shadow-*`, last in `filter`),
+  not a box-shadow slot. It's drawn under every entry here and shadows them too, so it's listed after the Outside group
+  and isn't dragged among them. On a text layer, Drop shadow writes `text-shadow` (`text-shadow-*`), not a box-shadow
+  slot, unless its Shadow of toggle is set to Box ([design-options-panel.md](design-options-panel.md), Effects). Inside
+  and outside shadows never overlap, so the order between the groups changes nothing.
 - **Forms:** offsets, blur and spread are px values, never spacing steps, since Tailwind has no scale for them. Offsets
   and spread take negatives; blur doesn't.
 - **Editing:** a popover with X, Y, blur, spread, a color field, Follow shape, and a square offset pad for X and Y,
   dragged as DevTools' shadow editor's is. A shadow token's layers show under a disclosure, each with the same fields.
-- **Tokens:** shadow, inset-shadow, drop-shadow with Follow shape, text-shadow on text; none for the numbers.
-- **Writes:** Tailwind's four `box-shadow` slots, `shadow-*`, `inset-shadow-*`, `ring-*` and `inset-ring-*`, painted top
-  to bottom as inset shadow, inset ring, ring, drop shadow: `shadow-md`, `shadow-black/20`, `ring-1 ring-border`.
-  Anything that doesn't fit one entry per slot in that order is one arbitrary value
+- **Tokens:** shadow, inset-shadow, drop-shadow with Follow shape (stored in the Filter list), text-shadow on text; none
+  for the numbers.
+- **Writes:** four of the five slots Tailwind composes `box-shadow` from, `shadow-*`, `inset-shadow-*`, `ring-*` and
+  `inset-ring-*` (Parity doesn't write `ring-offset-*`, which sits between inset ring and ring), painted top to bottom
+  as inset shadow, inset ring, ring, drop shadow: `shadow-md`, `shadow-black/20`, `ring-1 ring-border`. Anything that
+  doesn't fit one entry per slot in that order is one arbitrary value
   (`shadow-[var(--shadow-sm),0_0_0_1px_var(--color-border)]`), which says so and offers Save as token
   ([design-options-code.md](design-options-code.md), Values in classes).
 - **Compared:** Figma and Webflow edit shadows as fields; only DevTools has the offset pad.
 
 ## Filter list
 
-`filter` (Effects, or Image on an image) and `backdrop-filter`.
+`filter` (Effects; its Adjustments entry in Image on an image) and `backdrop-filter`.
 
 - **At rest:** Layer blur, Background blur and Drop shadow are entries of their own. Adjustments is one entry, so it
   isn't reordered: a slider for each of brightness, contrast, saturation, hue, grayscale, sepia and invert (Image shows
@@ -229,14 +240,15 @@ Fill's list of solids, gradients and images.
 
 - **At rest:** ms with its unit. A typed `0.2s` becomes 200ms; one read from code keeps `s` (Typing, in
   [design-options-fields.md](design-options-fields.md)).
-- **Forms:** any whole ms is a step in Tailwind v4 (`duration-200`, `duration-1200`, `delay-75`), so it's never marked.
+- **Forms:** any whole ms is a step in Tailwind v4 (`duration-200`, `duration-1200`, `delay-75`), so it never needs
+  brackets, and it's unmarked while the project has no duration tokens (`--transition-duration-*`).
 - **Tokens:** duration, as a track against half a second.
 - **Writes:** `duration-200`, `delay-75`, or `duration-[0.2s]` as read from code.
 - **Compared:** Figma's Motion has timing variables.
 
 ## Easing and spring
 
-- **At rest:** a small curve and its name: the token's name, a preset (Ease out, Linear, Steps 4), Spring (0.4s, bounce
+- **At rest:** a small curve and its name: the token's name, a preset (Ease out, Linear, Steps 4), Spring (400ms, bounce
   0.2), or Custom.
 - **Editing:** a popover with the curve and its two handles, presets, Steps, and Spring: time and bounce, or stiffness,
   damping and mass, as Framer's.
@@ -259,11 +271,14 @@ Motion's Transitions.
   Colors at those defaults.
 - **Forms:** what changes is a keyword set or a property; duration and delay are Time; easing is Easing and spring. A
   transition token fills a whole entry, and its parts can be overridden.
+- **Tokens:** transition for a whole entry, which has no kind ([design-options-tokens.md](design-options-tokens.md),
+  Fields and token kinds); duration and easing for its parts.
 - **Writes:** Tailwind allows one transition property, duration, easing and delay per element. One entry is utilities
   (`transition-colors duration-200 ease-out delay-75`). Entries with the same timing merge into one property list
   (`transition-[color,opacity] duration-200`). Entries with different timings are one arbitrary value
-  (`[transition:color_200ms_ease-out,transform_300ms_var(--ease-snappy)]`); the entry that causes this says so and
-  offers Save as token, as the shadow list does.
+  (`[transition:color_200ms_var(--ease-out),opacity_300ms_var(--ease-snappy)]`); the entry that causes this says so and
+  offers Save as token, as the shadow list does. A merged or arbitrary list spells out each entry's properties as its
+  utility does: Transform as `transform, translate, scale, rotate`, and Colors as `transition-colors`' list.
 - **Compared:** Webflow stacks transitions, each with its own timing; Figma and Framer set one transition per
   interaction.
 
@@ -293,17 +308,19 @@ Motion's Transitions.
 - **At rest:** line height as Auto for `normal`, a multiple with × (1.5×), px for a step or a px value, or % when typed
   as % (150%). Unset beside a size token, the size's paired value shows faint, labeled From size. Letter spacing shows
   as a percentage of the font size, as Figma's does (`tracking-tight` shows `tight · −2.5%`), or in px when typed in px;
-  it's written as em either way.
-- **Forms:** leading tokens; a spacing step for a line height in px (`leading-6` is 24px); a multiple or em as a value;
-  `normal`; tracking tokens. A size's pairs (`--text-sm--line-height`) aren't offered as tokens.
+  a % is written as em (`tracking-[0.05em]`) and a px value as px (`tracking-[-0.5px]`).
+- **Forms:** leading tokens; a spacing token or step for a line height in px (`leading-6` is 24px); a multiple or em as
+  a value; `normal`; tracking tokens. A size's pairs (`--text-sm--line-height`) aren't offered as tokens.
 - **Typing:** a bare number keeps the unit shown. A multiple above 4 asks "Did you mean 24px?", and a px value below 4
   asks "Did you mean 1.5×?".
 - **Editing:** the unit's menu holds ×, px and % for line height, and %, em and px for letter spacing. Up and Down step
   a multiple by 0.05 (Shift 0.25) and letter spacing by 0.5% (Shift 2.5%).
-- **Writes:** `leading-none`, `leading-snug`, `leading-6`, `leading-[1.5]`, `leading-[22px]`, never `leading-1.5`, which
-  Tailwind reads as a spacing step (6px); beside a size, `text-sm leading-6`
-  ([design-options-code.md](design-options-code.md), Line height beside a size); `tracking-tight`, `tracking-wide`,
-  `tracking-[0.05em]`, `tracking-[-0.5px]`.
+- **Tokens:** leading and spacing for line height, tracking for letter spacing.
+- **Writes:** `leading-none`, `leading-snug`, `leading-6`, `leading-[1.5]`, `leading-5.5` (22px, a step),
+  `leading-[22.5px]` (off the steps), never `leading-1.5`, which Tailwind reads as a spacing step (6px); beside a size,
+  `text-sm/6` for a size that pairs only a line height, and `text-xl leading-7` for one that also pairs a weight or
+  letter spacing ([design-options-code.md](design-options-code.md), Line height beside a size); `tracking-tight`,
+  `tracking-wide`, `tracking-[0.05em]`, `tracking-[-0.5px]`.
 - **Compared:** Figma shows line height as Auto, px or % and letter spacing as % or px; neither Figma nor Webflow shows
   a style's paired value as From size.
 
@@ -316,7 +333,7 @@ A text style, border, shadow, transition or animation token.
 - **Editing:** its parts fold under a disclosure, drawn in the token's color. A part changed on the layer stays shown,
   in the override color with its reset arrow, and puts a dot on the chip. Where the framework can't override that part
   ([design-options-code.md](design-options-code.md), Overrides in classes), editing it offers Detach. Detach, Edit token
-  and Go to definition are in the chip's menu.
+  and Go to definition are in the field's menu, as for any token.
 - **Writes:** the token's class, then one class per overridden part.
 
 ## Keyword sets
@@ -330,6 +347,7 @@ cursors) and its hover naming the CSS keyword it writes (principle 1).
   (`justify-content: safe center`), shows as a text chip with Custom, edited as text, never dropped or snapped.
 - **Forms:** `inherit`, `initial`, `unset` and `revert` are keywords every field takes, shown in words. Inherit is in
   the menu wherever the property inherits or Tailwind has an `-inherit` utility (`text-inherit`); the others are typed.
+- **Tokens:** cursor for Cursor; none for the other sets.
 - **Writes:** Tailwind's utility, or an arbitrary property (`[text-align:inherit]`).
 - **Compared:** Webflow's label colors and DevTools show what's inherited; Figma's toggles can't.
 
@@ -374,7 +392,7 @@ Image's Position, Transform's Origin, a fill image's position.
 
 ## Insets
 
-- **At rest:** an unpinned side is `auto` and shows its measured distance, muted (`auto · 24`); typing pins it.
+- **At rest:** an unpinned side is `auto` and shows its measured distance, muted (Auto · 24); typing pins it.
 - **Forms:** % is of the containing block, Top and Bottom of its height.
 - **Editing:** clicking a side of the pin box pins it at its measured distance, and clicking again unpins it to `auto`,
   as Framer's pin box does. Dragging an Absolute layer updates the pinned sides.

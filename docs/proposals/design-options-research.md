@@ -32,7 +32,7 @@ from each. Sources are linked under each tool.
 | Aspect ratio                    | Lock while resizing                                                      | No                             | Yes                                      | Yes                                                                                       | Lock while resizing                                                 | No                                 |
 | Sticky and fixed                | In prototypes only; Figma Sites publishes both                           | No                             | Yes                                      | Yes                                                                                       | Fixed, in prototypes                                                | No                                 |
 | Z-index                         | No: layer order                                                          | No                             | Yes                                      | Yes                                                                                       | Not found                                                           | No                                 |
-| Units beyond px                 | No                                                                       | No                             | %, em, rem, vw, vh, dvh, ch, fr          | %, fr, vh, rem                                                                            | No                                                                  | px, rem and % typed, kept as steps |
+| Units beyond px                 | % for line height and letter spacing only                                | No                             | %, em, rem, vw, vh, dvh, ch, fr          | %, em, rem, vw, vh, fr                                                                    | No                                                                  | px, rem and % typed, kept as steps |
 | `calc()`, `clamp()`             | No                                                                       | No                             | Yes, after `=`                           | Not found                                                                                 | No                                                                  | No                                 |
 | Decoration style, color, offset | Yes                                                                      | No                             | Yes                                      | Yes                                                                                       | Not found                                                           | No                                 |
 | Balance and pretty wrapping     | Yes (2026)                                                               | No                             | Only as a custom property                | Balance                                                                                   | Not found                                                           | No                                 |
@@ -54,7 +54,7 @@ it's drawn. "Not checked" means the research didn't check that tool's fields for
 | Value type                    | Figma                                                                                                                                                                                                                | Framer                                                                  | Webflow                               | Chrome DevTools                           | Parity                                                                 |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
 | Token in a field              | A pill, detached before it's typed over                                                                                                                                                                              | A color style in place of the color, with a light and a dark value      | Its label in purple                   | `var()` as text, linked to its definition | A chip that can be typed over, with Detach beside it                   |
-| Unit                          | px only; % for line height and letter spacing                                                                                                                                                                        | %, fr, vh and rem where a field takes them                              | A unit menu, with keywords            | Typed as text                             | px, % and rem in a menu, the rest under More units                     |
+| Unit                          | px only; % for line height and letter spacing                                                                                                                                                                        | %, em, rem, fr, vw and vh where a field takes them                      | A unit menu, with keywords            | Typed as text                             | px, % and rem in a menu, the rest under More units                     |
 | Keyword                       | Words (Hug, Fill, Auto)                                                                                                                                                                                              | Words (Fit Content, Fill, Relative, Fit Image)                          | In the unit menu (`auto`, `none`)     | As written                                | In words, the keyword in the hover                                     |
 | Expression                    | Maths worked out when typed                                                                                                                                                                                          | None: a length is a number with px, rem, em, %, fr, vw or vh            | `=` opens a function editor           | As written                                | The function and its result; the text, with token chips, while focused |
 | Mixed                         | Mixed                                                                                                                                                                                                                | Not checked                                                             | Not checked                           | One element at a time                     | Mixed, typeable after; a split swatch                                  |
@@ -122,14 +122,17 @@ effect numbers, each font property, and fills by what they fill (frames, shapes,
 blend modes, gradient geometry, layout enums, grid tracks and alignment can't be bound.
 
 **What CSS can do and Figma's Design panel can't:** sticky and fixed placement, z-index, scrolling, margins, grow ratios
-and order, `minmax()` and areas, units other than px, `calc()` and `clamp()`, transforms beyond rotation, filters on
-layers, isolation as its own setting, repeating gradients and their color space, background size and position per layer,
-`object-fit`, outline, double and groove borders, `corner-shape`, `clip-path`, `visibility` that keeps a layer's space,
-writing direction, hyphens and word breaking, columns, floats, cursor, transitions, scroll snap and form control colors.
+and order, `minmax()` and areas, units other than px (and % in type), `calc()` and `clamp()`, transforms beyond
+rotation, filters on layers, isolation as its own setting, repeating gradients and their color space, background size
+and position per layer, `object-fit`, outline, double and groove borders, `corner-shape`, `clip-path`, `visibility` that
+keeps a layer's space, writing direction, hyphens and word breaking, columns, floats, cursor, transitions, scroll snap
+and form control colors.
 
-**What Figma does that CSS can't:** diamond gradients, pattern and shader paints, stacked strokes and gradient strokes,
-dash lengths, caps and width profiles on a box, noise, texture and glass, progressive blur (a mask and a backdrop blur
-come close), temperature and tint on images, and text on a path. Corner smoothing comes close with `corner-shape`.
+**What Figma does that CSS can't:** diamond gradients, pattern and shader paints, stacked strokes, gradient strokes
+other than an inside one (Parity draws that as a border over a gradient layer,
+[design-options-panel.md](design-options-panel.md), Stroke), dash lengths, caps and width profiles on a box, noise,
+texture and glass, progressive blur (a mask and a backdrop blur come close), temperature and tint on images, and text on
+a path. Corner smoothing comes close with `corner-shape`.
 
 **Take:** the names designers know, Auto gap, the alignment box with baseline, stacked paints and effects with a + menu,
 the picker's contrast checker, scopes for variables, Hug and Fill, and the updated layout version's strokes, which
@@ -217,9 +220,10 @@ Backgrounds, Borders, Effects and Custom properties.
   Even
   ([help center](https://help.webflow.com/hc/en-us/articles/33961406388243-Style-first-last-odd-even-items-in-your-CMS)).
 
-**Take:** the label colors, the box-model widget and its keys, units and keywords in one menu, `=` for an expression,
-plain-language presets with the CSS beneath, and controls that add what they need. **Leave:** a class-first model, where
-styling an element means naming a class first; Parity's layers carry their own styles.
+**Take:** the label colors, the box-model widget (with Figma's keys: Alt for the opposite side, Alt+Shift for all four),
+units and keywords in one menu, `=` for an expression, plain-language presets with the CSS beneath, and controls that
+add what they need. **Leave:** a class-first model, where styling an element means naming a class first; Parity's layers
+carry their own styles.
 
 ## Framer
 
@@ -247,7 +251,8 @@ and its [updates](https://www.framer.com/updates).
 - **Effects:** Appear (fade, slide, scale, blur), Hover, Press, Loop, Drag and Scroll (scroll-linked transforms and
   parallax), each with a tween or a spring (stiffness, damping and mass, or time and bounce).
 
-**Take:** Clip as the default, the squircle with its fallback, conflicts refused with a reason, OpenType with a preview,
+**Take:** Clip as the default, the squircle with its fallback, conflicts named with their reason (Parity writes them and
+says so rather than refusing, [design-options-panel.md](design-options-panel.md), Size), OpenType with a preview,
 effects named by what triggers them, and springs. **Leave:** a hosted runtime that owns the page.
 
 ## Penpot
@@ -256,8 +261,9 @@ From Penpot's [design tokens guide](https://help.penpot.app/user-guide/design-to
 tool whose layouts are CSS flex and grid.
 
 - **Tokens are native and DTCG** (2025): color, dimension, sizing, spacing, border radius, stroke width, opacity,
-  rotation and number, the type values one by one, and composite typography and shadow tokens. They follow the Design
-  Tokens Format Module, so they're exported and read by other tools without conversion.
+  rotation and number, the type values one by one (line height only inside a typography token), and composite typography
+  and shadow tokens. They follow the Design Tokens Format Module, so they're exported and read by other tools without
+  conversion.
 - **Tokens apply to properties by type.** A click applies a token where its type usually goes (a color as a fill, a
   spacing token to every gap), and a right-click picks another property of that type (stroke, padding, margin, one
   corner, one side).
@@ -316,10 +322,10 @@ repository and [opens pull requests](https://builder.io/c/docs/fusion-create-a-p
 overridden declarations, traces each value to its rule in the Computed tab, and has shadow, easing, font and color
 editors, the color one with contrast ([CSS reference](https://developer.chrome.com/docs/devtools/css/reference)).
 
-**Take:** hints for values that do nothing, computed values beside each field, turning a declaration off without
-deleting it, Paste CSS, open in code, and states written as selectors. **Leave:** per-element raw CSS boxes (Builder.io)
-and code that's generated once, then overwritten (Subframe), and shared classes or mixins (Webflow classes, Plasmic
-mixins): styles shared by several layers are a component design or a token, so a layer's classes are always its own.
+**Take:** hints for values that do nothing, what each value comes to, shown in its field, turning a declaration off
+without deleting it, Paste CSS, open in code, and states written as selectors. **Leave:** code that's generated once,
+then overwritten (Subframe), and shared classes or mixins (Webflow classes, Plasmic mixins): styles shared by several
+layers are a component design or a token, so a layer's classes are always its own.
 
 ## Bringing a design from Figma
 
@@ -347,27 +353,27 @@ and 2024 forum threads; Bjango's measurements put the match nearer 0.44, so halv
 
 ## What Parity takes
 
-| Idea                                                                                                                                                                      | From                     | Where in the plan                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------- |
-| Labels colored by where a value comes from                                                                                                                                | Webflow                  | design-options.md, principle 6                              |
-| Box-model widget (Webflow); Alt for the opposite side, Alt+Shift for all (Figma)                                                                                          | Webflow, Figma           | Spacing                                                     |
-| Units and keywords in one menu; `=` opens an expression                                                                                                                   | Webflow                  | design-options-values.md, Length and percentage; Expression |
-| Plain-language presets with the CSS under them                                                                                                                            | Webflow, Figma           | Size, Position                                              |
-| Controls that add the properties they need                                                                                                                                | Webflow                  | design-options.md, principle 8                              |
-| Stacks of fills, shadows, filters, transforms and transitions                                                                                                             | Figma, Webflow, pen.dev  | Fill, Effects, Transform, Motion                            |
-| Clip content as `overflow: clip`                                                                                                                                          | Framer                   | Appearance                                                  |
-| Corner shape with a radius to fall back on                                                                                                                                | Framer                   | Appearance                                                  |
-| Variables limited to the fields they fit                                                                                                                                  | Figma, Webflow           | design-options-tokens.md, Fields and token kinds            |
-| Effects named by their trigger, and springs                                                                                                                               | Framer, Figma Sites      | Motion; the Easing control                                  |
-| Classes edited in the project's own source, open in code                                                                                                                  | Onlook                   | design-options-code.md, What's written reads back; CSS      |
-| Values that do nothing dimmed, with the reason                                                                                                                            | Chrome DevTools          | design-options.md, principle 10                             |
-| Computed value beside each field                                                                                                                                          | Chrome DevTools, Webflow | design-options-fields.md, The field                         |
-| A checkbox to turn a declaration off                                                                                                                                      | Chrome DevTools          | CSS                                                         |
-| Overridden values struck through                                                                                                                                          | Chrome DevTools          | CSS, From the component's code                              |
-| States as selectors and attributes                                                                                                                                        | Plasmic, Webflow         | design-options.md, call 7; design-options-code.md, States   |
-| Paste CSS or classes onto a layer                                                                                                                                         | Chrome DevTools          | design-options.md, principle 1; CSS                         |
-| Fill as a share (1fr, 2fr)                                                                                                                                                | Framer                   | Size                                                        |
-| States by position in a list (first, last, odd, even)                                                                                                                     | Webflow, Plasmic         | design-options-code.md, States                              |
-| Themes along several axes (mode, brand, density)                                                                                                                          | Penpot, Tokens Studio    | design-options-panel.md, Appearance's Theme row             |
-| Composite tokens applied as a whole, a part overridden where the framework can                                                                                            | Penpot, Tokens Studio    | design-options-tokens.md, A token can be overridden in part |
-| One field anatomy with the computed value always shown, token chips (Detach in place of the token button) also inside expressions, and a status slot for the token system | Figma, Webflow, DevTools | design-options-fields.md                                    |
+| Idea                                                                                                                                                                                                                                          | From                     | Where in the plan                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------- |
+| Labels colored by where a value comes from                                                                                                                                                                                                    | Webflow                  | design-options.md, principle 6                              |
+| Box-model widget (Webflow); Alt for the opposite side, Alt+Shift for all (Figma)                                                                                                                                                              | Webflow, Figma           | Spacing                                                     |
+| Units and keywords in one menu; `=` opens an expression                                                                                                                                                                                       | Webflow                  | design-options-values.md, Length and percentage; Expression |
+| Plain-language presets with the CSS under them                                                                                                                                                                                                | Webflow, Figma           | Size, Position                                              |
+| Controls that add the properties they need                                                                                                                                                                                                    | Webflow                  | design-options.md, principle 8                              |
+| Stacks of fills, shadows, filters, transforms and transitions                                                                                                                                                                                 | Figma, Webflow, pen.dev  | Fill, Effects, Transform, Motion                            |
+| Clip content as `overflow: clip`                                                                                                                                                                                                              | Framer                   | Appearance                                                  |
+| Corner shape with a radius to fall back on                                                                                                                                                                                                    | Framer                   | Appearance                                                  |
+| Variables limited to the fields they fit                                                                                                                                                                                                      | Figma, Webflow           | design-options-tokens.md, Fields and token kinds            |
+| Effects named by their trigger, and springs                                                                                                                                                                                                   | Framer, Figma Sites      | Motion; design-options-values.md, Easing and spring         |
+| Classes edited in the project's own source, open in code                                                                                                                                                                                      | Onlook                   | design-options-code.md, What's written reads back; CSS      |
+| Values that do nothing dimmed, with the reason                                                                                                                                                                                                | Chrome DevTools          | design-options.md, principle 10                             |
+| What each value comes to, shown in its field (in the hover in a narrow one)                                                                                                                                                                   | Chrome DevTools, Webflow | design-options-fields.md, The field                         |
+| A checkbox to turn a declaration off                                                                                                                                                                                                          | Chrome DevTools          | CSS                                                         |
+| Overridden values struck through                                                                                                                                                                                                              | Chrome DevTools          | CSS, From the component's code                              |
+| States as selectors and attributes                                                                                                                                                                                                            | Plasmic, Webflow         | design-options.md, call 7; design-options-code.md, States   |
+| Paste CSS or classes onto a layer                                                                                                                                                                                                             | Chrome DevTools          | design-options.md, principle 1; CSS                         |
+| Fill as a share (1fr, 2fr)                                                                                                                                                                                                                    | Framer                   | Size                                                        |
+| States by position in a list (first, last, odd, even)                                                                                                                                                                                         | Webflow, Plasmic         | design-options-code.md, States                              |
+| Themes along several axes (mode, brand, density)                                                                                                                                                                                              | Penpot, Tokens Studio    | design-options-panel.md, Appearance's Theme row             |
+| Composite tokens applied as a whole, a part overridden where the framework can                                                                                                                                                                | Penpot, Tokens Studio    | design-options-tokens.md, A token can be overridden in part |
+| In one field anatomy, which none of them has: what each value comes to shown in every field (in the hover in a narrow one), token chips (Detach in place of the token button) also inside expressions, and a status slot for the token system | Figma, Webflow, DevTools | design-options-fields.md                                    |

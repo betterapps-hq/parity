@@ -59,9 +59,9 @@ What holds it back:
 ## Going further than Figma
 
 Figma's panel is the bar: designers know it, and Dev Mode turns it into CSS. But Figma draws its own model, so some of
-it has no CSS (a diamond gradient, a centered stroke), and what CSS can do that Figma can't (sticky, z-index,
-transitions, filters, `clamp()`) has no control at all. Parity's frames are CSS, so its panel can offer every property,
-write each one as a developer would, and show that code beside the control.
+it has no CSS (a diamond gradient, noise), and what CSS can do that Figma can't (sticky, z-index, transitions, filters,
+`clamp()`) has no control at all. Parity's frames are CSS, so its panel can offer every property, write each one as a
+developer would, and show that code beside the control.
 
 1. **Named like Figma, true to CSS.** A section and its controls use the words designers know (Fill, Stroke, Effects,
    Hug, Clip content). Each control writes exactly one CSS concept, and hovering a row's label shows the declarations it
@@ -75,8 +75,8 @@ write each one as a developer would, and show that code beside the control.
    one property. A list such as `filter` is shown where designers look for its entries (adjustments in Image, blur in
    Effects) and written as one declaration. The CSS row doesn't take a property a key owns: typing `border-radius` opens
    the Radius control instead.
-4. **Every field takes a token, a step, a value, a keyword or an expression,** and shows which. See One value model
-   below.
+4. **Every field takes a token, a step where the utility has one, a value, a keyword or an expression,** and shows
+   which. See One value model below.
 5. **Tokens by kind, with their previews.** A field offers the tokens whose kind fits it, drawn as the Tokens panel
    draws them ([design-options-tokens.md](design-options-tokens.md)), and picked from its token button or by typing a
    name ([design-options-fields.md](design-options-fields.md), Picking a token).
@@ -85,50 +85,52 @@ write each one as a developer would, and show that code beside the control.
    parent. The reset arrow PAR-552 put by the label clears what's set at that level, and clicking the label goes to
    where it's set, as Webflow's labels name their source.
 7. **What isn't everywhere is marked.** A control for a property other browsers don't draw yet (corner shape, gap
-   dividers, scroll-driven animation) has a small mark beside its label, with the browsers that lack it in its hint,
-   from the web-features project's Baseline data. Frames draw it either way, since they run in Chromium. A value that
-   isn't everywhere is marked the same way, beside the option and after the value
+   dividers, animation triggers) has a small mark beside its label, with the browsers that lack it in its hint, from the
+   web-features project's Baseline data. Frames draw it either way, since they run in Chromium. A value that isn't
+   everywhere is marked the same way, beside the option and after the value
    ([design-options-fields.md](design-options-fields.md), States).
 8. **A control sets what it needs, and says so.** Max lines sets the overflow it needs, Aspect ratio frees the other
-   axis to Auto, and Sticky says when a layout around it clips or scrolls, which stops it sticking. Layer order names
-   the stacking context it orders within ([design-options-panel.md](design-options-panel.md), Position). The control
-   that owns a property shows such a value as set by the other one; the pairs are listed in
-   [design-options-css.md](design-options-css.md), Properties set by another control.
+   axis to Auto, and Sticky says when a layout around it scrolls or hides its overflow (`overflow: hidden`, `auto` or
+   `scroll`), which stops it sticking. Layer order names the stacking context it orders within
+   ([design-options-panel.md](design-options-panel.md), Position). The control that owns a property shows such a value
+   as set by the other one; the pairs are listed in [design-options-css.md](design-options-css.md), Properties set by
+   another control.
 9. **Sections follow what's selected.** Layout shows for layouts, Image for images, Icon for icons, Text for text, and
-   Text inside for layouts whose text inherits it. A layer inside a flex or grid layout gets the rows that place it
-   there (fill, align self, span); one outside gets none of them.
+   Text inside for layouts, components and instances whose text inherits it. A layer inside a layout gets the rows that
+   place it there (fill, align self, span, as its parent takes them); an Absolute or Fixed one gets none of them.
 10. **A value that does nothing says why.** A set row whose declaration has no effect on this layer is dimmed, with the
     reason in its hint, as Chrome DevTools has done since version 108. This covers CSS rows, More rows and values from a
     patch, not only what a control sets for itself.
 
 ## One value model
 
-Every field takes a token, a step of the framework's scale, a value, a keyword or an expression, and shows which. How
-each type of value looks at rest, is edited, shows its states and is written to CSS and Tailwind is in
-[design-options-values.md](design-options-values.md).
+Every field takes a token, a step of the framework's scale where the utility has one, a value, a keyword or an
+expression, and shows which. How each type of value looks at rest, is edited, shows its states and is written to CSS and
+Tailwind is in [design-options-values.md](design-options-values.md).
 
-| Form       | Example                                                            | Shown as                                                                                                       |
-| ---------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Token      | `primary`, `radius-lg`, `container-md`                             | A chip with the token's preview and name                                                                       |
-| Step       | `{ step: 4 }` (`p-4`, `border-2`, `z-10`, `duration-200`, `w-1/2`) | The number it comes to in the field's unit (16, 2, 10, 200ms, 50%), unmarked; the class it writes in the hover |
-| Value      | `#2563eb`, `6px` (a radius), `1.5` (a line height), `22.5deg`      | The value with its unit; marked when the kind's level marks it                                                 |
-| Keyword    | `auto`, `none`, `currentColor`, `inherit`                          | In words (Auto, None, Text color, Transparent, Inherit), with the CSS keyword in the hover                     |
-| Expression | `clamp(1rem, 2vw, 2rem)`, `calc(100% - 2rem)`, `color-mix(…)`      | Its function's name and what it comes to (`clamp · 24`); the text while focused                                |
+| Form       | Example                                                            | Shown as                                                                                                                                                                                                                |
+| ---------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Token      | `primary`, `radius-lg`, `container-md`                             | A chip with the token's preview and name                                                                                                                                                                                |
+| Step       | `{ step: 4 }` (`p-4`, `border-2`, `z-10`, `duration-200`, `w-1/2`) | The number it comes to in the field's unit (16, 2, 10, 200ms, 50%), unmarked unless its kind's level marks it ([design-options-tokens.md](design-options-tokens.md), Framework steps); the class it writes in the hover |
+| Value      | `#2563eb`, `6px` (a radius), `1.5` (a line height), `22.5deg`      | The value with its unit; marked when the kind's level marks it                                                                                                                                                          |
+| Keyword    | `auto`, `none`, `currentColor`, `inherit`                          | In words (Auto, None, Text color, Transparent, Inherit), with the CSS keyword in the hover                                                                                                                              |
+| Expression | `clamp(1rem, 2vw, 2rem)`, `calc(100% - 2rem)`, `color-mix(…)`      | Its function's name and what it comes to (`clamp · 24`); the text while focused                                                                                                                                         |
 
 Width and height also take a size mode, Fixed, Hug or Fill with a share, since Hug and Fill aren't CSS keywords. Every
 field shows what its value comes to on this layer, and every field has the same slots, states, keys and token picker
 ([design-options-fields.md](design-options-fields.md)).
 
 Each field offers the tokens whose kind fits it, marks a value that isn't a token with the nearest token one click away,
-and treats Tailwind's bare-number steps as on the system. Semantic and Primitive, kinds and overrides are in
-[design-options-tokens.md](design-options-tokens.md); whether values off the system are allowed is call 1.
+and treats Tailwind's documented steps as on the system while the project has no tokens of their kind. Semantic and
+Primitive, kinds and overrides are in [design-options-tokens.md](design-options-tokens.md); whether values off the
+system are allowed is call 1.
 
 **What the design model needs.** `NodeStyle` stores each value with its form (`{ token }`, `{ step }`, `{ value }`,
-`{ keyword }`, `{ expr }`, and `{ size }` for width and height), so whether a value is a token is never guessed from its
-text. Fills, shadows, filters, transforms and transitions become lists, sides and corners take one value or four, and a
-CSS map holds the rest, in a new `.par` version. Frames draw the classes Parity writes, compiled by the project's
-Tailwind, rather than inline styles, and every class reads back into the key and form it came from.
-[design-options-code.md](design-options-code.md) has the details.
+`{ keyword }`, `{ expr }`, `{ size }` for width and height, and `{ fr }` for grid tracks), so whether a value is a token
+is never guessed from its text. Fills, shadows, filters, transforms and transitions become lists, sides and corners take
+one value or four, and a CSS map holds the rest, in a new `.par` version. Frames draw the classes Parity writes,
+compiled by the project's Tailwind, rather than inline styles, and every class reads back into the key and form it came
+from. [design-options-code.md](design-options-code.md) has the details.
 
 ## Calls to make
 
@@ -143,22 +145,22 @@ These need Andrew's answer before the work they hold up starts. Each has a recom
 2. **What does Stroke's position write?** CSS has no single stroke with Figma's inside, center and outside. Recommended:
    Stroke owns `border` and `outline`, and Effects alone owns `box-shadow`. Include in layout, on for a new stroke,
    writes `border`, as Figma's updated auto layout counts an inside stroke (July 2026). Off, Inside, Center and Outside
-   write `outline` with an offset of minus the width, minus half the width, or 0, drawn above the children. A layer has
-   one of each, so Stroke's + adds the other. Per-side widths, colors and styles and gradient strokes need Include in
-   layout. [design-options-panel.md](design-options-panel.md), Stroke, has the details.
+   write `outline` with an offset of minus the width, minus half the width, or 0, drawn above the children that aren't
+   positioned. A layer has one of each, so Stroke's + adds the other. Per-side widths, colors and styles and gradient
+   strokes need Include in layout. [design-options-panel.md](design-options-panel.md), Stroke, has the details.
 3. **Are Chromium-only properties offered?** Recommended: yes, marked as principle 7 says, since frames draw them and
    many projects target current browsers. A project setting for its target browsers can hide them later.
 4. **One stored key per property?** Recommended: yes, as principle 3 says, so the CSS row can't hold a value that fights
    a control, and a list shown in two sections (`filter`, `background-image`) is still one declaration.
 5. **Section order.** Recommended: Figma's order, with the layer's own content near the top: Position, Size, Layout,
    Spacing, Appearance, then the content section the layer has (Text, Image or Icon), then Fill, Stroke, Effects,
-   Selection colors, Transform, Text inside for layouts, Interaction, Motion, CSS. Size comes before Layout as Figma's W
-   and H come before auto layout, and Spacing follows Layout so padding sits next to gap.
+   Selection colors, Transform, Text inside for layouts, components and instances, Interaction, Motion, CSS. Size comes
+   before Layout as Figma's W and H come before auto layout, and Spacing follows Layout so padding sits next to gap.
 6. **What is a text style?** Recommended: in Tailwind projects, a `--text-*` size that pairs a weight or letter spacing
-   as well as a line height (Tailwind v4's own), or a project utility that sets only type when the style names a font; a
-   DTCG typography token compiles to the same. Overriding one row keeps the style and marks the override, and a style
-   can differ per breakpoint. PAR-135 waits on this. [design-options-tokens.md](design-options-tokens.md), What a text
-   style is, has the detail.
+   as well as a line height (Tailwind v4's own), or a project utility that sets only type when the style names a font or
+   sets what a size can't pair (OpenType features, case); a DTCG typography token compiles to the same. Overriding one
+   row keeps the style and marks the override, and a style can differ per breakpoint. PAR-135 waits on this.
+   [design-options-tokens.md](design-options-tokens.md), What a text style is, has the detail.
 7. **What a state writes.** Each state names its trigger: a pseudo-class (`:hover`), an attribute (`[data-state=open]`)
    or a prop. Recommended: pseudo-classes and attributes by default, as Webflow's and Plasmic's states are, with a prop
    only when the component's code has one, written as Tailwind variants. A component's state reaches the layers inside
@@ -196,7 +198,7 @@ Storybook as clickable explorations first, for Andrew's approval, before any goe
 3. Fills as a stack: color, linear, radial and conic gradients, and images, with the gradient editor on the canvas.
 4. Strokes per side, with style and position, and corners each on their own, with corner shape.
 5. Effects as a stack: shadows and rings, layer and background blur, and adjustments.
-6. Position: sticky and fixed, the inset widget, and layer order. Fixed and Sticky previewed against the frame's window
+6. Position: sticky and fixed, the pin box, and layer order. Fixed and Sticky previewed against the frame's window
    (CAN-25).
 7. Layout: grid tracks of any size, areas, flow, baseline and reversed direction, and the box-model widget.
 8. Text: decoration details, wrapping and truncation, vertical trim, OpenType and variable axes, and text styles

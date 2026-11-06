@@ -8,15 +8,15 @@ value is in [design-options-fields.md](design-options-fields.md) and
 
 The sections, in the order call 5 recommends: Position, Size, Layout, Spacing, Appearance, then the layer's own content
 section (Text for text, Image for images, Icon for icons), then Fill, Stroke, Effects, Selection colors (for a layout or
-several layers), Transform, Text inside for layouts, Interaction, Motion and CSS. Every row can be set for one state and
-one mode, as rows are today, and its label is colored by where its value comes from.
+several layers), Transform, Text inside for layouts, components and instances, Interaction, Motion and CSS. Every row
+can be set for one state and one mode, as rows are today, and its label is colored by where its value comes from.
 
 A section with nothing set shows only its title and +: Fill, Stroke, Effects, Transform, Interaction and Motion start
-this way, as Stroke does today, and so does Spacing on text, image and icon layers. Inside a section, a row the layer
-rarely needs (Min and max, Margin, Layer order on a layer in the flow, Corner shape, Vertical trim) shows once it's set,
-or is added from the section's More or from the field it belongs to. Each section's menu has Copy as CSS and Copy as
-Tailwind. Copy properties and Paste properties carry a whole layer's style, or one section's, to the selected layers, as
-Figma's Ctrl+Alt+C and Ctrl+Alt+V do.
+this way, as Stroke does today with its Add button, and so does Spacing on text, image and icon layers. Inside a
+section, a row the layer rarely needs (Min and max, Margin, Layer order on a layer in the flow, Corner shape) shows once
+it's set, or is added from the section's More or from the field it belongs to. Each section's menu has Copy as CSS and
+Copy as Tailwind. Copy properties and Paste properties carry a whole layer's style, or one section's, to the selected
+layers, as Figma's Ctrl+Alt+C and Ctrl+Alt+V do.
 
 ## Which layers get which sections
 
@@ -25,24 +25,24 @@ text layer, an image, a component (an instance of a code component, whose style 
 component's own classes) and an instance (of a component design). A screen's or component design's root is a layout; a
 frame sizes itself.
 
-| Section          | Layout                          | Text                                                                                                             | Image                                 | Component or instance                         |
-| ---------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------- |
-| Position         | Yes, but not a root             | Yes                                                                                                              | Yes                                   | Yes                                           |
-| Size             | Yes                             | Yes, with Resizing                                                                                               | Yes                                   | Yes                                           |
-| Layout           | Yes                             | No                                                                                                               | No                                    | No: its children are its code's               |
-| Spacing          | Yes                             | Yes, as a title with + until set                                                                                 | Yes, as a title with + until set      | Yes; for an icon, as a title with + until set |
-| Appearance       | Yes                             | Yes                                                                                                              | Yes                                   | Yes                                           |
-| Text             | As Text inside, after Transform | Yes, after Appearance                                                                                            | No                                    | As Text inside; not for icons                 |
-| Image            | No                              | No                                                                                                               | Yes                                   | No                                            |
-| Icon             | No                              | No                                                                                                               | No                                    | An icon component only                        |
-| Fill             | Yes                             | Yes, titled Background (see Fill)                                                                                | Yes, behind the image                 | Yes                                           |
-| Stroke           | Yes                             | Yes (today); the text outline is Text's Outline                                                                  | Yes                                   | Yes                                           |
-| Effects          | Yes                             | Yes: Drop shadow shadows the text (`text-shadow`), or the box (`box-shadow`) when the layer has a fill or stroke | Yes                                   | Yes                                           |
-| Selection colors | Yes, when it uses a color       | Only in a selection of several layers                                                                            | Only in a selection of several layers | Only in a selection of several layers         |
-| Transform        | Yes                             | Yes                                                                                                              | Yes                                   | Yes                                           |
-| Interaction      | Yes                             | Yes                                                                                                              | Yes                                   | Yes                                           |
-| Motion           | Yes                             | Yes                                                                                                              | Yes                                   | Yes                                           |
-| CSS              | Yes                             | Yes                                                                                                              | Yes                                   | Yes                                           |
+| Section          | Layout                          | Text                                                                                                                            | Image                                 | Component or instance                         |
+| ---------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------- |
+| Position         | Yes, but not a root             | Yes                                                                                                                             | Yes                                   | Yes                                           |
+| Size             | Yes                             | Yes, with Resizing                                                                                                              | Yes                                   | Yes                                           |
+| Layout           | Yes                             | No                                                                                                                              | No                                    | No: its children are its code's               |
+| Spacing          | Yes                             | Yes, as a title with + until set                                                                                                | Yes, as a title with + until set      | Yes; for an icon, as a title with + until set |
+| Appearance       | Yes                             | Yes                                                                                                                             | Yes                                   | Yes                                           |
+| Text             | As Text inside, after Transform | Yes, after Appearance                                                                                                           | No                                    | As Text inside; not for icons                 |
+| Image            | No                              | No                                                                                                                              | Yes                                   | No                                            |
+| Icon             | No                              | No                                                                                                                              | No                                    | An icon component only                        |
+| Fill             | Yes                             | Yes, titled Background (see Fill)                                                                                               | Yes, behind the image                 | Yes                                           |
+| Stroke           | Yes                             | Yes (today); the text outline is Text's Outline                                                                                 | Yes                                   | Yes                                           |
+| Effects          | Yes                             | Yes: Drop shadow shadows the text (`text-shadow`); with a fill or stroke, its Shadow of toggle picks Text or Box (`box-shadow`) | Yes                                   | Yes                                           |
+| Selection colors | Yes, when it uses a color       | Only in a selection of several layers                                                                                           | Only in a selection of several layers | Only in a selection of several layers         |
+| Transform        | Yes                             | Yes                                                                                                                             | Yes                                   | Yes                                           |
+| Interaction      | Yes                             | Yes                                                                                                                             | Yes                                   | Yes                                           |
+| Motion           | Yes                             | Yes                                                                                                                             | Yes                                   | Yes                                           |
+| CSS              | Yes                             | Yes                                                                                                                             | Yes                                   | Yes                                           |
 
 With several layers selected, a section shows when it applies to every one of them, except Text, which shows for the
 text layers of a mixed selection, as Resizing does today. A code component takes the layer's style through `className`
@@ -54,7 +54,7 @@ The layout a layer sits in adds rows:
 | Parent                 | Rows it adds to the child                                                                           |
 | ---------------------- | --------------------------------------------------------------------------------------------------- |
 | A flex layout          | Fill and Hug on both axes, Align self (with baseline), and under More grow, shrink, basis and order |
-| A grid                 | Span, start lines, Align self and Justify self, and under More the area                             |
+| A grid                 | Span, start lines, Align self and Justify self, and under More end lines and the area               |
 | A Block layout         | Width Fill and Hug, Margin auto; no Align self, Gap or Span                                         |
 | Absolute or fixed      | The pin box's insets; none of the rows above                                                        |
 | Sticky or relative     | The flex or grid rows above, and the pin box                                                        |
@@ -93,17 +93,17 @@ Center needs a definite width, or `w-fit` for Hug, since an auto width between t
 auto margins, and `translate` stays Transform's. Figma's Center keeps an offset d from the parent's center, written as
 `left: d; right: -d` with `margin-inline: auto`, and the preset's field shows it.
 
-Sticky shows the inset it sticks at and outlines the layout it scrolls inside, and says when a layout around it clips or
-scrolls, which stops it sticking, or when it's as tall as a stretching flex or grid layout, offering Align self Start
-(`self-start`). Layer order needs nothing more on a child of a flex or grid layout, where `z-index` works without
-`position`; only a child of a Block layout gets `position: relative`. A layer with a Layer order paints above its
-parent's Inside or Center stroke, and the row says so. The row names the stacking context it orders within and what
-makes it one.
+Sticky shows the inset it sticks at and outlines the layout it scrolls inside, and says when a layout around it scrolls
+or hides its overflow (`overflow: hidden`, `auto` or `scroll`), which stops it sticking, or when it's as tall as a
+stretching flex or grid layout, offering Align self Start (`self-start`). Layer order needs nothing more on a child of a
+flex or grid layout, where `z-index` works without `position`; only a child of a Block layout gets `position: relative`.
+A layer with a Layer order paints above its parent's Inside or Center stroke, and the row says so. The row names the
+stacking context it orders within and what makes it one.
 
 Fixed and Sticky outline the frame's window and are previewed by scrolling in Play (decisions.md, CAN-25).
 
-**More:** Layer order on a layer in the flow, Anchor (name this layer as an anchor, or place it against one with a
-nine-spot `position-area` picker and fallbacks) and Float.
+**More:** Relative placement, shown as a fifth toggle once set, Layer order on a layer in the flow, Anchor (name this
+layer as an anchor, or place it against one with a nine-spot `position-area` picker and fallbacks) and Float.
 
 ## Size
 
@@ -151,22 +151,22 @@ wins over the ratio, so the lock also writes `self-start` unless Align self is s
 
 **More:** Grow, shrink and basis, as Webflow's presets (Shrink if needed, Grow if possible, Don't shrink or grow) with
 numbers under Custom; Order, as First, Last or a number; Box sizing; and Grow with the text (inputs and text areas,
-`field-sizing`). Setting Order marks the layout, since the reading order no longer matches what's seen, and offers
-Reading order (`reading-flow`) from the CSS row as the fix.
+`field-sizing`); in a grid, end lines and an area. Setting Order marks the layout, since the reading order no longer
+matches what's seen, and offers Reading order (`reading-flow`) from the CSS row as the fix.
 
 ## Layout
 
 Shows for layouts. A flex box or a grid, as today, with direction, alignment and gap. Padding is in Spacing, next.
 
-| Row              | Control                                                                                                  | Writes                                                                               | Figma                                                      |
-| ---------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Type             | Icon toggles: Vertical, Horizontal, Grid; Block under More (today: the three); Inline under More (below) | `display`, `flex-direction`                                                          | Auto layout: vertical, horizontal, grid; freeform          |
-| Wrap             | A toggle beside Type (today)                                                                             | `flex-wrap`                                                                          | Wrap; no reverse                                           |
-| Alignment        | Nine-spot box and a distribution menu: Packed, Space between, around, evenly (today)                     | `align-items`, `justify-content`; in a grid, `justify-items` and `align-items`       | Alignment box; Auto gap is space between, evenly or around |
-| Baseline         | A toggle under the box: align text on its first or last baseline                                         | `align-items: baseline` or `last baseline` (`items-baseline`, `items-baseline-last`) | Text baseline alignment                                    |
-| Lines            | Menu, shown when wrapping or in a grid: Start, Center, End, Space between, Stretch                       | `align-content`                                                                      | Auto or space between, when wrapping                       |
-| Gap              | One field, or columns and rows when wrapping or in a grid (today); takes negatives and Auto (below)      | `gap`, `row-gap`, `column-gap`                                                       | Gap; row gap when wrapping                                 |
-| Columns and rows | Counts, or a line of track chips (below)                                                                 | `grid-template-columns`, `grid-template-rows`                                        | Grid tracks: fixed, fr or hug; no `minmax()` or auto-fill  |
+| Row              | Control                                                                                                                                     | Writes                                                                               | Figma                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Type             | Icon toggles: Vertical, Horizontal, Grid; Block under More (today: the three); Inline beside them when the parent is a Block layout (below) | `display`, `flex-direction`                                                          | Auto layout: vertical, horizontal, grid; freeform          |
+| Wrap             | A toggle beside Type (today)                                                                                                                | `flex-wrap`                                                                          | Wrap; no reverse                                           |
+| Alignment        | Nine-spot box and a distribution menu: Packed, Space between, around, evenly (today)                                                        | `align-items`, `justify-content`; in a grid, `justify-items` and `align-items`       | Alignment box; Auto gap is space between, evenly or around |
+| Baseline         | A toggle under the box: align text on its first or last baseline                                                                            | `align-items: baseline` or `last baseline` (`items-baseline`, `items-baseline-last`) | Text baseline alignment                                    |
+| Lines            | Menu, shown when wrapping or in a grid: Start, Center, End, Space between, Stretch                                                          | `align-content`                                                                      | Auto or space between, when wrapping                       |
+| Gap              | One field, or columns and rows when wrapping or in a grid (today); takes negatives and Auto (below)                                         | `gap`, `row-gap`, `column-gap`                                                       | Gap; row gap when wrapping                                 |
+| Columns and rows | Counts, or a line of track chips (below)                                                                                                    | `grid-template-columns`, `grid-template-rows`                                        | Grid tracks: fixed, fr or hug; no `minmax()` or auto-fill  |
 
 There's no None: hiding a layer is Appearance's Visibility, so `display` has one owner. Inline (`inline-flex`,
 `inline-grid`, `inline-block`, as buttons and badges are written) shows beside the types only when the parent is a Block
@@ -189,12 +189,12 @@ with content". Repeat's auto-fit (`repeat(auto-fit, minmax(16rem, 1fr))`) fits a
 which Figma can't say. In a reversed layout, the alignment box stays as it looks, and the editor writes `flex-end` where
 needed.
 
-**More:** Reverse direction (`flex-direction: *-reverse`), shown as a toggle beside Wrap once set, Freeform (below),
-Areas (named and painted over the grid on the canvas), Flow (rows or columns, and Dense), the size of tracks made by
-overflow (`grid-auto-rows`, `grid-auto-columns`), Dividers between items, Text columns (count, width, the rule between
-them), Stacking (Last on top, as CSS paints; First on top, Figma's canvas stacking, writes descending `z-index` on the
-children) and Size container (lets modes ask this layer's width rather than the screen's; its breakpoints are the
-container tokens, as Tailwind v4's `@md:` reads `--container-md`).
+**More:** Block, shown as a fourth Type toggle once set, Reverse direction (`flex-direction: *-reverse`), shown as a
+toggle beside Wrap once set, Freeform (below), Areas (named and painted over the grid on the canvas), Flow (rows or
+columns, and Dense), the size of tracks made by overflow (`grid-auto-rows`, `grid-auto-columns`), Dividers between
+items, Text columns (count, width, the rule between them), Stacking (Last on top, as CSS paints; First on top, Figma's
+canvas stacking, writes descending `z-index` on the children) and Size container (lets modes ask this layer's width
+rather than the screen's; its breakpoints are the container tokens, as Tailwind v4's `@md:` reads `--container-md`).
 
 Freeform is Figma's frame without auto layout: every child is Absolute, placed where it's dropped (`relative` on the
 layout, insets on each child). Its width and height are Fixed or Fill, never Hug, since absolute children don't size
@@ -202,7 +202,7 @@ their parent.
 
 Dividers between items come in two forms. On the items writes Tailwind's `divide-y` and `divide-x` with a color, width
 and style: a border on each item but the last (Tailwind v4's `divide-*` targets `:not(:last-child)`), in every browser.
-In the gap writes `row-rule` and `column-rule` (Chromium only, marked), centered in the gap without moving the items.
+In the gap writes `row-rule` and `column-rule` (Chromium only, marked †), centered in the gap without moving the items.
 
 Size container writes `@container` (`container-type: inline-size`), never `size`. It can't hug its width, so turning it
 on makes a Hug width Fill. It also makes a stacking context and a containing block for Absolute and Fixed layers inside,
@@ -219,14 +219,17 @@ image and icon layers, Spacing starts as a title with + until a padding or margi
 | Padding | The four-sides field, two fields on a layout (today: two, with a per-side toggle); the box-model widget | `padding` and its sides | Auto layout's padding |
 | Margin  | The box-model widget's outer ring, shown once set or added from More; takes `auto` and negatives        | `margin` and its sides  | None                  |
 
-The box-model widget opens from the per-side button and shows margin's ring once a margin is set. Margin has canvas
-handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and hovering a side highlights it. Horizontal and
-vertical are written as `px-*` and `py-*`, which v4 compiles to `padding-inline` and `padding-block`, so they follow
-writing direction; separate sides are physical (`pl-4`), and a Logical switch under More writes `ps-*` and `pe-*`.
+The box-model widget opens from Custom in the per-side button's menu and shows margin's ring once a margin is set.
+Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and hovering a side highlights it.
+Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to `padding-inline` and `padding-block`, so
+they follow writing direction; separate sides are physical (`pl-4`), and a Logical switch under More writes `ps-*` and
+`pe-*`.
 
 In a Block layout, vertical margins collapse, and a first or last child's margin passes through the layout's edge unless
 it has padding or a stroke in layout; `overflow: clip` doesn't stop this. The Margin row says so (principle 10) and
 offers Contain margins (`flow-root`).
+
+**More:** Margin, until set, and Logical (`ps-*`, `pe-*`).
 
 ## Appearance
 
@@ -255,22 +258,24 @@ container, so a sticky layer inside still sticks, as Framer changed in August 20
 `hidden` to contain floats or margins keep it. Each axis can clip on its own, which `hidden` can't.
 
 A corner shape keeps its radius, which browsers without `corner-shape` draw instead, as Framer's squircle does. Figma's
-"pass through" blend is CSS's default; Normal with a group's blend kept inside is `isolation: isolate`. **More:**
-Isolation, Clip path (inset, circle, ellipse or polygon, drawn on the canvas), Mask (an image or a gradient, such as
-fading an edge) and Color scheme (light or dark form controls and scrollbars).
+"pass through" blend is CSS's default; Normal with a group's blend kept inside is `isolation: isolate`. **More:** Clip
+content per axis and its clip margin (`overflow-x`, `overflow-y`, `overflow-clip-margin`), Isolation, Clip path (inset,
+circle, ellipse or polygon, drawn on the canvas), Mask (an image or a gradient, such as fading an edge) and Color scheme
+(light or dark form controls and scrollbars).
 
 ## Text
 
-Shows for text right after Appearance, and for layouts as "Text inside" after Transform, as today. It doesn't show for
-icons, whose color is Icon's. Text styles the whole text layer, since a text layer's text is one string (`document.ts`).
-Styling part of it (a bold word, a link, a colored span), as Figma does for selected characters with Mixed in each row,
-needs inline ranges in the model and gets its own issue; until then, Text has no Mixed state for part of a text.
+Shows for text right after Appearance, and for layouts, components and instances (not icons) as "Text inside" after
+Transform, as today. It doesn't show for icons, whose color is Icon's. Text styles the whole text layer, since a text
+layer's text is one string (`document.ts`). Styling part of it (a bold word, a link, a colored span), as Figma does for
+selected characters with Mixed in each row, needs inline ranges in the model and gets its own issue; until then, Text
+has no Mixed state for part of a text.
 
 Text style, the section's first row, shows when the project has one
 ([design-options-tokens.md](design-options-tokens.md), What a text style is); in a stock Tailwind project, whose sizes
 pair only a line height, Size leads with its line height as From size. With a style applied, the rows it sets fold into
-its row as a summary ("Inter, 20/28, Semibold"), as Figma's Typography does, with a disclosure to show them. An
-overridden row stays shown, marked, with its reset arrow. Detach is in the style row's menu.
+its row as a summary ("Inter 20/28 Semibold"), as Figma's Typography does, with a disclosure to show them. An overridden
+row stays shown, marked, with its reset arrow. Detach is in the style row's menu.
 
 | Row                 | Control                                                                                                                 | Writes                                                                              | Figma                                                      |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -278,7 +283,7 @@ overridden row stays shown, marked, with its reset arrow. Detach is in the style
 | Font                | Searchable list in each font, the project's fonts first, then Google Fonts (today: a token)                             | `font-family`                                                                       | Font family                                                |
 | Weight and style    | Menu of the weights the font has (Semibold 600), a slider for a variable font; italics (today: nine weights and Italic) | `font-weight`, `font-style`                                                         | Font style                                                 |
 | Size                | Length field with font size tokens, px, rem and `clamp()` (today: a token)                                              | `font-size`, and what the size token pairs, unless those rows are set               | Size                                                       |
-| Line height         | Auto (`normal`), a multiple, px or %; leading tokens and spacing steps (below)                                          | `line-height`, beside the size (below)                                              | Line height                                                |
+| Line height         | Auto (`normal`), a multiple, px or %; leading and spacing tokens and spacing steps (below)                              | `line-height`, beside the size (below)                                              | Line height                                                |
 | Letter spacing      | Field in em, % or px; tracking tokens (today: a token)                                                                  | `letter-spacing`; a % as em (5% → `tracking-[0.05em]`)                              | Letter spacing                                             |
 | Color               | Solid, or a gradient when the text layer has no fill (today: a token)                                                   | `color`; a gradient as `bg-clip-text text-transparent` over the gradient            | Text fill                                                  |
 | Align               | Left, Center, Right, Justify (today), then Top, Middle and Bottom, shown when the height is fixed                       | `text-align` (`text-start`, `text-end`), as today; `align-content`                  | Horizontal and vertical alignment                          |
@@ -375,18 +380,19 @@ window rather than the frame's, and ignored by iOS Safari, so it's previewed onl
 
 ## Stroke
 
-Shows for every layer, text included (today); the text outline is Text's Outline. With nothing set, it's a title with
-Add, as today. A border token for the whole section is chosen from the section title's token button. Color, Width and
-Style fold into its row, as for any composite token ([design-options-values.md](design-options-values.md), Composite
-token). On a text layer, + starts with Outline the text (Text's Outline), then Border around the box.
+Shows for every layer, text included (today); the text outline is Text's Outline. With nothing set, it's a title with +
+(today it's a title with Add). A border token for the whole section is chosen from the section title's token button.
+Color, Width and Style fold into its row, as for any composite token
+([design-options-values.md](design-options-values.md), Composite token). On a text layer, + starts with Outline the text
+(Text's Outline), then Border around the box.
 
-| Row          | Control                                                                                          | Writes                                                                            | Figma                                                   |
-| ------------ | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Border token | Token chip in the title row; border tokens                                                       | `border` from the token                                                           | Stroke style                                            |
-| Color        | Swatch and color popover, or a gradient paint (today: a token)                                   | `border-color` or `outline-color`, always with the stroke (below)                 | Stroke paint                                            |
-| Width        | The four-sides field ([design-options-values.md](design-options-values.md)); today: 1, 2, 4 or 8 | `border-width` and its sides, or `outline-width`                                  | Stroke weight, per side                                 |
-| Style        | Menu: Solid, Dashed, Dotted, Double; Groove, Ridge, Inset and Outset under More (today: three)   | `border-style` or `outline-style`                                                 | Dash and gap lengths, or a custom pattern               |
-| Position     | Inside, Center, Outside, and an Include in layout toggle beside them (call 2)                    | `border`; or `outline` with `outline-offset` of minus the width, minus half, or 0 | Inside, center, outside; inside counts in layout (2026) |
+| Row          | Control                                                                                                           | Writes                                                                            | Figma                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Border token | Token chip in the title row; border tokens                                                                        | `border` from the token                                                           | Stroke style                                            |
+| Color        | Swatch and color popover, or a gradient paint (today: a token)                                                    | `border-color` or `outline-color`, always with the stroke (below)                 | Stroke paint                                            |
+| Width        | The four-sides field ([design-options-values.md](design-options-values.md)); today: 1, 2, 4 or 8                  | `border-width` and its sides, or `outline-width`                                  | Stroke weight, per side                                 |
+| Style        | Menu: Solid, Dashed, Dotted, Double; Groove, Ridge, Inset and Outset under More styles in the menu (today: three) | `border-style` or `outline-style`                                                 | Dash and gap lengths, or a custom pattern               |
+| Position     | Inside, Center, Outside, and an Include in layout toggle beside them (call 2)                                     | `border`; or `outline` with `outline-offset` of minus the width, minus half, or 0 | Inside, center, outside; inside counts in layout (2026) |
 
 Color is always written with the stroke (`border-border`, or the token), since Tailwind v4's default border color is
 `currentColor`, unless the project's base styles already give every element one (shadcn's
@@ -417,7 +423,8 @@ A gradient stroke keeps the radius by writing the fills as `padding-box` layers 
 becomes a layer. It needs a solid border style and an opaque bottom fill, or the gradient shows through, and the row
 says so. These layers are set by another control ([design-options-css.md](design-options-css.md)) and shown in Fill as
 set by Stroke. `border-image` ignores radius, so it stays in the CSS row. Figma's dash lengths, caps and joins have no
-CSS for a box's border; they're Icon's, for SVG strokes.
+CSS for a box's border; an SVG's own strokes have them, in its file (Left out in
+[design-options-css.md](design-options-css.md)).
 
 ## Effects
 
@@ -432,7 +439,7 @@ values.
 | Inner shadow           | The same, inside                                                                                                       | `box-shadow: inset …`                                                          | Inner shadow           |
 | Ring                   | Width and color, and Inset; a ring is a spread with no offset or blur                                                  | `box-shadow: 0 0 0 W c` (`ring-W ring-c`), inset as `inset-ring-W`             | None: a stroke         |
 | Layer blur             | Blur, with blur tokens                                                                                                 | `filter: blur()`                                                               | Layer blur             |
-| Background blur        | Blur, with backdrop blur tokens; says when what it can see is cut short (below)                                        | `backdrop-filter: blur()`                                                      | Background blur        |
+| Background blur        | Blur, with blur and backdrop blur tokens; says when what it can see is cut short (below)                               | `backdrop-filter: blur()`                                                      | Background blur        |
 | Adjustments            | One entry of sliders: brightness, contrast and saturation centered on no change, then hue, grayscale, sepia and invert | `filter` functions, in Tailwind's order (Filter list)                          | Image adjustments only |
 | Background adjustments | The same sliders, for what's behind; its hover says "brightness, contrast and saturation of what's behind"             | `backdrop-filter` functions                                                    | None                   |
 
@@ -445,15 +452,16 @@ Background blur says when what it can see is cut short: an ancestor with opacity
 path, a blend mode or its own backdrop filter becomes the backdrop root, and nothing behind that is blurred. It also
 says when the layer's own fill is opaque, which hides the blur.
 
-Shadows are written into Tailwind's four slots (design-options-values.md, Shadow list), and the list shows them in two
-groups, Inside then Outside, in the order they paint.
+Box shadows are written into four of Tailwind's `box-shadow` slots (design-options-values.md, Shadow list), and the list
+shows them in two groups, Inside then Outside, in the order they paint, with a Follow shape drop shadow after them.
 
-The section's menu also offers two presets, which become normal entries in Fill and Effects. Layered shadow, from
-elevation and softness, writes several shadows that can be saved as one token. Frosted glass, Figma's glass written in
-CSS, is a Background blur, a translucent fill (or white at 10%), a 1px inner shadow highlight and `saturate()` behind,
-in the project's tokens where they exist and marked where they don't. Figma's noise, texture and progressive blur have
-no CSS; a progressive blur can be a background blur with a gradient mask, once masks are in. Figma's blur is about twice
-CSS's, so a design brought from Figma halves it, and the Blur field's hint says so
+The section's menu also offers two presets. Layered shadow is one entry that keeps its elevation and softness (Lists in
+[design-options-fields.md](design-options-fields.md)); Frosted glass becomes normal entries in Fill and Effects. Layered
+shadow writes several shadows that can be saved as one token. Frosted glass, the closest CSS comes to Figma's glass, is
+a Background blur, a translucent fill (or white at 10%), a 1px inner shadow highlight and `saturate()` behind, in the
+project's tokens where they exist and marked where they don't. Figma's noise, texture and progressive blur have no CSS;
+a progressive blur can be a background blur with a gradient mask, once masks are in. Figma's blur is about twice CSS's,
+so a design brought from Figma halves it, and the Blur field's hint says so
 ([design-options-research.md](design-options-research.md), Bringing a design from Figma).
 
 ## Selection colors
@@ -490,9 +498,9 @@ Shows for every layer, as a title with + until something in it is set.
 | Cursor              | Menu with each cursor drawn, and cursor tokens | `cursor`               |
 | Clicks pass through | Toggle                                         | `pointer-events: none` |
 
-**More:** Text selection, Accent and caret colors for form controls, Resize handle, Native look (`appearance`),
-Scrolling (smooth, overscroll, scrollbar width, color and gutter) and Scroll snap (on a layout, how it snaps; on a
-child, where it lands).
+**More:** Text selection, Accent and caret colors and caret shape for form controls, Resize handle, Native look
+(`appearance`), Scrolling (smooth, overscroll, scrollbar width, color and gutter) and Scroll snap (on a layout, how it
+snaps; on a child, where it lands).
 
 ## Motion
 
@@ -508,7 +516,7 @@ and a transition token a transition's. Easing fields are the curve and spring ed
 | Hover and press | Shortcuts that add a Hover or Pressed state with scale, move, rotate or opacity, and a transition                         | the state's patch and `transition`                                                   |
 
 Transform in Transitions covers `translate`, `scale` and `rotate` too (`transition-transform`), and Colors what
-`transition-colors` does. Animation's Trigger is On load, In view (playing once, Chromium only, marked) or While
+`transition-colors` does. Animation's Trigger is On load, In view (playing once, Chromium only, marked †) or While
 scrolling, with its range. Appear can animate from `display: none`, and in view it uses Animation's In view trigger.
 What each trigger writes is in [design-options-code.md](design-options-code.md), Animation triggers.
 
@@ -547,8 +555,9 @@ Always the last section. A list of declarations, one a row, `property: value` (R
   (`--primary: var(--brand-600)`, Chakra's `colorPalette`, a shadcn theme scoped to one card).
 - **From the component's code,** read-only: what a component's own classes set on its root, so a designer can see why it
   looks as it does without opening the file. Where a code component's own class sets a property this layer also sets,
-  the component's value shows struck through under the row, as DevTools shows an overridden declaration, and Open in
-  code goes to the line that sets it, as Onlook's right-click does.
+  whichever value loses shows struck through under the row (the component's when the layer's wins, as DevTools shows an
+  overridden declaration; the layer's otherwise, as in [design-options-code.md](design-options-code.md), Code
+  components), and Open in code goes to the line that sets it, as Onlook's right-click does.
 
 Pseudo-elements aren't layers. Placeholder and Selected text, and the conditions First, Last, Odd, Even and Only, are
 states in the States menu ([design-options-code.md](design-options-code.md), States).

@@ -26,9 +26,9 @@ used as soon as it's in the stylesheet.
 | Shadows                                                                                                                                                                                      | shadow, inset-shadow                                                                                                                                                                                 |
 | Drop shadow that follows the shape (`filter`)                                                                                                                                                | drop-shadow                                                                                                                                                                                          |
 | Text shadow (Drop shadow on a text layer)                                                                                                                                                    | text-shadow                                                                                                                                                                                          |
-| Text style (size with its line height, letter spacing and weight; font where the style names one)                                                                                            | type-style tokens, project utilities that set only type (`@utility type-heading`), and font-size tokens that pair a weight or letter spacing (`--text-xl--font-weight`, `--text-xl--letter-spacing`) |
+| Text style (size with its line height, letter spacing and weight; font, OpenType features or case where the style sets them)                                                                 | type-style tokens, project utilities that set only type (`@utility type-heading`), and font-size tokens that pair a weight or letter spacing (`--text-xl--font-weight`, `--text-xl--letter-spacing`) |
 | Font                                                                                                                                                                                         | font                                                                                                                                                                                                 |
-| Font size                                                                                                                                                                                    | font-size, including sizes whose only pair is a line height (all of Tailwind's defaults)                                                                                                             |
+| Font size                                                                                                                                                                                    | font-size tokens that pair nothing or only a line height (all of Tailwind's defaults); one that pairs a weight or letter spacing is offered in Text style                                            |
 | Weight                                                                                                                                                                                       | font-weight                                                                                                                                                                                          |
 | Line height                                                                                                                                                                                  | leading, spacing (Tailwind v4's `leading-6` is a spacing step)                                                                                                                                       |
 | Letter spacing, word spacing                                                                                                                                                                 | tracking                                                                                                                                                                                             |
@@ -52,10 +52,11 @@ pair is its line height is a size. It's chosen in Size, and its line height show
 text styles, the Text style row is hidden and Size leads the section.
 
 One kind doesn't exist yet: angles, for a gradient's angle, a rotation and a hue rotation. It's worth adding once a
-project has angle tokens; until then those fields take values only. Delays need no kind of their own, since
-`previewKind` already reads a delay as a duration. Two DTCG types have no kind: `transition` (duration, easing and delay
-together) and `strokeStyle`. A transition token is offered in Motion's Transitions row as a whole, and its three parts
-can be overridden as a text style's can. A stroke style token is offered in Stroke's Style menu.
+project has angle tokens; until then those fields take values, and steps where Framework steps lists them, with no token
+button. Delays need no kind of their own, since `previewKind` already reads a delay as a duration. Two DTCG types have
+no kind: `transition` (duration, easing and delay together) and `strokeStyle`. A transition token is offered in Motion's
+Transitions row as a whole, and its three parts can be overridden as a text style's can. A stroke style token is offered
+in Stroke's Style menu.
 
 A token named `<base>--<part>` whose base is also a token (`--text-xl--line-height`, `--text-xl--letter-spacing`,
 `--text-xl--font-weight`) is a value paired with its base, as Tailwind v4 pairs them. It isn't offered in the Line
@@ -76,9 +77,11 @@ Tailwind defaults, and a project setting can hide them per kind. `hidden` can na
 ## A value that isn't a token is marked
 
 As PAR-194 already plans for lengths off the scale, a value that isn't a token is marked, with the nearest token one
-click away. A token is matched within its kind only, by its value in the mode shown. A color's nearest token is the
-closest by ΔE in OKLab, offered only for a near match, Semantic before Primitive; a length's is the nearest step, within
-half a step. When the matched token has a different value in another theme, the offer says so ("primary: the same in
+click away. A token is matched within its kind only, by its value in the mode shown. A color's nearest token is the one
+with the smallest ΔE OK (Euclidean distance in OKLab), offered only for a near match, Semantic before Primitive; a
+length's in a spacing field (the first row of Framework steps) is the nearest spacing token or unmarked step
+(`spacingScale` and the fractions, Framework steps below), offered within half a whole step (2px at Tailwind's default
+`--spacing`). When the matched token has a different value in another theme, the offer says so ("primary: the same in
 Light, darker in Dark"), since replacing the value changes the design there. Past that, the mark offers Create token,
 which opens the Tokens panel's editor with the value, a name and the kind filled in, and replaces the value with the new
 token.
@@ -100,35 +103,40 @@ below).
 Tailwind v4 takes bare numbers for many utilities whose theme has no tokens by default. A value such a utility takes is
 a Step, written without brackets. Each field's steps, checked against Tailwind 4.3.3:
 
-| Fields                                                                                                                                | Steps                                                                       | Example                                   | Not a step                     |
-| ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------ |
-| Spacing fields: padding, margin, gap, sizes and their limits, insets, translate, indent, scroll padding and margin, line height in px | Multiples of 0.25 of `--spacing`; fractions; `full`, `screen`, `dvh`, `svh` | `p-3.25`, `w-1/2`, `leading-6`            | `p-[13.3px]`                   |
-| Border and outline width, outline offset, underline offset, decoration thickness                                                      | Whole px                                                                    | `border-3`, `outline-offset-2`            | `border-[1.5px]`               |
-| Opacity, a color's alpha                                                                                                              | Multiples of 0.25%                                                          | `opacity-47.5`, `bg-black/20`             | `opacity-[.473]`               |
-| Scale, filter amounts                                                                                                                 | Whole %                                                                     | `scale-105`, `brightness-110`             | `scale-[1.025]`                |
-| Rotation, hue rotation                                                                                                                | Whole degrees                                                               | `rotate-45`, `rotate-22`, `hue-rotate-15` | `rotate-[22.5deg]`             |
-| Duration, delay                                                                                                                       | Whole ms                                                                    | `duration-150`, `duration-1234`           | `duration-[0.2s]`              |
-| Z-index, order, grow and shrink, Max lines, grid counts and spans                                                                     | Whole numbers                                                               | `z-37`, `order-7`, `line-clamp-3`         | None                           |
-| Gradient stop positions                                                                                                               | Whole %                                                                     | `from-10%`                                | `from-[12.5%]`                 |
-| Aspect ratio                                                                                                                          | A ratio of whole numbers                                                    | `aspect-16/9`                             | `aspect-[1.618]`               |
-| Radius, blur, font size, letter spacing, a shadow's numbers, grid tracks                                                              | None                                                                        | None                                      | `rounded-[6px]`, `text-[13px]` |
+| Fields                                                                                                                                | Steps                                       | Example                                   | Not a step                     |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------- | ------------------------------ |
+| Spacing fields: padding, margin, gap, sizes and their limits, insets, translate, indent, scroll padding and margin, line height in px | Multiples of 0.25 of `--spacing`; fractions | `p-3.25`, `w-1/2`, `leading-6`            | `p-[13.3px]`                   |
+| Border and outline width, outline offset, underline offset, decoration thickness                                                      | Whole px                                    | `border-3`, `outline-offset-2`            | `border-[1.5px]`               |
+| Opacity, a color's alpha                                                                                                              | Multiples of 0.25%                          | `opacity-47.5`, `bg-black/20`             | `opacity-[.473]`               |
+| Scale, filter amounts                                                                                                                 | Whole %                                     | `scale-105`, `brightness-110`             | `scale-[1.025]`                |
+| Rotation, hue rotation                                                                                                                | Whole degrees                               | `rotate-45`, `rotate-22`, `hue-rotate-15` | `rotate-[22.5deg]`             |
+| Duration, delay                                                                                                                       | Whole ms                                    | `duration-150`, `duration-1234`           | `duration-[0.2s]`              |
+| Z-index, order, grow and shrink, Max lines, grid counts and spans                                                                     | Whole numbers                               | `z-37`, `order-7`, `line-clamp-3`         | None                           |
+| Gradient stop positions                                                                                                               | Whole %                                     | `from-10%`                                | `from-[12.5%]`                 |
+| Aspect ratio                                                                                                                          | A ratio of whole numbers                    | `aspect-16/9`                             | `aspect-[1.618]`               |
+| Radius, blur, font size, letter spacing, a shadow's numbers, grid tracks                                                              | None                                        | None                                      | `rounded-[6px]`, `text-[13px]` |
 
-A fraction is a percentage with a denominator up to 12 (`w-1/2`, `basis-1/3`, `top-1/2`, `-translate-x-1/2`). 100% is
-`w-full`, 100vw `w-screen`, 100dvh `h-dvh`, 100svh `h-svh`. A step stores the utility's own number (`{ step: 50 }` is
-`opacity-50`, `{ step: 47.5 }` is `opacity-47.5`); a value stores the CSS number (`{ value: 0.473 }` is
+A fraction is any ratio of whole numbers, which Tailwind takes bare (`w-1/2`, `w-5/13`, `basis-1/3`, `top-1/2`,
+`-translate-x-1/2`); a typed percentage is written as one when its denominator is 12 or less (50% → `w-1/2`). 100% is
+`w-full`, 100vw `w-screen`, 100dvh `h-dvh` and 100svh `h-svh`, each a keyword (`{ keyword: "full" }`), as Size in
+[design-options-values.md](design-options-values.md) stores it. A step stores the utility's own number (`{ step: 50 }`
+is `opacity-50`, `{ step: 47.5 }` is `opacity-47.5`); a value stores the CSS number (`{ value: 0.473 }` is
 `opacity-[.473]`), so each class reads back into one form.
 
 Today `extractTokens` lists the spacing scale's steps as tokens of their own (`spacing-4`, `Token.derived`). They become
 Steps: listed in the picker's Scale group, stored as `{ step: 4 }`, shown as the number they come to and never as a
-chip, and `p-4` reads back as a step. Typing `spacing-4` still finds step 4. A spacing token the project names itself
-(`--spacing-card`) stays a token.
+chip, and `p-4` reads back as a step, unless the project's theme defines `--spacing-4` (or `--padding-4`), which
+Tailwind 4.3.3 resolves before the bare number, so `p-4` then reads back as that token. Typing `spacing-4` still finds
+step 4. A spacing token the project names itself (`--spacing-card`) stays a token.
 
-At Tokens only, a step is allowed for any kind the project has no tokens of. Under Marked, a kind's steps stay unmarked
-only while the project defines no tokens of that kind (`--opacity-*`, `--z-*`, `--border-width-*`, `--duration-*`); once
-it does, steps of that kind are marked as values are, and a project can turn this off per kind. Spacing steps unmarked
-by default are Tailwind's documented scale (`spacingScale` in `@parity-app/tokens`) and the fractions. Another multiple
-(`p-3.25`) is written bare but marked. A project can widen or narrow that list. Only a value that needs brackets
-(`border-[1.5px]`, `bg-[#2563eb]`, `rounded-[6px]`, `rotate-[22.5deg]`, `opacity-[.473]`) is off the system.
+At Tokens only, a step is allowed where it would be unmarked under Marked, as below; another multiple (`p-3.25`) is
+refused, as a marked value is. Under Marked, a kind's steps stay unmarked only while the project defines no tokens of
+that kind (`--opacity-*`, `--z-index-*`, `--border-width-*`, `--transition-duration-*`); once it does, steps of that
+kind are marked as values are, and a project can turn this off per kind. Spacing steps unmarked by default are
+Tailwind's documented scale (`spacingScale` in `@parity-app/tokens`) and the fractions. Another multiple (`p-3.25`) is
+written bare but marked. A project can widen or narrow that list. A value that needs brackets (`border-[1.5px]`,
+`bg-[#2563eb]`, `rounded-[6px]`, `rotate-[22.5deg]`, `opacity-[.473]`) is always off the system; a bare step is off it
+only as this paragraph says.
 
 ## Levels
 
@@ -138,11 +146,11 @@ by default are Tailwind's documented scale (`spacingScale` in `@parity-app/token
   already uses (`GAP`, `WIDTH_HEIGHT`, `CORNER_RADIUS`, `FRAME_FILL`, `TEXT_FILL`, plus Parity's `INSET`), so a team can
   hold padding and gap to tokens while leaving widths free. The CSS row, tokens set on a layer and per-theme values
   follow the same levels.
-- **Always allowed:** `0`, `auto`, `none`, `100%`, `currentColor`, `transparent`, `inherit`, a framework step, and
-  expressions on the system, such as `calc(100% - var(--spacing) * 8)`. An expression is on the system only when every
-  number in it is a step multiplier, 0, 1, −1 or 100%, and every value in it is a token: `calc(var(--spacing-4) * 1.37)`
-  isn't. Tokens inside an expression are tracked as references (`tokenReferences` in `@parity-app/tokens`), so renaming,
-  Missing, `$deprecated` and Off-system cover them.
+- **Always allowed:** `0`, `auto`, `none`, `100%`, `currentColor`, `transparent`, `inherit`, a framework step that
+  Framework steps leaves unmarked, and expressions on the system, such as `calc(100% - var(--spacing) * 8)`. An
+  expression is on the system only when every number in it is a step multiplier, 0, 1, −1 or 100%, and every value in it
+  is a token: `calc(var(--spacing-card) * 1.37)` isn't. Tokens inside an expression are tracked as references
+  (`tokenReferences` in `@parity-app/tokens`), so renaming, Missing, `$deprecated` and Off-system cover them.
 - **Allow here,** in a refused or marked value's menu, keeps the value with a reason and marks it as an exception. The
   reason is stored on the value (`{ value: "#18181b", allow: "Photo backdrop" }`), so it moves with the layer when it's
   copied, pasted or made into a component; the off-system state itself is worked out, never stored. CI passes an
@@ -178,7 +186,8 @@ A part can be overridden only where the framework can do it. A token outside a T
 its parts offers Detach instead of an override. Detach writes the parts as values and drops the token.
 
 A color's alpha, which can be an opacity token, is part of the color (Percentage and opacity, in
-[design-options-values.md](design-options-values.md)); under Tokens only it must be an opacity token.
+[design-options-values.md](design-options-values.md)); under Tokens only it must be an opacity token, or a step while
+the project has none (Framework steps).
 
 ## What a text style is
 
