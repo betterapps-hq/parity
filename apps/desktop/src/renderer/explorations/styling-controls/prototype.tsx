@@ -28,6 +28,7 @@ import {
   CircleAlert,
   Ellipsis,
   Grid3x3,
+  Hexagon,
   Lock,
   LockOpen,
   Minus,
@@ -44,17 +45,18 @@ import {
   WrapText,
   X
 } from "lucide-react"
-import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
 import { ChoiceInput, Field } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { ColorInput } from "./color-picker.tsx"
+import { ColorInput, OffSystemMark } from "./color-picker.tsx"
 import {
   blurPx,
   blurTokens,
   type Columns,
   type Draft,
   hexOf,
+  type Length,
   radiusPx,
   radiusTokens,
   type SelfAlign,
@@ -1299,8 +1301,9 @@ function AppearanceSection({
                     label={`${corners[index]} radius`}
                     corner={index}
                     value={radii[index]}
+                    tokensOnly={tokensOnly}
                     onChange={(value) => {
-                      const next = [...radii] as [string?, string?, string?, string?]
+                      const next = [...radii] as [Length?, Length?, Length?, Length?]
                       next[index] = value
                       set({ radius: next })
                     }}
@@ -1311,7 +1314,8 @@ function AppearanceSection({
               <div className="min-w-0 flex-1">
                 <RadiusChoice
                   label="Radius"
-                  value={draft.radius as string | undefined}
+                  value={Array.isArray(draft.radius) ? undefined : draft.radius}
+                  tokensOnly={tokensOnly}
                   onChange={(radius) => set({ radius })}
                 />
               </div>
@@ -1330,12 +1334,13 @@ function AppearanceSection({
           </div>
         </Field>
         <Field label="Blur" hint="Blurs the layer itself">
-          <BlurChoice label="Blur" value={draft.blur} onChange={(blur) => set({ blur })} />
+          <BlurChoice label="Blur" value={draft.blur} tokensOnly={tokensOnly} onChange={(blur) => set({ blur })} />
         </Field>
         <Field label="Backdrop blur" hint="Blurs what shows through the layer, for frosted glass">
           <BlurChoice
             label="Backdrop blur"
             value={draft.backdropBlur}
+            tokensOnly={tokensOnly}
             onChange={(backdropBlur) => set({ backdropBlur })}
           />
         </Field>
@@ -1344,17 +1349,19 @@ function AppearanceSection({
   )
 }
 
-/** A radius token, with a corner mark inside when it's one corner's. */
+/** A radius, a token or a value of its own, with a corner mark inside when it's one corner's. */
 function RadiusChoice({
   label,
   corner,
   value,
+  tokensOnly,
   onChange
 }: {
   label: string
   corner?: number
-  value: string | undefined
-  onChange: (value: string | undefined) => void
+  value: Length | undefined
+  tokensOnly?: boolean
+  onChange: (value: Length | undefined) => void
 }) {
   const shape = (
     <span
@@ -1374,14 +1381,16 @@ function RadiusChoice({
     />
   )
   return (
-    <TokenChoice
+    <LengthField
       label={label}
+      kind="radius"
       icon={shape}
-      // A corner's field is narrow, so what its token comes to shows in its hint rather than after it.
+      // A corner's field is narrow, so what its value comes to and its status show in its hint.
       narrow={corner !== undefined}
       value={value}
-      tokens={radiusTokens.map((token) => ({ name: token.name, detail: token.px === 9999 ? "Full" : `${token.px}px` }))}
-      short={(name) => name.replace("radius-", "")}
+      tokens={radiusTokens}
+      tokensOnly={tokensOnly}
+      cssTakes={(length) => CSS.supports("border-radius", length)}
       onChange={onChange}
     />
   )
@@ -1390,103 +1399,297 @@ function RadiusChoice({
 function BlurChoice({
   label,
   value,
+  tokensOnly,
   onChange
 }: {
   label: string
-  value: string | undefined
-  onChange: (value: string | undefined) => void
+  value: Length | undefined
+  tokensOnly?: boolean
+  onChange: (value: Length | undefined) => void
 }) {
   return (
-    <TokenChoice
+    <LengthField
       label={label}
+      kind="blur"
       value={value}
-      tokens={blurTokens.map((token) => ({ name: token.name, detail: `${token.px}px` }))}
-      short={(name) => name.replace("blur-", "")}
+      tokens={blurTokens}
+      tokensOnly={tokensOnly}
+      placeholder="None"
+      cssTakes={(length) => CSS.supports("filter", `blur(${length})`)}
       onChange={onChange}
     />
   )
 }
 
+/** What a token comes to, as its field shows it: `10px`, or Full for a radius that rounds the ends. */
+const lengthDetail = (px: number) => (px === 9999 ? "Full" : `${px}px`)
+
 /**
- * A short list of tokens of one kind, with None. The token shows as a chip, then what it comes to, faintly (`lg 10px`);
- * in a narrow field (`narrow`, under about 96px), what it comes to is in its hint instead, with Unset when it's unset.
+ * A length field that takes a token or a value of its own, as every field does (call 1). A token shows as a chip, then
+ * what it comes to, faintly (`lg 10px`); clicking the chip opens the kind's tokens, and typing over it replaces it. A
+ * value shows as typed, with its unit and a hollow mark whose menu has the nearest token, Create token and Allow here;
+ * Tokens only refuses it. The token button after a value opens the tokens too, on hover or focus. Typing a token's name
+ * (`lg`, `radius-lg`) takes the token. What's typed is checked as CSS checks the property (`CSS.supports`) before it's
+ * stored; text it can't take stays, outlined in the error color, with the reason under it. In a narrow field
+ * (`narrow`, under about 96px), the unit shows on hover, and what the value comes to and its status are in its hint.
  */
-function TokenChoice({
+function LengthField({
   label,
+  kind,
   icon,
   narrow = false,
   value,
   tokens,
-  short = (name) => name,
+  tokensOnly = false,
+  placeholder = "0",
+  cssTakes,
   onChange
 }: {
   label: string
+  /** The token kind, which is also the namespace the field leaves off a token's name (`lg` for `radius-lg`). */
+  kind: "radius" | "blur"
   icon?: ReactNode
   narrow?: boolean
-  value: string | undefined
-  tokens: { name: string; detail: string }[]
-  short?: (name: string) => string
-  onChange: (value: string | undefined) => void
+  value: Length | undefined
+  /** The project's tokens of the kind; Create token adds to them. */
+  tokens: { name: string; px: number }[]
+  tokensOnly?: boolean
+  placeholder?: string
+  /** Whether CSS takes a length here, as `CSS.supports` says for the property. */
+  cssTakes: (length: string) => boolean
+  onChange: (value: Length | undefined) => void
 }) {
   const [open, setOpen] = useState(false)
-  const comesTo = tokens.find((token) => token.name === value)?.detail
-  // Unset, a narrow field's hint still names it and says so; a wider field shows None.
-  const hintWhenUnset = narrow ? label : undefined
+  const [typed, setTyped] = useState<string>()
+  const [focused, setFocused] = useState(false)
+  const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
+  const focusInput = useRef(false)
+  const token = typeof value === "string" ? tokens.find((other) => other.name === value) : undefined
+  const own = typeof value === "object" ? value : undefined
+  const prefix = `${kind}-`
+  const nearestTo = (px: number) =>
+    tokens.reduce((best, other) => (Math.abs(other.px - px) < Math.abs(best.px - px) ? other : best))
+  const nearest = own ? nearestTo(own.px) : undefined
+  const refused = own !== undefined && tokensOnly && own.allow === undefined
+  const error = message?.tone === "error"
+  let current = "none"
+  if (token) current = token.name
+  else if (own) current = `${own.px}px`
+  const read = (text: string): { value: Length | undefined } | { reason: string } => {
+    const trimmed = text.trim()
+    if (trimmed === "") return { value: undefined }
+    const named = tokens.find((other) => other.name === trimmed || other.name === prefix + trimmed)
+    if (named) return { value: named.name }
+    const match = /^(-?\d*\.?\d+)\s*(px|rem)?$/i.exec(trimmed)
+    if (!match) return { reason: `${label} takes a length, such as 6px, or a ${kind} token` }
+    const px = Number(match[1]) * (match[2]?.toLowerCase() === "rem" ? remPixels : 1)
+    if (!cssTakes(`${px}px`)) return { reason: `${label} can't be ${trimmed}` }
+    if (tokensOnly) {
+      const near = nearestTo(px)
+      return { reason: `Not a token. Nearest: ${near.name} (${lengthDetail(near.px)})` }
+    }
+    return { value: { px: Math.round(px * 100) / 100 } }
+  }
+  const commit = (leaving: boolean): boolean => {
+    if (typed === undefined) return true
+    const outcome = read(typed)
+    if ("value" in outcome) {
+      onChange(outcome.value)
+      setMessage(undefined)
+    } else if (!leaving) {
+      setMessage({ tone: "error", text: outcome.reason })
+      return false
+    } else {
+      setMessage({ tone: "note", text: `${label} is back to ${current}. ${outcome.reason}.` })
+    }
+    setTyped(undefined)
+    return true
+  }
+  const step = (up: boolean, shift: boolean) => {
+    setTyped(undefined)
+    setMessage(undefined)
+    if (token) {
+      // A token steps to the next of its kind in scale order; Shift goes to the first or last.
+      const index = tokens.indexOf(token)
+      const last = tokens.length - 1
+      let next = Math.min(last, Math.max(0, index + (up ? 1 : -1)))
+      if (shift) next = up ? last : 0
+      onChange(tokens[next]!.name)
+      return
+    }
+    const from = own?.px ?? 0
+    onChange({ px: Math.max(0, from + (up ? 1 : -1) * (shift ? 10 : 1)) })
+  }
+  // A narrow field's hint carries what the value comes to and its status, which have no room in the field.
+  let hintDetail: string | undefined
+  if (token) hintDetail = lengthDetail(token.px)
+  else if (own?.allow !== undefined) hintDetail = `Allowed here: ${own.allow}`
+  else if (own && nearest) hintDetail = `Not a token. Nearest: ${nearest.name} (${lengthDetail(nearest.px)})`
+  else hintDetail = "Unset"
+  const showChip = token !== undefined && typed === undefined
+  const list = (
+    <PopoverContent className="w-52 gap-0 p-1" align="start">
+      {[{ name: undefined, px: 0 }, ...tokens].map((option) => (
+        <button
+          key={option.name ?? "none"}
+          type="button"
+          onClick={() => {
+            onChange(option.name)
+            setMessage(undefined)
+            setOpen(false)
+          }}
+          className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent ${option.name === value ? "bg-accent" : ""}`}
+        >
+          <span className={`min-w-0 flex-1 truncate font-mono ${option.name ? "" : "text-muted-foreground"}`}>
+            {option.name ?? "None"}
+          </span>
+          <span className="text-muted-foreground tabular-nums">{option.name ? lengthDetail(option.px) : ""}</span>
+        </button>
+      ))}
+    </PopoverContent>
+  )
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <Hint
-        // A narrow field's hint carries what it comes to and its status, which have no room in the field.
-        label={value ? `${label}: ${value}` : hintWhenUnset}
-        detail={narrow ? (comesTo ?? "Unset") : undefined}
-        hidden={open}
-        wait
-      >
-        <PopoverTrigger
-          render={
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label={`${label}: ${value ?? "none"}`}
-              className="h-7 w-full min-w-0 justify-start gap-1.5 px-1 text-xs font-normal"
-            >
-              {value ? (
-                // A token is a chip on a tinted background, named without the namespace the field implies (lg in Radius).
-                <span className="flex min-w-0 items-center gap-1.5 rounded-sm bg-accent px-1 py-0.5">
-                  {icon}
-                  <span className="truncate font-mono">{short(value)}</span>
-                </span>
-              ) : (
-                <span className="flex min-w-0 items-center gap-1.5 px-1 text-muted-foreground">
-                  {icon}
-                  None
-                </span>
-              )}
-              {value && !narrow && comesTo && (
-                <span className="truncate text-muted-foreground/70 tabular-nums">{comesTo}</span>
-              )}
-            </Button>
-          }
-        />
-      </Hint>
-      <PopoverContent className="w-52 gap-0 p-1" align="start">
-        {[{ name: undefined, detail: "" }, ...tokens].map((token) => (
-          <button
-            key={token.name ?? "none"}
-            type="button"
-            onClick={() => {
-              onChange(token.name)
-              setOpen(false)
-            }}
-            className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent ${token.name === value ? "bg-accent" : ""}`}
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <Popover open={open} onOpenChange={setOpen}>
+        <Hint
+          label={narrow ? `${label}: ${current}` : undefined}
+          detail={narrow ? hintDetail : undefined}
+          hidden={open}
+          wait
+        >
+          <div
+            className={`group/length flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent pl-1 text-xs focus-within:ring-2 dark:bg-input/30 ${error || refused ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
           >
-            <span className={`min-w-0 flex-1 truncate font-mono ${token.name ? "" : "text-muted-foreground"}`}>
-              {token.name ?? "None"}
-            </span>
-            <span className="text-muted-foreground tabular-nums">{token.detail}</span>
+            {showChip ? (
+              <>
+                <PopoverTrigger
+                  aria-label={`${label}: ${token.name}`}
+                  onKeyDown={(event) => {
+                    // Typing over a chip replaces the token with what's typed; Backspace unsets the field.
+                    if (event.key === "Backspace" || event.key === "Delete") {
+                      event.preventDefault()
+                      onChange(undefined)
+                      focusInput.current = true
+                    } else if (event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey) {
+                      event.preventDefault()
+                      focusInput.current = true
+                      setTyped(event.key)
+                    } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                      event.preventDefault()
+                      step(event.key === "ArrowUp", event.shiftKey)
+                    }
+                  }}
+                  className="flex min-w-0 items-center gap-1.5 rounded-sm bg-accent px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {icon}
+                  <span className="truncate font-mono">{token.name.replace(prefix, "")}</span>
+                </PopoverTrigger>
+                {!narrow && (
+                  <span className="truncate text-muted-foreground/70 tabular-nums">{lengthDetail(token.px)}</span>
+                )}
+                <span className="flex-1" />
+              </>
+            ) : (
+              <>
+                {icon && <span className="shrink-0 pl-0.5">{icon}</span>}
+                <input
+                  ref={(input) => {
+                    if (input && focusInput.current) {
+                      focusInput.current = false
+                      input.focus()
+                    }
+                  }}
+                  aria-label={label}
+                  aria-invalid={error || refused || undefined}
+                  inputMode="decimal"
+                  placeholder={placeholder}
+                  value={typed ?? (own ? String(own.px) : "")}
+                  onFocus={() => {
+                    setFocused(true)
+                    if (message?.tone === "note") setMessage(undefined)
+                  }}
+                  onChange={(event) => setTyped(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
+                    if (event.key === "Escape" && typed !== undefined) {
+                      setTyped(undefined)
+                      setMessage(error ? { tone: "note", text: `${label} is back to ${current}.` } : undefined)
+                    }
+                    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                      event.preventDefault()
+                      step(event.key === "ArrowUp", event.shiftKey)
+                    }
+                  }}
+                  onBlur={() => {
+                    setFocused(false)
+                    commit(true)
+                  }}
+                  className={`w-0 min-w-6 flex-1 bg-transparent tabular-nums outline-none placeholder:text-muted-foreground ${refused ? "text-destructive" : ""}`}
+                />
+                {own && !focused && (
+                  <span
+                    className={`shrink-0 text-muted-foreground ${narrow ? "hidden group-hover/length:inline" : ""}`}
+                  >
+                    px
+                  </span>
+                )}
+              </>
+            )}
+            {error && <CircleAlert aria-hidden className="size-3.5 shrink-0 text-destructive" />}
+            {!error && own && nearest && !focused && (
+              <OffSystemMark
+                label={label}
+                compact
+                description={`${own.px}px isn't one of the project's ${kind} tokens.`}
+                nearest={{ name: `${nearest.name}, ${lengthDetail(nearest.px)}` }}
+                allowed={own.allow}
+                isTaken={(name) => tokens.some((other) => other.name === prefix + name)}
+                namePlaceholder={kind === "radius" ? "card" : "glass"}
+                onUse={() => onChange(nearest.name)}
+                onCreate={(name) => {
+                  tokens.push({ name: prefix + name, px: own.px })
+                  onChange(prefix + name)
+                }}
+                onAllow={(reason) => onChange(reason === undefined ? { px: own.px } : { ...own, allow: reason })}
+              />
+            )}
+            {!showChip && !error && (
+              // The token button, for a field holding no token: on hover or focus, as Figma's variable button shows.
+              <Hint label={`Choose a ${kind} token`}>
+                <PopoverTrigger
+                  aria-label={`${label} tokens`}
+                  className="hidden size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none group-focus-within/length:grid group-hover/length:grid hover:bg-accent hover:text-foreground focus-visible:grid focus-visible:ring-2 focus-visible:ring-ring data-popup-open:grid data-popup-open:bg-accent"
+                >
+                  <Hexagon className="size-3.5" />
+                </PopoverTrigger>
+              </Hint>
+            )}
+            {showChip && <span className="w-1 shrink-0" />}
+          </div>
+        </Hint>
+        {list}
+      </Popover>
+      {message && (
+        <p
+          role={error ? "alert" : "status"}
+          className={`text-[11px] leading-snug ${error ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          {message.text}
+        </p>
+      )}
+      {!message && refused && nearest && (
+        <p role="alert" className="flex flex-wrap items-center gap-x-1 text-[11px] leading-snug text-destructive">
+          Not a token. Nearest:
+          <button
+            type="button"
+            onClick={() => onChange(nearest.name)}
+            className="font-medium text-foreground underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            {nearest.name} ({lengthDetail(nearest.px)})
           </button>
-        ))}
-      </PopoverContent>
-    </Popover>
+        </p>
+      )}
+    </div>
   )
 }
 

@@ -95,6 +95,8 @@ export function ColorEditor({
   const start = parseColor(value) ?? { r: 0, g: 0, b: 0, a: 1 }
   const [hsb, setHsb] = useState(() => rgbaToHsb(start))
   const [model, setModel] = useState<ColorModel>(modelAtStart ?? (value.startsWith("oklch") ? "oklch" : "hex"))
+  // What the model's fields say under their row, as any field does.
+  const [message, setMessage] = useState<FieldMessage>()
   const opacity = alpha ?? 100
   const color = hsbToRgba(hsb)
   const update = (next: Hsb, nextAlpha = alpha, nextModel = model) => {
@@ -118,9 +120,10 @@ export function ColorEditor({
   const hsl = rgbaToHsl(color)
   const oklch = rgbaToOklch(color)
   const fields: Record<ColorModel, ReactNode> = {
-    hex: <HexField key="hex" color={color} onChange={fromRgba} />,
+    hex: <HexField key="hex" color={color} onChange={fromRgba} onMessage={setMessage} />,
     rgb: (["r", "g", "b"] as const).map((channel) => (
       <ChannelField
+        onMessage={setMessage}
         key={channel}
         label={{ r: "Red", g: "Green", b: "Blue" }[channel]}
         value={rgb[channel]}
@@ -130,6 +133,7 @@ export function ColorEditor({
     )),
     hsl: (["h", "s", "l"] as const).map((channel) => (
       <ChannelField
+        onMessage={setMessage}
         key={channel}
         label={{ h: "Hue", s: "Saturation", l: "Lightness" }[channel]}
         value={channel === "h" ? hsb.h : hsl[channel]}
@@ -142,6 +146,7 @@ export function ColorEditor({
     )),
     hsb: (["h", "s", "b"] as const).map((channel) => (
       <ChannelField
+        onMessage={setMessage}
         key={channel}
         label={{ h: "Hue", s: "Saturation", b: "Brightness" }[channel]}
         value={hsb[channel]}
@@ -151,6 +156,7 @@ export function ColorEditor({
     )),
     oklch: [
       <ChannelField
+        onMessage={setMessage}
         key="l"
         label="Lightness"
         value={oklch.l * 100}
@@ -158,6 +164,7 @@ export function ColorEditor({
         onChange={(next) => fromRgba(oklchToRgba({ ...oklch, l: next / 100 }))}
       />,
       <ChannelField
+        onMessage={setMessage}
         key="c"
         label="Chroma"
         value={oklch.c}
@@ -167,6 +174,7 @@ export function ColorEditor({
         onChange={(next) => fromRgba(oklchToRgba({ ...oklch, c: next }))}
       />,
       <ChannelField
+        onMessage={setMessage}
         key="h"
         label="Hue"
         value={oklch.h}
@@ -244,42 +252,134 @@ export function ColorEditor({
         </Select>
         <div className="grid min-w-0 flex-1 auto-cols-fr grid-flow-col gap-1">{fields[model]}</div>
       </div>
+      {message && (
+        <p
+          role={message.tone === "error" ? "alert" : "status"}
+          className={`-mt-1 text-[11px] leading-snug ${message.tone === "error" ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          {message.text}
+        </p>
+      )}
     </div>
   )
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
-/** A hex field: `2F6FED` with or without `#`, of 3, 6 or 8 digits; an `oklch()` pasted in is read too. */
-function HexField({ color, onChange }: { color: Rgba; onChange: (color: Rgba) => void }) {
-  const shown = formatHex(color).slice(1).toUpperCase()
+/** What a field says under its row: why it can't read what's typed, or that it put the value back. */
+export interface FieldMessage {
+  tone: "error" | "note"
+  text: string
+}
+
+/**
+ * Text typed into a field, checked before it's stored: `read` gives the value, or the reason it can't. Text it can't
+ * read stays, outlined in the error color, with the reason under the row; Enter keeps it, and Escape or leaving puts
+ * the value back and says so. Nothing is stored until it reads.
+ */
+function useTypedField<T>({
+  shown,
+  name,
+  read,
+  onCommit,
+  onMessage
+}: {
+  shown: string
+  name: string
+  read: (text: string) => { value: T } | { reason: string }
+  onCommit: (value: T) => void
+  onMessage: (message: FieldMessage | undefined) => void
+}) {
   const [typed, setTyped] = useState<string>()
+  const [error, setError] = useState(false)
+  const commit = (leaving: boolean): boolean => {
+    if (typed === undefined) return true
+    const outcome = read(typed)
+    if ("value" in outcome) {
+      onCommit(outcome.value)
+      onMessage(undefined)
+    } else if (!leaving) {
+      setError(true)
+      onMessage({ tone: "error", text: outcome.reason })
+      return false
+    } else {
+      onMessage({ tone: "note", text: `${name} is back to ${shown}. ${outcome.reason}.` })
+    }
+    setError(false)
+    setTyped(undefined)
+    return true
+  }
+  return {
+    value: typed ?? shown,
+    error,
+    onChange: (text: string) => setTyped(text),
+    onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
+      if (event.key === "Escape" && typed !== undefined) {
+        event.stopPropagation()
+        setTyped(undefined)
+        setError(false)
+        onMessage(error ? { tone: "note", text: `${name} is back to ${shown}.` } : undefined)
+      }
+    },
+    onBlur: () => commit(true),
+    reset: () => {
+      setTyped(undefined)
+      setError(false)
+    }
+  }
+}
+
+/**
+ * A hex field: `2F6FED` with or without `#`, of 3, 6 or 8 digits; an `oklch()` pasted in is read too. What's typed is
+ * checked as CSS checks a color (`CSS.supports`) and must read as hex or `oklch()`.
+ */
+function HexField({
+  color,
+  onChange,
+  onMessage
+}: {
+  color: Rgba
+  onChange: (color: Rgba) => void
+  onMessage: (message: FieldMessage | undefined) => void
+}) {
+  const field = useTypedField<Rgba>({
+    shown: formatHex(color).slice(1).toUpperCase(),
+    name: "Hex",
+    read: (text) => {
+      const trimmed = text.trim()
+      const candidate = /^[\da-f]+$/i.test(trimmed) ? `#${trimmed}` : trimmed
+      const read = CSS.supports("color", candidate) ? parseColor(candidate) : undefined
+      return read ? { value: read } : { reason: "Type a hex color, such as 2F6FED" }
+    },
+    onCommit: (read) => onChange({ ...read, a: 1 }),
+    onMessage
+  })
   return (
     <Input
       aria-label="Hex"
-      value={typed ?? shown}
-      onChange={(event) => setTyped(event.target.value)}
-      onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
-      onBlur={() => {
-        if (typed === undefined) return
-        const text = typed.trim()
-        const read = parseColor(text) ?? parseColor(`#${text}`)
-        if (read) onChange({ ...read, a: 1 })
-        setTyped(undefined)
-      }}
+      aria-invalid={field.error || undefined}
+      value={field.value}
+      onChange={(event) => field.onChange(event.target.value)}
+      onKeyDown={field.onKeyDown}
+      onBlur={field.onBlur}
       className="h-7 px-2 font-mono text-xs uppercase"
     />
   )
 }
 
-/** One of a model's channels, typed or stepped with the arrow keys (Shift for ten), committed on Enter or leaving. */
+/**
+ * One of a model's channels, typed or stepped with the arrow keys (Shift for ten), committed on Enter or leaving. A
+ * number past either end is brought to it; anything else is refused.
+ */
 function ChannelField({
   label,
   value,
   max,
   step = 1,
   places = 0,
-  onChange
+  onChange,
+  onMessage
 }: {
   label: string
   value: number
@@ -287,30 +387,38 @@ function ChannelField({
   step?: number
   places?: number
   onChange: (value: number) => void
+  onMessage: (message: FieldMessage | undefined) => void
 }) {
-  const [typed, setTyped] = useState<string>()
-  const shown = places === 0 ? String(Math.round(value)) : value.toFixed(places).replace(/^0/, "")
+  const field = useTypedField<number>({
+    shown: places === 0 ? String(Math.round(value)) : value.toFixed(places).replace(/^0/, ""),
+    name: label,
+    read: (text) => {
+      const number = Number(text)
+      return text.trim() !== "" && Number.isFinite(number)
+        ? { value: clamp(number, 0, max) }
+        : { reason: `${label} takes a number from 0 to ${max}` }
+    },
+    onCommit: onChange,
+    onMessage
+  })
   return (
     <Hint label={label}>
       <Input
         aria-label={label}
+        aria-invalid={field.error || undefined}
         inputMode="decimal"
-        value={typed ?? shown}
-        onChange={(event) => setTyped(event.target.value)}
+        value={field.value}
+        onChange={(event) => field.onChange(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur()
+          field.onKeyDown(event)
           if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return
           event.preventDefault()
-          setTyped(undefined)
+          field.reset()
+          onMessage(undefined)
           const by = (event.key === "ArrowUp" ? step : -step) * (event.shiftKey ? 10 : 1)
           onChange(clamp(value + by, 0, max))
         }}
-        onBlur={() => {
-          if (typed === undefined) return
-          const number = Number(typed)
-          if (typed.trim() !== "" && Number.isFinite(number)) onChange(clamp(number, 0, max))
-          setTyped(undefined)
-        }}
+        onBlur={field.onBlur}
         className="h-7 min-w-0 px-1 text-center text-xs tabular-nums"
       />
     </Hint>
@@ -614,8 +722,9 @@ export function ColorInput({
         {plain && nearestToValue && (
           <OffSystemMark
             label={label}
-            value={value}
-            nearest={nearestToValue.token}
+            description={`${value} isn't one of the project's tokens. It stays the same in every theme.`}
+            nearest={{ name: nearestToValue.token.name, preview: <Checker hex={nearestToValue.token.hex} /> }}
+            isTaken={(name) => colorTokens.some((token) => token.name === name)}
             allowed={allowed}
             onUse={() => onChange(nearestToValue.token.name, alpha)}
             onCreate={(name) => {
@@ -670,22 +779,32 @@ export function ColorInput({
 
 /**
  * The status slot's mark for a value off the token system, or refused by Tokens only: hollow, or filled once it's
- * allowed here, with the reason in its hover. Its menu has the nearest token, Create token (named here, with this color
- * as its value) and Allow here, which asks why and keeps the reason with the value.
+ * allowed here, with the reason in its hint. Its menu has the nearest token, Create token (named here, with this value)
+ * and Allow here, which asks why and keeps the reason with the value. Any field's value of its own uses it: a color, a
+ * radius, a blur.
  */
-function OffSystemMark({
+export function OffSystemMark({
   label,
-  value,
+  description,
   nearest,
   allowed,
+  isTaken,
+  namePlaceholder = "brand",
+  compact = false,
   onUse,
   onCreate,
   onAllow
 }: {
   label: string
-  value: string
-  nearest: ColorToken
+  /** Says what the value is and that it isn't a token, at the top of the menu. */
+  description: string
+  nearest: { name: string; preview?: ReactNode }
   allowed: string | undefined
+  /** Whether a token of this kind has the name already. */
+  isTaken: (name: string) => boolean
+  namePlaceholder?: string
+  /** Smaller, for the status slot inside a field rather than beside it. */
+  compact?: boolean
   onUse: () => void
   onCreate: (name: string) => void
   onAllow: (reason: string | undefined) => void
@@ -693,7 +812,7 @@ function OffSystemMark({
   const [open, setOpen] = useState(false)
   const [name, setName] = useState<string>()
   const [reason, setReason] = useState<string>()
-  const taken = name !== undefined && colorTokens.some((token) => token.name === name.trim())
+  const taken = name !== undefined && isTaken(name.trim())
   return (
     <Popover
       open={open}
@@ -711,7 +830,7 @@ function OffSystemMark({
       >
         <PopoverTrigger
           aria-label={`${label} isn't a token${allowed === undefined ? "" : `, allowed here: ${allowed}`}`}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+          className={`grid shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent ${compact ? "size-6" : "size-7"}`}
         >
           {allowed === undefined ? (
             <Circle className="size-3.5" strokeDasharray="3 2" />
@@ -721,16 +840,14 @@ function OffSystemMark({
         </PopoverTrigger>
       </Hint>
       <PopoverContent className="w-60 gap-1 p-1" align="end">
-        <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">
-          {value} isn&apos;t one of the project&apos;s tokens. It stays the same in every theme.
-        </p>
+        <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">{description}</p>
         <MenuButton
           onClick={() => {
             onUse()
             setOpen(false)
           }}
         >
-          <Checker hex={nearest.hex} />
+          {nearest.preview}
           Use nearest, <span className="font-mono">{nearest.name}</span>
         </MenuButton>
         {name === undefined ? (
@@ -748,7 +865,7 @@ function OffSystemMark({
             <Input
               ref={(input) => input?.focus()}
               aria-label="New token's name"
-              placeholder="brand"
+              placeholder={namePlaceholder}
               value={name}
               onChange={(event) => setName(event.target.value.replace(/\s+/g, "-").toLowerCase())}
               aria-invalid={taken}

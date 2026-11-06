@@ -140,14 +140,14 @@ export interface Draft {
   /** Why a plain fill is allowed here as an exception to the token system, kept with the value (`allow`). */
   backgroundAllowed?: string
   /** One radius, or each corner from the top left, clockwise. */
-  radius?: string | [string?, string?, string?, string?]
+  radius?: Length | [Length?, Length?, Length?, Length?]
   border?: string
   borderAlpha?: number
   borderAllowed?: string
   /** One width, or each side from the top, clockwise. */
   borderWidth?: number | [number, number, number, number]
-  blur?: string
-  backdropBlur?: string
+  blur?: Length
+  backdropBlur?: Length
   aspect?: string
   tag?: string
   direction?: "row" | "column"
@@ -184,6 +184,19 @@ export interface Draft {
   justifySelf?: SelfAlign
 }
 
-export const radiusPx = (name: string | undefined): number => radiusTokens.find((token) => token.name === name)?.px ?? 0
+/**
+ * A length a field holds: a token's name, or a value of its own in pixels, as every field takes one (call 1), with why
+ * it's allowed here when it is (`{ value, allow }` in PAR-652's value forms).
+ */
+export type Length = string | { px: number; allow?: string }
 
-export const blurPx = (name: string | undefined): number => blurTokens.find((token) => token.name === name)?.px ?? 0
+/** A length in pixels: its own, or its token's. */
+export const lengthPx = (value: Length | undefined, tokens: readonly { name: string; px: number }[]): number => {
+  if (value === undefined) return 0
+  if (typeof value === "object") return value.px
+  return tokens.find((token) => token.name === value)?.px ?? 0
+}
+
+export const radiusPx = (value: Length | undefined): number => lengthPx(value, radiusTokens)
+
+export const blurPx = (value: Length | undefined): number => lengthPx(value, blurTokens)

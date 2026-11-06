@@ -51,7 +51,8 @@ export const Appearance: Story = {
 
 /**
  * The fill's picker on Custom: the saturation and brightness square, the hue and opacity strips, the eyedropper, and
- * the model menu (Hex, RGB, HSL, HSB, OKLCH) with its fields; a color picked in OKLCH is written as `oklch()`. Custom
+ * the model menu (Hex, RGB, HSL, HSB, OKLCH) with its fields; a color picked in OKLCH is written as `oklch()`. A hex
+ * that CSS can't read as a color stays in its field, refused, with the reason under the fields. Custom
  * edits the fill as you go, as a plain color. Below, the nearest token, with Use to swap it in, and In this design,
  * the colors the design already uses. Drag in the square to see the nearest token follow.
  */
@@ -65,9 +66,13 @@ export const PickingAColor: Story = {
  * this color as its value, and Allow here, which asks why and fills the mark, with the reason in its hover. The reason
  * is kept with the value, so it moves with the layer. Opacity is part of a plain color (#2f6fed80), where a
  * token's is written after its name. The picker opens on Custom for a plain color, and on Tokens for a token.
+ *
+ * Every field takes a value of its own as well as a token (call 1): Radius here is 12px, with the same mark and menu,
+ * and the token button after it, on hover, opens the radius tokens. Typing `lg` takes radius-lg. What's typed is
+ * checked as CSS checks the property before it's stored, so `-4` stays in the field, refused: "Radius can't be -4".
  */
 export const PlainColor: Story = {
-  render: () => <StylingPrototype start={{ draft: { background: "#2f6fed", radius: "radius-lg" } }} />
+  render: () => <StylingPrototype start={{ draft: { background: "#2f6fed", radius: { px: 12 } } }} />
 }
 
 /**
