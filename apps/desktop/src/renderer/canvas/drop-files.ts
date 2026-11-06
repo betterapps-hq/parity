@@ -21,7 +21,7 @@ import { placeAtPoint } from "./paste-here.ts"
 /**
  * Image files dragged onto the canvas from Explorer or Finder (PAR-24). Over a layout inside a design they go into the
  * slot under the pointer, as a dragged layer lands, or at the pointer in an absolutely placed layout, as Paste here puts
- * layers; on the empty canvas they make a new screen there, as a paste with nothing to paste into does. Each file is
+ * layers; on the empty canvas they make a new frame there, as a paste with nothing to paste into does. Each file is
  * saved under `public/images/` through `images.import` at once, as a paste saves it, and placing them is one undo step,
  * which leaves the files, as undoing a paste does. Which files are taken, and what's said about the rest, are
  * `@parity-app/editor`'s rules.

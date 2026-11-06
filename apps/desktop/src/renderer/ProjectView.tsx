@@ -80,7 +80,7 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
   return (
     <CanvasMenu>
       <div
-        className={`canvas-area relative isolate min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""}`}
+        className={`canvas-area relative isolate min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""} ${tool === "frame" ? "cursor-crosshair" : ""}`}
         data-tool={tool}
       >
         <CanvasEditor onEditor={onEditor} shown={shown} />

@@ -1,13 +1,13 @@
 import type { DesignNode } from "@parity-app/core"
-import { type DesignName, designOfLayers } from "@parity-app/editor"
+import { type DesignName, designOfLayers, frameOfText } from "@parity-app/editor"
 import type { ProjectSession } from "../workspace.ts"
 import { hitTest, type Point } from "./hit.ts"
 
 /**
- * What lands on empty space on the canvas makes a screen there, named after what's in it (PAR-546): pasted layers, a
+ * What lands on empty space on the canvas makes a frame there, named after what's in it (PAR-546, PAR-545): pasted layers, a
  * layout or text from the insert picker, a component or design dropped from the Assets panel or inserted with nothing
  * selected, and image files. The rule and the names are `@parity-app/editor`'s (`designOfLayers`, `designOfItem`,
- * `designOfImages`); this finds the empty canvas and the middle of the view, and adds the screen to the store.
+ * `designOfImages`); this finds the empty canvas and the middle of the view, and adds the frame to the store.
  */
 
 /**
@@ -37,10 +37,10 @@ export function designNames(session: ProjectSession): DesignName {
 }
 
 /**
- * Layers with no design to go into make a new screen with its top left `at`, named after them (`designOfLayers`), as
- * one undo step, `label`. The screen is selected. Returns its key.
+ * Layers with no design to go into make a new frame with its top left `at`, named after them (`designOfLayers`), as
+ * one undo step, `label`. The frame is selected. Returns its key.
  */
-export function addScreenOfLayers(
+export function addFrameOfLayers(
   session: ProjectSession,
   nodes: readonly DesignNode[],
   at: Point,
@@ -51,4 +51,26 @@ export function addScreenOfLayers(
   const key = store.addContainer(store.mainPath, designOfLayers(nodes, ids, at, designNames(session)), label)
   selection.set({ design: key })
   return key
+}
+
+/**
+ * Text on the empty canvas, from the text tool or a paste: a text layer in a frame that hugs it, with its top left
+ * `at`, named after its text (`frameOfText`), as one undo step, `label`. The frame is selected. Returns its key and the
+ * text layer's id, which the text tool edits in place.
+ */
+export function addFrameOfText(
+  session: ProjectSession,
+  text: string,
+  at: Point,
+  label: string
+): { key: string; node: string } {
+  const { store, selection } = session
+  const { design, node } = frameOfText(
+    text,
+    store.getEntries().map((entry) => entry.container.id),
+    at
+  )
+  const key = store.addContainer(store.mainPath, design, label)
+  selection.set({ design: key })
+  return { key, node }
 }
