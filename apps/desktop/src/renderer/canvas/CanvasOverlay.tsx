@@ -3,6 +3,7 @@ import {
   distancesBetween,
   drawsOver,
   type Edge,
+  editableText,
   frameResize,
   frameSizeReset,
   layerResize,
@@ -43,7 +44,7 @@ import { getSnapMeasures, LayerSnapping } from "./layer-snap.ts"
 import { findLayer } from "./layers.ts"
 import { frameDrawn } from "./nudge.ts"
 import { placeAtPoint } from "./paste-here.ts"
-import { editableText, hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
+import { hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
 import { formatPx, type Redline, RedlineView } from "./Redline.tsx"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { pressBackground } from "./select-box.ts"
