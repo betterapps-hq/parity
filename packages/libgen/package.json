@@ -15,6 +15,7 @@
     "@parity-app/project": "workspace:*",
     "@parity-app/registry": "workspace:*",
     "@parity-app/tokens": "workspace:*",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "zod": "catalog:"
   }
 }

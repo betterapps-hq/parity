@@ -4,14 +4,15 @@ import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { promisify } from "node:util"
 import { gunzipSync } from "node:zlib"
+import { parseManifest } from "@parity-app/core"
+import { packageDocument, versionDocument } from "./npm.ts"
 
-const registry = "https://registry.npmjs.org"
 const run = promisify(execFile)
 const shell = promisify(exec)
 
 /** The versions npm has published of a package. */
 export async function publishedVersions(name: string): Promise<string[]> {
-  return Object.keys((await packument(name)).versions ?? {})
+  return Object.keys((await packageDocument(name)).versions ?? {})
 }
 
 /**
@@ -19,21 +20,11 @@ export async function publishedVersions(name: string): Promise<string[]> {
  * `latest` points to.
  */
 export async function publishedVersion(name: string, wanted: string): Promise<string> {
-  const { versions, "dist-tags": tags } = await packument(name)
+  const { versions, "dist-tags": tags } = await packageDocument(name)
   if (versions?.[wanted]) return wanted
   const tagged = tags?.[wanted]
   if (tagged) return tagged
   throw new Error(`npm has no ${name}@${wanted}: give a version it has published, or a tag such as latest`)
-}
-
-async function packument(
-  name: string
-): Promise<{ versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> }> {
-  const response = await fetch(`${registry}/${name.replace("/", "%2F")}`, {
-    headers: { accept: "application/vnd.npm.install-v1+json" }
-  })
-  if (!response.ok) throw new Error(`npm has no ${name} (${response.status})`)
-  return (await response.json()) as { versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> }
 }
 
 /**
@@ -75,8 +66,9 @@ export async function installedVersion(
   await npm()
   // A React package, one that brought React, is read as an app that uses it would have it: with React DOM at the same
   // version, which rendering its parts needs, and React's types, without which each component's type reads as `any`.
-  const react = await readFile(join(dir, "node_modules", "react", "package.json"), "utf8").then(
-    (text) => (JSON.parse(text) as { version?: string }).version,
+  const reactManifest = join(dir, "node_modules", "react", "package.json")
+  const react = await readFile(reactManifest, "utf8").then(
+    (text) => parseManifest(text, reactManifest).version,
     () => undefined
   )
   if (react && /^\d+\.\d+\.\d+$/.test(react)) {
@@ -95,12 +87,7 @@ export async function publishedSource(
   name: string,
   version: string
 ): Promise<{ repository?: string; commit?: string }> {
-  const response = await fetch(`${registry}/${name.replace("/", "%2F")}/${version}`)
-  if (!response.ok) throw new Error(`npm has no ${name}@${version} (${response.status})`)
-  const { gitHead, repository } = (await response.json()) as {
-    gitHead?: string
-    repository?: string | { url?: string }
-  }
+  const { gitHead, repository } = await versionDocument(name, version)
   const url = typeof repository === "string" ? repository : repository?.url
   return {
     ...(url ? { repository: repositoryUrl(url) } : {}),
@@ -188,9 +175,7 @@ export async function packageFile(
   } catch {
     // Not cached yet.
   }
-  const meta = await fetch(`${registry}/${name.replace("/", "%2F")}/${version}`)
-  if (!meta.ok) throw new Error(`npm has no ${name}@${version} (${meta.status})`)
-  const tarball = ((await meta.json()) as { dist?: { tarball?: string } }).dist?.tarball
+  const tarball = (await versionDocument(name, version)).dist?.tarball
   if (!tarball) throw new Error(`npm gives no tarball for ${name}@${version}`)
   const archive = await fetch(tarball)
   if (!archive.ok) throw new Error(`${name}@${version}'s tarball couldn't be downloaded (${archive.status})`)

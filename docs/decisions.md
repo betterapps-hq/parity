@@ -3941,6 +3941,24 @@ below. My calls on how they move:
   - Errors that used to be plain `TypeError`s or `Error`s are now `invalid_input`: a file that doesn't end in `.par`,
     `Update` changing a name, tag or component in a state, and every "expected an object". The workspace's own
     `expectObject` is gone.
+- **libgen checks what it reads from npm, packages and theme objects (PAR-599).** My calls:
+  - npm's package and version documents are loose schemas in `libgen/src/npm.ts`, fetched by `packageDocument` and
+    `versionDocument`. Published versions, a version's source and tarball, and the examples' commit all read through
+    them. A document that doesn't match fails as
+    `npm's document for lucide-react: /dist-tags/latest: expected a string`. A package's listed versions are read for
+    `gitHead` only, so an old version's odd `repository` can't fail the whole document, and `time` allows npm's
+    `unpublished` record beside the dates.
+  - A package's `upstream.json` is checked. One that doesn't match reads no examples, with a note naming the field,
+    rather than being ignored. React's package.json, read to match React DOM's version, goes through `parseManifest`.
+  - A token file a package ships must be a JSON object, with a resolver's `resolutionOrder` a list, to count as tokens.
+    What's in it is checked when the tokens are read (PAR-591).
+  - The library file being regenerated is read through `parseLibraryManifest`. One that doesn't read stops generation,
+    naming the field, where it was overwritten before, since writing over it would lose what a person wrote. Its
+    authored fields and edits are kept as the file wrote them.
+  - MUI's `createTheme`, the theme and stylesheets it makes, Chakra's `defaultSystem` and Fluent's themes have small
+    schemas of the fields libgen reads. A field that moves fails the theme with its name, as
+    `@chakra-ui/react: /defaultSystem/getTokenCss: expected a function`, and the library's notes say so. A typography
+    entry that isn't an object, such as MUI's `pxToRem`, is passed over.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
