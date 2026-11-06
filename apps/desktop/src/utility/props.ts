@@ -7,7 +7,7 @@ import type { ComponentInfo, ComponentSource } from "@parity-app/core"
 import { findLockfiles } from "@parity-app/project"
 import { environment } from "./environment.ts"
 import type { CheckerMethods } from "./props-worker.ts"
-import { reportWorkerError } from "./telemetry.ts"
+import { recordFromWorker, reportWorkerError } from "./telemetry.ts"
 import { type WorkerClient, workerClient } from "./worker-client.ts"
 
 const workerUrl = new URL("./props-worker.mjs", import.meta.url)
@@ -118,8 +118,14 @@ export function typeChecker(
 export const checker = typeChecker(
   workerClient<CheckerMethods>({
     // Half the computer's memory at most, so a project too big to check stops the worker rather than the computer.
-    start: () =>
-      new Worker(workerUrl, { resourceLimits: { maxOldGenerationSizeMb: Math.round(totalmem() / 2 ** 20 / 2) } }),
+    start: () => {
+      const worker = new Worker(workerUrl, {
+        resourceLimits: { maxOldGenerationSizeMb: Math.round(totalmem() / 2 ** 20 / 2) }
+      })
+      // The worker's events come beside its channel's messages (PAR-627).
+      worker.on("message", recordFromWorker)
+      return worker
+    },
     idleMs: checkerIdleMs,
     failed: (error: Error & { code?: string }) => {
       reportWorkerError(error)

@@ -42,3 +42,15 @@ export function telemetryEnvironment(variables: TelemetryVariables, installed: b
   if (variables.CI && !/^(0|false)$/i.test(variables.CI.trim())) return "ci"
   return installed ? "tester" : "development"
 }
+
+/** What can go to Sentry: errors (with their breadcrumbs), structured logs, and spans. */
+export type SentryKind = "error" | "log" | "span"
+
+/**
+ * Whether the level lets this kind of thing reach Sentry. All sends everything; Errors sends errors and crashes, which
+ * carry their breadcrumbs, but no logs or spans; Off sends nothing. The local copy is written at every level.
+ */
+export function sendsToSentry(level: TelemetryLevel, kind: SentryKind): boolean {
+  if (level === "all") return true
+  return level === "errors" && kind === "error"
+}

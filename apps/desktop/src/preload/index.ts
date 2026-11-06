@@ -12,6 +12,7 @@ import {
   type WindowMethods,
   windowMethods
 } from "../shared/protocol.ts"
+import { exposeTelemetry } from "./telemetry.ts"
 
 /**
  * The window's channel to the project service. Requests wait until main gives the page its port, and a second port
@@ -156,3 +157,4 @@ const host: CanvasHost = {
 }
 
 contextBridge.exposeInMainWorld("canvasHost", host)
+exposeTelemetry()
