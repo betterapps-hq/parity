@@ -96,10 +96,27 @@ const ScrubContext = createContext<((scrub: Scrub) => () => void) | undefined>(u
 /** What ends a field's run of Up and Down presses, which is one undo step. */
 const runEnders = new Set<FieldEvent["type"]>(["type", "enter", "blur", "escape", "scrubStart"])
 
-/** What a field says under itself: why it can't read what's typed, or what it did with a value. */
+/**
+ * What a field says under itself: why it can't read what's typed, what it did with a value, or something to know about
+ * the value it holds, such as a length off the spacing scale, with a button that deals with it.
+ */
 interface FieldMessage {
-  tone: "error" | "note"
+  tone: "error" | "note" | "flag"
   text: string
+  action?: FieldAction
+}
+
+/** A button beside what a field says. `name` is its accessible name when the label alone doesn't say which field. */
+interface FieldAction {
+  label: string
+  name?: string
+  run: () => void
+}
+
+/** Something to know about the value a field holds, said under its row while it isn't being edited. */
+export interface FieldFlag {
+  text: string
+  action?: FieldAction
 }
 
 /** Lets a row's fields say things under the whole row, where there's room, by the id each describes itself with. */
@@ -127,7 +144,14 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
   const say = useCallback((id: string, message: FieldMessage | undefined) => {
     setMessages((current) => {
       const was = current.get(id)
-      if (was?.text === message?.text && was?.tone === message?.tone) return current
+      if (
+        was?.text === message?.text &&
+        was?.tone === message?.tone &&
+        was?.action?.label === message?.action?.label &&
+        was?.action?.name === message?.action?.name
+      ) {
+        return current
+      }
       const next = new Map(current)
       if (message) next.set(id, message)
       else next.delete(id)
@@ -184,16 +208,37 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
   )
 }
 
+const messageTones: Record<FieldMessage["tone"], string> = {
+  error: "text-destructive",
+  note: "text-muted-foreground",
+  flag: "text-amber-700 dark:text-amber-400"
+}
+
 function FieldMessageLine({ id, message }: { id: string; message: FieldMessage }) {
-  const error = message.tone === "error"
-  return (
+  const { action } = message
+  const text = (
     <p
       id={id}
-      role={error ? "alert" : "status"}
-      className={`text-[11px] leading-snug ${error ? "text-destructive" : "text-muted-foreground"}`}
+      role={message.tone === "error" ? "alert" : "status"}
+      className={`min-w-0 text-[11px] leading-snug ${messageTones[message.tone]}`}
     >
       {message.text}
     </p>
+  )
+  if (!action) return text
+  // The button sits at the line's end, so a flag on each of a row's fields lines its buttons up.
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      {text}
+      <button
+        type="button"
+        onClick={action.run}
+        aria-label={action.name}
+        className="shrink-0 rounded-sm text-[11px] leading-snug font-medium whitespace-nowrap text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        {action.label}
+      </button>
+    </div>
   )
 }
 
@@ -276,6 +321,8 @@ export interface NumberFieldProps {
   className?: string
   /** Said on hovering the field, such as the step a length is. */
   hint?: string
+  /** Said under the row about the value it holds, while it isn't being typed in, such as a length off the scale. */
+  flag?: FieldFlag
   /** Shows an edit on the canvas while it's typed or scrubbed, without making it. */
   onPreview?: (update: FieldUpdate) => void
   /** Takes the preview back. */
@@ -306,6 +353,7 @@ export function NumberField({
   mono = false,
   className = "",
   hint,
+  flag,
   onPreview,
   onCancel,
   onCommit
@@ -328,6 +376,27 @@ export function NumberField({
   const [state, setState] = useState(initialFieldState)
   useEffect(() => say?.(messageId, state.message), [say, messageId, state.message])
   useEffect(() => () => say?.(messageId, undefined), [say, messageId])
+  // The flag is about the value there, so it waits while something else is typed, and its button runs the latest one.
+  const flagId = useId()
+  const flagAction = useRef(flag?.action?.run)
+  flagAction.current = flag?.action?.run
+  const flagText = flag?.text
+  const flagLabel = flag?.action?.label
+  const flagName = flag?.action?.name
+  const flagMessage = useMemo<FieldMessage | undefined>(
+    () =>
+      flagText === undefined
+        ? undefined
+        : {
+            tone: "flag",
+            text: flagText,
+            ...(flagLabel ? { action: { label: flagLabel, name: flagName, run: () => flagAction.current?.() } } : {})
+          },
+    [flagText, flagLabel, flagName]
+  )
+  const flagShown = state.draft === undefined && state.scrubbing === undefined ? flagMessage : undefined
+  useEffect(() => say?.(flagId, flagShown), [say, flagId, flagShown])
+  useEffect(() => () => say?.(flagId, undefined), [say, flagId])
   const current = useRef(state)
   const previewing = useRef(false)
   const [selecting, setSelecting] = useState(0)
@@ -512,7 +581,7 @@ export function NumberField({
         ref={input}
         aria-label={title}
         aria-invalid={error || undefined}
-        aria-describedby={state.message ? messageId : undefined}
+        aria-describedby={[state.message && messageId, flagShown && flagId].filter(Boolean).join(" ") || undefined}
         value={fieldText(state, shown)}
         placeholder={placeholder}
         spellCheck={false}
@@ -555,6 +624,7 @@ export function NumberField({
       )}
       {/* In a row, the row says it, under its whole width. */}
       {state.message && !say && <FieldMessageLine id={messageId} message={state.message} />}
+      {flagShown && !say && <FieldMessageLine id={flagId} message={flagShown} />}
     </div>
   )
 }

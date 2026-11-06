@@ -239,8 +239,9 @@ The point of all this is that the agent fixing a bug can see what the agent or t
 
 ## Where events go
 
-- **Sentry, as you decided on 2026-11-05.** Two projects in one organisation: `parity-desktop` for the app and
-  `parity-cli` for the CLI, so their releases and quotas stay apart.
+- **Sentry, as you decided on 2026-11-05.** The `better-apps` organisation, set up as [sentry.md](../sentry.md)
+  describes: `parity-desktop` for the app and `parity-cli` for the CLI, so their releases and quotas stay apart, beside
+  projects for the web app, dashboard and API.
 - **Errors** become Sentry issues, grouped by `CodedError` code and Parity's own frames.
 - **Events** become Sentry structured logs and breadcrumbs, searchable by every attribute.
 - **Spans** become Sentry traces, linked across processes and to the CLI.
