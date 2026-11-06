@@ -14,6 +14,7 @@ const entry = `
 import { createElement as h, Fragment } from "react"
 import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
+import { atom, react } from "tldraw"
 import { boardRoot, defaultModeSettings, frameViewport, resolveDesign, resolveModes } from "@parity-app/core"
 import { createGuest } from "@parity-app/renderer-react/guest"
 import { ModeView } from "../ModeView.tsx"
@@ -38,8 +39,12 @@ const loaded = { guest: createGuest({ components: { Checkbox }, css: "" }), shee
 const mode = resolveModes(defaultModeSettings)[0]
 let root
 
-/** Shows every state of the dashboard side by side on a board, with the overlay over them, as the canvas does. */
-export function mount(containers) {
+/**
+ * Shows every state of the dashboard side by side on a board, with the overlay over them, as the canvas does. With
+ * \`camera\`, the board is in a layer that follows a camera, as tldraw's is, and the session has an editor that gives the
+ * camera, standing in for tldraw's; the camera is \`window.camera\`.
+ */
+export function mount(containers, { camera } = {}) {
   const store = new DesignStore(
     [{ path: "app.par", document: { version: 3, containers } }],
     defaultModeSettings,
@@ -49,6 +54,20 @@ export function mount(containers) {
   const selection = new SelectionStore()
   const session = { id: "app", store, selection, loaded, tokens: { get: () => [] }, errors: [] }
   window.session = session
+  window.stopCamera?.()
+  window.stopCamera = undefined
+  if (camera) {
+    window.camera = atom("camera", { x: 0, y: 0, z: 1 })
+    const area = () => document.querySelector("#area").getBoundingClientRect()
+    session.editor = {
+      getCamera: () => window.camera.get(),
+      getZoomLevel: () => window.camera.get().z,
+      getViewportScreenBounds: () => ({ x: area().left, y: area().top, w: area().width, h: area().height }),
+      getShapeAtPoint: () => undefined,
+      screenToPage: (point) => point,
+      store: { listen: () => () => undefined }
+    }
+  }
   const draw = () => {
     const entry = store.getEntry("app.par#dash")
     const frames = entry.container.states.map((state) =>
@@ -67,13 +86,22 @@ export function mount(containers) {
       root.render(
         h(ProjectContext.Provider, { value: session },
           h("div", { id: "tldraw", style: { position: "absolute", inset: 0 } }),
-          h("div", { className: "board", style: { position: "absolute", left: 40, top: 40, padding: 32, display: "flex", gap: 32, pointerEvents: "none" } }, frames),
+          h("div", { className: "layer", style: { position: "absolute", inset: 0, transformOrigin: "0 0", pointerEvents: "none" } },
+            h("div", { className: "board", style: { position: "absolute", left: 40, top: 40, padding: 32, display: "flex", gap: 32, pointerEvents: "none" } }, frames)),
           h(CanvasOverlay))
       )
     )
   }
   root ??= createRoot(document.querySelector("#area"))
   draw()
+  const layer = document.querySelector(".layer")
+  layer.style.transform = ""
+  // As tldraw's own layer does, the moment the camera changes.
+  if (camera)
+    window.stopCamera = react("layer follows the camera", () => {
+      const { x, y, z } = window.camera.get()
+      layer.style.transform = \`scale(\${z}) translate(\${x}px, \${y}px)\`
+    })
   store.subscribe(draw)
   return mode.id
 }
@@ -399,6 +427,77 @@ describe("hovering", () => {
     const background = await at("app", "loading", true)
     await page.mouse.move(background.x, background.y)
     expect(await hovered()).toBeUndefined()
+    expect(errors).toEqual([])
+  })
+})
+
+describe("following the camera", () => {
+  it("keeps a selected layer's outline on it in each frame the camera moves", async () => {
+    await page.evaluate(
+      // @ts-expect-error The bundle's global.
+      (containers) => app.mount(containers, { camera: true }),
+      [dashboard, statCard]
+    )
+    await page.evaluate(
+      // @ts-expect-error The page's session.
+      ({ design, mode }) => window.session.selection.set({ design, node: "revenue", mode, state: "default" }),
+      { design, mode }
+    )
+    // Once the selection has been drawn and measuring has settled.
+    await page.waitForTimeout(800)
+    const cameras = [
+      { x: -30, y: 10, z: 1.5 },
+      { x: 20, y: -15, z: 0.75 },
+      { x: 0, y: 0, z: 1 }
+    ]
+    const frames = await page.evaluate(async (cameras) => {
+      const host = document.querySelector('[data-frame][data-state="default"]')!
+      // How far the outline is from the layer, at its farthest edge. The page has no stylesheet, so the outline is read
+      // from where the overlay puts it, in the canvas area's pixels; the area is at the page's top left.
+      const off = () => {
+        // @ts-expect-error The bundle's global.
+        const layer: DOMRect = app.nodeBox(host, "revenue")
+        const outlines = [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")]
+          .filter((element) => element.style.outline !== "")
+          .map(({ style }) => ({
+            left: parseFloat(style.left),
+            top: parseFloat(style.top),
+            width: parseFloat(style.width),
+            height: parseFloat(style.height)
+          }))
+        const distance = (rect: { left: number; top: number; width: number; height: number }) =>
+          Math.max(
+            Math.abs(rect.left - layer.left),
+            Math.abs(rect.top - layer.top),
+            Math.abs(rect.width - layer.width),
+            Math.abs(rect.height - layer.height)
+          )
+        return Math.round(Math.min(Infinity, ...outlines.map(distance)))
+      }
+      const found: number[] = []
+      for (const camera of cameras) {
+        // The camera moves in an animation frame, as tldraw's does, and the frame is checked as it's about to be
+        // painted: a ResizeObserver's first callback comes after the animation frame's callbacks and its layout.
+        found.push(
+          await new Promise((resolve) => {
+            requestAnimationFrame(() => {
+              // @ts-expect-error The page's camera.
+              window.camera.set(camera)
+              const ticker = document.body.appendChild(document.createElement("div"))
+              const observer = new ResizeObserver(() => {
+                observer.disconnect()
+                ticker.remove()
+                resolve(off())
+              })
+              observer.observe(ticker)
+            })
+          })
+        )
+      }
+      return found
+    }, cameras)
+    // Pixels between the outline and the layer, in each frame.
+    expect(frames).toEqual([0, 0, 0])
     expect(errors).toEqual([])
   })
 })

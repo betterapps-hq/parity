@@ -267,9 +267,10 @@ as the rest of the canvas. Now it rests while nothing moves, and still follows e
 - **Frames are found from an index,** kept as `ModeView` mounts and unmounts each frame, not by searching the canvas.
   Everything that finds a design's frames uses it: the overlay, hovering and clicking, agents' presence, Reveal, the
   style preview and the tab order overlay.
-- **It measures after a change** to the camera or a board, the selection or the hover, the tool or View's settings, a
-  design, a frame's size or what it draws, an image or font loading, or the pointer, wheel and keys, which drive drags,
-  snapping, resizing and Alt's redlines. After each it measures every animation frame for half a second, then rests.
+- **It measures after a change** to a board, the selection or the hover, the tool or View's settings, a design, a
+  frame's size or what it draws, an image or font loading, or the pointer and keys, which drive drags, snapping,
+  resizing and Alt's redlines. After each it measures every animation frame for half a second, then rests. The camera is
+  followed apart from these, once in each frame it moves (see Outlines follow the camera in the frame it moves).
 - **Animations are followed while they run.** Once it has settled, it keeps measuring while an animation or transition
   runs in a frame of the selected or hovered design, so outlines move with it, and stops when it ends. A component that
   animates by script writes to its DOM, which counts as a change. A design animating elsewhere doesn't keep it going.
@@ -286,9 +287,9 @@ Code: the index is `registerFrame`, `findFrames` and `allFrames` in `apps/deskto
 
 Tests:
 
-- `packages/editor/src/overlay-measuring.test.ts` (11): the designs drawn over, the layout grid's every frame, the
+- `packages/editor/src/overlay-measuring.test.ts` (13): the designs drawn over, the layout grid's every frame, the
   settle window and how changes move it on, resting once settled, following an animation without asking about it while
-  settling, and resting while nothing shows.
+  settling, resting while nothing shows, and which changes to tldraw's store only move the view (PAR-653).
 - `canvas/CanvasOverlay.test.ts`, "finding a design's frames" (2), in Chrome: the frames `ModeView` registers, found in
   the page's order, by state and mode, only inside the root asked, and left out once they unmount. Its other tests drive
   the overlay with the real mouse, through the index.
@@ -296,9 +297,57 @@ Tests:
 - `apps/desktop/e2e/selecting.e2e.ts`, on CI: hovering and selecting outline layers, with the selected one's name and
   size, and a dragged layer shows where it would land, all through the index and the measuring.
 
-Gaps: outlines following the camera and an animation inside a frame, and the window's idle script time, have no
-automated test; they were checked in the app as above. Layout that moves with nothing the overlay hears of, such as a
-video taking its size once its data arrives, is caught up at the next change.
+Gaps: outlines following an animation inside a frame, and the window's idle script time, have no automated test; they
+were checked in the app as above. Following the camera has its own test since PAR-653. Layout that moves with nothing
+the overlay hears of, such as a video taking its size once its data arrives, is caught up at the next change.
+
+### Outlines follow the camera in the frame it moves (PAR-653)
+
+Zooming with a layer hovered or selected keeps its outline, label, handles, spacing and redlines on it in every frame,
+and runs as fast as zooming with nothing outlined. They used to trail the zoom by a frame or two, settling only once it
+stopped, and each frame laid the page out partway through, which dropped the window to a few frames a second while other
+work kept the machine busy.
+
+- **The camera is followed on its own.** When tldraw's camera moves, the overlay measures once in that frame, after the
+  frame has been laid out and before it's painted, and draws what it measured straight away. Measuring is free then,
+  since the page is already laid out.
+- **Zooming doesn't wake measuring every frame.** A change to tldraw's store that only moves the camera or the pointer,
+  or starts or stops the camera, doesn't wake it, and neither does the wheel. Boards moving or resizing once the camera
+  stops still do.
+- **The element inspector's overlay (PAR-167) reads nothing with nothing to mark.** It had read the canvas area's box in
+  every animation frame, laying the page out partway through each frame of a zoom.
+- **Measured** on 2026-11-05 with `pnpm perf --runs "zoom at 100%,zoom hovering a layer,zoom with a layer selected"` on
+  the example project (119 frames), React's production build, in two rounds of before and after one after another. Each
+  run zooms with Ctrl and the wheel over a layer of the first design, from 100% to about 300% and back, then to about
+  33%, for 4 seconds. Outlines were checked as each frame was about to be painted.
+
+| Zooming                   | Before: fps | Before: outline off                        | After: fps  | After: outline off  |
+| ------------------------- | ----------- | ------------------------------------------ | ----------- | ------------------- |
+| Nothing outlined, at 100% | 40.5 / 45   | –                                          | 44.8 / 44.5 | –                   |
+| A layer hovered           | 42.8 / 45   | 145 of 171 / 150 of 180 frames, up to 9 px | 43.8 / 44.8 | 0 of 175 / 0 of 179 |
+| A layer selected          | 38 / 38.5   | 132 of 152 / 134 of 154 frames, up to 9 px | 36.8 / 38.8 | 0 of 147 / 0 of 155 |
+
+Each cell is round 1 / round 2. Before, the overlay's measuring took about 1 second of each 4-second zoom, even with
+nothing outlined, since the wheel woke it, and the inspector's took as long with a layer selected; after, neither shows
+in the profile. Earlier the same day, with other sessions using the machine, the same zooms ran at 6 to 15 frames a
+second before.
+
+Code: the measuring effect in `apps/desktop/src/renderer/canvas/CanvasOverlay.tsx` (`followCamera` and its
+ResizeObserver), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`, and the inspector's `tick` in
+`canvas/InspectOverlay.tsx`. `pnpm perf`'s `zoom at 100%`, `zoom hovering a layer` and `zoom with a layer selected` runs
+(`apps/desktop/scripts/perf.ts`) report `outline off`, and `--runs` measures only the runs named. The calls are in
+decisions.md, The selection overlay follows the camera in the frame it moves.
+
+Tests:
+
+- `canvas/CanvasOverlay.test.ts`, "following the camera" (1), in Chrome: with a layer selected, a camera that moves the
+  board as tldraw's does, in an animation frame, finds the outline on the layer as each of three frames is about to be
+  painted: zoomed in and panned, zoomed out, and back. It fails against the overlay as it was.
+- `packages/editor/src/overlay-measuring.test.ts`, `movesOnlyTheView` (2): the camera, the pointer and the camera
+  starting or stopping only move the view; a board, the rest of tldraw's instance, and records added or removed don't.
+
+Gaps: the frame rate is measured by `pnpm perf`, not by a test. Wheel zooming over a layer in the real window was
+checked through `pnpm perf`'s runs, which dispatch Ctrl and the wheel to the canvas.
 
 ### Distance labels beside the line (PAR-558)
 
