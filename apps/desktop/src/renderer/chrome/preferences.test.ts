@@ -6,6 +6,7 @@ const defaults = {
   snapping: true,
   exportScale: 2,
   exportSizes: [{ format: "png", scale: 2 }],
+  componentsView: "list",
   layoutGrid: false,
   autosave: false,
   performanceStats: false,
@@ -14,7 +15,14 @@ const defaults = {
 
 describe("saved preferences", () => {
   it("read back as they were saved", () => {
-    const saved = { ...defaults, theme: "light", exportScale: 3, autosave: true, codeEditor: "zed" }
+    const saved = {
+      ...defaults,
+      theme: "light",
+      exportScale: 3,
+      autosave: true,
+      codeEditor: "zed",
+      componentsView: "grid"
+    }
     expect(readPreferences(JSON.stringify(saved))).toEqual(saved)
   })
 

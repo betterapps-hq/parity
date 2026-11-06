@@ -11,6 +11,7 @@ import {
   layersResize,
   type SpacingEdit,
   measuresNext,
+  movesOnlyTheView,
   overlayDesigns,
   pasteHere,
   resizeStart,
@@ -22,6 +23,8 @@ import {
   withFrame
 } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
+import { flushSync } from "react-dom"
+import { react, type TLRecord } from "tldraw"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
@@ -127,6 +130,7 @@ const frameEdges: Edge[] = ["e", "s", "se"]
 export function CanvasOverlay() {
   const session = useProject()
   const rootRef = useRef<HTMLDivElement>(null)
+  const tickerRef = useRef<HTMLDivElement>(null)
   const [model, setModel] = useState<Model>(empty)
   const pointer = useRef<{ point?: Point; alt: boolean; deep: boolean }>({ alt: false, deep: false })
   const editing = useEditing(session.selection)
@@ -277,6 +281,7 @@ export function CanvasOverlay() {
   // Outlines follow the camera, layout changes, animations and drags, so they're measured when one of those can have
   // moved them, not every frame (PAR-522, see `@parity-app/editor`'s overlay-measuring.ts): each change measures every
   // frame for a moment, and after that only while an animation runs in a frame drawn over. Measuring rests otherwise.
+  // The camera is followed apart from that, in the frame it moves (PAR-653): see `followCamera` below.
   useEffect(() => {
     const { selection, store, editor } = session
     const area = rootRef.current?.parentElement
@@ -296,19 +301,35 @@ export function CanvasOverlay() {
       const drawn = designs()
       return allFrames(area).some((host) => drawsOver(drawn, host.dataset.design) && animates(host))
     }
-    const tick = () => {
-      frame = 0
-      if (measuresNext({ now: performance.now(), until, showing: showing(), animating }))
-        frame = requestAnimationFrame(tick)
+    const draw = (now: boolean) => {
       if (area.closest("[hidden]")) return
       // Interacting, outlines and handles would sit over the components being tried.
       const next = selection.getTool() === "interact" ? empty : measure(session, area, pointer.current.alt)
       const serialized = JSON.stringify(next)
-      if (serialized !== last) {
-        last = serialized
-        setModel(next)
-      }
+      if (serialized === last) return
+      last = serialized
+      if (now) flushSync(() => setModel(next))
+      else setModel(next)
     }
+    const tick = () => {
+      frame = 0
+      if (measuresNext({ now: performance.now(), until, showing: showing(), animating }))
+        frame = requestAnimationFrame(tick)
+      draw(false)
+    }
+    // The camera moves in tldraw's own animation frame, which moves the canvas and has boards' gutters follow the zoom
+    // (PAR-602). Measured in an animation frame of its own, outlines were drawn from before the camera moved or after,
+    // and laid the page out partway through the frame; and drawn from React state, they were painted a frame late. So
+    // once the camera has moved, the outlines are measured when the frame has been laid out, and drawn before it's
+    // painted: a ResizeObserver's callbacks run then, after every animation frame callback, so the camera changes the
+    // size of a hidden element to be called.
+    const ticker = tickerRef.current
+    const followCamera = () => {
+      if (!ticker || !showing()) return
+      ticker.style.width = ticker.style.width === "1px" ? "2px" : "1px"
+    }
+    const laidOut = new ResizeObserver(() => draw(true))
+    if (ticker) laidOut.observe(ticker)
     const wake = () => {
       until = settleUntil(performance.now(), until)
       frame ||= requestAnimationFrame(tick)
@@ -354,18 +375,37 @@ export function CanvasOverlay() {
       if (area.contains(host)) wakeFor(host)
     })
 
-    // The selection, hover, tool and preferences; the designs; tldraw's camera and boards; and the pointer and keys,
-    // which drive drags, snapping, resizing and Alt's redlines.
+    // The selection, hover, tool and preferences; the designs; tldraw's boards; and the pointer and keys, which drive
+    // drags, snapping, resizing and Alt's redlines. The camera, and the wheel that moves it, are left to `followCamera`,
+    // which measures once in each frame the camera moves; measuring every frame as well would lay the page out twice.
     const stopSelection = selection.subscribe(wake)
     const stopPreferences = subscribePreferences(wake)
     const stopStore = store.subscribe(wake)
-    const stopEditor = editor?.store.listen(wake)
-    const inputs = ["pointermove", "pointerdown", "pointerup", "pointercancel", "wheel", "keydown", "keyup"]
+    const stopEditor = editor?.store.listen(({ changes }) => {
+      const types = (records: Record<string, TLRecord>) => Object.values(records).map((record) => record.typeName)
+      const change = {
+        added: types(changes.added),
+        updated: Object.values(changes.updated).map(([from, to]) => ({
+          type: to.typeName,
+          fields: Object.keys(to).filter((field) => from[field as keyof TLRecord] !== to[field as keyof TLRecord])
+        })),
+        removed: types(changes.removed)
+      }
+      if (!movesOnlyTheView(change)) wake()
+    })
+    const stopCamera =
+      editor &&
+      react("overlay follows the camera", () => {
+        editor.getCamera()
+        followCamera()
+      })
+    const inputs = ["pointermove", "pointerdown", "pointerup", "pointercancel", "keydown", "keyup"]
     for (const type of inputs) window.addEventListener(type, wake, { capture: true, passive: true })
     document.fonts.addEventListener("loadingdone", wake)
     wake()
     return () => {
       cancelAnimationFrame(frame)
+      laidOut.disconnect()
       resizes.disconnect()
       for (const stop of watched.values()) stop()
       stopFrames()
@@ -373,6 +413,7 @@ export function CanvasOverlay() {
       stopPreferences()
       stopStore()
       stopEditor?.()
+      stopCamera?.()
       for (const type of inputs) window.removeEventListener(type, wake, { capture: true })
       document.fonts.removeEventListener("loadingdone", wake)
     }
@@ -380,6 +421,8 @@ export function CanvasOverlay() {
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[300] overflow-hidden">
+      {/* Resized as the camera moves, to measure once the frame is laid out (see followCamera). */}
+      <div ref={tickerRef} aria-hidden className="invisible absolute top-0 left-0 h-0" />
       <FrameDrawingView />
       {model.outlines.map((outline) => (
         <div

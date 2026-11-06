@@ -1,11 +1,14 @@
 import {
   type ComponentInfo,
   type ComponentLibrary,
+  type ComponentProp,
   type ComponentSource,
   type DesignNode,
   type OpenProp,
   type RenderNode,
-  resolveDesign
+  renderProblem,
+  resolveDesign,
+  walkNodes
 } from "@parity-app/core"
 import { componentExample } from "./composition.ts"
 
@@ -27,6 +30,8 @@ export interface PreviewContext {
   library: ComponentLibrary
   /** The viewport option of the mode it's drawn in, whose responsive patches apply. */
   viewport: string
+  /** Props laid over the component's own, as one of its variants' (PAR-208). */
+  props?: Record<string, unknown>
 }
 
 /**
@@ -36,7 +41,8 @@ export interface PreviewContext {
  * drawn open, as the component's example.
  */
 export function componentPreviewTree(component: string, context: PreviewContext): RenderNode[] {
-  const placed = drawnOpen(componentExample(component, context.info, context.sources), context.sources)
+  const example = componentExample(component, context.info, context.sources)
+  const placed = drawnOpen(context.props ? withProps(example, component, context.props) : example, context.sources)
   return [
     {
       kind: "element",
@@ -121,4 +127,81 @@ function children(node: DesignNode): DesignNode[] {
 /** Every layer inside a node, depth first, in order. */
 function inside(node: DesignNode): DesignNode[] {
   return children(node).flatMap((child) => [child, ...inside(child)])
+}
+
+/** The example with props laid over the component's own, on its first layer of that component, outermost first. */
+function withProps(node: DesignNode, component: string, props: Record<string, unknown>): DesignNode {
+  const tree = structuredClone(node)
+  const target = [tree, ...inside(tree)].find((layer) => layer.type === "component" && layer.component === component)
+  if (target?.type === "component") target.props = { ...target.props, ...props }
+  return tree
+}
+
+/** A prop whose options a component's card shows as small previews, one per option (PAR-208). */
+export interface PreviewVariants {
+  prop: string
+  options: (string | number | boolean)[]
+}
+
+/**
+ * The variants a component's card shows: its first variant of its styles (cva) with more than one option, else its first
+ * own prop of a few named options, as a size or an orientation. None for a component without either.
+ */
+export function previewVariants(info: ComponentInfo | undefined): PreviewVariants | undefined {
+  const choices = (prop: ComponentProp) => prop.kind === "enum" && (prop.options?.length ?? 0) > 1
+  const props = info?.props ?? []
+  const prop =
+    props.find((candidate) => candidate.group === "variant" && choices(candidate)) ??
+    props.find((candidate) => candidate.group === "own" && choices(candidate))
+  return prop ? { prop: prop.name, options: prop.options! } : undefined
+}
+
+/**
+ * The props a component requires that what inserting it places doesn't give it, which its preview may not draw
+ * without. Inserting gives a required text, number, yes-or-no or option prop a value of its own (`componentNode`), so
+ * these are lists, objects and other nodes. A function is left out, since a missing handler doesn't stop it drawing, and
+ * so is `children` when the sample puts layers inside it.
+ */
+export function missingProps(
+  component: string,
+  info: ComponentInfo | undefined,
+  sources: Record<string, ComponentSource>
+): string[] {
+  const example = componentExample(component, info, sources)
+  const layer = [example, ...inside(example)].find(
+    (candidate) => candidate.type === "component" && candidate.component === component
+  )
+  if (layer?.type !== "component") return []
+  return (info?.props ?? [])
+    .filter((prop) => prop.required && prop.kind !== "function")
+    .filter((prop) => layer.props?.[prop.name] === undefined && !layer.slots?.[prop.name]?.length)
+    .map((prop) => prop.name)
+}
+
+/** Why a component has no picture, when drawing it failed or showed nothing. */
+export type PreviewProblem = "failed" | "needs-props" | "needs-provider" | "server-only" | "draws-nothing"
+
+/**
+ * Why a preview has no picture: a provider it needs or code that only runs on a server, as its error says
+ * (`renderProblem`); else a required prop with no value (`missingProps`); else it failed, or drew nothing of its own.
+ */
+export function previewProblem(drawn: { error: string } | { empty: true }, missing: readonly string[]): PreviewProblem {
+  if ("error" in drawn) {
+    const problem = renderProblem(drawn.error)
+    if (problem === "provider") return "needs-provider"
+    if (problem === "server" || problem === "async") return "server-only"
+  }
+  if (missing.length > 0) return "needs-props"
+  return "error" in drawn ? "failed" : "draws-nothing"
+}
+
+/** How many times each component is placed in a project's designs, by its name, counting layers in slots too. */
+export function componentUses(roots: readonly DesignNode[]): Map<string, number> {
+  const uses = new Map<string, number>()
+  for (const root of roots) {
+    walkNodes(root, (node) => {
+      if (node.type === "component") uses.set(node.component, (uses.get(node.component) ?? 0) + 1)
+    })
+  }
+  return uses
 }

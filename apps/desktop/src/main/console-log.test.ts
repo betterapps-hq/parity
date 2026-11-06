@@ -1,6 +1,13 @@
+import type { WebContents } from "electron"
 import { describe, expect, it, vi } from "vite-plus/test"
 import type { ConsoleChange } from "../shared/protocol.ts"
-import { announcedContexts, batchedChanges, createConsoleLog, type WrittenMessage } from "./console-log.ts"
+import {
+  announcedContexts,
+  batchedChanges,
+  createConsoleLog,
+  recordConsole,
+  type WrittenMessage
+} from "./console-log.ts"
 
 const guest = "http://127.0.0.1:5173"
 const written = (message: Partial<WrittenMessage> = {}): WrittenMessage => ({
@@ -69,6 +76,21 @@ describe("where a window's next message comes from", () => {
     contexts.announce(1, "info", pricing)
     now = 5000
     expect(contexts.take(1, "info")).toBeUndefined()
+  })
+
+  it("keeps a frame's message written through the window's wrapper, at the frame's own call", () => {
+    const app = "http://localhost:5199"
+    const log = createConsoleLog()
+    let heard: ((event: Record<string, unknown>) => void) | undefined
+    const contents = { on: (_name: string, listener: typeof heard) => (heard = listener) } as unknown as WebContents
+    const announced = [{ design: "app.par#members", source: `${guest}/src/member-row.tsx`, line: 9 }]
+    recordConsole(log, contents, "canvas", app, () => announced.shift())
+    // The console sees the wrapper, in Parity's own code, as where both were written.
+    heard!({ level: "warning", message: "Picked Ada", sourceId: `${app}/assets/index.js`, lineNumber: 40 })
+    heard!({ level: "warning", message: "Parity's own", sourceId: `${app}/assets/index.js`, lineNumber: 41 })
+    expect(log.read(guest)).toEqual([
+      expect.objectContaining({ text: "Picked Ada", source: `${guest}/src/member-row.tsx`, line: 9 })
+    ])
   })
 })
 
