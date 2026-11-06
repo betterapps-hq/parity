@@ -3921,10 +3921,11 @@ at the end of the strip. Both are the start page from the explorations (decision
 - **A new tab** has a large Search field, which has the keyboard when the tab shows so Enter or Space searches, then
   Open and New project in Home's order.
 - **Both list your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
-  more. A card has the project's picture, its folder's name and when it was last opened; its tooltip is the folder's
-  path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent. Home's Recent leaves out the
-  project it offers to continue. A list with nothing in it says what will show up there, in a dashed box a row of cards
-  tall.
+  more, which sits beside the filters, or after the cards in a window as narrow as a phone. There Home's Search spans
+  the row under the account menu. A card has the project's picture, its folder's name and when it was last opened; its
+  tooltip is the folder's path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent.
+  Home's Recent leaves out the project it offers to continue. A list with nothing in it says what will show up there, in
+  a dashed box a row of cards tall.
 - **A project whose folder is gone (PAR-188)** — moved, renamed, deleted, or on a drive that isn't plugged in — is
   greyed, with Folder not found on its picture and under its name. Continue offers the next one instead, and opening it
   says where the folder was and offers Remove. It stays listed until removed, since a drive comes back. The service
@@ -4434,10 +4435,10 @@ asks for it. Parity carries WorkOS's client ID and never its API key, and the wi
 - **Signing in later** is from the account spot at the end of the title bar, or Sign in in Home's For you. It opens the
   same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
 - **A button opens the browser** at WorkOS's authorize URL with that provider chosen; the work email opens AuthKit with
-  it filled in. Parity shows Continue in your browser with one button, Cancel, and under it "Page didn't open? Open it
-  again or copy the link." After 30 seconds it says Still waiting for your browser, Open it again becomes the main
-  button above Cancel, and the line offers copying the link. It never stops waiting on its own. Cancel goes back to the
-  ways in on the screen, or closes the dialog, and stops listening for that sign-in.
+  it filled in. Parity shows Continue in your browser, naming the work email it signs in, with one button, Cancel, and
+  under it "Page didn't open? Open it again or copy the link." After 30 seconds it says Still waiting for your browser,
+  Open it again becomes the main button above Cancel, and the line offers copying the link. It never stops waiting on
+  its own. Cancel goes back to the ways in on the screen, or closes the dialog, and stops listening for that sign-in.
 - **What went wrong says what to do next:** canceled in the browser (`access_denied`), Parity couldn't sign you in (any
   other error, or trading the code failed), this account can't sign in (WorkOS answered 403), or sign in through your
   organization (`sso_required` or `organization_authentication_methods_required`), whose Continue with single sign-on
