@@ -267,9 +267,10 @@ as the rest of the canvas. Now it rests while nothing moves, and still follows e
 - **Frames are found from an index,** kept as `ModeView` mounts and unmounts each frame, not by searching the canvas.
   Everything that finds a design's frames uses it: the overlay, hovering and clicking, agents' presence, Reveal, the
   style preview and the tab order overlay.
-- **It measures after a change** to the camera or a board, the selection or the hover, the tool or View's settings, a
-  design, a frame's size or what it draws, an image or font loading, or the pointer, wheel and keys, which drive drags,
-  snapping, resizing and Alt's redlines. After each it measures every animation frame for half a second, then rests.
+- **It measures after a change** to a board, the selection or the hover, the tool or View's settings, a design, a
+  frame's size or what it draws, an image or font loading, or the pointer and keys, which drive drags, snapping,
+  resizing and Alt's redlines. After each it measures every animation frame for half a second, then rests. The camera is
+  followed apart from these, once in each frame it moves (see Outlines follow the camera in the frame it moves).
 - **Animations are followed while they run.** Once it has settled, it keeps measuring while an animation or transition
   runs in a frame of the selected or hovered design, so outlines move with it, and stops when it ends. A component that
   animates by script writes to its DOM, which counts as a change. A design animating elsewhere doesn't keep it going.
@@ -286,9 +287,9 @@ Code: the index is `registerFrame`, `findFrames` and `allFrames` in `apps/deskto
 
 Tests:
 
-- `packages/editor/src/overlay-measuring.test.ts` (11): the designs drawn over, the layout grid's every frame, the
+- `packages/editor/src/overlay-measuring.test.ts` (13): the designs drawn over, the layout grid's every frame, the
   settle window and how changes move it on, resting once settled, following an animation without asking about it while
-  settling, and resting while nothing shows.
+  settling, resting while nothing shows, and which changes to tldraw's store only move the view (PAR-653).
 - `canvas/CanvasOverlay.test.ts`, "finding a design's frames" (2), in Chrome: the frames `ModeView` registers, found in
   the page's order, by state and mode, only inside the root asked, and left out once they unmount. Its other tests drive
   the overlay with the real mouse, through the index.
@@ -296,9 +297,57 @@ Tests:
 - `apps/desktop/e2e/selecting.e2e.ts`, on CI: hovering and selecting outline layers, with the selected one's name and
   size, and a dragged layer shows where it would land, all through the index and the measuring.
 
-Gaps: outlines following the camera and an animation inside a frame, and the window's idle script time, have no
-automated test; they were checked in the app as above. Layout that moves with nothing the overlay hears of, such as a
-video taking its size once its data arrives, is caught up at the next change.
+Gaps: outlines following an animation inside a frame, and the window's idle script time, have no automated test; they
+were checked in the app as above. Following the camera has its own test since PAR-653. Layout that moves with nothing
+the overlay hears of, such as a video taking its size once its data arrives, is caught up at the next change.
+
+### Outlines follow the camera in the frame it moves (PAR-653)
+
+Zooming with a layer hovered or selected keeps its outline, label, handles, spacing and redlines on it in every frame,
+and runs as fast as zooming with nothing outlined. They used to trail the zoom by a frame or two, settling only once it
+stopped, and each frame laid the page out partway through, which dropped the window to a few frames a second while other
+work kept the machine busy.
+
+- **The camera is followed on its own.** When tldraw's camera moves, the overlay measures once in that frame, after the
+  frame has been laid out and before it's painted, and draws what it measured straight away. Measuring is free then,
+  since the page is already laid out.
+- **Zooming doesn't wake measuring every frame.** A change to tldraw's store that only moves the camera or the pointer,
+  or starts or stops the camera, doesn't wake it, and neither does the wheel. Boards moving or resizing once the camera
+  stops still do.
+- **The element inspector's overlay (PAR-167) reads nothing with nothing to mark.** It had read the canvas area's box in
+  every animation frame, laying the page out partway through each frame of a zoom.
+- **Measured** on 2026-11-05 with `pnpm perf --runs "zoom at 100%,zoom hovering a layer,zoom with a layer selected"` on
+  the example project (119 frames), React's production build, in two rounds of before and after one after another. Each
+  run zooms with Ctrl and the wheel over a layer of the first design, from 100% to about 300% and back, then to about
+  33%, for 4 seconds. Outlines were checked as each frame was about to be painted.
+
+| Zooming                   | Before: fps | Before: outline off                        | After: fps  | After: outline off  |
+| ------------------------- | ----------- | ------------------------------------------ | ----------- | ------------------- |
+| Nothing outlined, at 100% | 40.5 / 45   | –                                          | 44.8 / 44.5 | –                   |
+| A layer hovered           | 42.8 / 45   | 145 of 171 / 150 of 180 frames, up to 9 px | 43.8 / 44.8 | 0 of 175 / 0 of 179 |
+| A layer selected          | 38 / 38.5   | 132 of 152 / 134 of 154 frames, up to 9 px | 36.8 / 38.8 | 0 of 147 / 0 of 155 |
+
+Each cell is round 1 / round 2. Before, the overlay's measuring took about 1 second of each 4-second zoom, even with
+nothing outlined, since the wheel woke it, and the inspector's took as long with a layer selected; after, neither shows
+in the profile. Earlier the same day, with other sessions using the machine, the same zooms ran at 6 to 15 frames a
+second before.
+
+Code: the measuring effect in `apps/desktop/src/renderer/canvas/CanvasOverlay.tsx` (`followCamera` and its
+ResizeObserver), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`, and the inspector's `tick` in
+`canvas/InspectOverlay.tsx`. `pnpm perf`'s `zoom at 100%`, `zoom hovering a layer` and `zoom with a layer selected` runs
+(`apps/desktop/scripts/perf.ts`) report `outline off`, and `--runs` measures only the runs named. The calls are in
+decisions.md, The selection overlay follows the camera in the frame it moves.
+
+Tests:
+
+- `canvas/CanvasOverlay.test.ts`, "following the camera" (1), in Chrome: with a layer selected, a camera that moves the
+  board as tldraw's does, in an animation frame, finds the outline on the layer as each of three frames is about to be
+  painted: zoomed in and panned, zoomed out, and back. It fails against the overlay as it was.
+- `packages/editor/src/overlay-measuring.test.ts`, `movesOnlyTheView` (2): the camera, the pointer and the camera
+  starting or stopping only move the view; a board, the rest of tldraw's instance, and records added or removed don't.
+
+Gaps: the frame rate is measured by `pnpm perf`, not by a test. Wheel zooming over a layer in the real window was
+checked through `pnpm perf`'s runs, which dispatch Ctrl and the wheel to the canvas.
 
 ### Distance labels beside the line (PAR-558)
 
@@ -655,9 +704,9 @@ Tests:
 Gaps: the Components panel's ordering and hidden heading are covered by the shared module's tests and were checked in
 the app (searching "badge", "theme" and "dialog"), but have no test of their own. Radix Primitives isn't hidden: nothing
 in a library's `.lib.par` says it's unstyled primitives that the project's own components wrap, so it's listed last, as
-a library, rather than left out. Previews are PAR-208. The time is measured to the list being laid out, not to the frame
-that shows it, since in a window in the background frames come about once a second; the trace showed the key press
-taking 31ms and the frame after it 18ms.
+a library, rather than left out. Previews are PAR-208, below. The time is measured to the list being laid out, not to
+the frame that shows it, since in a window in the background frames come about once a second; the trace showed the key
+press taking 31ms and the frame after it 18ms.
 
 ### A component's stories and code from its menu (PAR-527)
 
@@ -818,24 +867,67 @@ and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in `rendere
 layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry` and `FrameRequest.state` in
 `packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
 
-Tests: `apps/desktop/src/main/console-log.test.ts` (7: an id each and a repeat in the same frame counted, another
+Tests: `apps/desktop/src/main/console-log.test.ts` (8: an id each and a repeat in the same frame counted, another
 frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
-cleared, with listeners told; an announcement held for the next message of its level alone, briefly; changes batched,
-each once as it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message
-for several frames with each frame and every time; the place from the stack when a library wrote it, with the stack
-apart and short; counts by message, of one design or all; a project file's place without Vite's query; none for a
-library's, Vite's or another server's; each project given its builder's messages and cleared with it).
-`renderer/canvas/console-capture.test.ts` (3: the frame from an event's path; an announcement before each message while
-a frame handles an event and none after its task; the console left alone outside frames, and a wrapper added since
-kept). `shared/render-job.test.ts` (the job's design passes the service's check, and no name has it),
-`shared/ipc-checks.test.ts` (an announcement and a builder's address checked), `chrome/layout.test.ts` (the console's
-open state and height kept, and their defaults), `packages/agent/src/run.test.ts` (each frame names its design and
-state) and `packages/cli/src/client.test.ts` (the design, state and mode in the text).
-`chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign, WarningsOnly and NothingLogged, fed main's
-entries through the same mapping. In the running app, `e2e/console.e2e.ts` clicks Ada's row on the Members screen in
-Interact, which warns, and finds the warning counted on Members' board and listed under Members in the panel, which
-covers the window's announcement reaching main ahead of Electron's `console-message` event. Gaps: no end-to-end test
-draws a design offscreen that writes to the console.
+cleared, with listeners told; an announcement held for the next message of its level alone, briefly; a frame's message
+through the window's wrapper kept at the frame's own call, and Parity's own still dropped; changes batched, each once as
+it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message for several
+frames with each frame and every time; the place from the stack when a library wrote it, with the stack apart and short;
+counts by message, of one design or all; a project file's place without Vite's query; none for a library's, Vite's or
+another server's; each project given its builder's messages and cleared with it).
+`renderer/canvas/console-capture.test.ts` (4: the frame from an event's path; an announcement before each message while
+a frame handles an event and none after its task; the frame code's call found past the wrapper in the stack; the console
+left alone outside frames, and a wrapper added since kept). `e2e/app.ts` clears the console before each end-to-end test,
+since a test's clicks would otherwise badge boards for the tests after it. `shared/render-job.test.ts` (the job's design
+passes the service's check, and no name has it), `shared/ipc-checks.test.ts` (an announcement and a builder's address
+checked), `chrome/layout.test.ts` (the console's open state and height kept, and their defaults),
+`packages/agent/src/run.test.ts` (each frame names its design and state) and `packages/cli/src/client.test.ts` (the
+design, state and mode in the text). `chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign,
+WarningsOnly and NothingLogged, fed main's entries through the same mapping. In the running app, `e2e/console.e2e.ts`
+clicks Ada's row on the Members screen in Interact, which warns, and finds the warning counted on Members' board and
+listed under Members in the panel, which covers the window's announcement reaching main ahead of Electron's
+`console-message` event. Gaps: no end-to-end test draws a design offscreen that writes to the console.
+
+### Previews in the Components panel and the insert picker (PAR-208)
+
+The Components tab shows each component's picture (see Component previews, made offscreen and kept on disk), in one of
+three views, picked above the list and remembered as a preference: **Names**, the names alone; **List**, the default, a
+small picture beside each name; and **Grid**, larger pictures two to a row. No panel mounts a component: the pictures
+are files the offscreen window made.
+
+- **Every state says what it is.** A made picture sits on the page it was drawn on. One whose code changed shows its
+  last picture dimmed with a mark until the new one is made; one waiting its turn is an empty box, and one being drawn
+  shimmers. In List and Grid, a component without a picture says why under its name: Fails to draw, Needs props, Needs a
+  provider, Server only or Draws nothing, each with its icon in the picture's place. The card says every state in words,
+  with the error or the props it needs. A screen reader hears the row's name and those words, not the picture.
+- **Resting on a component opens its card,** as before, and so does the right arrow on its row, which also moves the
+  keyboard into the card; Escape gives it back. The card has the large picture; small pictures of one of its props'
+  options (a button's `variant`), made when the card first opens, where pointing at one or tabbing to it shows it large;
+  its file; how many times the designs use it and how many stories it has; and Insert, Open file and Open in Storybook.
+- **The `/` picker** shows each component row's picture, made first while the row is in view, and the highlighted
+  component's card beside the list, following the arrow keys. Enter inserts it, so that card has no Insert. In a window
+  too narrow for both the card is left out.
+
+Code: `previewVariants`, `missingProps`, `previewProblem` and `componentUses`, and the `props` a variant's preview lays
+over the component's, in `packages/editor/src/component-preview.ts`; `previewStatus` and `statusWords` in
+`apps/desktop/src/renderer/chrome/preview-status.ts`; `variantId`, `showVariants` and `useVariantPreviews` in
+`renderer/component-previews.ts`; `ComponentCard`, `PreviewThumb` and `StatusLine` in `chrome/ComponentCard.tsx`;
+`ComponentsPanel`, `AssetEntry` and `useComponentCard` in `chrome/AssetsPanel.tsx`; `PickerCard` and `RowPicture` in
+`chrome/QuickInsert.tsx`; the `componentsView` preference in `chrome/preferences.ts`.
+
+Tests: `packages/editor/src/component-preview.test.ts` (10 of its 20: a variant's props laid on the component inside the
+parents a part needs, and over the sample's; `previewVariants` choosing a style variant before an own prop, needing two
+options, and none for a component without choices or an attribute's; `missingProps` listing what inserting can't fill
+without handlers, and counting placed children; `previewProblem` naming a provider or server code before missing props,
+then props, a failure or nothing drawn; and `componentUses` counting layers in slots).
+`apps/desktop/src/renderer/chrome/preview-status.test.ts` (4: waiting, drawing and made; the last picture while a new
+one waits or is drawn; each reason there's none; only problems counted as problems). Stories, with the example's real
+pictures standing in for the service: ListView, GridView, NamesView, ComponentCardOpen and ComponentCardFromKeyboard in
+`chrome/ComponentsPanel.stories.tsx`; States and VariantsAndActions in `chrome/ComponentCard.stories.tsx`; WithPreviews
+in `chrome/QuickInsert.stories.tsx`. Gaps: the stories' play functions run in Storybook, not in `pnpm verify`. Making a
+card's variants on demand (`showVariants`) has no test of its own, as the rest of the window's store has none; it was
+tried in a debug copy of the app on 2026-11-05, where Button's card showed its six variants and pointing at outline
+showed it large. Component designs show their icon, not their board's picture.
 
 ## Moving, reordering and resizing
 
@@ -3384,12 +3476,12 @@ Each component has a picture of what inserting it would place, made in the offsc
 frame bitmaps, so no panel mounts a component and a project opened again draws none it already has. The Components panel
 shows it in a component's card, opened by resting the pointer on its row as a token's is, beside the row (PAR-515): the
 picture on the project's page in a framed box that fits it, then its name, file and, when it fails on the canvas, why.
-PAR-208 gives it the List and Grid views and the picker. The card is `ComponentCard` and `ComponentPopover` in
-`chrome/ComponentCard.tsx`, with the stories Pictures (six real previews of different shapes), States (waiting, being
-drawn, updating, drawing nothing of its own and failing), BesideItsRow and Tooltips in
-`chrome/ComponentCard.stories.tsx`; `AssetEntry` in `chrome/AssetsPanel.tsx` opens it. Tooltips are raised in the
-theme's own colors, a step lighter than a popover in the dark theme, through the variables shadcn's tooltip reads, set
-in `styles.css`.
+PAR-208 gives it the List and Grid views and the picker (see Previews in the Components panel and the insert picker).
+The card is `ComponentCard` and `ComponentPopover` in `chrome/ComponentCard.tsx`, with the stories Pictures (six real
+previews of different shapes), States (waiting, being drawn, updating, drawing nothing of its own and failing),
+BesideItsRow and Tooltips in `chrome/ComponentCard.stories.tsx`; `AssetEntry` in `chrome/AssetsPanel.tsx` opens it.
+Tooltips are raised in the theme's own colors, a step lighter than a popover in the dark theme, through the variables
+shadcn's tooltip reads, set in `styles.css`.
 
 - **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
   layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same

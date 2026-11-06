@@ -108,7 +108,8 @@ export function recordConsole(
   contents.on("console-message", (event) => {
     const { level, sourceId: source, lineNumber: line } = event
     const context = contextOf(level)
-    if (origin(source) === appOrigin) return
+    // A frame's message on the canvas comes through the window's wrapper, so its own call is the one announced.
+    if (origin(context?.source ?? source) === appOrigin) return
     // Styling markers from console.log("%c...", css) carry no meaning outside DevTools.
     const text = event.message.replaceAll("%c", "")
     log.write({ level, text, source, line, where, ...context })

@@ -3281,6 +3281,30 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
 
+## The selection overlay follows the camera in the frame it moves (PAR-653)
+
+With a layer hovered or selected, zooming dropped the window to a few frames a second, and outlines and redlines trailed
+the zoom until it stopped (see editor.md, Outlines follow the camera in the frame it moves). The camera and the wheel no
+longer wake the measuring PAR-522 set up; the overlay follows the camera on its own. My calls:
+
+- **Measured once in each frame the camera moves, once that frame is laid out.** A reaction to tldraw's camera changes
+  the width of a hidden element in the overlay, and a ResizeObserver on it measures and commits with `flushSync`.
+  ResizeObserver callbacks run after every animation frame callback and the frame's layout, and before it's painted, so
+  the boxes read are the ones about to be painted, and reading them lays nothing out. Before, the overlay measured in an
+  animation frame of its own. Whether that ran before or after tldraw's decided whether outlines were drawn from the old
+  camera or the new one, its reads laid the page out mid-frame, and React drew the result after the frame was painted.
+- **Not in a microtask after tldraw's frame.** Tried second: outlines landed, but frames came 25 to 33% slower while
+  hovering, since animation frame callbacks after tldraw's wrote to the page again after the overlay had laid it out.
+- **Not kept in page units.** Measuring once and placing boxes from the camera would avoid measuring during a zoom, and
+  was tried first: outlines were still off by up to 18 px, since a board's gutter is in screen pixels (PAR-602), so a
+  frame's place in the page changes with the zoom.
+- **A change to tldraw's store that only moves the view doesn't wake per-frame measuring:** the camera, the pointer, or
+  the instance's `cameraState` alone (`movesOnlyTheView`). Nor does the wheel. Anything else in the store, such as a
+  board moving or resizing once the camera stops, still does.
+- **The element inspector's overlay (PAR-167) reads the canvas area's box only when it has a mark to place.** It
+  measures every animation frame, and read that box each frame even with nothing to mark, laying the page out mid-frame
+  through every zoom.
+
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
 The speed audit of 2026-11-04 found most of what still felt slow under `pnpm dev` was React's development build in
@@ -5038,11 +5062,13 @@ and didn't object. My calls:
   window writes while it draws is that design's. No stored name has the field, so bitmaps and previews keep theirs.
 - **On the canvas, the window announces the frame.** Frames share one window, so main can't tell them apart. While a
   frame handles a person's event, and through the rest of that task, the window wraps the console so each call first
-  sends main the frame's design, state and mode, then writes the message. Main gives the announcement to the next
-  message of that level from the window, within a second. The announcement is sent before the message is written, and
-  `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the window's
-  developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is left in
-  place.
+  sends main the frame's design, state and mode, then writes the message. Electron then reports the wrapper, in Parity's
+  own code, as where the message was written, which main would drop as Parity's own, so the announcement also carries
+  the frame code's call: the stack's first frame from another origin than the wrapper's. Main gives the announcement to
+  the next message of that level from the window, within a second. The announcement is sent before the message is
+  written, and `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the
+  window's developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is
+  left in place.
 - **What isn't known stays unknown.** What a frame writes on its own, after a timer or a fetch, or as it first draws on
   the canvas, is the project's rather than a guess at a design. Its offscreen draw usually writes the same message as
   the design's.
@@ -5106,3 +5132,29 @@ from the stories or they left something open:
   had Screens first.
 - **A frame's handles are its previews':** the right side, the bottom and the corner, resizing its own size. Its name
   runs past a narrow frame rather than being cut off, since there's no board to fit.
+
+## Previews in the Components panel and the insert picker (PAR-208)
+
+Built to the Previews exploration's Components stories (Parity/Explorations/Previews) and PAR-515's card. My calls:
+
+- **The view is a preference, the same in every project.** Names, List or Grid is how a person likes to browse, not a
+  property of a project, so it's kept with the app's other preferences, List until they pick another.
+- **A row says what's wrong in words, not what's in progress.** Fails to draw, Needs props, Needs a provider, Server
+  only and Draws nothing go under the name in List and Grid, colored as the exploration has them. Waiting, drawing and
+  updating show in the picture only (an empty box, a shimmer, the last picture dimmed with a mark), and the card says
+  them in words: on a first open a list of "Waiting" under every name would say nothing anyone can act on.
+- **Why there's no picture comes from what's already known.** Needs a provider and Server only come from the preview's
+  error, as the canvas reads its errors (`renderProblem`). Needs props is a preview that failed or drew nothing whose
+  component requires a prop inserting can't fill: inserting gives a required text, number, yes-or-no or option prop a
+  value of its own, so these are lists, objects and other nodes. A component that draws can still be missing one, and
+  isn't marked.
+- **The card's variants are one prop's options:** the component's first style variant (cva) with more than one option,
+  else its first own prop with a few named options, as a size. Five show as small pictures and the rest are counted.
+  They're made only when the card first opens, before anything off screen, and kept in the project's index beside the
+  component's own, as `Button?variant=outline`, so a card opened again shows them at once. Pointing at one, or tabbing
+  to it, shows it large.
+- **The picker's card has no Insert,** since Enter inserts the highlighted row; it keeps Open file and Open in
+  Storybook, which close the picker first. In a window too narrow for both, the picker is the list alone.
+- **Component designs keep their icon for now.** The proposal pictures a design by its board's bitmap, which the canvas
+  keys by its own frame jobs; reading those for the panel is work of its own, so a design shows its icon where a
+  component shows its picture.

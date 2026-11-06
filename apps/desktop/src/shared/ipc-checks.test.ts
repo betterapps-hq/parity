@@ -53,6 +53,10 @@ describe("the other arguments", () => {
     expect(consoleAnnouncement.safeParse({ ...pricing, level: "log" }).success).toBe(false)
     expect(consoleAnnouncement.safeParse({ ...pricing, design: " " }).success).toBe(false)
     expect(consoleAnnouncement.safeParse({ ...pricing, text: "Picked" }).success).toBe(false)
+    // Where the frame's code called the console.
+    const call = { source: "http://127.0.0.1:5173/src/member-row.tsx", line: 9 }
+    expect(consoleAnnouncement.safeParse({ ...pricing, ...call }).success).toBe(true)
+    expect(consoleAnnouncement.safeParse({ ...pricing, ...call, line: -1 }).success).toBe(false)
     expect(consoleOrigin.safeParse("http://127.0.0.1:5173/").success).toBe(true)
     expect(consoleOrigin.safeParse("not an address").success).toBe(false)
   })

@@ -57,7 +57,9 @@ export const consoleAnnouncement = z.strictObject({
   level: z.enum(["info", "warning", "error", "debug"]),
   design: nonBlankString,
   state: z.string().optional(),
-  mode: z.string().optional()
+  mode: z.string().optional(),
+  source: z.url().optional(),
+  line: z.number().int().nonnegative().optional()
 })
 
 /** A project's builder, by its address, whose console messages to read or forget. */

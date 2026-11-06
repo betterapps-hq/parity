@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vite-plus/test"
-import { drawsOver, measuresNext, overlayDesigns, settleMs, settleUntil } from "./overlay-measuring.ts"
+import {
+  drawsOver,
+  measuresNext,
+  movesOnlyTheView,
+  overlayDesigns,
+  settleMs,
+  settleUntil
+} from "./overlay-measuring.ts"
 
 describe("overlayDesigns", () => {
   it("is the selected and the hovered design", () => {
@@ -65,5 +72,28 @@ describe("measuresNext", () => {
 
   it("rests while it shows nothing, whatever moves", () => {
     expect(measuresNext({ now: 1000, until: 1500, showing: false, animating: () => true })).toBe(false)
+  })
+})
+
+describe("movesOnlyTheView", () => {
+  const updated = (type: string, ...fields: string[]) => ({ type, fields })
+
+  it("takes a change to the camera or the pointer, and the camera starting or stopping", () => {
+    expect(movesOnlyTheView({ added: [], updated: [updated("camera", "x", "z")], removed: [] })).toBe(true)
+    expect(
+      movesOnlyTheView({ added: [], updated: [updated("camera", "z"), updated("pointer", "x")], removed: [] })
+    ).toBe(true)
+    expect(movesOnlyTheView({ added: [], updated: [updated("instance", "cameraState")], removed: [] })).toBe(true)
+  })
+
+  it("leaves a change to a board, the rest of the instance or the page to wake measuring", () => {
+    expect(movesOnlyTheView({ added: [], updated: [updated("camera", "z"), updated("shape", "x")], removed: [] })).toBe(
+      false
+    )
+    expect(movesOnlyTheView({ added: [], updated: [updated("instance", "cameraState", "brush")], removed: [] })).toBe(
+      false
+    )
+    expect(movesOnlyTheView({ added: ["shape"], updated: [], removed: [] })).toBe(false)
+    expect(movesOnlyTheView({ added: [], updated: [], removed: ["shape"] })).toBe(false)
   })
 })

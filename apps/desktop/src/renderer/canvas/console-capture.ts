@@ -59,6 +59,22 @@ export function frameContext(path: readonly EventTarget[]): (ConsoleContext & { 
   return undefined
 }
 
+/** A stack frame's script and line, as V8 writes it: `at name (url:line:column)` or `at url:line:column`. */
+const stackFrame = /((?:https?|file):\/\/[^\s()]+):(\d+):\d+\)?$/
+
+/**
+ * Where the code that called the console's wrapper is: the stack's first frame from another origin than the wrapper's
+ * own, the first frame, so a frame's code rather than Parity's. Undefined when the stack has none.
+ */
+export function callSite(stack: string | undefined): { source: string; line: number } | undefined {
+  const frames = (stack ?? "").split("\n").flatMap((text) => {
+    const found = stackFrame.exec(text.trim())
+    return found ? [{ source: found[1]!, line: Number(found[2]) }] : []
+  })
+  const own = frames[0] && URL.parse(frames[0].source)?.origin
+  return frames.slice(1).find((frame) => URL.parse(frame.source)?.origin !== own)
+}
+
 /** What the capture needs of the window: its console, its events, and a timer. */
 export interface CaptureTarget {
   console: Record<Method, (...args: unknown[]) => void>
@@ -94,7 +110,8 @@ export function captureConsole(
       const original = target.console[method]
       originals[method] = original
       const wrapper = (...args: unknown[]) => {
-        if (context) host.announce(level, context)
+        // The console reports this wrapper as the message's source, so the frame's own call goes with the design.
+        if (context) host.announce(level, { ...context, ...callSite(new Error().stack) })
         original.apply(target.console, args)
       }
       wrapped[method] = wrapper
