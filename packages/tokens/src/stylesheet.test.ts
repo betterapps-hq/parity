@@ -113,6 +113,25 @@ describe("writeTokenChanges", () => {
     expect(next).toBe("@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: red;\n}\n")
   })
 
+  it("writes the dark theme where a prefers-color-scheme block keeps it (PAR-138)", () => {
+    const css =
+      ":root {\n  --c: #fff;\n  --d: 1px;\n}\n\n@media (prefers-color-scheme: dark) {\n  :root {\n    --c: #000;\n  }\n}\n"
+    const edited = writeTokenChanges(css, [{ name: "c", theme: "dark", value: "red" }], new Set())
+    expect(edited).toBe(css.replace("--c: #000", "--c: red"))
+    const added = writeTokenChanges(css, [{ name: "d", theme: "dark", value: "2px" }], new Set())
+    expect(added).toBe(css.replace("--c: #000;", "--c: #000;\n    --d: 2px;"))
+    expect(extractTokens(added).find((token) => token.name === "d")?.values).toEqual({ default: "1px", dark: "2px" })
+    expect(writeTokenChanges(added, [{ name: "d", theme: "dark", value: undefined }], new Set())).toBe(css)
+  })
+
+  it("adds a new default value to the root under no condition, not to a colour-scheme block's root", () => {
+    const css = "@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: #fff;\n}\n"
+    const next = writeTokenChanges(css, [{ name: "e", theme: "default", value: "1px" }], new Set())
+    expect(next).toBe(
+      "@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: #fff;\n  --e: 1px;\n}\n"
+    )
+  })
+
   it("writes every block that declares the theme's value, so a later one doesn't win back after a save", () => {
     const css = ':root { --c: #fff; }\n.dark { --c: #111; }\n[data-theme="dark"] { --c: #222; }\n'
     const next = writeTokenChanges(css, [{ name: "c", theme: "dark", value: "red" }], new Set())

@@ -9,11 +9,9 @@ let state: string
 
 beforeEach(async () => {
   state = await mkdtemp(join(tmpdir(), "parity-portless-"))
-  process.env.PORTLESS_STATE_DIR = state
 })
 
 afterEach(async () => {
-  delete process.env.PORTLESS_STATE_DIR
   await rm(state, { recursive: true, force: true })
 })
 
@@ -37,9 +35,32 @@ describe("readPortless", () => {
     )
     await writeFile(join(state, "proxy.port"), "443")
     await writeFile(join(state, "proxy.tls"), "1")
-    const portless = await readPortless()
+    const portless = await readPortless(state)
     expect(portless.routes.map((route) => route.hostname)).toEqual(["shop.localhost", "static.localhost"])
     expect(portless.address("shop.localhost")).toBe("https://shop.localhost")
+  })
+
+  it("leaves out a route it can't read, and takes the usual proxy for a port or TLS setting it can't", async () => {
+    await writeFile(
+      join(state, "routes.json"),
+      JSON.stringify([
+        { hostname: "shop.localhost", port: "4100" },
+        { port: 4200 },
+        { hostname: "blog.localhost", port: 4300 }
+      ])
+    )
+    await writeFile(join(state, "proxy.port"), "eighty")
+    await writeFile(join(state, "proxy.tls"), "maybe")
+    const portless = await readPortless(state)
+    expect(portless.routes.map((route) => route.hostname)).toEqual(["blog.localhost"])
+    expect(portless.address("blog.localhost")).toBe("http://blog.localhost:443")
+  })
+
+  it("has no routes when routes.json isn't a list, or isn't JSON", async () => {
+    await writeFile(join(state, "routes.json"), '{"routes": []}')
+    expect((await readPortless(state)).routes).toEqual([])
+    await writeFile(join(state, "routes.json"), '[{"hostname": "shop.loc')
+    expect((await readPortless(state)).routes).toEqual([])
   })
 })
 

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import type { DesignNode, NodeStyle } from "@parity-app/core"
 import type { Selection } from "@parity-app/editor"
-import { type Browser, chromium, type Page } from "playwright-core"
+import { type Browser, chromium, type Locator, type Page } from "playwright-core"
 import { expect, inject } from "vite-plus/test"
 import type * as frameModule from "../src/renderer/frame.ts"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
@@ -207,6 +207,11 @@ export class App {
       e2e.clipboard.text = ""
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     })
+    // What a test's clicks made the designs write stays in main's log and badges their boards, which adds a control to
+    // each title (PAR-147), so every test starts with the console empty.
+    await this.page.evaluate(() => window.canvasHost.console.clear(window.e2e!.session().info.guestUrl))
+    const badges = this.page.getByRole("button", { name: / in the console$/ })
+    if (!(await until(async () => (await badges.count()) === 0))) throw new Error("The console's badges stayed")
     await this.page.keyboard.press("Alt+1")
     const unsaved = await this.unsaved()
     if (unsaved.length > 0) throw new Error(`Undoing everything left changes in ${unsaved.join(", ")}`)
@@ -296,12 +301,17 @@ export class App {
     return this.page.evaluate(() => window.e2e!.session().store.unsavedPaths())
   }
 
-  designs(): Promise<{ key: string; name: string; position: Point }[]> {
+  designs(): Promise<{ key: string; name: string; kind: string; position: Point }[]> {
     return this.page.evaluate(() =>
       window
         .e2e!.session()
         .store.getEntries()
-        .map((entry) => ({ key: entry.key, name: entry.container.name, position: entry.container.position }))
+        .map((entry) => ({
+          key: entry.key,
+          name: entry.container.name,
+          kind: entry.container.kind ?? "screen",
+          position: entry.container.position
+        }))
     )
   }
 
@@ -481,25 +491,39 @@ export class App {
    * Waits until the camera and a design's main frame stop moving or changing, over a few frames, and its board's frames
    * are drawn where they would wake: frames asleep, as they are once zoomed far out, wake once the camera rests near
    * them above the far line (25% on a 1x screen, and a little past it coming back in), or on the selected board.
+   * Components that load on demand have arrived too: until its module loads, one draws nothing and its frame doesn't
+   * change, however many frames that takes. A reopened project has a new guest, and its frames sleep on kept bitmaps
+   * without drawing, so the first design shown after it loads its components then (PAR-654).
    */
   async settle(design: string): Promise<void> {
     await this.page.evaluate(async (design) => {
       const e2e = window.e2e!
       const key = e2e.key(design)
       const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-      let last = ""
-      for (let still = 0, tries = 0; still < 4 && tries < 400; tries++) {
-        await frame()
+      /** Where the frame and camera are and what the frame holds, and whether the board's frames have still to wake. */
+      const look = () => {
         const host = e2e.frame(key)
         const { x, y, width, height } = host.getBoundingClientRect()
         const camera = e2e.session().editor!.getCamera()
         const elements = host.shadowRoot?.querySelectorAll("*").length
-        const now = `${x},${y},${width},${height},${elements},${camera.x},${camera.y},${camera.z}`
         const board = host.closest(".container-view")
         const wakes = camera.z * devicePixelRatio > 0.25 * 1.15 || !!board?.hasAttribute("data-live")
-        const asleep = wakes && !!board?.querySelector("[data-asleep]")
+        return {
+          now: `${x},${y},${width},${height},${elements},${camera.x},${camera.y},${camera.z}`,
+          asleep: wakes && !!board?.querySelector("[data-asleep]")
+        }
+      }
+      let last = ""
+      for (let still = 0, tries = 0; still < 4 && tries < 400; tries++) {
+        await frame()
+        const { now, asleep } = look()
         still = now === last && !asleep ? still + 1 : 0
         last = now
+        // Still, it waits for what's loading on demand, which draws as it arrives, and counts again if that changed it.
+        if (still === 4) {
+          await e2e.session().loaded.guest.loaded?.()
+          if (look().now !== last) still = 0
+        }
       }
     }, design)
   }
@@ -602,8 +626,7 @@ export class App {
     const key = await this.key(design)
     // Show Layers, whichever panel the left side had open.
     await this.page.keyboard.press("Alt+1")
-    const row = this.page.locator(`[id="layer-${key}"]`)
-    await row.scrollIntoViewIfNeeded()
+    const row = await this.layersRow(key)
     const box = await row.boundingBox()
     if (!box) throw new Error(`${design}'s row in Layers isn't drawn`)
     await this.click(center(box))
@@ -622,16 +645,44 @@ export class App {
     const path = await this.page.evaluate(([key, id]) => window.e2e!.path(key, id), [key, id] as const)
     // Show Layers, whichever panel the left side had open.
     await this.page.keyboard.press("Alt+1")
-    const row = (layer: string) => this.page.locator(`[id="layer-${layer === key ? key : `${key}/${layer}`}"]`)
+    const row = (layer: string) => this.layersRow(layer === key ? key : `${key}/${layer}`)
     for (const ancestor of [key, ...path.slice(0, -1)]) {
-      if ((await row(ancestor).getAttribute("aria-expanded")) === "false") {
-        await row(ancestor).getByRole("button", { name: "Expand" }).click()
+      const shown = await row(ancestor)
+      if ((await shown.getAttribute("aria-expanded")) === "false") {
+        await shown.getByRole("button", { name: "Expand" }).click()
       }
     }
-    await row(id).scrollIntoViewIfNeeded()
-    const box = await row(id).boundingBox()
+    const box = await (await row(id)).boundingBox()
     if (!box) throw new Error(`${id}'s row in Layers isn't drawn`)
     await this.click(center(box), ["Control"])
+  }
+
+  /**
+   * A row in Layers, by its id (a design's key, or the key and a layer's id), scrolled to with the mouse wheel over the
+   * panel as a person scrolls to it: down, then up. The panel draws only the rows in view (PAR-187), so a row out of
+   * sight isn't in the page until it's scrolled to.
+   */
+  private async layersRow(id: string): Promise<Locator> {
+    const row = this.page.locator(`[id="layer-${id}"]`)
+    const scroller = () =>
+      this.page.evaluate(() => {
+        const box = document.querySelector("[role=tree][aria-label=Layers]")!.parentElement!
+        const rect = box.getBoundingClientRect()
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, top: box.scrollTop }
+      })
+    for (const direction of [1, -1]) {
+      const { x, y } = await scroller()
+      await this.page.mouse.move(x, y)
+      for (let step = 0; step < 200 && (await row.count()) === 0; step++) {
+        const before = (await scroller()).top
+        await this.page.mouse.wheel(0, direction * 400)
+        await this.frames(2)
+        if ((await scroller()).top === before) break
+      }
+    }
+    if ((await row.count()) === 0) throw new Error(`Layers has no row ${id}, at either end of the panel`)
+    await row.scrollIntoViewIfNeeded()
+    return row
   }
 
   /**

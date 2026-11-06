@@ -515,6 +515,38 @@ still need your call.
 - **Resize handles sit outside a layer along an axis where it's under 24 screen pixels** (PAR-193), so a press on a
   small layer drags it. My call: per axis, so a wide, short button keeps its side strips on its ends, as every wide
   layer does, and only its corners, top and bottom move out. Where handles go is `handleBoxes` in `@parity-app/editor`.
+- **A selected layout's padding and gaps are handles on the canvas** (PAR-169), approved in Storybook (Parity/Canvas/
+  Spacing handles) on 2026-11-05. My calls, several of them Andrew's in that review:
+  - The bars show whenever a single layout is selected, over its hatching, rather than only on hover as in Figma, so
+    padding of 0 can be dragged out of nothing. A side's press target starts 4px inside its edge, clear of the resize
+    strip there.
+  - No press target covers a child, so a click inside a selected layout still selects what's under it, as before. A
+    target is cut back to the free space and dropped under 4px, so padding of 0 drags out only where no child is against
+    that edge. This narrows the No padding story Andrew approved, whose children fill their row: clicks on children
+    opening the box broke selecting layers by clicking, in the end-to-end tests on #266.
+  - Dragging a padding bar away from the content makes that padding bigger on every side, as an edge dragged out makes a
+    layer bigger. A gap grows as its bar goes right or down. Both go in whole steps of the spacing scale.
+  - Alt gives the opposite side the dragged side's value, and Alt+Shift every side, re-read at each move, so letting go
+    mid-drag puts the other sides back. A layout has one gap, so dragging any gap's bar changes every gap, and all of
+    them are shaded.
+  - Unlike Figma, a value bound to a length token stays bound while the drag lands on a length token's value: its own
+    token first, then the first listed with that value. Between tokens it's steps. A number stays a number, even on a
+    token's value. The label names the token, or the value's step of the scale (`20 spacing-5`).
+  - A click opens a box that reads what the inspector's fields read, through `readFieldInput`, with a switch between px
+    and rem (16 to the rem) and the inspector's list of tokens and the spacing scale, its bars drawn as the token
+    previews draw them. Figma's number fields take pixels only. No other unit: `%` is a share of the value there, not a
+    length to switch to.
+  - The modifiers are gestures in the keymap (`gestures` in `chrome/keymap.ts`), which the Keyboard shortcuts dialog
+    lists, the hints show with `Kbd`, and the handles read through `holds`, so what's shown is what works. The rules in
+    `@parity-app/editor` take what they mean (`{ opposite, every }`, `centre`, `fill`), not keys.
+- **A double-click on a layer's resize handle hugs, and Alt+double-click fills** (PAR-169), as in Figma. It used to take
+  the size away, which drew as hug for most layers but left the layout to decide. A size along the layout's direction
+  takes `grow` away, as a drag does. A frame's handles still go back to the viewport's width or the content's height.
+- **Several selected layers resize together, in proportion** (PAR-169): handles on the box around them, each layer
+  taking its share of the movement by its size across that box, so the box's edge follows the pointer. My call: each
+  keeps where its layout puts it, and they don't snap, as a single layer in a layout doesn't. Alt resizes a layer, or
+  several, from the middle: the opposite edge moves as far, an absolutely placed layer's inset moves back by half of
+  what it grows, and it neither fills nor snaps.
 - **Escape cancels a resize and a title drag** (PAR-193), as it already did a layer drag and a box. My call: a resize
   writes as it goes, one undo step since PAR-441, so Escape goes back to a checkpoint the store takes when the drag
   begins, restoring the design's file and taking the drag's own steps out of undo, rather than undoing however many
@@ -2864,7 +2896,7 @@ My calls in the run-time reading (`extractTokens`):
 - A `prefers-color-scheme: dark` block isn't read as the dark theme. A theme reaches a frame by a class the Modes panel
   adds, and `previewToken` and `writeTokenChanges` write a theme's values to that class's block, so a "dark" read from a
   media query couldn't be shown in a frame or edited where it lives. Reading it as a theme is the gap `docs/support.md`
-  already lists; the facts it needs are now in the collected declarations.
+  already lists; the facts it needs are now in the collected declarations. PAR-138, at the end, closed it.
 - `themeFallbackCss` still counts a property declared anywhere as defined, conditional or not, as before.
 - Libgen's own token collecting (`libgen/src/tokens.ts`), which reads `prefers-color-scheme: dark` blocks as dark, is
   unchanged. Sharing one policy between the two is PAR-468.
@@ -2896,9 +2928,10 @@ cycle), and libgen reads CSS with core's `collectCustomProperties` instead of it
 The differences that stay are explicit options, both for libgen: `tailwindTheme` reads `@theme` as the default, which
 only source CSS has (the app takes Tailwind's resolved theme from its styles adapter), and `colorScheme` reads a
 `prefers-color-scheme` block as its theme, because a library's themes reach frames as the class blocks
-`describedTokenCss` writes, where the app's would never show (PAR-485). With it, a theme's own selector beats the media
-query wherever it sits, so a library with both `.dark` and a dark media query no longer has whichever comes last. The
-app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only what the CSS declares.
+`describedTokenCss` writes, where the app's would never show (PAR-485; PAR-138, at the end, made it the app's too). With
+it, a theme's own selector beats the media query wherever it sits, so a library with both `.dark` and a dark media query
+no longer has whichever comes last. The app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only
+what the CSS declares.
 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
@@ -3248,6 +3281,30 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
 - **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
+
+## The selection overlay follows the camera in the frame it moves (PAR-653)
+
+With a layer hovered or selected, zooming dropped the window to a few frames a second, and outlines and redlines trailed
+the zoom until it stopped (see editor.md, Outlines follow the camera in the frame it moves). The camera and the wheel no
+longer wake the measuring PAR-522 set up; the overlay follows the camera on its own. My calls:
+
+- **Measured once in each frame the camera moves, once that frame is laid out.** A reaction to tldraw's camera changes
+  the width of a hidden element in the overlay, and a ResizeObserver on it measures and commits with `flushSync`.
+  ResizeObserver callbacks run after every animation frame callback and the frame's layout, and before it's painted, so
+  the boxes read are the ones about to be painted, and reading them lays nothing out. Before, the overlay measured in an
+  animation frame of its own. Whether that ran before or after tldraw's decided whether outlines were drawn from the old
+  camera or the new one, its reads laid the page out mid-frame, and React drew the result after the frame was painted.
+- **Not in a microtask after tldraw's frame.** Tried second: outlines landed, but frames came 25 to 33% slower while
+  hovering, since animation frame callbacks after tldraw's wrote to the page again after the overlay had laid it out.
+- **Not kept in page units.** Measuring once and placing boxes from the camera would avoid measuring during a zoom, and
+  was tried first: outlines were still off by up to 18 px, since a board's gutter is in screen pixels (PAR-602), so a
+  frame's place in the page changes with the zoom.
+- **A change to tldraw's store that only moves the view doesn't wake per-frame measuring:** the camera, the pointer, or
+  the instance's `cameraState` alone (`movesOnlyTheView`). Nor does the wheel. Anything else in the store, such as a
+  board moving or resizing once the camera stops, still does.
+- **The element inspector's overlay (PAR-167) reads the canvas area's box only when it has a mark to place.** It
+  measures every animation frame, and read that box each frame even with nothing to mark, laying the page out mid-frame
+  through every zoom.
 
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
@@ -3911,8 +3968,28 @@ below. My calls on how they move:
   - The window's handlers take their agent params' types from the schemas' output, through `WindowMethods`, and answer
     from a map typed by it rather than a cast in each case. The service made those params, so they aren't checked again.
   - `PARITY_APP_PID` and `PARITY_APP_STARTED` are read once through `utility/environment.ts`. Unset, they fall back to
-    the parent's process id and the service's start, as before. A value that isn't a whole number stops the agent server
-    there, naming the variable, since only main sets them.
+    the parent's process id and the service's start, as before. A value that isn't a whole number stops the service
+    there, naming the variable, since only main sets them (PAR-593 made this the service's whole environment).
+- **The project service checks its files, caches and environment (PAR-593).** My calls:
+  - The service's environment is one schema in `utility/environment.ts`, read the first time `environment()` is asked
+    for: the allowed origins (a list from commas), the project it started with, the dev runner, the checker's idle time,
+    the cache, bitmap and picture folders, the reopen file, Portless's state folder and the copy's process id and start.
+    A bad value stops the service, naming the variable, as main's does. An empty variable counts as unset. The open
+    projects take the three they use as an option, so their tests give their own.
+  - Read once means a test that changes a variable starts the module again (`vi.resetModules()`), as the bitmap store's
+    tests already did. `readPortless` takes its folder, so its tests pass their own.
+  - The caches fall back to empty when they don't match. The previews index needs its format and an object of
+    components, and each record is checked on its own, so one bad record loses only itself. The local `isObject` and
+    `isRecord` are gone. The detection cache checks its outer shape: the fingerprint, each component's file and export,
+    each component's name, file and list of props, and the left-out exports. What's inside the props isn't checked,
+    since the records are large and the checker wrote them under the same fingerprint.
+  - `open-projects.json` is `{ roots: string[] }`. A list it can't read opens nothing, where a list with a non-string
+    root used to open the rest; the service writes the file itself, so a bad one is a broken one.
+  - Portless's files are someone else's, so they're read leniently: each route is checked on its own (a hostname and a
+    whole-number port), `proxy.port` must be a port number, else 443, and `proxy.tls` is a yes or no, else no.
+  - Storybook's `/index.json` must be an object whose `entries` is an object. Entries are checked one by one, and one of
+    a kind Parity doesn't know, such as a `page`, is left out. An index that doesn't match rejects, so a server
+    answering something else isn't taken for a Storybook serving the project.
 - **Package manifests and tool configs are read through schemas (PAR-597).** My calls:
   - Core's `parseManifest(text, file)` is the one reader of package.json text. It throws `TypeError` naming the file and
     the field, as `/app/package.json: /bin: expected a string or an object`. Project's `readPackage` and `findPackage`
@@ -4314,10 +4391,10 @@ page), with whatever Parity can't do yet stubbed. My calls:
   on Home and in a new tab, and last in a project.
 - **What can't work yet is in place and says so.** Each project's picture is a placeholder, a board and a phone in a
   color of its own with its initial, until Parity keeps a render of each project. For you says nothing needs you, and
-  Shared with you is empty. New project and New project from this wait on the scaffolder (PAR-284) and offer to open a
-  folder instead; cloning, Copy link, Invite people and New organization say they aren't ready yet. The organization
-  switcher shows Personal alone. The exploration's inbox and account in the title bar, and people working in a project
-  right now, are left out until they exist.
+  Shared with you is empty. New project waits on the scaffolder (PAR-284) and offers to open a folder instead (a
+  project's menu has no New project from this until then, PAR-188); cloning, Copy link, Invite people and New
+  organization say they aren't ready yet. The organization switcher shows Personal alone. The exploration's inbox and
+  account in the title bar, and people working in a project right now, are left out until they exist.
 - **Home names the page and, in a project, its first screen.** A project with no `.par` file still opens on a Home
   screen (PAR-561). The two don't meet: the page is a tab in the window's strip, and the screen is on a project's
   canvas.
@@ -4924,3 +5001,247 @@ My calls:
   and an error otherwise. `@parity-app/account` now passes on the email WorkOS's refusal names.
 - **Signing in is checked in an installed build later.** The scheme and passing links between copies only work in an
   installed app, which wasn't tried here.
+
+## Telemetry's event model is data in and data out in `@parity-app/telemetry` (PAR-618)
+
+The package holds the envelope, the event registry, spans, sinks and the ring buffer, as
+[proposals/product-telemetry.md](proposals/product-telemetry.md) sets out, with no Electron, React, Node-only APIs or
+Sentry. Nothing records an event yet: Sentry's sink is PAR-627. My calls:
+
+- **Each process makes one telemetry from the events it may record,**
+  `createTelemetry({ events, context, sinks, check })`, rather than a registry every module adds to as it loads.
+  `track()` and `startSpan()` then type-check only those names, with each event's attributes typed from its zod schema,
+  and a name registered twice throws.
+- **Checking is a switch the app sets,** on in development and tests, where a mismatch or an unknown name throws a
+  `TelemetryError`. Off in installed builds, events go as given and an unknown name is dropped, so recording costs no
+  parse.
+- **A span's event carries its outcome and parent in the envelope,** as `outcome` (`ok`, `error` or `cancelled`) and
+  `parentSpanId`, beside its `durationMs`, so its schema describes only its own attributes. Its `time` is when it
+  started, and it keeps the window and project it started in.
+- **A span sampled out still has IDs,** so spans under it keep their trace. Sampling is decided when an event is tracked
+  or a span starts.
+- **Trace and span IDs are W3C Trace Context's,** 16 and 8 random bytes from Web Crypto, never all zeros.
+  `formatTraceparent` and `parseTraceparent` write and read the header for PAR-629; a header the standard holds invalid
+  reads as none.
+- **A sink's failure never reaches the code that recorded the event.** It goes to `onSinkError` when given, and the
+  other sinks still get the event.
+- **The ring buffer keeps events and ended spans together,** the last 500, oldest first, for breadcrumbs and Report a
+  problem.
+
+## Layers export as PNG or JPG from the Design tab (PAR-185)
+
+Called on 2026-11-05, with your approval in Storybook. PAR-185 asked for PNG at 1x to 3x or SVG, several layers at once
+and icons in bulk as SVG. You changed it: PNG or JPG, and SVG isn't necessary. You dropped the icon set export too: the
+project already has its icon library's icons in code, so writing them out again gave nothing new. My calls:
+
+- **An Export section at the foot of the Design tab,** as Figma has one, for a design, a layer, several layers or
+  several designs, with Export… in the canvas and Layers menus and Ctrl+Shift+E doing the same. It's a section of the
+  Design tab rather than a dialog, so the sizes and the files they make show beside what's selected.
+- **The sizes are remembered for every export, not stored with each layer** as Figma's export settings are. Storing them
+  per layer would put them in the design file, and nothing else needs them there yet.
+- **Layers are cut from their design's frame,** drawn offscreen in the state the canvas shows and its main mode, by the
+  box the frame measured, rather than drawn alone: a layer drawn alone would lose its parent's layout and what's
+  inherited. So a layer's PNG has what's behind it within its box, and see-through parts only where the design has them.
+- **A JPG's see-through parts are white,** and the section says so when one is asked for.
+- **Files are named as iOS and Android name theirs,** `Headline@2x.png` with no suffix at 1x, and alike names get a
+  number rather than overwriting each other.
+- **The icon set dialog is kept as an exploration,** Parity/Explorations/Icon export, in case it comes back.
+- **File > Export all stays as it was:** every design in every state and mode it shows, at Settings' export scale.
+
+## Each element's source line, in a Code tab and for agents (PAR-167)
+
+Called on 2026-11-05, with your approval in Storybook. PAR-167 asked for a development-only transform that tags each JSX
+element with its file, line and column, shown and opened from the Code section, with agents getting the same in
+`parity components` and snapshots, and nothing in production builds. You moved the code out of the Design tab into its
+own Code tab, before Accessibility, and asked for real syntax highlighting. My calls:
+
+- **Only lowercase elements are tagged,** `<button>`, `<div>`, as the page gets them. A component's own element,
+  `<Button>`, passes props on, so tagging it would give the element it draws its caller's line in place of its own.
+- **The tag is an attribute, `data-parity-source`,** with `path:line:column` from the project root, added before the
+  framework plugin compiles the file, with a source map. An attribute is read from the DOM by the canvas, the offscreen
+  page and the e2e tests alike, whatever the framework. Installed packages, virtual modules and the production build get
+  none.
+- **A Code tab of its own,** between Modes and Accessibility: the component and its file, the elements it draws with
+  their lines, and the picked one's lines. Highlighting is Shiki, through the kit's `CodeBlock` and
+  `useHighlightedCode`, not a highlighter of Parity's.
+- **Inspect picks by boxes,** since frames don't take the pointer outside Interact: the innermost written element under
+  the pointer, with a library's element inside it counted as the project's.
+- **The source shown is the file on disk,** read by the service's `code.read`, which refuses paths outside the project
+  and files over 1 MB, so unsaved editor changes don't show until saved.
+- **Agents get files and node sources rather than every element.** `parity components` gives the file each project
+  component is written in, and `Measure`, the layout snapshot, gives each node's `source`, the element it draws
+  outermost. Listing every element inside every instance would make `Measure` much longer for little more: the node's
+  line leads to its file, which has the rest.
+
+## The designs' console reads main's log, by the design that wrote each message (PAR-147)
+
+Called on 2026-11-05. PAR-147 asked for errors and warnings with a count in the status bar and by design in a panel,
+during interaction and after offscreen renders, from the same log as `parity console`. You saw the design in Storybook
+and didn't object. My calls:
+
+- **Main's log is the one log.** Main already kept what every window's projects write, for agents. It now gives each
+  message an id and sends what's new or counted again to the editor windows, batched 100 ms after the first, and Clear
+  empties it there, so the panel and `parity console` never disagree.
+- **Offscreen, the job names its design.** A render job carries the design, state and mode it draws, and a message the
+  window writes while it draws is that design's. No stored name has the field, so bitmaps and previews keep theirs.
+- **On the canvas, the window announces the frame.** Frames share one window, so main can't tell them apart. While a
+  frame handles a person's event, and through the rest of that task, the window wraps the console so each call first
+  sends main the frame's design, state and mode, then writes the message. Electron then reports the wrapper, in Parity's
+  own code, as where the message was written, which main would drop as Parity's own, so the announcement also carries
+  the frame code's call: the stack's first frame from another origin than the wrapper's. Main gives the announcement to
+  the next message of that level from the window, within a second. The announcement is sent before the message is
+  written, and `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the
+  window's developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is
+  left in place.
+- **What isn't known stays unknown.** What a frame writes on its own, after a timer or a fetch, or as it first draws on
+  the canvas, is the project's rather than a guess at a design. Its offscreen draw usually writes the same message as
+  the design's.
+- **A message is one row however many frames wrote it.** Main counts repeats per frame, and the panel merges a design's
+  same message across frames, with each frame as a chip.
+- **The place is the project's line.** A message's own line when it's in the project's files, else its stack's first
+  call that is, since React's warnings come from react-dom and name the component in their stack.
+- **Agents get the design too:** each console entry has its design's key, state and mode when known, and their frames
+  name their state.
+
+## The Layers panel draws only the rows in view (PAR-187)
+
+Called on 2026-11-05. The editor audit's Layers panel drew a row for every open layer and kept every row it had opened,
+so selecting around a large design made each later change slower. My calls:
+
+- **Only the rows in view are drawn,** with `@tanstack/react-virtual`, which the insert picker, the icons and the tokens
+  already use, and each drawn row is drawn again only when what it shows changes. Rows are a fixed 28 pixels, so the
+  list needs no measuring.
+- **Rows opened to show a selection close once a selection made elsewhere no longer needs them,** as in Figma. Rows
+  opened by hand stay open. A selection made in the tree itself, by a click or the arrow keys, closes nothing, so no row
+  moves under the pointer.
+- **Search finds designs and layers by the name the panel shows,** ignoring case, and shows each match with the rows
+  above it open and the match's own layers closed. A search opens what it finds itself, so its rows have no arrows.
+- **A layer's eye hides it in the state its board shows, without selecting it.** It's the row's own control, so it acts
+  on that row rather than the selection, as Figma's does; Ctrl+Shift+H still hides the selection. It shows while the
+  layer is hovered, here or on the canvas, and always on a hidden layer. It stays out of the tab order, as the arrow
+  does.
+- **A design is dragged among the designs of its group, in its own file.** The panel lists designs in their file's
+  order, so dragging one moves it in the file. A design isn't moved to another file, which would change its key, or
+  between components, screens and frames, which the panel lists apart.
+- **The lock toggle waits for PAR-192,** which adds locking, and highlighting a layer selected inside an instance waits
+  for PAR-92, which lists an instance's layers.
+
+## Frames are built in the app (PAR-545)
+
+PAR-545 builds the frames exploration you approved in PAR-540, on PAR-539's model. My calls, where the build differs
+from the stories or they left something open:
+
+- **A frame that hugs what's in it keeps its size in the file as drawn.** Text from the text tool, and anything that
+  lands on the empty canvas, goes in a frame whose root layout hugs its width. The file's `size` stays a number, since
+  bitmaps, agents' renders and exports need one, so the canvas measures the root at its content's width and writes that
+  width as the frame's size. Writing it isn't an undo step of its own: the size follows from the layers, undo puts back
+  the size they had, and the root is measured again. A width of its own, from the handles, the frame tool's sizes or the
+  inspector, stops it hugging.
+- **Whatever lands on the empty canvas makes a frame, text too.** Pasted layers, images, a component or a layout from
+  the insert picker or the Components panel, and now pasted text, which used to make a note. They're padded as before,
+  filled with the project's background, as a new frame is, and named after what's in them.
+- **The text tool makes a text frame, not a note.** T and a click in empty space makes "Text" in a frame with 2 steps of
+  padding, edited at once, and the frame takes the text's name as it's typed until it's renamed. Notes in a file still
+  show and edit as before; nothing makes a new one, since you dropped the Note tool in PAR-540.
+- **The empty canvas's start doesn't gain Draw a frame,** as PAR-545's issue asked, because PAR-560 dropped the start.
+  The frame tool's menu has New screen and New component instead, so every kind starts from one place.
+- **A frame's size is its root layout's size in the inspector.** Selecting a frame shows its root's layout, spacing,
+  size and fill straight after its name. The width and height rows show the frame's own size, and a fixed length there
+  resizes the frame, as the exploration's inspector does.
+- **Converting from a frame shows a toast with Undo; converting to one asks only when something would go.** A screen or
+  component that drops nothing, such as a screen made from a frame a moment ago, becomes a frame at once. Converting a
+  component also makes its instances in other designs plain layers, in the same step, as the dialog says.
+- **Layers lists Frames after Components and Screens, once there are any,** and its + picks the frame tool, since a
+  frame is drawn rather than made right of everything. The app's Layers keeps Components first, where the exploration
+  had Screens first.
+- **A frame's handles are its previews':** the right side, the bottom and the corner, resizing its own size. Its name
+  runs past a narrow frame rather than being cut off, since there's no board to fit.
+
+## Previews in the Components panel and the insert picker (PAR-208)
+
+Built to the Previews exploration's Components stories (Parity/Explorations/Previews) and PAR-515's card. My calls:
+
+- **The view is a preference, the same in every project.** Names, List or Grid is how a person likes to browse, not a
+  property of a project, so it's kept with the app's other preferences, List until they pick another.
+- **A row says what's wrong in words, not what's in progress.** Fails to draw, Needs props, Needs a provider, Server
+  only and Draws nothing go under the name in List and Grid, colored as the exploration has them. Waiting, drawing and
+  updating show in the picture only (an empty box, a shimmer, the last picture dimmed with a mark), and the card says
+  them in words: on a first open a list of "Waiting" under every name would say nothing anyone can act on.
+- **Why there's no picture comes from what's already known.** Needs a provider and Server only come from the preview's
+  error, as the canvas reads its errors (`renderProblem`). Needs props is a preview that failed or drew nothing whose
+  component requires a prop inserting can't fill: inserting gives a required text, number, yes-or-no or option prop a
+  value of its own, so these are lists, objects and other nodes. A component that draws can still be missing one, and
+  isn't marked.
+- **The card's variants are one prop's options:** the component's first style variant (cva) with more than one option,
+  else its first own prop with a few named options, as a size. Five show as small pictures and the rest are counted.
+  They're made only when the card first opens, before anything off screen, and kept in the project's index beside the
+  component's own, as `Button?variant=outline`, so a card opened again shows them at once. Pointing at one, or tabbing
+  to it, shows it large.
+- **The picker's card has no Insert,** since Enter inserts the highlighted row; it keeps Open file and Open in
+  Storybook, which close the picker first. In a window too narrow for both, the picker is the list alone.
+- **Component designs keep their icon for now.** The proposal pictures a design by its board's bitmap, which the canvas
+  keys by its own frame jobs; reading those for the panel is work of its own, so a design shows its icon where a
+  component shows its picture.
+
+## `prefers-color-scheme` blocks are themes, drawn for each frame's mode (PAR-138)
+
+My call: the app reads `@media (prefers-color-scheme: dark)` around the root as the `dark` theme, and a `light` one as
+the default, as `parity lib` already did, and frames draw such a block for their own mode instead of Parity's window.
+PAR-485 kept the block out because a frame gets its theme from a class the Modes panel adds, never a media query, so a
+dark read from one couldn't be shown or edited. mantine's dark values were left out, and since frames are shadow roots
+in Parity's window, a mantine frame in the Light mode turned dark whenever Parity's window did.
+
+- **One policy.** `ThemeOptions.colorScheme` is gone: `themeOfSelector` always reads a whole
+  `(prefers-color-scheme: dark)` query as `dark` and `light` as the default, with a theme's own selector still beating
+  the block, so libgen and the app read the same CSS alike. The query is read by core's `colorSchemeQuery`, which
+  `prepareCanvasCss` uses too. A query that asks for more (`screen and (prefers-color-scheme: dark)`, or a width as
+  well) stays conditional and no theme's, as before.
+- **Frames draw the block as an attribute theme on their body.** `prepareCanvasCss` rewrites the block's root rules to
+  `:where([data-canvas-body][data-canvas-color-scheme="dark"])`, `body` rules to the body with that attribute, and any
+  other rule to elements inside that body. A block nested in a rule, as Tailwind's `dark:` variant writes, becomes
+  `:where(…) & { … }`, and one nested in the root's own rule is moved after it, where it can reach the body.
+  `frameAttributes` gives every frame body `data-canvas-color-scheme`: `dark` when its mode's classes include `dark`, as
+  the default Dark option's do, and `light` otherwise; an attribute the mode sets itself still wins. The alternatives
+  were a container style query, which can't reach the frame's root, where the block's values live, or an iframe per
+  frame, which the canvas doesn't use.
+- **No specificity is added**, as a media query adds none. The root's values move to the body, so the body's own rules
+  and a theme's class on it (`.dark`) win over them, matching the policy's "a theme's own selector beats the block".
+- **Previews and saves find the block by its theme.** The drawn rule reads as an attribute theme, `dark` or (for
+  `light`) the default, so `previewToken` edits it with no change of its own. `writeTokenChanges` now edits blocks under
+  a colour-scheme query when the query picks the block's theme, adds a value the dark theme lacks to the block, and
+  never adds a new default value to a colour-scheme block's `:root`.
+- **Tokens are read from the blocks as written.** `prepareCanvasCss` takes `colorSchemes: false` where tokens are read
+  (the guest, detection, libgen's comparison test), so the policy sees the media query, and `themeAttributes` reads the
+  same CSS.
+
+Gaps: a frame's root (its shadow host) never gets the colour scheme, so a custom property the root defines from another
+(`--alias: var(--surface)`) keeps its light value in a dark frame, as with a `.dark` class theme. A custom property a
+`body` rule declares inside the block reads as a dark value in the preview but not in the Tokens tab.
+
+## The first run offers the example, and gone folders are flagged (PAR-188)
+
+Called on 2026-11-06, with your approval in Storybook. PAR-188 asked for the first run to open the example with three
+dismissible tasks to try, and for the start page to show thumbnails, remove a recent project and flag missing folders.
+Thumbnails and removing came with PAR-607 and PAR-605. Your calls and mine:
+
+- **The three tasks are kept as an exploration,** Parity/Explorations/First steps, not shipped: you didn't want them
+  yet. A card over the example's canvas with Change a prop, Wrap in a layout and Check accessibility is there if they
+  come back.
+- **Home offers the example rather than opening it.** The first time, Acme sits where Continue will be, with Open Acme,
+  and Bring your own app beside it, so nothing moves once there's a project. Without the example, that place says what
+  Parity does with your app and offers Open a folder and Open a project file.
+- **Only a copy run from the repository has the example for now.** The service looks for `examples/shadcn-vite` above
+  where Parity runs, with its packages installed. Shipping it in the installer means copying it somewhere you can write
+  and installing its packages on first run, which needs its own progress and error states: that's a follow-up. Its first
+  two screens ship as its picture until its own is kept, about 26 KB.
+- **For you shows only once you're signed in,** since what needs you comes through an organization; signed out there's
+  no section and no Sign in in it. The account control at the top left (PAR-612) is where you sign in.
+- **Empty lists say what will show up there,** in a dashed box a row of cards tall, with an icon, rather than a line of
+  grey text.
+- **A gone folder stays listed, greyed,** with Folder not found, until you remove it: a drive that isn't plugged in
+  comes back. Opening it says where it was and offers Remove; Continue skips it. A folder Parity can't read for another
+  reason, such as permissions, isn't counted as gone.
+- **New project from this is out of a project's menu** until projects can be made (PAR-284), rather than a toast saying
+  it isn't ready.
+- **A frame's edge in a project's picture is mid-grey,** not the theme's text color, so a phone over a desktop frame
+  shows against it whether the screens are light or dark.

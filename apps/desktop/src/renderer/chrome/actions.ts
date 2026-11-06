@@ -1,5 +1,6 @@
 import type { ContainerKind } from "@parity-app/core"
 import { selectedDesigns, selectedNodes } from "@parity-app/editor"
+import type { Tool } from "../selection.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {
@@ -13,7 +14,7 @@ import {
   detachSelection,
   distributeSelection,
   duplicateSelection,
-  exportImages,
+  exportSelected,
   goHome,
   goToMainComponent,
   hideSelection,
@@ -57,7 +58,7 @@ import {
 } from "./commands.ts"
 import { createDesign } from "./create.ts"
 import type { Command } from "./keymap.ts"
-import { togglePanels } from "./layout.ts"
+import { toggleConsole, togglePanels } from "./layout.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
 
 /**
@@ -103,7 +104,7 @@ const newDesign = (kind: ContainerKind) => {
   const session = activeSession()
   if (session) createDesign(session, kind)
 }
-const tool = (name: "select" | "hand" | "text" | "interact"): Action => ({
+const tool = (name: Tool): Action => ({
   run: () => activeSession()?.selection.setTool(name),
   available: hasSession
 })
@@ -111,6 +112,7 @@ const tool = (name: "select" | "hand" | "text" | "interact"): Action => ({
 export const actions: Record<Command, Action> = {
   select: tool("select"),
   hand: tool("hand"),
+  frame: tool("frame"),
   text: tool("text"),
   interact: tool("interact"),
 
@@ -169,6 +171,7 @@ export const actions: Record<Command, Action> = {
   zoomToFit: { run: () => zoomToFit(), available: hasEditor },
   zoomToSelection: { run: () => zoomToSelection(), available: hasSomething },
   panels: { run: togglePanels, scope: "app" },
+  console: { run: toggleConsole, scope: "app" },
   // Not in text fields, where Alt and a digit can type a character.
   showLayers: { run: () => showPanelTab("layers") },
   showComponents: { run: () => showPanelTab("components") },
@@ -182,7 +185,7 @@ export const actions: Record<Command, Action> = {
   openFile: { run: openProjectFile, scope: "app" },
   save: { run: () => save(), available: hasSession, scope: "app" },
   saveCopy: { run: () => saveCopy(), available: hasSession, scope: "app" },
-  exportSelection: { run: () => exportImages("selection"), available: hasSession, scope: "app" },
+  exportSelection: { run: () => exportSelected(), available: hasSession, scope: "app" },
   closeTab: { run: () => closeTab(), scope: "app" },
   settings: { run: () => openDialog("settings"), scope: "app" },
 

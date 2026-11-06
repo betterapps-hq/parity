@@ -453,11 +453,13 @@ export function describeTokens({ tokens, total, truncated }: TokensResponse): st
 }
 
 /**
- * The project's own components, then each library's, then the icon libraries, then the exports left out and why, the
- * components failing to draw and why, and what the person corrected by hand.
+ * The project's own components, by the file each is written in when that's known, then each library's, then the icon
+ * libraries, then the exports left out and why, the components failing to draw and why, and what the person corrected
+ * by hand.
  */
 export function describeComponents({
   components,
+  files = {},
   iconLibraries = [],
   leftOut = [],
   drawn = 0,
@@ -472,7 +474,8 @@ export function describeComponents({
   }
   const lines: string[] = []
   for (const [group, names] of [...groups].sort(([a], [b]) => first("", a, b))) {
-    lines.push(group ? `${group}, as ${group}/Name:` : "The project's own:", `  ${names.join(", ")}`, "")
+    if (group) lines.push(`${group}, as ${group}/Name:`, `  ${names.join(", ")}`, "")
+    else lines.push(...ownComponents(names, files), "")
   }
   if (iconLibraries.length > 0) {
     lines.push(`Icons: ${iconLibraries.map((library) => `${library}, as ${library}/Name`).join("; ")}`, "")
@@ -496,6 +499,23 @@ export function describeComponents({
     for (const ref of include) lines.push(`  listed: ${name(ref)}, in ${ref.path}`)
   }
   return lines.join("\n").trimEnd()
+}
+
+/** The project's own components, under the file each is written in when the app says, files in order (PAR-167). */
+function ownComponents(names: string[], files: Record<string, string>): string[] {
+  const byFile = new Map<string, string[]>()
+  const unplaced: string[] = []
+  for (const name of names) {
+    const file = files[name]
+    if (file) byFile.set(file, [...(byFile.get(file) ?? []), name])
+    else unplaced.push(name)
+  }
+  if (byFile.size === 0) return ["The project's own:", `  ${names.join(", ")}`]
+  return [
+    "The project's own, by file:",
+    ...[...byFile].sort(([a], [b]) => a.localeCompare(b)).map(([file, inFile]) => `  ${file}: ${inFile.join(", ")}`),
+    ...(unplaced.length > 0 ? [`  file not known yet: ${unplaced.join(", ")}`] : [])
+  ]
 }
 
 /** A component's props, with each variant's options and default, then what it needs around it and holds. */
@@ -563,9 +583,16 @@ export function describeConsole(result: ConsoleResponse): string {
     const [first = "", ...rest] = entry.text.split("\n")
     lines.push("", `${time} ${entry.level}${repeats}: ${first}`, ...rest.map((line) => `  ${line}`))
     const offscreen = entry.where === "offscreen" ? ", in an offscreen render" : ""
-    lines.push(`  at ${scriptPath(entry.source)}:${entry.line}${offscreen}`)
+    lines.push(`  at ${scriptPath(entry.source)}:${entry.line}${offscreen}${writtenBy(entry)}`)
   }
   return lines.join("\n")
+}
+
+/** The design a message came from, by id, with the state and mode it was drawn in, when the app knows (PAR-147). */
+function writtenBy({ design, state, mode }: ConsoleEntry): string {
+  if (!design) return ""
+  const frame = [state, mode].filter(Boolean).join(", ")
+  return `, from design ${design.slice(design.lastIndexOf("#") + 1)}${frame ? ` (${frame})` : ""}`
 }
 
 /** Compares two names alphabetically, with `name` before every other. */

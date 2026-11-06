@@ -18,6 +18,7 @@ import {
   changeCount,
   companionScale,
   type ComponentLibrary,
+  type ContainerKind,
   frameGeometry,
   frameSize,
   type ParamSpec,
@@ -26,7 +27,7 @@ import {
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
-import { activeState, kindTitle, stateLabelSpace } from "@parity-app/editor"
+import { activeState, fittedFrame, hugsContent, kindName, kindTitle, stateLabelSpace } from "@parity-app/editor"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
@@ -47,10 +48,11 @@ import { Hint } from "../chrome/Hint.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { useLibrary, useModeSettings } from "../design-store.ts"
-import { frameHeightProperty } from "../frame.ts"
+import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
+import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
@@ -75,13 +77,150 @@ interface ContainerViewProps {
   rest?: BoardRest
 }
 
+/** A design on the canvas: a frame on its own (see `FrameView`), and a screen or a component on its board. */
+export function ContainerView(props: ContainerViewProps) {
+  return props.entry.container.kind === "frame" ? <FrameView {...props} /> : <BoardView {...props} />
+}
+
 /**
- * A design on the canvas. A title bar above it, drawn at screen size whatever the zoom, names the design and switches
- * its state and modes. The board holds a grid of frames: modes across, states down when every state is shown. Its
- * gutter, the band around and between the frames, keeps its screen size up close and shrinks with the canvas past 40%,
- * as its labels do (see `boardLayoutAt`, PAR-602).
+ * A frame on the canvas, the light kind: no board, previews or menus. Its name sits above it, smaller and quieter than
+ * a board's, and the design is drawn at its own size in the project's primary mode, in its one state (PAR-545).
  */
-export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
+function FrameView({ ref, entry, onTitlePointerDown, title, rest }: ContainerViewProps) {
+  const own = useRef<HTMLDivElement>(null)
+  const board = ref ?? own
+  const { store, loaded, selection } = useProject()
+  const settings = useModeSettings(store)
+  const { selected: isSelected } = useDesignSelection(selection, entry.key)
+  const library = useLibrary(store, entry.key)
+  const { container, key } = entry
+  const { primary } = useMemo(() => containerModes(settings, container), [settings, container])
+  const state = container.states[0]!
+  useFitToContent(board, entry)
+  const titleBar = (
+    // Its name runs past a narrow frame rather than being cut off, since there's no board for it to fit.
+    <TitleBar showControls={false} width={undefined} quiet>
+      <TitleButton
+        entry={entry}
+        selected={isSelected}
+        color={isSelected ? designColor(container.kind) : undefined}
+        quiet
+        onPointerDown={onTitlePointerDown}
+      />
+    </TitleBar>
+  )
+  return (
+    <div ref={board} className="container-view frame-view relative w-max font-sans" data-design={key}>
+      {title
+        ? createPortal(
+            <div className="absolute" style={{ left: title.x, top: title.y, width: title.width }}>
+              {titleBar}
+            </div>,
+            title.layer
+          )
+        : titleBar}
+      <FrameTile
+        entry={entry}
+        state={state}
+        mode={primary}
+        primary
+        projectPrimary
+        scale={1}
+        caption={false}
+        tabbable={isSelected}
+        selected={false}
+        place="firstFrame"
+        loaded={loaded}
+        library={library}
+        rest={rest}
+      />
+    </div>
+  )
+}
+
+/**
+ * Keeps a frame that hugs its content as wide as its root is drawn (see `fittedFrame`), so its own size, which its
+ * bitmap, agents and exports go by, is what it shows. The size follows from the layers, so keeping it isn't a step of
+ * its own to undo: undo puts back the size the layers had then, and the root is measured again.
+ */
+function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: ContainerEntry): void {
+  const { store } = useProject()
+  const hugs = hugsContent(entry.container)
+  const { key } = entry
+  useEffect(() => {
+    const host = board.current?.querySelector<HTMLElement>("[data-frame]")
+    if (!hugs || !host) return undefined
+    const rootElement = () => {
+      const current = store.getEntry(key)?.container
+      return current && findNodeElement(host, current.root.id)
+    }
+    const fit = () => {
+      const width = contentWidth(rootElement())
+      const current = store.getEntry(key)?.container
+      if (!width || !current || !fittedFrame(current, width)) return
+      store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, { history: false })
+    }
+    const observer = new ResizeObserver(fit)
+    let watched: Element | undefined
+    const watch = () => {
+      const root = rootElement()
+      if (root === watched) return
+      observer.disconnect()
+      watched = root
+      if (root) observer.observe(root)
+    }
+    // The design is drawn into the frame's shadow root, once the frame has made it, and its root element can be drawn
+    // again as it changes.
+    const drawn = new MutationObserver(() => {
+      watch()
+      fit()
+    })
+    let frame = 0
+    const start = () => {
+      if (!host.shadowRoot) {
+        frame = requestAnimationFrame(start)
+        return
+      }
+      drawn.observe(host.shadowRoot, { childList: true, subtree: true, characterData: true })
+      watch()
+    }
+    start()
+    return () => {
+      cancelAnimationFrame(frame)
+      drawn.disconnect()
+      observer.disconnect()
+    }
+  }, [board, hugs, key, store])
+}
+
+/**
+ * How wide an element is when nothing holds it in: its content's width on one line, as a frame that hugs it is drawn,
+ * rounded up to a whole pixel so text that's a fraction wider doesn't wrap. The frame lays its root out at the frame's
+ * own width, which is the last width measured, so the root is measured at its content's width for a moment, without
+ * being drawn so.
+ */
+function contentWidth(element: HTMLElement | undefined): number | undefined {
+  if (!element) return undefined
+  const { width } = element.style
+  element.style.width = "max-content"
+  const style = getComputedStyle(element)
+  const side = (name: string) => parseFloat(style.getPropertyValue(name)) || 0
+  const sides =
+    style.boxSizing === "border-box"
+      ? 0
+      : side("padding-left") + side("padding-right") + side("border-left-width") + side("border-right-width")
+  const measured = parseFloat(style.width) + sides
+  element.style.width = width
+  return measured > 0 ? Math.ceil(measured - 0.01) : undefined
+}
+
+/**
+ * A screen or a component on the canvas. A title bar above it, drawn at screen size whatever the zoom, names the design
+ * and switches its state and modes. The board holds a grid of frames: modes across, states down when every state is
+ * shown. Its gutter, the band around and between the frames, keeps its screen size up close and shrinks with the canvas
+ * past 40%, as its labels do (see `boardLayoutAt`, PAR-602).
+ */
+function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
   useGutterStyle(board, "board")
@@ -114,6 +253,7 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
         color={isSelected ? color : undefined}
         onPointerDown={onTitlePointerDown}
       />
+      <ConsoleBadge design={key} name={container.name} />
       <TitleControls>
         {Object.values(container.params ?? {}).some((param) => param.type === "variant") && (
           <VariantMenu
@@ -278,11 +418,14 @@ function StateRow({
 function TitleBar({
   showControls,
   width,
+  quiet = false,
   children
 }: {
   showControls: boolean
   /** How wide the board is on the canvas. */
   width: number | undefined
+  /** A frame's: closer to it, as it has no board around it. */
+  quiet?: boolean
   children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -290,10 +433,12 @@ function TitleBar({
   return (
     <div
       ref={ref}
-      className="design-title group/title pointer-events-auto absolute bottom-full left-0 origin-bottom-left pb-2.5"
+      className={`design-title group/title pointer-events-auto absolute bottom-full left-0 origin-bottom-left ${
+        quiet ? "w-max pb-1" : "pb-2.5"
+      }`}
       data-controls={showControls}
     >
-      <div className="@container flex h-8 min-w-0 items-center gap-3">{children}</div>
+      <div className={`@container flex min-w-0 items-center gap-3 ${quiet ? "h-6" : "h-8"}`}>{children}</div>
     </div>
   )
 }
@@ -320,11 +465,14 @@ function TitleButton({
   entry,
   selected,
   color,
+  quiet = false,
   onPointerDown
 }: {
   entry: ContainerEntry
   selected: boolean
   color: string | undefined
+  /** A frame's name: smaller, and neutral until it's selected. */
+  quiet?: boolean
   onPointerDown: (event: ReactPointerEvent) => void
 }) {
   const session = useProject()
@@ -341,10 +489,11 @@ function TitleButton({
   const icon = (
     <DesignIcon
       kind={container.kind}
-      className="size-4 shrink-0"
-      style={{ color: color ?? designColor(container.kind) }}
+      className={`shrink-0 ${quiet ? "size-3.5" : "size-4"}`}
+      style={{ color: color ?? (quiet ? undefined : designColor(container.kind)) }}
     />
   )
+  const others = convertKinds.filter((kind) => kind !== (container.kind ?? "screen"))
   if (renaming) {
     return (
       <div className="flex min-w-0 items-center gap-1.5 px-1" onPointerDown={stopEventPropagation}>
@@ -381,7 +530,9 @@ function TitleButton({
                 event.stopPropagation()
                 setRenaming(true)
               }}
-              className="flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 text-sm font-medium text-foreground/90 hover:text-foreground"
+              className={`flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 hover:text-foreground ${
+                quiet ? "text-[13px] text-muted-foreground" : "text-sm font-medium text-foreground/90"
+              }`}
               style={color ? { color } : undefined}
             >
               {icon}
@@ -393,11 +544,13 @@ function TitleButton({
       <ContextMenuContent className="w-52" onPointerDown={stopEventPropagation}>
         <ContextMenuItem onClick={() => setRenaming(true)}>Rename</ContextMenuItem>
         <ContextMenuItem onClick={() => duplicateDesign(session, entry)}>Duplicate</ContextMenuItem>
-        <ContextMenuItem
-          onClick={() => setDesignKind(session, entry, container.kind === "component" ? "screen" : "component")}
-        >
-          {container.kind === "component" ? "Convert to screen" : "Convert to component"}
-        </ContextMenuItem>
+        <ContextMenuSeparator />
+        {others.map((kind) => (
+          <ContextMenuItem key={kind} onClick={() => setDesignKind(session, entry, kind)}>
+            <DesignIcon kind={kind} />
+            Convert to {kindName(kind)}
+          </ContextMenuItem>
+        ))}
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => deleteDesign(session, entry)}>
           Delete
@@ -406,6 +559,9 @@ function TitleButton({
     </ContextMenu>
   )
 }
+
+/** The kinds a design's title menu converts it to, leaving out its own, in the Frames exploration's order. */
+const convertKinds: readonly ContainerKind[] = ["component", "screen", "frame"]
 
 /** Focuses a rename field when it appears and selects its text, ready to type over. */
 function focusAndSelect(element: HTMLInputElement | null): void {
@@ -652,7 +808,7 @@ const FrameTile = memo(function FrameTile({
   useGutterStyle(figure, place)
   const tile = useRef<HTMLDivElement>(null)
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
-  const shows = useFrameShows(session, tree, mode, frame, scale)
+  const shows = useFrameShows(session, tree, mode, frame, scale, { key: entry.key, state: state.id })
   const { key } = shows
   // The first row's frames are what the project's picture shows (PAR-607).
   useFirstRowFrame(session.id, entry.key, mode.id, shows, caption)

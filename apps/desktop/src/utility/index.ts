@@ -5,11 +5,13 @@ import { tailwindStyles } from "@parity-app/styles-tailwind"
 import type { MessagePortMain } from "electron"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import type { ConnectMessage } from "../shared/service.ts"
-import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
+import { checkAccessibility, exportDesigns, exportLayers, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings, startBuilder } from "./builders.ts"
+import { readProjectFile } from "./code.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
+import { environment } from "./environment.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
@@ -21,6 +23,7 @@ import { openProjects, saveDocumentCopy } from "./projects.ts"
 import { checker } from "./props.ts"
 import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
+import { checkStartFolders } from "./start-folders.ts"
 import { openStorybook } from "./storybook.ts"
 import { losslessWebp } from "./webp.ts"
 import { windowChannel, windowClosed } from "./window-channel.ts"
@@ -59,7 +62,7 @@ const previews = componentPreviews(projects)
 
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
-  file: process.env.PARITY_REOPEN_FILE,
+  file: environment().PARITY_REOPEN_FILE,
   open: (root) => projects.open(root).finally(rememberOpen),
   close: (root) => projects.close(root).finally(rememberOpen)
 })
@@ -81,6 +84,7 @@ const handlers: Handlers<ServiceMethods> = {
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
   "storybook.open": (params) => openStorybook(projects.get(params.projectId), params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
+  "layers.export": (params) => exportLayers(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
     const { frame, png } = await renderOffscreen(job, true)
     if (frame.error || !png) return {}
@@ -103,9 +107,11 @@ const handlers: Handlers<ServiceMethods> = {
   "pictures.store": ({ root, picture }) => storePicture(root, picture),
   "pictures.read": ({ roots }) => readPictures(roots),
   "pictures.keepOnly": ({ roots }) => keepOnlyPictures(roots),
+  "start.check": ({ roots }) => checkStartFolders(roots),
   "previews.lookup": async (params) => ({ previews: await previews.lookupPreviews(params.previews) }),
   "previews.make": ({ preview, priority }) => previews.makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
+  "code.read": ({ projectId, path }) => readProjectFile(projects.get(projectId).info.root, path),
   "project.components": ({ projectId }) => projects.components(projectId),
   "project.correctComponents": projects.correctComponents,
   "library.catalog": ({ projectId }) => catalogFor(projects.get(projectId)),

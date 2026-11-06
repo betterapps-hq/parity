@@ -21,7 +21,7 @@ import type {
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
-import type { EditStatus } from "@parity-app/editor"
+import type { EditStatus, ExportSize } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
@@ -98,6 +98,20 @@ export interface ServiceMethods {
     result: { files: string[]; warnings: string[] }
   }
   /**
+   * Draws layers and designs offscreen as the canvas has them and writes each file asked for to `folder` (PAR-185): a
+   * PNG or JPG of the layer's box at its scale, a JPG's see-through parts filled with white. `layers` are by design key, and a layer's id when it isn't the
+   * design; each file names the layer it's of by its index there.
+   */
+  "layers.export": {
+    params: {
+      projectId: string
+      folder: string
+      layers: { design: string; node?: string }[]
+      files: { layer: number; name: string; size: ExportSize }[]
+    }
+    result: { files: string[]; warnings: string[] }
+  }
+  /**
    * Draws one frame offscreen and captures it as a PNG, for the canvas to show in its place when zoomed far out, and
    * keeps it on disk. No PNG when the frame didn't render. `height` is the live frame's height in its own CSS pixels,
    * kept with the bitmap; without one, the offscreen frame's is kept, which can be a few pixels out (PAR-179).
@@ -123,6 +137,11 @@ export interface ServiceMethods {
   /** Lets go of the pictures of every project but these, the ones the start page still lists. */
   "pictures.keepOnly": { params: { roots: string[] }; result: undefined }
   /**
+   * What the start page needs from this computer (PAR-188): which of these projects' folders aren't there any more, and
+   * the example project's folder, when this copy of Parity has it.
+   */
+  "start.check": { params: { roots: string[] }; result: { missing: string[]; example?: string } }
+  /**
    * What's kept of components' previews for the code their jobs draw (PAR-207): each one's key and, when it's made
    * for that key, its pictures; else the latest one made before, to show while it's made again. Nothing is drawn.
    */
@@ -132,6 +151,8 @@ export interface ServiceMethods {
    * disk. One already made for its key is given back without drawing.
    */
   "previews.make": { params: { preview: PreviewJob; priority: "visible" | "idle" }; result: ComponentPreview }
+  /** A file of the project as text, to show an element's lines (PAR-167). `path` is from the project's root. */
+  "code.read": { params: { projectId: string; path: string }; result: { text: string } }
   /**
    * Checks a design with axe-core in every state, in the modes it shows, offscreen. Automated checks find only some
    * issues, so none found isn't a pass.
@@ -381,6 +402,32 @@ export interface CanvasHost {
   onClosing(listener: () => Promise<boolean>): void
   /** CPU and memory for each of the app's processes, for the performance stats. */
   metrics(): Promise<ProcessUsage[]>
+  /** The log of what projects' code writes to the console, which agents read with `parity console` (PAR-147). */
+  console: ConsoleHost
+}
+
+/**
+ * The design a console message was written for, with the state and mode it was drawn in (PAR-147). On the canvas it
+ * also says where the frame's code made the call, since the console then reports the window's wrapper as the source.
+ */
+export type ConsoleContext = Pick<ConsoleEntry, "design" | "state" | "mode"> &
+  Partial<Pick<ConsoleEntry, "source" | "line">>
+
+/** A message the main process keeps, with the id windows know it by while its count grows. */
+export type LoggedEntry = ConsoleEntry & { id: number }
+
+/** What changed in the log: messages kept or counted again, or a project's cleared, by its builder's origin. */
+export type ConsoleChange = { entries: LoggedEntry[] } | { cleared: string }
+
+/** The console log as the window reaches it. */
+export interface ConsoleHost {
+  /** Says which frame the console message about to be written comes from, at that level. */
+  announce(level: ConsoleEntry["level"], context: ConsoleContext & { design: string }): void
+  /** What a project's builder, by its origin, has had written so far, oldest first. */
+  read(origin: string): Promise<LoggedEntry[]>
+  /** Forgets it, for agents and every window. */
+  clear(origin: string): Promise<void>
+  subscribe(listener: (change: ConsoleChange) => void): () => void
 }
 
 /** One of the app's processes, as the performance stats show it. */
@@ -442,6 +489,11 @@ export interface RenderJob {
    * changes. Each frame starts from the compiled stylesheet and lays these over it, so no frame inherits another's.
    */
   previews?: TokenChange[]
+  /**
+   * The design it draws, by key, with the state and mode, so what the frame writes to the console is kept as that
+   * design's (PAR-147). None for a component preview. No stored name has it.
+   */
+  design?: { key: string; state?: string; mode?: string }
 }
 
 /** A component's preview to look up or make: the job that draws it, as inserting it would place it. */

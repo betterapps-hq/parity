@@ -261,6 +261,11 @@ describe("dispatch", () => {
     ])
   })
 
+  it("says which file each of the project's own components is written in", async () => {
+    const { answer } = await ask("components")
+    expect(answer.files).toEqual({ Button: "src/button.tsx" })
+  })
+
   it("refuses a method the app doesn't have, naming the ones it does", async () => {
     const { host } = fixtureHost()
     const refused = dispatch("delete", {}, host)

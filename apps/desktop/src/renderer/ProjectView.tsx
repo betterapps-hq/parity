@@ -5,9 +5,11 @@ import { CanvasDrop } from "./canvas/CanvasDrop.tsx"
 import { CanvasEditor } from "./canvas/CanvasEditor.tsx"
 import { CanvasOverlay } from "./canvas/CanvasOverlay.tsx"
 import { ProjectContext } from "./canvas/context.ts"
+import { InspectOverlay } from "./canvas/InspectOverlay.tsx"
 import { useShortcuts } from "./canvas/shortcuts.ts"
 import { TabOrderOverlay } from "./canvas/TabOrderOverlay.tsx"
 import { CanvasMenu } from "./chrome/CanvasMenu.tsx"
+import { ConsolePanel } from "./chrome/ConsolePanel.tsx"
 import { Inspector } from "./chrome/Inspector.tsx"
 import { LeftPanel } from "./chrome/LeftPanel.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
@@ -45,7 +47,11 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
       <div hidden={!active} className="flex min-h-0 flex-1 flex-col">
         <main className="flex min-h-0 flex-1">
           <LeftPanel />
-          <CanvasArea tabId={tab.id} shown={active} />
+          {/* The console docks under the canvas, between the side panels (PAR-147). */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <CanvasArea tabId={tab.id} shown={active} />
+            <ConsolePanel />
+          </div>
           <Inspector />
         </main>
         <StatusBar />
@@ -74,12 +80,13 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
   return (
     <CanvasMenu>
       <div
-        className={`canvas-area relative isolate min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""}`}
+        className={`canvas-area relative isolate min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""} ${tool === "frame" ? "cursor-crosshair" : ""}`}
         data-tool={tool}
       >
         <CanvasEditor onEditor={onEditor} shown={shown} />
         <CanvasOverlay />
         <TabOrderOverlay />
+        <InspectOverlay />
         <CanvasDrop />
         <AgentPresence />
         <FloatingToolbar />

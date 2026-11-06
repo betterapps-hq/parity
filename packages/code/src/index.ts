@@ -18,6 +18,7 @@ export {
   nextComponentList,
   typeCheckSummary
 } from "./component-list.ts"
+export { hasElementSources, type SourceMap, tagElementSources } from "./element-sources.ts"
 export { type ConfigChange, configChange, type ConfigInputs, configInputs, type ConfigStamps } from "./config-inputs.ts"
 export {
   type AppComponent,

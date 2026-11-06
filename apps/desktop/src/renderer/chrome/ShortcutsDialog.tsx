@@ -12,14 +12,14 @@ import {
 import { Search } from "lucide-react"
 import { Fragment, useState } from "react"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
-import { type Binding, gestures, groups, keymap } from "./keymap.ts"
+import { type Binding, type Gesture, gestures, groups, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 
 interface Row {
   label: string
   keys: readonly string[]
   /** What the keys are held for, for a gesture. */
-  with?: "drag" | "click"
+  with?: Gesture["with"]
 }
 
 /** Every shortcut, by group, from Help > Keyboard shortcuts or Ctrl+Shift+?. Searching matches names and keys. */
@@ -34,7 +34,9 @@ export function ShortcutsDialog() {
   }
   const rows = (group: string): Row[] => [
     ...Object.values<Binding>(keymap).filter((binding) => binding.group === group),
-    ...gestures.filter((gesture) => gesture.group === group).map((gesture) => ({ ...gesture, keys: [gesture.keys] }))
+    ...Object.values<Gesture>(gestures)
+      .filter((gesture) => gesture.group === group)
+      .map((gesture) => ({ ...gesture, keys: [gesture.keys] }))
   ]
   const needle = query.trim().toLowerCase()
   const shown = (row: Row) =>

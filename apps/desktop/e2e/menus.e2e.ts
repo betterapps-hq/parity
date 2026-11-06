@@ -45,9 +45,12 @@ describe("right-click menus", () => {
       "Send to back Ctrl+Shift+[",
       "Wrap in layout Ctrl+G",
       "Make component Ctrl+Alt+K",
-      "Hide Ctrl+Shift+H"
+      "Hide Ctrl+Shift+H",
+      "Export… Ctrl+Shift+E",
+      // The row's own elements are written in the project's member-row.tsx (PAR-167).
+      expect.stringMatching(/^Open in editor member-row\.tsx:\d+$/)
     ])
-    expect(await menu().getByRole("separator").count()).toBe(4)
+    expect(await menu().getByRole("separator").count()).toBe(6)
     // Its items run the menubar's commands.
     await menu()
       .getByRole("menuitem", { name: /^Duplicate/ })

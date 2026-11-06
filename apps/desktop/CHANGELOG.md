@@ -1,8 +1,90 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 02:49:03 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 08:51:09 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.19.0
+
+Fri, 06 Nov 2026 08:51:09 GMT
+
+### Minor changes
+
+- Home's first time offers the example where Parity has it, empty lists and For you say what will show up, and projects
+  whose folders are gone are flagged (PAR-188) (ajcraswell@gmail.com)
+
+## 0.18.0
+
+Fri, 06 Nov 2026 07:13:55 GMT
+
+### Minor changes
+
+- Layers draws only the rows in view, closes rows opened for an earlier selection, and adds search, Collapse all, an eye
+  on each layer and dragging designs to reorder them (ajcraswell@gmail.com)
+
+## 0.17.0
+
+Fri, 06 Nov 2026 05:34:50 GMT
+
+### Minor changes
+
+- Read prefers-color-scheme blocks as a theme: a project's dark block is its dark theme, the light values stay the
+  defaults, and each frame draws the block for its own mode (ajcraswell@gmail.com)
+
+## 0.16.0
+
+Fri, 06 Nov 2026 05:21:25 GMT
+
+### Minor changes
+
+- Frames on the canvas: the frame tool draws them, text and anything landing on the empty canvas make them, and Convert
+  to switches between frames, components and screens (ajcraswell@gmail.com)
+- Show component previews in the Components panel, in Names, List and Grid views, with each component's card, and in the
+  insert picker (ajcraswell@gmail.com)
+
+### Patches
+
+- A design's console messages from a click or a key on the canvas are kept, at the line that wrote them
+  (ajcraswell@gmail.com)
+- Spacing handles no longer cover a layout's children, so a click on a child still selects it (ajcraswell@gmail.com)
+- Keep hover and selection outlines on their layers in every frame of a zoom, and stop the overlays laying the page out
+  partway through each frame (ajcraswell@gmail.com)
+
+## 0.15.0
+
+Fri, 06 Nov 2026 04:24:59 GMT
+
+### Minor changes
+
+- Errors and warnings from the designs show with a count in the status bar, on each board and by design in a Console
+  panel (ajcraswell@gmail.com)
+- In development, each element a project's JSX writes carries its file, line and column: the inspector's Code tab shows
+  and opens it, parity components gives each component's file, and Measure each node's source (ajcraswell@gmail.com)
+- Drag a layout's padding and gaps on the canvas, type or pick a value, resize several layers together or from the
+  middle, and double-click an edge to hug or fill (ajcraswell@gmail.com)
+
+## 0.14.0
+
+Fri, 06 Nov 2026 03:55:31 GMT
+
+### Minor changes
+
+- Export layers and designs as PNG or JPG at 1x to 3x from the Design tab's Export section, the canvas and Layers menus,
+  and Ctrl+Shift+E (ajcraswell@gmail.com)
+
+## 0.13.0
+
+Fri, 06 Nov 2026 03:23:07 GMT
+
+### Minor changes
+
+- Sign in to Parity with Google, GitHub, Microsoft or a work email, in your browser through WorkOS
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Read the project service's caches, Portless's files, Storybook's index and its environment through zod schemas, so a
+  corrupt cache reads as empty (ajcraswell@gmail.com)
 
 ## 0.12.7
 

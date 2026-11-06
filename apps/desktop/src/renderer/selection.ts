@@ -9,8 +9,11 @@ export interface Hover {
   state?: string
 }
 
-/** `interact` hands the pointer and keys to the designs' real components, to try them as in a browser. */
-export type Tool = "select" | "hand" | "text" | "interact"
+/**
+ * `frame` draws a frame by dragging on the canvas, and `interact` hands the pointer and keys to the designs' real
+ * components, to try them as in a browser.
+ */
+export type Tool = "select" | "hand" | "frame" | "text" | "interact"
 
 /** Asks whatever shows a design or layer's name to start renaming it in place. */
 export interface RenameRequest {

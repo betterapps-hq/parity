@@ -43,6 +43,7 @@ import {
   mergeAgentChanges,
   type Picked,
   reloadFile,
+  reorderDesign,
   replaceDocuments,
   revertTo,
   type SaveState,
@@ -304,6 +305,15 @@ export class DesignStore {
   addContainer(path: string, container: ContainerSpec, label = `Add ${kindName(container.kind)}`): string {
     this.change(label, (snapshot) => addDesign(snapshot, path, container))
     return containerKey(path, container.id)
+  }
+
+  /** Moves a design just before or after another in their file, which is the Layers panel's order (PAR-187). */
+  reorderContainer(key: string, target: string, place: "before" | "after"): void {
+    const design = this.designOf(key)
+    const beside = this.designOf(target)
+    if (!design || !beside) return
+    const label = `Reorder ${kindsName([this.getEntry(key)?.container.kind])}`
+    this.change(label, (snapshot) => reorderDesign(snapshot, design, beside, place))
   }
 
   removeContainer(key: string, label?: string): void {

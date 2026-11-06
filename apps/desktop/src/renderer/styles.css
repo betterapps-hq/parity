@@ -1,6 +1,11 @@
 @import "tailwindcss";
 /* Buildkit's Base UI Nova: its theme tokens, light and dark, its animations and variants, and its components' classes. */
 @import "@buildkitgg/shadcn-baseui-kit/tailwind.css";
+/*
+ * The kit's code highlighting (Shiki) colors each token by classes in its `lib`, which its stylesheet doesn't scan, so
+ * the Code tab's code showed in one color (PAR-167).
+ */
+@source "../../node_modules/@buildkitgg/shadcn-baseui-kit/dist/lib/highlighter.js";
 @import "@fontsource-variable/geist";
 
 @theme inline {
@@ -183,6 +188,16 @@ textarea,
  */
 .canvas-area[data-tool="text"] .tl-canvas {
   cursor: text;
+}
+
+/* Picking an element to see its code, the canvas shows a crosshair, as a browser's developer tools do (PAR-167). */
+.canvas-area[data-inspecting] .tl-canvas {
+  cursor: crosshair;
+}
+
+/* With the frame tool, a crosshair, over the designs too, since a frame can be drawn over one. */
+.canvas-area[data-tool="frame"] :is(.tl-canvas, .container-view) {
+  cursor: crosshair;
 }
 
 /* Interacting, the designs take the pointer as in a browser, with their own cursors and text selection. */

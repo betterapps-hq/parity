@@ -63,6 +63,22 @@ export function matches(event: KeyboardEvent, keys: string): boolean {
   return named[key]?.includes(event.key) ?? event.key === key
 }
 
+/**
+ * Whether the modifiers written, as `Alt Shift`, are all held during a pointer event, others or not. Ctrl takes Cmd
+ * too, as `matches` does.
+ */
+export function holds(
+  event: Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "shiftKey" | "altKey">,
+  keys: string
+): boolean {
+  const parts = keys.split(" ")
+  return (
+    (!parts.includes("Ctrl") || event.ctrlKey || event.metaKey) &&
+    (!parts.includes("Shift") || event.shiftKey) &&
+    (!parts.includes("Alt") || event.altKey)
+  )
+}
+
 const macSymbols: Record<string, string> = {
   Ctrl: "⌘",
   Alt: "⌥",

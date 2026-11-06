@@ -485,6 +485,9 @@ importers:
 
   packages/builder-vite:
     dependencies:
+      '@parity-app/code':
+        specifier: workspace:*
+        version: link:../code
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
@@ -687,6 +690,12 @@ importers:
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
+
+  packages/telemetry:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/tokens:
     dependencies:

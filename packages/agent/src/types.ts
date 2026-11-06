@@ -107,6 +107,14 @@ export type ConsoleEntry = {
   /** When it was first and last written, in milliseconds since 1970. */
   first: number
   last: number
+  /**
+   * The design that wrote it, by key (`path#id`), with the state and mode it was drawn in (PAR-147): the one drawn
+   * offscreen when it was written, or on the canvas, the frame whose event was being handled. None when that isn't
+   * known, as for a module that logs as it loads.
+   */
+  design?: string
+  state?: string
+  mode?: string
 }
 
 /** An icon set the project has, as its `.lib.par` describes it, without the tags its icons are searched by. */
@@ -153,8 +161,10 @@ export interface AgentEvent {
 }
 
 export interface FrameRequest {
-  /** The design key (`path#id`), for presence. */
+  /** The design key (`path#id`), for presence and for the console messages the frame writes. */
   design: string
+  /** The state drawn, by id, for the console messages the frame writes (PAR-147). */
+  state?: string
   tree: unknown
   /** `width` is the frame's: the design's own for this viewport, else the viewport's. */
   mode: ResolvedMode
@@ -253,6 +263,11 @@ export interface MeasuredNode extends FrameBox {
   clipped?: boolean
   /** The nearest ancestor that clips and cuts part of the node off: its box, and the node it belongs to, if any. */
   clip?: FrameBox & { node?: string }
+  /**
+   * Where the project's code writes the element the node draws outermost, as `src/components/ui/button.tsx:44:5`, from
+   * the development guest (PAR-167). None for Parity's own layers, libraries' elements and production builds.
+   */
+  source?: string
 }
 
 /** How far a box reaches past each edge of the one around it, in CSS pixels. Edges it stays inside are left out. */
@@ -351,6 +366,8 @@ export interface Screenshot {
   width: number
   height: number
   png: string
+  /** Each layer's box in the frame, in its CSS pixels, to cut a layer from the picture (PAR-185). */
+  nodes?: MeasuredNode[]
 }
 
 export interface ExecResult {

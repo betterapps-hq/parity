@@ -62,12 +62,39 @@ export interface PrepareCssOptions {
    * are rewritten, as they are for drawing. Tokens are read with `false`, so they keep the values the project wrote.
    */
   units?: boolean
+  /**
+   * Whether `prefers-color-scheme` blocks become rules for frames of that scheme, as they are for drawing (see
+   * `colorSchemeAttribute`). Tokens are read with `false`, so the blocks stay as the project wrote them.
+   */
+  colorSchemes?: boolean
+}
+
+/** A colour scheme a `prefers-color-scheme` query asks for. */
+export type ColorScheme = "dark" | "light"
+
+/**
+ * The attribute on a frame's body that says which colour scheme the frame shows, `dark` or `light`. Every frame shares
+ * Parity's window, and with it one `prefers-color-scheme`, so a project's `@media (prefers-color-scheme: dark)` block
+ * is drawn as rules for the body with `data-canvas-color-scheme="dark"` instead, which a frame whose mode shows the
+ * dark theme gets (see `themeAttributes` in `@parity-app/tokens`).
+ */
+export const colorSchemeAttribute = "data-canvas-color-scheme"
+
+/**
+ * The colour scheme a media query asks for, when that's the whole query: `(prefers-color-scheme: dark)` is `dark`.
+ * One that asks for more as well, such as `screen and (prefers-color-scheme: dark)`, is left alone.
+ */
+export function colorSchemeQuery(query: string): ColorScheme | undefined {
+  const scheme = /^\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)$/i.exec(query.trim())?.[1]?.toLowerCase()
+  return scheme === "dark" || scheme === "light" ? scheme : undefined
 }
 
 /**
  * Prepares a project's compiled CSS for rendering inside per-mode shadow roots without iframes:
  *
  * - viewport media queries become container queries, so each mode responds to its own width, not the window's
+ * - `prefers-color-scheme` blocks become rules for the frame's body in that scheme, so each mode shows its own theme,
+ *   not the window's (see `colorSchemeAttribute`)
  * - viewport units (`vw`, `vh`, `svh`, `dvh`, `vmin` and the rest) become the frame's, through custom properties
  * - `rem` becomes the frame's root font size, through a custom property
  * - `:root` and `html` become `:host`, and `body` becomes the mode's body element; the root's font size, when it's
@@ -198,47 +225,106 @@ function findStringEnd(css: string, start: number): number {
   return css.length
 }
 
-/**
- * Serializes rules for a frame. `root` says the declarations are the root's: in a rule for `:root` or `html`, or in an
- * at-rule inside one.
- */
-function serialize(nodes: CssNode[], options: PrepareCssOptions, globals: string[], root = false): string {
+/** Where the nodes being serialized sit. */
+interface SerializeContext {
+  /** The declarations are the root's: in a rule for `:root` or `html`, or in an at-rule inside one. */
+  root?: boolean
+  /** Inside a style rule, where a nested rule is relative to it. */
+  inRule?: boolean
+  /** Inside a `prefers-color-scheme` block that isn't in a style rule, so its rules apply in frames of this scheme. */
+  scheme?: ColorScheme
+}
+
+/** Serializes rules for a frame. */
+function serialize(
+  nodes: CssNode[],
+  options: PrepareCssOptions,
+  globals: string[],
+  context: SerializeContext = {}
+): string {
   let output = ""
   for (const node of nodes) {
     if (node.kind === "text") {
       const text = rewriteUrls(node.text, options.baseUrl)
       if (options.units === false) output += text
-      else output += rewriteFrameUnits(root ? rewriteRootFontSize(text) : text)
+      else output += rewriteFrameUnits(context.root ? rewriteRootFontSize(text) : text)
       continue
     }
     const prelude = node.prelude.trim()
     const leading = node.prelude.slice(0, node.prelude.length - node.prelude.trimStart().length)
     if (prelude.startsWith("@")) {
-      const body = serialize(node.children, options, globals, root)
-      if (/^@(property|font-face)\b/i.test(prelude)) globals.push(`${prelude} {${body}}`)
-      else output += `${leading}${/^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude} {${body}}`
+      const scheme = schemeOfBlock(node, options)
+      if (scheme && context.inRule) {
+        // Nested in a rule, as Tailwind's `dark:` utilities are: the rule's elements in a frame of that scheme.
+        const body = serialize(node.children, options, globals, { root: context.root, inRule: true })
+        output += `${leading}${inColorScheme(scheme)} & {${body}}`
+      } else if (scheme) output += leading + serialize(node.children, options, globals, { ...context, scheme })
+      else {
+        const body = serialize(node.children, options, globals, context)
+        if (/^@(property|font-face)\b/i.test(prelude)) globals.push(`${prelude} {${body}}`)
+        else output += `${leading}${/^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude} {${body}}`
+      }
       continue
     }
     const selector = rewriteSelector(prelude)
     const selectors = splitSelectorList(selector)
     const roots = selectors.filter((part) => rootSelector.test(part))
+    const scope = (list: string) => (context.scheme ? scopeToColorScheme(list, context.scheme) : list)
+    // A colour-scheme block in the root's own rule can't reach the frame's body as a nested rule, so it follows the rule.
+    const hoisted =
+      roots.length === selectors.length ? node.children.filter((child) => schemeOfBlock(child, options)) : []
+    const children = node.children.filter((child) => !hoisted.includes(child))
     if (roots.length === 0) {
-      output += `${leading}${selector} {${serialize(node.children, options, globals)}}`
+      output += `${leading}${scope(selector)} {${serialize(children, options, globals, { inRule: true })}}`
       continue
     }
-    const rootBody = serialize(node.children, options, globals, true)
+    const rootBody = serialize(children, options, globals, { root: true, inRule: true })
     const others = selectors.filter((part) => !rootSelector.test(part))
-    const otherBody = others.length > 0 ? serialize(node.children, options, globals) : rootBody
+    const otherBody = others.length > 0 ? serialize(children, options, globals, { inRule: true }) : rootBody
     // A rule for the root and other elements at once, as `html, body`, is split when the root's font size changes, so
     // only the root's does.
-    if (rootBody === otherBody) output += `${leading}${selector} {${rootBody}}`
-    else output += `${leading}${roots.join(", ")} {${rootBody}} ${others.join(", ")} {${otherBody}}`
+    if (rootBody === otherBody) output += `${leading}${scope(selector)} {${rootBody}}`
+    else output += `${leading}${scope(roots.join(", "))} {${rootBody}} ${scope(others.join(", "))} {${otherBody}}`
+    for (const block of hoisted) {
+      if (block.kind !== "block") continue
+      const body = serialize(block.children, options, globals, { root: true, inRule: true })
+      output += ` ${scopeToColorScheme(selector, schemeOfBlock(block, options)!)} {${body}}`
+    }
   }
   return output
 }
 
 /** A selector for the frame's root alone, as `:root` and `html` become: `:host`, or `:host(.dark)`. */
 const rootSelector = /^:host(?:\([^()]*\))?$/
+
+/** The colour scheme a `prefers-color-scheme` block asks for, unless it's left alone. */
+function schemeOfBlock(node: CssNode, options: PrepareCssOptions): ColorScheme | undefined {
+  if (node.kind !== "block" || options.colorSchemes === false) return undefined
+  const media = /^@media\s+([\s\S]*)$/i.exec(node.prelude.trim())
+  return media ? colorSchemeQuery(media[1]!) : undefined
+}
+
+/** The frame's body in a colour scheme, adding nothing to a selector's specificity, as a media query adds nothing. */
+function inColorScheme(scheme: ColorScheme): string {
+  return `:where([${bodyAttribute}][${colorSchemeAttribute}="${scheme}"])`
+}
+
+/**
+ * A selector list from a colour-scheme block, as it applies in frames of that scheme. The root (`:host`, which `:root`
+ * became) becomes the frame's body in the scheme, with no specificity, so the body's own rules and a theme's class on
+ * it still win, as they would over values the body inherits from the root. `body` (the body element) keeps its own
+ * specificity, and anything else is looked for inside that body.
+ */
+function scopeToColorScheme(list: string, scheme: ColorScheme): string {
+  const body = `[${bodyAttribute}]`
+  return splitSelectorList(list)
+    .map((part) => {
+      if (/^:host(?![\w(-])/.test(part)) return inColorScheme(scheme) + part.slice(":host".length)
+      if (part.startsWith(body)) return `${body}:where([${colorSchemeAttribute}="${scheme}"])${part.slice(body.length)}`
+      return `${inColorScheme(scheme)} ${part}`
+    })
+    .join(", ")
+}
 
 /** A selector list's selectors, split at commas outside parentheses, brackets and strings, each trimmed. */
 function splitSelectorList(list: string): string[] {

@@ -3,15 +3,15 @@ import { useSyncExternalStore } from "react"
 import { z } from "zod"
 
 const storageKey = "parity.layout"
-export const panelLimits = { left: [232, 480], right: [260, 520] } as const
+export const panelLimits = { left: [232, 480], right: [260, 520], console: [120, 640] } as const
 
-/** A panel's saved width, kept to its limits. */
+/** A panel's saved width, or the console's height, kept to its limits. */
 const width = (side: keyof typeof panelLimits, fallback: number) =>
   finiteNumber.min(panelLimits[side][0]).max(panelLimits[side][1]).catch(fallback)
 
 /**
- * Which side panels are open and how wide they are. Shared by every tab, and remembered between runs. A saved value
- * that doesn't read falls back to its default without resetting the rest.
+ * Which side panels are open and how wide they are, and the console under the canvas (PAR-147). Shared by every tab,
+ * and remembered between runs. A saved value that doesn't read falls back to its default without resetting the rest.
  */
 const savedLayout = z.object({
   left: z.boolean().catch(true),
@@ -20,7 +20,9 @@ const savedLayout = z.object({
   rightWidth: width("right", 320),
   /** The tab each panel has open. */
   leftTab: z.string().optional().catch(undefined),
-  rightTab: z.string().optional().catch(undefined)
+  rightTab: z.string().optional().catch(undefined),
+  console: z.boolean().catch(false),
+  consoleHeight: width("console", 240)
 })
 
 export type PanelLayout = z.infer<typeof savedLayout>
@@ -52,6 +54,11 @@ export function setLayout(change: Partial<PanelLayout>): void {
     // Storage can be unavailable; the layout then just isn't remembered.
   }
   for (const listener of listeners) listener()
+}
+
+/** Opens the console under the canvas, or closes it. */
+export function toggleConsole(): void {
+  setLayout({ console: !layout.console })
 }
 
 /** Hides both panels, or shows them again, like Figma's Ctrl+\. */

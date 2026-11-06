@@ -16,7 +16,8 @@ const measuredNode = z.object({
   id: z.string(),
   parent: z.string().optional(),
   clipped: z.boolean().optional(),
-  clip: z.object({ ...box, node: z.string().optional() }).optional()
+  clip: z.object({ ...box, node: z.string().optional() }).optional(),
+  source: z.string().optional()
 })
 
 const frame = z.object({

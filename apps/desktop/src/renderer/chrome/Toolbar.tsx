@@ -1,29 +1,63 @@
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+  Kbd,
   Separator,
   ToggleGroup,
   ToggleGroupItem,
   Tooltip,
   TooltipContent,
-  TooltipTrigger,
-  Kbd
+  TooltipTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { Hand, Maximize, Minus, MousePointer2, Plus, Pointer, Redo2, Type, Undo2 } from "lucide-react"
-import type { ReactNode } from "react"
+import { framePresets } from "@parity-app/editor"
+import {
+  AppWindow,
+  ChevronDown,
+  Component,
+  Frame,
+  Hand,
+  Maximize,
+  Minus,
+  MousePointer2,
+  Plus,
+  Pointer,
+  Redo2,
+  Type,
+  Undo2
+} from "lucide-react"
+import { Fragment, type ReactNode } from "react"
 import { useValue } from "tldraw"
 import { useProject } from "../canvas/context.ts"
-import { useHistory } from "../design-store.ts"
-import { type Tool, useTool } from "../selection.ts"
+import { placeFrame } from "../canvas/frame-tool.ts"
+import { useContainerEntry, useHistory, useModeSettings } from "../design-store.ts"
+import { type Tool, useSelection, useTool } from "../selection.ts"
+import { createDesign } from "./create.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
+import { ModeViewportIcon } from "./viewports.tsx"
 
-/** The tools, each named and with its keys as the keymap has it. */
-const tools: { id: Tool; icon: typeof Hand }[] = [
-  { id: "select", icon: MousePointer2 },
-  { id: "hand", icon: Hand },
-  { id: "text", icon: Type },
-  { id: "interact", icon: Pointer }
+/**
+ * The tools, each named and with its keys as the keymap has it, in three groups: getting around, making things, and
+ * trying the real app.
+ */
+const toolGroups: { id: Tool; icon: typeof Hand }[][] = [
+  [
+    { id: "select", icon: MousePointer2 },
+    { id: "hand", icon: Hand }
+  ],
+  [
+    { id: "frame", icon: Frame },
+    { id: "text", icon: Type }
+  ],
+  [{ id: "interact", icon: Pointer }]
 ]
 
 /** A pill floating over the canvas. */
@@ -37,7 +71,10 @@ function Floating({ className, children }: { className: string; children: ReactN
   )
 }
 
-/** The tools, floating at the bottom of the canvas, Figma style. New designs are added from the Layers panel. */
+/**
+ * The tools, floating at the bottom of the canvas, Figma style. The frame tool has a menu beside it: a frame at one of
+ * the modes' sizes, and New screen and New component, so every kind starts from the same place.
+ */
 export function FloatingToolbar() {
   const { selection } = useProject()
   const tool = useTool(selection)
@@ -47,33 +84,100 @@ export function FloatingToolbar() {
         size="sm"
         spacing={0}
         value={[tool]}
-        onValueChange={([value]) => value && selection.setTool(value as Tool)}
+        onValueChange={([value]) => {
+          const picked = toolGroups.flat().find((each) => each.id === value)
+          if (picked) selection.setTool(picked.id)
+        }}
         aria-label="Tools"
         className="gap-0.5"
       >
-        {tools.map(({ id, icon: Icon }) => {
-          const { label, keys } = keymap[id]
-          return (
-            <Tooltip key={id}>
-              <TooltipTrigger
-                render={
-                  <ToggleGroupItem
-                    value={id}
-                    aria-label={label}
-                    className="size-9 rounded-lg aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90"
-                  >
-                    <Icon />
-                  </ToggleGroupItem>
-                }
-              />
-              <TooltipContent side="top">
-                {label} <Kbd>{formatKeys(keys[0])}</Kbd>
-              </TooltipContent>
-            </Tooltip>
-          )
-        })}
+        {toolGroups.map((group, index) => (
+          <Fragment key={group[0]!.id}>
+            {index > 0 && <Separator orientation="vertical" className="mx-1 h-5" />}
+            {group.map(({ id, icon: Icon }) => {
+              const { label, keys } = keymap[id]
+              return (
+                <Fragment key={id}>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <ToggleGroupItem
+                          value={id}
+                          aria-label={label}
+                          className="size-9 rounded-lg aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90"
+                        >
+                          <Icon />
+                        </ToggleGroupItem>
+                      }
+                    />
+                    <TooltipContent side="top">
+                      {label} <Kbd>{formatKeys(keys[0])}</Kbd>
+                    </TooltipContent>
+                  </Tooltip>
+                  {id === "frame" && <FrameMenu />}
+                </Fragment>
+              )
+            })}
+          </Fragment>
+        ))}
       </ToggleGroup>
     </Floating>
+  )
+}
+
+/**
+ * The arrow beside the frame tool, and its menu: a size for each viewport the modes use, then New screen and New
+ * component. A size resizes the selected frame, or adds a frame at that size in the middle of the view.
+ */
+function FrameMenu() {
+  const session = useProject()
+  const settings = useModeSettings(session.store)
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session.store, selected.design)
+  const frame = entry?.container.kind === "frame" && !selected.node ? entry : undefined
+  const presets = framePresets(settings)
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger
+        aria-label="Frame sizes, New screen and New component"
+        className="-ml-0.5 grid h-9 w-4 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-expanded:bg-accent aria-expanded:text-foreground"
+      >
+        <ChevronDown className="size-3" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" sideOffset={10} className="w-72">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{frame ? "Resize the frame to" : "Frame sizes from your modes"}</DropdownMenuLabel>
+          {presets.map((preset) => (
+            <DropdownMenuItem
+              key={`${preset.name} ${preset.width}`}
+              className="items-start"
+              onClick={() => placeFrame(session, preset, frame?.key)}
+            >
+              <ModeViewportIcon of={preset.mode} className="mt-0.5 text-muted-foreground" />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span>{preset.name}</span>
+                <span className="truncate text-xs text-muted-foreground">{preset.modes.join(", ")}</span>
+              </span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {preset.width} × {preset.height}
+              </span>
+            </DropdownMenuItem>
+          ))}
+          <p className="px-2 pt-1 pb-1.5 text-xs text-muted-foreground">Or drag on the canvas for any size.</p>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => createDesign(session, "screen")}>
+          <AppWindow />
+          {keymap.newScreen.label}
+          <DropdownMenuShortcut>{formatKeys(keymap.newScreen.keys[0])}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => createDesign(session, "component")}>
+          <Component />
+          {keymap.newComponent.label}
+          <DropdownMenuShortcut>{formatKeys(keymap.newComponent.keys[0])}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

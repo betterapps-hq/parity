@@ -35,13 +35,15 @@ import { codedErrors } from "../shared/coded-errors.ts"
 import {
   betaSetting,
   checked,
+  consoleAnnouncement,
+  consoleOrigin,
   folderPickerTitle,
   openInEditorRequest,
   saveDialogOptions,
   shownItem,
   themeSource
 } from "../shared/ipc-checks.ts"
-import type { ProcessUsage, RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import type { ConsoleContext, ProcessUsage, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { deviceBox, devicePixels } from "../shared/render-job.ts"
 import type {
   BuilderReading,
@@ -54,7 +56,7 @@ import type {
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
-import { readConsole, recordConsole } from "./console-log.ts"
+import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
 import { idleClose } from "./idle-close.ts"
 import { listenOnLoopback } from "./loopback.ts"
@@ -163,7 +165,8 @@ function startService(): UtilityProcess {
     handlers: {
       render: ({ job, capture }) => renderFrame(job, capture),
       preview: ({ job, crop, priority }) => renderPreview(job, crop, priority),
-      console: ({ origin, clear }) => readConsole(origin, clear),
+      // Agents get the entries without the id windows keep them by.
+      console: ({ origin, clear }) => consoleLog.read(origin, clear).map(({ id: _id, ...entry }) => entry),
       // Another copy got a sign-in link and asks whether it's this copy's: it answers at once, then trades the code.
       signInLink: ({ link }) => {
         const taken = account.owns(link)
@@ -245,7 +248,11 @@ function createWindow(): void {
       sandbox: true
     }
   })
-  recordConsole(window.webContents, "canvas", new URL(rendererUrl).origin)
+  // A message is the design's whose frame the page said was handling an event as it was written (PAR-147).
+  const contents = window.webContents.id
+  recordConsole(consoleLog, window.webContents, "canvas", new URL(rendererUrl).origin, (level) =>
+    announced.take(contents, level)
+  )
   // Every page load gets its own channel to the service.
   window.webContents.on("did-finish-load", () => connectWindow(window))
   // The page decides whether the window closes: it may ask about unsaved changes first, or finish saving. It answers
@@ -574,6 +581,25 @@ ipcMain.handle(
   checked(openInEditorRequest, (_event, request) => openInEditor(request))
 )
 
+// The editor says which frame's event it's handling just before a console message is written there (PAR-147). Word
+// that isn't one is ignored, and the message is kept as the project's.
+ipcMain.on(ipc.consoleAnnounce, (event, announcement: unknown) => {
+  const read = consoleAnnouncement.safeParse(announcement)
+  if (!read.success) return
+  const { level, ...context } = read.data
+  announced.announce(event.sender.id, level, context)
+})
+
+ipcMain.handle(
+  ipc.consoleRead,
+  checked(consoleOrigin, (_event, origin) => consoleLog.read(origin))
+)
+
+ipcMain.handle(
+  ipc.consoleClear,
+  checked(consoleOrigin, (_event, origin) => consoleLog.clear(origin))
+)
+
 ipcMain.handle(ipc.quit, () => app.quit())
 
 ipcMain.handle(ipc.toggleDevTools, (event) => event.sender.toggleDevTools())
@@ -663,6 +689,29 @@ const offscreen = renderQueue(offscreenWindows)
 // a minute after the last job and the next job opens them again.
 const renderIdle = idleClose(60_000, closeRenderWindows)
 
+// What projects' code writes to the console, in every window: agents read it with `parity console`, and editor windows
+// show it in the Console panel as it comes (PAR-147).
+const consoleLog = createConsoleLog()
+// Which frame each editor window said its next message comes from.
+const announced = announcedContexts()
+// The design each offscreen window is drawing, for what it writes meanwhile.
+const drawing = new Map<BrowserWindow, ConsoleContext>()
+consoleLog.subscribe(
+  batchedChanges((change) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed() && !isRenderWindow(window)) window.webContents.send(ipc.consoleChanged, change)
+    }
+  })
+)
+
+function consoleContextOf(design: NonNullable<RenderJob["design"]>): ConsoleContext {
+  return {
+    design: design.key,
+    ...(design.state ? { state: design.state } : {}),
+    ...(design.mode ? { mode: design.mode } : {})
+  }
+}
+
 function isRenderWindow(window: BrowserWindow): boolean {
   return renderWindows.some((render) => render?.window === window)
 }
@@ -683,7 +732,8 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
       height: 800,
       webPreferences: { offscreen: true, contextIsolation: true, sandbox: true }
     })
-    recordConsole(window.webContents, "offscreen", new URL(rendererUrl).origin)
+    // A message is the design's the window is drawing as it's written (PAR-147).
+    recordConsole(consoleLog, window.webContents, "offscreen", new URL(rendererUrl).origin, () => drawing.get(window))
     render = { window, loaded: window.loadURL(new URL("render.html", rendererUrl).href) }
     renderWindows[index] = render
   }
@@ -771,15 +821,20 @@ function renderOffscreen(
     const window = await ensureRenderWindow(index)
     const width = devicePixels(job.mode.width, job.scale)
     window.setContentSize(width, 800)
-    const frame = renderResult(
-      await window.webContents.executeJavaScript(`window.canvasRender(${JSON.stringify(job)})`, true)
-    )
-    if (!whole || frame.error) return { frame }
-    // The whole frame is in view, so a capture or a contrast check sees all of it.
-    const height = devicePixels(frame.height, job.scale)
-    window.setContentSize(width, height)
-    await window.webContents.executeJavaScript("window.canvasSettle()", true)
-    return then(window, frame, width, height)
+    if (job.design) drawing.set(window, consoleContextOf(job.design))
+    try {
+      const frame = renderResult(
+        await window.webContents.executeJavaScript(`window.canvasRender(${JSON.stringify(job)})`, true)
+      )
+      if (!whole || frame.error) return { frame }
+      // The whole frame is in view, so a capture or a contrast check sees all of it.
+      const height = devicePixels(frame.height, job.scale)
+      window.setContentSize(width, height)
+      await window.webContents.executeJavaScript("window.canvasSettle()", true)
+      return await then(window, frame, width, height)
+    } finally {
+      drawing.delete(window)
+    }
   }
   return offscreen.add(priority, run).finally(done)
 }

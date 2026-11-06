@@ -32,6 +32,8 @@ export const openInEditorRequest = z.strictObject({
   file: absolutePath,
   /** The export to open it at, as a component's source names it. */
   export: z.string().optional(),
+  /** The line to open it at, from 1, as an element's source gives it (PAR-167). Wins over `export`. */
+  line: z.number().int().positive().optional(),
   /** What Settings says to open it with. */
   editor: codeEditorChoice
 })
@@ -49,6 +51,19 @@ export const folderPickerTitle = z.string().optional()
 export const shownItem = absolutePath
 
 export const betaSetting = z.boolean("The beta setting must be true or false.")
+
+/** Which frame the console message about to be written comes from, at what level (PAR-147). */
+export const consoleAnnouncement = z.strictObject({
+  level: z.enum(["info", "warning", "error", "debug"]),
+  design: nonBlankString,
+  state: z.string().optional(),
+  mode: z.string().optional(),
+  source: z.url().optional(),
+  line: z.number().int().nonnegative().optional()
+})
+
+/** A project's builder, by its address, whose console messages to read or forget. */
+export const consoleOrigin = z.url()
 
 /** `handler` with its argument checked by `schema` first, so a bad one never reaches it. */
 export function checked<Event, Schema extends z.ZodType, Result>(

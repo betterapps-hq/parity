@@ -1,8 +1,16 @@
 import type { DetectionCorrections } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
-import { example, failingToDraw, keepingLinks, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import {
+  example,
+  failingToDraw,
+  keepingLinks,
+  makingPreviews,
+  openProjects,
+  ProjectStage
+} from "../stories/fixtures.tsx"
 import { service } from "../stories/host.ts"
+import { answerPreviews } from "../stories/previews.ts"
 import { ComponentsPanel } from "./AssetsPanel.tsx"
 import { setLayout } from "./layout.ts"
 import { LeftPanel } from "./LeftPanel.tsx"
@@ -61,6 +69,102 @@ function source(canvasElement: HTMLElement, title: string): HTMLElement {
  * components closed, since there are three sources or more.
  */
 export const AllSources: Story = { loaders: [openComponents] }
+
+/** Opens the example on the Components tab with its previews, the UI kit's open and the other sources closed. */
+async function openWithPreviews(): Promise<void> {
+  answerPreviews()
+  await openComponents()
+  makingPreviews()
+}
+
+/** The UI kit's Button row, the first of the example's rows named Button. */
+function kitButton(canvasElement: HTMLElement): HTMLElement {
+  return within(canvasElement).getAllByRole("button", { name: "Button" })[0]!
+}
+
+/** Closes the component designs, which have no pictures yet, so the UI kit's previews come first. */
+async function showKit(canvasElement: HTMLElement): Promise<void> {
+  await userEvent.click(source(canvasElement, "Local components"))
+  await waitFor(() => expect(source(canvasElement, "Local components")).toHaveAttribute("aria-expanded", "false"))
+}
+
+/**
+ * The List view, the tab's default (PAR-208): each component's picture beside its name, and under the name why it has
+ * none, in words: Draws nothing, Needs a provider, Fails to draw and Server only. Badge's code changed, so its last
+ * picture shows dimmed with a mark until the new one is made; the rest wait their turn, and one is being drawn.
+ */
+export const ListView: Story = {
+  loaders: [openWithPreviews],
+  play: async ({ canvasElement }) => {
+    await showKit(canvasElement)
+    const view = within(canvasElement).getByRole("group", { name: "Show components as" })
+    await expect(within(view).getByRole("button", { name: "List" })).toHaveAttribute("aria-pressed", "true")
+    await expect(
+      await within(canvasElement).findByRole("button", { name: "AvatarFallback Needs a provider" })
+    ).toBeVisible()
+    await expect(within(canvasElement).getByRole("button", { name: "AvatarBadge Draws nothing" })).toBeVisible()
+    await expect(within(canvasElement).getByRole("button", { name: "CardAction Fails to draw" })).toBeVisible()
+  }
+}
+
+/** The Grid view: larger pictures two to a row, the words under each name as in the list. Parity remembers the view. */
+export const GridView: Story = {
+  loaders: [openWithPreviews],
+  play: async ({ canvasElement }) => {
+    await showKit(canvasElement)
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Grid" }))
+    await expect(within(canvasElement).getByRole("button", { name: "Grid" })).toHaveAttribute("aria-pressed", "true")
+    await expect(JSON.parse(localStorage.getItem("parity.preferences") ?? "{}")).toMatchObject({
+      componentsView: "grid"
+    })
+  }
+}
+
+/** The Names view: names alone, as the tab was before previews, for a long list read by name. */
+export const NamesView: Story = {
+  loaders: [openWithPreviews],
+  play: async ({ canvasElement }) => {
+    await showKit(canvasElement)
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Names" }))
+    await expect(canvasElement.querySelector("img")).toBeNull()
+  }
+}
+
+/**
+ * Resting on a component opens its card: the large picture, its variants (made when the card first opens; pointing at
+ * one shows it large), its file, how often it's used and its stories, and Insert, Open file and Open in Storybook.
+ */
+export const ComponentCardOpen: Story = {
+  loaders: [openWithPreviews],
+  play: async ({ canvasElement }) => {
+    await showKit(canvasElement)
+    await userEvent.hover(kitButton(canvasElement))
+    const card = await within(document.body).findByRole("dialog")
+    await expect(within(card).getByText("src/components/ui/button.tsx")).toBeInTheDocument()
+    for (const name of ["Insert", "Open file", "variant outline"]) {
+      await expect(within(card).getByRole("button", { name })).toBeInTheDocument()
+    }
+    await userEvent.hover(within(card).getByRole("button", { name: "variant destructive" }))
+  }
+}
+
+/**
+ * From the keyboard: the right arrow on a row opens its card and moves focus into it, Tab goes through its variants and
+ * buttons, and Escape closes it, giving focus back to the row.
+ */
+export const ComponentCardFromKeyboard: Story = {
+  loaders: [openWithPreviews],
+  play: async ({ canvasElement }) => {
+    await showKit(canvasElement)
+    const row = kitButton(canvasElement)
+    row.focus()
+    await userEvent.keyboard("{ArrowRight}")
+    const card = await within(document.body).findByRole("dialog")
+    await waitFor(() => expect(card.contains(document.activeElement)).toBe(true))
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(row).toHaveFocus())
+  }
+}
 
 /**
  * The project's own components, opened: the UI kit grouped under the file that defines them, as Card and CardHeader

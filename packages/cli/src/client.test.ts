@@ -3,6 +3,7 @@ import {
   type AccessibilityFinding,
   describeAccessibility,
   describeComponents,
+  describeConsole,
   describeExec,
   describeModes,
   describeProblems,
@@ -11,6 +12,35 @@ import {
 } from "./client.ts"
 
 const tab = { id: "D:/app", name: "app" }
+
+describe("describeConsole", () => {
+  it("says which design wrote a message, in which state and mode, when the app knows (PAR-147)", () => {
+    const at = Date.UTC(2026, 10, 5, 18, 30)
+    const entry = {
+      level: "error" as const,
+      text: "Cannot read properties of undefined (reading 'price')",
+      source: "http://127.0.0.1:5173/src/plan-price.tsx?t=1730",
+      line: 12,
+      count: 1,
+      first: at,
+      last: at
+    }
+    const text = describeConsole({
+      tab,
+      total: 2,
+      truncated: false,
+      entries: [
+        { ...entry, where: "canvas", design: "app.par#pricing", state: "yearly", mode: "desktop-light" },
+        { ...entry, where: "offscreen" }
+      ]
+    })
+    const places = text.split("\n").filter((line) => line.startsWith("  at "))
+    expect(places).toEqual([
+      "  at /src/plan-price.tsx:12, from design pricing (yearly, desktop-light)",
+      "  at /src/plan-price.tsx:12, in an offscreen render"
+    ])
+  })
+})
 
 describe("describeProblems", () => {
   it("lists each problem once, with the frames it's in", () => {
@@ -91,6 +121,24 @@ describe("describeComponents", () => {
         "Not components:",
         "  PromoPrice, in src/promo.tsx: returns string only",
         "  Loose, in src/promo.tsx: can't tell, its type is any"
+      ].join("\n")
+    )
+  })
+
+  it("lists the project's own by the file each is written in", () => {
+    const text = describeComponents({
+      components: ["Card", "Button", "CardTitle", "Promo", "ui/Badge"],
+      files: { Button: "src/ui/button.tsx", Card: "src/ui/card.tsx", CardTitle: "src/ui/card.tsx" }
+    })
+    expect(text).toBe(
+      [
+        "The project's own, by file:",
+        "  src/ui/button.tsx: Button",
+        "  src/ui/card.tsx: Card, CardTitle",
+        "  file not known yet: Promo",
+        "",
+        "ui, as ui/Name:",
+        "  Badge"
       ].join("\n")
     )
   })

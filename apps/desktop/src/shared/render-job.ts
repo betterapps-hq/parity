@@ -32,6 +32,8 @@ export interface JobFrame {
   colorTokens?: string[]
   /** Draw what the frame's components portal out of it inside it, as a component preview does (PAR-517). */
   inlinePortals?: boolean
+  /** The design it draws, for the console messages it writes (PAR-147). */
+  design?: RenderJob["design"]
 }
 
 /** The job that draws `frame` with `guest`. */
@@ -48,7 +50,8 @@ export function renderJob(guest: JobGuest, frame: JobFrame): RenderJob {
     ...(audit ? { audit } : {}),
     ...(audit && colorTokens?.length ? { colorTokens } : {}),
     ...(frame.inlinePortals ? { inlinePortals: true as const } : {}),
-    ...(tokens?.length ? { previews: [...tokens] } : {})
+    ...(tokens?.length ? { previews: [...tokens] } : {}),
+    ...(frame.design ? { design: frame.design } : {})
   }
 }
 

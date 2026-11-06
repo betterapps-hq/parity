@@ -71,9 +71,9 @@ const overTitle: MenuTarget = { design, path: ["root", "header", "title"], mode:
 function outline(entries: MenuEntry[]): string[] {
   return entries.map((entry) => {
     if (entry.kind === "separator") return "---"
-    return entry.kind === "select-layer"
-      ? `${entry.label} >`
-      : `${entry.action}${entry.enabled ? "" : " (unavailable)"}`
+    if (entry.kind === "select-layer") return `${entry.label} >`
+    if (entry.kind === "open-source") return `open ${entry.source.path}:${entry.source.line}`
+    return `${entry.action}${entry.enabled ? "" : " (unavailable)"}`
   })
 }
 
@@ -102,7 +102,9 @@ describe("the canvas menu", () => {
       "wrap",
       "makeComponent",
       "---",
-      "hide"
+      "hide",
+      "---",
+      "exportSelection"
     ])
     const items = menu.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
     expect(items.map((entry) => entry.keys)).toEqual(
@@ -111,6 +113,19 @@ describe("the canvas menu", () => {
     expect(labelOf(menu, "copy")).toBe(keymap.copy.label)
     expect(labelOf(menu, "pasteHere")).toBe("Paste here")
     expect(labelOf(menu, "hide")).toBe("Hide")
+  })
+
+  it("ends with Open in editor over an element a project file wrote, at its line", () => {
+    const source = { path: "src/components/ui/card.tsx", line: 20, column: 5 }
+    const menu = canvasMenu({ ...overTitle, source }, layersSelection(design, ["title"]), entries)
+    expect(outline(menu).slice(-5)).toEqual([
+      "hide",
+      "---",
+      "exportSelection",
+      "---",
+      "open src/components/ui/card.tsx:20"
+    ])
+    expect(menu.at(-1)).toMatchObject({ label: "Open in editor" })
   })
 
   it("adds Go to the main component, named after it, for an instance", () => {
@@ -138,7 +153,9 @@ describe("the canvas menu", () => {
       "wrap",
       "makeComponent (unavailable)",
       "---",
-      "hide"
+      "hide",
+      "---",
+      "exportSelection"
     ])
   })
 
@@ -183,9 +200,12 @@ describe("the canvas menu", () => {
       "pasteOver",
       "duplicate",
       "---",
-      "makeComponent"
+      "makeComponent",
+      "---",
+      "exportSelection"
     ])
     expect(labelOf(menu, "makeComponent")).toBe("Convert to component")
+    expect(labelOf(menu, "exportSelection")).toBe("Export…")
     const card = canvasMenu({ design: component, path: ["card"] }, { design: component }, entries)
     expect(labelOf(card, "makeComponent")).toBe("Convert to screen")
   })
@@ -198,7 +218,9 @@ describe("the canvas menu", () => {
       "pasteOver",
       "duplicate",
       "---",
-      "makeComponent (unavailable)"
+      "makeComponent (unavailable)",
+      "---",
+      "exportSelection"
     ])
     expect(labelOf(menu, "makeComponent")).toBe(keymap.makeComponent.label)
   })
@@ -220,7 +242,9 @@ describe("the canvas menu", () => {
       "wrap (unavailable)",
       "makeComponent (unavailable)",
       "---",
-      "hide (unavailable)"
+      "hide (unavailable)",
+      "---",
+      "exportSelection"
     ])
   })
 

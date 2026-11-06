@@ -170,7 +170,14 @@ export function installHost(): void {
         { role: "builder", name: "Vite for shop", pid: 5, cpu: 0.2, memory: 180_000_000 },
         { role: "app", name: "Parity", pid: 1, cpu: 0.4, memory: 120_000_000 },
         { role: "gpu", name: "GPU", pid: 4, cpu: 1.1, memory: 150_000_000 }
-      ])
+      ]),
+    // Stories fill each project's console log themselves.
+    console: {
+      announce: () => undefined,
+      read: () => Promise.resolve([]),
+      clear: () => Promise.resolve(),
+      subscribe: () => () => undefined
+    }
   }
   window.canvasHost = host
 }
@@ -403,11 +410,22 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       return { src: `/images/${String(params.name)}`, path: `public/images/${String(params.name)}` }
     case "storybook.open":
       return { url: "http://localhost:6006/?path=/docs/components-button--docs" }
+    case "layers.export":
+      return {
+        files: (params.files as { name: string }[]).map((file) => `D:/exports/${file.name}`),
+        warnings: []
+      }
     case "designs.export":
       return {
         files: (params.designs as string[]).map((design) => `D:/exports/${design.split("#").at(-1)}.png`),
         warnings: []
       }
+    case "code.read": {
+      const { default: files } = await import("virtual:parity/example-sources")
+      const text = files[String(params.path)]
+      if (text === undefined) throw new Error(`${String(params.path)} isn't in the project's folder`)
+      return { text }
+    }
     case "accessibility.check":
       return { findings: findingsFor(String(params.design)), frames: 4, warnings: [] }
     case "frames.stored":
@@ -418,6 +436,9 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     case "pictures.read":
       // No project's picture kept, as on a first launch: the start page shows placeholders.
       return {}
+    case "start.check":
+      // Every folder is there, and this copy has no example to offer.
+      return { missing: [] }
     default:
       return undefined
   }

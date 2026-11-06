@@ -10,7 +10,7 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { ContainerKind } from "@parity-app/core"
-import { kindName, kindTitle, turnInto, selectionKey } from "@parity-app/editor"
+import { kindName, kindTitle, selectionKey } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
@@ -18,12 +18,16 @@ import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
+import { setDesignKind } from "./designs.ts"
+import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { StatesSection } from "./StatesSection.tsx"
+import { useStyleEditor } from "./style-editor.ts"
+import { StyleSections } from "./StyleSections.tsx"
 import { ModeViewportIcon } from "./viewports.tsx"
 
 /**
@@ -52,7 +56,7 @@ function SelectedPanel() {
     return (
       <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
         <MousePointerClick className="size-5" />
-        Select a screen or component on the canvas or in Layers.
+        Select a screen, component or frame on the canvas or in Layers.
         <span className="text-xs">Click inside one to select a layer, and double-click to go deeper.</span>
       </div>
     )
@@ -66,16 +70,16 @@ function SelectedPanel() {
   return <DesignPanel entry={entry} />
 }
 
+/** The kinds a design can be, lightest first, as the kind switch lists them. */
+const kinds: readonly ContainerKind[] = ["frame", "component", "screen"]
+
 function DesignPanel({ entry }: { entry: ContainerEntry }) {
-  const { store, selection } = useProject()
+  const session = useProject()
+  const { store } = session
   const settings = useModeSettings(store)
-  const selected = useSelection(selection)
   const { container, key } = entry
-  const { primary, all } = containerModes(settings, container)
-  const shown = new Set(container.view?.modes ?? [])
+  const { primary } = containerModes(settings, container)
   const kind = kindName(container.kind)
-  const setModes = (modes: string[]) =>
-    store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
 
   return (
     <>
@@ -108,21 +112,17 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
             size="sm"
             spacing={0}
             value={[container.kind ?? "screen"]}
-            onValueChange={([value]) =>
-              value &&
-              store.updateContainer(
-                key,
-                value === "component" ? "Convert to component" : "Convert to screen",
-                (current) => turnInto(current, value as ContainerKind, store.getModes()).design
-              )
-            }
+            aria-label="Kind"
+            onValueChange={([value]) => {
+              const picked = kinds.find((each) => each === value)
+              if (picked) setDesignKind(session, entry, picked)
+            }}
           >
-            <ToggleGroupItem value="screen" className="h-6 px-2 text-xs">
-              Screen
-            </ToggleGroupItem>
-            <ToggleGroupItem value="component" className="h-6 px-2 text-xs">
-              Component
-            </ToggleGroupItem>
+            {kinds.map((each) => (
+              <ToggleGroupItem key={each} value={each} className="h-6 px-2 text-xs">
+                {kindTitle(each)}
+              </ToggleGroupItem>
+            ))}
           </ToggleGroup>
           <Hint label={entry.path} wait>
             <Badge variant="outline" className="min-w-0 shrink justify-start font-normal">
@@ -130,8 +130,52 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
             </Badge>
           </Hint>
         </div>
+        {container.kind === "frame" && (
+          <div className="mt-2 flex flex-col gap-2 pl-6">
+            <Hint label="Frames are drawn in the project's primary mode" wait>
+              <span className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground">
+                <Crown className="size-3 shrink-0 text-amber-400" aria-hidden />
+                <ModeViewportIcon of={primary} className="size-3.5 shrink-0" aria-hidden />
+                Drawn in {primary.name}
+              </span>
+            </Hint>
+            <p className="text-xs text-muted-foreground">
+              A frame isn&apos;t written to code. Convert it to a component or a screen to use it in your app.
+            </p>
+          </div>
+        )}
       </div>
 
+      {container.kind === "frame" ? <FrameStyles entry={entry} /> : <ScreenOrComponentSections entry={entry} />}
+
+      <ExportSection targets={[{ design: key, name: container.name }]} label={`Export ${container.name}`} />
+    </>
+  )
+}
+
+/**
+ * A frame's own layout, size and fill, straight after its name, since selecting a frame selects its root layout: it
+ * has no states, modes or params. Its width and height are the frame's size (see `useStyleEditor`).
+ */
+function FrameStyles({ entry }: { entry: ContainerEntry }) {
+  const editor = useStyleEditor(entry, [entry.container.root.id])
+  return editor ? <StyleSections editor={editor} node={entry.container.root} /> : null
+}
+
+/** A screen's or component's states, params or components, and the modes it shows. */
+function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
+  const { store, selection } = useProject()
+  const settings = useModeSettings(store)
+  const selected = useSelection(selection)
+  const { container, key } = entry
+  const { primary, all } = containerModes(settings, container)
+  const shown = new Set(container.view?.modes ?? [])
+  const kind = kindName(container.kind)
+  const setModes = (modes: string[]) =>
+    store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
+
+  return (
+    <>
       <StatesSection entry={entry} />
       {container.kind === "component" ? <ParamsSection entry={entry} /> : <ComponentsSection entry={entry} />}
 

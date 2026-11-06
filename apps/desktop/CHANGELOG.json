@@ -2,6 +2,165 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 08:51:09 GMT",
+      "version": "0.19.0",
+      "tag": "@parity-app/desktop_v0.19.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9e3d4bcf0cae8dc4abbd8022bcadeaf8e8bbd65f",
+            "comment": "Home's first time offers the example where Parity has it, empty lists and For you say what will show up, and projects whose folders are gone are flagged (PAR-188)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 07:13:55 GMT",
+      "version": "0.18.0",
+      "tag": "@parity-app/desktop_v0.18.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dfefb47fcdf54bfcffa9ee8deab4282820197999",
+            "comment": "Layers draws only the rows in view, closes rows opened for an earlier selection, and adds search, Collapse all, an eye on each layer and dragging designs to reorder them"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 05:34:50 GMT",
+      "version": "0.17.0",
+      "tag": "@parity-app/desktop_v0.17.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cd053b0aed7b4baa0f4f95898b660b33473ddea4",
+            "comment": "Read prefers-color-scheme blocks as a theme: a project's dark block is its dark theme, the light values stay the defaults, and each frame draws the block for its own mode"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 05:21:25 GMT",
+      "version": "0.16.0",
+      "tag": "@parity-app/desktop_v0.16.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f363129ba74504e468602b26307b9515f2c86380",
+            "comment": "Frames on the canvas: the frame tool draws them, text and anything landing on the empty canvas make them, and Convert to switches between frames, components and screens"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7026da5f19aaf8a1fec945baf816066518aa3bd1",
+            "comment": "Show component previews in the Components panel, in Names, List and Grid views, with each component's card, and in the insert picker"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e7c16e4a57da489653d3533c34b482e9f3b86f85",
+            "comment": "Wait for components that load on demand before the e2e helpers call a design settled"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c057eed887356a364bb4d4b9f4728f23e555e0b0",
+            "comment": "A design's console messages from a click or a key on the canvas are kept, at the line that wrote them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4b72e5b3ac5434fdcd576dc37b93e396ba852d47",
+            "comment": "Spacing handles no longer cover a layout's children, so a click on a child still selects it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "587f6b63dd706eb1fd6019f556d7159427adbd9d",
+            "comment": "Keep hover and selection outlines on their layers in every frame of a zoom, and stop the overlays laying the page out partway through each frame"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 04:24:59 GMT",
+      "version": "0.15.0",
+      "tag": "@parity-app/desktop_v0.15.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "196195c1362bf79c7625f83e6f8734e7f6a203e4",
+            "comment": "Errors and warnings from the designs show with a count in the status bar, on each board and by design in a Console panel"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1d801bd75e329d9604bca709aa2d64b51479ea35",
+            "comment": "In development, each element a project's JSX writes carries its file, line and column: the inspector's Code tab shows and opens it, parity components gives each component's file, and Measure each node's source"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fc153e9e6e503532d87e7d5db94c188bef297b81",
+            "comment": "Drag a layout's padding and gaps on the canvas, type or pick a value, resize several layers together or from the middle, and double-click an edge to hug or fill"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 03:55:31 GMT",
+      "version": "0.14.0",
+      "tag": "@parity-app/desktop_v0.14.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c59039eae4bb107c092887e52199e2919c17edd3",
+            "comment": "Export layers and designs as PNG or JPG at 1x to 3x from the Design tab's Export section, the canvas and Layers menus, and Ctrl+Shift+E"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 03:23:07 GMT",
+      "version": "0.13.0",
+      "tag": "@parity-app/desktop_v0.13.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "78ad04db76a6ba5798dfa8aa705fbe12ae270738",
+            "comment": "Read the project service's caches, Portless's files, Storybook's index and its environment through zod schemas, so a corrupt cache reads as empty"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "bc7036a7688acf0c610725e970a1abbcecd31bd7",
+            "comment": "Sign in to Parity with Google, GitHub, Microsoft or a work email, in your browser through WorkOS"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 02:49:03 GMT",
       "version": "0.12.7",
       "tag": "@parity-app/desktop_v0.12.7",

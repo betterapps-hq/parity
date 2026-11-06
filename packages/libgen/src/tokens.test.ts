@@ -68,6 +68,14 @@ const cases: Case[] = [
     expected: { c: { category: "color", values: { default: "#fff", dark: "#000" } } }
   },
   {
+    name: "a prefers-color-scheme block as the dark theme, below a theme's own selector (PAR-138)",
+    css: ":root { --c: #fff; --d: #eee } .dark { --d: #222 } @media (prefers-color-scheme: dark) { :root { --c: #000; --d: #111 } }",
+    expected: {
+      c: { category: "color", values: { default: "#fff", dark: "#000" } },
+      d: { category: "color", values: { default: "#eee", dark: "#222" } }
+    }
+  },
+  {
     name: "two dark sources, the later winning as in the cascade",
     css: ':root { --c: #fff } .dark { --c: #111 } [data-theme="dark"] { --c: #222 }',
     expected: { c: { category: "color", values: { default: "#fff", dark: "#222" } } }
@@ -87,7 +95,7 @@ const cases: Case[] = [
 /** What libgen and the app each read from the CSS, by token. */
 function readBoth(css: string) {
   const library = new Map(cssTokens(css).map((token) => [token.var, token]))
-  const compiled = prepareCanvasCss(css, { baseUrl: "http://localhost", units: false }).scoped
+  const compiled = prepareCanvasCss(css, { baseUrl: "http://localhost", units: false, colorSchemes: false }).scoped
   const project = new Map(extractTokens(compiled).map((token) => [token.name, token]))
   return { library, project }
 }
@@ -106,16 +114,5 @@ describe("libgen and the app reading the same CSS", () => {
         want
       )
     }
-  })
-
-  it("differ only in that libgen reads a prefers-color-scheme block as its theme", () => {
-    const { library, project } = readBoth(
-      ":root { --c: #fff; --d: #eee } .dark { --d: #222 } @media (prefers-color-scheme: dark) { :root { --c: #000; --d: #111 } }"
-    )
-    // A theme's own selector beats the media query wherever it is.
-    expect(library.get("c")?.values).toEqual({ default: "#fff", dark: "#000" })
-    expect(library.get("d")?.values).toEqual({ default: "#eee", dark: "#222" })
-    expect(project.get("c")?.values).toEqual({ default: "#fff" })
-    expect(project.get("d")?.values).toEqual({ default: "#eee", dark: "#222" })
   })
 })

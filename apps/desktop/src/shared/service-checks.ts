@@ -35,7 +35,8 @@ const renderJob = z.object({
   audit: z.boolean().optional(),
   colorTokens: z.array(z.string()).optional(),
   inlinePortals: z.literal(true).optional(),
-  previews: z.array(tokenChange).optional()
+  previews: z.array(tokenChange).optional(),
+  design: z.object({ key: z.string(), state: z.string().optional(), mode: z.string().optional() }).optional()
 })
 
 const previewJob = z.object({ component: z.string(), job: renderJob })
@@ -69,15 +70,28 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
     designs: z.array(z.string()),
     scale: finiteNumber.positive()
   }),
+  "layers.export": project.extend({
+    folder: z.string(),
+    layers: z.array(z.object({ design: z.string(), node: z.string().optional() })),
+    files: z.array(
+      z.object({
+        layer: z.number().int().nonnegative(),
+        name: z.string(),
+        size: z.object({ format: z.enum(["png", "jpg"]), scale: z.union([z.literal(1), z.literal(2), z.literal(3)]) })
+      })
+    )
+  }),
   "frames.capture": z.object({ job: renderJob, height: finiteNumber.optional() }),
   "frames.stored": z.object({ job: renderJob }),
   "frames.clearStored": z.undefined(),
   "pictures.store": z.object({ root: z.string(), picture: projectPicture }),
   "pictures.read": roots,
   "pictures.keepOnly": roots,
+  "start.check": roots,
   "previews.lookup": z.object({ previews: z.array(previewJob) }),
   "previews.make": z.object({ preview: previewJob, priority: z.enum(["visible", "idle"]) }),
   "accessibility.check": project.extend({ design: z.string() }),
+  "code.read": project.extend({ path: z.string() }),
   "tokens.save": project.extend({ changes: z.array(tokenWrite) }),
   "processes.list": z.object({}),
   "processes.stop": processId,

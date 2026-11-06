@@ -81,13 +81,14 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
   // The theme's own values measure the frame as the project's CSS does, though they never went through preparing.
   const fallbacks = rewriteSheetFrameUnits(themeFallbackCss(css.scoped, theme))
   const sheet = guestSheet(fallbacks + packages.scoped + css.scoped)
-  // Tokens keep the values the project wrote, `0.25rem` rather than what a frame draws it with.
-  const written = prepareCanvasCss(guest.css, { baseUrl: new URL(url).origin, units: false }).scoped
+  // Tokens keep the values the project wrote, `0.25rem` rather than what a frame draws it with, and its
+  // `prefers-color-scheme` blocks, which frames draw as rules for their colour scheme.
+  const written = prepareCanvasCss(guest.css, { baseUrl: new URL(url).origin, units: false, colorSchemes: false })
   return {
     guest,
     sheet,
-    tokens: extractTokens(written, theme, guest.tokenCategories),
-    themeAttributes: themeAttributes(collectCustomProperties(css.scoped))
+    tokens: extractTokens(written.scoped, theme, guest.tokenCategories),
+    themeAttributes: themeAttributes(collectCustomProperties(written.scoped))
   }
 }
 
@@ -126,7 +127,8 @@ export function showTokenOverrides(sheet: CSSStyleSheet, overrides: readonly Tok
 /**
  * Changes a token's value in every frame at once by editing the shared stylesheet, so edits show before the
  * project's builder recompiles. `theme` is `default` or a theme as `extractTokens` names it, such as `dark`: the rules
- * edited are the ones it read that theme's values from, `.dark` or `[data-theme="dark"]` alike.
+ * edited are the ones it read that theme's values from, `.dark` or `[data-theme="dark"]` alike, and a
+ * `prefers-color-scheme` block as frames draw it, an attribute theme on the frame's body (core's `colorSchemeAttribute`).
  */
 export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, value: string): void {
   const property = `--${name}`

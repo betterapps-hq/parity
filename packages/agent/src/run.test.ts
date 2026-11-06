@@ -645,6 +645,29 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     })
   })
 
+  it("says where the project's code writes each node's element (PAR-167)", async () => {
+    const source = "src/components/ui/button.tsx:44:5"
+    const result = await execute(
+      { label: "Check", code: `Print(JSON.stringify((await Measure("signup")).nodes.map((node) => node.source)))` },
+      snapshot(),
+      {
+        ...hooks(),
+        render: async ({ mode }) => ({
+          width: mode.width,
+          height: 600,
+          overflowsX: false,
+          unknownComponents: [],
+          nodes: [
+            // Parity draws the page layout itself, so the project's code writes no element for it.
+            { id: "page", x: 0, y: 0, width: mode.width, height: 600 },
+            { id: "submit", parent: "page", x: 16, y: 100, width: 80, height: 36, source }
+          ]
+        })
+      }
+    )
+    expect(result.output[0]).toBe(JSON.stringify([null, source]))
+  })
+
   it("draws each frame in the window the canvas gives it", async () => {
     const shared = snapshot()
     shared.modes = {
@@ -831,6 +854,14 @@ describe("render inputs", () => {
       }
     }
   }
+
+  it("says which design and state each frame draws, so what it writes to the console is that design's (PAR-147)", async () => {
+    const requests: FrameRequest[] = []
+    await execute({ label: "Look", code: `await Measure("signup")` }, snapshot(), recording(requests))
+    expect(requests.map(({ design, state }) => ({ design, state }))).toEqual([
+      { design: "app.par#signup", state: "default" }
+    ])
+  })
 
   it("draws an instance of a library's component design, as the canvas does", async () => {
     const project = snapshot()

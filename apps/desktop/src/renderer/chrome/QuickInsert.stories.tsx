@@ -12,6 +12,7 @@ import {
   openProjects,
   typeInto
 } from "../stories/fixtures.tsx"
+import { answerPreviews } from "../stories/previews.ts"
 import { Window } from "./chrome-fixtures.tsx"
 import { QuickInsert } from "./QuickInsert.tsx"
 
@@ -58,6 +59,26 @@ export const Open: Story = { loaders: [heroSelected], play: openWith() }
  * in matches. Each row says where it's from.
  */
 export const Searching: Story = { loaders: [heroSelected], play: openWith("card") }
+
+/**
+ * Pictures in the picker (PAR-208): each component's row has its picture, and the highlighted one's card sits beside
+ * the list, with its variants and where it's from, following the arrow keys. Enter inserts it.
+ */
+export const WithPreviews: Story = {
+  loaders: [
+    async () => {
+      answerPreviews()
+      await heroSelected()
+    }
+  ],
+  play: async () => {
+    await openWith("button")()
+    const card = await body().findByRole("complementary", { name: "Highlighted component" })
+    await waitFor(() => expect(within(card).getByText("src/components/ui/button.tsx")).toBeInTheDocument())
+    await userEvent.keyboard("{ArrowDown}")
+    await waitFor(() => expect(within(card).queryByText("src/components/ui/button.tsx")).toBeNull())
+  }
+}
 
 /**
  * Searching for "badge": Badge is in the UI kit and in Shadcn Nova, so it's one row with both. Enter inserts the

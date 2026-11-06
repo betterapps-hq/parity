@@ -205,7 +205,7 @@ function tabRef(snapshot: TabSnapshot): { id: string; name: string } {
 }
 
 /**
- * What `parity components` reports: the components, the exports the type checker left out and why, the components
+ * What `parity components` reports: the components, the file each of the project's own is written in, the exports the type checker left out and why, the components
  * failing to draw on the canvas and why, and the person's corrections in the main project file, saved or not.
  */
 function componentsReport(snapshot: TabSnapshot, components: string[]): Answer<"components"> {
@@ -217,6 +217,13 @@ function componentsReport(snapshot: TabSnapshot, components: string[]): Answer<"
   const listed = main?.detection?.include ?? []
   return {
     components,
+    // Where the project's own are written; a library's component is named by its package instead (PAR-167).
+    files: Object.fromEntries(
+      components.flatMap((id) => {
+        const source = snapshot.sources?.[id]
+        return source && !source.library ? [[id, source.path]] : []
+      })
+    ),
     iconLibraries: (snapshot.iconSets ?? []).map((set) => set.id),
     // Less what the person listed by hand, which are components now.
     leftOut: (snapshot.leftOut ?? []).filter(
@@ -373,6 +380,35 @@ export async function exportPictures(
     return { name, png: shot.png }
   })
   return { files, warnings: result.warnings }
+}
+
+/**
+ * Each design drawn offscreen once at each scale, in the state the canvas shows and its main mode, with every layer's
+ * box, for the Export section to cut layers from (PAR-185). Each picture names its design by id. A design that didn't
+ * draw is a warning.
+ */
+export async function framePictures(
+  host: AgentHost,
+  snapshot: TabSnapshot,
+  designs: string[],
+  scales: number[]
+): Promise<{ frames: (Screenshot & { scale: number })[]; warnings: string[] }> {
+  const frames: (Screenshot & { scale: number })[] = []
+  const warnings: string[] = []
+  for (const scale of scales) {
+    const result = await execute(
+      {
+        label: "Export",
+        code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${JSON.stringify({ scale })})`
+      },
+      workspaceSnapshot(snapshot),
+      { presence: () => undefined, render: renderFor(host, snapshot) }
+    )
+    if (!result.ok) throw new Error(result.error ?? "The designs couldn't be rendered")
+    frames.push(...result.screenshots.map((shot) => ({ ...shot, scale })))
+    warnings.push(...result.warnings)
+  }
+  return { frames, warnings }
 }
 
 /**

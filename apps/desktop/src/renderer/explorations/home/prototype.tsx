@@ -1,7 +1,7 @@
 import { SonnerToaster } from "@buildkitgg/shadcn-baseui-kit"
 import { type ReactNode, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { ContinueCard, OpenFirst } from "../../start/HomePage.tsx"
+import { ContinueCard, FirstTime } from "../../start/HomePage.tsx"
 import { NewTab } from "../../start/NewTabPage.tsx"
 import { PictureSourceProvider } from "../../start/pictures.ts"
 import { ProjectList } from "../../start/ProjectList.tsx"
@@ -365,7 +365,7 @@ function Home({
           </div>
         </header>
         <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_300px]">
-          {last ? <ContinueCard project={last} active /> : <OpenFirst />}
+          {last ? <ContinueCard project={last} active /> : <FirstTime />}
           {forYou}
         </div>
         {projects.length > 0 && <ProjectList projects={projects} skip={last?.root} />}

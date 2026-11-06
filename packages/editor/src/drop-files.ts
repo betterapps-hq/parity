@@ -1,4 +1,5 @@
 import { type ContainerSpec, type DesignNode, generateId, uniqueId, withFreshIds } from "@parity-app/core"
+import { landedStyle } from "./new-screen.ts"
 
 /**
  * Image files dropped onto the canvas from Explorer or Finder: which of them Parity takes, what it says about the rest,
@@ -107,7 +108,7 @@ export function dropHint(count: number, where: "layout" | "canvas" | "none"): st
   if (count === 0) return `Only ${imageKinds} images can be dropped`
   if (where === "none") return "Drop onto a layout, or onto the empty canvas"
   const images = count === 1 ? "the image" : `${count} images`
-  return where === "layout" ? `Add ${images} here` : `New screen with ${images}`
+  return where === "layout" ? `Add ${images} here` : `New frame with ${images}`
 }
 
 /** The undo step's label for a drop of this many images. */
@@ -121,8 +122,8 @@ export function fileBaseName(name: string): string {
 }
 
 /**
- * Images dropped on the empty canvas: a new screen with its top left `at`, holding them side by side in a row that
- * wraps, padded as a pasted screen is. It's named after the file when there's one, and Images when there are several.
+ * Images dropped on the empty canvas: a new frame with its top left `at`, holding them side by side in a row, padded
+ * and hugging them as a pasted frame is (see `landedStyle`). It's named after the file when there's one, and Images when there are several.
  * Its id isn't one of `taken`, the designs' ids, and its layers get fresh ids.
  */
 export function designOfImages(
@@ -138,11 +139,12 @@ export function designOfImages(
   return {
     id: uniqueId(name, taken),
     name,
+    kind: "frame",
     position: at,
     root: {
       type: "layout",
       id: rootId,
-      style: { direction: "row", wrap: true, align: "start", padding: 6, gap: 4 },
+      style: { ...landedStyle, direction: "row", align: "start" },
       children: nodes.map((node) => withFreshIds(node, ids))
     },
     states: [{ id: "default", name: "Default" }]

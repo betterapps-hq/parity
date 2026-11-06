@@ -267,9 +267,10 @@ as the rest of the canvas. Now it rests while nothing moves, and still follows e
 - **Frames are found from an index,** kept as `ModeView` mounts and unmounts each frame, not by searching the canvas.
   Everything that finds a design's frames uses it: the overlay, hovering and clicking, agents' presence, Reveal, the
   style preview and the tab order overlay.
-- **It measures after a change** to the camera or a board, the selection or the hover, the tool or View's settings, a
-  design, a frame's size or what it draws, an image or font loading, or the pointer, wheel and keys, which drive drags,
-  snapping, resizing and Alt's redlines. After each it measures every animation frame for half a second, then rests.
+- **It measures after a change** to a board, the selection or the hover, the tool or View's settings, a design, a
+  frame's size or what it draws, an image or font loading, or the pointer and keys, which drive drags, snapping,
+  resizing and Alt's redlines. After each it measures every animation frame for half a second, then rests. The camera is
+  followed apart from these, once in each frame it moves (see Outlines follow the camera in the frame it moves).
 - **Animations are followed while they run.** Once it has settled, it keeps measuring while an animation or transition
   runs in a frame of the selected or hovered design, so outlines move with it, and stops when it ends. A component that
   animates by script writes to its DOM, which counts as a change. A design animating elsewhere doesn't keep it going.
@@ -286,9 +287,9 @@ Code: the index is `registerFrame`, `findFrames` and `allFrames` in `apps/deskto
 
 Tests:
 
-- `packages/editor/src/overlay-measuring.test.ts` (11): the designs drawn over, the layout grid's every frame, the
+- `packages/editor/src/overlay-measuring.test.ts` (13): the designs drawn over, the layout grid's every frame, the
   settle window and how changes move it on, resting once settled, following an animation without asking about it while
-  settling, and resting while nothing shows.
+  settling, resting while nothing shows, and which changes to tldraw's store only move the view (PAR-653).
 - `canvas/CanvasOverlay.test.ts`, "finding a design's frames" (2), in Chrome: the frames `ModeView` registers, found in
   the page's order, by state and mode, only inside the root asked, and left out once they unmount. Its other tests drive
   the overlay with the real mouse, through the index.
@@ -296,9 +297,57 @@ Tests:
 - `apps/desktop/e2e/selecting.e2e.ts`, on CI: hovering and selecting outline layers, with the selected one's name and
   size, and a dragged layer shows where it would land, all through the index and the measuring.
 
-Gaps: outlines following the camera and an animation inside a frame, and the window's idle script time, have no
-automated test; they were checked in the app as above. Layout that moves with nothing the overlay hears of, such as a
-video taking its size once its data arrives, is caught up at the next change.
+Gaps: outlines following an animation inside a frame, and the window's idle script time, have no automated test; they
+were checked in the app as above. Following the camera has its own test since PAR-653. Layout that moves with nothing
+the overlay hears of, such as a video taking its size once its data arrives, is caught up at the next change.
+
+### Outlines follow the camera in the frame it moves (PAR-653)
+
+Zooming with a layer hovered or selected keeps its outline, label, handles, spacing and redlines on it in every frame,
+and runs as fast as zooming with nothing outlined. They used to trail the zoom by a frame or two, settling only once it
+stopped, and each frame laid the page out partway through, which dropped the window to a few frames a second while other
+work kept the machine busy.
+
+- **The camera is followed on its own.** When tldraw's camera moves, the overlay measures once in that frame, after the
+  frame has been laid out and before it's painted, and draws what it measured straight away. Measuring is free then,
+  since the page is already laid out.
+- **Zooming doesn't wake measuring every frame.** A change to tldraw's store that only moves the camera or the pointer,
+  or starts or stops the camera, doesn't wake it, and neither does the wheel. Boards moving or resizing once the camera
+  stops still do.
+- **The element inspector's overlay (PAR-167) reads nothing with nothing to mark.** It had read the canvas area's box in
+  every animation frame, laying the page out partway through each frame of a zoom.
+- **Measured** on 2026-11-05 with `pnpm perf --runs "zoom at 100%,zoom hovering a layer,zoom with a layer selected"` on
+  the example project (119 frames), React's production build, in two rounds of before and after one after another. Each
+  run zooms with Ctrl and the wheel over a layer of the first design, from 100% to about 300% and back, then to about
+  33%, for 4 seconds. Outlines were checked as each frame was about to be painted.
+
+| Zooming                   | Before: fps | Before: outline off                        | After: fps  | After: outline off  |
+| ------------------------- | ----------- | ------------------------------------------ | ----------- | ------------------- |
+| Nothing outlined, at 100% | 40.5 / 45   | –                                          | 44.8 / 44.5 | –                   |
+| A layer hovered           | 42.8 / 45   | 145 of 171 / 150 of 180 frames, up to 9 px | 43.8 / 44.8 | 0 of 175 / 0 of 179 |
+| A layer selected          | 38 / 38.5   | 132 of 152 / 134 of 154 frames, up to 9 px | 36.8 / 38.8 | 0 of 147 / 0 of 155 |
+
+Each cell is round 1 / round 2. Before, the overlay's measuring took about 1 second of each 4-second zoom, even with
+nothing outlined, since the wheel woke it, and the inspector's took as long with a layer selected; after, neither shows
+in the profile. Earlier the same day, with other sessions using the machine, the same zooms ran at 6 to 15 frames a
+second before.
+
+Code: the measuring effect in `apps/desktop/src/renderer/canvas/CanvasOverlay.tsx` (`followCamera` and its
+ResizeObserver), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`, and the inspector's `tick` in
+`canvas/InspectOverlay.tsx`. `pnpm perf`'s `zoom at 100%`, `zoom hovering a layer` and `zoom with a layer selected` runs
+(`apps/desktop/scripts/perf.ts`) report `outline off`, and `--runs` measures only the runs named. The calls are in
+decisions.md, The selection overlay follows the camera in the frame it moves.
+
+Tests:
+
+- `canvas/CanvasOverlay.test.ts`, "following the camera" (1), in Chrome: with a layer selected, a camera that moves the
+  board as tldraw's does, in an animation frame, finds the outline on the layer as each of three frames is about to be
+  painted: zoomed in and panned, zoomed out, and back. It fails against the overlay as it was.
+- `packages/editor/src/overlay-measuring.test.ts`, `movesOnlyTheView` (2): the camera, the pointer and the camera
+  starting or stopping only move the view; a board, the rest of tldraw's instance, and records added or removed don't.
+
+Gaps: the frame rate is measured by `pnpm perf`, not by a test. Wheel zooming over a layer in the real window was
+checked through `pnpm perf`'s runs, which dispatch Ctrl and the wheel to the canvas.
 
 ### Distance labels beside the line (PAR-558)
 
@@ -498,6 +547,89 @@ isolated copy of the app on 2026-10-30, by reading the canvas's size over the De
 size while a board was hovered, and none once the pointer left. Snap lines haven't been checked; they show only while a
 design is dragged, when tldraw's snap overlay util is active, so the canvas has its size then.
 
+### The Layers panel stays quick on large designs (PAR-187)
+
+The Layers panel draws only the rows in view, so a design of thousands of layers costs it what a small one does. Before
+this it drew every open row and kept every row it had opened to show a selection, so each selection on the canvas made
+the tree longer and every later change slower.
+
+- **Only the rows in view are drawn,** ten either side besides, with `@tanstack/react-virtual`. Each row is 28 pixels,
+  and is drawn again only when what it shows changes: its layer, its design, whether it's open, selected, hovered,
+  renamed or dropped on. Rows say where they are among the rows beside them (`aria-posinset`, `aria-setsize`), since a
+  screen reader can't count rows that aren't in the page.
+- **Rows opened to show a selection close once the selection moves on.** Something selected on the canvas, or by an
+  agent, opens its design and the rows above it, and closes the rows opened for the selection before. Rows opened by
+  hand stay open, and a selection made in the tree itself, by a click or the arrow keys, closes nothing, so no row moves
+  under the pointer. The selection scrolls into view unless the tree has focus.
+- **Search** (Search layers, above the tree) finds designs and layers whose name, as the panel shows it, has the search
+  in it, ignoring case. Each match shows with the rows above it open and its own layers closed, and the rows have no
+  arrows while a search shows. Escape in the field clears it. With no match it says "No layers or designs match" and the
+  search. Selecting a match and clearing the search leaves it shown in the tree.
+- **Collapse all,** beside the search, closes every row. There's no Expand all, which on a large project would open
+  thousands of rows. Instead, Alt+click on a row's arrow opens or closes it with everything inside it, as in Finder, and
+  `*` on a row opens it and every row beside it in its group, as in any tree.
+- **Headings and states say what they count, or nothing.** The Components, Screens and Frames headings have no count,
+  which nobody needed. A design with more than one state says how many in words ("11 states"); one with a single state
+  says nothing.
+- **Each layer has an eye** that hides it in the state its board shows, or shows it again, as one undo step, without
+  selecting it. It shows while the layer is hovered, in the panel or on the canvas, and stays on a hidden layer, crossed
+  out. It's named Hide or Show, without the state, which the row menu's Hide still names ("Hide in Default"). The page
+  can't be hidden, so it has none. A layer that changes at some screen sizes shows a monitor and phone icon, whose
+  tooltip says so ("Changes at some screen sizes"). Like the row's arrow, it isn't in the tab order: Ctrl+Shift+H hides
+  the selection from the keyboard.
+- **Designs are dragged to reorder them** among the designs of their group, components, screens or frames, in their own
+  file, which is the order the panel lists them in. A line under or over the row shows where it would go, and the move
+  is one undo step ("Reorder screen").
+- **Hovering a design's row outlines its board** on the canvas, as hovering the board does.
+- **The keyboard,** as before: Tab moves from the search to Collapse all to the tree, Up and Down move through the rows,
+  scrolling as they go, Right and Left open and close a row or move into and out of it, `*` opens the row's siblings,
+  and Enter or F2 renames. Enter or Escape in the name field puts the keys back on the tree.
+
+Not yet: each row's lock, which waits for locking (PAR-192), and highlighting a layer selected inside an instance, which
+waits for an instance's layers in the tree (PAR-92).
+
+Measured on 2026-11-05 on the example with 100 more screens and a "Large list" screen of 6,050 layers (50 sections of 30
+rows of three texts), selecting a text in each of 30 sections in turn, then 20 edits to the design as typing in the
+inspector makes them, 20 presses of Down and 40 scrolls of 300 pixels, each timed until the frame after it:
+
+| In an isolated copy of the app (development build) | Before | After  |
+| -------------------------------------------------- | ------ | ------ |
+| Rows drawn after the 30 selections                 | 1,204  | 37     |
+| Selecting on the canvas, median                    | 1.19 s | 0.17 s |
+| An edit, median                                    | 1.57 s | 0.16 s |
+| Down, median                                       | 1.49 s | 0.16 s |
+| A scroll, median                                   | 61 ms  | 42 ms  |
+
+Most of what's left in the app is the canvas drawing the 6,050-layer design. In Storybook, where the panel is drawn
+alone (LargeProject), selecting went from 371 to 28 ms, an edit from 524 to 25 and Down from 511 to 9.
+
+Code: which rows show, search, and what opens and closes as the selection moves are pure, in
+`packages/editor/src/layers-tree.ts` (`treeRows`, `searchRows`, `revealIds`, `revealRows`, `toggleRow`, and `branchIds`,
+`siblingIds` and `toggleRows` for Alt+click and `*`). Reordering a design is `reorderDesign` in
+`packages/editor/src/design-changes.ts`, applied by `DesignStore.reorderContainer`. The panel is
+`apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the board's outline for a hovered row is in
+`canvas/CanvasEditor.tsx`. The calls are in decisions.md, The Layers panel draws only the rows in view.
+
+Tests:
+
+- `packages/editor/src/layers-tree.test.ts` (14): the designs alone while closed, open rows' layers with their places
+  among their siblings, a closed design hiding rows opened inside it; search by label ignoring case, the rows above a
+  match open, a match's own layers closed, places among the rows found, and a design found by name; opening and closing
+  by hand, closing a revealed row; a whole branch opened and closed at once; a row's siblings that can open, from
+  anywhere among them; the rows a selection reveals, one layer and several; rows from an earlier selection closing, rows
+  opened by hand staying, nothing closing for a selection made in the tree, and no change when nothing new is needed.
+- `packages/editor/src/design-changes.test.ts`, the reordering test: before and after another design, to the end, and
+  nothing changed for the same place, itself, another file or a missing design.
+- `chrome/LayerTree.stories.tsx` (under Parity/Left panel/Layers): Searching, NothingFound, CollapsedAll,
+  OpenedWithEverythingInside (Alt+click), OpenedWithItsSiblings (`*`), SelectionMovedOn, HiddenFromItsEye,
+  DraggingADesign and LargeProject. Their play functions passed in Storybook on 2026-11-05.
+- `apps/desktop/e2e/app.ts`: `selectDesignInLayers` and `toggleInLayers` scroll the panel with the mouse wheel to a row
+  out of view, which `sleeping.e2e.ts` and `fields.e2e.ts` use.
+
+Gaps: the keyboard, the eye, dragging a design, the board's outline and Collapse all were tried in an isolated copy of
+the app on 2026-11-05 with the system's keyboard and mouse, through `scripts/drive.ts`; none has an end-to-end test of
+its own.
+
 ## Inserting
 
 How layers, components and icons are found and put into a design.
@@ -580,9 +712,9 @@ Tests:
 Gaps: the Components panel's ordering and hidden heading are covered by the shared module's tests and were checked in
 the app (searching "badge", "theme" and "dialog"), but have no test of their own. Radix Primitives isn't hidden: nothing
 in a library's `.lib.par` says it's unstyled primitives that the project's own components wrap, so it's listed last, as
-a library, rather than left out. Previews are PAR-208. The time is measured to the list being laid out, not to the frame
-that shows it, since in a window in the background frames come about once a second; the trace showed the key press
-taking 31ms and the frame after it 18ms.
+a library, rather than left out. Previews are PAR-208, below. The time is measured to the list being laid out, not to
+the frame that shows it, since in a window in the background frames come about once a second; the trace showed the key
+press taking 31ms and the frame after it 18ms.
 
 ### A component's stories and code from its menu (PAR-527)
 
@@ -628,6 +760,182 @@ WithoutStories, NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedB
 `chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and the system's default app in `main/code-editor.ts`
 have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at `button.tsx:43`, its
 `function Button`, and Badge's menu said "Starts Storybook" with none running.
+
+## Reading the code
+
+### Where each element is written: the Code tab (PAR-167)
+
+The inspector's Code tab, after Modes and before Accessibility, shows where the selected component layer is written.
+**Component** names its export and file, with a button that opens it in the person's editor at the export, as View code
+does. **Elements** lists the elements the layer draws that the project's own files wrote, nested as the code nests them,
+each with its tag and its file's name and line, `button.tsx:44`. Pointing at one outlines it on the canvas, with a chip
+naming its tag, file and line, and clicking one picks it. **Source** shows the picked element's lines, 5 before and 12
+after with its own highlighted, from the file as it is on disk, coloured by Shiki through the kit's code block. Its
+header copies `path:line:column` and opens the file in the editor at the line. The first element is shown until another
+is picked.
+
+**Inspect**, in the tab's header and its empty states, picks an element on the canvas, as a browser's developer tools
+do. The pointer becomes a crosshair, the element under it is outlined with its chip, and clicking selects the layer it's
+in and picks the element. Escape, or a pick, stops it. It works with nothing selected. Right-clicking an element a
+project file wrote ends the canvas menu with **Open in editor**, which shows its `file:line` and opens it there.
+
+- **Where the lines come from:** the project's development server. builder-vite's guest plugin gives each lowercase JSX
+  element in the project's own `.tsx` and `.jsx` files, as `<button>` or `<div>`, a `data-parity-source` attribute: its
+  file from the project root, then the line and column of its `<`. It runs before the framework plugin compiles the
+  file, with a source map, so stacks keep their columns. A component's own element, as `<Button>`, gets none: it passes
+  props on, so the element it draws would take its caller's line over its own. Installed packages, virtual modules and
+  production builds carry nothing.
+- **What has no line:** a library's component says it's written in its package, and lists no elements. Parity's own
+  layers (text, images and layouts) say they're drawn from the design file. With several layers selected, the tab asks
+  for one.
+- **Picking by box:** frames don't take the pointer outside Interact, so the element under the pointer is found from
+  boxes: the innermost element a project file wrote, looking through elements with no box, as `display: contents` ones.
+  A library's element inside a project's element counts as the project's.
+- **Reading the file:** the service's `code.read` reads a project file by its path from the root. It refuses a path
+  outside the project's folder and a file over 1 MB.
+- **For agents:** `parity components` and MCP's `get_components` give `files`, the file each of the project's own
+  components is written in, and the text lists them by file. `Measure` gives each node's `source`, where the project's
+  code writes the element the node draws outermost, as `src/components/ui/button.tsx:44:5`. Parity's own layers have
+  none.
+
+Code: `tagElementSources` and `hasElementSources` in `packages/code/src/element-sources.ts`; `elementSourceAttribute`,
+`formatElementSource` and `parseElementSource` in `packages/core/src/element-source.ts`; `taggedModule`, the guest
+plugin's transform, in `packages/builder-vite/src/index.ts`. In the app: `CodePanel` in `renderer/chrome/CodePanel.tsx`;
+`sourcedElements`, `sourcedElementAt` and `frameAt` in `renderer/canvas/element-sources.ts`; the picking store in
+`canvas/inspect.ts` and its outlines in `canvas/InspectOverlay.tsx`; the menu's `open-source` entry in
+`chrome/canvas-menu.ts`, drawn by `chrome/CanvasMenu.tsx`; `openSource` in `chrome/code-editor.ts`, with `line` in
+`main/code-editor.ts`'s `openInEditor` and its check in `shared/ipc-checks.ts`; `readProjectFile` in `utility/code.ts`.
+For agents: `componentsReport` in `packages/agent/src/dispatch.ts`, `describeComponents` in
+`packages/cli/src/client.ts`, and each measured node's `source` in `renderer/render.ts`, passed on by the check in
+`main/render-results.ts`.
+
+Tests: `packages/code/src/element-sources.test.ts` (6: each element written for the page gets its file, line and column;
+a component's own elements, fragments and closing tags are left alone; nothing for a file with nothing to tag or one
+tagged already; plain JSX in a `.jsx` file; each line of the tagged code maps back to the file; and which files it's
+for, whatever the query). `packages/core/src/element-source.test.ts` (3: writing and reading a place, a path with colons
+in it, and anything else reads as none). `packages/builder-vite/src/index.test.ts` (4: the project's own JSX tagged and
+named from the root; a workspace package's file outside the root named from the root; installed packages, virtual
+modules and files without JSX left alone; development server only). `apps/desktop/src/utility/code.test.ts` (3: a file
+read by its path, one outside the project or the folder itself refused, one too big refused).
+`apps/desktop/src/shared/ipc-checks.test.ts` (a line from an element's source is taken; one that isn't a positive whole
+number is refused). `chrome/canvas-menu.test.ts` (Open in editor ends the menu over an element a project file wrote),
+and in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at `member-row.tsx`).
+`packages/agent/src/dispatch.test.ts` (the file each project component is written in), `packages/agent/src/run.test.ts`
+(`Measure` gives each node's source, and none for Parity's own layers), `packages/cli/src/client.test.ts` (the project's
+own components listed by file) and `apps/desktop/src/main/render-results.test.ts` (a node's source passed on).
+`chrome/CodePanel.stories.tsx`: ComponentLayer, ElementPicked, Inspecting, PickedOnCanvas, LibraryComponent,
+ParityLayer, NothingSelected and OpenFromCanvasMenu, drawn from Storybook's copy of the example project, which the same
+transform tags. Gaps: reading the attribute in the offscreen page (`renderer/render.ts`) has no test of its own; the
+Measure and render-result tests pass a source through, and the canvas's reading of the same attribute is covered by the
+stories.
+
+### The designs' console (PAR-147)
+
+What the project's code writes to the console shows in the editor as it's written, from the same log `parity console`
+gives agents. The status bar counts the errors and warnings, and clicking the count opens the Console panel under the
+canvas, as View > Console and Ctrl+` do. A board whose design wrote errors or warnings shows its own count beside its
+name, and clicking that opens the console on the design's messages alone.
+
+The panel groups messages by the design that wrote them, in the order each design first wrote one, with the messages no
+design is known for last, under Project. Each group's name selects the design. A message shows its level, its text cut
+to two lines, how often it came, the frames it came from (a state in a mode, the first two and how many more), the file
+and line in the project it was written at, which opens in the person's editor, and how long ago. An error with a stack
+opens to show it, with the project's files from the root and a library's by its file's name. The header filters by
+level, each with its count, by design and by words, and Clear empties the log for agents too. The panel's height is
+dragged at its top edge and kept with the layout.
+
+- **One log:** main keeps the last 500 messages from every window, as it did for `parity console`, now with an id each.
+  It sends what's new or counted again to the editor windows in batches, 100 ms after the first, so a component logging
+  in a loop doesn't flood them. Each window routes a message to the open project whose builder served the code that
+  wrote it, and reads what's there already when a project opens.
+- **One message, several frames:** main counts a repeat on the last message only when it's from the same frame. The
+  panel shows a message one design wrote in several frames once, with each frame and every time it came.
+- **Which design wrote it, offscreen:** each render job names the design, state and mode it draws, and a message the
+  offscreen window writes while it draws one is that design's. Component previews name none. No stored name has it, so
+  bitmaps and previews keep their names.
+- **Which design wrote it, on the canvas:** frames share the window, so main can't tell. While a frame handles a
+  person's event (a click, a key, a pointer moving over it, input), and in what that event's task runs, as the render it
+  causes, the window says which frame each console call comes from just before it's written. Main keeps the word for the
+  next message of that level from the window, for a second at most. Outside those tasks the console is untouched, so the
+  window's developer tools still point at the lines that wrote each message. What a frame writes as it first draws on
+  the canvas, or later on its own, is the project's, unless its offscreen draw wrote it too.
+- **Where it was written:** the message's own line when that's in the project's files, or else the first call in its
+  stack that is, as React's warnings name the component in their stack. Vite's own modules and installed packages are
+  never a place.
+- **For agents:** each entry `parity console` and `get_console` give has the design's key, state and mode when known,
+  and the text says `from design pricing (yearly, desktop-light)`. Agents' frames name the state they draw.
+
+Code: `createConsoleLog`, `announcedContexts`, `recordConsole` and `batchedChanges` in
+`apps/desktop/src/main/console-log.ts`, wired in `main/index.ts` with `canvas:console-*` in `shared/channels.ts`,
+checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and `window.canvasHost.console` in the
+preload script; the job's `design` in `shared/render-job.ts` and `shared/protocol.ts`; `captureConsole` and
+`frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`, `projectPlace`, `routeConsoleChange`, `tally`
+and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in `renderer/console-feed.ts`; the panel in
+`chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's in `canvas/ConsoleBadge.tsx`; the
+layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry` and `FrameRequest.state` in
+`packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
+
+Tests: `apps/desktop/src/main/console-log.test.ts` (8: an id each and a repeat in the same frame counted, another
+frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
+cleared, with listeners told; an announcement held for the next message of its level alone, briefly; a frame's message
+through the window's wrapper kept at the frame's own call, and Parity's own still dropped; changes batched, each once as
+it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message for several
+frames with each frame and every time; the place from the stack when a library wrote it, with the stack apart and short;
+counts by message, of one design or all; a project file's place without Vite's query; none for a library's, Vite's or
+another server's; each project given its builder's messages and cleared with it).
+`renderer/canvas/console-capture.test.ts` (4: the frame from an event's path; an announcement before each message while
+a frame handles an event and none after its task; the frame code's call found past the wrapper in the stack; the console
+left alone outside frames, and a wrapper added since kept). `e2e/app.ts` clears the console before each end-to-end test,
+since a test's clicks would otherwise badge boards for the tests after it. `shared/render-job.test.ts` (the job's design
+passes the service's check, and no name has it), `shared/ipc-checks.test.ts` (an announcement and a builder's address
+checked), `chrome/layout.test.ts` (the console's open state and height kept, and their defaults),
+`packages/agent/src/run.test.ts` (each frame names its design and state) and `packages/cli/src/client.test.ts` (the
+design, state and mode in the text). `chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign,
+WarningsOnly and NothingLogged, fed main's entries through the same mapping. In the running app, `e2e/console.e2e.ts`
+clicks Ada's row on the Members screen in Interact, which warns, and finds the warning counted on Members' board and
+listed under Members in the panel, which covers the window's announcement reaching main ahead of Electron's
+`console-message` event. Gaps: no end-to-end test draws a design offscreen that writes to the console.
+
+### Previews in the Components panel and the insert picker (PAR-208)
+
+The Components tab shows each component's picture (see Component previews, made offscreen and kept on disk), in one of
+three views, picked above the list and remembered as a preference: **Names**, the names alone; **List**, the default, a
+small picture beside each name; and **Grid**, larger pictures two to a row. No panel mounts a component: the pictures
+are files the offscreen window made.
+
+- **Every state says what it is.** A made picture sits on the page it was drawn on. One whose code changed shows its
+  last picture dimmed with a mark until the new one is made; one waiting its turn is an empty box, and one being drawn
+  shimmers. In List and Grid, a component without a picture says why under its name: Fails to draw, Needs props, Needs a
+  provider, Server only or Draws nothing, each with its icon in the picture's place. The card says every state in words,
+  with the error or the props it needs. A screen reader hears the row's name and those words, not the picture.
+- **Resting on a component opens its card,** as before, and so does the right arrow on its row, which also moves the
+  keyboard into the card; Escape gives it back. The card has the large picture; small pictures of one of its props'
+  options (a button's `variant`), made when the card first opens, where pointing at one or tabbing to it shows it large;
+  its file; how many times the designs use it and how many stories it has; and Insert, Open file and Open in Storybook.
+- **The `/` picker** shows each component row's picture, made first while the row is in view, and the highlighted
+  component's card beside the list, following the arrow keys. Enter inserts it, so that card has no Insert. In a window
+  too narrow for both the card is left out.
+
+Code: `previewVariants`, `missingProps`, `previewProblem` and `componentUses`, and the `props` a variant's preview lays
+over the component's, in `packages/editor/src/component-preview.ts`; `previewStatus` and `statusWords` in
+`apps/desktop/src/renderer/chrome/preview-status.ts`; `variantId`, `showVariants` and `useVariantPreviews` in
+`renderer/component-previews.ts`; `ComponentCard`, `PreviewThumb` and `StatusLine` in `chrome/ComponentCard.tsx`;
+`ComponentsPanel`, `AssetEntry` and `useComponentCard` in `chrome/AssetsPanel.tsx`; `PickerCard` and `RowPicture` in
+`chrome/QuickInsert.tsx`; the `componentsView` preference in `chrome/preferences.ts`.
+
+Tests: `packages/editor/src/component-preview.test.ts` (10 of its 20: a variant's props laid on the component inside the
+parents a part needs, and over the sample's; `previewVariants` choosing a style variant before an own prop, needing two
+options, and none for a component without choices or an attribute's; `missingProps` listing what inserting can't fill
+without handlers, and counting placed children; `previewProblem` naming a provider or server code before missing props,
+then props, a failure or nothing drawn; and `componentUses` counting layers in slots).
+`apps/desktop/src/renderer/chrome/preview-status.test.ts` (4: waiting, drawing and made; the last picture while a new
+one waits or is drawn; each reason there's none; only problems counted as problems). Stories, with the example's real
+pictures standing in for the service: ListView, GridView, NamesView, ComponentCardOpen and ComponentCardFromKeyboard in
+`chrome/ComponentsPanel.stories.tsx`; States and VariantsAndActions in `chrome/ComponentCard.stories.tsx`; WithPreviews
+in `chrome/QuickInsert.stories.tsx`. Gaps: the stories' play functions run in Storybook, not in `pnpm verify`. Making a
+card's variants on demand (`showVariants`) has no test of its own, as the rest of the window's store has none; it was
+tried in a debug copy of the app on 2026-11-05, where Button's card showed its six variants and pointing at outline
+showed it large. Component designs show their icon, not their board's picture.
 
 ## Moving, reordering and resizing
 
@@ -769,8 +1077,8 @@ design has them on its frames' right and bottom.
 - **A frame** takes a width and a height in whole pixels for its viewport, at least 160 by 80. Within 6 screen pixels of
   its viewport's width the width is left unset, so it follows the viewport again; a frame that hugged its content when
   the drag began goes back to hugging it the same way, and one with a height of its own keeps one.
-- **A double-click** on a handle goes back to the default size on its axes: a layer's size is taken away, and a frame
-  goes back to its viewport's width or its content's height.
+- **A double-click** on a handle makes a layer's size on its axes hug its content, and Alt+double-click makes it fill
+  its parent (PAR-169, below); a frame goes back to its viewport's width or its content's height.
 - **The hint** ("Drag to resize") closes when a handle is pressed and stays closed through the drag and after it, until
   the pointer next rests on a handle.
 - **Small layers keep their middle** (PAR-193). Along an axis where a layer is under 24 screen pixels, its handles sit
@@ -844,6 +1152,102 @@ which goes through the same `followPress`. A resize writes as the pointer moves,
 pauses (PAR-441, see "One undo step per gesture"). Checked in the app on 2026-10-30, in a copy on its own ports: the
 handles above and below New project at 50%, the arrows over the design 90px below the handle, and Escape leaving the
 button as it was.
+
+### Padding, gaps and several layers on the canvas (PAR-169)
+
+A selected layout's padding and gaps are handles, as in Figma: a short pink bar in the middle of each side's padding and
+of each gap between its children, drawn over the hatching. Resize handles also take several layers at once, resize from
+the middle with Alt, and hug or fill on a double-click. Decisions.md has the calls.
+
+- **Where the bars are.** Each side has one, even at padding 0, so padding can be dragged out of nothing. A side's press
+  target runs from 4px inside the layout's edge, clear of the resize strip there, to the padding's inside, at least 8px
+  deep and 24px along. A gap has one between each two children drawn in a single line, in a flex layout that doesn't
+  wrap, at least 8px across; a grid or a wrap has gaps in two directions and no gap bars yet. A side or a gap shorter
+  than 24px has none. Inside an instance, a layout's padding and gaps are the component's, so they have no bars.
+- **A click on a child still selects it.** No press target covers a child, those placed absolutely included: each is cut
+  back to the free space, and a side or a gap with less than 4px of it free has no bar. So padding of 0 drags out only
+  where no child sits against that edge. Before, a target reached 8px in over the children, and clicks meant for them,
+  such as on Titles' first line with no padding or on Header actions' empty row at its end, opened the box to type in,
+  which then took the keys; the end-to-end tests caught it on #266.
+- **Dragging.** Pressing a bar shades its space; hovering shows its value beside it, as pixels and a token: the length
+  token it's bound to, or else its step of the spacing scale (`20 spacing-5`). Padding grows as its bar goes outwards,
+  away from the content, on every side; a gap grows as its bar goes right in a row or down in a column. The value goes
+  in whole steps from what's drawn, never below 0, and nothing changes until the pointer has gone 4px towards or away
+  from the space. On the Dashboard's Content, padding `[8, 8]`, the left bar dragged 16px left makes `[8, 8, 8, 12]`. It
+  writes as the pointer moves, as one undo step (Change padding or Change gap), and Escape takes it back, as a resize
+  does (`gestures.resize`).
+- **Alt and Alt+Shift.** Alt gives the opposite side the dragged side's value, and Alt+Shift every side, both read at
+  each move, so letting go mid-drag puts the other sides back. Every side that changes is shaded. A layout has one gap,
+  so a gap's bar changes them all, and while one is hovered or dragged every gap is shaded.
+- **Tokens stay bound.** A side or a gap bound to a length token stays bound while the drag lands on a length token's
+  value, its own first; between tokens it's steps. A number stays a number, even on a token's value.
+- **Typing.** A click on a bar, or Enter on a focused one, opens a box beside it with the value, or the token's name
+  when it's bound, selected. It reads what the inspector's length fields read (`20`, `1.5rem`, `+8`, a token's name),
+  shows `px` after a plain number, which switches to rem (16 to the rem, so 16 becomes 1), and has the inspector's list
+  of the project's length tokens and the spacing scale beside it, each with a bar drawn as the token previews draw
+  spacing, in that unit. Enter or leaving it makes the change; Escape closes it; something it can't read stays with the
+  reason under it, as the fields' do. The sides it changes are those held at the click.
+- **The keyboard and assistive technology.** Each bar is a slider named after its side (Top padding, Gap 1), with its
+  value and token as its text. Tab reaches it; Up or Right steps it one step, Down or Left back, Shift ten, Alt and
+  Alt+Shift as for a drag; each press is its own undo step. The canvas's own arrow keys don't nudge meanwhile.
+- **The hints and the keymap.** A bar's hint says "Drag, or click to type", and a padding bar's lists Alt for both sides
+  and Alt+Shift for all sides, as `Kbd`. A layer's resize hint lists Alt for from the middle and says double-click to
+  hug, Alt+double-click to fill. These keys are the keymap's gestures, which Keyboard shortcuts lists under Tools, and
+  the handles read the same entries, so what's listed is what works.
+- **Several layers.** Two or more selected layers have one set of resize handles, on the box around them all. Each layer
+  takes its share of the movement, its size across that box's, so they grow in proportion and the box's edge follows the
+  pointer; each keeps where its layout puts it, and they don't snap. All of them start once the pointer has gone 4px.
+  Two of the Dashboard's stat cards, 228px each, dragged 40px narrower from their right edge, are 52 steps wide each.
+  One undo step (Resize layers). A selection holding a layer inside an instance has no handles.
+- **From the middle.** Alt while resizing moves the opposite edge as far, so a layer in a layout grows by twice the
+  pointer's movement and doesn't fill; an absolutely placed layer's inset moves back by half of what it grows, both
+  insets of a layer stretched between them. It doesn't snap.
+- **Hug and fill.** A double-click on a layer's handle makes its size on the handle's axes hug, Alt+double-click fill,
+  for every layer the handle is on, one undo step (Set to hug or Set to fill). Along the layout's direction it takes
+  `grow` away.
+
+Code: the rules are in `@parity-app/editor`. `packages/editor/src/spacing-handles.ts`: `spacingHandles` says where the
+bars go from a layout's measured boxes, `spacingDrag` follows a drag, `spacingStep` a key, `typedSpacing` and
+`pickedSpacing` a typed or picked value, `changedSides` the sides held, and `spacingScaleName` and `spacingName` what a
+label and a slider say. `packages/editor/src/move-resize.ts`: `resizeGesture` and `resizeInsets` take `centre`,
+`layersResize` follows several layers, and `layerSizeReset` hugs or fills. In the app, `canvas/SpacingHandles.tsx` draws
+the bars, their shading, labels and sliders and the box a value is typed in, with `sidesHeld` reading the keys;
+`canvas/spacing-edit.ts` measures a layout (`measureSpacing`), lists its length tokens (`lengthTokens`) and writes each
+edit in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them for a single
+selected layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys are
+`gestures` in `chrome/keymap.ts`, read through `holds` in `chrome/keys.ts`, and shown by `canvas/KeyHints.tsx`.
+
+Tests:
+
+- `packages/editor/src/spacing-handles.test.ts` (26): a handle on each side and gap; a padding's bar centred, its press
+  target clear of the resize strip; a handle on padding of 0; no target over a child: none with the children against
+  every edge, too thin 6px from it, cut back 10px from it, and cut back by an absolutely placed badge; a gap's bar
+  between children, at least 8px across, a narrower gap taken whole and one under 4px with none; children drawn in
+  reverse; gaps in a column; no gap handles in a grid or wrap, and none on a side too short; inside a border. The sides
+  changed. Dragging: padding growing outwards on each side and shrinking inwards, a gap in a row and a column, the 4px
+  start, whole steps at 50% and never below 0, the opposite side and every side and letting go, a token kept bound on a
+  token's value with its own first, a number kept a number, an unset side from 0. Steps from a half step and with a
+  token. Typing pixels, rem, maths and a token, the sides held, an empty box and one it can't read. Picking a token or a
+  step. A label's token or step, and a slider's name.
+- `packages/editor/src/move-resize.test.ts` (9 more): a double-click hugging, filling with Alt, and taking `grow` away
+  along the layout's direction only; from the middle, twice the movement either way, no fill, and an absolutely placed
+  layer's insets from the near side, both sides and the far side; several layers in proportion, starting together at 4px
+  though each one's share is less, and from the middle.
+- `canvas/SpacingHandles.stories.tsx` (Parity/Canvas/Spacing handles): PaddingAndGap, BoundToTokens, NoPadding and
+  SeveralLayers, running the rules and `followPress` on a stand-in layout with the style each change writes beside it.
+- `canvas/ResizeHandles.test.ts`, in Chrome: a double-click still reaching the handle's reset.
+
+Gaps: there's no end-to-end test yet; `moving.e2e.ts` would take the drags above. Checked in the app on 2026-11-05, on a
+copy of the example on its own ports, with the pointer and keyboard over the DevTools protocol: on Content at 100%, the
+left bar 16px out to `[8, 8, 8, 12]` (Change padding), the top bar 8px out with Alt to `[10, 8]`, Escape mid-drag
+leaving nothing to undo, a click on a gap opening the box at 24 with focus, 40 typed making 10 steps (Change gap), Up
+and Shift+Up making 17 with Main's children left in order, Escape in the box closing it with Content still selected, the
+sliders' names and values; Header actions' right edge double-clicked to hug and Alt+double-clicked to fill, and dragged
+16px with Alt to 62 steps; two stat cards to 52 steps each; the hints, with `Kbd`; and Keyboard shortcuts listing the
+padding keys. The same run at 50% gave twice the steps for the same movement. A run of key presses isn't one undo step,
+as the inspector's are (PAR-441). Gap bars in a grid or a wrap, with column and row gaps, aren't done. A token whose
+length can't be worked out on Parity's page, one built on a variable other than `--spacing`, isn't listed and can't be
+stayed on.
 
 ### Empty layouts (PAR-193)
 
@@ -1222,7 +1626,7 @@ Gaps: clicking in the panels, the messages, and a drop into an absolutely placed
 
 Making a screen or component is one visible step, as PAR-541's approved designs show, without the start in the middle of
 an empty canvas that PAR-560 dropped: New screen and New component are everywhere a command is, and whatever lands on
-empty space on the canvas makes a screen there.
+empty space on the canvas makes a frame there (PAR-545; see Frames, below).
 
 - **New screen (Ctrl+Alt+N) and New component (Ctrl+Alt+Shift+N)** are in the keymap's Object group, so the Keyboard
   shortcuts dialog lists them and their keys work on the canvas, not in a text field. They lead File, above opening a
@@ -1236,28 +1640,28 @@ empty space on the canvas makes a screen there.
   the canvas was right-clicked and select it, leaving the view where it is. With no screen, component or note on the
   canvas, Select all and Zoom to fit are unavailable. Over a design the menu is as it was. It's as wide as its longest
   item, so New component and its keys stay on one line.
-- **Layers' + always shows** beside Components and Screens, after the count, with its name and keys in the tooltip. An
-  empty group leaves the count out, since its row says so, and the row is a button that makes the first one: "No screens
-  yet. New screen", the action in the kind's color. Enter or Space on either makes one, rather than renaming the
-  selected row as Enter in the tree does.
-- **The inspector with nothing selected** asks for "a screen or component on the canvas or in Layers", whatever is on
-  the canvas.
-- **What lands on empty space on the canvas makes a screen there,** by one rule. Its top left is where it landed, it
-  holds what landed in a padded column, and it's selected, as one undo step named for what landed ("Paste layer", "Paste
-  7 layers", "Add Badge", "Add vertical layout"). It's named after what's in it, never "Pasted": one layer as Layers
-  names it (a component without its library, "Button"; an instance after its design; text by its words; a layout Column
-  or Row); several images Images; several other layers the first and how many more ("Nav and 6 more").
+- **Layers' + always shows** beside Components and Screens, with its name and keys in the tooltip. Since PAR-187 the
+  headings have no count. An empty group's row is a button that makes the first one: "No screens yet. New screen", the
+  action in the kind's color. Enter or Space on either makes one, rather than renaming the selected row as Enter in the
+  tree does.
+- **The inspector with nothing selected** asks for "a screen, component or frame on the canvas or in Layers", whatever
+  is on the canvas.
+- **What lands on empty space on the canvas makes a frame there,** by one rule. Its top left is where it landed, it
+  holds what landed in a padded column that hugs it, and it's selected, as one undo step named for what landed ("Paste
+  layer", "Paste 7 layers", "Add Badge", "Add vertical layout"). It's named after what's in it, never "Pasted": one
+  layer as Layers names it (a component without its library, "Button"; an instance after its design; text by its words;
+  a layout Column or Row); several images Images; several other layers the first and how many more ("Nav and 6 more").
   - Layers pasted on the empty canvas with Paste here, or with nothing selected with Ctrl+V, in the middle of the view;
     and the insert picker's Text and layouts with nothing selected.
   - A component, component design or image from the Components panel dropped on the empty canvas, where a corner in the
-    screen's color marks its top left while dragging; or clicked in the panel or picked in the insert picker with
-    nothing selected, in the middle of the view. It goes in as inserting it into a layout would: with its required
-    props, a library part inside the parents it needs, and a detached copy as the layers its design shows.
+    layer color marks its top left while dragging; or clicked in the panel or picked in the insert picker with nothing
+    selected, in the middle of the view. It goes in as inserting it into a layout would: with its required props, a
+    library part inside the parents it needs, and a detached copy as the layers its design shows.
   - Image files dropped on the empty canvas, named after the file or Images (see Dropping image files, below).
   - Over a design where there's no layout under the pointer, nothing lands, and a message says "There's no layout here
     to drop into", as it does for files. With a design selected that has nowhere to insert, the insert picker and the
     Components panel both say "Select a layout, or a layer to add it after".
-  - Frames will take this over once PAR-545 builds them.
+  - Pasted text makes a text frame, as the text tool does (see Frames, below).
 
 Code: the commands are `newScreen` and `newComponent` in `chrome/keymap.ts` and `chrome/actions.ts`, run through
 `createDesign` in `chrome/create.ts`, which takes a point for the canvas menu. `AppMenu.tsx` (`NewItems`),
@@ -1265,17 +1669,17 @@ Code: the commands are `newScreen` and `newComponent` in `chrome/keymap.ts` and 
 (`matchWords`) is Search actions' filter in `ActionsSearch.tsx`; the headings and empty rows are in
 `chrome/LayerTree.tsx`, and the inspector's prompt in `DesignPanel.tsx`. The rule and the names are
 `packages/editor/src/new-screen.ts` (`layersName`, `designOfLayers`, `designOfItem`); the app's `canvas/new-screen.ts`
-finds the empty canvas (`emptyCanvasAt`) and the middle of the view and adds a screen of layers, `canvas/insert.ts` adds
-one of an item (`addScreenOfItem`, from `insertAtSelection` and drops), and `canvas/clipboard.ts` and
+finds the empty canvas (`emptyCanvasAt`) and the middle of the view and adds a frame of layers, `canvas/insert.ts` adds
+one of an item (`addFrameOfItem`, from `insertAtSelection` and drops), and `canvas/clipboard.ts` and
 `canvas/CanvasDrop.tsx` call them.
 
 Tests:
 
 - `packages/editor/src/new-screen.test.ts` (11): one layer named as Layers names it, a component without its library and
   by its own name, an instance by its design or its id, several images, several layers and the first, and never Pasted;
-  a screen of layers at the point, named after them, with a free id, fresh ids and no bindings; and a screen of a
-  component with its props, a design's instance, an image by its alt text, and a library part inside its parents, named
-  after the part.
+  a frame of layers at the point, named after them, hugging them, with a free id, fresh ids and no bindings; and a frame
+  of a component with its props, a design's instance, an image by its alt text, and a library part inside its parents,
+  named after the part.
 - `chrome/keymap.test.ts`: Ctrl+Alt+N, Ctrl+Alt+Shift+N and Cmd+Alt+N, and Ctrl+N left free; `chrome/word-match.test.ts`
   (4): "new" finding New screen and New component only, a word inside a name ranked after a name that starts with it,
   typed words in any order and case, and everything before anything's typed; `chrome/canvas-menu.test.ts`: the menu
@@ -1289,7 +1693,7 @@ Tests:
 - End to end (PAR-202), `apps/desktop/e2e/menus.e2e.ts`: a right-click on the empty canvas lists New screen, New
   component and Insert… with their keys, and New screen makes an untitled screen at the pointer, selected, as "New
   screen"; `e2e/dropping.e2e.ts`: Badge dragged from the Components panel onto the empty canvas shows the corner and no
-  outline, and makes a screen called Badge at the drop point holding it, selected, as "Add Badge", which Undo takes out.
+  outline, and makes a frame called Badge at the drop point holding it, selected, as "Add Badge", which Undo takes out.
 
 Checked in `pnpm dev` on the example on 2026-11-05: File and Object start with both items and their keys; Ctrl+Alt+N and
 Ctrl+Alt+Shift+N make and select an untitled screen and component; Ctrl+K and "new" lists the two, and Enter makes a
@@ -1301,6 +1705,86 @@ layers, copied, make "Nav and 6 more" with Paste here and with Ctrl+V. Each undi
 Gaps: the end-to-end tests run only in CI. A screen made with nothing selected goes in the middle of the view, as pasted
 layers always have, even when a design is there. A component in a new screen fills its width, as it would in any column;
 the proposal's "keeps its own width" is not part of this.
+
+### Frames and the frame tool (PAR-545)
+
+Frames are the light kind of design, beside screens and components, as PAR-540's approved exploration (Parity /
+Explorations / Frames) shows them, on PAR-539's model: a frame is drawn once, at its own size, in the project's primary
+mode, with one state, and isn't written to code.
+
+- **On the canvas a frame has no board:** its name above it, smaller and quieter than a board's title, with lucide's
+  Frame icon, neutral until it's selected and then in the layer color, and the design at its own size, filled with the
+  primary mode's background. It has no state or mode menus, captions or gutter, and its outline is square. Its name runs
+  past a narrow frame rather than being cut off. Selected, its size shows under it, and its handles on the right, the
+  bottom and the corner resize it; a double-click on one goes back to the primary mode's width or the content's height.
+- **The frame tool (F, or A as in Figma)** sits after Move and Hand, beside Text, in its own group. The pointer is a
+  crosshair, over the designs too. A drag draws a frame, with its size under it as it grows, snapping each edge within 6
+  screen pixels to the edges of the designs around it, with a guide where it snapped; Ctrl or Cmd draws freely, and
+  Escape draws nothing. A click without a drag makes a 100 × 100 frame. Either is named Frame 1, Frame 2 and so on,
+  selected, with the move tool back, as one undo step, "Draw frame".
+- **The frame tool's menu,** the arrow beside it, lists each viewport the modes use once, with the modes that use it and
+  its size, a viewport with only a width taking the height of the device nearest it. With a frame selected a size
+  resizes it ("Resize frame to Mobile"); otherwise it adds a frame at that size in the middle of the view. New screen
+  and New component sit below the sizes, with their keys.
+- **Text on the empty canvas:** T and a click in empty space makes a text layer, "Text", in a frame that hugs it, with 2
+  steps of padding, and edits it at once. The frame takes the text's name as it's edited in place, until it's renamed. T
+  over a design still adds text where a drop would land. Notes already in a file still show; nothing makes a new one.
+- **A frame that hugs its content** (its root layout's width is Hug) is as wide as its root is drawn: the canvas
+  measures the root at its content's width, rounded up to a whole pixel, and keeps that as the frame's size, without an
+  undo step of its own. A width of its own, from the handles, the menu's sizes or the inspector, stops it hugging.
+- **Whatever lands on the empty canvas makes a frame,** as "New screen, New component and the empty canvas" above says,
+  hugging what's in it and named after it. Pasted text makes a text frame, as the text tool does.
+- **The inspector for a frame:** its name; its kind, Frame, Component or Screen, lightest first; where it's drawn
+  ("Drawn in Desktop Light", with the primary mode's crown) and that it isn't written to code; then its root layout's
+  layout, spacing, size and fill straight away, with no states, modes or params. The size rows are the frame's own size:
+  a fixed width or height resizes it, Hug makes it hug its content, and Fill or Auto puts back the primary mode's width
+  or the content's height. Export is at the foot, as for any design.
+- **Convert to,** in every design's title menu ("Convert to component", "Convert to screen", "Convert to frame", with
+  each kind's icon), in the inspector's kind switch, and as Make component's Convert to component in the canvas and
+  Object menus. A frame becomes a screen or a component at once, keeping its size as its preview's, with a toast ("Plan
+  card is a component") whose Undo makes it a frame again. A screen or component becomes a frame at once when it drops
+  nothing; otherwise a dialog lists what goes (states after the first, previews beside the main one, params, and each
+  design's instances, which become plain layers), with Cancel and Convert to frame. Each is one undo step, and
+  converting a component detaches its instances in the same step.
+- **Layers lists Frames** after Components and Screens once there are any; its + picks the frame tool.
+
+Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
+`framePresets`, `frameOfText`, `textFrameRenamed`, `hugsContent`, `fittedFrame`, `withFrameSize`, `frameRootShown` and
+`frameRootStored`, `instanceCount` and `detachInstancesOf`), with `turnInto` in `kinds.ts`, `withFrame` and
+`frameResize` in `move-resize.ts`, and the empty canvas's rule in `new-screen.ts` (`landedStyle`) and `drop-files.ts`.
+In the app, `canvas/frame-tool.ts` draws and places frames, `canvas/ContainerView.tsx` draws a frame without a board
+(`FrameView`) and keeps a hugging one fitted (`useFitToContent`), `canvas/CanvasOverlay.tsx` takes the frame tool's
+press, draws the frame being dragged and the selected frame's size, `canvas/new-screen.ts` adds a text frame
+(`addFrameOfText`), `chrome/Toolbar.tsx` has the tool and its menu, `chrome/designs.ts` converts (`setDesignKind`),
+`chrome/convert-to-frame.ts` says what a conversion drops and `chrome/ConvertToFrameDialog.tsx` asks, and
+`chrome/style-editor.ts` maps a frame's root size to its own.
+
+Tests:
+
+- `packages/editor/src/frames.test.ts` (13): names after the frames before, a drawn frame's size, place and id, the box
+  between two corners, snapping to the nearest edge in reach, the menu's sizes once each, resizing a hugging frame, a
+  text frame's padding, hug and name, following its text until renamed, fitting to the drawn width, a frame's size shown
+  and stored through its root, and counting and detaching a component's instances.
+- `packages/editor/src/new-screen.test.ts` and `drop-files.test.ts`: what lands on the empty canvas is a frame that hugs
+  it, and the drop hint says "New frame with the image".
+- `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts` (3): the dialog's lines for a component with states,
+  previews, params and instances, and none for a screen that drops nothing.
+- End to end (PAR-202), `apps/desktop/e2e/frames.e2e.ts`: F and a drag draws Frame 1, selected, with the move tool back,
+  as "Draw frame", which Undo takes out; A and a click makes 100 × 100; the menu resizes the selected frame to Mobile; T
+  and typing makes a frame named after the text that hugs it on one line; Component in the kind switch converts at once
+  and the toast's Undo makes it a frame; and Frame for Pricing asks, and Cancel leaves it a screen.
+  `e2e/dropping.e2e.ts`: an image and Badge dropped on the empty canvas make frames.
+
+Checked in the app on 2026-11-05, on a copy of the example started as the end-to-end suite starts it and driven over the
+DevTools protocol: F and a drag, A and a click, the menu's sizes, T and typing, Ctrl+V of a copied layer with nothing
+selected, the title menu's Convert to component and its toast's Undo, the kind switch both ways, and Pricing's dialog
+and Cancel. Each change undid as one step. The toolbar's names were read from its accessibility tree, F, A and Escape
+switched tools, and Enter opened the menu with its first size focused; a 900 × 800 window kept the toolbar and the size
+label in view.
+
+Gaps: a hugging frame's root is measured at its content's width, so text that wraps on purpose in a hugging frame
+doesn't; give it a width. Text edited in the inspector's Content field doesn't rename a text frame, only editing in
+place does. The end-to-end tests run only in CI.
 
 ## Keyboard
 
@@ -1675,6 +2159,48 @@ end-to-end test. In a column, several images land one under another, since side 
 direction. Files land in a component's slot as Paste here does (PAR-419), which is in no test of dropping. Files from a
 browser rather than the system (a picture dragged from a web page carries a URL, not a file) aren't handled. Interact's
 drop into a design wasn't tried.
+
+## Exporting
+
+### Layers and designs as PNG or JPG (PAR-185)
+
+The Design tab ends with an **Export** section for whatever is selected: a design, a layer, several layers of one
+design, or several designs. It lists the sizes to write, each a PNG or a JPG at 1x, 2x or 3x, with **+** to add the next
+size not asked for (PNGs from 1x up, then JPGs) and **−** to remove one, down to the last. Under them it names the files
+that makes, the first three and how many more, and **Export** asks for a folder and writes them. The canvas menu ends
+with **Export…** and the Layers row menu has it before Delete; both, like Ctrl+Shift+E and File > Export selected,
+export the selection at the same sizes. The sizes are remembered for every export, not per layer.
+
+- **Names:** each file is its layer's name as the Layers panel shows it, with `@2x` or `@3x` for those scales and none
+  at 1x, as iOS and Android name theirs: `Headline@2x.png`. Characters a file name can't hold on Windows, macOS or Linux
+  go, and an empty name is `Layer`. Layers named alike get a number from the second on (`Card`, `Card 2`), whatever
+  their case, so no file overwrites another, and a size asked for twice is written once.
+- **What's drawn:** each design is drawn offscreen once at each scale asked for, in the state the canvas shows and its
+  main mode, as it is on the canvas, saved or not; each layer is cut from it by the box the frame measured for it,
+  covering every pixel it touches. A PNG keeps what's see-through; a JPG has none, so those parts are white, which the
+  section says when a JPG is asked for.
+- **What can't be written:** a layer the shown state doesn't draw, one with no size, or a design that didn't draw is
+  left out with a warning toast, and the rest are written. A toast says how many files were written, with Show for the
+  first.
+- **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05 (decisions.md); the icon set's dialog
+  is kept as an exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state
+  and mode it shows, at Settings' export scale. Copy as PNG is CAN-39.
+
+Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
+section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
+`MultiPanel.tsx`; `exportLayers` and `exportSelected` in `chrome/commands.ts`; the menus' items in
+`chrome/canvas-menu.ts` and `chrome/layers-menu.ts`; the sizes in `chrome/preferences.ts`; `framePictures` in
+`packages/agent/src/dispatch.ts`, which keeps each layer's box with a screenshot; and `exportLayers` in
+`utility/agent.ts` with `cutPicture` in `utility/webp.ts`, behind the service's `layers.export`.
+
+Tests: `packages/editor/src/export-files.test.ts` (10: names with each size's suffix and format, numbering alike names,
+a size once, the next size offered, safe names, the short list, a layer's crop at 2x, a design's whole frame, the three
+reasons a file can't be written, and a crop kept inside the picture). `apps/desktop/src/utility/webp.test.ts` (2 more: a
+PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
+`chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back.
+`chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
+`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys. Gaps: drawing offscreen and writing the files run in
+the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
 
 ## Fields
 
@@ -2081,8 +2607,18 @@ decisions.md's "Saving is explicit" sets out.
   the rules the Tokens tab read it with (`themeOfSelector` in `packages/tokens/src/policy.ts`), so `dark` is `.dark`,
   `[data-theme="dark"]` or `html.dark` alike. Every block that declares the token gets the new value, so a later
   `[data-theme="dark"]` can't win back over an edited `.dark` after a save; a value the theme lacks goes into its first
-  block, else a new `.dark`. A `:root` inside `@media`, such as a `prefers-color-scheme` block, isn't the default, so
-  editing the default never changes it.
+  block, else a new `.dark`. A `:root` inside a `prefers-color-scheme` block is that scheme's theme and one inside any
+  other `@media` is no theme's, so editing the default never changes either.
+- **A `prefers-color-scheme` block is a theme** (PAR-138): `@media (prefers-color-scheme: dark)` around the root is the
+  `dark` theme, and a `light` one the default, in the Tokens tab as in `parity lib`. mantine's dark values are its
+  `dark` theme and its light ones stay the defaults. A theme's own selector beats the block, so a `.dark` value wins
+  over it. A dark value is previewed and saved in the block, and one the theme lacks is added to it. Every frame shares
+  Parity's window, and with it one colour scheme, so frames draw the block as rules for their body's
+  `data-canvas-color-scheme` (`prepareCanvasCss` in `packages/core/src/css.ts`). A frame gets `dark` when its mode's
+  classes include `dark`, as the default Dark option's do, and `light` otherwise (`frameAttributes`), so a Light frame
+  stays light when Parity's window is dark. A block nested in a rule, as Tailwind's `dark:` variant writes, is drawn the
+  same way. A query that asks for more, such as `screen and (prefers-color-scheme: dark)`, is no theme and still follows
+  Parity's window.
 - **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
   body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
@@ -2141,13 +2677,20 @@ Tests:
   to the `@theme` block that declares it, else a new one; a token the stylesheet doesn't declare added to the root; a
   theme written to its `[data-theme="dark"]` block ("by attribute as much as by class"); a `:root` inside a media query
   left alone; and both `.dark` and `[data-theme="dark"]` written, read back as the new value ("writes every block").
-- `apps/desktop/src/renderer/guest.test.ts` (3 of its 6), in Chrome: `previewToken` editing a theme by class and by
-  attribute, adding a value a theme lacks with the selector it already uses, and leaving a `prefers-color-scheme` block
-  alone when previewing the default.
-- `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, and the
-  same CSS read alike by libgen and the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests:
-  vite7-js's `[data-theme='dark']`, an attribute beside a class, none for a class theme, the light theme, the root, a
-  conditional rule or a component's own attribute, and a mode's own attribute winning).
+- `apps/desktop/src/renderer/guest.test.ts` (4 of its 7), in Chrome: `previewToken` editing a theme by class and by
+  attribute, adding a value a theme lacks with the selector it already uses, editing a `prefers-color-scheme` block as
+  frames draw it by its theme (PAR-138), and leaving one alone when previewing the default.
+- `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, a
+  `prefers-color-scheme` block's included, as written and as frames draw it, and the same CSS read alike by libgen and
+  the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests: vite7-js's `[data-theme='dark']`, an
+  attribute beside a class, none for a class theme, the light theme, the root, a conditional rule, a colour-scheme block
+  or a component's own attribute, and a mode's own attribute winning) and its colour scheme (PAR-138).
+- `prefers-color-scheme` blocks (PAR-138): `packages/tokens/src/tokens.test.ts`, mantine's stylesheet read as a dark
+  theme with its light defaults, and a `.dark` value beating the block; `packages/tokens/src/stylesheet.test.ts`, a dark
+  value written into the block, added to it and taken out again, and a new default value going to the root outside it;
+  `packages/core/src/css.test.ts`, how frames draw the block, at the top level, nested in a rule or in the root's own
+  rule, under a layer, and left as written for reading tokens; `apps/desktop/src/renderer/frame.test.ts`, in Chrome, a
+  frame drawing the block for its own scheme while the window prefers dark; and `fixtures/mantine/expected.json`.
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).
@@ -2958,12 +3501,12 @@ Each component has a picture of what inserting it would place, made in the offsc
 frame bitmaps, so no panel mounts a component and a project opened again draws none it already has. The Components panel
 shows it in a component's card, opened by resting the pointer on its row as a token's is, beside the row (PAR-515): the
 picture on the project's page in a framed box that fits it, then its name, file and, when it fails on the canvas, why.
-PAR-208 gives it the List and Grid views and the picker. The card is `ComponentCard` and `ComponentPopover` in
-`chrome/ComponentCard.tsx`, with the stories Pictures (six real previews of different shapes), States (waiting, being
-drawn, updating, drawing nothing of its own and failing), BesideItsRow and Tooltips in
-`chrome/ComponentCard.stories.tsx`; `AssetEntry` in `chrome/AssetsPanel.tsx` opens it. Tooltips are raised in the
-theme's own colors, a step lighter than a popover in the dark theme, through the variables shadcn's tooltip reads, set
-in `styles.css`.
+PAR-208 gives it the List and Grid views and the picker (see Previews in the Components panel and the insert picker).
+The card is `ComponentCard` and `ComponentPopover` in `chrome/ComponentCard.tsx`, with the stories Pictures (six real
+previews of different shapes), States (waiting, being drawn, updating, drawing nothing of its own and failing),
+BesideItsRow and Tooltips in `chrome/ComponentCard.stories.tsx`; `AssetEntry` in `chrome/AssetsPanel.tsx` opens it.
+Tooltips are raised in the theme's own colors, a step lighter than a popover in the dark theme, through the variables
+shadcn's tooltip reads, set in `styles.css`.
 
 - **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
   layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same
@@ -3305,7 +3848,7 @@ On first launch the installed app shows the sign-in screen, and Home once you si
 was. Development can request an initial project through its runner. `workspace.test.ts` covers these startup choices
 (PAR-8, PAR-605).
 
-### The start page: Home and new tabs (PAR-605, PAR-607)
+### The start page: Home and new tabs (PAR-605, PAR-607, PAR-188)
 
 Home is pinned first in the tab strip, an icon that can't be closed, and shows whenever no tab is chosen. Alt+Home or
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
@@ -3313,60 +3856,78 @@ at the end of the strip. Both are the start page from the explorations (decision
 
 - **Home** has the account menu (see Signing in), then Search, Open and New project along the top. Below them, the
   Continue where you left off section offers the project opened last, which its picture, Resume or Enter opens, with For
-  you beside it. Before any project has opened, the Open a project panel takes its place, with Open a folder and Open a
-  project file.
+  you beside it once you're signed in; signed out there's no For you. For you says nothing needs you, and what will show
+  up there, until something can.
+- **The first time (PAR-188),** before any project has opened, Home keeps that layout. Where this copy of Parity has the
+  example, as it does run from the repository, Acme takes Continue's place: its picture, shipped with Parity until its
+  own is kept, a line on what to try there, and Open Acme. Bring your own app sits beside it, with Open a folder and
+  Open a project file. Without the example, the place shows what Parity does with your app, with the same two buttons.
 - **A new tab** has a large Search field, which has the keyboard when the tab shows so Enter or Space searches, then
   Open and New project in Home's order.
 - **Both list your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
   more. A card has the project's picture, its folder's name and when it was last opened; its tooltip is the folder's
-  path. Its menu opens it, stars or unstars it, and removes it from Recent. Home's Recent leaves out the project it
-  offers to continue.
+  path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent. Home's Recent leaves out the
+  project it offers to continue. A list with nothing in it says what will show up there, in a dashed box a row of cards
+  tall.
+- **A project whose folder is gone (PAR-188)** — moved, renamed, deleted, or on a drive that isn't plugged in — is
+  greyed, with Folder not found on its picture and under its name. Continue offers the next one instead, and opening it
+  says where the folder was and offers Remove. It stays listed until removed, since a drive comes back. The service
+  checks the listed folders when the window starts, when the list changes, and each time Home or a new tab shows.
 - **Opening from a new tab uses that tab.** A project already open elsewhere is switched to, and the new tab closes.
 - **Search is Ctrl+K,** which lists your projects as well as actions: first on Home and in a new tab, last in a project.
 - **A project's picture is its canvas as last saved (PAR-607).** It shows the project's first screens as the canvas drew
   them, each its main frame with the phone frame beside it where its board shows one, each frame the shape of its
-  window, or shorter where the frame is. The phone frame has a shadow of its own, so it stands off the main frame it
-  overlaps. Moving the pointer across a card flips through them, naming each; Home's Continue picture names the frames
-  above them, as the canvas does. Up to five screens are pictured: those with a phone frame beside them first, then the
-  rest, each in Layers' order; components and frames aren't. A project not opened since shows a placeholder, a board and
-  a phone in a color of its own with its initial.
+  window, or shorter where the frame is. Moving the pointer across a card flips through them, naming each; Home's
+  Continue picture names the frames above them, as the canvas does. Up to five screens are pictured: those with a phone
+  frame beside them first, then the rest, each in Layers' order; components and frames aren't. A project not opened
+  since shows a placeholder, a board and a phone in a color of its own with its initial. Each frame has a mid-grey edge,
+  so a phone over a desktop frame shows against it whether their screens are light or dark, and the phone frame has a
+  shadow of its own, so it stands off the main frame it overlaps.
   - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
     and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
     Edits not saved yet are never pictured: a picture that would show them waits for the next save.
   - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
     the start page stops listing it.
-- **Stubs:** For you and Shared with you are empty, and signed out For you offers Sign in; New project, New project from
-  this, cloning, Copy link, Invite people and New organization show a toast saying they aren't ready yet. New project's
-  toast also offers Open a folder.
+- **Stubs:** For you and Shared with you are empty; New project, cloning, Copy link, Invite people and New organization
+  show a toast saying they aren't ready yet. New project's toast also offers Open a folder. A project's menu has no New
+  project from this until projects can be made (PAR-284).
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
 `StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home, new tabs and
-each project's notes; `chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the
-projects. Pictures: `start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and
-`start/picture-screens.ts` (`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts`
-(`keepProjectPicture`, started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
-`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
-`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
-in the folder main names as `PARITY_PICTURE_DIR`.
+each project's notes, and asks the service which folders are gone and where the example is (`checkFolders`, through
+`start.check`, answered by `utility/start-folders.ts`); `start/example-picture.ts` is the example's shipped picture;
+`chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures:
+`start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and `start/picture-screens.ts`
+(`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`,
+started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and `frameBitmap` in
+`canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in `utility/webp.ts`,
+through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`, in the folder main
+names as `PARITY_PICTURE_DIR`.
 
-Tests: `start/projects.test.ts` (8: the order recent and starred projects list in, each scope, the times from minutes to
-another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new tabs" (8, with a project's
-picture let go once it isn't listed) and "starting the workspace" (Home on a fresh install, and staying there).
-`start/picture-screens.test.ts` (4: screens with a phone frame first, then the rest, in Layers' order; no components or
-frames, and no more than the most; no second phone beside a phone; a phone by its device or its width) and
-`utility/pictures.test.ts` (6: a picture kept with each frame cut to its window and read back; the latest in place of
-the one before; projects with none, or a file that can't be read, left out; a kept frame that isn't an image refused;
-the pictures of projects no longer listed let go, and partial files only once old; nothing kept without a folder).
-Stories: Parity/Start page (Home, a card flipping through screens, which plays, Home without pictures, the first time,
-Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures,
-Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New
-tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with
-Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
+Tests: `start/projects.test.ts` (9: the order recent and starred projects list in, projects whose folders are gone, each
+scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new
+tabs" (8, with a project's picture let go once it isn't listed), "starting the workspace" (Home on a fresh install, and
+staying there) and "checking the start page's folders" (2: gone folders flagged and the example kept; checked again when
+Home shows). `utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where
+Parity runs once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a
+phone frame first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone
+beside a phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame
+cut to its window and read back; the latest in place of the one before; projects with none, or a file that can't be
+read, left out; a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial
+files only once old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping
+through screens, which plays, Home without pictures, the first time with and without the example, folders that are gone,
+which plays, Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's
+pictures, Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab
+and New tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again
+with Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
 2026-11-05, where opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving
 across its card flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and
 saved with Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as
-tall as its content.
+tall as its content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on
+2026-11-06: with the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects,
+and Open Acme opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it
+showed where it was with Remove.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -3749,13 +4310,13 @@ Code: `#root` in `apps/desktop/src/renderer/styles.css`, the group heading in `c
 canvas control keeps in `canvas/shortcuts.ts`.
 
 Tests: end to end, `apps/desktop/e2e/window.e2e.ts` (1): with a Members layer selected, Layers is scrolled and the page
-neither overflows nor scrolls; Shift+Tab back from Members' title to the New screen button scrolls Layers up to it and
-not the page; Tab on from the title leaves the page still; and a click on a layer then selects it. It fails without the
-fix, at the first check. `e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State
-and Modes menus and its mode caption, where Enter selects the mode column, then out of the canvas without reaching
-another title or board, where before it went on to the next design's title. Every end-to-end test also fails if the page
-scrolled during it (see "Testing in the app" above); before the fix that also failed the older test that tabs on from
-Sign in's title.
+neither overflows nor scrolls; Shift+Tab back from Members' title into Layers leaves the page still (since PAR-187 the
+New screen button, scrolled out of view, isn't drawn, so focus reaches the tree instead); Tab on from the title leaves
+the page still; and a click on a layer then selects it. It fails without the fix, at the first check.
+`e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State and Modes menus and its
+mode caption, where Enter selects the mode column, then out of the canvas without reaching another title or board, where
+before it went on to the next design's title. Every end-to-end test also fails if the page scrolled during it (see
+"Testing in the app" above); before the fix that also failed the older test that tabs on from Sign in's title.
 
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip

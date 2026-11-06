@@ -1,8 +1,8 @@
-import { readFile } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { guestModuleSource } from "@parity-app/builder-vite"
-import { inferProps } from "@parity-app/code"
+import { guestModuleSource, taggedModule } from "@parity-app/builder-vite"
+import { hasElementSources, inferProps } from "@parity-app/code"
 import { type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
 import { detectProject, discoverProject, readPackage } from "@parity-app/project"
 import { reactRenderer } from "@parity-app/renderer-react"
@@ -20,6 +20,8 @@ const designs = resolve(import.meta.dirname, "example.par")
 const projectId = "virtual:parity/example-project"
 const guestId = "virtual:parity/example-guest"
 const rendererId = "virtual:canvas/renderer"
+/** The example's source files as text by their path from its root, as the service's `code.read` reads them. */
+const sourcesId = "virtual:parity/example-sources"
 const require = createRequire(import.meta.url)
 
 /**
@@ -47,7 +49,7 @@ export function exampleProject(): Plugin {
       }
     },
     resolveId(source, importer) {
-      if (source === projectId || source === guestId) return `\0${source}`
+      if (source === projectId || source === guestId || source === sourcesId) return `\0${source}`
       // The example's files import each other by `@/`, which its own Vite config points at its `src`.
       if (source.startsWith("@/") && importer && inExample(importer)) {
         return this.resolve(join(root, "src", source.slice(2)), importer, { skipSelf: true })
@@ -72,6 +74,7 @@ export function exampleProject(): Plugin {
         ].join("\n")
       }
       if (id.split("?")[0] === `\0${guestId}`) return guestModuleSource((await project()).config)
+      if (id === `\0${sourcesId}`) return `export default ${JSON.stringify(await sourceFiles())}`
       return undefined
     },
     handleHotUpdate({ file }) {
@@ -82,10 +85,23 @@ export function exampleProject(): Plugin {
       // The project's own builder scans the project for class names; this one scans the canvas app. Adds the example's
       // source and the designs stories open, so the classes its components and those designs use are compiled.
       const [path] = id.split("?")
+      // The example's elements carry their lines, as the project's builder gives them in development (PAR-167).
+      if (path && inExample(path) && hasElementSources(path)) return taggedModule(root.replaceAll("\\", "/"), code, id)
       if (!path || resolve(path) !== join(root, "src", "index.css")) return undefined
       return `${code}\n@source "./";\n@source "${relative(dirname(path), designs).replaceAll("\\", "/")}";\n`
     }
   }
+}
+
+/** The example's own source files, by their path from its root with `/` between folders. */
+async function sourceFiles(): Promise<Record<string, string>> {
+  const files: Record<string, string> = {}
+  for (const entry of await readdir(join(root, "src"), { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || !/\.(tsx?|jsx?|css)$/.test(entry.name)) continue
+    const path = join(entry.parentPath, entry.name)
+    files[relative(root, path).replaceAll("\\", "/")] = await readFile(path, "utf8")
+  }
+  return files
 }
 
 /** Whether a module is one of the example's own files. */

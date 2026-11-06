@@ -1,4 +1,6 @@
+import type { ElementSource } from "@parity-app/core"
 import { toast } from "sonner"
+import type { OpenInEditorRequest } from "../../shared/protocol.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { getPreferences } from "./preferences.ts"
 
@@ -10,9 +12,12 @@ export function componentFile(session: ProjectSession, component: string): strin
   const source = session.info.sources[component]
   if (!source) return undefined
   const relative = source.library ? source.declaration : source.path
-  if (!relative) return undefined
+  return relative ? projectFile(session, relative) : undefined
+}
+
+/** A file of the project, from its root, as an absolute path in the root's own separators, as the system writes it. */
+export function projectFile(session: ProjectSession, relative: string): string {
   const root = session.info.root
-  // The root's own separator, so the path reads as the system writes it.
   const separator = root.includes("\\") ? "\\" : "/"
   return `${root.replace(/[\\/]+$/, "")}${separator}${relative.replace(/^[.][\\/]/, "").replaceAll(/[\\/]/g, separator)}`
 }
@@ -22,10 +27,18 @@ export async function viewCode(session: ProjectSession, component: string): Prom
   const file = componentFile(session, component)
   const source = session.info.sources[component]
   if (!file || !source) return
+  // A part named through its family, as `Dialog.Root`, is found by the family's export.
+  await openFile({ file, export: source.export.split(".")[0] })
+}
+
+/** Opens the file an element is written in, at its line (PAR-167). */
+export async function openSource(session: ProjectSession, { path, line }: ElementSource): Promise<void> {
+  await openFile({ file: projectFile(session, path), line })
+}
+
+async function openFile(at: Omit<OpenInEditorRequest, "editor">): Promise<void> {
   try {
-    // A part named through its family, as `Dialog.Root`, is found by the family's export.
-    const name = source.export.split(".")[0]
-    await window.canvasHost.openInEditor({ file, export: name, editor: getPreferences().codeEditor })
+    await window.canvasHost.openInEditor({ ...at, editor: getPreferences().codeEditor })
   } catch (error) {
     toast.error("Couldn't open the code", {
       description: (error instanceof Error ? error.message : String(error)).replace(

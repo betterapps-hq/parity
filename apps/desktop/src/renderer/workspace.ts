@@ -75,6 +75,10 @@ export class Workspace {
   private recent: readonly string[] = loadRecent()
   /** When each project last opened and whether it's starred, by folder. */
   private notes: Readonly<Record<string, ProjectNote>> = loadNotes()
+  /** Listed projects whose folders weren't there when last checked (PAR-188). */
+  private missing: ReadonlySet<string> = new Set()
+  /** The example project's folder, when this copy of Parity has it. */
+  private example: string | undefined
   private projects: readonly KnownProject[] = knownProjects(this.recent, this.notes)
   private activeId: string | undefined
   private nextPlaceholder = 1
@@ -105,6 +109,8 @@ export class Workspace {
   getRecent = () => this.recent
   /** The projects the start page lists: the recent ones, then starred ones that aren't. */
   getProjects = () => this.projects
+  /** The example project's folder, once the service has found it. */
+  getExample = () => this.example
   /** Whether Home is showing: it's chosen, or no tab is. */
   isHomeActive = () => this.activeId === homeTab || !this.getTab(this.activeId)
 
@@ -120,6 +126,7 @@ export class Workspace {
       // Storage can be unavailable, which means starting fresh.
     }
     const roots = saved.roots
+    void this.checkFolders()
     // Set first, so the projects reopening behind it don't take its place.
     if (saved.active === homeTab) this.activeId = homeTab
     if (roots.length === 0) {
@@ -133,6 +140,7 @@ export class Workspace {
   /** Opens a new tab at the end of the strip, showing the start page until a project opens in it. */
   newTab(): void {
     const tab: Tab = { id: `new-${this.nextBlank++}`, title: "New tab", status: "ready", blank: true }
+    void this.checkFolders()
     this.update([...this.tabs, tab])
     this.activate(tab.id)
   }
@@ -425,6 +433,28 @@ export class Workspace {
     this.activeId = id
     this.save()
     this.notify()
+    // A folder may have gone, or come back, since Home last showed.
+    if (this.isHomeActive()) void this.checkFolders()
+  }
+
+  /**
+   * Asks the service which listed projects' folders aren't there any more, and where the example is, for the start
+   * page (PAR-188). A service that can't say leaves things as they were.
+   */
+  async checkFolders(): Promise<void> {
+    const roots = this.projects.map(({ root }) => root)
+    const checked = await request("start.check", { roots }).catch(() => undefined)
+    if (!checked) return
+    const missing = new Set(checked.missing)
+    const same =
+      checked.example === this.example &&
+      missing.size === this.missing.size &&
+      [...missing].every((root) => this.missing.has(root))
+    if (same) return
+    this.missing = missing
+    this.example = checked.example
+    this.projects = knownProjects(this.recent, this.notes, this.missing)
+    this.notify()
   }
 
   /**
@@ -576,7 +606,7 @@ export class Workspace {
     } catch {
       // Storage can be unavailable; the notes then just aren't remembered.
     }
-    this.projects = knownProjects(this.recent, this.notes)
+    this.projects = knownProjects(this.recent, this.notes, this.missing)
     // A project's picture goes with it (PAR-607).
     void request("pictures.keepOnly", { roots: this.projects.map(({ root }) => root) }).catch(() => undefined)
     this.notify()
@@ -771,4 +801,9 @@ export function useKnownProjects(): readonly KnownProject[] {
 
 export function useHomeActive(): boolean {
   return useSyncExternalStore(workspace.subscribe, workspace.isHomeActive)
+}
+
+/** The example project's folder, when this copy of Parity has it (PAR-188). */
+export function useExampleFolder(): string | undefined {
+  return useSyncExternalStore(workspace.subscribe, workspace.getExample)
 }

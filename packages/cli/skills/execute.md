@@ -438,12 +438,13 @@ token values not yet saved show, the person's edits and this call's own `SetToke
 
 `Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node's box
 with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
-`Problems` checks frames for render errors, overflow, clipping and unknown components. Each layout problem has its
-`kind`: `frame-overflow` for a node that sticks out of the frame, by its position or its width, or `clipped` for one an
-ancestor that hides overflow cuts off. It names the `node`, its `box`, the `container` it overflows (the clipping node,
-or the frame, which has no `node`) with that box, and the pixels past each edge in `overflow`. A node past a parent that
-doesn't clip, inside the frame, shows, so it isn't a problem; children going no further than a reported parent are left
-out.
+A node whose element the project's code writes, such as a component's, has `source`: the file, line and column, as
+`src/components/ui/button.tsx:44:5`, to open or edit. Parity's own layers have none. `Problems` checks frames for render
+errors, overflow, clipping and unknown components. Each layout problem has its `kind`: `frame-overflow` for a node that
+sticks out of the frame, by its position or its width, or `clipped` for one an ancestor that hides overflow cuts off. It
+names the `node`, its `box`, the `container` it overflows (the clipping node, or the frame, which has no `node`) with
+that box, and the pixels past each edge in `overflow`. A node past a parent that doesn't clip, inside the frame, shows,
+so it isn't a problem; children going no further than a reported parent are left out.
 
 ```js
 const id = CreateDesign({ name: "Checkout" })

@@ -24,11 +24,9 @@ const page = () =>
   })
 const still = { top: 0, left: 0, overflows: false }
 
-/** How far the Layers panel is scrolled. */
+/** How far the Layers panel is scrolled: its tree scrolls below the search (PAR-187). */
 const layersScroll = () =>
-  app.page.evaluate(
-    () => document.querySelector("[role=tree][aria-label=Layers]")!.closest("[role=tabpanel]")!.scrollTop
-  )
+  app.page.evaluate(() => document.querySelector("[role=tree][aria-label=Layers]")!.parentElement!.scrollTop)
 
 describe("the window", () => {
   it("scrolls only Layers when what's focused is out of its view, so canvas clicks still land", async () => {
@@ -37,19 +35,14 @@ describe("the window", () => {
     await app.selectLayer("Members", "ada")
     await expect.poll(layersScroll).toBeGreaterThan(0)
     expect(await page()).toEqual(still)
-    // Back from Members' title, focus reaches the Screens heading's New screen button, scrolled out of view above.
+    // Back from Members' title, focus reaches the Layers panel, scrolled down to Members. The panel draws only the
+    // rows in view (PAR-187), so what focus reaches there is the tree, or a control drawn in it.
     await app.selectDesign("Members")
-    const scrolled = await layersScroll()
-    const newScreen = app.page.getByRole("button", { name: "New screen" })
-    for (
-      let press = 0;
-      press < 5 && !(await newScreen.evaluate((button) => button === document.activeElement));
-      press++
-    ) {
-      await app.page.keyboard.press("Shift+Tab")
-    }
-    expect(await newScreen.evaluate((button) => button === document.activeElement)).toBe(true)
-    await expect.poll(layersScroll).toBeLessThan(scrolled)
+    const inLayers = () =>
+      app.page.evaluate(() => !!document.activeElement?.closest("[role=tabpanel]")?.querySelector("[role=tree]"))
+    for (let press = 0; press < 5 && !(await inLayers()); press++) await app.page.keyboard.press("Shift+Tab")
+    expect(await inLayers()).toBe(true)
+    await app.frames(2)
     expect(await page()).toEqual(still)
     // And on from the title, as the end-to-end suite first found it.
     await app.selectDesign("Members")
