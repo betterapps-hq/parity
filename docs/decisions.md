@@ -4599,6 +4599,22 @@ address issues with actual context."
   and their calls are half of each trace.
 - **All of this is revisited before the first public release,** in its own Backlog issue.
 
+## Sentry is set up in better-apps, by hand (PAR-617)
+
+What's there and how it was done is in [sentry.md](sentry.md). You chose on 2026-11-05 to have a project for every
+surface now, "parity-web, and parity-dashboard" beside the app and CLI, and that it all belongs to
+`admin@betterapps.io`: "I can't have it in my personal account." My calls:
+
+- **Five projects, one team:** `parity-desktop`, `parity-cli`, `parity-web`, `parity-dashboard` and `parity-api`, all
+  owned by the `parity` team. The proposal's two are the first two; the others wait for their surfaces.
+- **The DSNs are in the repository,** in [sentry.md](sentry.md) for now. PAR-620 and PAR-642 put them in the app's and
+  CLI's build config as they add the SDKs that read them.
+- **Not in Terraform yet,** although cloud services come from Terraform. The pipelines' templates can't pass a Sentry
+  token, so the module waits for that change; sentry.md lists what was done by hand so it can be imported.
+- **The organisation is on a Business trial until 2026-11-19,** which you had started so the free plan's one-member
+  limit didn't block the handover. Whether to pay for a plan is yours: the Team plan adds alerts that file Linear issues
+  and a larger replay quota, which the agent loop relies on.
+
 ## The rest of signing in is designed (PAR-614)
 
 You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
