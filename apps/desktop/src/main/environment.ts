@@ -31,6 +31,11 @@ const mainEnvironment = z.object({
   PARITY_USER_DATA: nonBlankString.optional(),
   /** The project the window opens first. */
   PARITY_PROJECT: nonBlankString.optional(),
+  /** The commit a copy run from source was started on, which the dev runner sets to name its Sentry release. */
+  PARITY_COMMIT: z
+    .string()
+    .regex(/^[0-9a-f]{40}$/, "expected a full commit hash")
+    .optional(),
   /** The dev runner's process id, which it sets on the copy it runs. */
   PARITY_DEV_RUNNER: wholeNumber.pipe(z.int().min(1)).optional(),
   /** Where an AppImage is, which its runtime sets; Linux updates only work from one. */
