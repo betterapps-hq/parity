@@ -111,7 +111,7 @@ function Nothing({ title, children }: { title: string; children: ReactNode }) {
 /** Inspect: picks an element on the canvas, as a browser's developer tools do. Escape or picking one stops it. */
 function InspectToggle({ pressed }: { pressed: boolean }) {
   return (
-    <Hint label="Pick an element on the canvas to see its code" detail="Escape stops" wait>
+    <Hint label="Pick an element on the canvas to see its code" detail="Press Esc to stop" wait>
       <Toggle size="sm" variant="outline" pressed={pressed} onPressedChange={setPicking} className="gap-1.5 text-xs">
         <Crosshair /> Inspect
       </Toggle>
@@ -213,7 +213,7 @@ function ElementList({
   if (elements.length === 0) {
     return (
       <p className="px-1 text-xs text-muted-foreground">
-        None with a line yet. Each gets one from the project&apos;s dev server as the frame draws.
+        No elements have a line yet. The project&apos;s dev server adds them as the frame draws.
       </p>
     )
   }
@@ -262,7 +262,7 @@ function SourceLines({ session, source }: { session: ProjectSession; source: Ele
           <CodeBlockTitle className="min-w-0 truncate font-mono">{`${fileName(source.path)}:${source.line}`}</CodeBlockTitle>
         </Hint>
         <CodeBlockActions>
-          <CodeBlockCopyButton value={where} aria-label="Copy where it's written" />
+          <CodeBlockCopyButton value={where} aria-label="Copy the file and line" />
           <Hint label="Open in your editor">
             <Button
               variant="ghost"
