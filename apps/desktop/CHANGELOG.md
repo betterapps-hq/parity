@@ -1,8 +1,22 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 02:49:03 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 03:23:07 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.13.0
+
+Fri, 06 Nov 2026 03:23:07 GMT
+
+### Minor changes
+
+- Sign in to Parity with Google, GitHub, Microsoft or a work email, in your browser through WorkOS
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Read the project service's caches, Portless's files, Storybook's index and its environment through zod schemas, so a
+  corrupt cache reads as empty (ajcraswell@gmail.com)
 
 ## 0.12.7
 

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Read the project service's caches, Portless's files, Storybook's index and its environment through zod schemas, so a corrupt cache reads as empty",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
