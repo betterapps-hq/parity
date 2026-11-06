@@ -5543,7 +5543,8 @@ envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My call
   `parity.session_id`, `parity.duration_ms`).
 - **The level gate is in main's `beforeSend`, `beforeSendTransaction` and `beforeSendLog`,** through `sendsToSentry` in
   the package: All sends everything, Errors only errors (with their breadcrumbs), Off nothing. Reading the level there,
-  rather than only at `Sentry.init`, lets PAR-626 change it without a restart.
+  rather than only at `Sentry.init`, lets PAR-626 change it without a restart. PAR-626 has since dropped the Errors
+  level and `sendsToSentry` with it; see "Diagnostics are on or off" below.
 - **The local copy is `<userData>/logs/parity-<date>.jsonl`,** one envelope per line, written at every level. A file
   that would pass 5 MB continues in `parity-<date>.2.jsonl` and on, a new day starts a new file, and only the newest 10
   are kept. Lines are written together once a second, synchronously; a `fatal` event writes at once, with what's
@@ -5555,6 +5556,31 @@ envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My call
   with `envelopeSchema`, and names a window's events by the window that sent them.
 - **Main makes the install ID and the session ID, and passes them on** with whether to check events against their
   schemas (outside installed builds): to windows as a command-line argument, to the service and its worker in an
-  environment variable. The install ID is kept in `<userData>/install-id`; PAR-626 adds resetting it and showing it.
+  environment variable. The install ID was kept in `<userData>/install-id`; PAR-626 moved it into `telemetry.json`.
 - **No process exports its telemetry yet.** `startTelemetry` and `startEvents` return it; the issues that record the
   first events (PAR-629 onwards) decide how code reaches it.
+
+## Diagnostics are on or off (PAR-626)
+
+Settings has one switch for Parity's own telemetry, and About shows whether it's on and the install ID. You chose its
+shape on 2026-11-06. After a first design with an All, Errors and Off choice, an install ID row and a Reset button, you
+said it "smacks of leaking internal implementation details. Users don't need to see some of this. Users don't need to
+know we're using Sentry," then "Either send or don't, that's all." My calls within that:
+
+- **No Errors level anywhere,** not only in Settings: `TelemetryLevel` is `all` or `off`, `PARITY_TELEMETRY` takes only
+  those, and `sendsToSentry` is gone. Main turns Sentry's client on or off (`applyTelemetry` in `main/telemetry.ts`),
+  which every send checks, so the switch works without a restart. Sentry starts enabled and is turned off at once when
+  it should be, since a client started disabled never sets up its integrations.
+- **Settings > Privacy > Share diagnostics,** a switch. Its line says what's shared, the window recording included,
+  since that's what a person needs to know, not which service takes it.
+- **A variable decides the run and disables the switch:** `PARITY_TELEMETRY` over the setting, `DO_NOT_TRACK` and Vitest
+  over both. The switch shows what's sent, and its line names the variable.
+- **The setting and the install ID are one file, `<userData>/telemetry.json`,** which the CLI can read through
+  `desktopDataFolder` (PAR-642). It replaces PAR-627's `install-id` file; an ID there isn't carried over, as stale
+  prototype data.
+- **Turning it off is the reset:** it makes a new install ID, so what's sent after turning it back on isn't linked to
+  what came before. There's no Reset button. Windows and the service keep the ID they started with until Parity
+  restarts, so their events' envelopes carry the old one until then; Sentry's user is the new one at once.
+- **About lists Diagnostics (On or Off, with the variable if one decided it) and the Install ID** with the versions, so
+  Copy details includes them.
+- **Settings scrolls** when it's taller than the window. The new section pushed it past the bottom of a short one.

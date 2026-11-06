@@ -62,6 +62,10 @@ const host: CanvasHost = {
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
   getBuildInfo: () => ipcRenderer.invoke(ipc.buildInfo),
+  telemetry: {
+    get: () => ipcRenderer.invoke(ipc.telemetryState),
+    setLevel: (level) => ipcRenderer.invoke(ipc.telemetryLevel, level)
+  },
   updates: {
     get: () => ipcRenderer.invoke(ipc.updateState),
     check: () => ipcRenderer.invoke(ipc.updateCheck),
