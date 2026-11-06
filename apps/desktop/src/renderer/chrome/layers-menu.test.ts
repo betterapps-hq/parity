@@ -52,9 +52,9 @@ function rightClick(row: LayersRow, current: Selection = {}): MenuEntry[] {
 }
 
 describe("the Layers row menu", () => {
-  it("lists Rename, Duplicate, Hide and Delete for a layer, with the keymap's labels and keys", () => {
+  it("lists Rename, Duplicate, Hide, Export and Delete for a layer, with the keymap's labels and keys", () => {
     const menu = rightClick({ design, node: "subtitle" })
-    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "hide", "---", "delete"])
+    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "hide", "---", "exportSelection", "---", "delete"])
     const items = menu.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
     expect(items.map((entry) => entry.keys)).toEqual(
       items.map((entry) => (entry.action === "pasteHere" ? undefined : keymap[entry.action].keys[0]))
@@ -63,13 +63,14 @@ describe("the Layers row menu", () => {
       keymap.rename.label,
       keymap.duplicate.label,
       "Show in Loading",
+      "Export…",
       keymap.delete.label
     ])
   })
 
-  it("lists Rename, Duplicate and Delete for a design", () => {
+  it("lists Rename, Duplicate, Export and Delete for a design", () => {
     const menu = rightClick({ design })
-    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "delete"])
+    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "exportSelection", "---", "delete"])
   })
 
   it("can't duplicate, hide or delete the design's root", () => {
@@ -78,6 +79,8 @@ describe("the Layers row menu", () => {
       "duplicate (unavailable)",
       "---",
       "hide (unavailable)",
+      "---",
+      "exportSelection",
       "---",
       "delete (unavailable)"
     ])

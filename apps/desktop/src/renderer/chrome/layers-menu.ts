@@ -27,7 +27,8 @@ export function rowSelection(current: Selection, row: LayersRow): Selection {
 
 /**
  * The menu for a row, for the selection the right-click has made (see `rowSelection`): Rename and Duplicate; for a
- * layer, Hide or Show in where the change lands, as the canvas menu's Hide reads it; then Delete. Each has the keymap's
+ * layer, Hide or Show in where the change lands, as the canvas menu's Hide reads it; then Export, at the Export section's
+ * sizes (PAR-185); then Delete. Each has the keymap's
  * label and keys, and is unavailable when the menubar's would be: the design's root, and layers inside an instance,
  * can't be duplicated, hidden or deleted.
  */
@@ -44,6 +45,7 @@ export function layersMenu(row: LayersRow, selection: Selection, entries: readon
   return sections([
     [item("rename", true), item("duplicate", layers ? can.duplicate : true)],
     row.node ? [item("hide", can.hide, `${hidden ? "Show" : "Hide"} in ${where}`)] : [],
+    [item("exportSelection", true, "Export…")],
     [item("delete", layers ? own.length > 0 : true)]
   ])
 }

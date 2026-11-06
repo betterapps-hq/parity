@@ -9,12 +9,14 @@ import {
   answerRequest,
   exportPictures,
   type FrameRequest,
+  framePictures,
   type FrameResult,
   type TabSnapshot
 } from "@parity-app/agent"
 import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry"
 import { registryVersion } from "@parity-app/agent/routing"
 import { errorDetails } from "@parity-app/core"
+import { planExport } from "@parity-app/editor"
 import { passedLink } from "../shared/account.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
@@ -22,6 +24,7 @@ import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
 import { renderOffscreen } from "./render.ts"
+import { cutPicture } from "./webp.ts"
 
 interface WindowChannel {
   request<M extends keyof WindowMethods>(
@@ -178,6 +181,37 @@ export async function exportDesigns(
     paths.push(path)
   }
   return { files: paths, warnings }
+}
+
+/**
+ * Exports layers and designs for the Export section (PAR-185): each design drawn offscreen once at each scale asked
+ * for, in the state the canvas shows and its main mode, and each file cut from it and written to `folder`. A file
+ * that can't be written is a warning, and the rest are still written.
+ */
+export async function exportLayers(
+  window: WindowChannel,
+  { projectId, folder, layers, files }: ServiceMethods["layers.export"]["params"]
+): Promise<ServiceMethods["layers.export"]["result"]> {
+  const host = desktopHost(window)
+  const snapshot = await host.snapshot(projectId)
+  const designs = [...new Set(layers.map((layer) => layer.design))]
+  const scales = [...new Set(files.map((file) => file.size.scale))]
+  const { frames, warnings } = await framePictures(host, snapshot, designs, scales)
+  // Designs are asked for by key, `path#id`; pictures name them by id.
+  const byId = layers.map((layer) => ({ ...layer, design: layer.design.slice(layer.design.lastIndexOf("#") + 1) }))
+  await mkdir(folder, { recursive: true })
+  const written: string[] = []
+  for (const { file, frame, crop, problem } of planExport(byId, files, frames)) {
+    const picture = frame === undefined ? undefined : frames[frame]?.png
+    if (problem || !picture || !crop) {
+      warnings.push(problem ?? `${file.name}: its design didn't draw`)
+      continue
+    }
+    const path = join(folder, file.name)
+    await writeFile(path, await cutPicture(Buffer.from(picture, "base64"), crop, file.size.format))
+    written.push(path)
+  }
+  return { files: written, warnings }
 }
 
 /**

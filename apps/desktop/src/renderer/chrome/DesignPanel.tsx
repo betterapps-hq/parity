@@ -18,6 +18,7 @@ import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
+import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
@@ -211,6 +212,8 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
           </Button>
         </div>
       </PanelSection>
+
+      <ExportSection targets={[{ design: key, name: container.name }]} label={`Export ${container.name}`} />
     </>
   )
 }

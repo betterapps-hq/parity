@@ -1,6 +1,6 @@
 import sharp from "sharp"
 import { describe, expect, it } from "vite-plus/test"
-import { losslessWebp } from "./webp.ts"
+import { cutPicture, losslessWebp } from "./webp.ts"
 
 /** Pixels with edges and soft gradients, as a frame's text and shadows have, as a PNG. */
 async function picture(): Promise<Buffer> {
@@ -30,5 +30,31 @@ describe("losslessWebp", () => {
     )
     expect(after!.info).toMatchObject({ width: 37, height: 23 })
     expect(after!.data.equals(before!.data)).toBe(true)
+  })
+})
+
+describe("cutPicture", () => {
+  it("cuts part of a picture as a PNG with its pixels", async () => {
+    const png = await picture()
+    const cut = await cutPicture(png, { left: 19, top: 5, width: 10, height: 8 }, "png")
+    const [whole, part] = await Promise.all([
+      sharp(png).extract({ left: 19, top: 5, width: 10, height: 8 }).raw().toBuffer(),
+      sharp(cut).raw().toBuffer({ resolveWithObject: true })
+    ])
+    expect(part.info).toMatchObject({ width: 10, height: 8, format: "raw" })
+    expect(part.data.equals(whole)).toBe(true)
+  })
+
+  it("makes a JPG's see-through parts white", async () => {
+    const clear = await sharp({
+      create: { width: 4, height: 4, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+    })
+      .png()
+      .toBuffer()
+    const jpg = await cutPicture(clear, { left: 0, top: 0, width: 4, height: 4 }, "jpg")
+    const { data, info } = await sharp(jpg).raw().toBuffer({ resolveWithObject: true })
+    expect((await sharp(jpg).metadata()).format).toBe("jpeg")
+    expect(info.channels).toBe(3)
+    expect(Math.min(...data)).toBeGreaterThan(250)
   })
 })

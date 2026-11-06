@@ -110,11 +110,14 @@ export const Layer: Story = onCanvas(["Pricing"], undefined, async () => {
     "Wrap in layout",
     "Make component",
     "---",
-    "Hide"
+    "Hide",
+    "---",
+    "Export…"
   ])
   await expect(keysOf(menu, "Copy")).toBe(formatKeys("Ctrl C"))
   await expect(keysOf(menu, "Paste to replace")).toBe(formatKeys("Ctrl Shift R"))
   await expect(keysOf(menu, "Paste here")).toBeUndefined()
+  await expect(keysOf(menu, "Export…")).toBe(formatKeys("Ctrl Shift E"))
 })
 
 /** An instance, right-clicked beside the one selected: it's selected instead, and the menu goes to its component. */
@@ -163,7 +166,9 @@ export const Design: Story = onCanvas(
       "Paste over selection",
       "Duplicate",
       "---",
-      "Convert to component"
+      "Convert to component",
+      "---",
+      "Export…"
     ])
   }
 )
