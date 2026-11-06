@@ -1,4 +1,4 @@
-import { boardTarget, editNode, generateId, isInnerPath, locateNode, resolveModes } from "@parity-app/core"
+import { boardTarget, editNode, isInnerPath, locateNode, resolveModes } from "@parity-app/core"
 import {
   distancesBetween,
   drawsOver,
@@ -30,6 +30,7 @@ import { useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
+import { drawFrame, useFrameDrawing } from "./frame-tool.ts"
 import { followPress, gestures } from "./gesture.ts"
 import {
   frameAt,
@@ -47,6 +48,7 @@ import { designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
 import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
 import { getSnapMeasures, LayerSnapping } from "./layer-snap.ts"
 import { findLayer } from "./layers.ts"
+import { addFrameOfText } from "./new-screen.ts"
 import { frameDrawn } from "./nudge.ts"
 import { placeAtPoint } from "./paste-here.ts"
 import { hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
@@ -81,6 +83,8 @@ interface Handles {
   box: Box
   color: string
   edges: Edge[]
+  /** What the handles say they do, for a frame's (see `ResizeHandles`). */
+  label?: string
   design: string
   mode: string
   state: string
@@ -107,6 +111,8 @@ interface Model {
   spacingHandles?: { target: SpacingTarget; measure: SpacingMeasure }
   /** Column grids over frames, from View > Layout grid. */
   columns?: { key: string; box: Box }[]
+  /** A selected frame's size, under it, as a layer's is: a frame's name is its title above it. */
+  frameSize?: { box: Box; size: string }
 }
 
 const empty: Model = { outlines: [], redlines: [], handles: [] }
@@ -150,6 +156,13 @@ export function CanvasOverlay() {
       if (event.detail >= 2 && tool === "select" && !overNote(session, point)) {
         event.stopPropagation()
         event.preventDefault()
+        return
+      }
+      // The frame tool draws over the empty canvas and over designs alike.
+      if (tool === "frame") {
+        event.stopPropagation()
+        event.preventDefault()
+        drawFrame(session, area, event)
         return
       }
       if (tool === "text") {
@@ -367,6 +380,7 @@ export function CanvasOverlay() {
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[300] overflow-hidden">
+      <FrameDrawingView />
       {model.outlines.map((outline) => (
         <div
           key={outline.key}
@@ -404,6 +418,18 @@ export function CanvasOverlay() {
             {model.label.size}
           </div>
         </>
+      )}
+      {model.frameSize && !editing && (
+        <div
+          className="absolute -translate-x-1/2 rounded px-1.5 py-px text-[11px] text-white tabular-nums"
+          style={{
+            left: model.frameSize.box.x + model.frameSize.box.w / 2,
+            top: model.frameSize.box.y + model.frameSize.box.h + 6,
+            background: kindColors.layer
+          }}
+        >
+          {model.frameSize.size}
+        </div>
       )}
       {model.columns?.map((column) => (
         <div
@@ -637,6 +663,18 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   const drag = getDragView()
   if (drag) model.drag = drag
 
+  if (entry?.container.kind === "frame" && !current.node) {
+    const host = findFrames(area, entry.key)[0]
+    if (host) {
+      const rect = host.getBoundingClientRect()
+      const scale = editor.getZoomLevel() * frameScale(host)
+      model.frameSize = {
+        box: toBox(rect),
+        size: `${formatPx(rect.width / scale)} × ${formatPx(rect.height / scale)}`
+      }
+    }
+  }
+
   if (entry && !current.node && selection.getTool() === "select") {
     for (const host of findFrames(area, entry.key)) {
       model.handles.push({
@@ -645,6 +683,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         box: toBox(host.getBoundingClientRect()),
         color: designColor(entry.container.kind),
         edges: frameEdges,
+        ...(entry.container.kind === "frame" ? { label: "Drag to resize the frame" } : {}),
         design: entry.key,
         mode: host.dataset.mode ?? "",
         state: host.dataset.state ?? ""
@@ -901,6 +940,7 @@ function startResize(
     const mode = resolveModes(store.getModes()).find((candidate) => candidate.id === handles.mode)
     if (!mode) return
     const resize = frameResize({ design: entry.container, mode, edge, rect: host.getBoundingClientRect(), scale })
+    const label = entry.container.kind === "frame" ? "Resize frame" : "Resize preview"
     followPress(gestures.resize, store, start, {
       design: entry.key,
       cursor: resizeCursors[edge],
@@ -909,7 +949,7 @@ function startResize(
         const serialized = JSON.stringify(next)
         if (serialized === last) return
         last = serialized
-        store.updateContainer(entry.key, "Resize preview", (container) => withFrame(container, mode.viewport, next), {
+        store.updateContainer(entry.key, label, (container) => withFrame(container, mode.viewport, next), {
           gesture
         })
       }
@@ -1071,8 +1111,10 @@ function resetSize(session: ProjectSession, handles: Handles, edge: Edge, fill =
   if (handles.kind === "frame") {
     const mode = resolveModes(store.getModes()).find((candidate) => candidate.id === handles.mode)
     if (!mode) return
-    const next = frameSizeReset(entry.container.frames?.[mode.viewport], edge)
-    store.updateContainer(entry.key, "Reset preview size", (container) => withFrame(container, mode.viewport, next))
+    const { container } = entry
+    const next = frameSizeReset(container.kind === "frame" ? container.size : container.frames?.[mode.viewport], edge)
+    const label = container.kind === "frame" ? "Reset frame size" : "Reset preview size"
+    store.updateContainer(entry.key, label, (current) => withFrame(current, mode.viewport, next))
     return
   }
   const layers = handles.nodes ?? (handles.node ? [handles.node] : [])
@@ -1102,7 +1144,8 @@ function contentBox(parent: HTMLElement | null, scale: number) {
 
 /**
  * The text tool: inside a design, a text layer where a drop at the pointer would land (see `placeAtPoint`), in the
- * frame there; on the canvas, a free note. Over a design with no layout under the pointer, nothing.
+ * frame there; on the empty canvas, a text layer in a frame that hugs it (see `addFrameOfText`). Either way it's
+ * edited in place at once. Over a design with no layout under the pointer, nothing.
  */
 function addText(session: ProjectSession, area: ParentNode, point: Point): void {
   const { store, selection, editor } = session
@@ -1125,16 +1168,48 @@ function addText(session: ProjectSession, area: ParentNode, point: Point): void 
   }
   if (!editor) return
   const page = editor.screenToPage(point)
-  const current = selection.get()
-  const path = (current.design && store.getEntry(current.design)?.path) ?? store.mainPath
-  const taken = new Set(store.getNotes().map((note) => note.note.id))
-  const id = `note-${generateId(taken)}`
-  const key = store.addNote(path, { id, text: "Text", position: { x: Math.round(page.x), y: Math.round(page.y) } })
-  selection.set({ note: key })
-  setTimeout(() => {
-    const shape = editor
-      .getCurrentPageShapes()
-      .find((candidate) => candidate.type === "canvas-note" && candidate.props.key === key)
-    if (shape) editor.setEditingShape(shape.id)
-  }, 50)
+  const { key, node } = addFrameOfText(session, "Text", page, "Add text")
+  const mode = resolveModes(store.getModes())[0]?.id
+  const state = store.getEntry(key)?.container.states[0]?.id
+  if (!mode || !state) return
+  const picked = { design: key, node, mode, state }
+  // The frame renders on the next frame; its text is edited once it's there.
+  requestAnimationFrame(() => requestAnimationFrame(() => selection.setEditing(picked)))
+}
+
+/**
+ * The frame being dragged out with the frame tool: a white rectangle outlined in the layer color, with its size in the
+ * canvas's pixels underneath as it grows, and a guide across the canvas at each edge it snapped to.
+ */
+function FrameDrawingView() {
+  const drawing = useFrameDrawing()
+  if (!drawing) return null
+  const { box, size, guides } = drawing
+  return (
+    <>
+      {guides.x !== undefined && (
+        <div className="absolute inset-y-0 w-px" style={{ left: guides.x, background: kindColors.layer }} />
+      )}
+      {guides.y !== undefined && (
+        <div className="absolute inset-x-0 h-px" style={{ top: guides.y, background: kindColors.layer }} />
+      )}
+      <div
+        className="absolute bg-white/90"
+        style={{
+          left: box.x,
+          top: box.y,
+          width: box.w,
+          height: box.h,
+          outline: `1.5px solid ${kindColors.layer}`
+        }}
+      >
+        <span
+          className="absolute top-full left-1/2 mt-2 -translate-x-1/2 rounded px-1.5 py-px text-[11px] font-medium whitespace-nowrap text-white tabular-nums"
+          style={{ background: kindColors.layer }}
+        >
+          {formatPx(size.width)} × {formatPx(size.height)}
+        </span>
+      </div>
+    </>
+  )
 }

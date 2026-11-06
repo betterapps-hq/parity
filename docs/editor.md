@@ -521,9 +521,9 @@ the tree longer and every later change slower.
   selecting it. It shows while the layer is hovered, in the panel or on the canvas, and stays on a hidden layer, crossed
   out. Its name says what it does and where, as the row menu's Hide does ("Hide in Default"). The page can't be hidden,
   so it has none. Like the row's arrow, it isn't in the tab order: Ctrl+Shift+H hides the selection from the keyboard.
-- **Designs are dragged to reorder them** among the designs of their group, components or screens, in their own file,
-  which is the order the panel lists them in. A line under or over the row shows where it would go, and the move is one
-  undo step ("Reorder screen").
+- **Designs are dragged to reorder them** among the designs of their group, components, screens or frames, in their own
+  file, which is the order the panel lists them in. A line under or over the row shows where it would go, and the move
+  is one undo step ("Reorder screen").
 - **Hovering a design's row outlines its board** on the canvas, as hovering the board does.
 - **The keyboard,** as before: Tab moves from the search to Collapse all to the tree, Up and Down move through the rows,
   scrolling as they go, Right and Left open and close a row or move into and out of it, and Enter or F2 renames. Enter
@@ -1526,7 +1526,7 @@ Gaps: clicking in the panels, the messages, and a drop into an absolutely placed
 
 Making a screen or component is one visible step, as PAR-541's approved designs show, without the start in the middle of
 an empty canvas that PAR-560 dropped: New screen and New component are everywhere a command is, and whatever lands on
-empty space on the canvas makes a screen there.
+empty space on the canvas makes a frame there (PAR-545; see Frames, below).
 
 - **New screen (Ctrl+Alt+N) and New component (Ctrl+Alt+Shift+N)** are in the keymap's Object group, so the Keyboard
   shortcuts dialog lists them and their keys work on the canvas, not in a text field. They lead File, above opening a
@@ -1544,24 +1544,24 @@ empty space on the canvas makes a screen there.
   empty group leaves the count out, since its row says so, and the row is a button that makes the first one: "No screens
   yet. New screen", the action in the kind's color. Enter or Space on either makes one, rather than renaming the
   selected row as Enter in the tree does.
-- **The inspector with nothing selected** asks for "a screen or component on the canvas or in Layers", whatever is on
-  the canvas.
-- **What lands on empty space on the canvas makes a screen there,** by one rule. Its top left is where it landed, it
-  holds what landed in a padded column, and it's selected, as one undo step named for what landed ("Paste layer", "Paste
-  7 layers", "Add Badge", "Add vertical layout"). It's named after what's in it, never "Pasted": one layer as Layers
-  names it (a component without its library, "Button"; an instance after its design; text by its words; a layout Column
-  or Row); several images Images; several other layers the first and how many more ("Nav and 6 more").
+- **The inspector with nothing selected** asks for "a screen, component or frame on the canvas or in Layers", whatever
+  is on the canvas.
+- **What lands on empty space on the canvas makes a frame there,** by one rule. Its top left is where it landed, it
+  holds what landed in a padded column that hugs it, and it's selected, as one undo step named for what landed ("Paste
+  layer", "Paste 7 layers", "Add Badge", "Add vertical layout"). It's named after what's in it, never "Pasted": one
+  layer as Layers names it (a component without its library, "Button"; an instance after its design; text by its words;
+  a layout Column or Row); several images Images; several other layers the first and how many more ("Nav and 6 more").
   - Layers pasted on the empty canvas with Paste here, or with nothing selected with Ctrl+V, in the middle of the view;
     and the insert picker's Text and layouts with nothing selected.
   - A component, component design or image from the Components panel dropped on the empty canvas, where a corner in the
-    screen's color marks its top left while dragging; or clicked in the panel or picked in the insert picker with
-    nothing selected, in the middle of the view. It goes in as inserting it into a layout would: with its required
-    props, a library part inside the parents it needs, and a detached copy as the layers its design shows.
+    layer color marks its top left while dragging; or clicked in the panel or picked in the insert picker with nothing
+    selected, in the middle of the view. It goes in as inserting it into a layout would: with its required props, a
+    library part inside the parents it needs, and a detached copy as the layers its design shows.
   - Image files dropped on the empty canvas, named after the file or Images (see Dropping image files, below).
   - Over a design where there's no layout under the pointer, nothing lands, and a message says "There's no layout here
     to drop into", as it does for files. With a design selected that has nowhere to insert, the insert picker and the
     Components panel both say "Select a layout, or a layer to add it after".
-  - Frames will take this over once PAR-545 builds them.
+  - Pasted text makes a text frame, as the text tool does (see Frames, below).
 
 Code: the commands are `newScreen` and `newComponent` in `chrome/keymap.ts` and `chrome/actions.ts`, run through
 `createDesign` in `chrome/create.ts`, which takes a point for the canvas menu. `AppMenu.tsx` (`NewItems`),
@@ -1569,17 +1569,17 @@ Code: the commands are `newScreen` and `newComponent` in `chrome/keymap.ts` and 
 (`matchWords`) is Search actions' filter in `ActionsSearch.tsx`; the headings and empty rows are in
 `chrome/LayerTree.tsx`, and the inspector's prompt in `DesignPanel.tsx`. The rule and the names are
 `packages/editor/src/new-screen.ts` (`layersName`, `designOfLayers`, `designOfItem`); the app's `canvas/new-screen.ts`
-finds the empty canvas (`emptyCanvasAt`) and the middle of the view and adds a screen of layers, `canvas/insert.ts` adds
-one of an item (`addScreenOfItem`, from `insertAtSelection` and drops), and `canvas/clipboard.ts` and
+finds the empty canvas (`emptyCanvasAt`) and the middle of the view and adds a frame of layers, `canvas/insert.ts` adds
+one of an item (`addFrameOfItem`, from `insertAtSelection` and drops), and `canvas/clipboard.ts` and
 `canvas/CanvasDrop.tsx` call them.
 
 Tests:
 
 - `packages/editor/src/new-screen.test.ts` (11): one layer named as Layers names it, a component without its library and
   by its own name, an instance by its design or its id, several images, several layers and the first, and never Pasted;
-  a screen of layers at the point, named after them, with a free id, fresh ids and no bindings; and a screen of a
-  component with its props, a design's instance, an image by its alt text, and a library part inside its parents, named
-  after the part.
+  a frame of layers at the point, named after them, hugging them, with a free id, fresh ids and no bindings; and a frame
+  of a component with its props, a design's instance, an image by its alt text, and a library part inside its parents,
+  named after the part.
 - `chrome/keymap.test.ts`: Ctrl+Alt+N, Ctrl+Alt+Shift+N and Cmd+Alt+N, and Ctrl+N left free; `chrome/word-match.test.ts`
   (4): "new" finding New screen and New component only, a word inside a name ranked after a name that starts with it,
   typed words in any order and case, and everything before anything's typed; `chrome/canvas-menu.test.ts`: the menu
@@ -1593,7 +1593,7 @@ Tests:
 - End to end (PAR-202), `apps/desktop/e2e/menus.e2e.ts`: a right-click on the empty canvas lists New screen, New
   component and Insert… with their keys, and New screen makes an untitled screen at the pointer, selected, as "New
   screen"; `e2e/dropping.e2e.ts`: Badge dragged from the Components panel onto the empty canvas shows the corner and no
-  outline, and makes a screen called Badge at the drop point holding it, selected, as "Add Badge", which Undo takes out.
+  outline, and makes a frame called Badge at the drop point holding it, selected, as "Add Badge", which Undo takes out.
 
 Checked in `pnpm dev` on the example on 2026-11-05: File and Object start with both items and their keys; Ctrl+Alt+N and
 Ctrl+Alt+Shift+N make and select an untitled screen and component; Ctrl+K and "new" lists the two, and Enter makes a
@@ -1605,6 +1605,86 @@ layers, copied, make "Nav and 6 more" with Paste here and with Ctrl+V. Each undi
 Gaps: the end-to-end tests run only in CI. A screen made with nothing selected goes in the middle of the view, as pasted
 layers always have, even when a design is there. A component in a new screen fills its width, as it would in any column;
 the proposal's "keeps its own width" is not part of this.
+
+### Frames and the frame tool (PAR-545)
+
+Frames are the light kind of design, beside screens and components, as PAR-540's approved exploration (Parity /
+Explorations / Frames) shows them, on PAR-539's model: a frame is drawn once, at its own size, in the project's primary
+mode, with one state, and isn't written to code.
+
+- **On the canvas a frame has no board:** its name above it, smaller and quieter than a board's title, with lucide's
+  Frame icon, neutral until it's selected and then in the layer color, and the design at its own size, filled with the
+  primary mode's background. It has no state or mode menus, captions or gutter, and its outline is square. Its name runs
+  past a narrow frame rather than being cut off. Selected, its size shows under it, and its handles on the right, the
+  bottom and the corner resize it; a double-click on one goes back to the primary mode's width or the content's height.
+- **The frame tool (F, or A as in Figma)** sits after Move and Hand, beside Text, in its own group. The pointer is a
+  crosshair, over the designs too. A drag draws a frame, with its size under it as it grows, snapping each edge within 6
+  screen pixels to the edges of the designs around it, with a guide where it snapped; Ctrl or Cmd draws freely, and
+  Escape draws nothing. A click without a drag makes a 100 × 100 frame. Either is named Frame 1, Frame 2 and so on,
+  selected, with the move tool back, as one undo step, "Draw frame".
+- **The frame tool's menu,** the arrow beside it, lists each viewport the modes use once, with the modes that use it and
+  its size, a viewport with only a width taking the height of the device nearest it. With a frame selected a size
+  resizes it ("Resize frame to Mobile"); otherwise it adds a frame at that size in the middle of the view. New screen
+  and New component sit below the sizes, with their keys.
+- **Text on the empty canvas:** T and a click in empty space makes a text layer, "Text", in a frame that hugs it, with 2
+  steps of padding, and edits it at once. The frame takes the text's name as it's edited in place, until it's renamed. T
+  over a design still adds text where a drop would land. Notes already in a file still show; nothing makes a new one.
+- **A frame that hugs its content** (its root layout's width is Hug) is as wide as its root is drawn: the canvas
+  measures the root at its content's width, rounded up to a whole pixel, and keeps that as the frame's size, without an
+  undo step of its own. A width of its own, from the handles, the menu's sizes or the inspector, stops it hugging.
+- **Whatever lands on the empty canvas makes a frame,** as "New screen, New component and the empty canvas" above says,
+  hugging what's in it and named after it. Pasted text makes a text frame, as the text tool does.
+- **The inspector for a frame:** its name; its kind, Frame, Component or Screen, lightest first; where it's drawn
+  ("Drawn in Desktop Light", with the primary mode's crown) and that it isn't written to code; then its root layout's
+  layout, spacing, size and fill straight away, with no states, modes or params. The size rows are the frame's own size:
+  a fixed width or height resizes it, Hug makes it hug its content, and Fill or Auto puts back the primary mode's width
+  or the content's height. Export is at the foot, as for any design.
+- **Convert to,** in every design's title menu ("Convert to component", "Convert to screen", "Convert to frame", with
+  each kind's icon), in the inspector's kind switch, and as Make component's Convert to component in the canvas and
+  Object menus. A frame becomes a screen or a component at once, keeping its size as its preview's, with a toast ("Plan
+  card is a component") whose Undo makes it a frame again. A screen or component becomes a frame at once when it drops
+  nothing; otherwise a dialog lists what goes (states after the first, previews beside the main one, params, and each
+  design's instances, which become plain layers), with Cancel and Convert to frame. Each is one undo step, and
+  converting a component detaches its instances in the same step.
+- **Layers lists Frames** after Components and Screens once there are any, with their count; its + picks the frame tool.
+
+Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
+`framePresets`, `frameOfText`, `textFrameRenamed`, `hugsContent`, `fittedFrame`, `withFrameSize`, `frameRootShown` and
+`frameRootStored`, `instanceCount` and `detachInstancesOf`), with `turnInto` in `kinds.ts`, `withFrame` and
+`frameResize` in `move-resize.ts`, and the empty canvas's rule in `new-screen.ts` (`landedStyle`) and `drop-files.ts`.
+In the app, `canvas/frame-tool.ts` draws and places frames, `canvas/ContainerView.tsx` draws a frame without a board
+(`FrameView`) and keeps a hugging one fitted (`useFitToContent`), `canvas/CanvasOverlay.tsx` takes the frame tool's
+press, draws the frame being dragged and the selected frame's size, `canvas/new-screen.ts` adds a text frame
+(`addFrameOfText`), `chrome/Toolbar.tsx` has the tool and its menu, `chrome/designs.ts` converts (`setDesignKind`),
+`chrome/convert-to-frame.ts` says what a conversion drops and `chrome/ConvertToFrameDialog.tsx` asks, and
+`chrome/style-editor.ts` maps a frame's root size to its own.
+
+Tests:
+
+- `packages/editor/src/frames.test.ts` (13): names after the frames before, a drawn frame's size, place and id, the box
+  between two corners, snapping to the nearest edge in reach, the menu's sizes once each, resizing a hugging frame, a
+  text frame's padding, hug and name, following its text until renamed, fitting to the drawn width, a frame's size shown
+  and stored through its root, and counting and detaching a component's instances.
+- `packages/editor/src/new-screen.test.ts` and `drop-files.test.ts`: what lands on the empty canvas is a frame that hugs
+  it, and the drop hint says "New frame with the image".
+- `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts` (3): the dialog's lines for a component with states,
+  previews, params and instances, and none for a screen that drops nothing.
+- End to end (PAR-202), `apps/desktop/e2e/frames.e2e.ts`: F and a drag draws Frame 1, selected, with the move tool back,
+  as "Draw frame", which Undo takes out; A and a click makes 100 × 100; the menu resizes the selected frame to Mobile; T
+  and typing makes a frame named after the text that hugs it on one line; Component in the kind switch converts at once
+  and the toast's Undo makes it a frame; and Frame for Pricing asks, and Cancel leaves it a screen.
+  `e2e/dropping.e2e.ts`: an image and Badge dropped on the empty canvas make frames.
+
+Checked in the app on 2026-11-05, on a copy of the example started as the end-to-end suite starts it and driven over the
+DevTools protocol: F and a drag, A and a click, the menu's sizes, T and typing, Ctrl+V of a copied layer with nothing
+selected, the title menu's Convert to component and its toast's Undo, the kind switch both ways, and Pricing's dialog
+and Cancel. Each change undid as one step. The toolbar's names were read from its accessibility tree, F, A and Escape
+switched tools, and Enter opened the menu with its first size focused; a 900 × 800 window kept the toolbar and the size
+label in view.
+
+Gaps: a hugging frame's root is measured at its content's width, so text that wraps on purpose in a hugging frame
+doesn't; give it a width. Text edited in the inspector's Content field doesn't rename a text frame, only editing in
+place does. The end-to-end tests run only in CI.
 
 ## Keyboard
 

@@ -5072,6 +5072,37 @@ so selecting around a large design made each later change slower. My calls:
   does.
 - **A design is dragged among the designs of its group, in its own file.** The panel lists designs in their file's
   order, so dragging one moves it in the file. A design isn't moved to another file, which would change its key, or
-  between components and screens, which the panel lists apart.
+  between components, screens and frames, which the panel lists apart.
 - **The lock toggle waits for PAR-192,** which adds locking, and highlighting a layer selected inside an instance waits
   for PAR-92, which lists an instance's layers.
+
+## Frames are built in the app (PAR-545)
+
+PAR-545 builds the frames exploration you approved in PAR-540, on PAR-539's model. My calls, where the build differs
+from the stories or they left something open:
+
+- **A frame that hugs what's in it keeps its size in the file as drawn.** Text from the text tool, and anything that
+  lands on the empty canvas, goes in a frame whose root layout hugs its width. The file's `size` stays a number, since
+  bitmaps, agents' renders and exports need one, so the canvas measures the root at its content's width and writes that
+  width as the frame's size. Writing it isn't an undo step of its own: the size follows from the layers, undo puts back
+  the size they had, and the root is measured again. A width of its own, from the handles, the frame tool's sizes or the
+  inspector, stops it hugging.
+- **Whatever lands on the empty canvas makes a frame, text too.** Pasted layers, images, a component or a layout from
+  the insert picker or the Components panel, and now pasted text, which used to make a note. They're padded as before,
+  filled with the project's background, as a new frame is, and named after what's in them.
+- **The text tool makes a text frame, not a note.** T and a click in empty space makes "Text" in a frame with 2 steps of
+  padding, edited at once, and the frame takes the text's name as it's typed until it's renamed. Notes in a file still
+  show and edit as before; nothing makes a new one, since you dropped the Note tool in PAR-540.
+- **The empty canvas's start doesn't gain Draw a frame,** as PAR-545's issue asked, because PAR-560 dropped the start.
+  The frame tool's menu has New screen and New component instead, so every kind starts from one place.
+- **A frame's size is its root layout's size in the inspector.** Selecting a frame shows its root's layout, spacing,
+  size and fill straight after its name. The width and height rows show the frame's own size, and a fixed length there
+  resizes the frame, as the exploration's inspector does.
+- **Converting from a frame shows a toast with Undo; converting to one asks only when something would go.** A screen or
+  component that drops nothing, such as a screen made from a frame a moment ago, becomes a frame at once. Converting a
+  component also makes its instances in other designs plain layers, in the same step, as the dialog says.
+- **Layers lists Frames after Components and Screens, once there are any,** and its + picks the frame tool, since a
+  frame is drawn rather than made right of everything. The app's Layers keeps Components first, where the exploration
+  had Screens first.
+- **A frame's handles are its previews':** the right side, the bottom and the corner, resizing its own size. Its name
+  runs past a narrow frame rather than being cut off, since there's no board to fit.

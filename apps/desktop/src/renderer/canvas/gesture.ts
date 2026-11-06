@@ -76,7 +76,9 @@ export const gestures = {
    */
   titleDrag: { escape: "cancel", interrupted: "keep" },
   /** A box drawn on a frame's background selects as it goes. Escape and being cut short put back what was selected. */
-  boxSelect: { escape: "cancel", interrupted: "cancel" }
+  boxSelect: { escape: "cancel", interrupted: "cancel" },
+  /** A frame drawn with the frame tool is made when it's released. Escape and being cut short draw nothing. */
+  frameDraw: { escape: "cancel", interrupted: "cancel" }
 } as const satisfies Record<string, GesturePolicy>
 
 /** What a gesture needs of the store: an undo gesture, and a checkpoint of its design to take it back to. */

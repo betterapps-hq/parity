@@ -1,5 +1,6 @@
 import type { ContainerKind } from "@parity-app/core"
 import { selectedDesigns, selectedNodes } from "@parity-app/editor"
+import type { Tool } from "../selection.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {
@@ -103,7 +104,7 @@ const newDesign = (kind: ContainerKind) => {
   const session = activeSession()
   if (session) createDesign(session, kind)
 }
-const tool = (name: "select" | "hand" | "text" | "interact"): Action => ({
+const tool = (name: Tool): Action => ({
   run: () => activeSession()?.selection.setTool(name),
   available: hasSession
 })
@@ -111,6 +112,7 @@ const tool = (name: "select" | "hand" | "text" | "interact"): Action => ({
 export const actions: Record<Command, Action> = {
   select: tool("select"),
   hand: tool("hand"),
+  frame: tool("frame"),
   text: tool("text"),
   interact: tool("interact"),
 

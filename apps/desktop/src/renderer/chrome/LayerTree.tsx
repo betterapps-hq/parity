@@ -6,7 +6,15 @@ import {
   ContextMenuTrigger,
   ContextMenuShortcut
 } from "@buildkitgg/shadcn-baseui-kit"
-import { boardTarget, type DesignNode, editTargetName, locateNode, nodeOnBoard, toggleHidden } from "@parity-app/core"
+import {
+  boardTarget,
+  type ContainerKind,
+  type DesignNode,
+  editTargetName,
+  locateNode,
+  nodeOnBoard,
+  toggleHidden
+} from "@parity-app/core"
 import {
   activeState,
   closedTree,
@@ -75,8 +83,8 @@ const designMime = "application/x-parity-design"
 
 interface Group {
   title: string
-  kind: "component" | "screen"
-  command: "newComponent" | "newScreen"
+  kind: "component" | "screen" | "frame"
+  command: "newComponent" | "newScreen" | "frame"
   none: string
   entries: ContainerEntry[]
 }
@@ -140,7 +148,8 @@ export function LayerTree() {
 
   const groups = useMemo((): Group[] => {
     const components = entries.filter((entry) => entry.container.kind === "component")
-    const screens = entries.filter((entry) => entry.container.kind !== "component")
+    const screens = entries.filter((entry) => !entry.container.kind || entry.container.kind === "screen")
+    const frames = entries.filter((entry) => entry.container.kind === "frame")
     return [
       {
         title: "Components",
@@ -149,7 +158,11 @@ export function LayerTree() {
         none: "No components yet.",
         entries: components
       },
-      { title: "Screens", kind: "screen", command: "newScreen", none: "No screens yet.", entries: screens }
+      { title: "Screens", kind: "screen", command: "newScreen", none: "No screens yet.", entries: screens },
+      // Frames are listed once there are some; the frame tool draws them on the canvas.
+      ...(frames.length > 0
+        ? [{ title: "Frames", kind: "frame" as const, command: "frame" as const, none: "", entries: frames }]
+        : [])
     ]
   }, [entries])
   const { rows, lines } = useMemo(() => {
@@ -281,9 +294,9 @@ export function LayerTree() {
     const y = (event.clientY - rect.top) / rect.height
     if (event.dataTransfer.types.includes(designMime)) {
       const dragged = draggedDesign?.design
-      const component = (entry: ContainerEntry) => entry.container.kind === "component"
+      const group = (entry: ContainerEntry) => entry.container.kind ?? "screen"
       if (row.node || !dragged || dragged === row.design || dragged.path !== row.design.path) return undefined
-      if (component(dragged) !== component(row.design)) return undefined
+      if (group(dragged) !== group(row.design)) return undefined
       return y < 0.5 ? "before" : "after"
     }
     if (!event.dataTransfer.types.includes(layersMime)) return undefined
@@ -507,6 +520,12 @@ export function LayerTree() {
   )
 }
 
+/** The + for frames picks the frame tool, to draw one; the others make a design. */
+function addDesign(session: Session, kind: ContainerKind): void {
+  if (kind === "frame") session.selection.setTool("frame")
+  else createDesign(session, kind)
+}
+
 /** A group's heading: its title, how many it has, and a + that makes a new one. */
 function GroupHeading({ group }: { group: Group }) {
   const session = useProject()
@@ -519,7 +538,7 @@ function GroupHeading({ group }: { group: Group }) {
       <IconButton
         label={keymap[group.command].label}
         shortcut={keymap[group.command].keys[0]}
-        onClick={() => createDesign(session, group.kind)}
+        onClick={() => addDesign(session, group.kind)}
         className="size-6"
       >
         <Plus />
@@ -534,7 +553,7 @@ function EmptyGroup({ group }: { group: Group }) {
   return (
     <button
       type="button"
-      onClick={() => createDesign(session, group.kind)}
+      onClick={() => addDesign(session, group.kind)}
       className="group/empty mx-1.5 flex h-7 w-[calc(100%-0.75rem)] items-center gap-1 rounded-md px-1.5 text-left text-xs text-muted-foreground outline-none hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       {group.none}{" "}
