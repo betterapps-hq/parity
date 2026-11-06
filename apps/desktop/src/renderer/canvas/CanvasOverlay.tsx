@@ -8,17 +8,22 @@ import {
   frameSizeReset,
   layerResize,
   layerSizeReset,
+  layersResize,
+  type SpacingEdit,
   measuresNext,
   overlayDesigns,
   pasteHere,
   resizeStart,
   selectedNodes,
   settleUntil,
+  spacingHandles,
   textLayer,
   toggleLayer,
   withFrame
 } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
+import { gestures as held } from "../chrome/keymap.ts"
+import { holds } from "../chrome/keys.ts"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, subscribeFrames } from "../frame.ts"
 import { useEditing } from "../selection.ts"
@@ -48,6 +53,18 @@ import { hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
 import { formatPx, type Redline, RedlineView } from "./Redline.tsx"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { pressBackground } from "./select-box.ts"
+import {
+  measureSpacing,
+  pickSpacing,
+  pressSpacing,
+  type SpacingMeasure,
+  type SpacingTarget,
+  spacingValue,
+  stepSpacing,
+  typeSpacing,
+  lengthTokens
+} from "./spacing-edit.ts"
+import { spacingKey, SpacingHandles } from "./SpacingHandles.tsx"
 import { TextEditor } from "./TextEditor.tsx"
 
 interface Box {
@@ -68,6 +85,8 @@ interface Handles {
   mode: string
   state: string
   node?: string
+  /** Several layers resized together by handles on the box around them all (PAR-169). */
+  nodes?: string[]
 }
 
 /** Space inside a selected layout: its padding, and the gaps between its children. */
@@ -84,6 +103,8 @@ interface Model {
   handles: Handles[]
   drag?: DragView
   spacing?: Spacing[]
+  /** The selected layout's padding and gap handles (PAR-169). */
+  spacingHandles?: { target: SpacingTarget; measure: SpacingMeasure }
   /** Column grids over frames, from View > Layout grid. */
   columns?: { key: string; box: Box }[]
 }
@@ -103,6 +124,8 @@ export function CanvasOverlay() {
   const [model, setModel] = useState<Model>(empty)
   const pointer = useRef<{ point?: Point; alt: boolean; deep: boolean }>({ alt: false, deep: false })
   const editing = useEditing(session.selection)
+  // The padding or gap handle being dragged, and what it's come to.
+  const [spacingDrag, setSpacingDrag] = useState<{ key: string } & SpacingEdit>()
 
   // Pointer handling, ahead of tldraw.
   useEffect(() => {
@@ -112,7 +135,7 @@ export function CanvasOverlay() {
     const interactive = (target: EventTarget | null) =>
       target instanceof Element &&
       !!target.closest(
-        "button, input, textarea, [role=menuitem], [role=option], .design-title, .state-label, .text-editor, .resize-handle"
+        "button, input, textarea, [role=menuitem], [role=option], .design-title, .state-label, .text-editor, .resize-handle, .spacing-handle"
       )
 
     const onPointerDown = (event: PointerEvent) => {
@@ -438,6 +461,14 @@ export function CanvasOverlay() {
           )}
         </>
       )}
+      {!editing && model.spacingHandles && (
+        <SpacingHandlesFor
+          session={session}
+          spacing={model.spacingHandles}
+          dragging={spacingDrag}
+          onDrag={setSpacingDrag}
+        />
+      )}
       {!editing &&
         model.handles.map((handles) => (
           <ResizeHandles
@@ -447,11 +478,50 @@ export function CanvasOverlay() {
               const area = rootRef.current?.parentElement
               if (area) startResize(session, area, handles, edge, event)
             }}
-            onReset={(edge) => resetSize(session, handles, edge)}
+            onReset={(edge, fill) => resetSize(session, handles, edge, fill)}
           />
         ))}
       {editing && <TextEditor key={`${editing.design}/${editing.node}`} />}
     </div>
+  )
+}
+
+/** A selected layout's padding and gap handles, wired to the store through `spacing-edit.ts`. */
+function SpacingHandlesFor({
+  session,
+  spacing,
+  dragging,
+  onDrag
+}: {
+  session: ProjectSession
+  spacing: NonNullable<Model["spacingHandles"]>
+  dragging: ({ key: string } & SpacingEdit) | undefined
+  onDrag: (edit: ({ key: string } & SpacingEdit) | undefined) => void
+}) {
+  const { target, measure } = spacing
+  const tokens = session.tokens.get()
+  return (
+    <SpacingHandles
+      handles={spacingHandles(measure.layout)}
+      unit={spacingUnit(tokens)}
+      tokens={lengthTokens(tokens)}
+      valueOf={(handle) => spacingValue(session, target, handle, measure)}
+      dragging={dragging}
+      onPress={(handle, event, type) =>
+        pressSpacing(
+          session,
+          target,
+          handle,
+          measure,
+          event,
+          (edit) => onDrag(edit && { key: spacingKey(handle), ...edit }),
+          type
+        )
+      }
+      onType={(handle, text, keys) => typeSpacing(session, target, handle, measure, text, keys)}
+      onPick={(handle, value, keys) => pickSpacing(session, target, handle, measure, value, keys)}
+      onStep={(handle, count, keys) => stepSpacing(session, target, handle, measure, count, keys)}
+    />
   )
 }
 
@@ -543,6 +613,20 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const box = { x: left - areaRect.left, y: top - areaRect.top, w: right - left, h: bottom - top }
     const scale = editor.getZoomLevel() * frameScale(picked)
     model.outlines.push({ key: "union", box, color: kindColors.layer, dashed: false, thick: false })
+    // Resized together by handles on that box, unless one is inside an instance, which keeps the component's size.
+    if (selection.getTool() === "select" && !getDragView() && !layers.some(isInnerPath)) {
+      model.handles.push({
+        kind: "node",
+        key: "union",
+        box,
+        color: kindColors.layer,
+        edges: nodeEdges,
+        design: entry!.key,
+        mode: picked.dataset.mode ?? "",
+        state: picked.dataset.state ?? "",
+        nodes: layers
+      })
+    }
     model.label = {
       box,
       name: `${layers.length} layers`,
@@ -630,12 +714,25 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const element = findNodeElement(picked, single)
     // Inside an instance, the children's ids carry the same prefix as the layout's.
     const prefix = single.slice(0, single.lastIndexOf("/") + 1)
-    if (element)
-      model.spacing = layoutSpacing(
-        element,
-        layout.children.map((child) => findNodeElement(picked, `${prefix}${child.id}`)),
-        toBox
-      )
+    const children = layout.children.map((child) => findNodeElement(picked, `${prefix}${child.id}`))
+    if (element) model.spacing = layoutSpacing(element, children, toBox)
+    // Its padding and gaps take handles, except inside an instance, where they're the component's (PAR-169).
+    if (element && selection.getTool() === "select" && !isInnerPath(single)) {
+      model.spacingHandles = {
+        target: {
+          design: entry!.key,
+          mode: picked.dataset.mode ?? "",
+          state: picked.dataset.state ?? "",
+          node: single
+        },
+        measure: measureSpacing(element, children, (rect) => ({
+          left: rect.left - areaRect.left,
+          top: rect.top - areaRect.top,
+          right: rect.right - areaRect.left,
+          bottom: rect.bottom - areaRect.top
+        }))
+      }
+    }
   }
 
   if (getPreferences().layoutGrid) model.columns = layoutColumns(area, editor.getZoomLevel(), toBox)
@@ -820,6 +917,11 @@ function startResize(
     return
   }
 
+  if (handles.nodes) {
+    resizeLayers(session, area, handles, handles.nodes, edge, event)
+    return
+  }
+
   const layer = handles.node
   const element = layer ? findNodeElement(host, layer) : undefined
   const rect = layer ? nodeBox(host, layer) : undefined
@@ -854,6 +956,8 @@ function startResize(
       const { style, snapped } = resize({
         ...pointer(moveEvent),
         shift: moveEvent.shiftKey,
+        // From the middle, with the keymap's keys for it: Alt (PAR-169).
+        centre: holds(moveEvent, held.fromMiddle.keys),
         snaps: snapping?.snaps(moveEvent) ?? false
       })
       snapping?.show(snapped)
@@ -873,8 +977,94 @@ function startResize(
   })
 }
 
-/** Double-clicking a handle goes back to the default size on its axes. */
-function resetSize(session: ProjectSession, handles: Handles, edge: Edge): void {
+/**
+ * Several selected layers resized together by a handle on the box around them all (PAR-169), by `layersResize`: each
+ * from its own box, as the frame shows it, taking its share of the movement. They don't snap. Each move writes them all
+ * as one change, in the drag's one undo step.
+ */
+function resizeLayers(
+  session: ProjectSession,
+  area: HTMLElement,
+  handles: Handles,
+  layers: readonly string[],
+  edge: Edge,
+  event: ReactPointerEvent
+): void {
+  const { store, editor, tokens } = session
+  const entry = store.getEntry(handles.design)
+  const host = findFrames(area, handles.design, { mode: handles.mode, state: handles.state })[0]
+  const frame = store.editFrame(handles)
+  if (!entry || !editor || !host || !frame) return
+  const scale = editor.getZoomLevel() * frameScale(host)
+  const unit = spacingUnit(tokens.get())
+  const drawn = frameDrawn(area, handles.design, { mode: handles.mode, state: handles.state }, unit)
+  const starts = layers.flatMap((id) => {
+    const element = findNodeElement(host, id)
+    const rect = nodeBox(host, id)
+    const shown = resizeStart(entry.container, id, { state: frame.state, viewport: frame.viewport })
+    if (!element || !rect || !shown) return []
+    return [
+      {
+        id,
+        start: {
+          edge,
+          layer: shown,
+          rect,
+          inner: contentBox(element.parentElement, scale),
+          scale,
+          unit,
+          drawn: shown.style.position === "absolute" ? drawn.insets(id) : undefined
+        }
+      }
+    ]
+  })
+  if (starts.length === 0) return
+  const union = {
+    left: Math.min(...starts.map(({ start }) => start.rect.left)),
+    top: Math.min(...starts.map(({ start }) => start.rect.top)),
+    right: Math.max(...starts.map(({ start }) => start.rect.right)),
+    bottom: Math.max(...starts.map(({ start }) => start.rect.bottom))
+  }
+  const resize = layersResize(
+    starts.map(({ start }) => start),
+    union
+  )
+  const start = { clientX: event.clientX, clientY: event.clientY }
+  let last = ""
+  followPress(gestures.resize, store, start, {
+    design: entry.key,
+    cursor: resizeCursors[edge],
+    move(moveEvent, drag) {
+      const styles = resize({
+        dx: moveEvent.clientX - start.clientX,
+        dy: moveEvent.clientY - start.clientY,
+        shift: moveEvent.shiftKey,
+        centre: holds(moveEvent, held.fromMiddle.keys),
+        snaps: false
+      })
+      if (styles.every((style) => style === undefined)) return
+      const serialized = JSON.stringify(styles)
+      if (serialized === last) return
+      last = serialized
+      store.updateContainer(
+        entry.key,
+        "Resize layers",
+        (container) =>
+          starts.reduce((next, { id }, index) => {
+            const style = styles[index]
+            return style ? editNode(next, boardTarget(next, frame.state.id), id, { style }) : next
+          }, container),
+        { gesture: drag.gesture }
+      )
+    }
+  })
+}
+
+/**
+ * Double-clicking a handle: a frame goes back to its viewport's width or its content's height; a layer's size on the
+ * handle's axes hugs its content, or with Alt fills its parent (PAR-169), for every layer the handle is on.
+ */
+function resetSize(session: ProjectSession, handles: Handles, edge: Edge, fill = false): void {
   const { store } = session
   const entry = store.getEntry(handles.design)
   if (!entry) return
@@ -885,11 +1075,14 @@ function resetSize(session: ProjectSession, handles: Handles, edge: Edge): void 
     store.updateContainer(entry.key, "Reset preview size", (container) => withFrame(container, mode.viewport, next))
     return
   }
-  const layer = handles.node
+  const layers = handles.nodes ?? (handles.node ? [handles.node] : [])
   const frame = store.editFrame(handles)
-  if (!layer || !frame) return
-  store.updateContainer(frame.design, "Reset size", (container) =>
-    editNode(container, boardTarget(container, frame.state.id), layer, { style: layerSizeReset(edge) })
+  if (layers.length === 0 || !frame) return
+  store.updateContainer(frame.design, fill ? "Set to fill" : "Set to hug", (container) =>
+    layers.reduce((next, layer) => {
+      const shown = resizeStart(next, layer, { state: frame.state, viewport: frame.viewport })
+      return editNode(next, boardTarget(next, frame.state.id), layer, { style: layerSizeReset(edge, fill, shown) })
+    }, container)
   )
 }
 

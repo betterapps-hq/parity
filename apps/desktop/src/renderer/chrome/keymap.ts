@@ -79,6 +79,7 @@ export const keymap = {
   zoomToFit: { group: "View", label: "Zoom to fit", keys: ["Shift 1"] },
   zoomToSelection: { group: "View", label: "Zoom to selection", keys: ["Shift 2"] },
   panels: { group: "View", label: "Show or hide the panels", keys: ["Ctrl \\"] },
+  console: { group: "View", label: "Show or hide the console", keys: ["Ctrl `"] },
   showLayers: { group: "View", label: "Show Layers", keys: ["Alt 1"] },
   showComponents: { group: "View", label: "Show Components", keys: ["Alt 2"] },
   layoutGrid: { group: "View", label: "Layout grid", keys: ["Shift G"] },
@@ -102,12 +103,27 @@ export const keymap = {
 
 export type Command = keyof typeof keymap
 
-/** Keys held while dragging or clicking, which the shortcuts list shows beside the commands. */
-export const gestures: readonly { group: Group; label: string; keys: string; with: "drag" | "click" }[] = [
-  { group: "Tools", label: "Pan the canvas", keys: "Space", with: "drag" },
-  { group: "Tools", label: "Move or resize without snapping", keys: "Ctrl", with: "drag" },
-  { group: "Selection", label: "Select the deepest layer under the pointer", keys: "Ctrl", with: "click" }
-]
+/** Keys held while dragging or clicking. */
+export interface Gesture {
+  group: Group
+  label: string
+  keys: string
+  with: "drag" | "click" | "double-click"
+}
+
+/**
+ * Keys held while dragging or clicking, which the shortcuts list shows beside the commands. The canvas reads the
+ * modifiers it acts on from here, through `holds`, and its hints show them, so what's listed is what works.
+ */
+export const gestures = {
+  pan: { group: "Tools", label: "Pan the canvas", keys: "Space", with: "drag" },
+  freely: { group: "Tools", label: "Move or resize without snapping", keys: "Ctrl", with: "drag" },
+  fromMiddle: { group: "Tools", label: "Resize from the middle", keys: "Alt", with: "drag" },
+  fill: { group: "Tools", label: "Fill rather than hug", keys: "Alt", with: "double-click" },
+  oppositePadding: { group: "Tools", label: "Change the opposite padding too", keys: "Alt", with: "drag" },
+  everyPadding: { group: "Tools", label: "Change the padding on every side", keys: "Alt Shift", with: "drag" },
+  deepest: { group: "Selection", label: "Select the deepest layer under the pointer", keys: "Ctrl", with: "click" }
+} as const satisfies Record<string, Gesture>
 
 /** Whether a key event is one of a binding's shortcuts. */
 function isShortcut(event: KeyboardEvent, command: Command): boolean {

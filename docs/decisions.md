@@ -515,6 +515,34 @@ still need your call.
 - **Resize handles sit outside a layer along an axis where it's under 24 screen pixels** (PAR-193), so a press on a
   small layer drags it. My call: per axis, so a wide, short button keeps its side strips on its ends, as every wide
   layer does, and only its corners, top and bottom move out. Where handles go is `handleBoxes` in `@parity-app/editor`.
+- **A selected layout's padding and gaps are handles on the canvas** (PAR-169), approved in Storybook (Parity/Canvas/
+  Spacing handles) on 2026-11-05. My calls, several of them Andrew's in that review:
+  - The bars show whenever a single layout is selected, over its hatching, rather than only on hover as in Figma, so
+    padding of 0 can be dragged out of nothing. A side's press target starts 4px inside its edge, clear of the resize
+    strip there.
+  - Dragging a padding bar away from the content makes that padding bigger on every side, as an edge dragged out makes a
+    layer bigger. A gap grows as its bar goes right or down. Both go in whole steps of the spacing scale.
+  - Alt gives the opposite side the dragged side's value, and Alt+Shift every side, re-read at each move, so letting go
+    mid-drag puts the other sides back. A layout has one gap, so dragging any gap's bar changes every gap, and all of
+    them are shaded.
+  - Unlike Figma, a value bound to a length token stays bound while the drag lands on a length token's value: its own
+    token first, then the first listed with that value. Between tokens it's steps. A number stays a number, even on a
+    token's value. The label names the token, or the value's step of the scale (`20 spacing-5`).
+  - A click opens a box that reads what the inspector's fields read, through `readFieldInput`, with a switch between px
+    and rem (16 to the rem) and the inspector's list of tokens and the spacing scale, its bars drawn as the token
+    previews draw them. Figma's number fields take pixels only. No other unit: `%` is a share of the value there, not a
+    length to switch to.
+  - The modifiers are gestures in the keymap (`gestures` in `chrome/keymap.ts`), which the Keyboard shortcuts dialog
+    lists, the hints show with `Kbd`, and the handles read through `holds`, so what's shown is what works. The rules in
+    `@parity-app/editor` take what they mean (`{ opposite, every }`, `centre`, `fill`), not keys.
+- **A double-click on a layer's resize handle hugs, and Alt+double-click fills** (PAR-169), as in Figma. It used to take
+  the size away, which drew as hug for most layers but left the layout to decide. A size along the layout's direction
+  takes `grow` away, as a drag does. A frame's handles still go back to the viewport's width or the content's height.
+- **Several selected layers resize together, in proportion** (PAR-169): handles on the box around them, each layer
+  taking its share of the movement by its size across that box, so the box's edge follows the pointer. My call: each
+  keeps where its layout puts it, and they don't snap, as a single layer in a layout doesn't. Alt resizes a layer, or
+  several, from the middle: the opposite edge moves as far, an absolutely placed layer's inset moves back by half of
+  what it grows, and it neither fills nor snaps.
 - **Escape cancels a resize and a title drag** (PAR-193), as it already did a layer drag and a box. My call: a resize
   writes as it goes, one undo step since PAR-441, so Escape goes back to a checkpoint the store takes when the drag
   begins, restoring the design's file and taking the drag's own steps out of undo, rather than undoing however many
@@ -4993,6 +5021,34 @@ own Code tab, before Accessibility, and asked for real syntax highlighting. My c
   component is written in, and `Measure`, the layout snapshot, gives each node's `source`, the element it draws
   outermost. Listing every element inside every instance would make `Measure` much longer for little more: the node's
   line leads to its file, which has the rest.
+
+## The designs' console reads main's log, by the design that wrote each message (PAR-147)
+
+Called on 2026-11-05. PAR-147 asked for errors and warnings with a count in the status bar and by design in a panel,
+during interaction and after offscreen renders, from the same log as `parity console`. You saw the design in Storybook
+and didn't object. My calls:
+
+- **Main's log is the one log.** Main already kept what every window's projects write, for agents. It now gives each
+  message an id and sends what's new or counted again to the editor windows, batched 100 ms after the first, and Clear
+  empties it there, so the panel and `parity console` never disagree.
+- **Offscreen, the job names its design.** A render job carries the design, state and mode it draws, and a message the
+  window writes while it draws is that design's. No stored name has the field, so bitmaps and previews keep theirs.
+- **On the canvas, the window announces the frame.** Frames share one window, so main can't tell them apart. While a
+  frame handles a person's event, and through the rest of that task, the window wraps the console so each call first
+  sends main the frame's design, state and mode, then writes the message. Main gives the announcement to the next
+  message of that level from the window, within a second. The announcement is sent before the message is written, and
+  `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the window's
+  developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is left in
+  place.
+- **What isn't known stays unknown.** What a frame writes on its own, after a timer or a fetch, or as it first draws on
+  the canvas, is the project's rather than a guess at a design. Its offscreen draw usually writes the same message as
+  the design's.
+- **A message is one row however many frames wrote it.** Main counts repeats per frame, and the panel merges a design's
+  same message across frames, with each frame as a chip.
+- **The place is the project's line.** A message's own line when it's in the project's files, else its stack's first
+  call that is, since React's warnings come from react-dom and name the component in their stack.
+- **Agents get the design too:** each console entry has its design's key, state and mode when known, and their frames
+  name their state.
 
 ## `prefers-color-scheme` blocks are themes, drawn for each frame's mode (PAR-138)
 

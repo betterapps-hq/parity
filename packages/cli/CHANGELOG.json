@@ -2,6 +2,33 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 04:25:16 GMT",
+      "version": "0.9.0",
+      "tag": "@parity-app/cli_v0.9.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1d801bd75e329d9604bca709aa2d64b51479ea35",
+            "comment": "In development, each element a project's JSX writes carries its file, line and column: the inspector's Code tab shows and opens it, parity components gives each component's file, and Measure each node's source"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "fc153e9e6e503532d87e7d5db94c188bef297b81",
+            "comment": "Drag a layout's padding and gaps on the canvas, type or pick a value, resize several layers together or from the middle, and double-click an edge to hug or fill"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "196195c1362bf79c7625f83e6f8734e7f6a203e4",
+            "comment": "Errors and warnings from the designs show with a count in the status bar, on each board and by design in a Console panel"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 03:55:41 GMT",
       "version": "0.8.0",
       "tag": "@parity-app/cli_v0.8.0",

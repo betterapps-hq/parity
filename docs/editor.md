@@ -697,6 +697,71 @@ transform tags. Gaps: reading the attribute in the offscreen page (`renderer/ren
 Measure and render-result tests pass a source through, and the canvas's reading of the same attribute is covered by the
 stories.
 
+### The designs' console (PAR-147)
+
+What the project's code writes to the console shows in the editor as it's written, from the same log `parity console`
+gives agents. The status bar counts the errors and warnings, and clicking the count opens the Console panel under the
+canvas, as View > Console and Ctrl+` do. A board whose design wrote errors or warnings shows its own count beside its
+name, and clicking that opens the console on the design's messages alone.
+
+The panel groups messages by the design that wrote them, in the order each design first wrote one, with the messages no
+design is known for last, under Project. Each group's name selects the design. A message shows its level, its text cut
+to two lines, how often it came, the frames it came from (a state in a mode, the first two and how many more), the file
+and line in the project it was written at, which opens in the person's editor, and how long ago. An error with a stack
+opens to show it, with the project's files from the root and a library's by its file's name. The header filters by
+level, each with its count, by design and by words, and Clear empties the log for agents too. The panel's height is
+dragged at its top edge and kept with the layout.
+
+- **One log:** main keeps the last 500 messages from every window, as it did for `parity console`, now with an id each.
+  It sends what's new or counted again to the editor windows in batches, 100 ms after the first, so a component logging
+  in a loop doesn't flood them. Each window routes a message to the open project whose builder served the code that
+  wrote it, and reads what's there already when a project opens.
+- **One message, several frames:** main counts a repeat on the last message only when it's from the same frame. The
+  panel shows a message one design wrote in several frames once, with each frame and every time it came.
+- **Which design wrote it, offscreen:** each render job names the design, state and mode it draws, and a message the
+  offscreen window writes while it draws one is that design's. Component previews name none. No stored name has it, so
+  bitmaps and previews keep their names.
+- **Which design wrote it, on the canvas:** frames share the window, so main can't tell. While a frame handles a
+  person's event (a click, a key, a pointer moving over it, input), and in what that event's task runs, as the render it
+  causes, the window says which frame each console call comes from just before it's written. Main keeps the word for the
+  next message of that level from the window, for a second at most. Outside those tasks the console is untouched, so the
+  window's developer tools still point at the lines that wrote each message. What a frame writes as it first draws on
+  the canvas, or later on its own, is the project's, unless its offscreen draw wrote it too.
+- **Where it was written:** the message's own line when that's in the project's files, or else the first call in its
+  stack that is, as React's warnings name the component in their stack. Vite's own modules and installed packages are
+  never a place.
+- **For agents:** each entry `parity console` and `get_console` give has the design's key, state and mode when known,
+  and the text says `from design pricing (yearly, desktop-light)`. Agents' frames name the state they draw.
+
+Code: `createConsoleLog`, `announcedContexts`, `recordConsole` and `batchedChanges` in
+`apps/desktop/src/main/console-log.ts`, wired in `main/index.ts` with `canvas:console-*` in `shared/channels.ts`,
+checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and `window.canvasHost.console` in the
+preload script; the job's `design` in `shared/render-job.ts` and `shared/protocol.ts`; `captureConsole` and
+`frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`, `projectPlace`, `routeConsoleChange`, `tally`
+and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in `renderer/console-feed.ts`; the panel in
+`chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's in `canvas/ConsoleBadge.tsx`; the
+layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry` and `FrameRequest.state` in
+`packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
+
+Tests: `apps/desktop/src/main/console-log.test.ts` (7: an id each and a repeat in the same frame counted, another
+frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
+cleared, with listeners told; an announcement held for the next message of its level alone, briefly; changes batched,
+each once as it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message
+for several frames with each frame and every time; the place from the stack when a library wrote it, with the stack
+apart and short; counts by message, of one design or all; a project file's place without Vite's query; none for a
+library's, Vite's or another server's; each project given its builder's messages and cleared with it).
+`renderer/canvas/console-capture.test.ts` (3: the frame from an event's path; an announcement before each message while
+a frame handles an event and none after its task; the console left alone outside frames, and a wrapper added since
+kept). `shared/render-job.test.ts` (the job's design passes the service's check, and no name has it),
+`shared/ipc-checks.test.ts` (an announcement and a builder's address checked), `chrome/layout.test.ts` (the console's
+open state and height kept, and their defaults), `packages/agent/src/run.test.ts` (each frame names its design and
+state) and `packages/cli/src/client.test.ts` (the design, state and mode in the text).
+`chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign, WarningsOnly and NothingLogged, fed main's
+entries through the same mapping. In the running app, `e2e/console.e2e.ts` clicks Ada's row on the Members screen in
+Interact, which warns, and finds the warning counted on Members' board and listed under Members in the panel, which
+covers the window's announcement reaching main ahead of Electron's `console-message` event. Gaps: no end-to-end test
+draws a design offscreen that writes to the console.
+
 ## Moving, reordering and resizing
 
 Dragging layers and designs, where they land, resize handles and duplicates.
@@ -837,8 +902,8 @@ design has them on its frames' right and bottom.
 - **A frame** takes a width and a height in whole pixels for its viewport, at least 160 by 80. Within 6 screen pixels of
   its viewport's width the width is left unset, so it follows the viewport again; a frame that hugged its content when
   the drag began goes back to hugging it the same way, and one with a height of its own keeps one.
-- **A double-click** on a handle goes back to the default size on its axes: a layer's size is taken away, and a frame
-  goes back to its viewport's width or its content's height.
+- **A double-click** on a handle makes a layer's size on its axes hug its content, and Alt+double-click makes it fill
+  its parent (PAR-169, below); a frame goes back to its viewport's width or its content's height.
 - **The hint** ("Drag to resize") closes when a handle is pressed and stays closed through the drag and after it, until
   the pointer next rests on a handle.
 - **Small layers keep their middle** (PAR-193). Along an axis where a layer is under 24 screen pixels, its handles sit
@@ -912,6 +977,95 @@ which goes through the same `followPress`. A resize writes as the pointer moves,
 pauses (PAR-441, see "One undo step per gesture"). Checked in the app on 2026-10-30, in a copy on its own ports: the
 handles above and below New project at 50%, the arrows over the design 90px below the handle, and Escape leaving the
 button as it was.
+
+### Padding, gaps and several layers on the canvas (PAR-169)
+
+A selected layout's padding and gaps are handles, as in Figma: a short pink bar in the middle of each side's padding and
+of each gap between its children, drawn over the hatching. Resize handles also take several layers at once, resize from
+the middle with Alt, and hug or fill on a double-click. Decisions.md has the calls.
+
+- **Where the bars are.** Each side has one, even at padding 0, so padding can be dragged out of nothing. A side's press
+  target runs from 4px inside the layout's edge, clear of the resize strip there, to the padding's inside, at least 8px
+  deep and 24px along. A gap has one between each two children drawn in a single line, in a flex layout that doesn't
+  wrap; a grid or a wrap has gaps in two directions and no gap bars yet. A side or a gap shorter than 24px has none.
+  Inside an instance, a layout's padding and gaps are the component's, so they have no bars.
+- **Dragging.** Pressing a bar shades its space; hovering shows its value beside it, as pixels and a token: the length
+  token it's bound to, or else its step of the spacing scale (`20 spacing-5`). Padding grows as its bar goes outwards,
+  away from the content, on every side; a gap grows as its bar goes right in a row or down in a column. The value goes
+  in whole steps from what's drawn, never below 0, and nothing changes until the pointer has gone 4px towards or away
+  from the space. On the Dashboard's Content, padding `[8, 8]`, the left bar dragged 16px left makes `[8, 8, 8, 12]`. It
+  writes as the pointer moves, as one undo step (Change padding or Change gap), and Escape takes it back, as a resize
+  does (`gestures.resize`).
+- **Alt and Alt+Shift.** Alt gives the opposite side the dragged side's value, and Alt+Shift every side, both read at
+  each move, so letting go mid-drag puts the other sides back. Every side that changes is shaded. A layout has one gap,
+  so a gap's bar changes them all, and while one is hovered or dragged every gap is shaded.
+- **Tokens stay bound.** A side or a gap bound to a length token stays bound while the drag lands on a length token's
+  value, its own first; between tokens it's steps. A number stays a number, even on a token's value.
+- **Typing.** A click on a bar, or Enter on a focused one, opens a box beside it with the value, or the token's name
+  when it's bound, selected. It reads what the inspector's length fields read (`20`, `1.5rem`, `+8`, a token's name),
+  shows `px` after a plain number, which switches to rem (16 to the rem, so 16 becomes 1), and has the inspector's list
+  of the project's length tokens and the spacing scale beside it, each with a bar drawn as the token previews draw
+  spacing, in that unit. Enter or leaving it makes the change; Escape closes it; something it can't read stays with the
+  reason under it, as the fields' do. The sides it changes are those held at the click.
+- **The keyboard and assistive technology.** Each bar is a slider named after its side (Top padding, Gap 1), with its
+  value and token as its text. Tab reaches it; Up or Right steps it one step, Down or Left back, Shift ten, Alt and
+  Alt+Shift as for a drag; each press is its own undo step. The canvas's own arrow keys don't nudge meanwhile.
+- **The hints and the keymap.** A bar's hint says "Drag, or click to type", and a padding bar's lists Alt for both sides
+  and Alt+Shift for all sides, as `Kbd`. A layer's resize hint lists Alt for from the middle and says double-click to
+  hug, Alt+double-click to fill. These keys are the keymap's gestures, which Keyboard shortcuts lists under Tools, and
+  the handles read the same entries, so what's listed is what works.
+- **Several layers.** Two or more selected layers have one set of resize handles, on the box around them all. Each layer
+  takes its share of the movement, its size across that box's, so they grow in proportion and the box's edge follows the
+  pointer; each keeps where its layout puts it, and they don't snap. All of them start once the pointer has gone 4px.
+  Two of the Dashboard's stat cards, 228px each, dragged 40px narrower from their right edge, are 52 steps wide each.
+  One undo step (Resize layers). A selection holding a layer inside an instance has no handles.
+- **From the middle.** Alt while resizing moves the opposite edge as far, so a layer in a layout grows by twice the
+  pointer's movement and doesn't fill; an absolutely placed layer's inset moves back by half of what it grows, both
+  insets of a layer stretched between them. It doesn't snap.
+- **Hug and fill.** A double-click on a layer's handle makes its size on the handle's axes hug, Alt+double-click fill,
+  for every layer the handle is on, one undo step (Set to hug or Set to fill). Along the layout's direction it takes
+  `grow` away.
+
+Code: the rules are in `@parity-app/editor`. `packages/editor/src/spacing-handles.ts`: `spacingHandles` says where the
+bars go from a layout's measured boxes, `spacingDrag` follows a drag, `spacingStep` a key, `typedSpacing` and
+`pickedSpacing` a typed or picked value, `changedSides` the sides held, and `spacingScaleName` and `spacingName` what a
+label and a slider say. `packages/editor/src/move-resize.ts`: `resizeGesture` and `resizeInsets` take `centre`,
+`layersResize` follows several layers, and `layerSizeReset` hugs or fills. In the app, `canvas/SpacingHandles.tsx` draws
+the bars, their shading, labels and sliders and the box a value is typed in, with `sidesHeld` reading the keys;
+`canvas/spacing-edit.ts` measures a layout (`measureSpacing`), lists its length tokens (`lengthTokens`) and writes each
+edit in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them for a single
+selected layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys are
+`gestures` in `chrome/keymap.ts`, read through `holds` in `chrome/keys.ts`, and shown by `canvas/KeyHints.tsx`.
+
+Tests:
+
+- `packages/editor/src/spacing-handles.test.ts` (25): a handle on each side and gap; a padding's bar centred, its press
+  target clear of the resize strip; a handle on padding of 0; a gap's bar between children, at least 8px across;
+  children drawn in reverse; gaps in a column; no gap handles in a grid or wrap, and none on a side too short; inside a
+  border. The sides changed. Dragging: padding growing outwards on each side and shrinking inwards, a gap in a row and a
+  column, the 4px start, whole steps at 50% and never below 0, the opposite side and every side and letting go, a token
+  kept bound on a token's value with its own first, a number kept a number, an unset side from 0. Steps from a half step
+  and with a token. Typing pixels, rem, maths and a token, the sides held, an empty box and one it can't read. Picking a
+  token or a step. A label's token or step, and a slider's name.
+- `packages/editor/src/move-resize.test.ts` (9 more): a double-click hugging, filling with Alt, and taking `grow` away
+  along the layout's direction only; from the middle, twice the movement either way, no fill, and an absolutely placed
+  layer's insets from the near side, both sides and the far side; several layers in proportion, starting together at 4px
+  though each one's share is less, and from the middle.
+- `canvas/SpacingHandles.stories.tsx` (Parity/Canvas/Spacing handles): PaddingAndGap, BoundToTokens, NoPadding and
+  SeveralLayers, running the rules and `followPress` on a stand-in layout with the style each change writes beside it.
+- `canvas/ResizeHandles.test.ts`, in Chrome: a double-click still reaching the handle's reset.
+
+Gaps: there's no end-to-end test yet; `moving.e2e.ts` would take the drags above. Checked in the app on 2026-11-05, on a
+copy of the example on its own ports, with the pointer and keyboard over the DevTools protocol: on Content at 100%, the
+left bar 16px out to `[8, 8, 8, 12]` (Change padding), the top bar 8px out with Alt to `[10, 8]`, Escape mid-drag
+leaving nothing to undo, a click on a gap opening the box at 24 with focus, 40 typed making 10 steps (Change gap), Up
+and Shift+Up making 17 with Main's children left in order, Escape in the box closing it with Content still selected, the
+sliders' names and values; Header actions' right edge double-clicked to hug and Alt+double-clicked to fill, and dragged
+16px with Alt to 62 steps; two stat cards to 52 steps each; the hints, with `Kbd`; and Keyboard shortcuts listing the
+padding keys. The same run at 50% gave twice the steps for the same movement. A run of key presses isn't one undo step,
+as the inspector's are (PAR-441). Gap bars in a grid or a wrap, with column and row gaps, aren't done. A token whose
+length can't be worked out on Parity's page, one built on a variable other than `--spacing`, isn't listed and can't be
+stayed on.
 
 ### Empty layouts (PAR-193)
 
