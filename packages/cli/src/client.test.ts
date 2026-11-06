@@ -95,6 +95,24 @@ describe("describeComponents", () => {
     )
   })
 
+  it("lists the project's own by the file each is written in", () => {
+    const text = describeComponents({
+      components: ["Card", "Button", "CardTitle", "Promo", "ui/Badge"],
+      files: { Button: "src/ui/button.tsx", Card: "src/ui/card.tsx", CardTitle: "src/ui/card.tsx" }
+    })
+    expect(text).toBe(
+      [
+        "The project's own, by file:",
+        "  src/ui/button.tsx: Button",
+        "  src/ui/card.tsx: Card, CardTitle",
+        "  file not known yet: Promo",
+        "",
+        "ui, as ui/Name:",
+        "  Badge"
+      ].join("\n")
+    )
+  })
+
   it("says which components fail to draw and why, and what was corrected by hand", () => {
     const text = describeComponents({
       components: ["PromoGate", "PromoPrice"],

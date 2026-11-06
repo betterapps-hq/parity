@@ -4829,3 +4829,28 @@ less a few fields, so a field added to the job joined them unasked. My calls:
   arithmetic.
 - **Pure tests replace two disk-backed ones.** That a bitmap is found from a guest given a component, and that a light
   and a dark preview are kept apart, are now tests of the names; the stores' tests keep what needs the disk.
+
+## Each element's source line, in a Code tab and for agents (PAR-167)
+
+Called on 2026-11-05, with your approval in Storybook. PAR-167 asked for a development-only transform that tags each JSX
+element with its file, line and column, shown and opened from the Code section, with agents getting the same in
+`parity components` and snapshots, and nothing in production builds. You moved the code out of the Design tab into its
+own Code tab, before Accessibility, and asked for real syntax highlighting. My calls:
+
+- **Only lowercase elements are tagged,** `<button>`, `<div>`, as the page gets them. A component's own element,
+  `<Button>`, passes props on, so tagging it would give the element it draws its caller's line in place of its own.
+- **The tag is an attribute, `data-parity-source`,** with `path:line:column` from the project root, added before the
+  framework plugin compiles the file, with a source map. An attribute is read from the DOM by the canvas, the offscreen
+  page and the e2e tests alike, whatever the framework. Installed packages, virtual modules and the production build get
+  none.
+- **A Code tab of its own,** between Modes and Accessibility: the component and its file, the elements it draws with
+  their lines, and the picked one's lines. Highlighting is Shiki, through the kit's `CodeBlock` and
+  `useHighlightedCode`, not a highlighter of Parity's.
+- **Inspect picks by boxes,** since frames don't take the pointer outside Interact: the innermost written element under
+  the pointer, with a library's element inside it counted as the project's.
+- **The source shown is the file on disk,** read by the service's `code.read`, which refuses paths outside the project
+  and files over 1 MB, so unsaved editor changes don't show until saved.
+- **Agents get files and node sources rather than every element.** `parity components` gives the file each project
+  component is written in, and `Measure`, the layout snapshot, gives each node's `source`, the element it draws
+  outermost. Listing every element inside every instance would make `Measure` much longer for little more: the node's
+  line leads to its file, which has the rest.

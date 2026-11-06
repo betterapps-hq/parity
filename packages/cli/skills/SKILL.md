@@ -45,9 +45,10 @@ project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the 
 | `read_skill`          | `parity skill [file]`        | This skill.                                                                                                                                                                         |
 
 The token, component and prop tools read what designs can use without writing a snippet in either transport.
-`parity components` also says which of the app's exports aren't components and why, which components fail to draw on the
-canvas and why (often a missing provider, which a decorator adds), and what the person listed or took off the list by
-hand.
+`parity components` also says which file each of the project's own components is written in, which of the app's exports
+aren't components and why, which components fail to draw on the canvas and why (often a missing provider, which a
+decorator adds), and what the person listed or took off the list by hand. `Measure` gives the file and line that writes
+each node's element.
 
 CLI commands and MCP tools share validation and defaults. Screenshot scale defaults to 1 and accepts 0.25 to 3. Audits
 check every state and shown mode unless narrowed; a single-element selector list is equivalent to a string. Screenshot

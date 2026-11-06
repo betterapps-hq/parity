@@ -1,7 +1,14 @@
 // The offscreen render window's page. The main process asks it to draw one frame, measures it, and captures it, so
 // agents can lay out and screenshot any state in any mode without touching the person's canvas.
 import type { AccessibilityIssue, ContrastDetail, ContrastReading, FrameContrast } from "@parity-app/agent"
-import { finiteNumber, guestChanges, type RenderNode, renderedComponents } from "@parity-app/core"
+import {
+  elementSourceAttribute,
+  finiteNumber,
+  guestChanges,
+  parseElementSource,
+  type RenderNode,
+  renderedComponents
+} from "@parity-app/core"
 import { frameAttributes } from "@parity-app/tokens"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
 import { z } from "zod"
@@ -121,6 +128,9 @@ window.canvasRender = async (job) => {
       const measured: MeasuredNode = { id, ...inFrame(rect) }
       const parent = nodeParent(host, id)
       if (parent) measured.parent = parent
+      // Where the project's code writes the node's own element, for agents (PAR-167).
+      const written = element.getAttribute(elementSourceAttribute)
+      if (written && parseElementSource(written)) measured.source = written
       const clip = clipper(element, rect, body)
       if (clip) {
         const by = nodeOfElement(host, clip)

@@ -253,6 +253,11 @@ export interface MeasuredNode extends FrameBox {
   clipped?: boolean
   /** The nearest ancestor that clips and cuts part of the node off: its box, and the node it belongs to, if any. */
   clip?: FrameBox & { node?: string }
+  /**
+   * Where the project's code writes the element the node draws outermost, as `src/components/ui/button.tsx:44:5`, from
+   * the development guest (PAR-167). None for Parity's own layers, libraries' elements and production builds.
+   */
+  source?: string
 }
 
 /** How far a box reaches past each edge of the one around it, in CSS pixels. Edges it stays inside are left out. */

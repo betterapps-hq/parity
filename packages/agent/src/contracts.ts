@@ -561,6 +561,8 @@ const tokenInfo = z.looseObject({
 
 const componentsReply = z.looseObject({
   components: strings,
+  /** The file each of the project's own components is written in, from the project root, by component (PAR-167). */
+  files: z.record(z.string(), z.string()).optional(),
   iconLibraries: strings.optional(),
   /** The app's capitalised exports the type checker left out, with why. */
   leftOut: z

@@ -453,11 +453,13 @@ export function describeTokens({ tokens, total, truncated }: TokensResponse): st
 }
 
 /**
- * The project's own components, then each library's, then the icon libraries, then the exports left out and why, the
- * components failing to draw and why, and what the person corrected by hand.
+ * The project's own components, by the file each is written in when that's known, then each library's, then the icon
+ * libraries, then the exports left out and why, the components failing to draw and why, and what the person corrected
+ * by hand.
  */
 export function describeComponents({
   components,
+  files = {},
   iconLibraries = [],
   leftOut = [],
   drawn = 0,
@@ -472,7 +474,8 @@ export function describeComponents({
   }
   const lines: string[] = []
   for (const [group, names] of [...groups].sort(([a], [b]) => first("", a, b))) {
-    lines.push(group ? `${group}, as ${group}/Name:` : "The project's own:", `  ${names.join(", ")}`, "")
+    if (group) lines.push(`${group}, as ${group}/Name:`, `  ${names.join(", ")}`, "")
+    else lines.push(...ownComponents(names, files), "")
   }
   if (iconLibraries.length > 0) {
     lines.push(`Icons: ${iconLibraries.map((library) => `${library}, as ${library}/Name`).join("; ")}`, "")
@@ -496,6 +499,23 @@ export function describeComponents({
     for (const ref of include) lines.push(`  listed: ${name(ref)}, in ${ref.path}`)
   }
   return lines.join("\n").trimEnd()
+}
+
+/** The project's own components, under the file each is written in when the app says, files in order (PAR-167). */
+function ownComponents(names: string[], files: Record<string, string>): string[] {
+  const byFile = new Map<string, string[]>()
+  const unplaced: string[] = []
+  for (const name of names) {
+    const file = files[name]
+    if (file) byFile.set(file, [...(byFile.get(file) ?? []), name])
+    else unplaced.push(name)
+  }
+  if (byFile.size === 0) return ["The project's own:", `  ${names.join(", ")}`]
+  return [
+    "The project's own, by file:",
+    ...[...byFile].sort(([a], [b]) => a.localeCompare(b)).map(([file, inFile]) => `  ${file}: ${inFile.join(", ")}`),
+    ...(unplaced.length > 0 ? [`  file not known yet: ${unplaced.join(", ")}`] : [])
+  ]
 }
 
 /** A component's props, with each variant's options and default, then what it needs around it and holds. */
