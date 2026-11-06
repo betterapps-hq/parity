@@ -1,6 +1,6 @@
 {
   "type": "minor",
-  "comment": "Keep a size or inset off the spacing scale, flagged with the nearest step one click away, and nudge layers by 1px",
+  "comment": "Send errors, crashes and hangs from every process to Sentry, on by default",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

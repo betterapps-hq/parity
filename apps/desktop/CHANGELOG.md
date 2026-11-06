@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 08:51:09 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 10:01:34 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.20.0
+
+Fri, 06 Nov 2026 10:01:34 GMT
+
+### Minor changes
+
+- Keep a size or inset off the spacing scale, flagged with the nearest step one click away, and nudge layers by 1px
+  (ajcraswell@gmail.com)
 
 ## 0.19.0
 

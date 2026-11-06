@@ -7,6 +7,7 @@ import type { ComponentInfo, ComponentSource } from "@parity-app/core"
 import { findLockfiles } from "@parity-app/project"
 import { environment } from "./environment.ts"
 import type { CheckerMethods } from "./props-worker.ts"
+import { reportWorkerError } from "./telemetry.ts"
 import { type WorkerClient, workerClient } from "./worker-client.ts"
 
 const workerUrl = new URL("./props-worker.mjs", import.meta.url)
@@ -120,10 +121,12 @@ export const checker = typeChecker(
     start: () =>
       new Worker(workerUrl, { resourceLimits: { maxOldGenerationSizeMb: Math.round(totalmem() / 2 ** 20 / 2) } }),
     idleMs: checkerIdleMs,
-    failed: (error: Error & { code?: string }) =>
-      error.code === "ERR_WORKER_OUT_OF_MEMORY"
+    failed: (error: Error & { code?: string }) => {
+      reportWorkerError(error)
+      return error.code === "ERR_WORKER_OUT_OF_MEMORY"
         ? new Error("The type checker ran out of memory. Components are as the parse found them.", { cause: error })
-        : error,
+        : error
+    },
     stopped: () =>
       console.log(
         `[service] the type checker stopped after ${checkerIdleMs / 1000}s with nothing to do, freeing its memory`

@@ -4640,6 +4640,31 @@ PAR-666). Closing PAR-663 resolved its Sentry issue, resolving that closed PAR-6
 release reopened it without a second bug. PAR-620's own check in a development build filed its errors too (PAR-659 to
 PAR-661 and PAR-665), along with a real one it hit (PAR-662).
 
+## Errors, crashes and hangs go to Sentry from every process (PAR-620)
+
+`@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to
+`parity-desktop`. My calls:
+
+- **Main decides what leaves the computer.** Windows and the service always start Sentry and send through main, whose
+  client is off when `PARITY_TELEMETRY=off` or `DO_NOT_TRACK=1` is set, or under Vitest. The decision is
+  `telemetryLevel` and `telemetryEnvironment` in `@parity-app/telemetry`, so the CLI can share it (PAR-642). A
+  `PARITY_TELEMETRY` value that isn't `all`, `errors` or `off` stops the app, rather than sending what someone meant to
+  turn off. The Telemetry setting is PAR-626.
+- **Environments:** `ci` wherever `CI` is set, `tester` for an installed build, and `development` otherwise.
+- **The `process` tag uses the telemetry envelope's names** (`main`, `renderer`, `render`, `service`, `worker`,
+  `builder`), set on each event. Sentry copies a window's scope into main's, so a scope tag would have labelled main's
+  own errors as the window's.
+- **Windows report only errors thrown from Parity's own pages** (`allowUrls` is the page's origin). A project's
+  components run in the same page, and their errors are the project's to show, not Parity's bugs.
+- **React errors go through the root's `onUncaughtError` and `onCaughtError`,** with their component stack. Boundaries
+  around the canvas, panels and dialogs need a fallback UI designed first, so they're PAR-667.
+- **Main's hangs are measured by a late timer, not Sentry's native hang detection,** which needs a module built for
+  Electron's ABI that the build doesn't ship. It reports how long main was stuck, though not where; PAR-631 can bring in
+  the native module. Windows' hangs come from their `unresponsive` and `responsive` events.
+- **Exits:** a window or child process that exits abnormally, fails to launch or runs out of memory is reported, along
+  with crashes' minidumps. The service's restarts are breadcrumbs. A builder that stops by itself is reported with its
+  last 50 lines of output, and the props worker's failures from the service.
+
 ## The rest of signing in is designed (PAR-614)
 
 You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
@@ -5288,3 +5313,20 @@ real apps and engineers already write `w-[280px]`. This loosens the tokens-only 
   style guide, which allows px in design content where space is short.
 - **Nudging moves 1px, or 10px with Shift,** as Figma's does, which CAN-39 waited on. The field's Up and Down still move
   a step, so they're the way back onto the scale; a length off it goes to the step beside it.
+
+## docs/telemetry.md lists the events from their schemas (PAR-623)
+
+[telemetry.md](telemetry.md) says what Parity sends Sentry and lists every event, as principle 9 of
+[proposals/product-telemetry.md](proposals/product-telemetry.md) asks. My calls:
+
+- **An event says which processes send it and when,** as `sentBy` and `when` in `defineEvent`, and each attribute says
+  what it means with zod's `.describe()`. All three are required: the catalog throws when one is missing, so an event
+  can't reach the page half described.
+- **`registeredEvents` in `packages/telemetry/src/registry.ts` is the one list,** the page's source. Each process still
+  passes `createTelemetry` only the events it sends.
+- **Only the Events section is generated,** between two comments; the prose around it is written by hand. Types are
+  written as TypeScript writes them, from zod's JSON Schema of what `track()` takes, and a nested object's fields are
+  listed by their dotted path.
+- **Regenerating is `pnpm exec vp test run packages/telemetry -u`,** through Vitest's file snapshots, as the fixtures'
+  `expected.json` files are, so no script was added. The test that fails says so.
+- **The tables are padded as `vp fmt` writes them,** so formatting the page on commit leaves the generated part alone.
