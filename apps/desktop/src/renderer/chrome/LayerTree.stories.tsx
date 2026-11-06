@@ -1,5 +1,5 @@
-import { addVariant, editNode } from "@parity-app/core"
-import { designsSelection, layersSelection } from "@parity-app/editor"
+import { addVariant, type ContainerSpec, type DesignNode, editNode } from "@parity-app/core"
+import { designsSelection, layersSelection, newDesign } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { design, example, findTooltip, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
@@ -77,6 +77,16 @@ function dragOver(target: HTMLElement, designName: string, layerNames: string[],
   )
 }
 
+/**
+ * Searches the panel, as typing would. `userEvent.type` changes the field without React's change handler seeing it,
+ * so the value is set the way React reads it, as the Components panel's stories do.
+ */
+async function search(canvasElement: HTMLElement, text: string): Promise<void> {
+  const field = within(canvasElement).getByRole("textbox", { name: "Search layers" })
+  field.focus()
+  await fireEvent.input(field, { target: { value: text } })
+}
+
 /** Right-clicks a row where it is, as a person would, so its menu opens beside it. */
 async function rightClick(target: HTMLElement): Promise<void> {
   const box = target.getBoundingClientRect()
@@ -84,14 +94,14 @@ async function rightClick(target: HTMLElement): Promise<void> {
 }
 
 /**
- * Every design closed: component designs first, then screens, each with how many states it has. Each heading has its
- * count, then a + that makes a new one, always showing (PAR-546).
+ * Every design closed: component designs first, then screens, those with more than one state saying how many. Each
+ * heading has a + that makes a new one, always showing (PAR-546).
  */
 export const Designs: Story = { loaders: [() => openProjects("example")] }
 
 /**
- * A project whose designs were all deleted: each heading's + shows, the count is left out since the row below says so,
- * and that row is a button that makes the first one, its action in the kind's color.
+ * A project whose designs were all deleted: each heading's + shows, and the row below it is a button that makes the
+ * first one, its action in the kind's color.
  */
 export const EmptyProject: Story = {
   parameters: { blank: true },
@@ -385,6 +395,122 @@ export const DraggingIntoALayout: Story = {
   }
 }
 
+/**
+ * The Pricing screen dragged over the bottom half of Dashboard's row: a line under Dashboard, in the screen color,
+ * shows it would be listed after it (PAR-187).
+ */
+export const DraggingADesign: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    const data = new DataTransfer()
+    row("Pricing").dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: data }))
+    const target = await waitFor(() => row("Dashboard"))
+    const box = target.getBoundingClientRect()
+    target.dispatchEvent(
+      new DragEvent("dragover", {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: data,
+        clientX: box.left + box.width / 2,
+        clientY: box.top + box.height * 0.9
+      })
+    )
+  }
+}
+
+/**
+ * Searching for "feature": Plan card's four features and their texts, with the rows above them open, and nothing else.
+ * Its arrows are gone, since a search opens what it finds (PAR-187).
+ */
+export const Searching: Story = {
+  loaders: [() => openProjects("example")],
+  play: async ({ canvasElement }) => {
+    await search(canvasElement, "feature")
+    await waitFor(() => row("Plan card", "Feature 4"))
+    await expect(row("Plan card")).toHaveAttribute("aria-expanded", "true")
+    await expect(document.getElementById(`layer-${design("Dashboard")}`)).toBeNull()
+  }
+}
+
+/** A search that finds nothing says so, in place of the tree. */
+export const NothingFound: Story = {
+  loaders: [() => openProjects("example")],
+  play: async ({ canvasElement }) => {
+    await search(canvasElement, "carousel")
+    await within(canvasElement).findByText("No layers or designs match “carousel”")
+  }
+}
+
+/** Collapse all, pressed with a layer deep in Plan card selected: every row closes, the selection's too (PAR-187). */
+export const CollapsedAll: Story = {
+  loaders: [() => openProjects("example")],
+  play: async ({ canvasElement }) => {
+    await reveal("Plan card", "Feature 3 text")
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Collapse all" }))
+    await waitFor(() => expect(row("Plan card")).toHaveAttribute("aria-expanded", "false"))
+  }
+}
+
+/**
+ * Alt+click on Plan card's arrow opens it with every layer inside it, down to each feature's text (PAR-187). Another
+ * Alt+click closes them all.
+ */
+export const OpenedWithEverythingInside: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    const arrow = within(row("Plan card")).getByRole("button", { name: "Expand" })
+    await fireEvent.click(arrow, { altKey: true })
+    await waitFor(() => expect(row("Plan card", "Feature 4")).toHaveAttribute("aria-expanded", "true"))
+    await expect(row("Plan card", "Price block")).toHaveAttribute("aria-expanded", "true")
+  }
+}
+
+/**
+ * * pressed on Pricing opens every screen beside it, as in any tree, and no component, since those are another group
+ * (PAR-187).
+ */
+export const OpenedWithItsSiblings: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await userEvent.click(row("Pricing"))
+    await userEvent.keyboard("*")
+    await waitFor(() => expect(row("Dashboard")).toHaveAttribute("aria-expanded", "true"))
+    await expect(row("Plan card")).toHaveAttribute("aria-expanded", "false")
+  }
+}
+
+/**
+ * Plan card's Feature 3 text selected on the canvas, then Pricing's headline: the rows opened for the feature close,
+ * and only Pricing's open, so the tree doesn't grow as the selection moves around the project (PAR-187).
+ */
+export const SelectionMovedOn: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await reveal("Plan card", "Feature 3 text")
+    example().selection.set({ design: design("Pricing"), node: node("Pricing", "Headline") })
+    await waitFor(() => expect(row("Plan card")).toHaveAttribute("aria-expanded", "false"))
+    await expect(row("Pricing")).toHaveAttribute("aria-expanded", "true")
+  }
+}
+
+/**
+ * Feature 2 hovered, then hidden from its eye, which leaves the selection as it was: its eye is crossed out, and stays
+ * while the pointer is elsewhere, as Value skeleton's does (PAR-187).
+ */
+export const HiddenFromItsEye: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await reveal("Plan card", "Feature 2")
+    // Picked in the tree, so the rows opened to show Feature 2 stay open.
+    await userEvent.click(row("Plan card"))
+    await userEvent.hover(row("Plan card", "Feature 2"))
+    await userEvent.click(await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Hide" }))
+    await userEvent.unhover(row("Plan card", "Feature 2"))
+    await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Show" })
+    await expect(example().selection.get()).toEqual({ design: design("Plan card") })
+  }
+}
+
 /** Free text on the canvas, listed after the designs; the selected one is highlighted. */
 export const TextOnTheCanvas: Story = {
   loaders: [
@@ -408,6 +534,51 @@ export const TextOnTheCanvas: Story = {
     const note = await within(canvasElement).findByText("Review the empty states with design before handoff")
     note.scrollIntoView({ block: "center" })
   }
+}
+
+/**
+ * A screen of 6,050 layers, 50 sections of 30 rows of three texts, listed after 100 other screens, with a row deep in
+ * its 40th section selected. Only the rows in view are drawn, so the panel stays as quick as it is for a small project.
+ */
+export const LargeProject: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const { store, selection } = example()
+      for (let index = 0; index < 100; index++) {
+        const taken = store.getEntries().map((entry) => entry.container.id)
+        const screen = newDesign("screen", taken, { x: index * 400, y: 6000 })
+        store.addContainer(store.mainPath, { ...screen, name: `Screen ${index + 1}` })
+      }
+      const taken = store.getEntries().map((entry) => entry.container.id)
+      const key = store.addContainer(store.mainPath, largeScreen(taken))
+      selection.set({ design: key, node: "large-40-15-title" })
+    }
+  ]
+}
+
+/** A screen of 50 sections, each of 30 rows of a title, a detail and a note: 6,050 layers in all. */
+function largeScreen(taken: string[]): ContainerSpec {
+  const screen = newDesign("screen", taken, { x: 0, y: 4000 })
+  const text = (id: string, value: string): DesignNode => ({ type: "text", id, text: value })
+  const sections = Array.from({ length: 50 }, (_, section): DesignNode => ({
+    type: "layout",
+    id: `large-${section + 1}`,
+    name: `Section ${section + 1}`,
+    children: Array.from({ length: 30 }, (_, index): DesignNode => ({
+      type: "layout",
+      id: `large-${section + 1}-${index + 1}`,
+      name: `Row ${section + 1}.${index + 1}`,
+      style: { direction: "row" },
+      children: [
+        text(`large-${section + 1}-${index + 1}-title`, `Title ${section + 1}.${index + 1}`),
+        text(`large-${section + 1}-${index + 1}-detail`, `Detail ${section + 1}.${index + 1}`),
+        text(`large-${section + 1}-${index + 1}-note`, "Note")
+      ]
+    }))
+  }))
+  const root = screen.root.type === "layout" ? { ...screen.root, children: sections } : screen.root
+  return { ...screen, name: "Large list", root }
 }
 
 /** A design file that couldn't be read, with the reason, after everything that could. */

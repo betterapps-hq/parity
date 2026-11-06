@@ -23,6 +23,7 @@ import { openProjects, saveDocumentCopy } from "./projects.ts"
 import { checker } from "./props.ts"
 import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
+import { checkStartFolders } from "./start-folders.ts"
 import { openStorybook } from "./storybook.ts"
 import { losslessWebp } from "./webp.ts"
 import { windowChannel, windowClosed } from "./window-channel.ts"
@@ -106,6 +107,7 @@ const handlers: Handlers<ServiceMethods> = {
   "pictures.store": ({ root, picture }) => storePicture(root, picture),
   "pictures.read": ({ roots }) => readPictures(roots),
   "pictures.keepOnly": ({ roots }) => keepOnlyPictures(roots),
+  "start.check": ({ roots }) => checkStartFolders(roots),
   "previews.lookup": async (params) => ({ previews: await previews.lookupPreviews(params.previews) }),
   "previews.make": ({ preview, priority }) => previews.makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),

@@ -21,19 +21,29 @@ export interface KnownProject {
   starred: boolean
   /** Whether it's on the recent list, which removing it from there takes it off. */
   recent: boolean
+  /** Its folder isn't there any more: moved, renamed, deleted, or on a drive that isn't plugged in. */
+  missing?: boolean
 }
 
 /** Which of them a list shows. Shared with you has none until projects can be shared. */
 export type ProjectScope = "recent" | "starred" | "shared" | "all"
 
-/** The recent projects in order, then starred ones that aren't recent, last opened first. */
-export function knownProjects(recent: readonly string[], notes: Readonly<Record<string, ProjectNote>>): KnownProject[] {
+/**
+ * The recent projects in order, then starred ones that aren't recent, last opened first. Those in `missing` are
+ * flagged, as their folders weren't there when last checked.
+ */
+export function knownProjects(
+  recent: readonly string[],
+  notes: Readonly<Record<string, ProjectNote>>,
+  missing: ReadonlySet<string> = new Set()
+): KnownProject[] {
   const known = (root: string, isRecent: boolean): KnownProject => ({
     root,
     name: folderName(root),
     ...(notes[root]?.opened === undefined ? {} : { opened: notes[root].opened }),
     starred: !!notes[root]?.starred,
-    recent: isRecent
+    recent: isRecent,
+    ...(missing.has(root) ? { missing: true } : {})
   })
   const starred = Object.keys(notes)
     .filter((root) => notes[root]!.starred && !recent.includes(root))

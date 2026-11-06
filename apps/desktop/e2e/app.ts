@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import type { DesignNode, NodeStyle } from "@parity-app/core"
 import type { Selection } from "@parity-app/editor"
-import { type Browser, chromium, type Page } from "playwright-core"
+import { type Browser, chromium, type Locator, type Page } from "playwright-core"
 import { expect, inject } from "vite-plus/test"
 import type * as frameModule from "../src/renderer/frame.ts"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
@@ -626,8 +626,7 @@ export class App {
     const key = await this.key(design)
     // Show Layers, whichever panel the left side had open.
     await this.page.keyboard.press("Alt+1")
-    const row = this.page.locator(`[id="layer-${key}"]`)
-    await row.scrollIntoViewIfNeeded()
+    const row = await this.layersRow(key)
     const box = await row.boundingBox()
     if (!box) throw new Error(`${design}'s row in Layers isn't drawn`)
     await this.click(center(box))
@@ -646,16 +645,44 @@ export class App {
     const path = await this.page.evaluate(([key, id]) => window.e2e!.path(key, id), [key, id] as const)
     // Show Layers, whichever panel the left side had open.
     await this.page.keyboard.press("Alt+1")
-    const row = (layer: string) => this.page.locator(`[id="layer-${layer === key ? key : `${key}/${layer}`}"]`)
+    const row = (layer: string) => this.layersRow(layer === key ? key : `${key}/${layer}`)
     for (const ancestor of [key, ...path.slice(0, -1)]) {
-      if ((await row(ancestor).getAttribute("aria-expanded")) === "false") {
-        await row(ancestor).getByRole("button", { name: "Expand" }).click()
+      const shown = await row(ancestor)
+      if ((await shown.getAttribute("aria-expanded")) === "false") {
+        await shown.getByRole("button", { name: "Expand" }).click()
       }
     }
-    await row(id).scrollIntoViewIfNeeded()
-    const box = await row(id).boundingBox()
+    const box = await (await row(id)).boundingBox()
     if (!box) throw new Error(`${id}'s row in Layers isn't drawn`)
     await this.click(center(box), ["Control"])
+  }
+
+  /**
+   * A row in Layers, by its id (a design's key, or the key and a layer's id), scrolled to with the mouse wheel over the
+   * panel as a person scrolls to it: down, then up. The panel draws only the rows in view (PAR-187), so a row out of
+   * sight isn't in the page until it's scrolled to.
+   */
+  private async layersRow(id: string): Promise<Locator> {
+    const row = this.page.locator(`[id="layer-${id}"]`)
+    const scroller = () =>
+      this.page.evaluate(() => {
+        const box = document.querySelector("[role=tree][aria-label=Layers]")!.parentElement!
+        const rect = box.getBoundingClientRect()
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, top: box.scrollTop }
+      })
+    for (const direction of [1, -1]) {
+      const { x, y } = await scroller()
+      await this.page.mouse.move(x, y)
+      for (let step = 0; step < 200 && (await row.count()) === 0; step++) {
+        const before = (await scroller()).top
+        await this.page.mouse.wheel(0, direction * 400)
+        await this.frames(2)
+        if ((await scroller()).top === before) break
+      }
+    }
+    if ((await row.count()) === 0) throw new Error(`Layers has no row ${id}, at either end of the panel`)
+    await row.scrollIntoViewIfNeeded()
+    return row
   }
 
   /**

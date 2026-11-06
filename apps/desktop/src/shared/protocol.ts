@@ -137,6 +137,11 @@ export interface ServiceMethods {
   /** Lets go of the pictures of every project but these, the ones the start page still lists. */
   "pictures.keepOnly": { params: { roots: string[] }; result: undefined }
   /**
+   * What the start page needs from this computer (PAR-188): which of these projects' folders aren't there any more, and
+   * the example project's folder, when this copy of Parity has it.
+   */
+  "start.check": { params: { roots: string[] }; result: { missing: string[]; example?: string } }
+  /**
    * What's kept of components' previews for the code their jobs draw (PAR-207): each one's key and, when it's made
    * for that key, its pictures; else the latest one made before, to show while it's made again. Nothing is drawn.
    */

@@ -87,6 +87,7 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
   "pictures.store": z.object({ root: z.string(), picture: projectPicture }),
   "pictures.read": roots,
   "pictures.keepOnly": roots,
+  "start.check": roots,
   "previews.lookup": z.object({ previews: z.array(previewJob) }),
   "previews.make": z.object({ preview: previewJob, priority: z.enum(["visible", "idle"]) }),
   "accessibility.check": project.extend({ design: z.string() }),

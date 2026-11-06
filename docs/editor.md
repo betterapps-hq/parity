@@ -547,6 +547,89 @@ isolated copy of the app on 2026-10-30, by reading the canvas's size over the De
 size while a board was hovered, and none once the pointer left. Snap lines haven't been checked; they show only while a
 design is dragged, when tldraw's snap overlay util is active, so the canvas has its size then.
 
+### The Layers panel stays quick on large designs (PAR-187)
+
+The Layers panel draws only the rows in view, so a design of thousands of layers costs it what a small one does. Before
+this it drew every open row and kept every row it had opened to show a selection, so each selection on the canvas made
+the tree longer and every later change slower.
+
+- **Only the rows in view are drawn,** ten either side besides, with `@tanstack/react-virtual`. Each row is 28 pixels,
+  and is drawn again only when what it shows changes: its layer, its design, whether it's open, selected, hovered,
+  renamed or dropped on. Rows say where they are among the rows beside them (`aria-posinset`, `aria-setsize`), since a
+  screen reader can't count rows that aren't in the page.
+- **Rows opened to show a selection close once the selection moves on.** Something selected on the canvas, or by an
+  agent, opens its design and the rows above it, and closes the rows opened for the selection before. Rows opened by
+  hand stay open, and a selection made in the tree itself, by a click or the arrow keys, closes nothing, so no row moves
+  under the pointer. The selection scrolls into view unless the tree has focus.
+- **Search** (Search layers, above the tree) finds designs and layers whose name, as the panel shows it, has the search
+  in it, ignoring case. Each match shows with the rows above it open and its own layers closed, and the rows have no
+  arrows while a search shows. Escape in the field clears it. With no match it says "No layers or designs match" and the
+  search. Selecting a match and clearing the search leaves it shown in the tree.
+- **Collapse all,** beside the search, closes every row. There's no Expand all, which on a large project would open
+  thousands of rows. Instead, Alt+click on a row's arrow opens or closes it with everything inside it, as in Finder, and
+  `*` on a row opens it and every row beside it in its group, as in any tree.
+- **Headings and states say what they count, or nothing.** The Components, Screens and Frames headings have no count,
+  which nobody needed. A design with more than one state says how many in words ("11 states"); one with a single state
+  says nothing.
+- **Each layer has an eye** that hides it in the state its board shows, or shows it again, as one undo step, without
+  selecting it. It shows while the layer is hovered, in the panel or on the canvas, and stays on a hidden layer, crossed
+  out. It's named Hide or Show, without the state, which the row menu's Hide still names ("Hide in Default"). The page
+  can't be hidden, so it has none. A layer that changes at some screen sizes shows a monitor and phone icon, whose
+  tooltip says so ("Changes at some screen sizes"). Like the row's arrow, it isn't in the tab order: Ctrl+Shift+H hides
+  the selection from the keyboard.
+- **Designs are dragged to reorder them** among the designs of their group, components, screens or frames, in their own
+  file, which is the order the panel lists them in. A line under or over the row shows where it would go, and the move
+  is one undo step ("Reorder screen").
+- **Hovering a design's row outlines its board** on the canvas, as hovering the board does.
+- **The keyboard,** as before: Tab moves from the search to Collapse all to the tree, Up and Down move through the rows,
+  scrolling as they go, Right and Left open and close a row or move into and out of it, `*` opens the row's siblings,
+  and Enter or F2 renames. Enter or Escape in the name field puts the keys back on the tree.
+
+Not yet: each row's lock, which waits for locking (PAR-192), and highlighting a layer selected inside an instance, which
+waits for an instance's layers in the tree (PAR-92).
+
+Measured on 2026-11-05 on the example with 100 more screens and a "Large list" screen of 6,050 layers (50 sections of 30
+rows of three texts), selecting a text in each of 30 sections in turn, then 20 edits to the design as typing in the
+inspector makes them, 20 presses of Down and 40 scrolls of 300 pixels, each timed until the frame after it:
+
+| In an isolated copy of the app (development build) | Before | After  |
+| -------------------------------------------------- | ------ | ------ |
+| Rows drawn after the 30 selections                 | 1,204  | 37     |
+| Selecting on the canvas, median                    | 1.19 s | 0.17 s |
+| An edit, median                                    | 1.57 s | 0.16 s |
+| Down, median                                       | 1.49 s | 0.16 s |
+| A scroll, median                                   | 61 ms  | 42 ms  |
+
+Most of what's left in the app is the canvas drawing the 6,050-layer design. In Storybook, where the panel is drawn
+alone (LargeProject), selecting went from 371 to 28 ms, an edit from 524 to 25 and Down from 511 to 9.
+
+Code: which rows show, search, and what opens and closes as the selection moves are pure, in
+`packages/editor/src/layers-tree.ts` (`treeRows`, `searchRows`, `revealIds`, `revealRows`, `toggleRow`, and `branchIds`,
+`siblingIds` and `toggleRows` for Alt+click and `*`). Reordering a design is `reorderDesign` in
+`packages/editor/src/design-changes.ts`, applied by `DesignStore.reorderContainer`. The panel is
+`apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the board's outline for a hovered row is in
+`canvas/CanvasEditor.tsx`. The calls are in decisions.md, The Layers panel draws only the rows in view.
+
+Tests:
+
+- `packages/editor/src/layers-tree.test.ts` (14): the designs alone while closed, open rows' layers with their places
+  among their siblings, a closed design hiding rows opened inside it; search by label ignoring case, the rows above a
+  match open, a match's own layers closed, places among the rows found, and a design found by name; opening and closing
+  by hand, closing a revealed row; a whole branch opened and closed at once; a row's siblings that can open, from
+  anywhere among them; the rows a selection reveals, one layer and several; rows from an earlier selection closing, rows
+  opened by hand staying, nothing closing for a selection made in the tree, and no change when nothing new is needed.
+- `packages/editor/src/design-changes.test.ts`, the reordering test: before and after another design, to the end, and
+  nothing changed for the same place, itself, another file or a missing design.
+- `chrome/LayerTree.stories.tsx` (under Parity/Left panel/Layers): Searching, NothingFound, CollapsedAll,
+  OpenedWithEverythingInside (Alt+click), OpenedWithItsSiblings (`*`), SelectionMovedOn, HiddenFromItsEye,
+  DraggingADesign and LargeProject. Their play functions passed in Storybook on 2026-11-05.
+- `apps/desktop/e2e/app.ts`: `selectDesignInLayers` and `toggleInLayers` scroll the panel with the mouse wheel to a row
+  out of view, which `sleeping.e2e.ts` and `fields.e2e.ts` use.
+
+Gaps: the keyboard, the eye, dragging a design, the board's outline and Collapse all were tried in an isolated copy of
+the app on 2026-11-05 with the system's keyboard and mouse, through `scripts/drive.ts`; none has an end-to-end test of
+its own.
+
 ## Inserting
 
 How layers, components and icons are found and put into a design.
@@ -1557,10 +1640,10 @@ empty space on the canvas makes a frame there (PAR-545; see Frames, below).
   the canvas was right-clicked and select it, leaving the view where it is. With no screen, component or note on the
   canvas, Select all and Zoom to fit are unavailable. Over a design the menu is as it was. It's as wide as its longest
   item, so New component and its keys stay on one line.
-- **Layers' + always shows** beside Components and Screens, after the count, with its name and keys in the tooltip. An
-  empty group leaves the count out, since its row says so, and the row is a button that makes the first one: "No screens
-  yet. New screen", the action in the kind's color. Enter or Space on either makes one, rather than renaming the
-  selected row as Enter in the tree does.
+- **Layers' + always shows** beside Components and Screens, with its name and keys in the tooltip. Since PAR-187 the
+  headings have no count. An empty group's row is a button that makes the first one: "No screens yet. New screen", the
+  action in the kind's color. Enter or Space on either makes one, rather than renaming the selected row as Enter in the
+  tree does.
 - **The inspector with nothing selected** asks for "a screen, component or frame on the canvas or in Layers", whatever
   is on the canvas.
 - **What lands on empty space on the canvas makes a frame there,** by one rule. Its top left is where it landed, it
@@ -1663,7 +1746,7 @@ mode, with one state, and isn't written to code.
   nothing; otherwise a dialog lists what goes (states after the first, previews beside the main one, params, and each
   design's instances, which become plain layers), with Cancel and Convert to frame. Each is one undo step, and
   converting a component detaches its instances in the same step.
-- **Layers lists Frames** after Components and Screens once there are any, with their count; its + picks the frame tool.
+- **Layers lists Frames** after Components and Screens once there are any; its + picks the frame tool.
 
 Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
 `framePresets`, `frameOfText`, `textFrameRenamed`, `hugsContent`, `fittedFrame`, `withFrameSize`, `frameRootShown` and
@@ -3783,7 +3866,7 @@ On first launch the installed app shows the sign-in screen, and Home once you si
 was. Development can request an initial project through its runner. `workspace.test.ts` covers these startup choices
 (PAR-8, PAR-605).
 
-### The start page: Home and new tabs (PAR-605, PAR-607)
+### The start page: Home and new tabs (PAR-605, PAR-607, PAR-188)
 
 Home is pinned first in the tab strip, an icon that can't be closed, and shows whenever no tab is chosen. Alt+Home or
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
@@ -3791,13 +3874,22 @@ at the end of the strip. Both are the start page from the explorations (decision
 
 - **Home** has the organization switcher, once you're signed in, then Search, Open and New project along the top. Below
   them, the Continue where you left off section offers the project opened last, which its picture, Resume or Enter
-  opens, with For you beside it. Before any project has opened, the Open a project panel takes its place, with Open a
-  folder and Open a project file.
+  opens, with For you beside it once you're signed in; signed out there's no For you. For you says nothing needs you,
+  and what will show up there, until something can.
+- **The first time (PAR-188),** before any project has opened, Home keeps that layout. Where this copy of Parity has the
+  example, as it does run from the repository, Acme takes Continue's place: its picture, shipped with Parity until its
+  own is kept, a line on what to try there, and Open Acme. Bring your own app sits beside it, with Open a folder and
+  Open a project file. Without the example, the place shows what Parity does with your app, with the same two buttons.
 - **A new tab** has a large Search field, then New project and Open.
 - **Both list your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
   more. A card has the project's picture, its folder's name and when it was last opened; its tooltip is the folder's
-  path. Its menu opens it, stars or unstars it, and removes it from Recent. Home's Recent leaves out the project it
-  offers to continue.
+  path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent. Home's Recent leaves out the
+  project it offers to continue. A list with nothing in it says what will show up there, in a dashed box a row of cards
+  tall.
+- **A project whose folder is gone (PAR-188)** — moved, renamed, deleted, or on a drive that isn't plugged in — is
+  greyed, with Folder not found on its picture and under its name. Continue offers the next one instead, and opening it
+  says where the folder was and offers Remove. It stays listed until removed, since a drive comes back. The service
+  checks the listed folders when the window starts, when the list changes, and each time Home or a new tab shows.
 - **Opening from a new tab uses that tab.** A project already open elsewhere is switched to, and the new tab closes.
 - **Search is Ctrl+K,** which lists your projects as well as actions: first on Home and in a new tab, last in a project.
 - **A project's picture is its canvas as last saved (PAR-607).** It shows the project's first screens as the canvas drew
@@ -3805,44 +3897,53 @@ at the end of the strip. Both are the start page from the explorations (decision
   window, or shorter where the frame is. Moving the pointer across a card flips through them, naming each; Home's
   Continue picture names the frames above them, as the canvas does. Up to five screens are pictured: those with a phone
   frame beside them first, then the rest, each in Layers' order; components and frames aren't. A project not opened
-  since shows a placeholder, a board and a phone in a color of its own with its initial.
+  since shows a placeholder, a board and a phone in a color of its own with its initial. Each frame has a mid-grey edge,
+  so a phone over a desktop frame shows against it whether their screens are light or dark.
   - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
     and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
     Edits not saved yet are never pictured: a picture that would show them waits for the next save.
   - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
     the start page stops listing it.
-- **Stubs:** For you and Shared with you are empty, and signed out For you offers Sign in; New project, New project from
-  this, cloning, Copy link, Invite people and New organization show a toast saying they aren't ready yet. New project's
-  toast also offers Open a folder.
+- **Stubs:** For you and Shared with you are empty; New project, cloning, Copy link, Invite people and New organization
+  show a toast saying they aren't ready yet. New project's toast also offers Open a folder. A project's menu has no New
+  project from this until projects can be made (PAR-284).
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
 `StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home, new tabs and
-each project's notes; `chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the
-projects. Pictures: `start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and
-`start/picture-screens.ts` (`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts`
-(`keepProjectPicture`, started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
-`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
-`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
-in the folder main names as `PARITY_PICTURE_DIR`.
+each project's notes, and asks the service which folders are gone and where the example is (`checkFolders`, through
+`start.check`, answered by `utility/start-folders.ts`); `start/example-picture.ts` is the example's shipped picture;
+`chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures:
+`start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and `start/picture-screens.ts`
+(`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`,
+started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and `frameBitmap` in
+`canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in `utility/webp.ts`,
+through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`, in the folder main
+names as `PARITY_PICTURE_DIR`.
 
-Tests: `start/projects.test.ts` (8: the order recent and starred projects list in, each scope, the times from minutes to
-another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new tabs" (8, with a project's
-picture let go once it isn't listed) and "starting the workspace" (Home on a fresh install, and staying there).
-`start/picture-screens.test.ts` (4: screens with a phone frame first, then the rest, in Layers' order; no components or
-frames, and no more than the most; no second phone beside a phone; a phone by its device or its width) and
-`utility/pictures.test.ts` (6: a picture kept with each frame cut to its window and read back; the latest in place of
-the one before; projects with none, or a file that can't be read, left out; a kept frame that isn't an image refused;
-the pictures of projects no longer listed let go, and partial files only once old; nothing kept without a folder).
-Stories: Parity/Start page (Home, a card flipping through screens, which plays, Home without pictures, the first time,
-Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures,
-Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New
-tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with
-Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
+Tests: `start/projects.test.ts` (9: the order recent and starred projects list in, projects whose folders are gone, each
+scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new
+tabs" (8, with a project's picture let go once it isn't listed), "starting the workspace" (Home on a fresh install, and
+staying there) and "checking the start page's folders" (2: gone folders flagged and the example kept; checked again when
+Home shows). `utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where
+Parity runs once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a
+phone frame first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone
+beside a phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame
+cut to its window and read back; the latest in place of the one before; projects with none, or a file that can't be
+read, left out; a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial
+files only once old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping
+through screens, which plays, Home without pictures, the first time with and without the example, folders that are gone,
+which plays, Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's
+pictures, Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab
+and New tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again
+with Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
 2026-11-05, where opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving
 across its card flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and
 saved with Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as
-tall as its content.
+tall as its content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on
+2026-11-06: with the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects,
+and Open Acme opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it
+showed where it was with Remove.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -4225,13 +4326,13 @@ Code: `#root` in `apps/desktop/src/renderer/styles.css`, the group heading in `c
 canvas control keeps in `canvas/shortcuts.ts`.
 
 Tests: end to end, `apps/desktop/e2e/window.e2e.ts` (1): with a Members layer selected, Layers is scrolled and the page
-neither overflows nor scrolls; Shift+Tab back from Members' title to the New screen button scrolls Layers up to it and
-not the page; Tab on from the title leaves the page still; and a click on a layer then selects it. It fails without the
-fix, at the first check. `e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State
-and Modes menus and its mode caption, where Enter selects the mode column, then out of the canvas without reaching
-another title or board, where before it went on to the next design's title. Every end-to-end test also fails if the page
-scrolled during it (see "Testing in the app" above); before the fix that also failed the older test that tabs on from
-Sign in's title.
+neither overflows nor scrolls; Shift+Tab back from Members' title into Layers leaves the page still (since PAR-187 the
+New screen button, scrolled out of view, isn't drawn, so focus reaches the tree instead); Tab on from the title leaves
+the page still; and a click on a layer then selects it. It fails without the fix, at the first check.
+`e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State and Modes menus and its
+mode caption, where Enter selects the mode column, then out of the canvas without reaching another title or board, where
+before it went on to the next design's title. Every end-to-end test also fails if the page scrolled during it (see
+"Testing in the app" above); before the fix that also failed the older test that tabs on from Sign in's title.
 
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip

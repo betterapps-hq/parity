@@ -1,3 +1,5 @@
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@buildkitgg/shadcn-baseui-kit"
+import { FolderOpen, History, type LucideIcon, Star, Users } from "lucide-react"
 import { useId, useState } from "react"
 import { ProjectCard } from "./ProjectCard.tsx"
 import { inScope, type KnownProject, type ProjectScope } from "./projects.ts"
@@ -11,11 +13,39 @@ const scopes: { id: ProjectScope; label: string }[] = [
   { id: "all", label: "All projects" }
 ]
 
-const empty: Record<ProjectScope, string> = {
-  recent: "Projects you open show up here.",
-  starred: "Nothing starred yet. Star a project from its menu to keep it here.",
-  shared: "Nothing has been shared with you yet.",
-  all: "No projects yet."
+const empty: Record<ProjectScope, { icon: LucideIcon; title: string; description: string }> = {
+  recent: {
+    icon: History,
+    title: "No recent projects",
+    description: "Projects you open show up here, with a picture of their screens."
+  },
+  starred: {
+    icon: Star,
+    title: "No starred projects",
+    description: "Star a project from its menu to keep it here, even once it leaves Recent."
+  },
+  shared: {
+    icon: Users,
+    title: "Nothing shared with you",
+    description: "Projects people share with you will show up here once sharing is ready."
+  },
+  all: { icon: FolderOpen, title: "No projects yet", description: "Open a React app's folder to see it on a canvas." }
+}
+
+/** A list with nothing in it: what will show up there, in a dashed box the height of a row of cards. */
+function EmptyList({ scope }: { scope: ProjectScope }) {
+  const { icon: Icon, title, description } = empty[scope]
+  return (
+    <Empty className="min-h-[220px] border">
+      <EmptyHeader>
+        <EmptyMedia variant="icon" className="text-muted-foreground">
+          <Icon />
+        </EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  )
 }
 
 /**
@@ -83,7 +113,7 @@ export function ProjectList({
           ))}
         </div>
       ) : (
-        <p className="py-8 text-sm text-muted-foreground">{empty[scope]}</p>
+        <EmptyList scope={scope} />
       )}
     </section>
   )

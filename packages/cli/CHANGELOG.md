@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 05:34:58 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 07:14:05 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.12.0
+
+Fri, 06 Nov 2026 07:14:05 GMT
+
+### Minor changes
+
+- Layers draws only the rows in view, closes rows opened for an earlier selection, and adds search, Collapse all, an eye
+  on each layer and dragging designs to reorder them (ajcraswell@gmail.com)
 
 ## 0.11.0
 
