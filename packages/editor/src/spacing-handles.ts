@@ -37,6 +37,11 @@ export interface SpacingLayout {
   direction: "row" | "column"
   /** Whether its children sit in one line, so a gap is a single space between each two. A grid or a wrap isn't. */
   oneLine: boolean
+  /**
+   * What no press target may cover, so a click there still selects it: every child drawn, those placed absolutely
+   * too. Its children when not given.
+   */
+  covered?: readonly Rect[]
 }
 
 /** A handle on one side's padding or on one gap. */
@@ -53,7 +58,10 @@ export type SpacingHandle = (
   area: HandleBox
   /** The bar drawn in the middle of it. */
   bar: HandleBox
-  /** Where a press takes it: the bar and a margin around it, clear of the resize strips on the layout's edges. */
+  /**
+   * Where a press takes it: the bar and a margin around it, clear of the resize strips on the layout's edges and of
+   * the children.
+   */
   hit: HandleBox
 }
 
@@ -66,6 +74,9 @@ const resizeStrip = 4
 /** Under this many screen pixels along a side or a gap, there's no room for its handle. */
 const tooShort = spacingBar.hitAlong
 
+/** Under this many screen pixels of free space across a side's padding or a gap, there's no room for its handle. */
+const tooThin = 4
+
 const box = (left: number, top: number, right: number, bottom: number): HandleBox => ({
   x: left,
   y: top,
@@ -76,7 +87,9 @@ const box = (left: number, top: number, right: number, bottom: number): HandleBo
 /**
  * Where each padding and gap handle goes on a selected layout. Each padding side has one, even at 0, so padding can be
  * dragged out of nothing; a gap has one between each two children in a single line. A side or gap too short for its
- * press target has none.
+ * press target has none. A press target never covers a child, so a click on one still selects it: it's cut back to
+ * the free space, and where less than 4 pixels are free across it, as where a child sits against an edge with no
+ * padding, there's no handle.
  */
 export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
   const { rect, border, padding } = layout
@@ -96,6 +109,7 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
   }
   const handles: SpacingHandle[] = []
   const { length, thickness, hitAcross, hitAlong } = spacingBar
+  const covered = layout.covered ?? layout.children
 
   for (const side of paddingSides) {
     const vertical = side === "left" || side === "right"
@@ -113,11 +127,22 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
     const inward = side === "top" || side === "left" ? 1 : -1
     const depth = padding[side]
     const from = edge + inward * resizeStrip
-    const to = edge + inward * Math.max(depth, resizeStrip + hitAcross)
-    const middle = depth >= hitAcross ? edge + (inward * depth) / 2 : (from + to) / 2
     const centre = vertical ? area.y + area.h / 2 : area.x + area.w / 2
-    const [near, far] = [Math.min(from, to), Math.max(from, to)]
     const hitHalf = Math.min(hitAlong, along) / 2
+    // Inwards no further than the first child in its way.
+    let reach = Math.max(depth, resizeStrip + hitAcross)
+    for (const child of covered) {
+      const [start, end] = vertical ? [child.top, child.bottom] : [child.left, child.right]
+      if (end <= centre - hitHalf || start >= centre + hitHalf) continue
+      const sides = { top: child.top, bottom: child.bottom, left: child.left, right: child.right }
+      // A child wholly in the resize strip, or outside the layout, is in no way; one reaching the edge leaves nothing.
+      if ((sides[opposite[side]] - edge) * inward <= resizeStrip) continue
+      reach = Math.min(reach, Math.max(0, (sides[side] - edge) * inward))
+    }
+    if (reach - resizeStrip < tooThin) continue
+    const to = edge + inward * reach
+    const middle = depth >= hitAcross && reach >= depth ? edge + (inward * depth) / 2 : (from + to) / 2
+    const [near, far] = [Math.min(from, to), Math.max(from, to)]
     if (vertical) {
       handles.push({
         kind: "padding",
@@ -153,8 +178,19 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
       continue
     const middle = row ? (first.right + second.left) / 2 : (first.bottom + second.top) / 2
     const centre = row ? area.y + area.h / 2 : area.x + area.w / 2
-    const across = Math.max(hitAcross, row ? area.w : area.h) / 2
     const hitHalf = hitAlong / 2
+    // At least `hitAcross` wide, but no wider than the space between the children it's beside, or any other child.
+    const wide = Math.max(hitAcross, row ? area.w : area.h) / 2
+    let [low, high] = [middle - wide, middle + wide]
+    for (const child of covered) {
+      const [start, end] = row ? [child.top, child.bottom] : [child.left, child.right]
+      if (end <= centre - hitHalf || start >= centre + hitHalf) continue
+      const [from, to] = row ? [child.left, child.right] : [child.top, child.bottom]
+      if (to <= middle) low = Math.max(low, to)
+      else if (from >= middle) high = Math.min(high, from)
+      else low = high
+    }
+    if (high - low < tooThin) continue
     handles.push({
       kind: "gap",
       index,
@@ -163,9 +199,7 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
       bar: row
         ? box(middle - thickness / 2, centre - length / 2, middle + thickness / 2, centre + length / 2)
         : box(centre - length / 2, middle - thickness / 2, centre + length / 2, middle + thickness / 2),
-      hit: row
-        ? box(middle - across, centre - hitHalf, middle + across, centre + hitHalf)
-        : box(centre - hitHalf, middle - across, centre + hitHalf, middle + across)
+      hit: row ? box(low, centre - hitHalf, high, centre + hitHalf) : box(centre - hitHalf, low, centre + hitHalf, high)
     })
   }
   return handles

@@ -520,6 +520,10 @@ still need your call.
   - The bars show whenever a single layout is selected, over its hatching, rather than only on hover as in Figma, so
     padding of 0 can be dragged out of nothing. A side's press target starts 4px inside its edge, clear of the resize
     strip there.
+  - No press target covers a child, so a click inside a selected layout still selects what's under it, as before. A
+    target is cut back to the free space and dropped under 4px, so padding of 0 drags out only where no child is against
+    that edge. This narrows the No padding story Andrew approved, whose children fill their row: clicks on children
+    opening the box broke selecting layers by clicking, in the end-to-end tests on #266.
   - Dragging a padding bar away from the content makes that padding bigger on every side, as an edge dragged out makes a
     layer bigger. A gap grows as its bar goes right or down. Both go in whole steps of the spacing scale.
   - Alt gives the opposite side the dragged side's value, and Alt+Shift every side, re-read at each move, so letting go
@@ -2892,7 +2896,7 @@ My calls in the run-time reading (`extractTokens`):
 - A `prefers-color-scheme: dark` block isn't read as the dark theme. A theme reaches a frame by a class the Modes panel
   adds, and `previewToken` and `writeTokenChanges` write a theme's values to that class's block, so a "dark" read from a
   media query couldn't be shown in a frame or edited where it lives. Reading it as a theme is the gap `docs/support.md`
-  already lists; the facts it needs are now in the collected declarations.
+  already lists; the facts it needs are now in the collected declarations. PAR-138, at the end, closed it.
 - `themeFallbackCss` still counts a property declared anywhere as defined, conditional or not, as before.
 - Libgen's own token collecting (`libgen/src/tokens.ts`), which reads `prefers-color-scheme: dark` blocks as dark, is
   unchanged. Sharing one policy between the two is PAR-468.
@@ -2924,9 +2928,10 @@ cycle), and libgen reads CSS with core's `collectCustomProperties` instead of it
 The differences that stay are explicit options, both for libgen: `tailwindTheme` reads `@theme` as the default, which
 only source CSS has (the app takes Tailwind's resolved theme from its styles adapter), and `colorScheme` reads a
 `prefers-color-scheme` block as its theme, because a library's themes reach frames as the class blocks
-`describedTokenCss` writes, where the app's would never show (PAR-485). With it, a theme's own selector beats the media
-query wherever it sits, so a library with both `.dark` and a dark media query no longer has whichever comes last. The
-app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only what the CSS declares.
+`describedTokenCss` writes, where the app's would never show (PAR-485; PAR-138, at the end, made it the app's too). With
+it, a theme's own selector beats the media query wherever it sits, so a library with both `.dark` and a dark media query
+no longer has whichever comes last. The app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only
+what the CSS declares.
 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
@@ -3276,6 +3281,30 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
 - **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
+
+## The selection overlay follows the camera in the frame it moves (PAR-653)
+
+With a layer hovered or selected, zooming dropped the window to a few frames a second, and outlines and redlines trailed
+the zoom until it stopped (see editor.md, Outlines follow the camera in the frame it moves). The camera and the wheel no
+longer wake the measuring PAR-522 set up; the overlay follows the camera on its own. My calls:
+
+- **Measured once in each frame the camera moves, once that frame is laid out.** A reaction to tldraw's camera changes
+  the width of a hidden element in the overlay, and a ResizeObserver on it measures and commits with `flushSync`.
+  ResizeObserver callbacks run after every animation frame callback and the frame's layout, and before it's painted, so
+  the boxes read are the ones about to be painted, and reading them lays nothing out. Before, the overlay measured in an
+  animation frame of its own. Whether that ran before or after tldraw's decided whether outlines were drawn from the old
+  camera or the new one, its reads laid the page out mid-frame, and React drew the result after the frame was painted.
+- **Not in a microtask after tldraw's frame.** Tried second: outlines landed, but frames came 25 to 33% slower while
+  hovering, since animation frame callbacks after tldraw's wrote to the page again after the overlay had laid it out.
+- **Not kept in page units.** Measuring once and placing boxes from the camera would avoid measuring during a zoom, and
+  was tried first: outlines were still off by up to 18 px, since a board's gutter is in screen pixels (PAR-602), so a
+  frame's place in the page changes with the zoom.
+- **A change to tldraw's store that only moves the view doesn't wake per-frame measuring:** the camera, the pointer, or
+  the instance's `cameraState` alone (`movesOnlyTheView`). Nor does the wheel. Anything else in the store, such as a
+  board moving or resizing once the camera stops, still does.
+- **The element inspector's overlay (PAR-167) reads the canvas area's box only when it has a mark to place.** It
+  measures every animation frame, and read that box each frame even with nothing to mark, laying the page out mid-frame
+  through every zoom.
 
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
@@ -5034,11 +5063,13 @@ and didn't object. My calls:
   window writes while it draws is that design's. No stored name has the field, so bitmaps and previews keep theirs.
 - **On the canvas, the window announces the frame.** Frames share one window, so main can't tell them apart. While a
   frame handles a person's event, and through the rest of that task, the window wraps the console so each call first
-  sends main the frame's design, state and mode, then writes the message. Main gives the announcement to the next
-  message of that level from the window, within a second. The announcement is sent before the message is written, and
-  `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the window's
-  developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is left in
-  place.
+  sends main the frame's design, state and mode, then writes the message. Electron then reports the wrapper, in Parity's
+  own code, as where the message was written, which main would drop as Parity's own, so the announcement also carries
+  the frame code's call: the stack's first frame from another origin than the wrapper's. Main gives the announcement to
+  the next message of that level from the window, within a second. The announcement is sent before the message is
+  written, and `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the
+  window's developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is
+  left in place.
 - **What isn't known stays unknown.** What a frame writes on its own, after a timer or a fetch, or as it first draws on
   the canvas, is the project's rather than a guess at a design. Its offscreen draw usually writes the same message as
   the design's.
@@ -5048,6 +5079,98 @@ and didn't object. My calls:
   call that is, since React's warnings come from react-dom and name the component in their stack.
 - **Agents get the design too:** each console entry has its design's key, state and mode when known, and their frames
   name their state.
+
+## Frames are built in the app (PAR-545)
+
+PAR-545 builds the frames exploration you approved in PAR-540, on PAR-539's model. My calls, where the build differs
+from the stories or they left something open:
+
+- **A frame that hugs what's in it keeps its size in the file as drawn.** Text from the text tool, and anything that
+  lands on the empty canvas, goes in a frame whose root layout hugs its width. The file's `size` stays a number, since
+  bitmaps, agents' renders and exports need one, so the canvas measures the root at its content's width and writes that
+  width as the frame's size. Writing it isn't an undo step of its own: the size follows from the layers, undo puts back
+  the size they had, and the root is measured again. A width of its own, from the handles, the frame tool's sizes or the
+  inspector, stops it hugging.
+- **Whatever lands on the empty canvas makes a frame, text too.** Pasted layers, images, a component or a layout from
+  the insert picker or the Components panel, and now pasted text, which used to make a note. They're padded as before,
+  filled with the project's background, as a new frame is, and named after what's in them.
+- **The text tool makes a text frame, not a note.** T and a click in empty space makes "Text" in a frame with 2 steps of
+  padding, edited at once, and the frame takes the text's name as it's typed until it's renamed. Notes in a file still
+  show and edit as before; nothing makes a new one, since you dropped the Note tool in PAR-540.
+- **The empty canvas's start doesn't gain Draw a frame,** as PAR-545's issue asked, because PAR-560 dropped the start.
+  The frame tool's menu has New screen and New component instead, so every kind starts from one place.
+- **A frame's size is its root layout's size in the inspector.** Selecting a frame shows its root's layout, spacing,
+  size and fill straight after its name. The width and height rows show the frame's own size, and a fixed length there
+  resizes the frame, as the exploration's inspector does.
+- **Converting from a frame shows a toast with Undo; converting to one asks only when something would go.** A screen or
+  component that drops nothing, such as a screen made from a frame a moment ago, becomes a frame at once. Converting a
+  component also makes its instances in other designs plain layers, in the same step, as the dialog says.
+- **Layers lists Frames after Components and Screens, once there are any,** and its + picks the frame tool, since a
+  frame is drawn rather than made right of everything. The app's Layers keeps Components first, where the exploration
+  had Screens first.
+- **A frame's handles are its previews':** the right side, the bottom and the corner, resizing its own size. Its name
+  runs past a narrow frame rather than being cut off, since there's no board to fit.
+
+## Previews in the Components panel and the insert picker (PAR-208)
+
+Built to the Previews exploration's Components stories (Parity/Explorations/Previews) and PAR-515's card. My calls:
+
+- **The view is a preference, the same in every project.** Names, List or Grid is how a person likes to browse, not a
+  property of a project, so it's kept with the app's other preferences, List until they pick another.
+- **A row says what's wrong in words, not what's in progress.** Fails to draw, Needs props, Needs a provider, Server
+  only and Draws nothing go under the name in List and Grid, colored as the exploration has them. Waiting, drawing and
+  updating show in the picture only (an empty box, a shimmer, the last picture dimmed with a mark), and the card says
+  them in words: on a first open a list of "Waiting" under every name would say nothing anyone can act on.
+- **Why there's no picture comes from what's already known.** Needs a provider and Server only come from the preview's
+  error, as the canvas reads its errors (`renderProblem`). Needs props is a preview that failed or drew nothing whose
+  component requires a prop inserting can't fill: inserting gives a required text, number, yes-or-no or option prop a
+  value of its own, so these are lists, objects and other nodes. A component that draws can still be missing one, and
+  isn't marked.
+- **The card's variants are one prop's options:** the component's first style variant (cva) with more than one option,
+  else its first own prop with a few named options, as a size. Five show as small pictures and the rest are counted.
+  They're made only when the card first opens, before anything off screen, and kept in the project's index beside the
+  component's own, as `Button?variant=outline`, so a card opened again shows them at once. Pointing at one, or tabbing
+  to it, shows it large.
+- **The picker's card has no Insert,** since Enter inserts the highlighted row; it keeps Open file and Open in
+  Storybook, which close the picker first. In a window too narrow for both, the picker is the list alone.
+- **Component designs keep their icon for now.** The proposal pictures a design by its board's bitmap, which the canvas
+  keys by its own frame jobs; reading those for the panel is work of its own, so a design shows its icon where a
+  component shows its picture.
+
+## `prefers-color-scheme` blocks are themes, drawn for each frame's mode (PAR-138)
+
+My call: the app reads `@media (prefers-color-scheme: dark)` around the root as the `dark` theme, and a `light` one as
+the default, as `parity lib` already did, and frames draw such a block for their own mode instead of Parity's window.
+PAR-485 kept the block out because a frame gets its theme from a class the Modes panel adds, never a media query, so a
+dark read from one couldn't be shown or edited. mantine's dark values were left out, and since frames are shadow roots
+in Parity's window, a mantine frame in the Light mode turned dark whenever Parity's window did.
+
+- **One policy.** `ThemeOptions.colorScheme` is gone: `themeOfSelector` always reads a whole
+  `(prefers-color-scheme: dark)` query as `dark` and `light` as the default, with a theme's own selector still beating
+  the block, so libgen and the app read the same CSS alike. The query is read by core's `colorSchemeQuery`, which
+  `prepareCanvasCss` uses too. A query that asks for more (`screen and (prefers-color-scheme: dark)`, or a width as
+  well) stays conditional and no theme's, as before.
+- **Frames draw the block as an attribute theme on their body.** `prepareCanvasCss` rewrites the block's root rules to
+  `:where([data-canvas-body][data-canvas-color-scheme="dark"])`, `body` rules to the body with that attribute, and any
+  other rule to elements inside that body. A block nested in a rule, as Tailwind's `dark:` variant writes, becomes
+  `:where(…) & { … }`, and one nested in the root's own rule is moved after it, where it can reach the body.
+  `frameAttributes` gives every frame body `data-canvas-color-scheme`: `dark` when its mode's classes include `dark`, as
+  the default Dark option's do, and `light` otherwise; an attribute the mode sets itself still wins. The alternatives
+  were a container style query, which can't reach the frame's root, where the block's values live, or an iframe per
+  frame, which the canvas doesn't use.
+- **No specificity is added**, as a media query adds none. The root's values move to the body, so the body's own rules
+  and a theme's class on it (`.dark`) win over them, matching the policy's "a theme's own selector beats the block".
+- **Previews and saves find the block by its theme.** The drawn rule reads as an attribute theme, `dark` or (for
+  `light`) the default, so `previewToken` edits it with no change of its own. `writeTokenChanges` now edits blocks under
+  a colour-scheme query when the query picks the block's theme, adds a value the dark theme lacks to the block, and
+  never adds a new default value to a colour-scheme block's `:root`.
+- **Tokens are read from the blocks as written.** `prepareCanvasCss` takes `colorSchemes: false` where tokens are read
+  (the guest, detection, libgen's comparison test), so the policy sees the media query, and `themeAttributes` reads the
+  same CSS.
+
+Gaps: a frame's root (its shadow host) never gets the colour scheme, so a custom property the root defines from another
+(`--alias: var(--surface)`) keeps its light value in a dark frame, as with a `.dark` class theme. A custom property a
+`body` rule declares inside the block reads as a dark value in the preview but not in the Tokens tab.
 
 ## Sizes and insets can leave the spacing scale, flagged (PAR-194)
 

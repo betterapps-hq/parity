@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { useProject } from "./context.ts"
 import { carriesFiles, draggedTypes, dropFiles, type FileDrop, fileDropAt, overFileField } from "./drop-files.ts"
 import type { Point } from "./hit.ts"
-import { addScreenOfItem, dropTarget, insertItem, insertMime } from "./insert.ts"
+import { addFrameOfItem, dropTarget, insertItem, insertMime } from "./insert.ts"
 import { kindColors } from "./kinds.tsx"
 import { emptyCanvasAt } from "./new-screen.ts"
 import { HereMeasures } from "./paste-here.ts"
@@ -25,7 +25,7 @@ interface Indicator {
  * Drops onto the canvas, from the Assets panel and from the system's files. While dragging over a design, the layout
  * under the pointer is outlined and a line shows the slot the item lands in, found as a dragged layer's is (`slotAt`),
  * or a corner where it goes in an absolutely placed layout; dropping inserts it there as one undoable step. On the
- * empty canvas a corner marks where the new screen it makes starts, named after it (PAR-546). Image files from
+ * empty canvas a corner marks where the new frame it makes starts, named after it (PAR-546). Image files from
  * Explorer or Finder also say what a drop does (see drop-files.ts).
  */
 export function CanvasDrop() {
@@ -66,7 +66,7 @@ export function CanvasDrop() {
       const count = types.filter(mayBeImage).length
       const hint = { text: dropHint(count, drop.kind), at: relative({ ...point, w: 0, h: 0 }) }
       if (count === 0 || drop.kind === "none") return { hint }
-      if (drop.kind === "canvas") return { hint, corner: { at: hint.at, color: kindColors.screen } }
+      if (drop.kind === "canvas") return { hint, corner: { at: hint.at, color: kindColors.layer } }
       const { box } = drop.here
       return {
         hint,
@@ -98,13 +98,13 @@ export function CanvasDrop() {
       event.preventDefault()
       const point = pointOf(event)
       const target = dropTarget(session, area, point, measures)
-      // Over no layout, the empty canvas takes it as a new screen there.
+      // Over no layout, the empty canvas takes it as a new frame there.
       const canvas = !target && !!emptyCanvasAt(session, area, point)
       if (event.dataTransfer) event.dataTransfer.dropEffect = target || canvas ? "copy" : "none"
       // The layout it goes into, and the slot, or the corner where it goes in an absolutely placed layout or where the
-      // new screen starts.
+      // new frame starts.
       const at = relative({ ...point, w: 0, h: 0 })
-      if (canvas) show({ corner: { at, color: kindColors.screen } })
+      if (canvas) show({ corner: { at, color: kindColors.layer } })
       else {
         show(
           target && {
@@ -139,7 +139,7 @@ export function CanvasDrop() {
       const item = readInsertItem(event.dataTransfer!.getData(insertMime))
       if (!item) return
       if (target) insertItem(session, target, item)
-      else if (canvas) addScreenOfItem(session, item, canvas)
+      else if (canvas) addFrameOfItem(session, item, canvas)
       else toast.info("There's no layout here to drop into")
     }
 

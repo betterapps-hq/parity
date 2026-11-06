@@ -2,7 +2,7 @@ import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Component } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
-import { expect, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
@@ -11,8 +11,14 @@ import attachmentGroup from "../stories/previews/attachment-group.png?inline"
 import button from "../stories/previews/button.png?inline"
 import calendar from "../stories/previews/calendar.png?inline"
 import inputGroupText from "../stories/previews/input-group-text.png?inline"
+import kitButtonDestructive from "../stories/previews/kit-button-destructive.webp?inline"
+import kitButtonGhost from "../stories/previews/kit-button-ghost.webp?inline"
+import kitButtonLink from "../stories/previews/kit-button-link.webp?inline"
+import kitButtonOutline from "../stories/previews/kit-button-outline.webp?inline"
+import kitButtonSecondary from "../stories/previews/kit-button-secondary.webp?inline"
+import kitButton from "../stories/previews/kit-button.webp?inline"
 import select from "../stories/previews/select.png?inline"
-import { ComponentCard, type ComponentCardProps, ComponentPopover } from "./ComponentCard.tsx"
+import { type CardVariant, ComponentCard, type ComponentCardProps, ComponentPopover } from "./ComponentCard.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { formatKeys } from "./keys.ts"
@@ -126,7 +132,8 @@ export const Pictures: Story = {
 
 /**
  * Everything else a preview can be: waiting its turn, being drawn, updating after its code changed (the last picture,
- * dimmed), drawing nothing of its own (PAR-517), and failing to draw. Only a made picture sits on the project's page.
+ * dimmed), drawing nothing of its own (PAR-517), failing to draw, and why: it needs props its sample doesn't give, a
+ * provider around it, or a server (PAR-208). Only a made picture sits on the project's page.
  */
 export const States: Story = {
   render: () => (
@@ -149,9 +156,31 @@ export const States: Story = {
       </Surface>
       <Surface label="Fails to draw">
         <ComponentCard
-          name="TabsList"
-          path="src/components/ui/tabs.tsx"
-          preview={{ state: "failed", error: "TabsList: `TabsList` must be used within `Tabs`" }}
+          name="Chart"
+          path="src/components/chart.tsx"
+          preview={{ state: "failed", error: "Maximum update depth exceeded." }}
+        />
+      </Surface>
+      <Surface label="Needs props">
+        <ComponentCard
+          name="DataTable"
+          path="src/components/data-table.tsx"
+          preview={{ state: "failed", error: "Cannot read properties of undefined (reading 'map')" }}
+          missing={["columns", "rows"]}
+        />
+      </Surface>
+      <Surface label="Needs a provider">
+        <ComponentCard
+          name="AvatarFallback"
+          path="src/components/ui/avatar.tsx"
+          preview={{ state: "failed", error: "AvatarFallback: `AvatarFallback` must be used within `Avatar`" }}
+        />
+      </Surface>
+      <Surface label="Only renders on a server">
+        <ComponentCard
+          name="InvoicePdf"
+          path="src/components/invoice-pdf.tsx"
+          preview={{ state: "failed", error: "process is not defined" }}
         />
       </Surface>
       <Surface label="Fails on the canvas too">
@@ -164,6 +193,70 @@ export const States: Story = {
       </Surface>
     </Stage>
   )
+}
+
+const variant = (value: string, src: string): CardVariant => ({ value, preview: made(picture(src, 164, 96)) })
+
+/**
+ * Everything a card can show (PAR-208): the large picture, then the component's variants, made when the card first
+ * opens, where pointing at one shows it large; its file; how often the designs use it and its stories; and Insert,
+ * Open file and Open in Storybook. In the insert picker Enter inserts, so the card there has no Insert.
+ */
+export const VariantsAndActions: Story = {
+  render: () => (
+    <Stage className="flex flex-wrap items-start gap-6">
+      <Surface label="In the Components panel">
+        <ComponentCard
+          name="Button"
+          path="src/components/ui/button.tsx"
+          preview={made(picture(kitButton, 164, 96))}
+          variants={{
+            prop: "variant",
+            options: [
+              variant("default", kitButton),
+              variant("outline", kitButtonOutline),
+              variant("secondary", kitButtonSecondary),
+              variant("ghost", kitButtonGhost),
+              variant("destructive", kitButtonDestructive),
+              variant("link", kitButtonLink)
+            ]
+          }}
+          uses={153}
+          stories={1}
+          onInsert={() => undefined}
+          onOpenFile={() => undefined}
+          onOpenStorybook={() => undefined}
+        />
+      </Surface>
+      <Surface label="Variants still being made">
+        <ComponentCard
+          name="Button"
+          path="src/components/ui/button.tsx"
+          preview={made(picture(kitButton, 164, 96))}
+          variants={{
+            prop: "variant",
+            options: [
+              variant("default", kitButton),
+              { value: "outline", preview: { state: "making" } },
+              { value: "secondary", preview: { state: "waiting" } }
+            ]
+          }}
+          uses={0}
+          onOpenFile={() => undefined}
+        />
+      </Surface>
+    </Stage>
+  ),
+  play: async ({ canvasElement }) => {
+    const card = within(canvasElement).getAllByRole("figure")[0]!
+    await expect(within(card).getByText("Used 153 times")).toBeInTheDocument()
+    await expect(within(card).getByRole("button", { name: "Open in Storybook" })).toBeInTheDocument()
+    await userEvent.hover(within(card).getByRole("button", { name: "variant destructive" }))
+    await expect(within(card).getByRole("button", { name: "variant destructive" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    )
+  }
 }
 
 /** A row of the Assets panel's component list, as it is today. */

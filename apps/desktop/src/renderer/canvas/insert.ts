@@ -91,11 +91,11 @@ export function insertItem(
 }
 
 /**
- * An item with no design to go into, dropped on the empty canvas or inserted with nothing selected, makes a new screen
- * holding it, with its top left `at`, named after it (`designOfItem`, PAR-546). One undo step, and the screen is
- * selected, as a paste there selects the screen it makes.
+ * An item with no design to go into, dropped on the empty canvas or inserted with nothing selected, makes a new frame
+ * holding it, with its top left `at`, named after it (`designOfItem`, PAR-546, PAR-545). One undo step, and the frame
+ * is selected, as a paste there selects the frame it makes.
  */
-export function addScreenOfItem(session: ProjectSession, item: InsertItem, at = viewCenter(session)): string {
+export function addFrameOfItem(session: ProjectSession, item: InsertItem, at = viewCenter(session)): string {
   const { store, selection } = session
   const { design } = designOfItem(
     item,
@@ -111,13 +111,13 @@ export function addScreenOfItem(session: ProjectSession, item: InsertItem, at = 
 
 /**
  * Inserts at the selection, for a click instead of a drag: into a selected layout, after any other selected layer, or
- * at the end of a selected design. With no design selected, it lands on the canvas, so it makes a new screen there, in
+ * at the end of a selected design. With no design selected, it lands on the canvas, so it makes a new frame there, in
  * the middle of the view (PAR-546). Returns false when the selected design has nowhere to insert it.
  */
 export function insertAtSelection(session: ProjectSession, item: InsertItem): boolean {
   const current = session.selection.get()
   if (!current.design) {
-    addScreenOfItem(session, item)
+    addFrameOfItem(session, item)
     return true
   }
   const entry = session.store.getEntry(current.design)

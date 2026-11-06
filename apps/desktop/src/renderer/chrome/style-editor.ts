@@ -1,4 +1,7 @@
+import type { ContainerSpec } from "@parity-app/core"
 import {
+  frameRootShown,
+  frameRootStored,
   type LayerMeasure,
   type RowKey,
   type StyleEdit,
@@ -52,9 +55,14 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   const tokens = useTokenList(session.tokens)
   // A field's edit previews on the canvas, applied as the edit would apply it, until it's made or taken back.
   const preview = useStylePreview(session, entry.key)
-  const selection = styleSelection(entry.container, ids, selected.state, projectLibrary(store))
-  if (!selection) return undefined
   const unit = spacingUnit(tokens)
+  // A frame is its root layout, so its root's size rows are the frame's own size (see `frameRootShown`).
+  const frameRoot = entry.container.kind === "frame" && ids.length === 1 && ids[0] === entry.container.root.id
+  const shown = frameRoot ? frameRootShown(entry.container, unit) : entry.container
+  const within = (edit: (container: ContainerSpec) => ContainerSpec) =>
+    frameRoot ? (container: ContainerSpec) => frameRootStored(edit(frameRootShown(container, unit)), unit) : edit
+  const selection = styleSelection(shown, ids, selected.state, projectLibrary(store))
+  if (!selection) return undefined
   // Each layer measured in the frame the selection was picked in, so a size worked out from it is its own.
   const measure: LayerMeasure = (id, axis, round) => {
     const size = measureNode(session, entry.key, id, selected)
@@ -65,13 +73,13 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   return {
     selection,
     set: (row, edit, label = "Change style", gesture) => {
-      const apply = selection.edit(row, edit, measure)
+      const apply = within(selection.edit(row, edit, measure))
       preview.settle(apply)
       store.updateContainer(entry.key, count > 1 ? `${label} on ${count} layers` : label, apply, { gesture })
     },
     reset: (row) =>
-      store.updateContainer(entry.key, count > 1 ? "Reset changes" : "Reset change", selection.reset(row)),
-    preview: (row, edit) => preview.show(selection.edit(row, edit, measure)),
+      store.updateContainer(entry.key, count > 1 ? "Reset changes" : "Reset change", within(selection.reset(row))),
+    preview: (row, edit) => preview.show(within(selection.edit(row, edit, measure))),
     endPreview: () => preview.cancel(),
     tokens,
     unit,

@@ -17,12 +17,12 @@ export interface CollectedToken {
 /**
  * The tokens a library's CSS defines, read with the same rules the app reads a project's CSS with (`themedProperties`
  * and `categorize` in `@parity-app/tokens`): custom properties on the root, and on each theme a class or attribute
- * names (`.dark`, `[data-theme="dark"]`). Two differences are deliberate, because this reads source CSS whose themes
- * reach a frame as the class blocks `describedTokenCss` writes: Tailwind's `@theme` is the default, and a
- * `prefers-color-scheme` block is its theme. Properties scoped to one component's class aren't tokens.
+ * names (`.dark`, `[data-theme="dark"]`), and a `prefers-color-scheme` block as its theme. One difference is deliberate,
+ * because this reads source CSS: Tailwind's `@theme` is the default. Properties scoped to one component's class aren't
+ * tokens.
  */
 export function cssTokens(css: string): CollectedToken[] {
-  const properties = themedProperties(collectCustomProperties(css), { colorScheme: true, tailwindTheme: true })
+  const properties = themedProperties(collectCustomProperties(css), { tailwindTheme: true })
   const byName = new Map(properties.map((property) => [property.name, property]))
   const tokens: CollectedToken[] = []
   for (const { name, values, first } of properties) {

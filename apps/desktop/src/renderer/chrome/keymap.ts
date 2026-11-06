@@ -21,6 +21,7 @@ export const groups: readonly Group[] = ["Tools", "Selection", "Edit", "Object",
 export const keymap = {
   select: { group: "Tools", label: "Move and select", keys: ["V"] },
   hand: { group: "Tools", label: "Hand", keys: ["H"] },
+  frame: { group: "Tools", label: "Frame", keys: ["F", "A"] },
   text: { group: "Tools", label: "Text", keys: ["T"] },
   interact: { group: "Tools", label: "Interact with previews", keys: ["I"] },
 

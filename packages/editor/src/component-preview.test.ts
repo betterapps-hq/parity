@@ -1,6 +1,16 @@
 import type { ComponentInfo, ComponentSource, DesignNode, RenderNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { componentPreviewTree, drawnOpen, previewFrameWidth, previewRootId, previewValue } from "./component-preview.ts"
+import {
+  componentPreviewTree,
+  componentUses,
+  drawnOpen,
+  missingProps,
+  previewFrameWidth,
+  previewProblem,
+  previewRootId,
+  previewValue,
+  previewVariants
+} from "./component-preview.ts"
 
 const takesChildren = { props: [{ name: "children", kind: "node" }] } as unknown as ComponentInfo
 
@@ -141,5 +151,107 @@ describe("drawnOpen", () => {
   it("changes nothing for components that don't say what's open", () => {
     const tree = layer("Card", { title: "Plan" }, [layer("Badge")])
     expect(drawnOpen(tree, openSources)).toEqual(tree)
+  })
+})
+
+/** The props a tree gives the first layer of a component, outermost first. */
+function drawnProps(tree: RenderNode[], component: string): Record<string, unknown> | undefined {
+  for (const node of tree) {
+    if (node.kind === "component" && node.component === component) return node.props
+    let inside: RenderNode[] = []
+    if (node.kind === "component") inside = Object.values(node.slots).flat()
+    else if (node.kind === "element") inside = node.children
+    const within = drawnProps(inside, component)
+    if (within) return within
+  }
+  return undefined
+}
+
+const prop = (name: string, more: object = {}) => ({ name, kind: "string", group: "own", ...more })
+const infoOf = (...props: object[]) => ({ name: "Badge", path: "src/Badge.tsx", props }) as unknown as ComponentInfo
+
+describe("a variant's preview", () => {
+  it("lays its props over the component's own, on the component inside the parents a part needs", () => {
+    const tree = componentPreviewTree("acme/TabsTrigger", { ...context, props: { variant: "line" } })
+    expect(drawnProps(tree, "acme/TabsTrigger")).toMatchObject({ variant: "line" })
+    expect(drawnProps(tree, "acme/Tabs")).not.toHaveProperty("variant")
+  })
+
+  it("keeps the sample's other props and replaces the one it sets", () => {
+    const [root] = componentPreviewTree("Badge", { ...context, info: takesChildren, props: { children: "New" } })
+    expect(root?.kind === "element" && root.children[0]).toMatchObject({ props: { children: "New" } })
+  })
+})
+
+describe("previewVariants", () => {
+  it("shows a style variant before an own prop with options", () => {
+    const info = infoOf(
+      prop("size", { kind: "enum", options: ["sm", "lg"] }),
+      prop("variant", { kind: "enum", group: "variant", options: ["default", "outline", "ghost"] })
+    )
+    expect(previewVariants(info)).toEqual({ prop: "variant", options: ["default", "outline", "ghost"] })
+  })
+
+  it("falls back to an own prop, and needs more than one option", () => {
+    const info = infoOf(
+      prop("tone", { kind: "enum", group: "variant", options: ["only"] }),
+      prop("size", { kind: "enum", options: ["sm", "lg"] })
+    )
+    expect(previewVariants(info)).toEqual({ prop: "size", options: ["sm", "lg"] })
+  })
+
+  it("is none for a component without choices, or an attribute's", () => {
+    expect(previewVariants(infoOf(prop("label")))).toBeUndefined()
+    expect(
+      previewVariants(infoOf(prop("dir", { kind: "enum", group: "html", options: ["ltr", "rtl"] })))
+    ).toBeUndefined()
+    expect(previewVariants(undefined)).toBeUndefined()
+  })
+})
+
+describe("missingProps", () => {
+  it("lists required props inserting can't fill, leaving out handlers", () => {
+    const info = infoOf(
+      prop("children", { kind: "node" }),
+      prop("items", { kind: "object", required: true }),
+      prop("src", { required: true }),
+      prop("onSelect", { kind: "function", required: true }),
+      prop("alt")
+    )
+    expect(missingProps("Badge", info, sources)).toEqual(["items"])
+  })
+
+  it("counts children the sample places as given", () => {
+    const info = infoOf(prop("children", { kind: "node", required: true }))
+    expect(missingProps("Badge", info, sources)).toEqual([])
+  })
+})
+
+describe("previewProblem", () => {
+  it("names a provider or server code from the error, before missing props", () => {
+    expect(previewProblem({ error: "useRouter must be used within a RouterProvider" }, ["src"])).toBe("needs-provider")
+    expect(previewProblem({ error: "process is not defined" }, [])).toBe("server-only")
+    expect(previewProblem({ error: "async Client Component" }, [])).toBe("server-only")
+  })
+
+  it("says it needs props when it's missing some, and otherwise that it failed or drew nothing", () => {
+    expect(previewProblem({ error: "Cannot read properties of undefined (reading 'map')" }, ["items"])).toBe(
+      "needs-props"
+    )
+    expect(previewProblem({ empty: true }, ["items"])).toBe("needs-props")
+    expect(previewProblem({ error: "Boom" }, [])).toBe("failed")
+    expect(previewProblem({ empty: true }, [])).toBe("draws-nothing")
+  })
+})
+
+describe("componentUses", () => {
+  it("counts each component's layers across designs, in slots too", () => {
+    const card = layer("Card", {}, [layer("Badge"), layer("Badge")])
+    expect(componentUses([card, layer("Badge")])).toEqual(
+      new Map([
+        ["acme/Card", 1],
+        ["acme/Badge", 3]
+      ])
+    )
   })
 })

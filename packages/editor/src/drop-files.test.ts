@@ -108,8 +108,8 @@ describe("what a drop says and is called", () => {
   it("says beside the pointer what a drop there does", () => {
     expect(dropHint(1, "layout")).toBe("Add the image here")
     expect(dropHint(2, "layout")).toBe("Add 2 images here")
-    expect(dropHint(1, "canvas")).toBe("New screen with the image")
-    expect(dropHint(3, "canvas")).toBe("New screen with 3 images")
+    expect(dropHint(1, "canvas")).toBe("New frame with the image")
+    expect(dropHint(3, "canvas")).toBe("New frame with 3 images")
     expect(dropHint(1, "none")).toBe("Drop onto a layout, or onto the empty canvas")
     expect(dropHint(0, "layout")).toBe("Only PNG, JPEG, GIF, WebP or SVG images can be dropped")
   })
@@ -128,13 +128,14 @@ describe("what a drop says and is called", () => {
 })
 
 describe("a new design of dropped images", () => {
-  it("puts the images side by side in a row that wraps, at the drop point, named after the file", () => {
+  it("puts the images side by side in a frame that hugs them, at the drop point, named after the file", () => {
     const design = designOfImages([image("a")], ["Hero banner.png"], ["dashboard"], { x: 120, y: -40 })
     expect(design).toMatchObject({
       id: "hero-banner",
       name: "Hero banner",
+      kind: "frame",
       position: { x: 120, y: -40 },
-      root: { type: "layout", style: { direction: "row", wrap: true, align: "start", padding: 6, gap: 4 } },
+      root: { type: "layout", style: { direction: "row", align: "start", padding: 6, gap: 4, width: "hug" } },
       states: [{ id: "default", name: "Default" }]
     })
   })

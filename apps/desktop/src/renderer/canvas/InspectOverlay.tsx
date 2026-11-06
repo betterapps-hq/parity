@@ -81,7 +81,8 @@ export function InspectOverlay() {
     }
   }, [inspecting.picking, session])
 
-  // The boxes follow the camera, layout changes and animations, so they're measured every frame.
+  // The boxes follow the camera, layout changes and animations, so they're measured every frame. With nothing to mark,
+  // nothing is measured, since reading a box lays the page out first, mid-frame, while the camera moves (PAR-653).
   useEffect(() => {
     let frame = 0
     let last = ""
@@ -89,8 +90,9 @@ export function InspectOverlay() {
       frame = requestAnimationFrame(tick)
       const area = rootRef.current?.parentElement
       if (!area || area.closest("[hidden]")) return
-      const origin = area.getBoundingClientRect()
+      let origin: DOMRect | undefined
       const box = (element: Element): Box => {
+        origin ??= area.getBoundingClientRect()
         const rect = element.getBoundingClientRect()
         return { x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height }
       }

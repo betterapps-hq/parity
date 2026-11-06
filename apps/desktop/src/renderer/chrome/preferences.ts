@@ -21,6 +21,8 @@ const savedPreferences = z.object({
     .array(z.object({ format: z.enum(["png", "jpg"]), scale: z.union([z.literal(1), z.literal(2), z.literal(3)]) }))
     .min(1)
     .catch([...defaultExportSizes]) satisfies z.ZodType<ExportSize[]>,
+  /** How the Components tab shows components: names only, a list with a picture each, or a grid (PAR-208). */
+  componentsView: z.enum(["names", "list", "grid"]).catch("list"),
   /** Column grids over every frame, sized for its viewport. */
   layoutGrid: z.boolean().catch(false),
   /** Each change saves itself a moment after it's made, instead of waiting for Save. */

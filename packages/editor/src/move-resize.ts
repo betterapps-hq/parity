@@ -15,6 +15,7 @@ import {
   topmostNodes
 } from "@parity-app/core"
 import type { Flow, Rect } from "./drop-slot.ts"
+import { withFrameSize } from "./frames.ts"
 import type { Edge } from "./handles.ts"
 import { type BoardView, boardReader } from "./shown.ts"
 import {
@@ -479,7 +480,7 @@ export function frameResize(start: FrameResizeStart): (move: { dx: number; dy: n
   const content = size.height === undefined ? drawn : undefined
   const height = size.height ?? drawn
   return ({ dx, dy }) => {
-    const next: FrameSize = { ...design.frames?.[mode.viewport] }
+    const next: FrameSize = { ...(design.kind === "frame" ? design.size : design.frames?.[mode.viewport]) }
     if (axes.width) {
       const width = Math.round(size.width + dx / scale)
       if (Math.abs(width - mode.width) * scale < fillDistance) delete next.width
@@ -506,8 +507,12 @@ export function frameSizeReset(frame: FrameSize | undefined, edge: Edge): FrameS
   return next
 }
 
-/** The design with `size` for a viewport's frame, keeping no entry for a frame that takes its viewport's size. */
+/**
+ * The design with `size` for a viewport's frame, keeping no entry for a frame that takes its viewport's size. A frame
+ * (the kind) has one size whatever the viewport, which this sets (see `withFrameSize`).
+ */
 export function withFrame(container: ContainerSpec, viewport: string, size: FrameSize): ContainerSpec {
+  if (container.kind === "frame") return withFrameSize(container, size)
   const frames = { ...container.frames }
   if (size.width === undefined && size.height === undefined) delete frames[viewport]
   else frames[viewport] = size
