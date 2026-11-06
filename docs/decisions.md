@@ -5353,3 +5353,34 @@ real apps and engineers already write `w-[280px]`. This loosens the tokens-only 
 - **Regenerating is `pnpm exec vp test run packages/telemetry -u`,** through Vitest's file snapshots, as the fixtures'
   `expected.json` files are, so no script was added. The test that fails says so.
 - **The tables are padded as `vp fmt` writes them,** so formatting the page on commit leaves the generated part alone.
+
+## Secrets are scrubbed before any event leaves a process (PAR-621)
+
+`@parity-app/telemetry`'s `createScrubber({ secrets })` replaces secrets with `[redacted]` and leaves everything else as
+written, as "Parity's own telemetry goes to Sentry, on by default" decided. `createTelemetry` runs it on every event's
+attributes before its sinks and the kept events. Main, the windows and the service run one in their Sentry `beforeSend`,
+`beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb` hooks, and the CLI will once it sends (PAR-642).
+Sentry's server-side scrubbing stays on as a second net. My calls:
+
+- **Keys and tokens with a known shape are replaced whole:** OpenAI and Anthropic `sk-…`, Stripe `sk_live_`/`rk_live_`,
+  GitHub `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and `github_pat_`, Slack `xox…-`, AWS access key IDs, Google `AIza…`,
+  npm `npm_`, Sentry `sntrys_`, JWTs and private key blocks. After `Bearer` and in a URL's `user:password@`, only the
+  secret goes: the word, scheme, user and host stay.
+- **A field whose name says it's secret loses its whole value,** in objects and in text (`.env` lines, query strings,
+  JSON, `password: …` in a message): names with password, passphrase, secret, API key, access key, private key,
+  credential, authorization or cookie in them, `auth`, environment names ending in `_TOKEN`, `_KEY`, `_SECRET` or
+  `_PASSWORD`, and tokens with a credential's prefix, as `accessToken` or `refresh_token`. **A bare `token` isn't
+  secret,** nor `designToken` or `key`: in Parity those are design tokens and design keys, which make a bug findable.
+  Their values are still read for keys and random strings.
+- **Long random strings are replaced even with no known shape:** 32 characters or more of base64 or hex characters, with
+  upper and lower case letters and digits, under 40% of it in lowercase words of 4 letters or more, and at least 3.5
+  bits per character. Paths and identifiers are half words or more, so they stay. Hex alone stays (hashes, commit SHAs,
+  UUIDs, trace IDs), as does a run in a file name before its extension or in a `data:` URL's base64. About 1 in 100
+  random 32-character keys slips past this, which the known shapes and Sentry's own scrubbing cover.
+- **`.env` values are scrubbed when the caller passes them.** `envSecrets(file)` reads a `.env` file's values, and the
+  ones 8 characters or longer that aren't a number or `true`/`false` are replaced wherever they appear. `setSecrets`
+  swaps them when another project opens. Shorter values would hide words and port numbers everywhere they appear. No
+  process passes a project's values yet: that's PAR-672.
+- **Only attributes are scrubbed in `createTelemetry`.** The envelope's own fields are Parity's IDs, names and paths. An
+  `Error` is copied as its own class with its message, stack, fields and cause scrubbed; dates, byte arrays and other
+  objects that aren't plain go as they are.

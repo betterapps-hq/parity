@@ -44,9 +44,23 @@ setting and variable.
 
 ## Secrets are scrubbed
 
-Names, paths, values and messages are sent as written, since they're what makes a bug findable. Secrets aren't: keys,
-tokens, passwords, credentials in URLs and the values of the project's `.env` files are replaced in every string and
-stack frame, in every process, before anything leaves it. Sentry's own server-side scrubbing stays on as a second net.
+Names, paths, values and messages are sent as written, since they're what makes a bug findable. Secrets aren't: they're
+replaced with `[redacted]` in every string and stack frame, in every process, before anything leaves it. Sentry's own
+server-side scrubbing stays on as a second net.
+
+`createScrubber()` in `@parity-app/telemetry` does it. `createTelemetry` runs one on every event's attributes before its
+sinks, and each process's Sentry setup (`main/telemetry.ts`, `renderer/telemetry.ts`, `utility/telemetry.ts`) runs one
+in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`. It replaces:
+
+- keys and tokens with a known shape: `sk-…`, Stripe, GitHub, Slack, AWS access key IDs, Google, npm and Sentry tokens,
+  JWTs and private key blocks
+- the token after `Bearer`, and the password in a URL's `user:password@`
+- the whole value of a field or `name=value` whose name says it's secret, such as `password`, `apiKey`, `accessToken`,
+  `Authorization`, `Cookie` or `GITHUB_TOKEN`. A bare `token` or `key` is a design token or design key, and stays.
+- long random strings, though not hex (hashes, commit SHAs, UUIDs, trace IDs), file names or `data:` URLs
+- values it's given, such as a project's `.env` values read with `envSecrets()`
+
+What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
 
 ## Levels and sampling
 

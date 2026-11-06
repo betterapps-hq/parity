@@ -1,3 +1,4 @@
+import { createScrubber } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/utility"
 
 /** How much of a builder's output goes with its crash. */
@@ -9,7 +10,14 @@ const builderLines = 50
  */
 export function startTelemetry(): void {
   // Named on each event, as main and the windows do; the worker's and builders' reports below name their own.
-  Sentry.init({ beforeSend: (event) => ({ ...event, tags: { process: "service", ...event.tags } }) })
+  // Secrets are scrubbed before an event leaves the service, and again in main (PAR-621).
+  const scrubber = createScrubber()
+  Sentry.init({
+    beforeSend: (event) => scrubber.value({ ...event, tags: { process: "service", ...event.tags } }),
+    beforeSendTransaction: (event) => scrubber.value(event),
+    beforeSendLog: (log) => scrubber.value(log),
+    beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb)
+  })
 }
 
 /** Reports the props worker failing, which only the service sees. */

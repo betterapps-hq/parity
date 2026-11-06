@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Scrub keys, tokens and passwords from the errors and breadcrumbs sent to Sentry",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

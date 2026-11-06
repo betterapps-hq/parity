@@ -1,4 +1,5 @@
 import {
+  createScrubber,
   type TelemetryEnvironment,
   type TelemetryLevel,
   telemetryEnvironment,
@@ -32,6 +33,8 @@ export function startTelemetry(
 ): TelemetryStart {
   const level = telemetryLevel(env)
   const environment = telemetryEnvironment(env, installed)
+  // Secrets are scrubbed from everything Sentry sends, the windows' and the service's events included (PAR-621).
+  const scrubber = createScrubber()
   Sentry.init({
     dsn,
     environment,
@@ -39,7 +42,10 @@ export function startTelemetry(
     getRendererName: rendererName,
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
-    beforeSend: (event) => ({ ...event, tags: { process: "main", ...event.tags } }),
+    beforeSend: (event) => scrubber.value({ ...event, tags: { process: "main", ...event.tags } }),
+    beforeSendTransaction: (event) => scrubber.value(event),
+    beforeSendLog: (log) => scrubber.value(log),
+    beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb),
     integrations: [
       // A renderer that runs out of memory may leave no minidump, so it's reported as well as the default exits.
       Sentry.childProcessIntegration({ events: ["abnormal-exit", "launch-failed", "integrity-failure", "oom"] })
