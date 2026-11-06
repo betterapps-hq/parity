@@ -101,7 +101,8 @@ checkShippedSharp()
  * from. The installer ships no maps. The project guest is left out: its errors are the project's, not Parity's.
  */
 function separateSourceMaps(): void {
-  const bundles = ["main.mjs", "utility.mjs", "props-worker.mjs", "builder-process.mjs", "preload.cjs", "renderer"]
+  // Every bundle beside main, preload scripts and workers included, but the guest, and the windows' scripts.
+  const bundles = [...globSync("*.{mjs,cjs}", { cwd: out }).filter((bundle) => bundle !== "guest.mjs"), "renderer"]
   execFileSync(SentryCli.getPath(), ["sourcemaps", "inject", ...bundles.map((bundle) => join(out, bundle))], {
     stdio: ["ignore", "ignore", "inherit"]
   })
@@ -113,6 +114,9 @@ function separateSourceMaps(): void {
     cpSync(join(out, bundle), join(sourceMaps, bundle))
     renameSync(join(out, map), join(sourceMaps, map))
   }
+  // Which release they belong to, which scripts/upload-sourcemaps.ts names.
+  const { version } = readManifest(appDir)
+  writeFileSync(join(sourceMaps, "build.json"), JSON.stringify({ version, commit: currentCommit(appDir) }, null, 2))
   console.log(`${maps.length} source maps moved to ${relative(appDir, sourceMaps)}`)
 }
 
