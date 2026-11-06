@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
 import { fileObject, finiteNumber, parseData, plainObject } from "./schema.ts"
+import { slotNameProblem } from "./slot-names.ts"
 
 // A project file is checked by the schemas below, leaves first. Rules that span fields are refinements on the object
 // that holds those fields, each reported at the field at fault.
@@ -288,6 +289,11 @@ const nodeBase = fileObject({
 
 const layoutNode = nodeBase.extend({
   type: z.literal("layout"),
+  /**
+   * In a component design: the slot this layout is, `children` for the default one or a name such as `actions`. Each
+   * instance can fill it with layers of its own; until one does, its children show as placeholder content.
+   */
+  slot: z.string().optional(),
   get children(): z.ZodArray<typeof designNode> {
     return z.array(designNode)
   }
@@ -499,7 +505,15 @@ export const containerSpec = fileObject({
   size: frameSize.optional()
 }).superRefine((container, context) => {
   const ids = new Set<string>()
-  walkNodes(container.root, (node) => ids.add(node.id))
+  const slots = new Set<string>()
+  walkNodes(container.root, (node) => {
+    ids.add(node.id)
+    if (node.type !== "layout" || node.slot === undefined) return
+    const unusable = slotNameProblem(node.slot)
+    if (unusable) problem(context, ["root"], `layer "${node.id}" is a slot whose name ${unusable}`)
+    else if (slots.has(node.slot)) problem(context, ["root"], `two layers are the slot "${node.slot}"`)
+    slots.add(node.slot)
+  })
   for (const [index, state] of container.states.entries()) {
     checkPatchKeys(state.overrides, ids, context, ["states", index, "overrides"])
   }

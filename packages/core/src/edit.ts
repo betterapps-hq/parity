@@ -192,7 +192,11 @@ export function generateId(taken: ReadonlySet<string>, length = 5): string {
 export function withFreshIds(node: DesignNode, taken: Set<string>): DesignNode {
   const id = generateId(taken)
   taken.add(id)
-  if (node.type === "layout") return { ...node, id, children: node.children.map((child) => withFreshIds(child, taken)) }
+  if (node.type === "layout") {
+    // A copy is a plain layout, keeping the slot's placeholder content: a component has one slot by each name.
+    const { slot: _slot, ...layout } = node
+    return { ...layout, id, children: node.children.map((child) => withFreshIds(child, taken)) }
+  }
   if (node.type === "component" && node.slots) {
     const slots: Record<string, DesignNode[]> = {}
     for (const [slot, nodes] of Object.entries(node.slots))

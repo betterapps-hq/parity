@@ -1,8 +1,9 @@
+import { setSlot } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
-import { design, example } from "../stories/fixtures.tsx"
+import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
-import { inspecting, InspectorStage, slowly } from "./inspector-stories.tsx"
+import { inspecting, InspectorStage, slowly, typing } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
 
 /**
@@ -43,6 +44,44 @@ export const ScreenSelected: Story = { loaders: [inspecting("design", () => ({ d
 
 /** A component design selected: Plan card's params with their defaults, and the three places it's used. */
 export const ComponentSelected: Story = { loaders: [inspecting("design", () => ({ design: design("Plan card") }))] }
+
+/** App top bar with its actions layout made a named slot, `actions`. */
+const topBarWithSlot = () => {
+  const key = design("App top bar")
+  example().store.updateContainer(key, "Make slot", (container) =>
+    setSlot(container, node("App top bar", "Top bar actions"), "actions")
+  )
+  return { design: key }
+}
+
+/**
+ * A component design with a slot (PAR-83): Props lists App top bar's params and its `actions` slot together, each with
+ * its type, and In code shows how an instance reads. Add slot lists the layouts that can be one.
+ */
+export const ComponentWithSlots: Story = { loaders: [inspecting("design", topBarWithSlot)] }
+
+/** The `actions` slot's row opened: its kind, Children or Named, its name, its layout, and Remove slot. */
+export const SlotOpened: Story = {
+  loaders: [inspecting("design", topBarWithSlot)],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    await userEvent.click(await panel.findByRole("button", { name: "actions, a slot in Top bar actions" }, slowly))
+    await expect(await panel.findByRole("textbox", { name: "Slot name" }, slowly)).toHaveValue("actions")
+  }
+}
+
+/** Naming the slot after one of App top bar's params, `page`: the name stays, and the row says why. */
+export const SlotNameTaken: Story = {
+  loaders: [inspecting("design", topBarWithSlot)],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    await userEvent.click(await panel.findByRole("button", { name: "actions, a slot in Top bar actions" }, slowly))
+    const name = await panel.findByRole("textbox", { name: "Slot name" }, slowly)
+    await userEvent.clear(name)
+    await userEvent.type(name, "Page{Enter}", typing)
+    await expect(await panel.findByRole("alert", undefined, slowly)).toHaveTextContent("A param is already called page")
+  }
+}
 
 /** A component with many params, Project card's nineteen: switches for its booleans, inputs for the rest. */
 export const ComponentWithManyParams: Story = {

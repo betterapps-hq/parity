@@ -40,7 +40,7 @@ import {
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
@@ -62,6 +62,7 @@ import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
+import { MakeSlot } from "./slot-props.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -130,7 +131,20 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
         </p>
         <StateTarget entry={entry} state={state} target={target} />
         {location.ancestors.length > 0 && location.node.type !== "instance" && (
-          <MakeComponent entry={entry} nodeId={nodeId} />
+          <MakeComponent
+            entry={entry}
+            nodeId={nodeId}
+            beside={
+              location.node.type === "layout" &&
+              container.kind === "component" && <MakeSlot entry={entry} node={location.node} />
+            }
+          />
+        )}
+        {/* The outermost layout is the design itself, with no Make component, but it can still be a slot. */}
+        {location.ancestors.length === 0 && location.node.type === "layout" && container.kind === "component" && (
+          <div className="mt-2 flex">
+            <MakeSlot entry={entry} node={location.node} />
+          </div>
         )}
       </div>
 
@@ -401,16 +415,22 @@ function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) 
   )
 }
 
-/** Extracts the selected layer into a component design, with its texts as params. */
-function MakeComponent({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
+/**
+ * Extracts the selected layer into a component design, with its texts as params. `beside` is the other thing the
+ * layer can become, a slot, shown next to it until a name is being typed.
+ */
+function MakeComponent({ entry, nodeId, beside }: { entry: ContainerEntry; nodeId: string; beside?: ReactNode }) {
   const session = useProject()
   const [naming, setNaming] = useState(false)
   const [error, setError] = useState<string>()
   if (!naming) {
     return (
-      <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => setNaming(true)}>
-        <Sparkles /> Make component
-      </Button>
+      <div className="mt-2 flex gap-1.5">
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => setNaming(true)}>
+          <Sparkles /> Make component
+        </Button>
+        {beside}
+      </div>
     )
   }
   return (
@@ -707,7 +727,8 @@ function describeNode(node: DesignNode, entries: readonly ContainerEntry[], libr
   }
   if (node.type === "text") return `Text${node.tag ? `, ${node.tag}` : ""}`
   if (node.type === "image") return "Image"
-  return node.style?.direction === "row" ? "Row layout" : "Column layout"
+  const layout = node.style?.direction === "row" ? "Row layout" : "Column layout"
+  return node.slot === undefined ? layout : `${layout}, the ${node.slot} slot`
 }
 
 /**

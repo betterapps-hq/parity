@@ -364,8 +364,13 @@ export function detachInstance(container: ContainerSpec, instanceId: string, lib
     const id = root ? instance.id : generateId(taken)
     taken.add(id)
     ids.set(node.id, id)
-    const next = { ...applyPatch(node, layeredPatch(layers, node.id), args), id } as DesignNode & { bind?: unknown }
+    const next = { ...applyPatch(node, layeredPatch(layers, node.id), args), id } as DesignNode & {
+      bind?: unknown
+      slot?: unknown
+    }
     delete next.bind
+    // A detached copy is plain layers: what its slots showed stays, as layouts like any other.
+    delete next.slot
     if (next.type === "instance") {
       const overrides = flatten([next.overrides, ...layers.map((layer) => withinInstance(layer, node.id))])
       if (overrides) next.overrides = overrides

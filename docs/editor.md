@@ -2427,6 +2427,47 @@ isolated copy of the app on that project, the same day, a Button with a text lay
 label and its Props section said `icon` was set in layers, and an Input's `contentBefore` took `$` as text and drew it
 in the field, with `contentAfter` offering "Text, or layers in its slot".
 
+### Slots in a component design (PAR-83)
+
+A layout of a component design can be a slot: a place each instance fills with layers of its own. Until one does, the
+layout's own layers show, as placeholder content. A component has at most one `children` slot, the layers nested inside
+it, which code puts between its tags, and any number of named slots, each a prop that takes layers.
+
+- **Make slot** sits beside Make component in a layout's header, the other thing a layer can become. It makes the layout
+  the children slot while that's free, or a slot named after the layout. Once it's a slot, the button is the slot's
+  name, which opens its row in the component's Props, and × makes it a plain layout again. A layout inside a slot, or
+  around one, can't be one: the button stays focusable and its hint says why.
+- **Props** lists a component's params and slots together, each with its type, slots after params and children last, in
+  the order code takes them. **Add slot** lists the layouts that can be one, outlining each on the canvas as it's
+  pointed at. A slot's row opens to its kind, Children or Named, its name, its layout and Remove slot. A typed name is
+  camelCased (`Side actions` is `sideActions`) and refused, with why, when it isn't usable, is one of the component's
+  params or another slot's, or is `children`, which is chosen rather than typed.
+- **In code**, under Props, shows how an instance reads: each param with its default, named slots as props, and children
+  between the tags.
+- **On the canvas** a selected component outlines each slot in dashes with its name, and hovering a slot's row or its
+  line of code outlines its layout. Layers shows a slot's dashed icon and its name at the end of its row.
+
+The file keeps a slot as `slot` on the layout. Its rules are in `@parity-app/core`: `designSlots`, `setSlot`,
+`slotProblem`, `slotPlaceProblem` and `freeSlotName` in `slots.ts`, and `slotName` and `slotNameProblem` in
+`slot-names.ts`. Filling a slot from an instance is PAR-84.
+
+Code: `chrome/slot-props.tsx` (the rows, Add slot, In code and Make slot), `chrome/slot-focus.ts` (the open row),
+`ParamsSection` in `chrome/ComponentsSection.tsx`, `chrome/LayerPanel.tsx`, the slot outlines in
+`canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
+
+Tests:
+
+- `packages/core/src/slots.test.ts` (14): marking the children slot and a named one, and unmarking; a screen's layouts
+  and a component's text refused; a name that isn't usable, is reserved, is a param's or another slot's; a slot inside
+  another, or around one; the free name a new slot takes; `designSlots` skipping screens and nested slots; the file
+  refusing a bad or repeated name; and copies and detached instances losing the mark.
+- Stories: Parity/Inspector/Layer (Layout In A Component, which makes a slot, Children Slot, Named Slot and Layout
+  Inside A Slot), Parity/Inspector/Design (Component With Slots, Slot Opened, and Slot Name Taken, which types a param's
+  name), Parity/Left panel/Layers › Slots, and Parity/Canvas/Selection › Component Slots.
+
+Gaps: the slot outlines and the hover from Props have no automated DOM test. They were checked in those stories on
+2026-11-06, with a param's name typed by keyboard into a slot's name and refused.
+
 ### A library's own props beside the attributes it passes on (PAR-457)
 
 A library component often takes an element's attributes and adds props of its own: Nova's `SidebarMenuButton` is a

@@ -5194,3 +5194,26 @@ in Parity's window, a mantine frame in the Light mode turned dark whenever Parit
 Gaps: a frame's root (its shadow host) never gets the colour scheme, so a custom property the root defines from another
 (`--alias: var(--surface)`) keeps its light value in a dark frame, as with a `.dark` class theme. A custom property a
 `body` rule declares inside the block reads as a dark value in the preview but not in the Tokens tab.
+
+## A layout of a component design can be a slot (PAR-83)
+
+Called on 2026-11-06, with your approval in Storybook. [proposals/components.md](proposals/components.md) set out slots;
+PAR-83 marks them in a component design, and PAR-84 fills them from instances. My calls, with yours:
+
+- **A slot is `slot` on a layout node,** `children` or a prop's name, and the layout's own layers are its placeholder,
+  as Vue's and Web Components' fallback content is. The outermost layout can be one.
+- **Children and named slots, not "default".** You chose Children: React, Solid and Svelte 5 call the nested content
+  `children`, and it says nesting in any framework. A Vue adapter would write it as the default slot. Named slots are
+  props that take layers, meant for small parts, so code doesn't drill whole layouts through props. `children` is chosen
+  as the kind, never typed as a name.
+- **Slots are props.** They're listed with the params in the component's Props, in the order code takes them, with In
+  code showing how an instance reads, rather than only on the layer. Make slot sits beside Make component on the layer.
+- **The file is strict about names, the editor about the rest.** The file refuses a name that couldn't be a prop (`key`,
+  `ref`, `style`, `className`, or not an identifier) and two layouts with one name. A slot named like a param, or inside
+  another slot, is refused by `setSlot` but tolerated in a file, and `designSlots` skips a nested one.
+- **Copies drop the mark.** Duplicate, paste, moving to another design, Make component and Detach make a plain layout,
+  keeping its layers, since a component has one slot by each name. A component turned into a screen keeps its marks,
+  which do nothing until it's a component again.
+- **Typed names are camelCased,** so `Side actions` is `sideActions`.
+- **Filling slots waits for PAR-84,** in the same real panels: Filled and Empty on an instance's slots, a picture of
+  what fills one on hover, and selecting a slot to add to it.

@@ -1,4 +1,4 @@
-import { insertNode, mapNode } from "@parity-app/core"
+import { insertNode, mapNode, setSlot } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
@@ -72,6 +72,48 @@ export const ComponentWithoutStyle: Story = {
 
 /** A layout, Pricing's hero: no content section, and a Layout section first among its styles. */
 export const LayoutLayer: Story = { loaders: [pick("Pricing", "Hero")] }
+
+/** Marks a layout of an example component design as a slot, then selects `layerName`, which may be another layout. */
+const slotted = (designName: string, slots: Record<string, string>, layerName: string) =>
+  inspecting("design", () => {
+    const key = design(designName)
+    example().store.updateContainer(key, "Make slot", (container) =>
+      Object.entries(slots).reduce(
+        (current, [layer, name]) => setSlot(current, node(designName, layer), name),
+        container
+      )
+    )
+    return layersSelection(key, [node(designName, layerName)])
+  })
+
+/**
+ * A layout in a component design, Plan card's features (PAR-83): Make slot beside Make component, the other thing a
+ * layer can become. Clicking it makes the layout the children slot, and the button becomes the slot's name.
+ */
+export const LayoutInAComponent: Story = {
+  loaders: [pick("Plan card", "Features")],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    await userEvent.click(await panel.findByRole("button", { name: "Make slot" }, slowly))
+    await expect(
+      await panel.findByRole("button", { name: "Edit the children slot in Plan card's props" }, slowly)
+    ).toBeVisible()
+  }
+}
+
+/** Plan card's features as its children slot: its name opens it in Plan card's props, and × makes it a plain layout. */
+export const ChildrenSlot: Story = { loaders: [slotted("Plan card", { Features: "children" }, "Features")] }
+
+/** App top bar's actions as a named slot, `actions`, which becomes a prop that takes layers in code. */
+export const NamedSlot: Story = {
+  loaders: [slotted("App top bar", { "Top bar actions": "actions" }, "Top bar actions")]
+}
+
+/**
+ * A layout inside the children slot, one of Plan card's features: it's placeholder content, so Make slot is unavailable
+ * and says why.
+ */
+export const LayoutInsideASlot: Story = { loaders: [slotted("Plan card", { Features: "children" }, "Feature 1")] }
 
 /** The design's outermost layer: everything a layout has, but no Make component, since it's the design itself. */
 export const OutermostLayer: Story = { loaders: [pick("Pricing", "Page")] }

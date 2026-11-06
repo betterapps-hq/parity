@@ -2,6 +2,7 @@ import { Button, Input } from "@buildkitgg/shadcn-baseui-kit"
 import {
   addVariant,
   addVariantOption,
+  designSlots,
   findNode,
   findRepeats,
   type ParamSpec,
@@ -22,6 +23,7 @@ import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { revealSelection } from "./reveal.ts"
+import { AddSlotMenu, CodeLines, PropTile, SlotRow, slotsInCodeOrder } from "./slot-props.tsx"
 
 /**
  * Breaking a screen into components. Repeated parts are found exactly; extracting one makes a component design with
@@ -134,27 +136,34 @@ function CandidateCard({
   )
 }
 
-/** A component design's params, with their defaults, its variants, and where it's used. */
+/**
+ * A component design's variants, then its props: params with their defaults and slots, each with its type, in the order
+ * code takes them, how that reads in code, and where it's used.
+ */
 export function ParamsSection({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const all = Object.entries(entry.container.params ?? {})
   const params = all.filter(([, param]) => param.type !== "variant")
   const variants = all.filter(([, param]) => param.type === "variant")
+  const slots = slotsInCodeOrder(designSlots(entry.container))
   const usages = instancesOf(session.store.getEntries(), entry.container.id)
   return (
     <>
       <VariantsSection entry={entry} variants={variants} />
       <PanelSection
-        title="Params"
-        count={params.length}
-        description="What each instance sets. The main component shows the defaults."
+        title="Props"
+        count={params.length + slots.length}
+        description="What each instance sets or fills. The main component shows the defaults."
+        action={<AddSlotMenu entry={entry} />}
       >
-        {params.length === 0 ? (
-          <p className="px-1 text-xs text-muted-foreground">No params: every instance looks the same.</p>
-        ) : (
+        {params.length + slots.length === 0 && (
+          <p className="px-1 text-xs text-muted-foreground">No props: every instance looks the same.</p>
+        )}
+        {params.length > 0 && (
           <div className="flex flex-col gap-1">
             {params.map(([name, param]) => (
-              <div key={name} className="grid grid-cols-[96px_1fr] items-center gap-2">
+              <div key={name} className="grid grid-cols-[20px_96px_1fr] items-center gap-2 px-1">
+                <PropTile kind={valueKind(param.default, param.type)} />
                 <Hint label={`${name}: ${param.type}`} wait>
                   <span className="truncate font-mono text-xs">{name}</span>
                 </Hint>
@@ -172,6 +181,13 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
               </div>
             ))}
           </div>
+        )}
+        {slots.length > 0 && (
+          <ul className={`flex flex-col ${params.length > 0 ? "mt-1" : ""}`}>
+            {slots.map((slot) => (
+              <SlotRow key={slot.node.id} entry={entry} slot={slot} />
+            ))}
+          </ul>
         )}
         <div className="mt-3 px-1 text-xs text-muted-foreground">
           {usages.length === 0 ? "Not used yet." : `Used ${usages.length} time${usages.length === 1 ? "" : "s"}:`}
@@ -196,6 +212,9 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
             </li>
           ))}
         </ul>
+      </PanelSection>
+      <PanelSection title="In code">
+        <CodeLines entry={entry} slots={slots} />
       </PanelSection>
     </>
   )
