@@ -573,8 +573,10 @@ the tree longer and every later change slower.
   says nothing.
 - **Each layer has an eye** that hides it in the state its board shows, or shows it again, as one undo step, without
   selecting it. It shows while the layer is hovered, in the panel or on the canvas, and stays on a hidden layer, crossed
-  out. Its name says what it does and where, as the row menu's Hide does ("Hide in Default"). The page can't be hidden,
-  so it has none. Like the row's arrow, it isn't in the tab order: Ctrl+Shift+H hides the selection from the keyboard.
+  out. It's named Hide or Show, without the state, which the row menu's Hide still names ("Hide in Default"). The page
+  can't be hidden, so it has none. A layer that changes at some screen sizes shows a monitor and phone icon, whose
+  tooltip says so ("Changes at some screen sizes"). Like the row's arrow, it isn't in the tab order: Ctrl+Shift+H hides
+  the selection from the keyboard.
 - **Designs are dragged to reorder them** among the designs of their group, components, screens or frames, in their own
   file, which is the order the panel lists them in. A line under or over the row shows where it would go, and the move
   is one undo step ("Reorder screen").

@@ -6,15 +6,7 @@ import {
   ContextMenuTrigger,
   ContextMenuShortcut
 } from "@buildkitgg/shadcn-baseui-kit"
-import {
-  boardTarget,
-  type ContainerKind,
-  type DesignNode,
-  editTargetName,
-  locateNode,
-  nodeOnBoard,
-  toggleHidden
-} from "@parity-app/core"
+import { type ContainerKind, type DesignNode, locateNode, nodeOnBoard, toggleHidden } from "@parity-app/core"
 import {
   activeState,
   branchIds,
@@ -760,12 +752,15 @@ const LayerRow = memo(function LayerRow({
                 />
               )}
               {viewports.length > 0 && (
-                <MonitorSmartphone className="size-3" aria-label={`Changes on ${viewports.join(", ")}`} />
+                <Hint label="Changes at some screen sizes" wait>
+                  <span className="flex">
+                    <MonitorSmartphone className="size-3" aria-label="Changes at some screen sizes" />
+                  </span>
+                </Hint>
               )}
               {hideable && (hidden || hovered) && (
                 <VisibilityToggle
                   hidden={hidden}
-                  where={editTargetName(container, boardTarget(container, state.id))}
                   onToggle={() =>
                     session.store.updateContainer(row.design.key, "Toggle visibility", (current) =>
                       toggleHidden(current, activeState(current).id, [row.node!.id])
@@ -795,8 +790,8 @@ const LayerRow = memo(function LayerRow({
  * layer's eye is crossed out and always shows; a shown one's appears while the layer is hovered, here or on the canvas. The keyboard hides the
  * selection with Ctrl+Shift+H instead, so the eye stays out of the tab order, as the row's arrow does.
  */
-function VisibilityToggle({ hidden, where, onToggle }: { hidden: boolean; where: string; onToggle: () => void }) {
-  const label = `${hidden ? "Show" : "Hide"} in ${where}`
+function VisibilityToggle({ hidden, onToggle }: { hidden: boolean; onToggle: () => void }) {
+  const label = hidden ? "Show" : "Hide"
   return (
     <Hint label={label}>
       <button

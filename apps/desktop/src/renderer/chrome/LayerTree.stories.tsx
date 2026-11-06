@@ -501,11 +501,12 @@ export const HiddenFromItsEye: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     await reveal("Plan card", "Feature 2")
-    example().selection.set({ design: design("Plan card") })
+    // Picked in the tree, so the rows opened to show Feature 2 stay open.
+    await userEvent.click(row("Plan card"))
     await userEvent.hover(row("Plan card", "Feature 2"))
-    await userEvent.click(await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Hide in Default" }))
+    await userEvent.click(await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Hide" }))
     await userEvent.unhover(row("Plan card", "Feature 2"))
-    await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Show in Default" })
+    await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Show" })
     await expect(example().selection.get()).toEqual({ design: design("Plan card") })
   }
 }
