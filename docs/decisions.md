@@ -4599,6 +4599,47 @@ address issues with actual context."
   and their calls are half of each trace.
 - **All of this is revisited before the first public release,** in its own Backlog issue.
 
+## Sentry is set up in better-apps, by hand (PAR-617)
+
+What's there and how it was done is in [sentry.md](sentry.md). You chose on 2026-11-05 to have a project for every
+surface now, "parity-web, and parity-dashboard" beside the app and CLI, and that it all belongs to
+`admin@betterapps.io`: "I can't have it in my personal account." My calls:
+
+- **Five projects, one team:** `parity-desktop`, `parity-cli`, `parity-web`, `parity-dashboard` and `parity-api`, all
+  owned by the `parity` team. The proposal's two are the first two; the others wait for their surfaces.
+- **The DSNs are in the repository,** in [sentry.md](sentry.md) for now. PAR-620 and PAR-642 put them in the app's and
+  CLI's build config as they add the SDKs that read them.
+- **Not in Terraform yet,** although cloud services come from Terraform. The pipelines' templates can't pass a Sentry
+  token, so the module waits for that change; sentry.md lists what was done by hand so it can be imported.
+- **The organisation is on a Business trial until 2026-11-19,** which you had started so the free plan's one-member
+  limit didn't block the handover. Whether to pay for a plan is yours: the Team plan adds alerts that file Linear issues
+  and a larger replay quota, which the agent loop relies on.
+
+## Errors, crashes and hangs go to Sentry from every process (PAR-620)
+
+`@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to
+`parity-desktop`. My calls:
+
+- **Main decides what leaves the computer.** Windows and the service always start Sentry and send through main, whose
+  client is off when `PARITY_TELEMETRY=off` or `DO_NOT_TRACK=1` is set, or under Vitest. The decision is
+  `telemetryLevel` and `telemetryEnvironment` in `@parity-app/telemetry`, so the CLI can share it (PAR-642). A
+  `PARITY_TELEMETRY` value that isn't `all`, `errors` or `off` stops the app, rather than sending what someone meant to
+  turn off. The Telemetry setting is PAR-626.
+- **Environments:** `ci` wherever `CI` is set, `tester` for an installed build, and `development` otherwise.
+- **The `process` tag uses the telemetry envelope's names** (`main`, `renderer`, `render`, `service`, `worker`,
+  `builder`), set on each event. Sentry copies a window's scope into main's, so a scope tag would have labelled main's
+  own errors as the window's.
+- **Windows report only errors thrown from Parity's own pages** (`allowUrls` is the page's origin). A project's
+  components run in the same page, and their errors are the project's to show, not Parity's bugs.
+- **React errors go through the root's `onUncaughtError` and `onCaughtError`,** with their component stack. Boundaries
+  around the canvas, panels and dialogs need a fallback UI designed first, so they're PAR-667.
+- **Main's hangs are measured by a late timer, not Sentry's native hang detection,** which needs a module built for
+  Electron's ABI that the build doesn't ship. It reports how long main was stuck, though not where; PAR-631 can bring in
+  the native module. Windows' hangs come from their `unresponsive` and `responsive` events.
+- **Exits:** a window or child process that exits abnormally, fails to launch or runs out of memory is reported, along
+  with crashes' minidumps. The service's restarts are breadcrumbs. A builder that stops by itself is reported with its
+  last 50 lines of output, and the props worker's failures from the service.
+
 ## The rest of signing in is designed (PAR-614)
 
 You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
@@ -5248,13 +5289,30 @@ real apps and engineers already write `w-[280px]`. This loosens the tokens-only 
 - **Nudging moves 1px, or 10px with Shift,** as Figma's does, which CAN-39 waited on. The field's Up and Down still move
   a step, so they're the way back onto the scale; a length off it goes to the step beside it.
 
+## docs/telemetry.md lists the events from their schemas (PAR-623)
+
+[telemetry.md](telemetry.md) says what Parity sends Sentry and lists every event, as principle 9 of
+[proposals/product-telemetry.md](proposals/product-telemetry.md) asks. My calls:
+
+- **An event says which processes send it and when,** as `sentBy` and `when` in `defineEvent`, and each attribute says
+  what it means with zod's `.describe()`. All three are required: the catalog throws when one is missing, so an event
+  can't reach the page half described.
+- **`registeredEvents` in `packages/telemetry/src/registry.ts` is the one list,** the page's source. Each process still
+  passes `createTelemetry` only the events it sends.
+- **Only the Events section is generated,** between two comments; the prose around it is written by hand. Types are
+  written as TypeScript writes them, from zod's JSON Schema of what `track()` takes, and a nested object's fields are
+  listed by their dotted path.
+- **Regenerating is `pnpm exec vp test run packages/telemetry -u`,** through Vitest's file snapshots, as the fixtures'
+  `expected.json` files are, so no script was added. The test that fails says so.
+- **The tables are padded as `vp fmt` writes them,** so formatting the page on commit leaves the generated part alone.
+
 ## Secrets are scrubbed before any event leaves a process (PAR-621)
 
 `@parity-app/telemetry`'s `createScrubber({ secrets })` replaces secrets with `[redacted]` and leaves everything else as
 written, as "Parity's own telemetry goes to Sentry, on by default" decided. `createTelemetry` runs it on every event's
-attributes before its sinks and the kept events, and the app's and the CLI's Sentry `beforeSend`, `beforeSendLog` and
-`beforeBreadcrumb` hooks are to pass what Sentry sends through `scrubber.value()` (PAR-620). Sentry's server-side
-scrubbing stays on as a second net. My calls:
+attributes before its sinks and the kept events. Main, the windows and the service run one in their Sentry `beforeSend`,
+`beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb` hooks, and the CLI will once it sends (PAR-642).
+Sentry's server-side scrubbing stays on as a second net. My calls:
 
 - **Keys and tokens with a known shape are replaced whole:** OpenAI and Anthropic `sk-…`, Stripe `sk_live_`/`rk_live_`,
   GitHub `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and `github_pat_`, Slack `xox…-`, AWS access key IDs, Google `AIza…`,
@@ -5273,7 +5331,8 @@ scrubbing stays on as a second net. My calls:
   random 32-character keys slips past this, which the known shapes and Sentry's own scrubbing cover.
 - **`.env` values are scrubbed when the caller passes them.** `envSecrets(file)` reads a `.env` file's values, and the
   ones 8 characters or longer that aren't a number or `true`/`false` are replaced wherever they appear. `setSecrets`
-  swaps them when another project opens. Shorter values would hide words and port numbers everywhere they appear.
+  swaps them when another project opens. Shorter values would hide words and port numbers everywhere they appear. No
+  process passes a project's values yet: that's PAR-672.
 - **Only attributes are scrubbed in `createTelemetry`.** The envelope's own fields are Parity's IDs, names and paths. An
   `Error` is copied as its own class with its message, stack, fields and cause scrubbed; dates, byte arrays and other
   objects that aren't plain go as they are.

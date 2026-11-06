@@ -65,12 +65,22 @@ import { launchLink, passLink } from "./pass-link.ts"
 import { privateMemory } from "./private-memory.ts"
 import { auditResult, canvasHeightResult, renderResult } from "./render-results.ts"
 import { sessionStore } from "./session-store.ts"
+import { serviceStarted, startTelemetry, watchWindowHangs } from "./telemetry.ts"
 import { savedTheme } from "./theme-file.ts"
 import type { UpdateSession } from "./update-session.ts"
 import { createUpdates } from "./updates.ts"
 
 /** Main's environment variables, read once, as it starts. */
 const environment = readEnvironment(process.env)
+// Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
+startTelemetry(process.env, {
+  installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
+  rendererName: (contents) => {
+    const window = BrowserWindow.fromWebContents(contents)
+    if (!window) return undefined
+    return isRenderWindow(window) ? "render" : "window"
+  }
+})
 const rendererUrl = environment.PARITY_RENDERER_URL
 // A standard, secure origin keeps storage and project CORS working when the UI comes from the installed files.
 protocol.registerSchemesAsPrivileged([
@@ -139,8 +149,12 @@ const serviceEntry = join(serviceDirectory, "utility.mjs")
 /** When this copy started, which its agent registry entry gives. */
 const appStarted = Date.now()
 
+/** How many services this copy has started, so a second is reported as a restart. */
+let serviceStarts = 0
+
 /** Builders, file access, agents and other heavy work run here, never in the UI process. */
 function startService(): UtilityProcess {
+  serviceStarted(serviceStarts++ > 0)
   const child = utilityProcess.fork(serviceEntry, [], {
     serviceName,
     stdio: "inherit",
@@ -248,6 +262,7 @@ function createWindow(): void {
       sandbox: true
     }
   })
+  watchWindowHangs(window, "window", "renderer")
   // A message is the design's whose frame the page said was handling an event as it was written (PAR-147).
   const contents = window.webContents.id
   recordConsole(consoleLog, window.webContents, "canvas", new URL(rendererUrl).origin, (level) =>
@@ -725,6 +740,7 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
       height: 800,
       webPreferences: { offscreen: true, contextIsolation: true, sandbox: true }
     })
+    watchWindowHangs(window, "offscreen renderer", "render")
     // A message is the design's the window is drawing as it's written (PAR-147).
     recordConsole(consoleLog, window.webContents, "offscreen", new URL(rendererUrl).origin, () => drawing.get(window))
     render = { window, loaded: window.loadURL(new URL("render.html", rendererUrl).href) }

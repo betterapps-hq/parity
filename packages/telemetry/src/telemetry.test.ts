@@ -9,11 +9,15 @@ import {
   TelemetryError
 } from "./index.ts"
 
+/** Who sends an event and when, which only the catalog reads. */
+const about = { sentBy: ["renderer"], when: "In these tests." } as const
+
 const projectOpened = defineEvent("project.opened", z.object({ framework: z.string(), components: z.number().int() }), {
-  level: "info"
+  level: "info",
+  ...about
 })
-const saveFailed = defineEvent("file.save_failed", z.object({ path: z.string() }), { level: "error" })
-const pointerMoved = defineEvent("gesture.sampled", z.object({}), { level: "debug", sample: 0.25 })
+const saveFailed = defineEvent("file.save_failed", z.object({ path: z.string() }), { level: "error", ...about })
+const pointerMoved = defineEvent("gesture.sampled", z.object({}), { level: "debug", sample: 0.25, ...about })
 const events = [projectOpened, saveFailed, pointerMoved] as const
 
 const context: EventContext = { process: "renderer", installId: "install-1", sessionId: "session-1", windowId: "w1" }
@@ -42,18 +46,18 @@ function setup(options: { check?: boolean; random?: () => number; keep?: number 
 describe("defineEvent", () => {
   it("takes dotted names, area first", () => {
     expect(projectOpened).toMatchObject({ name: "project.opened", level: "info", sample: 1 })
-    expect(() => defineEvent("projectOpened", z.object({}), { level: "info" })).toThrow(/dotted/)
-    expect(() => defineEvent("Project.opened", z.object({}), { level: "info" })).toThrow(/dotted/)
-    expect(() => defineEvent("project", z.object({}), { level: "info" })).toThrow(/dotted/)
+    expect(() => defineEvent("projectOpened", z.object({}), { level: "info", ...about })).toThrow(/dotted/)
+    expect(() => defineEvent("Project.opened", z.object({}), { level: "info", ...about })).toThrow(/dotted/)
+    expect(() => defineEvent("project", z.object({}), { level: "info", ...about })).toThrow(/dotted/)
   })
 
   it("keeps a share from 0 to 1", () => {
-    expect(() => defineEvent("a.b", z.object({}), { level: "info", sample: 1.5 })).toThrow(/0 to 1/)
-    expect(() => defineEvent("a.b", z.object({}), { level: "info", sample: Number.NaN })).toThrow(/0 to 1/)
+    expect(() => defineEvent("a.b", z.object({}), { level: "info", sample: 1.5, ...about })).toThrow(/0 to 1/)
+    expect(() => defineEvent("a.b", z.object({}), { level: "info", sample: Number.NaN, ...about })).toThrow(/0 to 1/)
   })
 
   it("registers each name once", () => {
-    const again = defineEvent("project.opened", z.object({}), { level: "warn" })
+    const again = defineEvent("project.opened", z.object({}), { level: "warn", ...about })
     expect(() => createTelemetry({ events: [projectOpened, again], context, sinks: [], check: true })).toThrow(
       "project.opened is registered twice"
     )
