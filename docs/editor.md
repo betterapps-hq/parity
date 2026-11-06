@@ -3763,7 +3763,10 @@ Frames exploration draws it, rather than thick zoomed in and gone zoomed out.
   outline of the board rounds with them.
 - **A board grows and shrinks from its top left corner,** where the design's position is, so its frames move a little on
   the canvas as the zoom changes the gutter. The canvas takes the board's new size, for its outline, snapping and hit
-  testing, once the camera stops, rather than on every frame of a zoom.
+  testing, once the zoom settles, rather than on every frame of a zoom: once it has held for 3 frames and 150 ms, the
+  same moment tldraw's `--tl-zoom` changes. tldraw's own camera state isn't used, since on a busy machine frames slower
+  than its timeout had the camera stop on almost every frame, and every board measured itself each time (PAR-655).
+  Panning doesn't hold a board's size back.
 - **The agent's estimate of a board it hasn't drawn takes the gutter at 40%,** where it's widest on the canvas, so it's
   never smaller than the board will be drawn. A drawn board's size is as the canvas has it at its zoom.
 
@@ -3778,10 +3781,14 @@ and gaps, rows of states, a frame's own size, and never being smaller than the b
 `apps/desktop/src/renderer/canvas/board-gutter.test.ts` (7: each part's spacing on screen up close, the same on the
 canvas past 40%, the divider's and the row line's split gaps, dashed lines and the edge a screen pixel wide, each place
 clearing what another set, and a board laid out from the parts matching the estimate at 40% and 5% and smaller at 100%);
-`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%). Gaps:
-applying the parts to the DOM, and the shape waiting for the camera, have no automated test. They were checked in
-Storybook on the example's Pricing board and Sign in showing every state, measured on screen at 400%, 100%, 40%, 25% and
-5%. The cost of laying boards out again on each frame of a zoom wasn't timed.
+`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%);
+`packages/editor/src/zoom-settle.test.ts` (4: settling after 3 frames and 150 ms, starting again when the zoom changes,
+not settling between slow frames that each zoom, nor between a mouse wheel's notches at 60 frames a second). The
+`zoom at 100%` run of `pnpm perf --profile` shows whether boards measure themselves mid-zoom, as
+`getClientRects ← measure /canvas/ContainerShapeUtil.tsx`. Gaps: applying the parts to the DOM, and the shape waiting
+for the zoom to settle, have no automated test. They were checked in Storybook on the example's Pricing board and Sign
+in showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of laying boards out again on each
+frame of a zoom wasn't timed.
 
 ## What the editor itself loads
 

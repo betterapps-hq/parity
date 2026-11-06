@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom when frames run slow",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

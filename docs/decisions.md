@@ -4760,10 +4760,10 @@ gutter. My calls:
 - **A board stays where its top left corner is,** so its frames shift on the canvas as the gutter changes with the zoom,
   as they do in the exploration: from 40% to 400% the first frame moves 81 canvas pixels up, nearer the corner.
   Anchoring the frames instead would have meant moving a design's position with the zoom.
-- **The shape takes a board's new size once the camera stops.** Taking it on every frame of a zoom would draw every
-  board's title and menus again each frame. While the camera moves, the outline of a selected board is off by the change
-  in its gutter. The gutter itself follows the zoom live, as labels do, through each part's own style, not a custom
-  property that every frame's elements would inherit (PAR-556).
+- **The shape takes a board's new size once the camera stops** (once the zoom settles, since PAR-655). Taking it on
+  every frame of a zoom would draw every board's title and menus again each frame. While the camera moves, the outline
+  of a selected board is off by the change in its gutter. The gutter itself follows the zoom live, as labels do, through
+  each part's own style, not a custom property that every frame's elements would inherit (PAR-556).
 - **The agent's estimate takes the gutter at 40%,** where it's widest on the canvas, so it's never smaller than the
   board drawn at any zoom. A drawn board's bounds are still as the canvas has them at its zoom, so `Overlaps()` sees
   drawn boards as they are now: boards set close together up close grow towards each other as the canvas zooms out to
@@ -5263,3 +5263,20 @@ real apps and engineers already write `w-[280px]`. This loosens the tokens-only 
   style guide, which allows px in design content where space is short.
 - **Nudging moves 1px, or 10px with Shift,** as Figma's does, which CAN-39 waited on. The field's Up and Down still move
   a step, so they're the way back onto the scale; a length off it goes to the step beside it.
+
+## Boards take their size once the zoom settles, not when tldraw's camera stops (PAR-655)
+
+Called on 2026-11-06. Profiling PAR-653 on a busy machine, frames took 150 to 300 ms, longer than tldraw's camera
+timeout, so tldraw counted the camera as stopped between the wheel's moves. Every board then measured itself and updated
+its shape on almost every frame of a zoom: 190 to 280 ms of `getClientRects` in a 4-second zoom. My calls:
+
+- **Boards wait for the zoom to settle, the same settling `--tl-zoom` already waited for.** The zoom settles once it has
+  held for 3 animation frames and 150 ms, both: frames alone would settle between a mouse wheel's notches when frames
+  are quick, and time alone would settle between slow frames. The rule moved to `zoomSettle` in
+  `packages/editor/src/zoom-settle.ts`, with tests, and `settleZoom` and the boards both use it, so the styles and the
+  boards' sizes change at the same moment rather than by two timers that could disagree.
+- **Panning no longer holds a board's size back.** A board's size changes with the zoom, not with the camera's place, so
+  a board that resizes while the canvas pans, such as one whose frames wake as it comes into view, takes its size then
+  rather than once the pan ends.
+- **The zoom passing back through where it settled counts as settled for that frame.** A board might measure itself once
+  mid-zoom then; checking it apart from the zoom wasn't worth a second clock.
