@@ -6,6 +6,7 @@ import type {
   GuestDecorators,
   GuestIconSet,
   GuestInit,
+  LayerFailure,
   LibraryDecorator,
   MountHandle,
   RenderNode
@@ -81,6 +82,52 @@ interface BoundaryProps {
   children?: ReactNode
 }
 
+/** The failing layers of one frame, which its boundaries tell when they fail and when they draw again. */
+interface FrameFailures {
+  failed(boundary: object, failure: LayerFailure): void
+  cleared(boundary: object): void
+}
+
+const FrameFailuresContext = createContext<FrameFailures | undefined>(undefined)
+
+/**
+ * Keeps a frame's failing layers, one for each boundary showing an error, and tells `listener` once per task when they
+ * change, and after each commit of the frame, so a frame drawn afresh says it has none. Each node has one entry (a slot
+ * drawn more than once fails as one layer). It stops once the frame is disposed.
+ */
+function frameFailures(listener: ((failures: readonly LayerFailure[]) => void) | undefined) {
+  const failing = new Map<object, LayerFailure>()
+  let pending = false
+  let disposed = false
+  const changed = () => {
+    if (!listener || pending) return
+    pending = true
+    queueMicrotask(() => {
+      pending = false
+      if (disposed) return
+      const byNode = new Map<string, LayerFailure>()
+      for (const failure of failing.values()) byNode.set(failure.nodeId, failure)
+      listener([...byNode.values()])
+    })
+  }
+  const failures: FrameFailures = {
+    failed(boundary, failure) {
+      failing.set(boundary, failure)
+      changed()
+    },
+    cleared(boundary) {
+      if (failing.delete(boundary)) changed()
+    }
+  }
+  return {
+    failures,
+    committed: changed,
+    dispose: () => {
+      disposed = true
+    }
+  }
+}
+
 /**
  * Keeps one component's error to itself: it draws a marked box in its place, and the rest of the frame renders. React
  * still reports the error to the root, so the canvas and agents hear about it, and the guest's render status says
@@ -88,6 +135,8 @@ interface BoundaryProps {
  * tree, whatever the component does with its props.
  */
 class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
+  static override contextType = FrameFailuresContext
+  declare context: FrameFailures | undefined
   override state: BoundaryState = {}
   static getDerivedStateFromError(error: unknown) {
     return { error: error instanceof Error ? error : new Error(String(error)) }
@@ -104,13 +153,18 @@ class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
   }
   override componentDidCatch(error: Error) {
     this.props.report.failed(this.props.name, error)
+    this.context?.failed(this, { nodeId: this.props.nodeId, component: this.props.name, error: error.message })
   }
   override componentDidUpdate(_props: unknown, previous: BoundaryState) {
     if (previous.error && previous.error !== this.state.error) this.props.report.cleared(previous.name!)
-    if (!this.state.error) this.props.report.drawn(this.props.name)
+    if (!this.state.error) {
+      this.props.report.drawn(this.props.name)
+      this.context?.cleared(this)
+    }
   }
   override componentWillUnmount() {
     if (this.state.error) this.props.report.cleared(this.state.name!)
+    this.context?.cleared(this)
   }
   override render() {
     if (!this.state.error) return this.props.children
@@ -484,18 +538,17 @@ export function createGuest(init: GuestInit): Guest {
     addComponents(sources) {
       let moved = false
       for (const [id, source] of Object.entries(sources)) {
-        const from = `${source.path}#${source.export}`
+        // A new version is the same file with changed code, which the dev server builds afresh at a new address.
+        const address = `/${source.path.replace(/^\.?\//, "")}${source.version === undefined ? "" : `?t=${source.version}`}`
+        const from = `${address}#${source.export}`
         if (added.get(id) === from) continue
         added.set(id, from)
         moves.set(id, (moves.get(id) ?? 0) + 1)
         moved = true
         // The dev server builds any of the project's files when it's asked for one, as it does for the app.
         loaders[id] = () =>
-          import(/* @vite-ignore */ new URL(`/${source.path.replace(/^\.?\//, "")}`, projectOrigin).href).then(
-            (module: Record<string, unknown>) =>
-              source.export
-                .split(".")
-                .reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], module)
+          import(/* @vite-ignore */ new URL(address, projectOrigin).href).then((module: Record<string, unknown>) =>
+            source.export.split(".").reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], module)
           )
         // One it had already has moved to another file, so it's drawn from there from now on.
         delete components[id]
@@ -553,13 +606,16 @@ export function createGuest(init: GuestInit): Guest {
       const report = (error: unknown) => options.onError?.(error)
       const frame = frameOf(target, options.globals ?? {})
       const decorate = options.bare ? (content: ReactNode) => content : decorators(init.decorators, frame, report)
+      const failing = frameFailures(options.onFailures && ((failures) => options.onFailures?.(failures)))
       const root = createRoot(target, {
         onUncaughtError: report,
         // An error a component's boundary caught names the component, so a frame says which one failed.
         onCaughtError: (error, info) => {
-          const name = (info.errorBoundary as ComponentBoundary | null | undefined)?.props.name
+          const boundary = info.errorBoundary as ComponentBoundary | null | undefined
           const message = error instanceof Error ? error.message : String(error)
-          report(name ? new Error(`${name}: ${message}`) : error)
+          if (!boundary) return report(error)
+          const { name, nodeId } = boundary.props
+          options.onError?.(new Error(`${name}: ${message}`), { nodeId, component: name })
         }
       })
       const own = options.viewport && frameWindow(target, options.viewport)
@@ -573,9 +629,18 @@ export function createGuest(init: GuestInit): Guest {
             LayerStylesContext.Provider,
             { value: styles },
             createElement(
-              Committed,
-              { onCommit: drawn.changed },
-              decorate(nodes.map((node, index) => toReact(node, index)))
+              FrameFailuresContext.Provider,
+              { value: failing.failures },
+              createElement(
+                Committed,
+                {
+                  onCommit: () => {
+                    drawn.changed()
+                    failing.committed()
+                  }
+                },
+                decorate(nodes.map((node, index) => toReact(node, index)))
+              )
             )
           )
         )
@@ -584,6 +649,7 @@ export function createGuest(init: GuestInit): Guest {
         return {
           update: (nodes) => root.render(draw(nodes)),
           unmount: () => {
+            failing.dispose()
             drawn.dispose()
             styles.dispose()
             root.unmount()
@@ -617,6 +683,7 @@ export function createGuest(init: GuestInit): Guest {
         resize: (viewport) => soon(() => own.resize(viewport)),
         unmount: () => {
           unmounted = true
+          failing.dispose()
           drawn.dispose()
           styles.dispose()
           root.unmount()

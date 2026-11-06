@@ -11,6 +11,8 @@ import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
   ChangeConflict,
+  CodeChange,
+  GuestComponentSource,
   ComponentInfo,
   ComponentSource,
   DesignChange,
@@ -279,6 +281,8 @@ export interface WindowMethods {
   }
   /** A project's builder, started again, couldn't have its port back, so the project's guest is at a new address. */
   "project.guestMoved": { params: { projectId: string; guestUrl: string }; result: undefined }
+  /** Component files whose code changed on disk, which the tab's guest loads again (PAR-165). */
+  "project.codeChanged": { params: { projectId: string } & CodeChange; result: undefined }
 }
 
 /**
@@ -306,7 +310,8 @@ export const windowMethods = Object.keys({
   "agent.supports": true,
   "project.fileChanged": true,
   "project.componentsChanged": true,
-  "project.guestMoved": true
+  "project.guestMoved": true,
+  "project.codeChanged": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }
@@ -454,7 +459,7 @@ export interface RenderJob {
   projectId: string
   guestUrl: string
   /** Components the guest adds before drawing, since the type checker found them after it loaded. */
-  components?: Record<string, Pick<ComponentSource, "path" | "export">>
+  components?: Record<string, GuestComponentSource>
   theme: ThemeVariable[]
   tree: unknown
   /**

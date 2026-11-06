@@ -3377,17 +3377,17 @@ change to what it shows, and sleeps again once its new bitmap is taken. Before, 
 and nothing else, so frames and bitmaps kept what they had drawn until their design next changed.
 
 - **One place says what a frame shows.** `useFrameShows` builds, for each frame, the job that draws it offscreen
-  (`renderJob`), and names it with `frameKeys` (PAR-575): `drawn` (the guest, the revision of its code, the mode and the
-  design's tree) and `key` (that, with the tokens previewed, the size, its window and the scale). The live frame draws
-  again when `drawn` changes; its bitmap, its skeleton and its sleep go by `key`. The live frame follows size and
-  previewed tokens by itself, so a token preview doesn't draw every frame's React tree again. `frameKeys` sits in
-  `shared/render-job.ts` beside the two names kept on disk, a bitmap's and a preview's, so what each leaves out shows.
+  (`renderJob`), and names it with `frameKeys` (PAR-575): `drawn` (the guest, the code of the components its tree draws,
+  the mode and the design's tree) and `key` (that, with the tokens previewed, the size, its window and the scale). The
+  live frame draws again when `drawn` changes; its bitmap, its skeleton and its sleep go by `key`. The live frame
+  follows size and previewed tokens by itself, so a token preview doesn't draw every frame's React tree again.
+  `frameKeys` sits in `shared/render-job.ts` beside the two names kept on disk, a bitmap's and a preview's, so what each
+  leaves out shows.
 - **The guest's code revision** goes up only when `addComponents` changes where a component comes from: a component
-  given again from the same file changes nothing, and its module isn't loaded again. One revision covers the project, so
-  a component that moves redraws every frame and retakes every bitmap, one at a time in the background; frames whose
-  design doesn't use it draw the same as before. That's rare next to saves, which don't change it. A component's own
-  boundary also counts its moves, so one that failed starts over when it comes from a new file rather than keeping its
-  error.
+  given again from the same file changes nothing, and its module isn't loaded again. Frames don't go by it: since
+  PAR-165 a frame's key names where each component its tree draws came from, when the guest was given it since it
+  loaded, so a component that moves redraws and retakes only the frames drawing it. A component's own boundary also
+  counts its moves, so one that failed starts over when it comes from a new file rather than keeping its error.
 - **The offscreen renderer gets the components too.** The bitmap job carries the components the guest was given since it
   loaded, as agents' renders already did, so a frame using one isn't drawn offscreen without it.
 - **A component whose source went away is taken back, on both sides** (PAR-487). When the type checker no longer finds a
@@ -3399,7 +3399,8 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
   last had, the offscreen renderer's from what each guest's last job carried, so it gives only what changed since. Edits
   to a component's code or CSS don't need a new bitmap key: the guest's dev server runs without HMR, so neither the
   canvas nor the offscreen window picks them up until the project's guest loads again at a new address, which changes
-  every key (see decisions.md on PAR-422 and PAR-165).
+  every key (see decisions.md on PAR-422). Since PAR-165 a save gives the components it touches again with a new version
+  instead, which changes the keys of the frames drawing them (see Failing components, below).
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
@@ -3416,13 +3417,82 @@ nothing when only what else the list says about one changes). `apps/desktop/src/
 component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
 and one that failed draws from its new file instead of its error). `apps/desktop/src/shared/render-job.test.ts` (for
 `renderJob`, 2: what a frame doesn't have left out, the added components and the rest kept when it does, and a job built
-with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest, its
-code and its address, `key` new with the tree, the mode, the size, the window and the scale, and with the tokens
-previewed while `drawn` stays, and neither new for a field the job gains or for a check). Gaps: that `FrameTile`'s keys
-follow the revision has no test of its own; it was checked by reading `useFrameShows`. That `setSources` and `render.ts`
-give and take back what `guestChanges` says, and that a job carrying no components changes nothing, was checked by
-reading them. A component moving in the running app wasn't tried, since it means changing the example's files, which
-other sessions share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
+with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest and
+its address, and since PAR-165 with the components it draws, `key` new with the tree, the mode, the size, the window and
+the scale, and with the tokens previewed while `drawn` stays, and neither new for a field the job gains or for a check).
+Gaps: that `FrameTile`'s keys follow the revision has no test of its own; it was checked by reading `useFrameShows`.
+That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying no components
+changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it means
+changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
+`addComponents` on.
+
+### Failing components, marked where you look, and code edits picked up live (PAR-165)
+
+A component that fails to draw draws its error box in its place, and the rest of its frame draws around it, as before.
+The frame no longer lays a red sheet over everything it drew; only an error that stopped the frame drawing, as a
+decorator's can, shows across its top. The failing layer is marked wherever you look, until its component draws again:
+
+- **On the board,** a badge beside its name, while any of its frames has a failing layer, counts them. Its tooltip names
+  the component and why it fails, and clicking it selects the first.
+- **In Layers,** the layer's row has a red mark, whose tooltip says the same. A component design's instance is marked
+  when something inside it fails.
+- **In the inspector,** the selected failing layer has a notice above its fields: the component fails to draw, why, how
+  to fix it, and the error as thrown. A missing provider names the provider a decorator should wrap designs in, in
+  `.parity/preview.tsx` or `.storybook/preview.tsx`, from the error or from what routers, query clients, Redux, React
+  Intl and Apollo are known to say; a part that must sit inside another (Radix's "`TabsList` must be used within
+  `Tabs`") is to be placed inside that parent's layer; server-only imports and async server components each say what to
+  change; anything else shows its error.
+
+Saving a component's file, or a file it imports, updates the canvas without reopening the project, broken or fixed:
+measured in the app on 2026-11-06, breaking and fixing the example's `button.tsx` showed on the canvas in 0.48 to 0.8 s
+warm, and 1.1 s the first time after the window loaded.
+
+- **The builder says what changed.** Vite already watches every file the guest imported. On a change, the builder marks
+  the file's modules, and every module importing them however deep, as Vite's HMR does, so Vite writes each import of
+  them with `?t=<stamp>` from then on, and gives the component files among them (`stampChange`), gathering a burst of
+  saves into one change 40 ms after the last. The guest still has no HMR client, so the page never reloads.
+- **The window loads only those components again.** The change reaches the tab (`project.codeChanged`), whose guest is
+  given each of those components again with the stamp as its `version` (`codeChangeVersions`, `versionedSources`). The
+  guest imports a component with a new version from `path?t=<version>`, which brings in what changed beneath it too, and
+  starts its boundaries over, so one that failed draws again. The job for offscreen frames carries the versions too.
+- **Only the frames drawing it draw again.** A frame's key names the source of each component its tree draws that the
+  guest was given since it loaded, version included, rather than one number for all the guest's code (`frameKeys`), so a
+  save redraws and retakes only those frames' bitmaps, and a kept bitmap's name has the version.
+- **The board keeps its picture meanwhile.** Zoomed out, a frame whose key changed shows its last bitmap until the new
+  one is decoded, drawing live behind it, and doesn't sleep on the old one. A frame that draws with an error gets no
+  bitmap, as before, so it stays live and shows its error boxes, and its board its badge. Before, every board drawing
+  the component went blank for the 2 to 4 seconds its bitmaps took.
+
+Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerFailure`, `CodeChange` and
+`BuilderSession.codeChanges` in `packages/core/src/adapters.ts`; `frameFailures` and `FrameFailuresContext` in
+`packages/renderer-react/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
+`designFailures` and `layerFailure` in `packages/editor/src/render-failures.ts`; `renderer/failures-store.ts`, fed by
+`ModeView.tsx`; `canvas/FailureBadge.tsx`, the mark in `chrome/LayerTree.tsx` and `chrome/LayerFailureNotice.tsx` in
+`LayerPanel.tsx`. For edits: `stampChange` and `gatherChanges` in `packages/builder-vite/src/code-changes.ts`, wired in
+its `start`; the `codeChanged` reply in `packages/core/src/builder-process.ts`; `codeChangeVersions` and
+`versionedSources` in `packages/core/src/guest-changes.ts`; `onCodeChange` in `utility/builders.ts` and
+`utility/projects.ts`; `project.codeChanged` in `shared/protocol.ts` and `renderer/agent/handlers.ts`; `codeChanged` in
+`renderer/workspace.ts`; `frameKeys` and `drawnComponents` in `shared/render-job.ts`; `stale` in `useFrameBitmap` and
+the decoded bitmap in `canvas/ContainerView.tsx`.
+
+Tests: `packages/editor/src/render-failures.test.ts` (7: the provider named from the error and from known messages, one
+the error doesn't name, a parent layer for a part, server, async and plain errors, a known provider over a parent, a
+parent quoted in backticks, one failure per node across frames, an instance's failure found inside it).
+`apps/desktop/src/renderer/ModeView.test.ts` (1, in Chrome: a failing component's box drawn with the rest of the frame
+and no sheet over it, its layer reported, then the same file at a new version drawn and the mark cleared).
+`packages/builder-vite/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component files
+among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
+`packages/core/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
+`packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
+changed files stamped, none without a change). `packages/renderer-react/src/guest.test.ts` (the revision moving once per
+new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new
+with the components it draws and not with others). `pnpm verify` covers the rest. The badge, Layers mark and notice are
+in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`. Checked in the app on
+2026-11-06 with `scripts/drive.ts`: breaking `button.tsx` drew error boxes in 48 frames, badged 20 boards with no sheet
+over any frame, and kept every board's picture; fixing it cleared them, with every bitmap back 2.4 s later. Gaps: a
+board drawn only from a bitmap kept from an earlier session has no badge until its frames draw; a class used nowhere in
+the project before an edit has no CSS until the project opens again, since the guest's stylesheet isn't reloaded; the
+workspace's `codeChanged` is checked by reading and in the app.
 
 ### Bitmaps kept between sessions (PAR-158)
 

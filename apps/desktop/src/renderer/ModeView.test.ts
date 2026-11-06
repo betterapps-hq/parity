@@ -16,6 +16,7 @@ import { createRoot } from "react-dom/client"
 import { defaultModeSettings, frameViewport, resolveDesign, resolveModes } from "@parity-app/core"
 import { createGuest } from "@parity-app/renderer-react/guest"
 import { ModeView } from "./ModeView.tsx"
+import { useDesignFailures } from "./failures-store.ts"
 export { hitInFrame } from "./canvas/hit.ts"
 export { tabOrder } from "./canvas/tab-order.ts"
 export { frameDrawn } from "./canvas/nudge.ts"
@@ -43,6 +44,11 @@ const loaded = { guest: createGuest({ components: { Field, Broken }, css: "" }),
 const mode = resolveModes(defaultModeSettings)[0]
 let root
 
+/** The design's failing layers, as its board's badge reads them. */
+function Failures({ design }) {
+  return createElement("output", { id: "failures" }, JSON.stringify(useDesignFailures(loaded, design)))
+}
+
 /** Gives the guest components from other files, as the type checker does once it finds them. */
 export function addComponents(sources) {
   loaded.guest.addComponents(sources)
@@ -53,9 +59,10 @@ export function show(container, { interactive = false, scale = 1, asleep = false
   root ??= createRoot(document.querySelector("#area"))
   const tree = resolveDesign(container.root, container.states[0], mode.viewport, new Map())
   flushSync(() =>
-    root.render(
-      createElement(ModeView, { loaded, tree, mode, frame: { width: 390, viewport: frameViewport({ width: 390 }, mode) }, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows })
-    )
+    root.render([
+      createElement(ModeView, { key: "frame", loaded, tree, mode, frame: { width: 390, viewport: frameViewport({ width: 390 }, mode) }, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows }),
+      createElement(Failures, { key: "failures", design: container.id })
+    ])
   )
 }
 `
@@ -84,6 +91,20 @@ beforeAll(async () => {
   )
   await page.route("http://parity.test/src/moved.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: 'export function Field() { return "Moved" }' })
+  )
+  // A file whose code changes: each version the canvas asks for (`?t=`) is a new copy, failing until the second.
+  await page.route(
+    (url) => url.pathname === "/src/live.js",
+    (route) => {
+      const version = new URL(route.request().url()).searchParams.get("t")
+      void route.fulfill({
+        contentType: "text/javascript",
+        body:
+          version === "2"
+            ? 'export function Broken() { return "Live 2" }'
+            : 'export function Broken() { throw new Error("Still broken") }'
+      })
+    }
   )
   await page.route("http://parity.test/app.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: bundle.outputFiles[0]!.text })
@@ -328,5 +349,41 @@ describe("a component that failed, moved to another file", () => {
     await show(broken, { shows: "fixed" })
     await expect.poll(drawn).toContain("Fixed")
     expect(await drawn()).not.toContain("Not built yet")
+  })
+})
+
+describe("a component that fails to draw (PAR-165)", () => {
+  const broken = {
+    id: "failing",
+    name: "Failing",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "root",
+      children: [
+        { type: "component", id: "broken", component: "Broken" },
+        { type: "text", id: "title", tag: "h1", text: "Still drawn" }
+      ]
+    },
+    states: [{ id: "default", name: "Default" }]
+  }
+  const drawn = () => page.evaluate(() => document.querySelector("[data-frame]")!.shadowRoot!.textContent)
+  const failures = () => page.evaluate(() => document.querySelector("#failures")!.textContent)
+
+  it("draws its box in its place, the rest of the frame around it, and marks the layer until its code draws", async () => {
+    // @ts-expect-error The bundle's global.
+    await page.evaluate(() => app.addComponents({ Broken: { path: "src/live.js", export: "Broken", version: 1 } }))
+    await show(broken, { shows: "version 1" })
+    await expect.poll(drawn).toContain("Broken: Still broken")
+    expect(await drawn()).toContain("Still drawn")
+    expect(await page.evaluate(() => document.querySelector(".mode-error"))).toBeNull()
+    await expect.poll(failures).toBe(JSON.stringify([{ nodeId: "broken", component: "Broken", error: "Still broken" }]))
+
+    // Its file saved again, fixed: the same path at a new version.
+    // @ts-expect-error The bundle's global.
+    await page.evaluate(() => app.addComponents({ Broken: { path: "src/live.js", export: "Broken", version: 2 } }))
+    await show(broken, { shows: "version 2" })
+    await expect.poll(drawn).toContain("Live 2")
+    await expect.poll(failures).toBe("[]")
   })
 })

@@ -13,6 +13,7 @@ import {
   closedTree,
   designsSelection,
   expandedRows,
+  failureAdvice,
   kindName,
   layerRowId,
   layersSelection,
@@ -37,6 +38,7 @@ import {
   FileWarning,
   Plus,
   MonitorSmartphone,
+  OctagonAlert,
   PenLine,
   StickyNote
 } from "lucide-react"
@@ -55,6 +57,7 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
+import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
 import { SearchField } from "./AssetsPanel.tsx"
@@ -634,6 +637,9 @@ const LayerRow = memo(function LayerRow({
   const state = activeState(container)
   const color = row.node ? nodeColor(row.node) : designColor(container.kind)
   const changed = row.node && state.overrides?.[row.node.id]
+  // A layer whose component fails to draw in one of the design's frames, which its board's badge counts.
+  const failing = useLayerFailure(session.loaded, row.design.key, row.node?.id ?? "")
+  const failure = row.node ? failing : undefined
   const viewports = row.node ? Object.keys(row.node.responsive ?? {}) : []
   // Whether the board hides it in the state it shows, as Hide and Show read it.
   const hidden = row.node ? (nodeOnBoard(container, row.node, state).hidden ?? false) : false
@@ -744,6 +750,16 @@ const LayerRow = memo(function LayerRow({
               <span className="min-w-0 flex-1 truncate">{label}</span>
             )}
             <span className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
+              {failure && (
+                <Hint label={`${failure.component} fails to draw`} detail={failureAdvice(failure.error).reason} wait>
+                  <span className="flex">
+                    <OctagonAlert
+                      className="size-3 text-destructive"
+                      aria-label={`${failure.component} fails to draw`}
+                    />
+                  </span>
+                </Hint>
+              )}
               {changed && (
                 <PenLine
                   className="size-3"

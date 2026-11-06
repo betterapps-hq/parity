@@ -49,6 +49,9 @@ const projects = openProjects({
     componentsChanged: (change) => {
       editor?.request("project.componentsChanged", change).catch(() => undefined)
     },
+    codeChanged: (change) => {
+      editor?.request("project.codeChanged", change).catch(() => undefined)
+    },
     guestMoved: (change) =>
       editor
         ? editor.request("project.guestMoved", change).then(

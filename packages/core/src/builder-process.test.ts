@@ -131,6 +131,28 @@ describe("a builder in its own process", () => {
     expect(started[0]!.config.components).toBe(served)
   })
 
+  it("passes on the files whose code changed while the builder runs, and stops once it's closing", async () => {
+    let tell: (change: { paths: string[]; stamp: number }) => void = () => undefined
+    const { builder } = fakeBuilder()
+    const start = builder.start.bind(builder)
+    builder.start = async (options) => ({
+      ...(await start(options)),
+      codeChanges: (listener) => {
+        tell = listener
+        return () => undefined
+      }
+    })
+    const onCodeChange = vi.fn<(change: { paths: string[]; stamp: number }) => void>()
+    const { client } = connect(builder, { onCodeChange })
+    const session = await client.session
+    tell({ paths: ["src/button.tsx"], stamp: 7 })
+    await vi.waitFor(() => expect(onCodeChange).toHaveBeenCalledWith({ paths: ["src/button.tsx"], stamp: 7 }))
+    void session.close()
+    tell({ paths: ["src/button.tsx"], stamp: 8 })
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(onCodeChange).toHaveBeenCalledTimes(1)
+  })
+
   it("closes the builder, then the process, and resolves once the process has ended", async () => {
     const { builder, close } = fakeBuilder()
     const { client, exit } = connect(builder)

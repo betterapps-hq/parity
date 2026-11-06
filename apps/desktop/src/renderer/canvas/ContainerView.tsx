@@ -54,6 +54,7 @@ import { useDesignSelection, useInteracting, useInteractions, useRenameRequest }
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
 import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
+import { FailureBadge } from "./FailureBadge.tsx"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
@@ -253,6 +254,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
         color={isSelected ? color : undefined}
         onPointerDown={onTitlePointerDown}
       />
+      <FailureBadge design={key} name={container.name} />
       <ConsoleBadge design={key} name={container.name} />
       <TitleControls>
         {Object.values(container.params ?? {}).some((param) => param.type === "variant") && (
@@ -821,12 +823,27 @@ const FrameTile = memo(function FrameTile({
     () => holding.current
   )
   const bitmap = kept.src
-  // The bitmap shows once it's decoded, so the frame doesn't go blank in between; until then, its skeleton, which then
-  // leaves the page.
+  // The bitmap shows once it's decoded, so the frame doesn't go blank in between: until then, the last one decoded, or
+  // its skeleton, which then leaves the page.
   const [decoded, setDecoded] = useState<string>()
-  const shown = !!bitmap && decoded === bitmap
-  // Interacting, frames are the real thing at any zoom.
-  const awake = useAwake(shown && !interactive, rest, key)
+  useEffect(() => {
+    if (!bitmap) return undefined
+    let live = true
+    const image = new Image()
+    image.src = bitmap
+    void image
+      .decode()
+      .catch(() => undefined)
+      .then(() => live && setDecoded(bitmap))
+    return () => {
+      live = false
+    }
+  }, [bitmap])
+  const showing = bitmap ? decoded : undefined
+  const shown = !!showing && decoded === bitmap
+  // Interacting, frames are the real thing at any zoom. A stale bitmap stands in while the frame draws what it shows now,
+  // and its new bitmap is taken, so it doesn't sleep on it.
+  const awake = useAwake(shown && !kept.stale && !interactive, rest, key)
   // Zoomed far out, a frame not drawn yet waits for its bitmap, kept from an earlier session or captured offscreen, and
   // sleeps on it, at the height kept with it, without drawing its design. Until it comes, a placeholder stands in at the
   // frame's own height or, for one that grows with its content, its window's (PAR-525).
@@ -835,7 +852,7 @@ const FrameTile = memo(function FrameTile({
   useEffect(() => {
     holding.current = waiting
   }, [waiting])
-  const placeholder = waiting && !shown && !skeleton
+  const placeholder = waiting && !showing && !skeleton
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   return (
@@ -878,7 +895,7 @@ const FrameTile = memo(function FrameTile({
             ...(height === undefined ? {} : { [frameHeightProperty]: `${height}px` })
           } as CSSProperties
         }
-        data-bitmap={shown ? "" : undefined}
+        data-bitmap={showing ? "" : undefined}
         data-skeleton={skeleton ? "" : undefined}
         data-measured={height === undefined ? undefined : ""}
         data-asleep={awake && !waiting ? undefined : ""}
@@ -897,22 +914,9 @@ const FrameTile = memo(function FrameTile({
           asleep={!awake || waiting}
           shows={shows.drawn}
         />
-        {skeleton && !shown && <FrameSkeleton skeleton={skeleton} />}
+        {skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
         {placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
-        {bitmap && (
-          <img
-            className="frame-bitmap"
-            src={bitmap}
-            alt=""
-            draggable={false}
-            onLoad={(event) =>
-              void event.currentTarget
-                .decode()
-                .catch(() => undefined)
-                .then(() => setDecoded(bitmap))
-            }
-          />
-        )}
+        {showing && <img className="frame-bitmap" src={showing} alt="" draggable={false} />}
       </div>
     </figure>
   )

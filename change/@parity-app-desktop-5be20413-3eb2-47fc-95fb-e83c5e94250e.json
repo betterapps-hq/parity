@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Failing components are marked on their board, in Layers and in the inspector with why and how to fix them, and saved component code reaches the canvas live",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

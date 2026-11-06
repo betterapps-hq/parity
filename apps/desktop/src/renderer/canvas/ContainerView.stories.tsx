@@ -163,3 +163,34 @@ export const MissingComponents: Story = onCanvas(["Gallery"], () => {
     states: [{ id: "default", name: "Default" }]
   })
 })
+
+/**
+ * A layer whose component fails to draw (PAR-165): a tab list placed outside its tabs, which Radix refuses. It draws its
+ * error box in its place and the rest of the screen draws around it. The board's badge counts it, Layers marks it, and
+ * selected, the inspector says why it fails and how to fix it.
+ */
+export const FailingLayer: Story = onCanvas(
+  ["Team settings"],
+  () => {
+    const { store } = example()
+    store.addContainer(store.mainPath, {
+      id: "story-team",
+      name: "Team settings",
+      kind: "screen",
+      position: { x: -2400, y: -800 },
+      root: {
+        id: "story-team-page",
+        type: "layout",
+        name: "Page",
+        style: { padding: 32, gap: 16 },
+        children: [
+          { id: "story-team-title", type: "text", tag: "h1", text: "Team settings" },
+          { id: "story-team-tabs", type: "component", name: "Sections", component: "TabsList" },
+          { id: "story-team-save", type: "component", component: "Button", props: { children: "Save changes" } }
+        ]
+      },
+      states: [{ id: "default", name: "Default" }]
+    })
+  },
+  () => example().selection.set({ design: design("Team settings"), node: "story-team-tabs" })
+)

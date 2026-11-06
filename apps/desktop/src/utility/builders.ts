@@ -6,6 +6,7 @@ import {
   type BuilderProcessOptions,
   type BuilderProcessReply,
   type BuilderProcessSession,
+  type CodeChange,
   connectBuilderProcess
 } from "@parity-app/core"
 import type { BuilderReading } from "../shared/service.ts"
@@ -41,7 +42,12 @@ export interface StartedBuilder {
  */
 export function startBuilder(
   options: BuilderProcessOptions,
-  { builder, project, onCrash }: { builder: string; project: string; onCrash: (error: string) => void }
+  {
+    builder,
+    project,
+    onCrash,
+    onCodeChange
+  }: { builder: string; project: string; onCrash: (error: string) => void; onCodeChange?: (change: CodeChange) => void }
 ): StartedBuilder {
   const child = fork(script, [], {
     // Electron runs as plain Node here.
@@ -67,7 +73,7 @@ export function startBuilder(
       }
     },
     options,
-    { onCrash, cores: availableParallelism() }
+    { onCrash, ...(onCodeChange ? { onCodeChange } : {}), cores: availableParallelism() }
   )
   const item: Running = { child, name: `${builder} for ${project}`, client }
   running.add(item)
