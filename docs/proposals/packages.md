@@ -226,8 +226,9 @@ Electron, with no tests.
 5. **`@parity-app/models` with PAR-15,** then a package per lens and adapter as each starts.
 6. **`@parity-app/storybook` with PAR-114.**
 7. **`@parity-app/tokens`** (PAR-35, done on 2026-10-30; it depends on core, which keeps the token types its own
-   contracts name; the token detail's value checks followed on 2026-11-05, PAR-569), and the agent API's 1,320-line
-   workspace split by area when it next grows.
+   contracts name; the token detail's value checks followed on 2026-11-05, PAR-569), and the agent API's workspace split
+   by area (PAR-574, 2026-11-05): lint (`lint.ts`), board geometry (`boards.ts`) and frame reading (`frames.ts`) take
+   data and return data, and the working copy, lookup, reads, edits and presence stay together in `workspace.ts`.
 
 ## Calls made here
 
