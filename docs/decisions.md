@@ -5041,6 +5041,21 @@ project already has its icon library's icons in code, so writing them out again 
 - **The icon set dialog is kept as an exploration,** Parity/Explorations/Icon export, in case it comes back.
 - **File > Export all stays as it was:** every design in every state and mode it shows, at Settings' export scale.
 
+## A selection copies as one PNG at 2x (PAR-190)
+
+Called on 2026-11-06. PAR-190 asked for Ctrl+Shift+C to copy the selected layers or designs as a PNG at 2x, drawn as
+they show, with PAR-185's exports drawn the same way. My calls:
+
+- **It draws through the export's own path,** the same offscreen frames and cuts, so one layer or design copies exactly
+  the PNG exporting it at 2x writes. There's no second renderer.
+- **The clipboard holds one picture, so a selection copies as one.** Several layers of one design are the box around
+  them all, with what's between them, as Figma copies them; several designs sit where they are on the canvas, with
+  see-through between them.
+- **A picture over 16,384 pixels wide or tall isn't copied,** with a toast saying to select less or export it. Selecting
+  every design spread over the canvas made one too big for sharp to make, and mostly see-through.
+- **Always 2x PNG,** whatever the Export section's sizes or Settings' export scale, as the issue asked.
+- **Through the keymap only for now,** with no menu item, since a menu item is a design change for Storybook first.
+
 ## Each element's source line, in a Code tab and for agents (PAR-167)
 
 Called on 2026-11-05, with your approval in Storybook. PAR-167 asked for a development-only transform that tags each JSX
