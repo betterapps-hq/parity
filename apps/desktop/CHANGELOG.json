@@ -2,6 +2,27 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 00:40:08 GMT",
+      "version": "0.12.4",
+      "tag": "@parity-app/desktop_v0.12.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a24c9dd1a9212f57c3cf8d0d7e67020f5dc655e1",
+            "comment": "The agent server answers through @parity-app/agent's dispatch; the app keeps only the HTTP server and its host"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c706564b4fd41596c99db71d73cf0d4854f1349f",
+            "comment": "Style rows reset everything their edits write, and read a layer's parent inside instances as the copy shows it (PAR-567)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 00:18:31 GMT",
       "version": "0.12.3",
       "tag": "@parity-app/desktop_v0.12.3",

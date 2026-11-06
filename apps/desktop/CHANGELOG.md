@@ -1,8 +1,19 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 00:18:31 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 00:40:08 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.12.4
+
+Fri, 06 Nov 2026 00:40:08 GMT
+
+### Patches
+
+- The agent server answers through @parity-app/agent's dispatch; the app keeps only the HTTP server and its host
+  (ajcraswell@gmail.com)
+- Style rows reset everything their edits write, and read a layer's parent inside instances as the copy shows it
+  (PAR-567) (ajcraswell@gmail.com)
 
 ## 0.12.3
 

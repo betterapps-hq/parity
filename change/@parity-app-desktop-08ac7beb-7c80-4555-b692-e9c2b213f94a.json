@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "The agent server answers through @parity-app/agent's dispatch; the app keeps only the HTTP server and its host",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
