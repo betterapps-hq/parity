@@ -3,3 +3,9 @@ declare module "virtual:parity/example-project" {
   const project: unknown
   export default project
 }
+
+/** The example's source files as text, by their path from its root, for the stand-in service's `code.read`. */
+declare module "virtual:parity/example-sources" {
+  const files: Record<string, string>
+  export default files
+}

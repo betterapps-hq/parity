@@ -159,7 +159,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "get_components",
-    "List project components, libraries, icon sets and exports that were left out or failed to render.",
+    "List project components with the file each is written in, libraries, icon sets and exports that were left out or failed to render.",
     operations.components,
     (result) => [text(describeComponents(result))]
   ),

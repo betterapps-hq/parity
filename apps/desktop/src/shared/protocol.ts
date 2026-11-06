@@ -146,6 +146,8 @@ export interface ServiceMethods {
    * disk. One already made for its key is given back without drawing.
    */
   "previews.make": { params: { preview: PreviewJob; priority: "visible" | "idle" }; result: ComponentPreview }
+  /** A file of the project as text, to show an element's lines (PAR-167). `path` is from the project's root. */
+  "code.read": { params: { projectId: string; path: string }; result: { text: string } }
   /**
    * Checks a design with axe-core in every state, in the modes it shows, offscreen. Automated checks find only some
    * issues, so none found isn't a pass.

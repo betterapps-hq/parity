@@ -4,7 +4,10 @@ import { auditResult, canvasHeightResult, renderResult } from "./render-results.
 const frame = {
   width: 390,
   height: 120,
-  nodes: [{ id: "root", x: 0, y: 0, width: 390, height: 120 }],
+  nodes: [
+    { id: "root", x: 0, y: 0, width: 390, height: 120 },
+    { id: "pay", parent: "root", x: 16, y: 40, width: 80, height: 36, source: "src/components/ui/button.tsx:44:5" }
+  ],
   overflowsX: false,
   unknownComponents: []
 }

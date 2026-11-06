@@ -32,6 +32,8 @@ export const openInEditorRequest = z.strictObject({
   file: absolutePath,
   /** The export to open it at, as a component's source names it. */
   export: z.string().optional(),
+  /** The line to open it at, from 1, as an element's source gives it (PAR-167). Wins over `export`. */
+  line: z.number().int().positive().optional(),
   /** What Settings says to open it with. */
   editor: codeEditorChoice
 })

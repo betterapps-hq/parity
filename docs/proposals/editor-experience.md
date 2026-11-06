@@ -254,10 +254,10 @@ its Linear issue.
 ### Make inspecting a design the same as reading its code
 
 9. **Show the code behind a selection** (PAR-166; M). The engineer's first question is "what do I build", and today the
-   answer has no file and no code. A Code section in the Design tab: the component's file and line with Open in editor,
-   its import, the instance as JSX with its props, the JSX and Tailwind classes Parity would write for a layout or text
-   layer (PAR-265's output, in the UI), every token with its value in the mode showing, and Copy as JSX. The Components
-   panel shows each component's file. No other tool can do this without a hand-written mapping.
+   answer has no file and no code. The inspector's Code tab, which PAR-167 started: the component's file and line with
+   Open in editor, its import, the instance as JSX with its props, the JSX and Tailwind classes Parity would write for a
+   layout or text layer (PAR-265's output, in the UI), every token with its value in the mode showing, and Copy as JSX.
+   The Components panel shows each component's file. No other tool can do this without a hand-written mapping.
 10. **Know the source line of every element** (PAR-167; M). A development-only Vite transform in builder-vite tags each
     JSX element with its file, line and column, so anything inside a real component can show and open its source, and
     agents get the same in `parity components` and snapshots. This is Onlook's approach, and it keeps agents from
@@ -338,8 +338,8 @@ its Linear issue.
     full size in Interact and follows the arrows.
 28. **Annotate layers with intent, behaviour and accessibility** (PAR-184; M). GitHub open-sourced an annotation kit
     because link versus button, labels, heading levels and error text get lost even with accessible components.
-    Annotations attach to a layer, state or mode, can quote live values, show in the Code section, and agents read and
-    write them.
+    Annotations attach to a layer, state or mode, can quote live values, show in the Code tab, and agents read and write
+    them.
 29. **Export layers, icons and images** (PAR-185; S). PNG or SVG of any layer, several at once named after their layers,
     and icons in bulk as SVG; Copy as PNG is in CAN-39.
 

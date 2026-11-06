@@ -629,6 +629,74 @@ WithoutStories, NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedB
 have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at `button.tsx:43`, its
 `function Button`, and Badge's menu said "Starts Storybook" with none running.
 
+## Reading the code
+
+### Where each element is written: the Code tab (PAR-167)
+
+The inspector's Code tab, after Modes and before Accessibility, shows where the selected component layer is written.
+**Component** names its export and file, with a button that opens it in the person's editor at the export, as View code
+does. **Elements** lists the elements the layer draws that the project's own files wrote, nested as the code nests them,
+each with its tag and its file's name and line, `button.tsx:44`. Pointing at one outlines it on the canvas, with a chip
+naming its tag, file and line, and clicking one picks it. **Source** shows the picked element's lines, 5 before and 12
+after with its own highlighted, from the file as it is on disk, coloured by Shiki through the kit's code block. Its
+header copies `path:line:column` and opens the file in the editor at the line. The first element is shown until another
+is picked.
+
+**Inspect**, in the tab's header and its empty states, picks an element on the canvas, as a browser's developer tools
+do. The pointer becomes a crosshair, the element under it is outlined with its chip, and clicking selects the layer it's
+in and picks the element. Escape, or a pick, stops it. It works with nothing selected. Right-clicking an element a
+project file wrote ends the canvas menu with **Open in editor**, which shows its `file:line` and opens it there.
+
+- **Where the lines come from:** the project's development server. builder-vite's guest plugin gives each lowercase JSX
+  element in the project's own `.tsx` and `.jsx` files, as `<button>` or `<div>`, a `data-parity-source` attribute: its
+  file from the project root, then the line and column of its `<`. It runs before the framework plugin compiles the
+  file, with a source map, so stacks keep their columns. A component's own element, as `<Button>`, gets none: it passes
+  props on, so the element it draws would take its caller's line over its own. Installed packages, virtual modules and
+  production builds carry nothing.
+- **What has no line:** a library's component says it's written in its package, and lists no elements. Parity's own
+  layers (text, images and layouts) say they're drawn from the design file. With several layers selected, the tab asks
+  for one.
+- **Picking by box:** frames don't take the pointer outside Interact, so the element under the pointer is found from
+  boxes: the innermost element a project file wrote, looking through elements with no box, as `display: contents` ones.
+  A library's element inside a project's element counts as the project's.
+- **Reading the file:** the service's `code.read` reads a project file by its path from the root. It refuses a path
+  outside the project's folder and a file over 1 MB.
+- **For agents:** `parity components` and MCP's `get_components` give `files`, the file each of the project's own
+  components is written in, and the text lists them by file. `Measure` gives each node's `source`, where the project's
+  code writes the element the node draws outermost, as `src/components/ui/button.tsx:44:5`. Parity's own layers have
+  none.
+
+Code: `tagElementSources` and `hasElementSources` in `packages/code/src/element-sources.ts`; `elementSourceAttribute`,
+`formatElementSource` and `parseElementSource` in `packages/core/src/element-source.ts`; `taggedModule`, the guest
+plugin's transform, in `packages/builder-vite/src/index.ts`. In the app: `CodePanel` in `renderer/chrome/CodePanel.tsx`;
+`sourcedElements`, `sourcedElementAt` and `frameAt` in `renderer/canvas/element-sources.ts`; the picking store in
+`canvas/inspect.ts` and its outlines in `canvas/InspectOverlay.tsx`; the menu's `open-source` entry in
+`chrome/canvas-menu.ts`, drawn by `chrome/CanvasMenu.tsx`; `openSource` in `chrome/code-editor.ts`, with `line` in
+`main/code-editor.ts`'s `openInEditor` and its check in `shared/ipc-checks.ts`; `readProjectFile` in `utility/code.ts`.
+For agents: `componentsReport` in `packages/agent/src/dispatch.ts`, `describeComponents` in
+`packages/cli/src/client.ts`, and each measured node's `source` in `renderer/render.ts`, passed on by the check in
+`main/render-results.ts`.
+
+Tests: `packages/code/src/element-sources.test.ts` (6: each element written for the page gets its file, line and column;
+a component's own elements, fragments and closing tags are left alone; nothing for a file with nothing to tag or one
+tagged already; plain JSX in a `.jsx` file; each line of the tagged code maps back to the file; and which files it's
+for, whatever the query). `packages/core/src/element-source.test.ts` (3: writing and reading a place, a path with colons
+in it, and anything else reads as none). `packages/builder-vite/src/index.test.ts` (4: the project's own JSX tagged and
+named from the root; a workspace package's file outside the root named from the root; installed packages, virtual
+modules and files without JSX left alone; development server only). `apps/desktop/src/utility/code.test.ts` (3: a file
+read by its path, one outside the project or the folder itself refused, one too big refused).
+`apps/desktop/src/shared/ipc-checks.test.ts` (a line from an element's source is taken; one that isn't a positive whole
+number is refused). `chrome/canvas-menu.test.ts` (Open in editor ends the menu over an element a project file wrote),
+and in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at `member-row.tsx`).
+`packages/agent/src/dispatch.test.ts` (the file each project component is written in), `packages/agent/src/run.test.ts`
+(`Measure` gives each node's source, and none for Parity's own layers), `packages/cli/src/client.test.ts` (the project's
+own components listed by file) and `apps/desktop/src/main/render-results.test.ts` (a node's source passed on).
+`chrome/CodePanel.stories.tsx`: ComponentLayer, ElementPicked, Inspecting, PickedOnCanvas, LibraryComponent,
+ParityLayer, NothingSelected and OpenFromCanvasMenu, drawn from Storybook's copy of the example project, which the same
+transform tags. Gaps: reading the attribute in the offscreen page (`renderer/render.ts`) has no test of its own; the
+Measure and render-result tests pass a source through, and the canvas's reading of the same attribute is covered by the
+stories.
+
 ## Moving, reordering and resizing
 
 Dragging layers and designs, where they land, resize handles and duplicates.

@@ -20,7 +20,12 @@ describe("open-in-editor's request", () => {
     expect(() => open({}, { file, editor: "notepad" })).toThrow('/editor: expected one of "auto", "system", "vscode"')
     expect(() => open({}, { file, editor: "zed", shell: true })).toThrow("/shell: unknown property")
     expect(() => open({}, "open Button.tsx")).toThrow("/: expected an object")
+    expect(() => open({}, { file, line: 0, editor: "zed" })).toThrow("/line")
     expect(handler).not.toHaveBeenCalled()
+  })
+
+  it("takes the line an element's source gives", () => {
+    expect(openInEditorRequest.safeParse({ file, line: 44, editor: "vscode" }).success).toBe(true)
   })
 
   it("takes every editor Settings lists", () => {
