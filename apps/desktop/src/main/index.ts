@@ -54,7 +54,7 @@ import type {
   ServiceProcessMethods
 } from "../shared/service.ts"
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
-import { InstalledBuild } from "./build-info.ts"
+import { builtCommit, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
@@ -72,9 +72,12 @@ import { createUpdates } from "./updates.ts"
 
 /** Main's environment variables, read once, as it starts. */
 const environment = readEnvironment(process.env)
+/** The app's own package.json: the build's, or the checkout's when run from source. */
+const appManifest = () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")) as unknown
 // Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
 startTelemetry(process.env, {
   installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
+  commit: builtCommit(appManifest) ?? environment.PARITY_COMMIT,
   rendererName: (contents) => {
     const window = BrowserWindow.fromWebContents(contents)
     if (!window) return undefined
@@ -519,7 +522,7 @@ const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 const installedBuild = new InstalledBuild({
   version: app.getVersion(),
   packaged: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
-  metadata: () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")),
+  metadata: appManifest,
   read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
   save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
 })

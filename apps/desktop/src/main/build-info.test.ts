@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test"
-import { InstalledBuild } from "./build-info.ts"
+import { builtCommit, InstalledBuild } from "./build-info.ts"
 
 function release(prerelease: boolean, tag = "v0.3.0") {
   return Response.json({ tag_name: tag, prerelease, draft: false })
@@ -21,6 +21,19 @@ function setup(saved?: unknown) {
     }
   }
 }
+
+describe("builtCommit", () => {
+  it("reads the commit the build stamped, and nothing when there's none or the file can't be read", () => {
+    expect(builtCommit(() => ({ name: "@parity-app/desktop", commit: "abc123" }))).toBe("abc123")
+    expect(builtCommit(() => ({ name: "@parity-app/desktop" }))).toBeUndefined()
+    expect(builtCommit(() => ({ commit: 42 }))).toBeUndefined()
+    expect(
+      builtCommit(() => {
+        throw new Error("ENOENT")
+      })
+    ).toBeUndefined()
+  })
+})
 
 describe("installed build identity", () => {
   it("labels a release-workflow beta on its first offline launch, then observes promotion", async () => {

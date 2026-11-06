@@ -2074,6 +2074,9 @@ to PAR-209 build it.
   transformer. A new install opens the welcome page; development can still request its default project. The builder
   warms the guest graph and waits for dependency optimization before exposing its URL, avoiding cold-start outdated
   dependency imports cached by the browser. CI alone starts isolated production copies against Vite 7 and Vite 8.
+- **Every build is a Sentry release, and its source maps stay out of the installer** (PAR-625). The build writes hidden
+  maps and moves them to `apps/desktop/sourcemaps/`; CI and the release workflow upload them. The calls are in
+  [Every build is a Sentry release](#every-build-is-a-sentry-release-with-its-source-maps-par-625).
 
 How Parity goes public and ships. The proposal is [proposals/repository.md](proposals/repository.md), and the work is
 the Repository, CI and releases stream in Linear.
@@ -4670,6 +4673,33 @@ PAR-661 and PAR-665), along with a real one it hit (PAR-662).
 - **Exits:** a window or child process that exits abnormally, fails to launch or runs out of memory is reported, along
   with crashes' minidumps. The service's restarts are breadcrumbs. A builder that stops by itself is reported with its
   last 50 lines of output, and the props worker's failures from the service.
+
+## Every build is a Sentry release, with its source maps (PAR-625)
+
+How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
+
+- **Installed builds are named by version, as `parity-desktop@0.21.0`, and development and CI builds by their full
+  commit hash,** as the plan says. `telemetryRelease` in `@parity-app/telemetry` decides, so the CLI can share it. A
+  build whose commit isn't known is `parity-desktop@<version>+<environment>`, so it never joins a published version's
+  release. `dist` is the platform and architecture, such as `win32-x64`, and an installed build tags its events with
+  `update_channel`, stable or beta, the update preference, which changes as the person changes it.
+- **Maps are matched by debug ID, not by file name and release.** `sentry-cli sourcemaps inject` gives each bundle an ID
+  from its contents, so the same code gets the same ID on every system and every run. One upload then covers all three
+  installers, and a renamed or moved file still resolves.
+- **The release workflow builds the published version again to upload its maps.** The shared release template builds the
+  installers with one secret, the tldraw key, and changing it was out of scope, so a job after it checks out the
+  version's tag, builds it on Ubuntu with the same key and channel, and uploads. Its bundles match the installers'
+  because the build is the same on every system. Events that arrive in the minutes before the upload stay unresolved.
+- **CI uploads the Windows build's maps,** the build it installs and starts, as the commit's release. Only main's
+  commits are tied to their release, since a pull request's merge commit isn't kept. A failed upload doesn't fail CI's
+  run, which releases wait on.
+- **Development builds resolve without an upload.** `pnpm dev` starts Electron with `--enable-source-maps`, so main's
+  and the service's stacks name the source files and lines before Sentry sees them; the window's modules are already the
+  source files Vite serves. A frozen copy, which `pnpm perf` measures, leaves it off.
+- **Electron's own native symbols come from Sentry's built-in Electron symbol server,** a project setting, not an
+  upload. Parity ships no native code of its own yet; sharp's prebuilt binaries come without debug files.
+- **`@sentry/cli` 3.8.2 is a devDependency of the app** (your call, 2026-11-06), run from `scripts/build.ts` and
+  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it.
 
 ## The rest of signing in is designed (PAR-614)
 

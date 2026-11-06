@@ -5,8 +5,24 @@ import { githubRelease, releaseSummary } from "./github-releases.ts"
 
 const refreshMs = 5 * 60 * 1000
 
-/** The app's own package.json, which a beta build marks with `releaseChannel`. */
-const appManifest = z.looseObject({ releaseChannel: z.unknown() })
+/**
+ * The app's own package.json, which a beta build marks with `releaseChannel`, and `scripts/build.ts` stamps with the
+ * commit it built.
+ */
+const appManifest = z.looseObject({
+  releaseChannel: z.unknown().optional(),
+  commit: z.string().optional().catch(undefined)
+})
+
+/** The commit a built app was made from, which names its Sentry release (PAR-625); nothing for one run from source. */
+export function builtCommit(metadata: () => unknown): string | undefined {
+  try {
+    return appManifest.safeParse(metadata()).data?.commit
+  } catch {
+    // A missing or unreadable package.json only leaves the release named by version.
+    return undefined
+  }
+}
 
 /** `installed-build.json`, a cache of what GitHub said this version is. A bad `checkedAt` only means asking again. */
 const savedBuild = z.looseObject({

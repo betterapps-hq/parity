@@ -3,7 +3,8 @@ import {
   type TelemetryEnvironment,
   type TelemetryLevel,
   telemetryEnvironment,
-  telemetryLevel
+  telemetryLevel,
+  telemetryRelease
 } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
@@ -29,7 +30,16 @@ export interface TelemetryStart {
  */
 export function startTelemetry(
   env: NodeJS.ProcessEnv,
-  { installed, rendererName }: { installed: boolean; rendererName: (contents: WebContents) => string | undefined }
+  {
+    installed,
+    commit,
+    rendererName
+  }: {
+    installed: boolean
+    /** The commit the build was made from, which names a development or CI build's release (PAR-625). */
+    commit: string | undefined
+    rendererName: (contents: WebContents) => string | undefined
+  }
 ): TelemetryStart {
   const level = telemetryLevel(env)
   const environment = telemetryEnvironment(env, installed)
@@ -38,6 +48,9 @@ export function startTelemetry(
   Sentry.init({
     dsn,
     environment,
+    release: telemetryRelease({ project: "parity-desktop", version: app.getVersion(), environment, commit }),
+    // Each platform's installer is its own build of the release.
+    dist: `${process.platform}-${process.arch}`,
     enabled: level !== "off",
     getRendererName: rendererName,
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
@@ -53,6 +66,11 @@ export function startTelemetry(
   })
   if (level !== "off") watchMainLoop()
   return { level, environment }
+}
+
+/** Tags what follows with the update channel an installed build takes, stable or beta, as it starts and when it changes. */
+export function tagUpdateChannel(beta: boolean): void {
+  Sentry.setTag("update_channel", beta ? "beta" : "stable")
 }
 
 /** Reports a window that stops answering, once it answers again, with how long it was stuck. */

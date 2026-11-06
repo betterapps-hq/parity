@@ -32,6 +32,29 @@ Only `parity-desktop` and `parity-cli` have code in this repository. The other t
 Every event is tagged `development`, `ci` or `tester`. Sentry creates an environment the first time an event names it,
 so there's nothing to set up ahead of the SDKs.
 
+## Releases and source maps
+
+Each build names its release, so an event points at the code that had the bug, and its stack trace resolves to Parity's
+source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-release-with-its-source-maps-par-625).
+
+| Build                      | Release                 | Source maps                                                         |
+| -------------------------- | ----------------------- | ------------------------------------------------------------------- |
+| Installed (`tester`)       | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Upload source maps, once it's public |
+| CI (`ci`)                  | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build   |
+| `pnpm dev` (`development`) | The commit's full hash  | Read locally: stacks are resolved before they're sent               |
+
+- **`pnpm build`** writes hidden source maps for main, the preload script, the service, its workers and the windows,
+  gives each bundle a debug ID with `sentry-cli sourcemaps inject`, and moves the maps, with a copy of their bundles, to
+  `apps/desktop/sourcemaps/`. The installer ships no maps. `out/package.json` and `sourcemaps/build.json` record the
+  commit.
+- **`node apps/desktop/scripts/upload-sourcemaps.ts --environment ci|tester [--link-commits]`** creates the release,
+  uploads `sourcemaps/` and finalizes it. `--link-commits` ties the release to its commit in `betterapps-hq/parity`,
+  which suspect commits and "resolved in the next release" use.
+- **Electron's native crashes** are symbolicated by Sentry's built-in Electron, Apple and Microsoft symbol servers,
+  which `parity-desktop`'s Settings > Debug Files had on from the start, as Sentry does for an Electron project.
+- **Each event's `dist`** is the platform and architecture, such as `win32-x64`, and an installed build's events carry
+  `update_channel`, `stable` or `beta`.
+
 ## Integrations
 
 - **Linear** is installed for the Better Apps workspace, so alert rules can file issues in PAR and resolving one side

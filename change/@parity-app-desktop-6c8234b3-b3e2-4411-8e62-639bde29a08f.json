@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Name every build as a Sentry release and upload its source maps, so stack traces resolve to source",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
