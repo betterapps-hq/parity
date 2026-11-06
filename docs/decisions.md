@@ -5048,6 +5048,7 @@ and didn't object. My calls:
   call that is, since React's warnings come from react-dom and name the component in their stack.
 - **Agents get the design too:** each console entry has its design's key, state and mode when known, and their frames
   name their state.
+
 ## Frames are built in the app (PAR-545)
 
 PAR-545 builds the frames exploration you approved in PAR-540, on PAR-539's model. My calls, where the build differs
