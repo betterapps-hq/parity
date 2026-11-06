@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Split lint, board geometry and frame reading out of the agent workspace, and type its api()",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
