@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Show component previews in the Components panel, in Names, List and Grid views, with each component's card, and in the insert picker",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
