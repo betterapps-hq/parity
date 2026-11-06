@@ -296,12 +296,17 @@ export class App {
     return this.page.evaluate(() => window.e2e!.session().store.unsavedPaths())
   }
 
-  designs(): Promise<{ key: string; name: string; position: Point }[]> {
+  designs(): Promise<{ key: string; name: string; kind: string; position: Point }[]> {
     return this.page.evaluate(() =>
       window
         .e2e!.session()
         .store.getEntries()
-        .map((entry) => ({ key: entry.key, name: entry.container.name, position: entry.container.position }))
+        .map((entry) => ({
+          key: entry.key,
+          name: entry.container.name,
+          kind: entry.container.kind ?? "screen",
+          position: entry.container.position
+        }))
     )
   }
 

@@ -195,6 +195,11 @@ textarea,
   cursor: crosshair;
 }
 
+/* With the frame tool, a crosshair, over the designs too, since a frame can be drawn over one. */
+.canvas-area[data-tool="frame"] :is(.tl-canvas, .container-view) {
+  cursor: crosshair;
+}
+
 /* Interacting, the designs take the pointer as in a browser, with their own cursors and text selection. */
 .canvas-area[data-tool="interact"] [data-frame] {
   pointer-events: auto;
