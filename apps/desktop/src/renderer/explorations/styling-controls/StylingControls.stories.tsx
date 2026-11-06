@@ -10,8 +10,11 @@ import { StylingPrototype } from "./prototype.tsx"
  * follow PAR-652's design options pages (design-options-fields.md and design-options-values.md).
  *
  * Each story is the same prototype, a stand-in for Plans on the canvas and the inspector beside it, starting on one
- * control. Every control works: the stand-in redraws as it changes. A token shows as a chip; a color that isn't a token
- * is kept as typed and marked, with the nearest token one click away, and a project set to Tokens only refuses it.
+ * control. Every control works: the stand-in redraws as it changes. A token shows as a chip, then what it comes to,
+ * faintly (`lg 10px`), or in the hover where the field is narrow, as a corner's is. A color that isn't a token is kept
+ * as typed and marked, with the nearest token one click away, and a project set to Tokens only refuses it. Input a field
+ * can't read stays, outlined in the error color with the reason under it; Escape or leaving puts the value back and
+ * says so.
  */
 const meta = {
   title: "Parity/Explorations/Styling controls",
@@ -25,7 +28,9 @@ type Story = StoryObj<typeof meta>
  * Plans, a card with a translucent fill, per-corner radius and a backdrop blur over shapes behind it, so the fill's
  * opacity (`bg-card/70`) and the blur show. Fill, radius and blur tokens show as chips. Radius per corner is a toggle
  * beside its row, with the corners laid out where they are on the layer. Stroke's sides are Figma's menu after Width:
- * All, Top, Bottom, Left, Right or Custom; this card has a bottom stroke only. Stroke widths switch between px and rem.
+ * All, Top, Bottom, Left, Right or Custom; this card has a bottom stroke only. Custom's four fields are narrow, so their
+ * unit shows on hover. Stroke widths switch between px and rem. Stroke's − takes it off, and its + adds `border-border`
+ * at 1px, as a layer without a stroke starts.
  */
 export const Appearance: Story = {
   render: () => (
@@ -130,9 +135,11 @@ export const RepeatToFit: Story = {
 }
 
 /**
- * Pro plan selected inside Plans' grid: the column and row it starts at and how many it spans, in place of Align self.
- * A negative start counts from the end, and All spans every column, as a header across the grid does. Click Pro plan
- * on the canvas to go back to Plans, whose three equal columns show as a count with Edit tracks beside it.
+ * Pro plan selected inside Plans' grid. Its Size has the rows a grid adds: W and H (Fill stretches it across its cell),
+ * Align self and Justify self, then Columns and Rows, each how many it spans with the line it starts at beside it. A
+ * negative start counts from the end, and All spans every track, as a header across the grid does. Size's More has End
+ * lines, which places it by its start and end lines instead (`2 / 4`), and Area, for a grid with named areas. Click Pro
+ * plan on the canvas to go back to Plans, whose three equal columns show as a count with Edit tracks beside it.
  */
 export const GridPlacement: Story = {
   render: () => (
@@ -159,7 +166,8 @@ export const GridPlacement: Story = {
  * Plans as a horizontal row, reversed and aligned on its text's baseline: Pro plan's larger text lines up with the
  * others' first line. Reverse direction is set from Layout's More (the dots in its title) and then shows beside Wrap.
  * The nine-spot box stays as it looks: its left spots are still the left, though a reversed row writes flex-end there.
- * Baseline sits under the box, and shows only for a horizontal layout, where it means something.
+ * Baseline sits under the box, on the text's first line or its last (`items-baseline-last`). It shows for a horizontal
+ * layout, where it means something; switch to vertical with it on and it stays, dimmed, saying it does nothing.
  */
 export const BaselineAndReverse: Story = {
   render: () => (
@@ -180,9 +188,15 @@ export const BaselineAndReverse: Story = {
 
 /**
  * Plans locked at 16:9, with the headline as Heading 2. The lock sits between W and H, as in Figma UI3; locking keeps
- * the ratio the layer has, leaves H to it (Auto), and shows the ratio as its own row: `16:9 Video`, typed as 16:9,
- * 16/9, 16x9 or 1.78, with named ratios in its menu. Typing H while locked changes W to keep the ratio. Unlock to fix
- * the height where the ratio left it. The tag is at the top of Text.
+ * the ratio the layer has and frees H, which shows as Auto, set by Aspect ratio. The ratio shows as its own row:
+ * `16:9 Video`, typed as 16:9, 16/9, 16x9 or 1.78, with named ratios in its menu; type `wide` to see a ratio refused.
+ * Typing H while locked changes W to keep the ratio; choosing Hug or Fill for H unlocks it. Unlock to fix the height
+ * where the ratio left it.
+ *
+ * W and H are size fields whose unit opens one menu: Fixed, Hug or Fill; px, % or rem; Min and Max content under More
+ * units; and Add min and Add max, which each add a row under the size. A mode shows what it comes to after it, faintly
+ * (Hug 249). Up and Down step a length to the next whole spacing step, 4px, and make a mode Fixed at its size first.
+ * The tag is at the top of Text.
  */
 export const AspectRatioAndTag: Story = {
   render: () => (

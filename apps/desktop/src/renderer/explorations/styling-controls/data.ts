@@ -105,11 +105,32 @@ export type Columns = Track[] | { fit: number }
 /** How many tracks a grid child spans, or all of them (`1 / -1`). */
 export type Span = number | "all"
 
-/** A grid child's place on one axis, as CSS writes it: `start / span n`, or across every track. */
-export function placementCss(start: number | undefined, span: Span | undefined): string {
+/**
+ * A grid child's place on one axis, as CSS writes it: `start / span n`, `start / end` once it's placed by its end line,
+ * or across every track.
+ */
+export function placementCss(start: number | undefined, span: Span | undefined, end?: number): string {
   if (span === "all") return "1 / -1"
+  if (end !== undefined) return `${start ?? "auto"} / ${end}`
   return `${start ?? "auto"} / span ${span ?? 1}`
 }
+
+/**
+ * A width or height: pixels (Fixed), a percentage of the parent, or a size mode: Hug, Fill, or Min content and Max
+ * content from More units.
+ */
+export type Size = number | { percent: number } | "hug" | "fill" | "min" | "max"
+
+/** A size as CSS writes it outside a layout: Fill is `100%` and Hug `fit-content`. */
+export function sizeCss(size: Size | undefined): string | undefined {
+  if (size === undefined) return undefined
+  if (typeof size === "number") return `${size}px`
+  if (typeof size === "object") return `${size.percent}%`
+  return { hug: "fit-content", fill: "100%", min: "min-content", max: "max-content" }[size]
+}
+
+/** Where a grid child sits in its cell on one axis; unset follows the grid's alignment. */
+export type SelfAlign = "start" | "center" | "end" | "stretch"
 
 /** What the exploration's layer has: the proposed style fields, each beside the one it extends. */
 export interface Draft {
@@ -134,18 +155,33 @@ export interface Draft {
   reverse?: boolean
   /** Where children sit along the layout's direction, physically: start is the top of a column, the left of a row. */
   justify?: "start" | "center" | "end"
-  /** Where they sit across it; baseline lines up their text. */
-  align?: "start" | "center" | "end" | "stretch" | "baseline"
-  /** The layer's own size in pixels; unset height hugs. */
-  width?: number
-  height?: number
+  /** Where they sit across it; baseline lines up their text's first line, last baseline its last. */
+  align?: "start" | "center" | "end" | "stretch" | "baseline" | "last baseline"
+  /** The layer's own size; unset width is 520 pixels, and unset height hugs. */
+  width?: Size
+  height?: Size
+  /** Limits on the size in pixels, each its own row once added from the field's menu. */
+  minWidth?: number
+  maxWidth?: number
+  minHeight?: number
+  maxHeight?: number
   columns?: Columns
   rows?: Track[]
+  /** The selected grid child's own size; unset, it fills its cell. */
+  childWidth?: Size
+  childHeight?: Size
   /** The selected child's place in the grid: the line it starts at, from 1, or from the end when negative. */
   colStart?: number
   colSpan?: Span
   rowStart?: number
   rowSpan?: Span
+  /** Placed by its end lines rather than a span, from Size's More. */
+  endLines?: boolean
+  colEnd?: number
+  rowEnd?: number
+  /** Where the grid child sits in its cell, down (Align self) and across (Justify self). */
+  alignSelf?: SelfAlign
+  justifySelf?: SelfAlign
 }
 
 export const radiusPx = (name: string | undefined): number => radiusTokens.find((token) => token.name === name)?.px ?? 0
