@@ -17,6 +17,11 @@ export interface SignInOptions {
   loginHint?: string
   /** The organization to sign in to, chosen in Parity when WorkOS asked which one. */
   organizationId?: string
+  /**
+   * Query parameters WorkOS passes on to the OAuth provider, such as Google's `prompt: "select_account"`, which asks
+   * which account even when the browser is signed in to one.
+   */
+  providerQueryParams?: Record<string, string>
 }
 
 /** What the copy that starts a sign-in keeps until the browser hands back. Only it has the verifier. */
@@ -59,6 +64,9 @@ export function authorizeUrl(options: SignInOptions & { state: string; codeChall
   query.set("code_challenge_method", "S256")
   if (options.loginHint) query.set("login_hint", options.loginHint)
   if (options.organizationId) query.set("organization_id", options.organizationId)
+  // Written as WorkOS's own SDK writes a nested object, with the `qs` library's brackets.
+  for (const [key, value] of Object.entries(options.providerQueryParams ?? {}))
+    query.set(`provider_query_params[${key}]`, value)
   return url.href
 }
 

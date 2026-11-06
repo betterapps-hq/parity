@@ -1,9 +1,10 @@
 import { z } from "zod"
 
 /*
- * What main and the window say to each other about signing in (PAR-612). Main keeps every token; the window gets who's
- * signed in, their organization and role, and how far a sign-in has got. Both sides check what they receive against
- * these schemas, since IPC is data from outside (conventions.md, "Data from outside is checked where it comes in").
+ * What main and the window say to each other about signing in (PAR-612). Main keeps every token; the window gets the
+ * accounts signed in, which one you're in, each one's organization and role, and how far a sign-in has got (PAR-669).
+ * Both sides check what they receive against these schemas, since IPC is data from outside (conventions.md, "Data from
+ * outside is checked where it comes in").
  */
 
 /** How a person signs in: Google, GitHub or Microsoft in the browser, or AuthKit for a work email. */
@@ -46,6 +47,9 @@ export type AccountPerson = z.infer<typeof accountPerson>
 /** Which organization the window asks main to move the session to. */
 export const organizationId = z.string().regex(/^org_\w+$/)
 
+/** Which account the window asks main to switch to or sign out of, by its email. */
+export const accountEmail = z.string().min(1).max(320)
+
 /**
  * Ways a sign-in ends without a session: turned down in the browser, an error, an account WorkOS turns down, an
  * organization that requires its single sign-on, or someone in several organizations who has to choose one.
@@ -76,16 +80,29 @@ export const signInAttempt = z.discriminatedUnion("at", [
 ])
 export type SignInAttempt = z.infer<typeof signInAttempt>
 
+/** An account signed in, among the several a person can be: who, how they signed in, and whether WorkOS ended it. */
+export const signedInAccount = accountPerson.extend({
+  provider: signInProvider,
+  /** WorkOS ended its session on refresh. It stays listed, to sign in to again, until it's removed. */
+  ended: z.literal(true).optional()
+})
+export type SignedInAccount = z.infer<typeof signedInAccount>
+
 export const accountState = z.strictObject({
-  /** Who's signed in, or null. `untilQuit` when the system has no keyring to keep the session. */
+  /** The account you're in, or null. `untilQuit` when the system has no keyring to keep the session. */
   account: accountPerson.extend({ untilQuit: z.boolean() }).nullable(),
+  /** Every account signed in, the one you're in among them, in the order they were added. */
+  accounts: z.array(signedInAccount),
   attempt: signInAttempt.nullable(),
-  /** A session WorkOS ended on refresh: who it was and how they signed in, to sign in again the same way. */
+  /**
+   * The session of the account you were in, which WorkOS ended on refresh: who it was and how they signed in, to sign
+   * in again the same way.
+   */
   ended: z.strictObject({ person: accountPerson, provider: signInProvider }).nullable()
 })
 export type AccountState = z.infer<typeof accountState>
 
-export const signedOut: AccountState = { account: null, attempt: null, ended: null }
+export const signedOut: AccountState = { account: null, accounts: [], attempt: null, ended: null }
 
 /**
  * A link the browser handed to a copy of Parity that didn't start its sign-in, passed to another copy's local service

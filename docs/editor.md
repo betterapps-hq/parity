@@ -4421,19 +4421,21 @@ one light, breathing.
 
 Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
 
-## Signing in (PAR-612)
+## Signing in (PAR-612, PAR-669)
 
 You sign in with Google, GitHub, Microsoft or a work email, in your browser, through WorkOS AuthKit, as
-[proposals/sign-in.md](proposals/sign-in.md) designs it. Signing in is optional: nothing that works on local folders
-asks for it. Parity carries WorkOS's client ID and never its API key, and the window never sees a token.
+[proposals/sign-in.md](proposals/sign-in.md) designs it, and can stay signed in to several accounts, such as your own
+and your company's. Signing in is optional: nothing that works on local folders asks for it. Parity carries WorkOS's
+client ID and never its API key, and the window never sees a token.
 
 - **The first launch shows the sign-in screen** in Home's place: Continue with Google, GitHub or Microsoft, or a work
   email, and "Open a folder on this computer without signing in", which opens the folder picker over Home. Signing in or
   going on without is remembered (`parity.signIn` in local storage), and so is opening a project another way while it
   shows. It doesn't show when Parity already knows a project, or was started with one, as `pnpm dev` and the end-to-end
   tests start it.
-- **Signing in later** is from the account spot at the end of the title bar, or Sign in in Home's For you. It opens the
+- **Signing in later** is from the account spot at the end of the title bar, or Sign in at the top of Home. It opens the
   same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
+  Signed in already, it's Add another account, which says the accounts you're in stay signed in.
 - **A button opens the browser** at WorkOS's authorize URL with that provider chosen; the work email opens AuthKit with
   it filled in. Parity shows Continue in your browser, naming the work email it signs in, with one button, Cancel, and
   under it "Page didn't open? Open it again or copy the link." After 30 seconds it says Still waiting for your browser,
@@ -4456,22 +4458,34 @@ asks for it. Parity carries WorkOS's client ID and never its API key, and the wi
   and answers the browser once the code is traded: "You're signed in to Parity" with a green check on the mark,
   "Continue in Parity" with a purple arrow when choosing an organization or single sign-on is next, or "Parity couldn't
   sign you in" with an amber warning.
-- **Main keeps the session.** The refresh token is kept encrypted with `safeStorage` in the app data's `account` file,
-  with who it signs in and how; the access token stays in main's memory. Main refreshes a minute before the access token
-  expires, every 4 minutes, using the newest token in the file, since other copies share it; a refresh with no answer is
-  tried again after 5 seconds, doubling to 5 minutes. On Linux without a keyring nothing is kept: a toast says "You're
-  signed in until you quit Parity", the account menu keeps saying so, and both explain why.
-- **A refresh WorkOS refuses shows Session ended** over whatever's open: Sign in again to keep working, with who it was
-  and Continue with the way they signed in. Open projects and unsaved changes stay as they are.
-- **The account menu** shows your picture or initials, your name, and your organization and role, or your email in no
-  organization yet, then Settings and Sign out. Signed out it's an outline of an avatar, with Sign in and Settings. Sign
-  out forgets both tokens and says "You're signed out"; open tabs stay.
-- **Home's account menu** takes the organization switcher's place: your picture, your name, and the organization you're
-  in, or Personal in none. Signed out it's Sign in. Its menu lists Personal first, as Just you, then the organizations
-  WorkOS named when you chose one, which main keeps with the session. Choosing one switches with a refresh naming it, in
-  the background, so nothing open closes; if WorkOS won't, a toast says Parity couldn't switch organizations and you
-  stay where you were. A session can't leave an organization, so Personal, Invite people and New organization say they
-  aren't ready yet, until Personal is an organization of your own (PAR-616). Settings and Sign out follow.
+- **Main keeps each account's session.** Its refresh token is kept encrypted with `safeStorage` in the app data's
+  `account` file, with who it signs in and how, and the file says which account Parity was last in, to start in it; the
+  access tokens stay in main's memory. Main refreshes each account a minute before its access token expires, every 4
+  minutes, using the newest token in the file, since other copies share it; a refresh with no answer is tried again
+  after 5 seconds, doubling to 5 minutes. A file from a build that kept one account isn't read, so you sign in once
+  more. On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit Parity", the accounts
+  panel keeps saying so, and both explain why.
+- **Adding another account asks which one.** Google, GitHub and Microsoft get `prompt=select_account` through WorkOS's
+  `provider_query_params`, so a browser signed in to one of your accounts still offers the others. The account it signs
+  in joins the list and you're in it, with a toast, "Added" and its email; the same account again takes its own place.
+- **A refresh WorkOS refuses ends that account's session.** It stays in the panel, dimmed, until you sign in again or
+  remove it. If you were in it, Session ended shows over whatever's open: Sign in again to keep working, with who it was
+  and Continue with the way they signed in, which names the account to the provider. With another account signed in,
+  you're in that one meanwhile, and it says so. Open projects and unsaved changes stay as they are.
+- **Your accounts are in a panel** from your picture at the end of the title bar. With one account it's your name and
+  email; with several, each row is an email and where it opens, the organization or Personal, and the one you're in is
+  shaded. Choosing another switches at once, with a toast, "Switched to" and its email, since each account keeps its own
+  session. Each row has its own Sign out, or Remove for an account whose session ended, whose row signs in again. Add
+  another account is last. Signing out of the account you're in moves you to the one you used last, and the toast says
+  where you are now; signing out of the last says "You're signed out". Open tabs stay. Signed out, the picture's an
+  outline and the panel offers Sign in. Settings stay in the app's menu.
+- **Home's workspace menu** takes the organization switcher's place, at the top left: the organization you're in, or
+  Personal in none, in the account you're in. Signed out it's Sign in. Its menu lists Personal, then the organizations
+  WorkOS named when you chose one, which main keeps with the session; with several accounts, the email above them says
+  whose they are. Choosing one switches with a refresh naming it, in the background, so nothing open closes, and the
+  menu says Switching to it with a spinner meanwhile; if WorkOS won't, a toast says Parity couldn't switch organizations
+  and you stay where you were. A session can't leave an organization, so Personal and New organization say they aren't
+  ready yet, until Personal is an organization of your own (PAR-616).
 
 Code: main's side is `apps/desktop/src/main/account.ts` (`createAccount`: signing in, reading the link, trading the
 code, refreshing, the problems), `session-store.ts`, `loopback.ts` and `pass-link.ts`, wired up in `main/index.ts` (the
@@ -4479,28 +4493,36 @@ scheme, `open-url`, the second process, IPC). `@parity-app/account` builds the U
 WorkOS. `shared/account.ts` holds the IPC's zod schemas, which main checks requests against and the window checks the
 state against; `shared/hand-back-page.ts` is the loopback's page; `utility/agent.ts` answers `/auth/link`. The window's
 side is `renderer/account/`: `account.ts` (the store, first launch), `SignIn.tsx` (the screen, the dialog, until quit),
-`SignInPanels.tsx`, `AccountMenu.tsx` and `OrganizationBadge.tsx`, with `start/StartControls.tsx` (`HomeAccountMenu`)
-and `start/HomePage.tsx`. Switching is `switchOrganization` in `createAccount`, over the `accountSwitch` channel.
+`SignInPanels.tsx`, `AccountMenu.tsx` (the accounts panel) and `OrganizationBadge.tsx`, with `start/StartControls.tsx`
+(`WorkspaceMenu`) and `start/HomePage.tsx`. Switching organizations is `switchOrganization` in `createAccount`, over the
+`accountSwitch` channel, and switching accounts is `use`, over `accountUse`; `session-store.ts`'s `withAccount` and
+`withoutAccount` change what's kept.
 
-Tests: `main/account.test.ts` (19: the provider and the work email in the URL, the code traded with the client ID and no
+Tests: `main/account.test.ts` (28: the provider and the work email in the URL, the code traded with the client ID and no
 secret, a link that's another copy's, canceled and failed with WorkOS's words, single sign-on and a refused account with
 their email, the organizations to choose from and AuthKit opened with the one chosen, canceled while trading, kept until
 quit, the organizations WorkOS named kept through refreshes and in the kept session, switching with a refresh naming the
 organization, staying put when WorkOS won't switch, forgetting them on signing out, refreshing a minute early with the
 new token kept, trying again when WorkOS doesn't answer, Session ended, another copy's newer token, signed out in
-another copy, signing back in as Parity starts, signing out), `main/session-store.test.ts` (4: kept encrypted and
-forgotten, nothing kept without a keyring or encryption, an unreadable file forgotten), `main/pass-link.test.ts` (3: the
-link in a launch's arguments, each other copy asked with its token until one takes it, none taking it) and
-`main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another sign-in's). `packages/account`
-covers the URL with an organization, PKCE, the link and WorkOS's answers, including the organizations a refusal names.
-Stories: Parity/Sign in (the first launch, waiting and still waiting, each problem, choosing an organization, the
-dialog, Session ended, the account menu signed in, in no organization, until quit and signed out, and Home's account
-menu in two organizations, one, Personal and signed out). Gaps: no end-to-end test signs in, since that needs a real
-account in a browser, and switching between two organizations hasn't been tried against WorkOS yet. It was tried in
-`pnpm dev` against WorkOS Staging on 2026-11-05: signing in with Google, the loopback's page, the account menu in no
-organization, a refresh 4 minutes later with the client ID alone, the session moved into an organization and kept across
-a restart, and Session ended after WorkOS revoked the session. The `parity://` scheme and passing links between copies
-need an installed build, which hasn't been tried yet.
+another copy, signing back in as Parity starts, signing out; and with several accounts: adding one with the provider
+asked which, the same account again in its place, switching without asking WorkOS, signing out of another and staying,
+moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
+account you're in ends, restoring every account in the one Parity was last in), `main/session-store.test.ts` (7: kept
+encrypted and forgotten, the file removed with the last account, nothing kept without a keyring or encryption, an
+unreadable or one-account file forgotten, an account replaced in place or added, which account you're in forgotten only
+with it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one
+takes it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
+sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
+and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
+and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
+another account, the accounts panel with one account, two, one whose session ended, in no organization, until quit and
+signed out, and the workspace menu in two organizations, with two accounts, in one, Personal and signed out). Gaps: no
+end-to-end test signs in, since that needs a real account in a browser; switching between two organizations, and adding
+a second account with the provider asked which, haven't been tried against WorkOS yet. It was tried in `pnpm dev`
+against WorkOS Staging on 2026-11-05: signing in with Google, the loopback's page, the account menu in no organization,
+a refresh 4 minutes later with the client ID alone, the session moved into an organization and kept across a restart,
+and Session ended after WorkOS revoked the session. The `parity://` scheme and passing links between copies need an
+installed build, which hasn't been tried yet.
 
 ## Rendering frames
 

@@ -29,7 +29,7 @@ import {
   utilityProcess,
   webContents
 } from "electron"
-import { type AccountState, organizationId, signInRequest } from "../shared/account.ts"
+import { type AccountState, accountEmail, organizationId, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
 import {
@@ -527,10 +527,20 @@ ipcMain.handle(
     return account.switchOrganization(id)
   })
 )
-ipcMain.handle(ipc.accountSignOut, (event) => {
-  appWindowOf(event, signInRefusal)
-  account.signOut()
-})
+ipcMain.handle(
+  ipc.accountSignOut,
+  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
+    appWindowOf(event, signInRefusal)
+    return account.signOut(email)
+  })
+)
+ipcMain.handle(
+  ipc.accountUse,
+  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
+    appWindowOf(event, signInRefusal)
+    return account.use(email)
+  })
+)
 
 const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 const installedBuild = new InstalledBuild({

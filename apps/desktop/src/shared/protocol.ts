@@ -373,9 +373,12 @@ export interface CanvasHost {
     reopen: () => Promise<void>
     /** Stops waiting, and puts away what went wrong or the session that ended. */
     cancel: () => Promise<void>
-    signOut: () => Promise<void>
-    /** Moves the session to another organization the person is in, refreshing in the background. */
+    /** Signs out of one account, by its email, or forgets one whose session ended. */
+    signOut: (email: string) => Promise<void>
+    /** Moves the account you're in to another organization the person is in, refreshing in the background. */
     switchOrganization: (organizationId: string) => Promise<void>
+    /** Switches to another account signed in, by its email, at once: each keeps its own session. */
+    use: (email: string) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
