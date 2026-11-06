@@ -45,9 +45,10 @@ describe("right-click menus", () => {
       "Send to back Ctrl+Shift+[",
       "Wrap in layout Ctrl+G",
       "Make component Ctrl+Alt+K",
-      "Hide Ctrl+Shift+H"
+      "Hide Ctrl+Shift+H",
+      "Export… Ctrl+Shift+E"
     ])
-    expect(await menu().getByRole("separator").count()).toBe(4)
+    expect(await menu().getByRole("separator").count()).toBe(5)
     // Its items run the menubar's commands.
     await menu()
       .getByRole("menuitem", { name: /^Duplicate/ })
