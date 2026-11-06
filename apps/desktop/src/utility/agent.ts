@@ -6,8 +6,7 @@ import { join } from "node:path"
 import {
   accessibility,
   type AgentHost,
-  callerIdentity,
-  dispatch,
+  answerRequest,
   exportPictures,
   type FrameRequest,
   type FrameResult,
@@ -19,6 +18,7 @@ import { errorDetails } from "@parity-app/core"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJobMode } from "../shared/render-job.ts"
 import { readConsole } from "./console.ts"
+import { readCopyEnvironment } from "./environment.ts"
 import { renderOffscreen } from "./render.ts"
 
 interface WindowChannel {
@@ -46,14 +46,15 @@ export async function startAgentServer(window: () => WindowChannel): Promise<voi
   const address = server.address()
   if (!address || typeof address === "string") throw new Error("The agent server has no port")
   // The main process names the copy, so a service it restarts writes the same entry.
-  const app = Number(process.env.PARITY_APP_PID) || process.ppid
+  const copy = readCopyEnvironment(process.env)
+  const app = copy.PARITY_APP_PID ?? process.ppid
   const registry = agentRegistry(process.env, homedir())
   writeEntry(registry, {
     version: registryVersion,
     url: `http://127.0.0.1:${address.port}`,
     token,
     app,
-    startedAt: Number(process.env.PARITY_APP_STARTED) || Date.now()
+    startedAt: copy.PARITY_APP_STARTED ?? Date.now()
   })
   console.log(`[service] agents connect at 127.0.0.1:${address.port} (${entryPath(registry, app)})`)
 }
@@ -70,14 +71,8 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
   try {
     const chunks: Buffer[] = []
     for await (const chunk of request) chunks.push(chunk as Buffer)
-    // Checking the params with the contracts' schemas is PAR-598.
-    const { method, params, agent, agentId } = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
-      method: string
-      params?: unknown
-      agent?: unknown
-      agentId?: unknown
-    }
-    reply(200, { result: await dispatch(method, params ?? {}, desktopHost(window()), callerIdentity(agent, agentId)) })
+    // Any local process with the token can send anything, so the body and its params are checked first (PAR-598).
+    reply(200, { result: await answerRequest(Buffer.concat(chunks).toString("utf8"), desktopHost(window())) })
   } catch (error) {
     const details = errorDetails(error)
     reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })

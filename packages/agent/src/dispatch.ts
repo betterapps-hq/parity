@@ -1,7 +1,8 @@
 import { CodedError, describeRenderStatus, renderProblem, resolveModes } from "@parity-app/core"
 import type { ChangeConflict } from "@parity-app/core"
+import { callerIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
-import { isAgentMethod } from "./contracts.ts"
+import { isAgentMethod, readRequest, requests, rpcRequest } from "./contracts.ts"
 import type { CopyReport } from "./routing.ts"
 import { type ExecRequest, execute } from "./run.ts"
 import type {
@@ -36,7 +37,7 @@ export interface AgentHost {
   /** A tab's live state, by id, root or name, or the active tab without one. */
   snapshot(tab: string | undefined): Promise<TabSnapshot>
   /** Where a tab's edits stand. Reading it changes nothing. */
-  status(request: { tab?: string; summary: boolean; limit?: number }): Promise<Answer<"status">>
+  status(request: Params<"status">): Promise<Answer<"status">>
   /** Shows what a caller is doing on its tab's canvas. It's only shown, so a failure is ignored. */
   presence(events: PresenceEvent[]): void
   /** Draws one of a tab's frames offscreen. */
@@ -131,16 +132,12 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
   async console(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
     const entries = await showing(presence(snapshot.tab.id), { kind: "console", label: "Read the console" }, () =>
-      host.console(snapshot, params.clear === true)
+      host.console(snapshot, params.clear)
     )
     return { tab: tabRef(snapshot), entries }
   },
   async status(params, { host }) {
-    const { tab, ...status } = await host.status({
-      ...(params.tab === undefined ? {} : { tab: params.tab }),
-      summary: params.summary === true,
-      ...(params.limit === undefined ? {} : { limit: params.limit })
-    })
+    const { tab, ...status } = await host.status(params)
     return { tab: { id: tab.id, name: tab.name }, ...status }
   },
   async modes(params, { host }) {
@@ -164,23 +161,35 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
   },
   async props(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
-    return readOnly(snapshot).Props(params.component, { all: params.all === true }) as Answer<"props">
+    return readOnly(snapshot).Props(params.component, { all: params.all }) as Answer<"props">
   }
 }
 
+/** Each method's params schema. `copy` takes none, as `tabs` doesn't. */
+const paramSchemas = { ...requests, copy: requests.tabs }
+
 /**
- * Runs an agent's call through `host`. Its params are as the CLI sends them once its schema has read them; a method
- * the app doesn't have fails with `invalid_input`. Its caller gets its own cursor on the canvas.
+ * Answers a `/rpc` request's body through `host` (PAR-598): checks it's a JSON object naming a method, then dispatches
+ * it. A body that isn't fails with `invalid_input`, and a caller that doesn't say who it is gets no name on the canvas.
  */
-export function dispatch(method: string, params: unknown, host: AgentHost, caller?: Caller): Promise<unknown> {
+export async function answerRequest(body: string, host: AgentHost): Promise<unknown> {
+  const { method, params, agent, agentId } = readRequest(rpcRequest, body)
+  return dispatch(method, params, host, callerIdentity(agent, agentId))
+}
+
+/**
+ * Runs an agent's call through `host`, once the method's schema in `contracts.ts` has read its params, with their
+ * defaults. A method the app doesn't have, or params its schema refuses, fail with `invalid_input` naming the field,
+ * before the host is asked anything. Its caller gets its own cursor on the canvas.
+ */
+export async function dispatch(method: string, params: unknown, host: AgentHost, caller?: Caller): Promise<unknown> {
   if (!isAgentMethod(method)) {
-    return Promise.reject(
-      new CodedError(`Unknown method ${method}. Methods: ${Object.keys(methods).join(", ")}`, {
-        code: "invalid_input",
-        field: "method"
-      })
-    )
+    throw new CodedError(`Unknown method ${method}. Methods: ${Object.keys(methods).join(", ")}`, {
+      code: "invalid_input",
+      field: "method"
+    })
   }
+  const request = readRequest(paramSchemas[method], params ?? {})
   const presence =
     (tab: string): AgentHooks["presence"] =>
     (events) =>
@@ -188,7 +197,7 @@ export function dispatch(method: string, params: unknown, host: AgentHost, calle
         events.map((event) => ({ tab, ...(caller ? { agent: caller.name, agentId: caller.id } : {}), ...event }))
       )
   const run = methods[method] as (params: unknown, call: Call) => Promise<unknown>
-  return run(params ?? {}, { host, presence })
+  return run(request, { host, presence })
 }
 
 function tabRef(snapshot: TabSnapshot): { id: string; name: string } {

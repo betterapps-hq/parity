@@ -4137,18 +4137,20 @@ isn't JSON gets `-32700`, a message without a method `-32600`, and `tools/call` 
 carry a stable `code`, the `message`, `retryable`, a JSON-pointer `path` to the input at fault, up to 20 `alternatives`
 (valid ids for an unknown or ambiguous one) and a failed snippet's `editId`. Unknown tabs, designs, nodes, states,
 modes, viewports, components, icon sets and retry ids are coded where the app finds them; invalid input is coded before
-anything reaches the app; a missing app is `not_running`. Tokens and the console are bounded by `limit`, with `total`
-and `truncated`.
+anything reaches the app; a missing app is `not_running`. The app checks what reaches `/rpc` with the same schemas,
+since any local process with the token can post there (PAR-598): a body that isn't JSON, an unknown method and params a
+method's schema refuses each get `invalid_input`, with the path under `params`, before the window is asked anything.
+Tokens and the console are bounded by `limit`, with `total` and `truncated`.
 
 Implementation: `packages/core/src/errors.ts` (codes, `CodedError`, `closest`, `readErrorDetails`);
 `packages/cli/src/errors.ts` (the operation error, its schema and path mapping); `packages/agent/src/contracts.ts`
 (request and answer schemas); `operations.ts` and `execute.ts` (canonical results, bounds); `client.ts` (checked
 answers); `mcp.ts` and `bin.ts` (structured output in each transport); `packages/agent/src/workspace.ts` and `run.ts`
-(coded lookups, conflicts and retries, `ExecResult.details`); `packages/agent/src/dispatch.ts` (coded unknown methods)
-and `apps/desktop/src/utility/agent.ts` (RPC `details`), `packages/channel/src/channel.ts` and
-`apps/desktop/src/shared/coded-errors.ts` (details both ways across every port), `preload/index.ts`,
-`renderer/service.ts` (answers as data across the bridge to the page, PAR-580) and `renderer/agent/handlers.ts`
-(`ServeAnswer`, coded tab lookup).
+(coded lookups, conflicts and retries, `ExecResult.details`); `packages/agent/src/dispatch.ts` (the checked `/rpc` body
+and params, coded unknown methods), `apps/desktop/src/utility/agent.ts` (RPC `details`) and `environment.ts` (the copy's
+checked variables), `packages/channel/src/channel.ts` and `apps/desktop/src/shared/coded-errors.ts` (details both ways
+across every port), `preload/index.ts`, `renderer/service.ts` (answers as data across the bridge to the page, PAR-580)
+and `renderer/agent/handlers.ts` (`ServeAnswer`, coded tab lookup).
 
 Tests: `packages/core/src/errors.test.ts` (defaults, bounded closest-first alternatives, checking details from another
 process, coded unknown state). `packages/agent/src/run.test.ts` ("coded failures": unknown design, state, mode,
@@ -4157,10 +4159,13 @@ component and node, ambiguous node, uncoded throw, unknown retry id, a patch tha
 `--json` for every operation, app codes with paths and alternatives for unknown tab, design, state and component,
 unknown codes read as `app_error`, invalid input paths in each transport's names, `not_running`, bounds and limits,
 image data kept out of structured results, no output schemas in `tools/list`, and an unreadable answer as `app_error`.
-`client.test.ts` covers the truncated token text. `packages/core/src/schema.test.ts` covers `checkData`, which returns
-the first problem for the CLI to word. `packages/channel/src/channel.test.ts` carries coded details both ways over a
-port, and `apps/desktop/src/utility/window-channel.test.ts` takes them from the service to the page, with refused params
-and unknown methods coded `invalid_input`.
+`client.test.ts` covers the truncated token text. `packages/agent/src/dispatch.test.ts` ("answerRequest") refuses a body
+that isn't JSON or names no method, an unknown method, and bad params at their path without asking the host, and reads
+params with their defaults; `apps/desktop/src/utility/environment.test.ts` reads and refuses the copy's variables.
+`packages/core/src/schema.test.ts` covers `checkData`, which returns the first problem for the CLI to word.
+`packages/channel/src/channel.test.ts` carries coded details both ways over a port, and
+`apps/desktop/src/utility/window-channel.test.ts` takes them from the service to the page, with refused params and
+unknown methods coded `invalid_input`.
 
 Checked in the running app on `examples/shadcn-vite`: unknown tab, component, design and state through the CLI with
 `--json`, bounded tokens, and an execute that applied and was renamed back. Gaps: the end-to-end suite doesn't drive the

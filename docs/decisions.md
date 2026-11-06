@@ -3900,6 +3900,19 @@ below. My calls on how they move:
   - The render page's `canvasRender()`, `canvasAudit()` and `canvasHeight()` are checked, since the page runs project
     code. Checking a frame of 1,000 nodes took 0.09 ms and one of 5,000 0.39 ms, where copying the same frame with
     `structuredClone` took 0.8 ms and 7.5 ms. An audit of 30 issues and 300 texts took 0.13 ms.
+- **The app checks agents' requests (PAR-598)**, since any local process holding the token can post to `/rpc`. My calls:
+  - `answerRequest` in `@parity-app/agent` reads the body with `rpcRequest`: JSON text holding an object with a string
+    `method`. Text that isn't JSON gets "expected JSON", and anything else in the body is dropped. The caller's name and
+    id stay lenient, as `callerIdentity` reads them, since they're only shown on the canvas.
+  - `dispatch` reads each method's params with its schema in `requests` before the host is asked anything, so the app
+    applies the same defaults the CLI does. `copy` takes no params, as `tabs` doesn't. A bad request gets
+    `invalid_input` with the schema's message and its whole path under `params`, as `edits/0/find`, since only a process
+    that skipped the CLI's own check reaches it.
+  - The window's handlers take their agent params' types from the schemas' output, through `WindowMethods`, and answer
+    from a map typed by it rather than a cast in each case. The service made those params, so they aren't checked again.
+  - `PARITY_APP_PID` and `PARITY_APP_STARTED` are read once through `utility/environment.ts`. Unset, they fall back to
+    the parent's process id and the service's start, as before. A value that isn't a whole number stops the agent server
+    there, naming the variable, since only main sets them.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
