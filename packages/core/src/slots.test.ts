@@ -18,6 +18,7 @@ import {
   freeSlotName,
   instanceSlots,
   setSlot,
+  slotAtPath,
   slotProblem
 } from "./slots.ts"
 
@@ -201,6 +202,13 @@ describe("filling an instance's slots", () => {
     expect(ids(drawn)).toContain("mine")
     expect(ids(drawn)).toContain("copy/footer")
     expect(texts(resolveDesign(page.root, undefined, "desktop", library))).toEqual(["Title", "Content goes here"])
+  })
+
+  it("is what a path to the component's slot layout inside the instance points at", () => {
+    expect(slotAtPath(filled(page).root, "copy/body", library)?.slot).toMatchObject({ name: "content" })
+    expect(slotAtPath(filled(page).root, "copy/title", library)).toBeUndefined()
+    expect(slotAtPath(filled(page).root, "copy", library)).toBeUndefined()
+    expect(slotAtPath(filled(page).root, "copy/body/placeholder", library)).toBeUndefined()
   })
 
   it("is cleared, deleting its layers, so the placeholder shows again", () => {

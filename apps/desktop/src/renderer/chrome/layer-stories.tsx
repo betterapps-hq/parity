@@ -1,7 +1,8 @@
-import { setSlot } from "@parity-app/core"
+import { insertNode, setSlot } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Decorator } from "@storybook/react-vite"
 import { design, example, node } from "../stories/fixtures.tsx"
+import { answerPreviews } from "../stories/previews.ts"
 import { inspecting, InspectorStage } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
 
@@ -35,4 +36,34 @@ export const slotted = (designName: string, slots: Record<string, string>, layer
       )
     )
     return layersSelection(key, [node(designName, layerName)])
+  })
+
+/**
+ * Plan card with two slots, `features` and `pricing`, and Pricing's Starter plan filling `features` with a line of its
+ * own, then selects the instance, or with `slot`, its `features` slot, as clicking its row does (PAR-84). A slot's
+ * picture is drawn offscreen in the app; here it's still being drawn.
+ */
+export const filledInstance = (selected: "instance" | "slot" = "instance") =>
+  inspecting("design", () => {
+    answerPreviews()
+    const card = design("Plan card")
+    example().store.updateContainer(card, "Make slots", (container) =>
+      setSlot(
+        setSlot(container, node("Plan card", "Features"), "features"),
+        node("Plan card", "Price block"),
+        "pricing"
+      )
+    )
+    const page = design("Pricing")
+    const starter = node("Pricing", "Starter plan")
+    example().store.updateContainer(page, "Fill features", (container) => ({
+      ...container,
+      root: insertNode(
+        container.root,
+        starter,
+        { type: "text", id: "starter-extra", text: "Unlimited viewers" },
+        { slot: "features" }
+      )
+    }))
+    return layersSelection(page, [selected === "slot" ? `${starter}/${node("Plan card", "Features")}` : starter])
   })

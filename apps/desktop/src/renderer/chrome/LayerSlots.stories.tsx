@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { DesignTab } from "./DesignPanel.tsx"
 import { slowly } from "./inspector-stories.tsx"
-import { inspectorStage, pick, renderInspector, slotted } from "./layer-stories.tsx"
+import { filledInstance, inspectorStage, pick, renderInspector, slotted } from "./layer-stories.tsx"
 
 /**
  * A layout of a component design selected (PAR-83): Make slot beside Make component, the other thing a layer can
@@ -58,3 +58,23 @@ export const SlotLayout: Story = {
  * why.
  */
 export const LayoutInsideASlot: Story = { loaders: [slotted("Plan card", { Features: "features" }, "Feature 1")] }
+
+/**
+ * An instance of a component with slots, Pricing's Starter plan (PAR-84): after its params, each slot says what fills
+ * it, `features` its one layer and `pricing` Empty, with a picture of what shows there on hover. Clicking one selects
+ * it; × clears a filled one.
+ */
+export const InstanceSlots: Story = { loaders: [filledInstance()] }
+
+/**
+ * One of Starter plan's slots selected: its name, the instance it's in, a picture of what shows there, Clear, and that
+ * a click in Components adds into it.
+ */
+export const SlotSelected: Story = {
+  loaders: [filledInstance("slot")],
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText("Click a component in Components to add it here.", undefined, slowly)
+    ).toBeVisible()
+  }
+}

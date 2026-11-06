@@ -2472,6 +2472,42 @@ Tests:
 Gaps: the slot outlines and the hover from Props have no automated DOM test. They were checked in those stories on
 2026-11-06, with a param's name typed into a slot's name and refused, and the slot chip focusing the name in Props.
 
+### Filling a slot from an instance (PAR-84)
+
+An instance fills its component's slots with layers of the design it sits in, shown in place of each slot's placeholder.
+A slot it leaves empty shows the placeholder.
+
+- **The instance's panel** lists each slot after its params: a solid tile and how many layers fill it, or a dashed tile
+  and Empty. Resting on one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by
+  itself so a large component's slot is as easy to see as a small one's; an empty one's placeholder is faded inside a
+  dashed edge. Clicking one selects the slot. An × inside a filled one's field clears it, deleting its layers.
+- **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
+  Clear. A click in Components adds into it, at its end.
+- **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
+  selecting them works as for any other. Layers doesn't list them under the instance.
+- **Detach** bakes the fill in where the placeholder was, keeping its layers' ids.
+
+The file keeps a fill as `slots` on the instance, by slot name, as a code component keeps its slots. Its rules are in
+`@parity-app/core`: `instanceSlots`, `slotAtPath` and `clearSlot` in `slots.ts`, the fill drawn by `resolveDesign` in
+`render.ts`, and Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the
+picture's tree `slotPreviewTree`.
+
+Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `InstanceSection` and `LayerPanel` in
+`chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in
+`canvas/insert.ts`.
+
+Tests:
+
+- `packages/core/src/slots.test.ts`, filling an instance's slots (6): a fill kept in its slot and listed, a fill drawn
+  with its own ids in place of the placeholder, the path that points at a slot, clearing, Detach, and the file refusing
+  a fill that reuses an id.
+- `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
+- Stories: Parity/Inspector/Layer/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
+
+Gaps: the card's picture is drawn by the offscreen renderer, which Storybook hasn't got, so the stories show it being
+drawn. Dropping onto a slot on the canvas isn't built yet, and renaming a slot leaves instances' fills under its old
+name, where they no longer show.
+
 ### A library's own props beside the attributes it passes on (PAR-457)
 
 A library component often takes an element's attributes and adds props of its own: Nova's `SidebarMenuButton` is a

@@ -1,5 +1,5 @@
 import type { ContainerSpec, DesignNode, InstanceNode, LayoutNode } from "./document.ts"
-import { childNodes, locateNode, mapNode } from "./edit.ts"
+import { childNodes, findNode, locateNode, mapNode } from "./edit.ts"
 import type { ComponentLibrary } from "./render.ts"
 import { slotName, slotNameProblem } from "./slot-names.ts"
 
@@ -39,6 +39,23 @@ export function instanceSlots(instance: InstanceNode, library: ComponentLibrary)
   const component = library.get(instance.design)
   if (!component) return []
   return designSlots(component).map((slot) => ({ ...slot, fill: instance.slots?.[slot.name] ?? [] }))
+}
+
+/**
+ * The slot a path inside one of a design's own instances points at, as selecting a slot selects it: the instance's id,
+ * then the component's slot layout, `card/body`. Undefined for any other path.
+ */
+export function slotAtPath(
+  root: DesignNode,
+  path: string,
+  library: ComponentLibrary
+): { instance: InstanceNode; slot: InstanceSlot } | undefined {
+  const [instanceId, layoutId, ...deeper] = path.split("/")
+  if (!instanceId || !layoutId || deeper.length > 0) return undefined
+  const instance = findNode(root, instanceId)
+  if (instance?.type !== "instance") return undefined
+  const slot = instanceSlots(instance, library).find((each) => each.node.id === layoutId)
+  return slot ? { instance, slot } : undefined
 }
 
 /** Empties the slot an instance fills, deleting its layers, so it shows the placeholder again. */

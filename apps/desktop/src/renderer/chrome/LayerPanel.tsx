@@ -34,6 +34,7 @@ import {
   pushOverrides,
   resetInstance,
   resetOverride,
+  slotAtPath,
   type StateSpec,
   swapInstance,
   targetPatches
@@ -56,6 +57,7 @@ import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -73,11 +75,11 @@ import { StyleSections } from "./StyleSections.tsx"
  * component's board takes edits the same way. Inside an instance, edits change only that copy.
  */
 export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
-  return isInnerPath(nodeId) ? (
-    <InnerLayerPanel entry={entry} path={nodeId} />
-  ) : (
-    <DesignLayerPanel entry={entry} nodeId={nodeId} />
-  )
+  const { store } = useProject()
+  if (!isInnerPath(nodeId)) return <DesignLayerPanel entry={entry} nodeId={nodeId} />
+  // A slot of one of the design's instances is selected as a layer is, and has a panel of its own (PAR-84).
+  const slot = slotAtPath(entry.container.root, nodeId, projectLibrary(store))
+  return slot ? <SlotPanel entry={entry} {...slot} /> : <InnerLayerPanel entry={entry} path={nodeId} />
 }
 
 /** One of the design's own layers. */
@@ -587,6 +589,7 @@ function InstanceSection({
             </Field>
           )
         )}
+        {own && <InstanceSlotFields entry={entry} instance={own} />}
       </div>
       {own && (
         <div className="mt-3 flex flex-col gap-2 px-1">
