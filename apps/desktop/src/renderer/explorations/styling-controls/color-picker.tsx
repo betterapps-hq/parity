@@ -439,7 +439,8 @@ function Strip({
  * A style's color: a token as a chip, or a plain color in short form with its status mark; then its alpha as its own %
  * field. The picker opens on Tokens for a token and Custom for a value. Custom edits the layer's color live, as a plain
  * value, and offers the nearest token in one click. A project that takes tokens only refuses plain colors: Custom only
- * offers the nearest token, and a plain color already there shows in the error color with the nearest token under it.
+ * offers the nearest token, and a plain color already there shows in the error color with the nearest token under it,
+ * until it's allowed here.
  */
 export function ColorInput({
   label,
@@ -447,7 +448,7 @@ export function ColorInput({
   alpha,
   onChange,
   tokensOnly = false,
-  allowed = false,
+  allowed,
   onAllow,
   used = [],
   open: openAtStart = false,
@@ -460,9 +461,9 @@ export function ColorInput({
   onChange: (value: string | undefined, alpha: number | undefined) => void
   /** The project's Tokens only setting. */
   tokensOnly?: boolean
-  /** Whether this plain color is allowed here as an exception, which fills its mark. */
-  allowed?: boolean
-  onAllow?: (allowed: boolean) => void
+  /** Why this plain color is allowed here as an exception, kept with the value; set, it fills the mark. */
+  allowed?: string
+  onAllow?: (reason: string | undefined) => void
   /** Colors the design already uses, offered at the bottom of Custom. */
   used?: string[]
   open?: boolean
@@ -489,7 +490,8 @@ export function ColorInput({
     setCustom(next)
     if (!tokensOnly) onChange(next, nextAlpha)
   }
-  const refused = plain && tokensOnly
+  // Tokens only refuses a plain color unless it's allowed here as an exception.
+  const refused = plain && tokensOnly && allowed === undefined
   const swatch = plain ? value : current?.hex
   return (
     <div className="flex flex-col gap-1">
@@ -609,7 +611,7 @@ export function ColorInput({
             </Tabs>
           </PopoverContent>
         </Popover>
-        {plain && !tokensOnly && nearestToValue && (
+        {plain && nearestToValue && (
           <OffSystemMark
             label={label}
             value={value}
@@ -667,8 +669,9 @@ export function ColorInput({
 }
 
 /**
- * The status slot's mark for a value off the token system: hollow, or filled once it's allowed here. Its menu has the
- * nearest token, Create token (named here, with this color as its value) and Allow here.
+ * The status slot's mark for a value off the token system, or refused by Tokens only: hollow, or filled once it's
+ * allowed here, with the reason in its hover. Its menu has the nearest token, Create token (named here, with this color
+ * as its value) and Allow here, which asks why and keeps the reason with the value.
  */
 function OffSystemMark({
   label,
@@ -682,28 +685,39 @@ function OffSystemMark({
   label: string
   value: string
   nearest: ColorToken
-  allowed: boolean
+  allowed: string | undefined
   onUse: () => void
   onCreate: (name: string) => void
-  onAllow: (allowed: boolean) => void
+  onAllow: (reason: string | undefined) => void
 }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState<string>()
+  const [reason, setReason] = useState<string>()
   const taken = name !== undefined && colorTokens.some((token) => token.name === name.trim())
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (!next) setName(undefined)
+        if (!next) {
+          setName(undefined)
+          setReason(undefined)
+        }
       }}
     >
-      <Hint label={allowed ? "Not a token, allowed here" : "Not a token"} detail={`Nearest: ${nearest.name}`}>
+      <Hint
+        label={allowed === undefined ? "Not a token" : `Allowed here: ${allowed}`}
+        detail={`Nearest: ${nearest.name}`}
+      >
         <PopoverTrigger
-          aria-label={`${label} isn't a token${allowed ? ", allowed here" : ""}`}
+          aria-label={`${label} isn't a token${allowed === undefined ? "" : `, allowed here: ${allowed}`}`}
           className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
         >
-          {allowed ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" strokeDasharray="3 2" />}
+          {allowed === undefined ? (
+            <Circle className="size-3.5" strokeDasharray="3 2" />
+          ) : (
+            <CircleCheck className="size-3.5" />
+          )}
         </PopoverTrigger>
       </Hint>
       <PopoverContent className="w-60 gap-1 p-1" align="end">
@@ -746,14 +760,43 @@ function OffSystemMark({
             </Button>
           </form>
         )}
-        <MenuButton
-          onClick={() => {
-            onAllow(!allowed)
-            setOpen(false)
-          }}
-        >
-          {allowed ? "Don't allow here" : "Allow here"}
-        </MenuButton>
+        {allowed !== undefined && (
+          <MenuButton
+            onClick={() => {
+              onAllow(undefined)
+              setOpen(false)
+            }}
+          >
+            Don&apos;t allow here
+          </MenuButton>
+        )}
+        {allowed === undefined && reason === undefined && (
+          <MenuButton onClick={() => setReason("")}>Allow here…</MenuButton>
+        )}
+        {allowed === undefined && reason !== undefined && (
+          // The reason is kept with the value, so it moves with the layer and shows in the mark's hover.
+          <form
+            className="flex flex-col gap-1 px-1 py-1"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (!reason.trim()) return
+              onAllow(reason.trim())
+              setOpen(false)
+            }}
+          >
+            <Input
+              ref={(input) => input?.focus()}
+              aria-label="Why it's allowed here"
+              placeholder="Photo backdrop"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              className="h-7 text-xs"
+            />
+            <Button type="submit" size="sm" className="h-7 text-xs" disabled={!reason.trim()}>
+              Allow here
+            </Button>
+          </form>
+        )}
       </PopoverContent>
     </Popover>
   )

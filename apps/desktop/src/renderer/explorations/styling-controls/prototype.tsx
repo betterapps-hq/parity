@@ -625,19 +625,20 @@ function ChildSizeSection({ draft, set }: SectionProps) {
             onChange={(childHeight) => set({ childHeight })}
           />
         </div>
-        <Field label="Align self" hint="Where Pro plan sits in its cell, top to bottom">
+        {/* Unset shows what it comes to, muted: the grid stretches Pro plan, or starts it once it has a size that way. */}
+        <Field label="Align self" hint="Where Pro plan sits in its cell, top to bottom. Unset follows Plans' grid.">
           <ChoiceInput
             value={draft.alignSelf}
             options={[...selfOptions.align]}
-            placeholder="Auto"
+            placeholder={(draft.childHeight ?? "fill") === "fill" ? "Stretch" : "Top"}
             onChange={(alignSelf) => set({ alignSelf: alignSelf as SelfAlign | undefined })}
           />
         </Field>
-        <Field label="Justify self" hint="Where Pro plan sits in its cell, left to right">
+        <Field label="Justify self" hint="Where Pro plan sits in its cell, left to right. Unset follows Plans' grid.">
           <ChoiceInput
             value={draft.justifySelf}
             options={[...selfOptions.justify]}
-            placeholder="Auto"
+            placeholder={(draft.childWidth ?? "fill") === "fill" ? "Stretch" : "Left"}
             onChange={(justifySelf) => set({ justifySelf: justifySelf as SelfAlign | undefined })}
           />
         </Field>

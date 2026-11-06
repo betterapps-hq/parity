@@ -62,7 +62,8 @@ export const PickingAColor: Story = {
 /**
  * Plans filled with a plain blue, #2f6fed, that isn't one of the project's tokens. Fill shows it in short form,
  * `2F6FED`, with a hollow mark after it: its menu has Use nearest (blue-600), Create token, which names a token with
- * this color as its value, and Allow here, which fills the mark. Opacity is part of a plain color (#2f6fed80), where a
+ * this color as its value, and Allow here, which asks why and fills the mark, with the reason in its hover. The reason
+ * is kept with the value, so it moves with the layer. Opacity is part of a plain color (#2f6fed80), where a
  * token's is written after its name. The picker opens on Custom for a plain color, and on Tokens for a token.
  */
 export const PlainColor: Story = {
@@ -71,7 +72,9 @@ export const PlainColor: Story = {
 
 /**
  * The same plain blue in a project set to Tokens only: Fill is outlined in the error color, with "Not a token. Nearest:
- * blue-600" under it, and the picker's Custom tab doesn't change the fill; it offers only the nearest token.
+ * blue-600" under it, and the picker's Custom tab doesn't change the fill; it offers only the nearest token. The hollow
+ * mark's menu still has Allow here, which asks why and keeps the blue as an exception, with the reason in the filled
+ * mark's hover.
  */
 export const TokensOnly: Story = {
   render: () => (
@@ -136,7 +139,8 @@ export const RepeatToFit: Story = {
 
 /**
  * Pro plan selected inside Plans' grid. Its Size has the rows a grid adds: W and H (Fill stretches it across its cell),
- * Align self and Justify self, then Columns and Rows, each how many it spans with the line it starts at beside it. A
+ * Align self and Justify self, which show what they come to while unset (Stretch, muted, or Left once W is Hug), then
+ * Columns and Rows, each how many it spans with the line it starts at beside it. A
  * negative start counts from the end, and All spans every track, as a header across the grid does. Size's More has End
  * lines, which places it by its start and end lines instead (`2 / 4`), and Area, for a grid with named areas. Click Pro
  * plan on the canvas to go back to Plans, whose three equal columns show as a count with Edit tracks beside it.

@@ -137,13 +137,13 @@ export interface Draft {
   /** A color token's name, or a plain color as typed (`#2f6fed`, `oklch(…)`). */
   background?: string
   backgroundAlpha?: number
-  /** A plain fill allowed here as an exception to the token system. */
-  backgroundAllowed?: boolean
+  /** Why a plain fill is allowed here as an exception to the token system, kept with the value (`allow`). */
+  backgroundAllowed?: string
   /** One radius, or each corner from the top left, clockwise. */
   radius?: string | [string?, string?, string?, string?]
   border?: string
   borderAlpha?: number
-  borderAllowed?: boolean
+  borderAllowed?: string
   /** One width, or each side from the top, clockwise. */
   borderWidth?: number | [number, number, number, number]
   blur?: string
