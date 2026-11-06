@@ -3941,6 +3941,24 @@ below. My calls on how they move:
   - Errors that used to be plain `TypeError`s or `Error`s are now `invalid_input`: a file that doesn't end in `.par`,
     `Update` changing a name, tag or component in a state, and every "expected an object". The workspace's own
     `expectObject` is gone.
+- **libgen checks what it reads from npm, packages and theme objects (PAR-599).** My calls:
+  - npm's package and version documents are loose schemas in `libgen/src/npm.ts`, fetched by `packageDocument` and
+    `versionDocument`. Published versions, a version's source and tarball, and the examples' commit all read through
+    them. A document that doesn't match fails as
+    `npm's document for lucide-react: /dist-tags/latest: expected a string`. A package's listed versions are read for
+    `gitHead` only, so an old version's odd `repository` can't fail the whole document, and `time` allows npm's
+    `unpublished` record beside the dates.
+  - A package's `upstream.json` is checked. One that doesn't match reads no examples, with a note naming the field,
+    rather than being ignored. React's package.json, read to match React DOM's version, goes through `parseManifest`.
+  - A token file a package ships must be a JSON object, with a resolver's `resolutionOrder` a list, to count as tokens.
+    What's in it is checked when the tokens are read (PAR-591).
+  - The library file being regenerated is read through `parseLibraryManifest`. One that doesn't read stops generation,
+    naming the field, where it was overwritten before, since writing over it would lose what a person wrote. Its
+    authored fields and edits are kept as the file wrote them.
+  - MUI's `createTheme`, the theme and stylesheets it makes, Chakra's `defaultSystem` and Fluent's themes have small
+    schemas of the fields libgen reads. A field that moves fails the theme with its name, as
+    `@chakra-ui/react: /defaultSystem/getTokenCss: expected a function`, and the library's notes say so. A typography
+    entry that isn't an object, such as MUI's `pxToRem`, is passed over.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
@@ -4811,6 +4829,33 @@ less a few fields, so a field added to the job joined them unasked. My calls:
   arithmetic.
 - **Pure tests replace two disk-backed ones.** That a bitmap is found from a guest given a component, and that a light
   and a dark preview are kept apart, are now tests of the names; the stores' tests keep what needs the disk.
+
+## The open projects are a factory that takes its adapters (PAR-576)
+
+`utility/projects.ts` kept the open projects in module-level maps, with its adapters fixed at import and the environment
+read then, so a test could only mock the whole module. PAR-576 made it `openProjects(adapters)`, as the type checker's
+`typeChecker(client)` is. My calls in doing it:
+
+- **What it's given is what reaches outside the service:** the renderer, builder and styles adapters, the builder link
+  (`startBuilder`, which forks the builder's process), the type checker, the detection cache, the port finder, the
+  windows' listeners, the watcher (`fs.watch` unless given) and the environment (`process.env` unless given, read once
+  when it's made). `utility/index.ts` makes the one the service uses.
+- **The project folder is the real disk.** Discovery, detection and the code snapshot in `@parity-app/project` and
+  `@parity-app/code` read it directly, so a file adapter here would cover only part of what's read. The tests open a
+  project in a temp folder instead, with the builder, type checker and watcher standing in.
+- **The handlers that act on one project take it,** rather than looking it up: `importImage`, `catalogFor`,
+  `addLibrary`, `importStyles` and `openStorybook` are given `projects.get(projectId)` by `utility/index.ts`, and
+  component previews are `componentPreviews(projects)`. Only what they use is public: `OpenProject` is the info, the
+  stylesheets and the known file contents; the list, the builder's session and the watchers stay inside the factory.
+- **`ProjectInfo` moved into `@parity-app/project`,** beside `openedProjectInfo`, which assembles it, and
+  `withComponentList`, which adds the list as it is now. `shared/protocol.ts` re-exports the type.
+- **The watcher's path rules are one function,** `projectFileChange(path, { componentExtensions, configInput })`, which
+  says whether a change is to the config, a component file or a project file. Whether a path is a config input depends
+  on what the project's config lists now, so the factory works that out and passes it in.
+- **A save goes inside the root by its relative path** (`documentTarget`), not by the absolute path's prefix, so a
+  sibling folder such as `D:\shop-old` isn't taken for inside `D:\shop`.
+- **Closing a project also clears its watcher's timers,** so a change caught just before the close isn't acted on after
+  it.
 
 ## Telemetry's event model is data in and data out in `@parity-app/telemetry` (PAR-618)
 
