@@ -15,13 +15,20 @@ import type {
   AccountPerson,
   AccountState,
   Organization,
+  SignedInAccount,
   SignInAttempt,
   SignInProblem,
   SignInProvider,
   SignInRequest
 } from "../shared/account.ts"
 import type { HandBack } from "../shared/hand-back-page.ts"
-import type { SessionStore } from "./session-store.ts"
+import {
+  type SessionStore,
+  type StoredAccount,
+  type StoredAccounts,
+  withAccount,
+  withoutAccount
+} from "./session-store.ts"
 
 /**
  * Parity's client ID in WorkOS's Staging environment, which every build uses until Production has one (PAR-611). Client
@@ -56,19 +63,27 @@ export interface AccountOptions {
 
 export interface Account {
   state(): AccountState
-  /** Signs back in with the session kept from the last launch, if there is one, and refreshes it. */
+  /** Signs back in to the accounts kept from the last launch, in the one Parity was last in, and refreshes them. */
   restore(): Promise<void>
-  /** Opens the browser at WorkOS for a provider, or at AuthKit for a work email, and waits for it to hand back. */
+  /**
+   * Opens the browser at WorkOS for a provider, or at AuthKit for a work email, and waits for it to hand back. The
+   * account it signs in joins the others, or takes the place of the same account's session, and you're in it.
+   */
   signIn(request: SignInRequest): Promise<void>
   /** Opens the page of the sign-in that's waiting again. */
   reopen(): Promise<void>
   /** Stops waiting, and puts away what went wrong or the session that ended. */
   cancel(): void
-  /** Forgets both tokens. */
-  signOut(): void
   /**
-   * Moves the session to another of the person's organizations with a refresh in the background. Throws when WorkOS
-   * doesn't answer or turns it down, and the session stays where it was.
+   * Signs out of one account, by its email, forgetting its tokens, or forgets one whose session ended. Leaving the
+   * account you're in moves you to the one you used last; the others stay as they are.
+   */
+  signOut(email: string): Promise<void>
+  /** Switches to another account, at once, since each keeps its own session. Throws for one that isn't signed in. */
+  use(email: string): Promise<void>
+  /**
+   * Moves the account you're in to another of the person's organizations with a refresh in the background. Throws when
+   * WorkOS doesn't answer or turns it down, and the session stays where it was.
    */
   switchOrganization(organizationId: string): Promise<void>
   /** Whether a link the browser handed back is for the sign-in this copy is waiting for. */
@@ -89,27 +104,38 @@ interface Waiting {
   redirect: Redirect
 }
 
-/** The session main holds: the tokens, and who they sign in. */
+/** An account main holds: its tokens, and who they sign in. */
 interface Live {
-  refreshToken: string
+  /** None once WorkOS ended its session. */
+  refreshToken: string | undefined
   person: AccountPerson
   provider: SignInProvider
   /** Whether it's kept between launches, so other copies of Parity share it through the store. */
   kept: boolean
   /** Refreshes in a row that didn't get an answer, or lost a race with another copy. */
   failures: number
+  /** Stops its next refresh. */
+  stop?: () => void
 }
 
 /**
  * Signing in, as the main process does it (PAR-612): opening the browser, reading what it hands back, trading the code,
- * keeping the refresh token and refreshing before the access token expires. What it talks to is passed in, so it runs
- * in tests without Electron or the network. The window only ever sees `state()`.
+ * keeping each refresh token and refreshing before the access token expires. Someone can be signed in to several
+ * accounts, such as their own and their company's, each with its own session, and switch between them at once
+ * (PAR-669). What it talks to is passed in, so it runs in tests without Electron or the network. The window only ever
+ * sees `state()`.
  */
 export function createAccount(options: AccountOptions): Account {
-  let state: AccountState = { account: null, attempt: null, ended: null }
+  let attempt: SignInAttempt | null = null
+  /** The session of the account you were in, which WorkOS ended, until you sign in again or put it away. */
+  let endedHere: AccountState["ended"] = null
   let waiting: Waiting | undefined
-  let live: Live | undefined
-  let cancelRefresh: (() => void) | undefined
+  /** Every account, in the order they were added. */
+  let lives: Live[] = []
+  /** The account you're in. Never one whose session ended. */
+  let current: Live | undefined
+  /** Accounts' emails, the one used last first, to choose where to go when you leave the one you're in. */
+  let used: string[] = []
   /**
    * The organizations WorkOS named when it asked which one, kept with the session that follows so the person can switch
    * between them. WorkOS names them only then, until Parity's service can list them (PAR-616).
@@ -122,132 +148,214 @@ export function createAccount(options: AccountOptions): Account {
     ...(organizations?.length && { organizations })
   })
 
-  const emit = (next: Partial<AccountState>) => {
-    state = { ...state, ...next }
-    options.changed(state)
-  }
+  const accountOf = (live: Live): SignedInAccount => ({
+    ...live.person,
+    provider: live.provider,
+    ...(live.refreshToken === undefined && { ended: true as const })
+  })
+
+  const state = (): AccountState => ({
+    account: current ? { ...current.person, untilQuit: !current.kept } : null,
+    accounts: lives.map(accountOf),
+    attempt,
+    ended: endedHere
+  })
+
+  const emit = () => options.changed(state())
+
+  const find = (email: string) => lives.find((live) => live.person.email === email)
+
+  /** Whether `live` is still listed, with a session WorkOS hasn't ended. */
+  const going = (live: Live) => lives.includes(live) && live.refreshToken !== undefined
 
   const stopWaiting = () => {
     waiting?.redirect.close()
     waiting = undefined
   }
 
-  const schedule = (ms: number) => {
-    cancelRefresh?.()
-    cancelRefresh = options.later(() => void refresh(), ms)
+  const schedule = (live: Live, ms: number) => {
+    live.stop?.()
+    live.stop = options.later(() => void refresh(live), ms)
   }
 
-  const forget = () => {
-    cancelRefresh?.()
-    cancelRefresh = undefined
-    live = undefined
+  const stop = (live: Live) => {
+    live.stop?.()
+    delete live.stop
   }
 
-  const keep = async (current: Live): Promise<boolean> => {
+  const stored = (live: Live): StoredAccount => ({
+    ...(live.refreshToken !== undefined && { refreshToken: live.refreshToken }),
+    person: live.person,
+    provider: live.provider
+  })
+
+  /** Changes what's kept, and says whether it could. Where it can't, accounts last until Parity quits. */
+  const update = async (change: (kept: StoredAccounts) => StoredAccounts): Promise<boolean> => {
     try {
-      return await options.store.save({
-        refreshToken: current.refreshToken,
-        person: current.person,
-        provider: current.provider
-      })
+      return await options.store.update(change)
     } catch (error) {
-      console.error("Parity couldn't keep the session", error)
+      console.error("Parity couldn't keep the accounts", error)
       return false
     }
   }
 
-  const signedIn = async (session: Session, provider: SignInProvider) => {
-    const current: Live = {
-      refreshToken: session.refreshToken,
-      person: personWith(session, named),
-      provider,
-      kept: false,
-      failures: 0
-    }
-    live = current
-    schedule(refreshDelay(session.token, options.now()))
-    current.kept = await keep(current)
-    if (live !== current) return
-    emit({ account: { ...current.person, untilQuit: !current.kept }, attempt: null, ended: null })
+  /** Keeps `live` as it is now, in place of what's kept for `was`, its email before a refresh. */
+  const keep = (live: Live, was = live.person.email) =>
+    update((kept) => withAccount(was === live.person.email ? kept : withoutAccount(kept, was), stored(live)))
+
+  /** Remembers which account you're in, to start in it next launch. */
+  const keepCurrent = (kept: StoredAccounts): StoredAccounts => {
+    const { current: _was, ...rest } = kept
+    return current ? { ...rest, current: current.person.email } : rest
   }
 
-  const ended = (current: Live) => {
-    forget()
-    options.store.clear()
-    emit({ account: null, ended: { person: current.person, provider: current.provider } })
+  const enter = (live: Live | undefined) => {
+    current = live
+    if (live) used = [live.person.email, ...used.filter((email) => email !== live.person.email)]
+  }
+
+  /** Where to go when you leave `leaving`: the account you used last whose session is still going, or none. */
+  const after = (leaving: Live) => {
+    const rank = (live: Live) => {
+      const at = used.indexOf(live.person.email)
+      return at < 0 ? used.length : at
+    }
+    return lives.filter((live) => live !== leaving && going(live)).toSorted((a, b) => rank(a) - rank(b))[0]
+  }
+
+  /** Takes `live` off the list; if you were in it, you're in the account you used last now, or signed out. */
+  const drop = (live: Live) => {
+    stop(live)
+    lives = lives.filter((each) => each !== live)
+    used = used.filter((email) => email !== live.person.email)
+    if (current === live) enter(after(live))
+  }
+
+  const signedIn = async (session: Session, provider: SignInProvider) => {
+    const person = personWith(session, named)
+    const live: Live = { refreshToken: session.refreshToken, person, provider, kept: false, failures: 0 }
+    live.kept = await update((kept) => ({ ...withAccount(kept, stored(live)), current: person.email }))
+    // The same account signed in again, as after its session ended, takes the old session's place in the list.
+    const before = find(person.email)
+    if (before) stop(before)
+    lives = before ? lives.map((each) => (each === before ? live : each)) : [...lives, live]
+    enter(live)
+    schedule(live, refreshDelay(session.token, options.now()))
+    attempt = null
+    endedHere = null
+    emit()
+  }
+
+  /**
+   * WorkOS ended `live`'s session. It stays listed, to sign in to again. If you were in it, you're in the account you
+   * used last now, and Session ended says so over whatever's open.
+   */
+  const ended = (live: Live) => {
+    stop(live)
+    live.refreshToken = undefined
+    live.failures = 0
+    if (current === live) {
+      enter(after(live))
+      endedHere = { person: live.person, provider: live.provider }
+    }
+    void update((kept) => keepCurrent(withAccount(kept, stored(live))))
+    emit()
   }
 
   /** Takes a refreshed session: the new token kept, the next refresh scheduled, and the window told who it is now. */
-  const refreshed = async (current: Live, session: Session) => {
-    current.refreshToken = session.refreshToken
-    current.failures = 0
-    const person = personWith(session, current.person.organizations)
-    const changed = JSON.stringify(person) !== JSON.stringify(current.person)
-    current.person = person
-    schedule(refreshDelay(session.token, options.now()))
-    if (current.kept) current.kept = await keep(current)
-    if (changed && live === current) emit({ account: { ...person, untilQuit: !current.kept } })
+  const refreshed = async (live: Live, session: Session) => {
+    const was = live.person.email
+    live.refreshToken = session.refreshToken
+    live.failures = 0
+    const person = personWith(session, live.person.organizations)
+    const changed = JSON.stringify(person) !== JSON.stringify(live.person)
+    live.person = person
+    schedule(live, refreshDelay(session.token, options.now()))
+    if (live.kept) live.kept = await keep(live, was)
+    if (changed && lives.includes(live)) emit()
   }
 
-  /** The newest refresh token, which another copy sharing the kept session may have replaced; none once signed out. */
-  const newestToken = async (current: Live): Promise<string | undefined> => {
-    if (!current.kept) return current.refreshToken
-    const stored = await options.store.read()
-    if (stored) current.refreshToken = stored.refreshToken
-    return stored?.refreshToken
+  /** The newest refresh token, which another copy sharing the kept accounts may have replaced; none once it's gone. */
+  const newestToken = async (live: Live): Promise<string | undefined> => {
+    if (!live.kept) return live.refreshToken
+    const kept = (await options.store.read())?.accounts.find((each) => each.person.email === live.person.email)
+    if (kept?.refreshToken) live.refreshToken = kept.refreshToken
+    return kept?.refreshToken
   }
 
-  async function refresh(): Promise<void> {
-    const current = live
-    if (!current) return
-    if (current.kept) {
-      // Another copy of Parity shares the kept session, and each refresh replaces the token: use the newest.
-      const stored = await options.store.read()
-      if (live !== current) return
-      if (!stored) {
+  async function refresh(live: Live): Promise<void> {
+    if (!going(live)) return
+    if (live.kept) {
+      // Other copies of Parity share the kept accounts, and each refresh replaces the token: use the newest.
+      const kept = (await options.store.read())?.accounts.find((each) => each.person.email === live.person.email)
+      if (!going(live)) return
+      if (!kept) {
         // Signed out in another copy.
-        forget()
-        emit({ account: null })
+        drop(live)
+        emit()
         return
       }
-      current.refreshToken = stored.refreshToken
+      if (kept.refreshToken === undefined) {
+        // Its session ended in another copy.
+        ended(live)
+        return
+      }
+      live.refreshToken = kept.refreshToken
     }
-    const used = current.refreshToken
-    const result = await authenticate(options.fetch, refreshRequest({ clientId: options.clientId, refreshToken: used }))
-    if (live !== current) return
+    const token = live.refreshToken
+    if (token === undefined) return
+    const result = await authenticate(
+      options.fetch,
+      refreshRequest({ clientId: options.clientId, refreshToken: token })
+    )
+    if (!going(live)) return
     if (result.kind === "session") {
-      await refreshed(current, result.session)
+      await refreshed(live, result.session)
       return
     }
     if (result.kind === "unavailable") {
-      current.failures++
-      schedule(retryDelay(current.failures))
+      live.failures++
+      schedule(live, retryDelay(live.failures))
       return
     }
     // Refused because another copy refreshed with the same token first: its token is the one to use.
-    const newer = current.kept && (await options.store.read())?.refreshToken !== used
-    if (live !== current) return
-    if (newer && current.failures++ < 3) {
-      schedule(0)
+    const newer =
+      live.kept &&
+      (await options.store.read())?.accounts.find((each) => each.person.email === live.person.email)?.refreshToken !==
+        token
+    if (!going(live)) return
+    if (newer && live.failures++ < 3) {
+      schedule(live, 0)
       return
     }
-    ended(current)
+    ended(live)
   }
 
   const problem = (
     provider: SignInProvider,
     said: Omit<Extract<SignInAttempt, { at: "problem" }>, "at" | "provider">
-  ) => emit({ attempt: { at: "problem", provider, ...said } })
+  ) => {
+    attempt = { at: "problem", provider, ...said }
+    emit()
+  }
 
   return {
-    state: () => state,
+    state,
 
     async restore() {
-      const stored = await options.store.read()
-      if (!stored || live) return
-      live = { ...stored, kept: true, failures: 0 }
-      emit({ account: { ...stored.person, untilQuit: false } })
-      await refresh()
+      const kept = await options.store.read()
+      if (!kept || lives.length > 0) return
+      lives = kept.accounts.map(({ refreshToken, person, provider }) => ({
+        refreshToken,
+        person,
+        provider,
+        kept: true,
+        failures: 0
+      }))
+      used = kept.current ? [kept.current] : []
+      enter(lives.find((live) => live.person.email === kept.current && going(live)) ?? lives.find(going))
+      emit()
+      await Promise.all(lives.filter(going).map(refresh))
     },
 
     async signIn({ provider, email, organizationId }) {
@@ -255,15 +363,21 @@ export function createAccount(options: AccountOptions): Account {
       // The organizations WorkOS named are for signing in to one of them, not to another sign-in.
       if (organizationId === undefined) named = undefined
       const redirect = await options.redirect()
+      // Adding another account: Google, GitHub and Microsoft ask which one, even when the browser is signed in to one
+      // of yours already. Signing in again as someone names them instead.
+      const another = email === undefined && lives.length > 0 && provider !== "authkit"
       const { url, pending } = await startSignIn({
         clientId: options.clientId,
         redirectUri: redirect.uri,
         provider,
         ...(email !== undefined && { loginHint: email }),
-        ...(organizationId !== undefined && { organizationId })
+        ...(organizationId !== undefined && { organizationId }),
+        ...(another && { providerQueryParams: { prompt: "select_account" } })
       })
       waiting = { pending, provider, url, redirect, ...(email !== undefined && { email }) }
-      emit({ attempt: { at: "waiting", provider, url, ...(email !== undefined && { email }) }, ended: null })
+      attempt = { at: "waiting", provider, url, ...(email !== undefined && { email }) }
+      endedHere = null
+      emit()
       await options.openBrowser(url).catch((error: unknown) => console.error("The browser didn't open", error))
     },
 
@@ -273,43 +387,61 @@ export function createAccount(options: AccountOptions): Account {
 
     cancel() {
       stopWaiting()
-      emit({ attempt: null, ended: null })
+      attempt = null
+      endedHere = null
+      emit()
     },
 
-    signOut() {
-      stopWaiting()
-      forget()
-      named = undefined
-      options.store.clear()
-      emit({ account: null, attempt: null, ended: null })
+    async signOut(email) {
+      const live = find(email)
+      if (!live) return
+      const here = current === live
+      drop(live)
+      if (here) {
+        stopWaiting()
+        named = undefined
+        attempt = null
+      }
+      if (here || endedHere?.person.email === email) endedHere = null
+      emit()
+      await update((kept) => keepCurrent(withoutAccount(kept, email)))
+    },
+
+    async use(email) {
+      const live = find(email)
+      if (!live || !going(live)) throw new Error(`Parity isn't signed in as ${email}`)
+      if (current === live) return
+      enter(live)
+      emit()
+      await update(keepCurrent)
     },
 
     async switchOrganization(organizationId) {
-      const current = live
-      if (!current) throw new Error("Nobody is signed in")
-      if (current.person.organizationId === organizationId) return
-      const token = await newestToken(current)
-      if (live !== current || token === undefined) throw new Error("Signed out while switching")
+      const live = current
+      if (!live) throw new Error("Nobody is signed in")
+      if (live.person.organizationId === organizationId) return
+      const token = await newestToken(live)
+      if (!going(live) || token === undefined) throw new Error("Signed out while switching")
       const result = await authenticate(
         options.fetch,
         refreshRequest({ clientId: options.clientId, refreshToken: token, organizationId })
       )
-      if (live !== current) throw new Error("Signed out while switching")
+      if (!going(live)) throw new Error("Signed out while switching")
       if (result.kind !== "session") throw new Error(`WorkOS didn't switch: ${problemOf(result).details}`)
-      await refreshed(current, result.session)
+      await refreshed(live, result.session)
     },
 
     owns: (link) => waiting !== undefined && readCallback(link, waiting.pending).kind !== "refused",
 
     async takeLink(link) {
-      const current = waiting
-      if (!current) return "not-mine"
-      const read = readCallback(link, current.pending)
+      const answering = waiting
+      if (!answering) return "not-mine"
+      const read = readCallback(link, answering.pending)
       if (read.kind === "refused") return "not-mine"
       // This sign-in is answered, so its listener closes and no other link can answer it.
       stopWaiting()
       options.focus()
-      const { provider } = current
+      const { provider } = answering
       if (read.kind === "declined") {
         problem(provider, { problem: "canceled" })
         return "problem"
@@ -320,11 +452,10 @@ export function createAccount(options: AccountOptions): Account {
       }
       const result = await authenticate(
         options.fetch,
-        codeRequest({ clientId: options.clientId, code: read.code, verifier: current.pending.verifier })
+        codeRequest({ clientId: options.clientId, code: read.code, verifier: answering.pending.verifier })
       )
       // Canceled, or started over, while the code was traded: this one doesn't sign anyone in.
-      if (waiting !== undefined || state.attempt?.at !== "waiting" || state.attempt.url !== current.url)
-        return "problem"
+      if (waiting !== undefined || attempt?.at !== "waiting" || attempt.url !== answering.url) return "problem"
       if (result.kind === "session") {
         await signedIn(result.session, provider)
         return "signed-in"

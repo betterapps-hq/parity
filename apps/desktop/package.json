@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/desktop",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "license": "MIT",
   "description": "A design editor for real components and the code behind them.",
   "author": "Better Apps",
@@ -50,6 +50,7 @@
     "@parity-app/styles-tailwind": "workspace:*",
     "@parity-app/telemetry": "workspace:*",
     "@parity-app/tokens": "workspace:*",
+    "@sentry/cli": "catalog:",
     "@storybook/react-vite": "10.6.5",
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "^19.3.0",

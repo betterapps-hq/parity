@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 18:38:16 GMT",
+      "version": "0.13.1",
+      "tag": "@parity-app/cli_v0.13.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6868f1966e1dcb1542ba7ebae86b9f9273d69da8",
+            "comment": "Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 10:43:10 GMT",
       "version": "0.13.0",
       "tag": "@parity-app/cli_v0.13.0",

@@ -11,7 +11,8 @@ import {
   type Telemetry,
   type TelemetryEnvironment,
   type TelemetryLevel,
-  telemetryEnvironment
+  telemetryEnvironment,
+  telemetryRelease
 } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
@@ -45,12 +46,18 @@ export function startTelemetry(
   env: NodeJS.ProcessEnv,
   {
     installed,
+    published,
+    commit,
     rendererName,
     sending
   }: {
     installed: boolean
+    /** Whether the release workflow published this build, which names its release by version (PAR-625). */
+    published: boolean
+    /** The commit the build was made from, which names any other build's release. */
+    commit: string | undefined
     rendererName: (contents: WebContents) => string | undefined
-    /** The level and install ID from the setting and the variables. */
+    /** The level and install ID from the setting and the variables (PAR-626). */
     sending: { level: TelemetryLevel; installId: string }
   }
 ): TelemetryStart {
@@ -60,6 +67,9 @@ export function startTelemetry(
   Sentry.init({
     dsn,
     environment,
+    release: telemetryRelease({ project: "parity-desktop", version: app.getVersion(), published, commit }),
+    // Each platform's installer is its own build of the release.
+    dist: `${process.platform}-${process.arch}`,
     getRendererName: rendererName,
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
@@ -77,6 +87,11 @@ export function startTelemetry(
   applyTelemetry(sending)
   watchMainLoop()
   return { level, environment }
+}
+
+/** Tags what follows with the update channel an installed build takes, stable or beta, as it starts and when it changes. */
+export function tagUpdateChannel(beta: boolean): void {
+  Sentry.setTag("update_channel", beta ? "beta" : "stable")
 }
 
 /** Main's Sentry as the sink sends to it. A log in a trace goes in a scope that continues it, so Sentry links them. */

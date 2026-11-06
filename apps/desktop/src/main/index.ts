@@ -31,7 +31,7 @@ import {
   utilityProcess,
   webContents
 } from "electron"
-import { type AccountState, organizationId, signInRequest } from "../shared/account.ts"
+import { type AccountState, accountEmail, organizationId, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
 import {
@@ -58,7 +58,7 @@ import type {
 } from "../shared/service.ts"
 import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from "../shared/telemetry-run.ts"
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
-import { InstalledBuild } from "./build-info.ts"
+import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
@@ -106,10 +106,16 @@ const telemetrySetting = new TelemetrySetting({
   },
   newId: () => randomUUID()
 })
+/** The app's own package.json: the build's, or the checkout's when run from source. */
+const appManifest = () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")) as unknown
+const built = builtRelease(appManifest)
+const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
 // Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
 startTelemetry(process.env, {
   sending: telemetrySetting.get(),
-  installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
+  installed,
+  published: installed && built.published,
+  commit: built.commit ?? environment.PARITY_COMMIT,
   rendererName: (contents) => {
     const window = BrowserWindow.fromWebContents(contents)
     if (!window) return undefined
@@ -552,16 +558,26 @@ ipcMain.handle(
     return account.switchOrganization(id)
   })
 )
-ipcMain.handle(ipc.accountSignOut, (event) => {
-  appWindowOf(event, signInRefusal)
-  account.signOut()
-})
+ipcMain.handle(
+  ipc.accountSignOut,
+  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
+    appWindowOf(event, signInRefusal)
+    return account.signOut(email)
+  })
+)
+ipcMain.handle(
+  ipc.accountUse,
+  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
+    appWindowOf(event, signInRefusal)
+    return account.use(email)
+  })
+)
 
 const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 const installedBuild = new InstalledBuild({
   version: app.getVersion(),
   packaged: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
-  metadata: () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")),
+  metadata: appManifest,
   read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
   save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
 })

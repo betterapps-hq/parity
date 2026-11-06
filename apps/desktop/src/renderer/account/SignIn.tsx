@@ -33,12 +33,20 @@ function useSlow(url: string | undefined): boolean {
   return url !== undefined && slow === url
 }
 
+/** What adding another account says about the ones you're signed in to, which stay signed in. */
+function staying(state: AccountState): string {
+  const signedIn = state.accounts.filter((each) => !each.ended)
+  const [only] = signedIn
+  return signedIn.length === 1 && only ? `You stay signed in as ${only.email}.` : "Your accounts stay signed in."
+}
+
 /**
  * Where sign-in has got: the ways in, waiting for the browser, what went wrong, or signing in again after a session
- * ended. Cancel goes back a step: to the ways in on the sign-in screen, or out of the dialog.
+ * ended. Signed in already, the ways in add another account. Cancel goes back a step: to the ways in on the sign-in
+ * screen, or out of the dialog.
  */
 export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: boolean }) {
-  const { attempt, ended } = state
+  const { account, attempt, ended } = state
   const slow = useSlow(attempt?.at === "waiting" ? attempt.url : undefined)
   if (attempt?.at === "waiting") {
     return (
@@ -74,7 +82,18 @@ export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: bo
   }
   if (ended) {
     return (
-      <SessionEndedPanel dialog={dialog} ended={ended} onSignIn={accountActions.signIn} onOther={accountActions.back} />
+      <SessionEndedPanel
+        dialog={dialog}
+        ended={ended}
+        stillIn={account?.email}
+        onSignIn={accountActions.signIn}
+        onOther={accountActions.back}
+      />
+    )
+  }
+  if (dialog && account) {
+    return (
+      <SignInPanel dialog title="Add another account" description={staying(state)} onSignIn={accountActions.signIn} />
     )
   }
   return <SignInPanel dialog={dialog} onSignIn={accountActions.signIn} />

@@ -14,11 +14,16 @@ import { OrganizationBadge } from "../../account/OrganizationBadge.tsx"
 import { PersonAvatar } from "../../account/PersonAvatar.tsx"
 import { whenLabel } from "../../start/projects.ts"
 import { useNow } from "../../start/use-now.ts"
-import type { Note, ReceivedInvitation } from "./data.ts"
+import type { Note, Person, ReceivedInvitation } from "./data.ts"
 
 /** An invitation in For you, with whether you're joining it. */
 export interface WaitingInvitation extends ReceivedInvitation {
   joining?: boolean
+}
+
+/** A note in For you, with the organization it's from when that's not where you are. */
+export interface ShownNote extends Note {
+  elsewhere?: string
 }
 
 /**
@@ -30,15 +35,23 @@ export function ForYou({
   state,
   notes,
   invitation,
+  invitedAs,
+  ended = [],
   onOpen,
+  onSignInAgain,
   onJoin,
   onDecline,
   onAsk
 }: {
   state: "loading" | "signed-out" | "signed-in"
-  notes: readonly Note[]
+  notes: readonly ShownNote[]
   invitation?: WaitingInvitation | undefined
+  /** The address the invitation went to, named when you're signed in to several accounts. */
+  invitedAs?: string
+  /** Accounts whose session ended: what needs you there waits until you sign in again. */
+  ended?: readonly Person[]
   onOpen: (note: Note) => void
+  onSignInAgain: (email: string) => void
   onJoin: () => void
   onDecline: () => void
   onAsk: () => void
@@ -79,19 +92,27 @@ export function ForYou({
           Sign in to see comments, mentions and reviews that need you.
         </p>
       )}
-      {state === "signed-in" && !invitation && notes.length === 0 && (
+      {state === "signed-in" && !invitation && notes.length === 0 && ended.length === 0 && (
         <p className="py-2 text-sm text-muted-foreground">Nothing needs you right now.</p>
       )}
-      {state === "signed-in" && (invitation || notes.length > 0) && (
+      {state === "signed-in" && (invitation || notes.length > 0 || ended.length > 0) && (
         <ul className="-mx-3 flex flex-col gap-1">
           {invitation && (
             <li>
-              <InvitationItem invitation={invitation} now={now} onJoin={onJoin} onDecline={onDecline} onAsk={onAsk} />
+              <InvitationItem
+                invitation={invitation}
+                invitedAs={invitedAs}
+                now={now}
+                onJoin={onJoin}
+                onDecline={onDecline}
+                onAsk={onAsk}
+              />
             </li>
           )}
           {notesShown.map((note) => {
             const when = whenLabel(note.at, now)
-            const said = `${capitalized(note.did)} in ${note.project} ${when}`
+            const at = note.elsewhere ? ` at ${note.elsewhere}` : ""
+            const said = `${capitalized(note.did)} in ${note.project}${at} ${when}`
             return (
               <li key={note.id}>
                 <Item
@@ -111,15 +132,53 @@ export function ForYou({
                   <ItemContent className="min-w-0 gap-0.5">
                     <ItemTitle>{note.from.name}</ItemTitle>
                     {note.quote && <span className="line-clamp-2 text-sm">“{note.quote}”</span>}
-                    <ItemDescription className="text-xs text-pretty">
-                      {capitalized(note.did)} in <span className="whitespace-nowrap">{note.project}</span>{" "}
-                      <span className="whitespace-nowrap">{when}</span>
+                    {/*
+                     * What and where wrap as words do: never between "in" and the project, nor at a hyphen in its
+                     * name, unless a name is too long for a line. When is a line of its own, outside the kit's two-line
+                     * clamp, so it's never cut.
+                     */}
+                    <ItemDescription className="text-xs wrap-anywhere">
+                      {capitalized(note.did)} in{"\u00a0"}
+                      {note.project.replaceAll("-", "\u2011")}
+                      {note.elsewhere && (
+                        <>
+                          {" "}
+                          at{"\u00a0"}
+                          {note.elsewhere}
+                        </>
+                      )}
                     </ItemDescription>
+                    <span className="text-xs text-muted-foreground">{when}</span>
                   </ItemContent>
                 </Item>
               </li>
             )
           })}
+          {ended.map((person) => (
+            <li key={person.email}>
+              <Item
+                size="sm"
+                render={
+                  <button
+                    type="button"
+                    aria-label={`Sign in again as ${person.email} to see what needs you there`}
+                    onClick={() => onSignInAgain(person.email)}
+                  />
+                }
+                className="text-left hover:bg-muted"
+              >
+                <ItemMedia className="opacity-50">
+                  <PersonAvatar person={person} size={28} />
+                </ItemMedia>
+                <ItemContent className="min-w-0 gap-0.5">
+                  <ItemTitle className="max-w-full">
+                    <span className="truncate">{person.email}</span>
+                  </ItemTitle>
+                  <ItemDescription className="text-xs">Sign in again to see what needs you there</ItemDescription>
+                </ItemContent>
+              </Item>
+            </li>
+          ))}
         </ul>
       )}
     </section>
@@ -134,12 +193,14 @@ const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(
  */
 function InvitationItem({
   invitation,
+  invitedAs,
   now,
   onJoin,
   onDecline,
   onAsk
 }: {
   invitation: WaitingInvitation
+  invitedAs: string | undefined
   now: number
   onJoin: () => void
   onDecline: () => void
@@ -155,10 +216,11 @@ function InvitationItem({
         <ItemTitle>{organization.name}</ItemTitle>
         <ItemDescription className="text-xs text-pretty">
           {invitation.expired ? (
-            `${from.name}'s invitation expired`
+            `${from.name}'s invitation${invitedAs ? ` to ${invitedAs}` : ""} expired`
           ) : (
             <>
-              {from.name} invited you <span className="whitespace-nowrap">{whenLabel(invitation.sent, now)}</span>
+              {from.name} invited {invitedAs ?? "you"}{" "}
+              <span className="whitespace-nowrap">{whenLabel(invitation.sent, now)}</span>
             </>
           )}
         </ItemDescription>

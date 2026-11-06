@@ -144,17 +144,30 @@ function Legal() {
   )
 }
 
-/** The sign-in screen: the mark, one line on what Parity is, and the ways in. */
-export function SignInPanel({ dialog, onSignIn }: { dialog?: boolean; onSignIn: (request: SignInRequest) => void }) {
+/**
+ * The sign-in screen: the mark, one line on what Parity is, and the ways in. Adding another account, from inside
+ * Parity, gives its own heading and line and leaves the mark out.
+ */
+export function SignInPanel({
+  dialog,
+  title,
+  description = "Design with your real components, your team and your agents.",
+  onSignIn
+}: {
+  dialog?: boolean
+  title?: string
+  description?: string
+  onSignIn: (request: SignInRequest) => void
+}) {
   return (
     <div className="flex w-full flex-col gap-7">
       <div className="flex flex-col items-center gap-4 text-center">
-        <Mark size={dialog ? 40 : 48} />
+        {!title && <Mark size={dialog ? 40 : 48} />}
         <div className="flex flex-col gap-1.5">
           <Heading dialog={dialog} className="text-2xl leading-tight font-semibold tracking-tight">
-            Sign in to Parity
+            {title ?? "Sign in to Parity"}
           </Heading>
-          <Description dialog={dialog}>Design with your real components, your team and your agents.</Description>
+          <Description dialog={dialog}>{description}</Description>
         </div>
       </div>
       <SignInForm onSignIn={onSignIn} />
@@ -211,10 +224,11 @@ export function WaitingPanel({
   onReopen: () => void
   onCancel: () => void
 }) {
+  const as = attempt.email ? ` as ${attempt.email}` : ""
   const opened =
     attempt.provider === "authkit"
-      ? "We opened your browser to sign you in."
-      : `We opened ${providerName(attempt.provider)} in your browser to sign you in.`
+      ? `We opened your browser to sign you in${as}.`
+      : `We opened ${providerName(attempt.provider)} in your browser to sign you in${as}.`
   const copyLink = () => copy(attempt.url, "Copied the link", "copied-link")
   return (
     <div className="flex flex-col items-center gap-8">
@@ -470,15 +484,19 @@ export function ChooseOrganizationPanel({
 
 /**
  * WorkOS ended the session on refresh, as after an organization's session limit or an admin removing the person.
- * Parity knows who it was and how they signed in, so it's one button, and nothing open is lost.
+ * Parity knows who it was and how they signed in, so it's one button, and nothing open is lost. With another account
+ * signed in, you're in that one meanwhile.
  */
 export function SessionEndedPanel({
   ended,
+  stillIn,
   dialog,
   onSignIn,
   onOther
 }: {
   ended: { person: AccountPerson; provider: SignInProvider }
+  /** The account you're in now, when you're signed in to another. */
+  stillIn?: string | undefined
   dialog?: boolean
   onSignIn: (request: SignInRequest) => void
   onOther: () => void
@@ -493,7 +511,10 @@ export function SessionEndedPanel({
             Sign in again to keep working
           </Heading>
           <Description dialog={dialog}>
-            Your session ended, so you&apos;re signed out. Your open projects stay as they are, unsaved changes too.
+            {stillIn
+              ? `Your session ended, so you're in ${stillIn} for now.`
+              : "Your session ended, so you're signed out."}{" "}
+            Your open projects stay as they are, unsaved changes too.
           </Description>
         </div>
       </div>
@@ -506,11 +527,7 @@ export function SessionEndedPanel({
         <Lock className="size-4 text-muted-foreground" aria-hidden />
       </div>
       <div className="flex flex-col gap-3">
-        <Button
-          size="lg"
-          className="h-10 gap-2"
-          onClick={() => onSignIn(provider === "authkit" ? { provider, email: person.email } : { provider })}
-        >
+        <Button size="lg" className="h-10 gap-2" onClick={() => onSignIn({ provider, email: person.email })}>
           {providers.find((candidate) => candidate.provider === provider)?.mark ?? <KeyRound />}
           Continue with {providerName(provider)}
         </Button>

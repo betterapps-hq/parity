@@ -165,8 +165,11 @@ settings:
 catalogs:
   default:
     '@buildkitgg/shadcn-baseui-kit':
-      specifier: npm:@buildkitgg/shadcn-baseui-nova@0.4.6
-      version: 0.4.6
+      specifier: npm:@buildkitgg/shadcn-baseui-nova@0.5.0
+      version: 0.5.0
+    '@sentry/cli':
+      specifier: 3.8.2
+      version: 3.8.2
     '@sentry/electron':
       specifier: 8.3.0
       version: 8.3.0
@@ -242,7 +245,7 @@ importers:
     dependencies:
       '@buildkitgg/shadcn-baseui-kit':
         specifier: 'catalog:'
-        version: '@buildkitgg/shadcn-baseui-nova@0.4.6(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)'
+        version: '@buildkitgg/shadcn-baseui-nova@0.5.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)'
       '@fontsource-variable/geist':
         specifier: ^5.3.0
         version: 5.3.0
@@ -322,6 +325,9 @@ importers:
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
+      '@sentry/cli':
+        specifier: 'catalog:'
+        version: 3.8.2
       '@storybook/react-vite':
         specifier: 10.6.5
         version: 10.6.5(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1)))(supports-color@7.2.0)(typescript@6.0.3)
@@ -380,8 +386,8 @@ importers:
   examples/shadcn-vite:
     dependencies:
       '@buildkitgg/shadcn-baseui-nova':
-        specifier: ^0.4.2
-        version: 0.4.2(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)
+        specifier: ^0.5.0
+        version: 0.5.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)
       '@fontsource-variable/geist':
         specifier: ^5.3.0
         version: 5.3.0
@@ -892,20 +898,8 @@ packages:
   '@blazediff/core@1.10.0':
     resolution: {integrity: sha512-AOQff0zgR7cGsZL+4E7hVkmujoPUpm0J9xzWGWZj5wCjd3gmxESXAPfKyuzs93VdpQNFhHlBhfOjrcZ+XTERtQ==}
 
-  '@buildkitgg/shadcn-baseui-nova@0.4.2':
-    resolution: {integrity: sha512-1iQHcM2yTpFGqDZs7bdyhoQMZUInXTDjYYblqtVuHQOYf8DCvnnGgJjldCvr8yG51VwjzX/6Qmoycv5bnaAyJQ==}
-    peerDependencies:
-      react: ^19.2.0
-      react-dom: ^19.2.0
-
-  '@buildkitgg/shadcn-baseui-nova@0.4.6':
-    resolution: {integrity: sha512-bs8XV9EgO4v3qfXBuTTqfIuqW7a6vxIa0j8+ed9kJ+BnSnqpTMUDshEHsZsKQMohZLfN6ogMVUiNRXbGcWClFA==}
-    peerDependencies:
-      react: ^19.2.0
-      react-dom: ^19.2.0
-
-  '@buildkitgg/shadcn-runtime@0.1.1':
-    resolution: {integrity: sha512-7oW9266us/Mr/J4aameyHEPYm45QlZYxwW6vSAz9iGlgYzSojbfDk4Oocpg3k0zr4DOX2LNL3TydXFTgVifx+A==}
+  '@buildkitgg/shadcn-baseui-nova@0.5.0':
+    resolution: {integrity: sha512-PLfpSZGMlYIiDvNWc3GDgoo04QpSLQmebhvI3h+AcsZ5B/vmrRN5w6GLrfNbojk/doRbAXTk5bgycjumVufuug==}
     peerDependencies:
       react: ^19.2.0
       react-dom: ^19.2.0
@@ -3329,6 +3323,58 @@ packages:
         optional: true
       webpack:
         optional: true
+
+  '@sentry/cli-darwin@3.8.2':
+    resolution: {integrity: sha512-S9xIhtpPk5uU0J0dMLz5VCtlBn+OHjG7En8HkZNGYsleNACQOwcG5wcfAnGuq+7x643KrEOubtd1VPtGfrBHsQ==}
+    engines: {node: '>=18'}
+    os: [darwin]
+
+  '@sentry/cli-linux-arm64@3.8.2':
+    resolution: {integrity: sha512-sWKkGTSOqRmGW8d2Q6ir1gBEkvfXWNbDxcf/dF0MJt8q9p594k+04GOm5mZ/VAePKGzs9W8fXE1xfmZ/UNCLcQ==}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [linux, freebsd, android]
+
+  '@sentry/cli-linux-arm@3.8.2':
+    resolution: {integrity: sha512-maj9TXsnyWqNKs+UTHc+/gpsvXPVlCbheH+QHaBx8FD9u0B56REVDfxKUSCzeC9eTGDf0eKAFxbxWiMXKG4B5Q==}
+    engines: {node: '>=18'}
+    cpu: [arm]
+    os: [linux, freebsd, android]
+
+  '@sentry/cli-linux-i686@3.8.2':
+    resolution: {integrity: sha512-6aOKjTWGl5XEYCOOha4GO3aq5C7ISmYB8QECec8mFLWx0L3QoXdKtaNQoLUYslsSN0jEmFeOgA0U27Tp5OEBww==}
+    engines: {node: '>=18'}
+    cpu: [x86, ia32]
+    os: [linux, freebsd, android]
+
+  '@sentry/cli-linux-x64@3.8.2':
+    resolution: {integrity: sha512-icx2NoqaxuE4H5khIoRCB/MDX76/kKbDZFvJe/UYloGp9aucxi6c7mk8oDxFvskMFqLfbprQ6RzKH7iILmODQg==}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [linux, freebsd, android]
+
+  '@sentry/cli-win32-arm64@3.8.2':
+    resolution: {integrity: sha512-lSzj1ywih1madjyMrTHSjJKPhvErozSsSrG7QF6yIt7dMLYX4Qh9X3puVReh1YB5mOPCX8MJPtur67YJmR1S+w==}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@sentry/cli-win32-i686@3.8.2':
+    resolution: {integrity: sha512-k4dPGNNliNY46G/4hSeJygHlMoyMoL292IO+YP3MasBqyqPEy9hz6Py3FjUVW/Ckso52eoAVtGgb6DntFBjIWA==}
+    engines: {node: '>=18'}
+    cpu: [x86, ia32]
+    os: [win32]
+
+  '@sentry/cli-win32-x64@3.8.2':
+    resolution: {integrity: sha512-IBX5W2M3Zckpg3zOXfnNoayWTKhVlZN/b7ifO7dRArkOsNRzVa2lNB5M7L28O0/ZYu/8V+SnzCoHVGN9bxRdwg==}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [win32]
+
+  '@sentry/cli@3.8.2':
+    resolution: {integrity: sha512-JbB/UTBPRQREkI6CaxD8Cs0ppNc3YT8CROgRV7WeaqPn7mZOAgTYqtcxiW/OF7OquOIHUd0u6gu2vL+g5ITdHQ==}
+    engines: {node: '>= 18'}
+    hasBin: true
 
   '@sentry/conventions@0.27.0':
     resolution: {integrity: sha512-Mrqd/o7n/z7qWSYfQQA7x4fFTA0IqOG6JNsbBpnC97khPwZk7n6DPtOO7YgaYplSl8R8QLRbBz9Xv2lVhToSAg==}
@@ -6665,6 +6711,9 @@ packages:
     resolution: {integrity: sha512-5nnx0yGyVUcY6t9RnWcARWtwT9F1D8O9rt08htPvnd49W1IgZtmLkhu9WfMzQj1cFxjHIO6connUNVW5k7AVyQ==}
     engines: {node: '>= 0.10'}
 
+  proxy-from-env@1.1.0:
+    resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
+
   pump@3.0.4:
     resolution: {integrity: sha512-VS7sjc6KR7e1ukRFhQSY5LM2uBWAUPiOPa/A3mkKmiMwSmRFUITt0xuj+/lesgnCv+dPIEYlkzrcyXgquIHMcA==}
 
@@ -7950,33 +7999,7 @@ snapshots:
 
   '@blazediff/core@1.10.0': {}
 
-  '@buildkitgg/shadcn-baseui-nova@0.4.2(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)':
-    dependencies:
-      '@base-ui/react': 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@buildkitgg/shadcn-runtime': 0.1.1(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@shadcn/react': 0.3.1(@types/react@19.3.0)(react@19.3.1)
-      class-variance-authority: 0.7.1
-      cmdk: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      date-fns: 4.4.0
-      embla-carousel-react: 8.6.0(react@19.3.1)
-      input-otp: 1.5.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      lucide-react: 1.66.0(@types/react@19.3.0)(react@19.3.1)
-      next-themes: 0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      react: 19.3.1
-      react-day-picker: 10.0.2(@types/react@19.3.0)(react@19.3.1)
-      react-dom: 19.3.1(react@19.3.1)
-      react-resizable-panels: 4.15.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      recharts: 3.10.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)
-      shiki: 4.5.0
-      sonner: 2.0.8(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-    transitivePeerDependencies:
-      - '@date-fns/tz'
-      - '@types/react'
-      - '@types/react-dom'
-      - react-is
-      - redux
-
-  '@buildkitgg/shadcn-baseui-nova@0.4.6(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)':
+  '@buildkitgg/shadcn-baseui-nova@0.5.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)':
     dependencies:
       '@base-ui/react': 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@buildkitgg/shadcn-runtime': 0.1.2(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -8001,17 +8024,6 @@ snapshots:
       - '@types/react-dom'
       - react-is
       - redux
-
-  '@buildkitgg/shadcn-runtime@0.1.1(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
-    dependencies:
-      '@base-ui/react': 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      cn: 0.5.1
-      react: 19.3.1
-      react-dom: 19.3.1(react@19.3.1)
-    transitivePeerDependencies:
-      - '@date-fns/tz'
-      - '@types/react'
-      - date-fns
 
   '@buildkitgg/shadcn-runtime@0.1.2(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
@@ -10019,6 +10031,46 @@ snapshots:
       supports-color: 8.1.1
     optionalDependencies:
       '@babel/core': 7.29.7(supports-color@7.2.0)
+
+  '@sentry/cli-darwin@3.8.2':
+    optional: true
+
+  '@sentry/cli-linux-arm64@3.8.2':
+    optional: true
+
+  '@sentry/cli-linux-arm@3.8.2':
+    optional: true
+
+  '@sentry/cli-linux-i686@3.8.2':
+    optional: true
+
+  '@sentry/cli-linux-x64@3.8.2':
+    optional: true
+
+  '@sentry/cli-win32-arm64@3.8.2':
+    optional: true
+
+  '@sentry/cli-win32-i686@3.8.2':
+    optional: true
+
+  '@sentry/cli-win32-x64@3.8.2':
+    optional: true
+
+  '@sentry/cli@3.8.2':
+    dependencies:
+      progress: 2.0.3
+      proxy-from-env: 1.1.0
+      undici: 6.29.1
+      which: 2.0.2
+    optionalDependencies:
+      '@sentry/cli-darwin': 3.8.2
+      '@sentry/cli-linux-arm': 3.8.2
+      '@sentry/cli-linux-arm64': 3.8.2
+      '@sentry/cli-linux-i686': 3.8.2
+      '@sentry/cli-linux-x64': 3.8.2
+      '@sentry/cli-win32-arm64': 3.8.2
+      '@sentry/cli-win32-i686': 3.8.2
+      '@sentry/cli-win32-x64': 3.8.2
 
   '@sentry/conventions@0.27.0': {}
 
@@ -13740,6 +13792,8 @@ snapshots:
     dependencies:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
+
+  proxy-from-env@1.1.0: {}
 
   pump@3.0.4:
     dependencies:

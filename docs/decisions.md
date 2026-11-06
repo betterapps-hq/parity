@@ -92,7 +92,21 @@ still need your call.
   call: linked is the default because it's what keeps an app following the library, and a copy is Detach done at once,
   with the same rules. A linked copy can't go to its main component or push overrides to it, as the main is the
   library's. The agent's edit API doesn't see library designs yet.
-- **Open:** Buildkit's nova `tokens.json`, which isn't DTCG yet.
+- **Buildkit's styles ship their tokens as DTCG (PAR-139).** Each style's `tokens.json` is a 2025.10 resolver: one set
+  with the light values and a `theme` modifier whose `dark` context holds what changes. Every token has a type and a
+  description, written once in Buildkit's generator for all eight styles, and `parity lib` copies the file into each
+  registry `.lib.par`. A token's path is its CSS variable's name split at each hyphen (`card.foreground`), with a
+  group's own token in `$root`, so it matches its custom property by its whole path. You chose on 2026-11-06 to replace
+  the old format in place rather than ship two files, as only Buildkit's own release check read it. My call: the eight
+  registry files were regenerated from 0.5.0 with `--only new`, which changed only their tokens and version, and cover
+  `^0.4.0 || ^0.5.0`, since 0.4's components are the same and its projects would otherwise lose their file. They list
+  the 39 tokens Buildkit describes instead of the 119 libgen read from the stylesheet, which the Tokens panel still
+  shows from the project's own CSS.
+- **Parity's own reader is the one DTCG parser and validator.** You asked for one, not two, on 2026-11-06. Terrazzo
+  (`@terrazzo/parser` 2.10) was tried as the replacement and rejected: it treats the CSS strings libgen writes for
+  values DTCG has no form for as errors, keeps a malformed token with a broken value instead of leaving it out, throws
+  on a broken alias when told to carry on, and drops a plain token file's descriptions. Buildkit checks its file's shape
+  when it releases, and Parity's tests read each registry copy with this reader.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked
   to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. A file that's the same as what was
@@ -2074,6 +2088,9 @@ to PAR-209 build it.
   transformer. A new install opens the welcome page; development can still request its default project. The builder
   warms the guest graph and waits for dependency optimization before exposing its URL, avoiding cold-start outdated
   dependency imports cached by the browser. CI alone starts isolated production copies against Vite 7 and Vite 8.
+- **Every build is a Sentry release, and its source maps stay out of the installer** (PAR-625). The build writes hidden
+  maps and moves them to `apps/desktop/sourcemaps/`; CI and the release workflow upload them. The calls are in
+  [Every build is a Sentry release](#every-build-is-a-sentry-release-with-its-source-maps-par-625).
 
 How Parity goes public and ships. The proposal is [proposals/repository.md](proposals/repository.md), and the work is
 the Repository, CI and releases stream in Linear.
@@ -4646,6 +4663,26 @@ PAR-666). Closing PAR-663 resolved its Sentry issue, resolving that closed PAR-6
 release reopened it without a second bug. PAR-620's own check in a development build filed its errors too (PAR-659 to
 PAR-661 and PAR-665), along with a real one it hit (PAR-662).
 
+## Sessions read Sentry through its MCP server (PAR-628)
+
+Agents picking up a bug Sentry filed read its events, trace and replay first, as the plan's "Agents in the loop" sets
+out and [work.md](work.md#bugs-from-sentry) says how. My calls, which you approved on 2026-11-06:
+
+- **Configured in the repository, for both tools,** so a fresh worktree has it: `.mcp.json` for Claude Code, with
+  `.claude/settings.json` turning it on without a prompt, and `.codex/config.toml` for Codex.
+- **Sentry's hosted server, scoped to `better-apps`** by its URL (`https://mcp.sentry.dev/mcp/better-apps`), so tools
+  don't ask which organisation, and nothing runs locally.
+- **Each session signs in with OAuth** as `admin@betterapps.io`, the organisation's only member. No token is kept in the
+  repository.
+- **`PARITY_TEST_RUN` and `parity report` are in the guidance before they exist,** since work.md is where a test pass
+  looks. `parity report` is PAR-646's.
+
+Tried on 2026-11-06 by picking up PAR-662 through Sentry's MCP server: its Sentry issue (PARITY-DESKTOP-3) gave the
+stack, tags, release and environment, its breadcrumbs showed the clicks and the window loads before it, and its trace
+held the event's two errors. The trace had no spans and there were no replays yet, since those are PAR-627's and
+PAR-624's. Both Claude Code (`claude mcp get sentry`) and Codex (`codex mcp get sentry`) load the server from a fresh
+worktree.
+
 ## Errors, crashes and hangs go to Sentry from every process (PAR-620)
 
 `@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to
@@ -4670,6 +4707,35 @@ PAR-661 and PAR-665), along with a real one it hit (PAR-662).
 - **Exits:** a window or child process that exits abnormally, fails to launch or runs out of memory is reported, along
   with crashes' minidumps. The service's restarts are breadcrumbs. A builder that stops by itself is reported with its
   last 50 lines of output, and the props worker's failures from the service.
+
+## Every build is a Sentry release, with its source maps (PAR-625)
+
+How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
+
+- **Published builds are named by version, as `parity-desktop@0.21.0`, and every other build by its full commit hash,**
+  as the plan says for installed, development and CI builds. My call: "published" means the release workflow built it,
+  which marks it beta, so a pull request's preview installer, which also runs as `tester`, doesn't join a version's
+  release with code that isn't in it. `telemetryRelease` in `@parity-app/telemetry` decides, so the CLI can share it. A
+  build whose commit isn't known is `parity-desktop@<version>+unreleased`. `dist` is the platform and architecture, such
+  as `win32-x64`, and an installed build tags its events with `update_channel`, stable or beta, the update preference,
+  which changes as the person changes it.
+- **Maps are matched by debug ID, not by file name and release.** `sentry-cli sourcemaps inject` gives each bundle an ID
+  from its contents, so the same code gets the same ID on every system and every run. One upload then covers all three
+  installers, and a renamed or moved file still resolves.
+- **The release workflow builds the published version again to upload its maps.** The shared release template builds the
+  installers with one secret, the tldraw key, and changing it was out of scope, so a job after it checks out the
+  version's tag, builds it on Ubuntu with the same key and channel, and uploads. Its bundles match the installers'
+  because the build is the same on every system. Events that arrive in the minutes before the upload stay unresolved.
+- **CI uploads the Windows build's maps,** the build it installs and starts, as the commit's release. Only main's
+  commits are tied to their release, since a pull request's merge commit isn't kept. A failed upload doesn't fail CI's
+  run, which releases wait on.
+- **Development builds resolve without an upload.** `pnpm dev` starts Electron with `--enable-source-maps`, so main's
+  and the service's stacks name the source files and lines before Sentry sees them; the window's modules are already the
+  source files Vite serves. A frozen copy, which `pnpm perf` measures, leaves it off.
+- **Electron's own native symbols come from Sentry's built-in Electron symbol server,** a project setting, not an
+  upload. Parity ships no native code of its own yet; sharp's prebuilt binaries come without debug files.
+- **`@sentry/cli` 3.8.2 is a devDependency of the app** (your call, 2026-11-06), run from `scripts/build.ts` and
+  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it.
 
 ## The rest of signing in is designed (PAR-614)
 
@@ -5067,6 +5133,42 @@ My calls:
   and an error otherwise. `@parity-app/account` now passes on the email WorkOS's refusal names.
 - **Signing in is checked in an installed build later.** The scheme and passing links between copies only work in an
   installed app, which wasn't tried here.
+
+## Several accounts are built (PAR-669)
+
+You asked on 2026-11-06 to stay signed in to several accounts, such as your own and your company's, and switch between
+them as Figma does. You approved the design in Parity/Explorations/Home: Home's workspace menu at the top left, and your
+accounts in a panel from your picture at the end of the title bar, each with its own Sign out. Your calls:
+
+- **Accounts and organizations are separate controls.** The title bar's panel is who you are; Home's workspace menu is
+  where you're working in the account you're in.
+- **People and Settings leave the menus.** Settings stays in the app's menu, and an organization's people wait for
+  organization settings.
+- **Any account can be signed out of**, not only the one you're in, from its own row, with no menu under Sign out.
+
+My calls:
+
+- **Main keeps a session for each account,** each with its own refresh token and refresh timer, in the one encrypted
+  `account` file, with the account Parity was last in. Switching accounts doesn't ask WorkOS, so it's instant, and
+  Parity starts in the same account next launch.
+- **An account is its email.** Signing in again as an account that's listed takes its place rather than listing it
+  twice.
+- **Signing out of the account you're in moves you to the one you used last** whose session is still going; with none
+  left, you're signed out. Signing out of another leaves you where you are.
+- **An account whose session WorkOS ends stays listed,** dimmed, with who it was and how they signed in but no token, so
+  one click signs in again as it and Remove forgets it. That's kept across launches. Session ended shows over what's
+  open only for the account you're in, and you're moved to another meanwhile; another account's ending doesn't
+  interrupt.
+- **Adding an account asks the provider which one.** Google, GitHub and Microsoft get `prompt=select_account` through
+  WorkOS's `provider_query_params`, written as WorkOS's own SDK writes it,
+  `provider_query_params[prompt]=select_account`, so a browser signed in to one Google account still offers the others.
+  Signing in again as an account names it with `login_hint` instead, and a work email goes to AuthKit with `login_hint`
+  as before. Whether WorkOS passes the prompt on hasn't been tried yet: its reference documents `provider_query_params`
+  without saying how it's written.
+- **A file from a build that kept one account isn't read,** since it's prototype data: anyone signed in then signs in
+  once more.
+- **Copies of Parity still share accounts.** Each change reads the newest file and replaces only its own account, since
+  every refresh replaces a token.
 
 ## Telemetry's event model is data in and data out in `@parity-app/telemetry` (PAR-618)
 

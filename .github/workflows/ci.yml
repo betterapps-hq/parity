@@ -58,6 +58,11 @@ jobs:
         fi
       # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
       timeout-minutes: 45
+      # The bundles and source maps of the Windows build, the one CI installs and starts, for the sourcemaps job.
+      artifact-path: apps/desktop/sourcemaps
+      artifact-name: desktop-sourcemaps
+      artifact-os: windows-latest
+      artifact-retention-days: 7
       # pnpm verify runs the check and test tasks through vp run, so their cache is kept between runs, under each
       # system's newest. checks doesn't keep one: its types task would save only about 4 seconds.
       vite-task-cache: true
@@ -86,6 +91,31 @@ jobs:
           node scripts/changes.ts check --committed
           node scripts/commits.ts title "$(jq -r .pull_request.title "$GITHUB_EVENT_PATH")"
         fi
+
+  # Sends the Windows build's source maps to Sentry, so events from the copies CI starts resolve to source (PAR-625).
+  # Their release is the commit; only main's commits are tied to it, since a pull request's merge commit isn't kept.
+  # Forks' pull requests get no secrets, so it skips them. A failed upload only leaves those events unresolved, so it
+  # never fails CI's run, which cd-desktop.yml and cd-npm.yml wait on, and `CI passes` leaves it out.
+  sourcemaps:
+    name: Upload source maps
+    needs: verify
+    if: >-
+      needs.verify.outputs.artifact-name != '' && (github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: betterapps-hq/pipelines/github/actions/setup@main
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.verify.outputs.artifact-name }}
+          path: apps/desktop/sourcemaps
+      - name: Upload to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          LINK_COMMITS: ${{ github.event_name == 'push' && '--link-commits' || '' }}
+        run: node apps/desktop/scripts/upload-sourcemaps.ts $LINK_COMMITS
 
   # The one check the main branch's ruleset requires, so it needn't change when jobs or systems do.
   ci-passes:
