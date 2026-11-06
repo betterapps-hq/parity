@@ -4,7 +4,7 @@ import { findNode, mapNode, withFreshIds } from "./edit.ts"
 import { detachInstance } from "./instances.ts"
 import { componentLibrary } from "./render.ts"
 import { slotName, slotNameProblem } from "./slot-names.ts"
-import { designSlots, enclosingSlot, freeSlotName, setSlot, slotProblem } from "./slots.ts"
+import { childrenSlot, designSlots, enclosingSlot, freeSlotName, setSlot, slotProblem } from "./slots.ts"
 
 const card: ContainerSpec = {
   id: "card",
@@ -39,10 +39,10 @@ const marking = (container: ContainerSpec, id: string, slot: string): ContainerS
 })
 
 describe("marking a layout as a slot", () => {
-  it("makes it the children slot or a named one, keeping its layers as placeholder content", () => {
-    const marked = setSlot(setSlot(card, "body", "children"), "footer", "actions")
+  it("names it, keeping its layers as placeholder content", () => {
+    const marked = setSlot(setSlot(card, "body", "content"), "footer", "actions")
     expect(designSlots(marked).map(({ name, node }) => [name, node.id])).toEqual([
-      ["children", "body"],
+      ["content", "body"],
       ["actions", "footer"]
     ])
     expect((findNode(marked.root, "body") as LayoutNode).children.map((child) => child.id)).toEqual([
@@ -52,88 +52,105 @@ describe("marking a layout as a slot", () => {
   })
 
   it("makes it a plain layout again", () => {
-    const marked = setSlot(card, "body", "children")
+    const marked = setSlot(card, "body", "content")
     expect(setSlot(marked, "body", undefined)).toEqual(card)
   })
 
   it("is only for a component design's layouts", () => {
-    expect(() => setSlot({ ...card, kind: "screen" }, "body", "children")).toThrow("Only a component design")
-    expect(() => setSlot(card, "title", "children")).toThrow("only a layout can be a slot")
+    expect(() => setSlot({ ...card, kind: "screen" }, "body", "content")).toThrow("Only a component design")
+    expect(() => setSlot(card, "title", "content")).toThrow("only a layout can be a slot")
   })
 
   it("takes a name a prop could have, that no param or other slot has", () => {
-    const marked = setSlot(card, "body", "children")
+    const marked = setSlot(card, "body", "content")
     expect(slotProblem(marked, "footer", "side actions")).toBe(
       "A slot's name has to start with a letter and have only letters and digits."
     )
     expect(slotProblem(marked, "footer", "key")).toBe(`A slot's name is "key", which React keeps for itself.`)
     expect(slotProblem(marked, "footer", "title")).toBe("A param is already called title. Give the slot another name.")
-    expect(slotProblem(marked, "footer", "children")).toBe("Body is already the children slot.")
-    expect(slotProblem(marked, "body", "children")).toBeUndefined()
-    expect(() => setSlot(marked, "footer", "children")).toThrow("Body is already the children slot.")
+    expect(slotProblem(marked, "footer", "children")).toBe(`A slot's name is "children", which React keeps for itself.`)
+    expect(slotProblem(marked, "footer", "content")).toBe("Body is already the content slot.")
+    expect(slotProblem(marked, "body", "content")).toBeUndefined()
+    expect(() => setSlot(marked, "footer", "content")).toThrow("Body is already the content slot.")
   })
 
   it("isn't for a layout inside another slot, or around one, since filling the outer slot replaces the inner", () => {
-    const marked = setSlot(card, "body", "children")
-    expect(enclosingSlot(marked, "inner")).toBe("children")
+    const marked = setSlot(card, "body", "content")
+    expect(enclosingSlot(marked, "inner")).toBe("content")
     expect(slotProblem(marked, "inner", "actions")).toBe(
-      "This layout is inside the children slot, so an instance that fills that slot replaces it."
+      "This layout is inside the content slot, so an instance that fills that slot replaces it."
     )
     const inner = setSlot(card, "inner", "actions")
-    expect(slotProblem(inner, "body", "children")).toBe("A layout inside this one is already the actions slot.")
+    expect(slotProblem(inner, "body", "content")).toBe("A layout inside this one is already the actions slot.")
   })
 })
 
 describe("a new slot's name", () => {
-  it("is children while it's free, then the layout's own name, then content, numbered", () => {
-    expect(freeSlotName(card, "footer")).toBe("children")
-    const marked = setSlot(card, "body", "children")
-    expect(freeSlotName(marked, "footer")).toBe("footer")
-    expect(freeSlotName(marked, "footer", "actions")).toBe("actions")
-    const busy = { ...marked, params: { ...card.params, footer: { type: "text" }, content: { type: "text" } } }
+  it("is the layout's own name, then content, numbered", () => {
+    expect(freeSlotName(card, "footer")).toBe("footer")
+    expect(freeSlotName(card, "footer", "actions")).toBe("actions")
+    const busy = { ...card, params: { ...card.params, footer: { type: "text" }, content: { type: "text" } } }
     expect(freeSlotName(busy as ContainerSpec, "footer")).toBe("content2")
   })
 
   it("is none for a layout that can't be a slot", () => {
-    expect(freeSlotName(setSlot(card, "body", "children"), "inner")).toBeUndefined()
+    expect(freeSlotName(setSlot(card, "body", "content"), "inner")).toBeUndefined()
   })
 })
 
 describe("a design's slots", () => {
   it("are only a component's, so a component turned into a screen keeps its marks for when it's turned back", () => {
-    const marked = setSlot(card, "body", "children")
+    const marked = setSlot(card, "body", "content")
     expect(designSlots({ ...marked, kind: "screen" })).toEqual([])
     expect(designSlots(marked)).toHaveLength(1)
   })
 
   it("leave out one inside another's placeholder, which an agent or a move can make", () => {
-    const nested = marking(setSlot(card, "inner", "actions"), "body", "children")
-    expect(designSlots(nested).map((slot) => slot.name)).toEqual(["children"])
+    const nested = marking(setSlot(card, "inner", "actions"), "body", "content")
+    expect(designSlots(nested).map((slot) => slot.name)).toEqual(["content"])
   })
 
   it("are read from a project file, which refuses a name code can't use and a name two layouts share", () => {
     const file = (container: ContainerSpec) => ({ version: 3, containers: [container] })
-    const marked = setSlot(setSlot(card, "body", "children"), "footer", "actions")
+    const marked = setSlot(setSlot(card, "body", "content"), "footer", "actions")
     expect(parseCanvasDocument(file(marked)).containers[0]).toEqual(marked)
     expect(() => parseCanvasDocument(file(marking(marked, "footer", "side actions")))).toThrow(
       'layer "footer" is a slot whose name has to start with a letter'
     )
-    expect(() => parseCanvasDocument(file(marking(marked, "footer", "children")))).toThrow(
-      'two layers are the slot "children"'
+    expect(() => parseCanvasDocument(file(marking(marked, "footer", "content")))).toThrow(
+      'two layers are the slot "content"'
     )
+  })
+})
+
+describe("the slot code nests between the tags", () => {
+  it("is the one holding the most layers, whatever it's called", () => {
+    const marked = setSlot(setSlot(card, "body", "content"), "footer", "actions")
+    expect(childrenSlot(designSlots(marked))?.name).toBe("content")
+    const fuller = mapNode(marked.root, "footer", (node) => ({
+      ...(node as LayoutNode),
+      children: [1, 2, 3].map((index) => ({ type: "text" as const, id: `action${index}`, text: "Action" }))
+    }))
+    expect(childrenSlot(designSlots({ ...marked, root: fuller }))?.name).toBe("actions")
+  })
+
+  it("is the first in layer order on a tie, and none without slots", () => {
+    const even = setSlot(setSlot(card, "footer", "actions"), "inner", "extra")
+    expect(childrenSlot(designSlots(even))?.name).toBe("extra")
+    expect(childrenSlot([])).toBeUndefined()
   })
 })
 
 describe("a copy of a slot", () => {
   it("is a plain layout with the placeholder content, since a component has one slot by each name", () => {
-    const marked = setSlot(card, "body", "children")
+    const marked = setSlot(card, "body", "content")
     const copy = withFreshIds(findNode(marked.root, "body")!, new Set()) as LayoutNode
     expect(copy.slot).toBeUndefined()
     expect(copy.children).toHaveLength(2)
   })
 
   it("baked into a screen by Detach is plain layers", () => {
-    const marked = setSlot(card, "body", "children")
+    const marked = setSlot(card, "body", "content")
     const screen: ContainerSpec = {
       id: "page",
       name: "Page",
@@ -165,7 +182,7 @@ describe("slot names", () => {
 
   it("are ones a prop could have", () => {
     expect(slotNameProblem("actions")).toBeUndefined()
-    expect(slotNameProblem("children")).toBeUndefined()
+    expect(slotNameProblem("children")).toBeDefined()
     expect(slotNameProblem("2up")).toBeDefined()
     expect(slotNameProblem("ref")).toBeDefined()
   })

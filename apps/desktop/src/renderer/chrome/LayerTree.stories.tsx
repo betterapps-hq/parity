@@ -173,8 +173,8 @@ export const LayerSelected: Story = {
 }
 
 /**
- * A component design's slots (PAR-83): Plan card's features are its children slot, so the row has the slot's dashed
- * icon and says children at its end.
+ * A component design's slots (PAR-83): Plan card's features are a slot, so the row has the slot's dashed icon and
+ * says features at its end.
  */
 export const Slots: Story = {
   loaders: [
@@ -182,7 +182,7 @@ export const Slots: Story = {
       await openProjects("example")
       const key = design("Plan card")
       example().store.updateContainer(key, "Make slot", (container) =>
-        setSlot(container, node("Plan card", "Features"), "children")
+        setSlot(container, node("Plan card", "Features"), "features")
       )
       example().selection.set({ design: key, node: node("Plan card", "Feature 1") })
     }

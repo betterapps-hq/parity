@@ -3,7 +3,6 @@ import {
   addVariant,
   addVariantOption,
   designSlots,
-  findNode,
   findRepeats,
   type ParamSpec,
   removeParam,
@@ -11,7 +10,6 @@ import {
   renameVariantOption,
   type RepeatCandidate
 } from "@parity-app/core"
-import { instancesOf } from "@parity-app/editor"
 import { Diamond, Plus, ScanSearch, Sparkles, Trash2, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useProject } from "../canvas/context.ts"
@@ -23,7 +21,7 @@ import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { revealSelection } from "./reveal.ts"
-import { AddSlotMenu, CodeLines, PropTile, SlotRow, slotsInCodeOrder } from "./slot-props.tsx"
+import { AddProp, CodeLines, PropTile, SlotPropRow } from "./slot-props.tsx"
 
 /**
  * Breaking a screen into components. Repeated parts are found exactly; extracting one makes a component design with
@@ -137,86 +135,59 @@ function CandidateCard({
 }
 
 /**
- * A component design's variants, then its props: params with their defaults and slots, each with its type, in the order
- * code takes them, how that reads in code, and where it's used.
+ * A component design's variants, then its props: params with their defaults, then slots, a kind of prop that takes
+ * layers, with the layout each fills where a param has its default.
  */
 export function ParamsSection({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const all = Object.entries(entry.container.params ?? {})
   const params = all.filter(([, param]) => param.type !== "variant")
   const variants = all.filter(([, param]) => param.type === "variant")
-  const slots = slotsInCodeOrder(designSlots(entry.container))
-  const usages = instancesOf(session.store.getEntries(), entry.container.id)
+  const slots = designSlots(entry.container)
   return (
     <>
       <VariantsSection entry={entry} variants={variants} />
       <PanelSection
         title="Props"
         count={params.length + slots.length}
-        description="What each instance sets or fills. The main component shows the defaults."
-        action={<AddSlotMenu entry={entry} />}
+        description="What each instance can change."
+        action={<AddProp entry={entry} />}
       >
-        {params.length + slots.length === 0 && (
-          <p className="px-1 text-xs text-muted-foreground">No props: every instance looks the same.</p>
-        )}
-        {params.length > 0 && (
-          <div className="flex flex-col gap-1">
-            {params.map(([name, param]) => (
-              <div key={name} className="grid grid-cols-[20px_96px_1fr] items-center gap-2 px-1">
-                <PropTile kind={valueKind(param.default, param.type)} />
-                <Hint label={`${name}: ${param.type}`} wait>
-                  <span className="truncate font-mono text-xs">{name}</span>
-                </Hint>
-                <ValueInput
-                  value={param.default}
-                  kind={valueKind(param.default, param.type)}
-                  title={`${name} default`}
-                  onCommit={(value) =>
-                    session.store.updateContainer(entry.key, `Change ${name} default`, (container) => ({
-                      ...container,
-                      params: { ...container.params, [name]: { ...container.params![name]!, default: value } }
-                    }))
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        )}
-        {slots.length > 0 && (
-          <ul className={`flex flex-col ${params.length > 0 ? "mt-1" : ""}`}>
-            {slots.map((slot) => (
-              <SlotRow key={slot.node.id} entry={entry} slot={slot} />
-            ))}
-          </ul>
-        )}
-        <div className="mt-3 px-1 text-xs text-muted-foreground">
-          {usages.length === 0 ? "Not used yet." : `Used ${usages.length} time${usages.length === 1 ? "" : "s"}:`}
-        </div>
-        <ul className="mt-1 flex flex-col">
-          {usages.map(({ entry: usage, node }) => (
-            <li key={`${usage.key}/${node}`}>
-              <button
-                type="button"
-                onClick={() => {
-                  session.selection.set({ design: usage.key, node })
-                  revealSelection(session)
-                }}
-                className="flex h-7 w-full items-center gap-2 rounded-md px-1 text-left text-xs hover:bg-accent/50"
-              >
-                <Diamond className="size-3 shrink-0" style={{ color: kindColors.component }} />
-                <span className="truncate">{usage.container.name}</span>
-                <span className="ml-auto truncate text-muted-foreground">
-                  {findNode(usage.container.root, node)?.name}
-                </span>
-              </button>
-            </li>
+        <div className="flex flex-col gap-1">
+          {params.map(([name, param]) => (
+            <div key={name} className="grid grid-cols-[20px_96px_1fr] items-center gap-2 px-1">
+              <PropTile kind={valueKind(param.default, param.type)} />
+              <Hint label={`${name}: ${param.type}`} wait>
+                <span className="truncate font-mono text-xs">{name}</span>
+              </Hint>
+              <ValueInput
+                value={param.default}
+                kind={valueKind(param.default, param.type)}
+                title={`${name} default`}
+                onCommit={(value) =>
+                  session.store.updateContainer(entry.key, `Change ${name} default`, (container) => ({
+                    ...container,
+                    params: { ...container.params, [name]: { ...container.params![name]!, default: value } }
+                  }))
+                }
+              />
+            </div>
           ))}
-        </ul>
-      </PanelSection>
-      <PanelSection title="In code">
-        <CodeLines entry={entry} slots={slots} />
+          {slots.map((slot) => (
+            <SlotPropRow key={slot.node.id} entry={entry} slot={slot} />
+          ))}
+        </div>
       </PanelSection>
     </>
+  )
+}
+
+/** How an instance of a component design reads in code, below its modes. */
+export function InCodeSection({ entry }: { entry: ContainerEntry }) {
+  return (
+    <PanelSection title="In code">
+      <CodeLines entry={entry} slots={designSlots(entry.container)} />
+    </PanelSection>
   )
 }
 
@@ -240,7 +211,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
     <PanelSection
       title="Variants"
       count={variants.length}
-      description="Choices each instance makes, like size or tone. Pick one in the title bar to edit it on the canvas."
+      description={`Choices an instance makes, like size or tone.${variants.length > 0 ? " To edit one, pick it in the title bar." : ""}`}
       action={
         !adding && (
           <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setAdding(true)}>
@@ -280,9 +251,6 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
             </Button>
           </div>
         </form>
-      )}
-      {variants.length === 0 && !adding && (
-        <p className="px-1 text-xs text-muted-foreground">No variants: every instance looks the same.</p>
       )}
       <div className="flex flex-col gap-3">
         {variants.map(([name, param]) => (

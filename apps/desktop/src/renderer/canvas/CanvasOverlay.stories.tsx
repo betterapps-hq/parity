@@ -38,13 +38,13 @@ export const ComponentSelected: Story = onCanvas(["Plan card", "Stat card"], () 
 )
 
 /**
- * A component with a slot selected (PAR-83): Plan card's features are its children slot, outlined in dashes with the
+ * A component with a slot selected (PAR-83): Plan card's features are a slot, outlined in dashes with the
  * slot's name, so it's clear where instances put their own layers.
  */
 export const ComponentSlots: Story = onCanvas(["Plan card"], () => {
   const key = design("Plan card")
   example().store.updateContainer(key, "Make slot", (container) =>
-    setSlot(container, node("Plan card", "Features"), "children")
+    setSlot(container, node("Plan card", "Features"), "features")
   )
   select({ design: key })()
 })

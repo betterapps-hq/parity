@@ -1,8 +1,8 @@
-/** The default slot's name: what goes between a component's tags in code. */
-export const defaultSlot = "children"
-
-/** Props React or the canvas gives a meaning of their own, so a slot can't take their names. */
-const reservedNames = new Set(["key", "ref", "style", "className"])
+/**
+ * Props React or the canvas gives a meaning of their own, so a slot can't take their names. children is one: code
+ * nests one of the slots between the tags under that name (see `childrenSlot`).
+ */
+const reservedNames = new Set(["key", "ref", "style", "className", "children"])
 
 /**
  * Why a slot can't have this name, worded to follow "its name", or undefined when it can. A slot becomes a prop in

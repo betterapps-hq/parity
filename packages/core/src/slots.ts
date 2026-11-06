@@ -1,6 +1,6 @@
 import type { ContainerSpec, DesignNode, LayoutNode } from "./document.ts"
 import { childNodes, locateNode, mapNode } from "./edit.ts"
-import { defaultSlot, slotName, slotNameProblem } from "./slot-names.ts"
+import { slotName, slotNameProblem } from "./slot-names.ts"
 
 /** A layout a component design leaves for its instances to fill. */
 export interface DesignSlot {
@@ -25,6 +25,22 @@ export function designSlots(container: ContainerSpec): DesignSlot[] {
   }
   visit(container.root)
   return slots
+}
+
+/** How many layers a layer holds below itself. */
+function layersBelow(node: DesignNode): number {
+  return childNodes(node).reduce((count, child) => count + 1 + layersBelow(child), 0)
+}
+
+/**
+ * The slot code nests between a component's tags, as React's `children` and Vue's default slot: the one holding the
+ * most layers, the first in layer order on a tie. The others are props that take layers. A designer only names slots;
+ * which one is written between the tags is code's choice, so the biggest part isn't passed as a prop.
+ */
+export function childrenSlot(slots: DesignSlot[]): DesignSlot | undefined {
+  let nested: DesignSlot | undefined
+  for (const slot of slots) if (!nested || layersBelow(slot.node) > layersBelow(nested.node)) nested = slot
+  return nested
 }
 
 /** The slot whose placeholder content holds a layer, if one does. */
@@ -61,15 +77,15 @@ export function slotPlaceProblem(container: ContainerSpec, nodeId: string): stri
 }
 
 /**
- * A name a layout can take as a new slot, that no other slot or param has: `children` while it's free, then one from
- * the layout's name, then `content`, numbered as needed. Given `preferred`, it's tried in place of `children`.
- * Undefined when the layout can't be a slot (see `slotPlaceProblem`).
+ * A name a layout can take as a new slot, that no other slot or param has: one from the layout's name, then `content`,
+ * numbered as needed. Given `preferred`, it's tried first. Undefined when the layout can't be a slot (see
+ * `slotPlaceProblem`).
  */
 export function freeSlotName(container: ContainerSpec, nodeId: string, preferred?: string): string | undefined {
   if (slotPlaceProblem(container, nodeId)) return undefined
   const node = locateNode(container.root, nodeId)?.node
   const free = (name: string) => name !== "" && !slotProblem(container, nodeId, name)
-  const named = [preferred ?? defaultSlot, slotName(node?.name ?? ""), "content"].find(free)
+  const named = [preferred ?? "", slotName(node?.name ?? ""), "content"].find(free)
   if (named) return named
   let counter = 2
   while (!free(`content${counter}`)) counter++

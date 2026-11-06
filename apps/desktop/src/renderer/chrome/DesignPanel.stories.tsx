@@ -55,14 +55,15 @@ const topBarWithSlot = () => {
 }
 
 /**
- * A component design with a slot (PAR-83): Props lists App top bar's params and its `actions` slot together, each with
- * its type, and In code shows how an instance reads. Add slot lists the layouts that can be one.
+ * A component design with a slot (PAR-83): Props lists App top bar's `actions` slot after its params, a kind of prop
+ * that takes layers, with the layout it fills where a param has its default. In code, below Modes, shows how an
+ * instance reads.
  */
 export const ComponentWithSlots: Story = { loaders: [inspecting("design", topBarWithSlot)] }
 
 /**
- * Two slots: Plan card's features as its children and its price block as a named slot, `pricing`. Props lists the named
- * one first and children last, as code takes them, and In code shows `pricing` as a prop and children between the tags.
+ * Two slots, Plan card's features and its price block: code nests the one holding the most layers, `features`, between
+ * the tags, and passes `pricing` as a prop. Nothing left in Plan card can be a slot, so Add says why.
  */
 export const ComponentWithSeveralSlots: Story = {
   loaders: [
@@ -70,7 +71,7 @@ export const ComponentWithSeveralSlots: Story = {
       const key = design("Plan card")
       example().store.updateContainer(key, "Make slot", (container) =>
         setSlot(
-          setSlot(container, node("Plan card", "Features"), "children"),
+          setSlot(container, node("Plan card", "Features"), "features"),
           node("Plan card", "Price block"),
           "pricing"
         )
@@ -80,23 +81,25 @@ export const ComponentWithSeveralSlots: Story = {
   ]
 }
 
-/** The `actions` slot's row opened: its kind, Children or Named, its name, its layout, and Remove slot. */
-export const SlotOpened: Story = {
-  loaders: [inspecting("design", topBarWithSlot)],
+/** Add in Props, then one of Plan card's layouts: it's a slot named after the layout, its name ready to rename. */
+export const AddingASlot: Story = {
+  loaders: [inspecting("design", () => ({ design: design("Plan card") }))],
   play: async ({ canvasElement }) => {
     const panel = within(canvasElement)
-    await userEvent.click(await panel.findByRole("button", { name: "actions, a slot in Top bar actions" }, slowly))
-    await expect(await panel.findByRole("textbox", { name: "Slot name" }, slowly)).toHaveValue("actions")
+    const add = await panel.findByRole("button", { name: "Add a prop" }, slowly)
+    add.focus()
+    await userEvent.keyboard("{Enter}")
+    await userEvent.click(await within(document.body).findByRole("menuitem", { name: "Features" }, slowly))
+    await expect(await panel.findByRole("textbox", { name: "features slot name" }, slowly)).toHaveFocus()
   }
 }
 
-/** Naming the slot after one of App top bar's params, `page`: the name stays, and the row says why. */
+/** Renaming the slot after one of App top bar's params, `page`: the name stays, and the row says why. */
 export const SlotNameTaken: Story = {
   loaders: [inspecting("design", topBarWithSlot)],
   play: async ({ canvasElement }) => {
     const panel = within(canvasElement)
-    await userEvent.click(await panel.findByRole("button", { name: "actions, a slot in Top bar actions" }, slowly))
-    const name = await panel.findByRole("textbox", { name: "Slot name" }, slowly)
+    const name = await panel.findByRole("textbox", { name: "actions slot name" }, slowly)
     await userEvent.clear(name)
     await userEvent.type(name, "Page{Enter}", typing)
     await expect(await panel.findByRole("alert", undefined, slowly)).toHaveTextContent("A param is already called page")

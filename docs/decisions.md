@@ -5200,21 +5200,27 @@ Gaps: a frame's root (its shadow host) never gets the colour scheme, so a custom
 Called on 2026-11-06, with your approval in Storybook. [proposals/components.md](proposals/components.md) set out slots;
 PAR-83 marks them in a component design, and PAR-84 fills them from instances. My calls, with yours:
 
-- **A slot is `slot` on a layout node,** `children` or a prop's name, and the layout's own layers are its placeholder,
-  as Vue's and Web Components' fallback content is. The outermost layout can be one.
-- **Children and named slots, not "default".** You chose Children: React, Solid and Svelte 5 call the nested content
-  `children`, and it says nesting in any framework. A Vue adapter would write it as the default slot. Named slots are
-  props that take layers, meant for small parts, so code doesn't drill whole layouts through props. `children` is chosen
-  as the kind, never typed as a name.
-- **Slots are props.** They're listed with the params in the component's Props, in the order code takes them, with In
-  code showing how an instance reads, rather than only on the layer. Make slot sits beside Make component on the layer.
+- **A slot is `slot` on a layout node,** a prop's name, and the layout's own layers are its placeholder, as Vue's and
+  Web Components' fallback content is. The outermost layout can be one.
+- **No Children or Named to choose.** A slot is only a name; the difference between a slot and `children` is how code
+  writes it, so code decides. It nests the slot holding the most layers between the tags, as React's `children` and
+  Vue's default slot, the first in layer order on a tie, and passes the others as props that take layers. The biggest
+  part going between the tags keeps code from drilling whole layouts through props. The panel doesn't mark which one it
+  is; In code shows it. `children` is reserved as a name, so the rule's choice never clashes with a slot's.
+- **A slot is a kind of prop.** It's listed in the component's Props after the params, with the layout it fills where a
+  param has its default, and Props' Add offers a slot from a layout. A separate Slots section was tried and dropped, as
+  was editing slots in the code itself. In code sits below Modes. Make slot sits beside Make component on the layer.
+- **Props doesn't list where the component is used.** The Components panel's card already counts its uses, and a list of
+  every instance doesn't scale.
+- **An empty section says nothing,** past its description: Variants and Props drop "None yet". Variants' hint about the
+  title bar shows once there's a variant to pick.
 - **The file is strict about names, the editor about the rest.** The file refuses a name that couldn't be a prop (`key`,
-  `ref`, `style`, `className`, or not an identifier) and two layouts with one name. A slot named like a param, or inside
-  another slot, is refused by `setSlot` but tolerated in a file, and `designSlots` skips a nested one.
+  `ref`, `style`, `className`, `children`, or not an identifier) and two layouts with one name. A slot named like a
+  param, or inside another slot, is refused by `setSlot` but tolerated in a file, and `designSlots` skips a nested one.
 - **Copies drop the mark.** Duplicate, paste, moving to another design, Make component and Detach make a plain layout,
   keeping its layers, since a component has one slot by each name. A component turned into a screen keeps its marks,
   which do nothing until it's a component again.
-- **Typed names are camelCased,** so `Side actions` is `sideActions`.
+- **Names are camelCased,** so `Side actions` is `sideActions`, and a new slot takes its layout's name.
 - **Filling slots waits for PAR-84,** in the same real panels: Filled and Empty on an instance's slots, a picture of
   what fills one on hover, and selecting a slot to add to it.
 

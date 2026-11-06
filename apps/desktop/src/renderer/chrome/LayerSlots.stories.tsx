@@ -19,8 +19,8 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * A layout in a component design, Plan card's features: clicking Make slot makes it the children slot, and the button
- * becomes the slot's name.
+ * A layout in a component design, Plan card's features: clicking Make slot makes it a slot named after it, and the
+ * button becomes the slot's name.
  */
 export const LayoutInAComponent: Story = {
   loaders: [pick("Plan card", "Features")],
@@ -28,17 +28,17 @@ export const LayoutInAComponent: Story = {
     const panel = within(canvasElement)
     await userEvent.click(await panel.findByRole("button", { name: "Make slot" }, slowly))
     await expect(
-      await panel.findByRole("button", { name: "Edit the children slot in Plan card's props" }, slowly)
+      await panel.findByRole("button", { name: "Edit the features slot in Plan card's props" }, slowly)
     ).toBeVisible()
   }
 }
 
 /**
- * A second slot: Plan card's features are already its children slot, so Make slot on its price block makes a named
- * slot, called after the layout, `priceBlock`. Each layout is at most one slot; the component lists them all in Props.
+ * A second slot: Plan card's features are already a slot, and Make slot on its price block makes another, named after
+ * it, `priceBlock`. Each layout is at most one slot; the component lists them all in Props.
  */
 export const SecondSlot: Story = {
-  loaders: [slotted("Plan card", { Features: "children" }, "Price block")],
+  loaders: [slotted("Plan card", { Features: "features" }, "Price block")],
   play: async ({ canvasElement }) => {
     const panel = within(canvasElement)
     await userEvent.click(await panel.findByRole("button", { name: "Make slot" }, slowly))
@@ -48,16 +48,13 @@ export const SecondSlot: Story = {
   }
 }
 
-/** Plan card's features as its children slot: its name opens it in Plan card's props, and × makes it a plain layout. */
-export const ChildrenSlot: Story = { loaders: [slotted("Plan card", { Features: "children" }, "Features")] }
-
-/** App top bar's actions as a named slot, `actions`, which becomes a prop that takes layers in code. */
-export const NamedSlot: Story = {
+/** App top bar's actions as a slot: its name goes to it in App top bar's props, and × makes it a plain layout. */
+export const SlotLayout: Story = {
   loaders: [slotted("App top bar", { "Top bar actions": "actions" }, "Top bar actions")]
 }
 
 /**
- * A layout inside the children slot, one of Plan card's features: it's placeholder content, so Make slot is unavailable
- * and says why.
+ * A layout inside a slot, one of Plan card's features: it's placeholder content, so Make slot is unavailable and says
+ * why.
  */
-export const LayoutInsideASlot: Story = { loaders: [slotted("Plan card", { Features: "children" }, "Feature 1")] }
+export const LayoutInsideASlot: Story = { loaders: [slotted("Plan card", { Features: "features" }, "Feature 1")] }
