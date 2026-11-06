@@ -69,11 +69,24 @@ describe("where the padding and gap handles go", () => {
   })
 
   it("keeps a handle on padding of 0, just inside the edge, to drag padding out of nothing", () => {
-    const none = { ...stats, padding: sides(0), children: [rect(0, 0, 200, 88), rect(208, 0, 200, 88)] }
+    const none = { ...stats, padding: sides(0), children: [rect(40, 20, 150, 48), rect(208, 20, 150, 48)] }
     const left = find(spacingHandles(none), "left")
     expect(left.area.w).toBe(0)
     expect(left.hit).toEqual({ x: 4, y: 32, w: 8, h: 24 })
     expect(left.bar.x + left.bar.w / 2).toBe(8)
+  })
+
+  it("never covers a child, so a click on one still selects it", () => {
+    // Padding of 0 with the children against every edge, as a Titles column's first line is: no padding handles.
+    const flush = { ...stats, padding: sides(0), children: [rect(0, 0, 200, 88), rect(208, 0, 200, 88)] }
+    expect(spacingHandles(flush).filter((handle) => handle.kind === "padding")).toEqual([])
+    // A child 6px from the left edge leaves a target 2px deep, too thin, and one 10px away a target to it.
+    const near = (left: number) => ({ ...flush, children: [rect(left, 0, 150, 88)] })
+    expect(spacingHandles(near(6)).some((handle) => handle.kind === "padding" && handle.side === "left")).toBe(false)
+    expect(find(spacingHandles(near(10)), "left").hit).toEqual({ x: 4, y: 32, w: 6, h: 24 })
+    // A child placed absolutely over the top padding cuts that target back to it.
+    const badge = { ...stats, covered: [...stats.children, rect(190, 10, 28, 20)] }
+    expect(find(spacingHandles(badge), "top").hit).toEqual({ x: 192, y: 4, w: 24, h: 6 })
   })
 
   it("centres a gap's bar between the children, its press target at least 8 across", () => {
@@ -81,8 +94,10 @@ describe("where the padding and gap handles go", () => {
     expect(gap.area).toEqual({ x: 136, y: 16, w: 12, h: 56 })
     expect(gap.bar).toEqual({ x: 141, y: 36, w: 2, h: 16 })
     expect(gap.hit).toEqual({ x: 136, y: 32, w: 12, h: 24 })
-    const tight = { ...stats, children: [rect(24, 16, 180, 56), rect(206, 16, 178, 56)] }
-    expect(find(spacingHandles(tight), "gap 0").hit).toEqual({ x: 201, y: 32, w: 8, h: 24 })
+    // A gap narrower than that is taken whole, never the children beside it, and one under 4px has none.
+    const tight = (gap: number) => ({ ...stats, children: [rect(24, 16, 180, 56), rect(204 + gap, 16, 180 - gap, 56)] })
+    expect(find(spacingHandles(tight(6)), "gap 0").hit).toEqual({ x: 204, y: 32, w: 6, h: 24 })
+    expect(spacingHandles(tight(2)).some((handle) => handle.kind === "gap")).toBe(false)
   })
 
   it("follows children drawn in reverse", () => {

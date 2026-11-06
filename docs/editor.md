@@ -987,8 +987,13 @@ the middle with Alt, and hug or fill on a double-click. Decisions.md has the cal
 - **Where the bars are.** Each side has one, even at padding 0, so padding can be dragged out of nothing. A side's press
   target runs from 4px inside the layout's edge, clear of the resize strip there, to the padding's inside, at least 8px
   deep and 24px along. A gap has one between each two children drawn in a single line, in a flex layout that doesn't
-  wrap; a grid or a wrap has gaps in two directions and no gap bars yet. A side or a gap shorter than 24px has none.
-  Inside an instance, a layout's padding and gaps are the component's, so they have no bars.
+  wrap, at least 8px across; a grid or a wrap has gaps in two directions and no gap bars yet. A side or a gap shorter
+  than 24px has none. Inside an instance, a layout's padding and gaps are the component's, so they have no bars.
+- **A click on a child still selects it.** No press target covers a child, those placed absolutely included: each is cut
+  back to the free space, and a side or a gap with less than 4px of it free has no bar. So padding of 0 drags out only
+  where no child sits against that edge. Before, a target reached 8px in over the children, and clicks meant for them,
+  such as on Titles' first line with no padding or on Header actions' empty row at its end, opened the box to type in,
+  which then took the keys; the end-to-end tests caught it on #266.
 - **Dragging.** Pressing a bar shades its space; hovering shows its value beside it, as pixels and a token: the length
   token it's bound to, or else its step of the spacing scale (`20 spacing-5`). Padding grows as its bar goes outwards,
   away from the content, on every side; a gap grows as its bar goes right in a row or down in a column. The value goes
@@ -1039,14 +1044,16 @@ selected layout, puts handles around several layers (`resizeLayers`) and passes 
 
 Tests:
 
-- `packages/editor/src/spacing-handles.test.ts` (25): a handle on each side and gap; a padding's bar centred, its press
-  target clear of the resize strip; a handle on padding of 0; a gap's bar between children, at least 8px across;
-  children drawn in reverse; gaps in a column; no gap handles in a grid or wrap, and none on a side too short; inside a
-  border. The sides changed. Dragging: padding growing outwards on each side and shrinking inwards, a gap in a row and a
-  column, the 4px start, whole steps at 50% and never below 0, the opposite side and every side and letting go, a token
-  kept bound on a token's value with its own first, a number kept a number, an unset side from 0. Steps from a half step
-  and with a token. Typing pixels, rem, maths and a token, the sides held, an empty box and one it can't read. Picking a
-  token or a step. A label's token or step, and a slider's name.
+- `packages/editor/src/spacing-handles.test.ts` (26): a handle on each side and gap; a padding's bar centred, its press
+  target clear of the resize strip; a handle on padding of 0; no target over a child: none with the children against
+  every edge, too thin 6px from it, cut back 10px from it, and cut back by an absolutely placed badge; a gap's bar
+  between children, at least 8px across, a narrower gap taken whole and one under 4px with none; children drawn in
+  reverse; gaps in a column; no gap handles in a grid or wrap, and none on a side too short; inside a border. The sides
+  changed. Dragging: padding growing outwards on each side and shrinking inwards, a gap in a row and a column, the 4px
+  start, whole steps at 50% and never below 0, the opposite side and every side and letting go, a token kept bound on a
+  token's value with its own first, a number kept a number, an unset side from 0. Steps from a half step and with a
+  token. Typing pixels, rem, maths and a token, the sides held, an empty box and one it can't read. Picking a token or a
+  step. A label's token or step, and a slider's name.
 - `packages/editor/src/move-resize.test.ts` (9 more): a double-click hugging, filling with Alt, and taking `grow` away
   along the layout's direction only; from the middle, twice the movement either way, no fill, and an absolutely placed
   layer's insets from the near side, both sides and the far side; several layers in proportion, starting together at 4px
