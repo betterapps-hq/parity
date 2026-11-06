@@ -2,6 +2,7 @@ import {
   boardTarget,
   childEntries,
   type ContainerSpec,
+  containerSpec,
   type DesignNode,
   editNode,
   findNode,
@@ -10,15 +11,17 @@ import {
   locateNode,
   nodeIds,
   type NodeStyle,
+  jsonText,
+  nodeTree,
   type NoteSpec,
-  parseCanvasDocument,
-  parseDesignNode,
+  noteSpec,
   type StateSpec,
   styleKeys,
   topmostNodes,
   uniqueId,
   withFreshIds
 } from "@parity-app/core"
+import { z } from "zod"
 import { boardReader } from "./shown.ts"
 
 /**
@@ -30,18 +33,28 @@ import { boardReader } from "./shown.ts"
  * taken. Reading and writing the system clipboard stays in the app.
  */
 
-export type ClipboardPayload =
-  | { kind: "layers"; nodes: DesignNode[] }
-  | { kind: "designs"; designs: ContainerSpec[] }
-  | { kind: "notes"; notes: NoteSpec[] }
+/**
+ * What a copy holds: layers, designs or notes, each checked against the `.par` schema, as a file's are, since the
+ * clipboard's text may come from another Parity window or version. Parity never copies an empty list, so one isn't a
+ * copy to paste.
+ */
+const clipboardPayload = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("layers"), nodes: z.array(nodeTree).min(1) }),
+  z.object({ kind: z.literal("designs"), designs: z.array(containerSpec).min(1) }),
+  z.object({ kind: z.literal("notes"), notes: z.array(noteSpec).min(1) })
+])
 
-export interface ClipboardEnvelope {
-  parity: "clipboard"
-  version: 1
+export type ClipboardPayload = z.infer<typeof clipboardPayload>
+
+const clipboardEnvelope = z.object({
+  parity: z.literal("clipboard"),
+  version: z.literal(1),
   /** The project it was copied from, so a paste there can sit next to the original. */
-  project: string
-  payload: ClipboardPayload
-}
+  project: z.string(),
+  payload: clipboardPayload
+})
+
+export type ClipboardEnvelope = z.infer<typeof clipboardEnvelope>
 
 /** A copy from the project at `project`, its root, and the text that goes on the system clipboard for it. */
 export function writeEnvelope(
@@ -57,55 +70,10 @@ export function isParityCopy(text: string): boolean {
   return text.startsWith('{"parity":"clipboard"')
 }
 
-/**
- * Parity's own copy, read back from the clipboard's text. Its layers, designs and notes are checked against the `.par`
- * schema, as a file's are, since they come from outside the app. Undefined for anything else.
- */
+/** Parity's own copy, read back from the clipboard's text, or undefined for anything else or a copy that doesn't parse. */
 export function readEnvelope(text: string): ClipboardEnvelope | undefined {
   if (!isParityCopy(text)) return undefined
-  try {
-    const value: unknown = JSON.parse(text)
-    if (
-      typeof value !== "object" ||
-      value === null ||
-      !("parity" in value) ||
-      value.parity !== "clipboard" ||
-      !("version" in value) ||
-      value.version !== 1 ||
-      !("project" in value) ||
-      typeof value.project !== "string" ||
-      !("payload" in value)
-    ) {
-      return undefined
-    }
-    const payload = parsePayload(value.payload)
-    return payload ? { parity: "clipboard", version: 1, project: value.project, payload } : undefined
-  } catch {
-    // Not JSON, or a payload that doesn't match the schema.
-    return undefined
-  }
-}
-
-/**
- * A payload of a known kind, its list checked by core's parsers, which throw on anything that doesn't match. Parity
- * never copies an empty list, so one isn't a copy to paste.
- */
-function parsePayload(value: unknown): ClipboardPayload | undefined {
-  if (typeof value !== "object" || value === null || !("kind" in value)) return undefined
-  if (value.kind === "layers" && "nodes" in value && isList(value.nodes)) {
-    return { kind: "layers", nodes: value.nodes.map((node, index) => parseDesignNode(node, `/payload/nodes/${index}`)) }
-  }
-  if (value.kind === "designs" && "designs" in value && isList(value.designs)) {
-    return { kind: "designs", designs: parseCanvasDocument({ version: 3, containers: value.designs }).containers }
-  }
-  if (value.kind === "notes" && "notes" in value && isList(value.notes)) {
-    return { kind: "notes", notes: parseCanvasDocument({ version: 3, containers: [], notes: value.notes }).notes ?? [] }
-  }
-  return undefined
-}
-
-function isList(value: unknown): value is unknown[] {
-  return Array.isArray(value) && value.length > 0
+  return jsonText(clipboardEnvelope).safeParse(text).data
 }
 
 /** SVG markup, as icon sites and design tools copy it, which pastes as a picture rather than as its source. */
