@@ -79,6 +79,7 @@ export const keymap = {
   zoomToFit: { group: "View", label: "Zoom to fit", keys: ["Shift 1"] },
   zoomToSelection: { group: "View", label: "Zoom to selection", keys: ["Shift 2"] },
   panels: { group: "View", label: "Show or hide the panels", keys: ["Ctrl \\"] },
+  console: { group: "View", label: "Show or hide the console", keys: ["Ctrl `"] },
   showLayers: { group: "View", label: "Show Layers", keys: ["Alt 1"] },
   showComponents: { group: "View", label: "Show Components", keys: ["Alt 2"] },
   layoutGrid: { group: "View", label: "Layout grid", keys: ["Shift G"] },

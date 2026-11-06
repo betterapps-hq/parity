@@ -57,7 +57,7 @@ import {
 } from "./commands.ts"
 import { createDesign } from "./create.ts"
 import type { Command } from "./keymap.ts"
-import { togglePanels } from "./layout.ts"
+import { toggleConsole, togglePanels } from "./layout.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
 
 /**
@@ -169,6 +169,7 @@ export const actions: Record<Command, Action> = {
   zoomToFit: { run: () => zoomToFit(), available: hasEditor },
   zoomToSelection: { run: () => zoomToSelection(), available: hasSomething },
   panels: { run: togglePanels, scope: "app" },
+  console: { run: toggleConsole, scope: "app" },
   // Not in text fields, where Alt and a digit can type a character.
   showLayers: { run: () => showPanelTab("layers") },
   showComponents: { run: () => showPanelTab("components") },

@@ -51,6 +51,7 @@ import { frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
+import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
@@ -114,6 +115,7 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
         color={isSelected ? color : undefined}
         onPointerDown={onTitlePointerDown}
       />
+      <ConsoleBadge design={key} name={container.name} />
       <TitleControls>
         {Object.values(container.params ?? {}).some((param) => param.type === "variant") && (
           <VariantMenu
