@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Requests between the window, the project service, main and the type checker go through one channel, and the service checks each request the window sends it",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
