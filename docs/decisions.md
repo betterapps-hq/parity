@@ -5080,6 +5080,29 @@ and didn't object. My calls:
 - **Agents get the design too:** each console entry has its design's key, state and mode when known, and their frames
   name their state.
 
+## The Layers panel draws only the rows in view (PAR-187)
+
+Called on 2026-11-05. The editor audit's Layers panel drew a row for every open layer and kept every row it had opened,
+so selecting around a large design made each later change slower. My calls:
+
+- **Only the rows in view are drawn,** with `@tanstack/react-virtual`, which the insert picker, the icons and the tokens
+  already use, and each drawn row is drawn again only when what it shows changes. Rows are a fixed 28 pixels, so the
+  list needs no measuring.
+- **Rows opened to show a selection close once a selection made elsewhere no longer needs them,** as in Figma. Rows
+  opened by hand stay open. A selection made in the tree itself, by a click or the arrow keys, closes nothing, so no row
+  moves under the pointer.
+- **Search finds designs and layers by the name the panel shows,** ignoring case, and shows each match with the rows
+  above it open and the match's own layers closed. A search opens what it finds itself, so its rows have no arrows.
+- **A layer's eye hides it in the state its board shows, without selecting it.** It's the row's own control, so it acts
+  on that row rather than the selection, as Figma's does; Ctrl+Shift+H still hides the selection. It shows while the
+  layer is hovered, here or on the canvas, and always on a hidden layer. It stays out of the tab order, as the arrow
+  does.
+- **A design is dragged among the designs of its group, in its own file.** The panel lists designs in their file's
+  order, so dragging one moves it in the file. A design isn't moved to another file, which would change its key, or
+  between components, screens and frames, which the panel lists apart.
+- **The lock toggle waits for PAR-192,** which adds locking, and highlighting a layer selected inside an instance waits
+  for PAR-92, which lists an instance's layers.
+
 ## Frames are built in the app (PAR-545)
 
 PAR-545 builds the frames exploration you approved in PAR-540, on PAR-539's model. My calls, where the build differs

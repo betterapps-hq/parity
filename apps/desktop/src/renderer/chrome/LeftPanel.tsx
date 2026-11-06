@@ -23,7 +23,7 @@ export function LeftPanel() {
         { value: "tokens", label: "Tokens", icon: Palette }
       ]}
     >
-      <TabsContent value="layers" className="min-h-0 overflow-x-hidden overflow-y-auto">
+      <TabsContent value="layers" className="flex min-h-0 flex-col">
         <LayerTree />
       </TabsContent>
       <TabsContent value="components" className="flex min-h-0 flex-col">

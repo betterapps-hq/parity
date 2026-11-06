@@ -66,6 +66,29 @@ export function addDesign(snapshot: DesignSnapshot, path: string, container: Con
   return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
 }
 
+/**
+ * A design moved just before or after another in their file, which is the order the Layers panel lists them in. Designs
+ * in different files, or one dropped on itself or where it already is, change nothing.
+ */
+export function reorderDesign(
+  snapshot: DesignSnapshot,
+  design: DesignRef,
+  target: DesignRef,
+  place: "before" | "after"
+): DesignSnapshot {
+  if (design.path !== target.path || design.id === target.id) return snapshot
+  const document = snapshot.documents.get(design.path)
+  const moving = document?.containers.find((container) => container.id === design.id)
+  if (!document || !moving) return snapshot
+  const rest = document.containers.filter((container) => container !== moving)
+  const at = rest.findIndex((container) => container.id === target.id)
+  if (at < 0) return snapshot
+  const index = place === "before" ? at : at + 1
+  const containers = [...rest.slice(0, index), moving, ...rest.slice(index)]
+  if (containers.every((container, index) => container === document.containers[index])) return snapshot
+  return { ...snapshot, documents: new Map(snapshot.documents).set(design.path, { ...document, containers }) }
+}
+
 /** A design taken out of its file. */
 export function deleteDesign(snapshot: DesignSnapshot, design: DesignRef): DesignSnapshot {
   const document = snapshot.documents.get(design.path)
