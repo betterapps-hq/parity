@@ -29,7 +29,7 @@ import {
   utilityProcess,
   webContents
 } from "electron"
-import { type AccountState, signInRequest } from "../shared/account.ts"
+import { type AccountState, organizationId, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
 import {
@@ -481,6 +481,13 @@ ipcMain.handle(ipc.accountCancel, (event) => {
   appWindowOf(event, signInRefusal)
   account.cancel()
 })
+ipcMain.handle(
+  ipc.accountSwitch,
+  checked(organizationId, (event: Electron.IpcMainInvokeEvent, id) => {
+    appWindowOf(event, signInRefusal)
+    return account.switchOrganization(id)
+  })
+)
 ipcMain.handle(ipc.accountSignOut, (event) => {
   appWindowOf(event, signInRefusal)
   account.signOut()

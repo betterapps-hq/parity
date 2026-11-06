@@ -54,6 +54,13 @@ function Backdrop({ hue, children }: { hue: number; children: ReactNode }) {
   )
 }
 
+/**
+ * A phone frame's drop shadow, which lifts it off the main frame it overlaps: a tight one where it meets the screen
+ * below and a soft one further out, in shares of the picture's width so it's the same at every size.
+ */
+const phoneShadow =
+  "shadow-[0_0.4cqw_1cqw_rgb(0_0_0/0.12),0_2cqw_5cqw_-1cqw_rgb(0_0_0/0.3)] dark:shadow-[0_0.4cqw_1cqw_rgb(0_0_0/0.4),0_2cqw_5cqw_-1cqw_rgb(0_0_0/0.65)]"
+
 /** Where a frame goes in the picture, as shares of its width and height: the box it may fill, and whether it's a phone. */
 interface Slot {
   left: number
@@ -119,7 +126,7 @@ function Frame({ frame, slot, label }: { frame: PictureFrame; slot: Slot; label?
         </span>
       )}
       <div
-        className={`overflow-hidden bg-background shadow-lg ring-1 ring-foreground/10 ${slot.phone ? "rounded-[7px]" : "rounded-[5px]"}`}
+        className={`overflow-hidden bg-background ring-1 ring-foreground/10 ${slot.phone ? `rounded-[7px] ${phoneShadow}` : "rounded-[5px] shadow-lg"}`}
         // Its window's height, as a share of the picture's, which is a size container.
         style={{ maxHeight: `${((width * artRatio) / ratio) * 100}cqh` }}
       >
@@ -148,7 +155,9 @@ function Placeholder({ project }: { project: KnownProject }) {
           {initial}
         </span>
       </div>
-      <div className="absolute top-[24%] right-[8%] flex aspect-[9/19] w-[16%] flex-col overflow-hidden rounded-[6px] bg-background shadow-lg ring-1 ring-foreground/10">
+      <div
+        className={`absolute top-[24%] right-[8%] flex aspect-[9/19] w-[16%] flex-col overflow-hidden rounded-[6px] bg-background ring-1 ring-foreground/10 ${phoneShadow}`}
+      >
         <span className="h-[8%] shrink-0 border-b" />
         <span className="m-[14%] h-[6%] rounded-full" style={{ background: ink }} />
       </div>

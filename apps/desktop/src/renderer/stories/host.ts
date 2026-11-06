@@ -109,7 +109,11 @@ const storyAccount: CanvasHost["account"] = {
     }),
   reopen: () => Promise.resolve(),
   cancel: async () => setStoryAccount({ ...accountNow, attempt: null, ended: null }),
-  signOut: async () => setStoryAccount(signedOut)
+  signOut: async () => setStoryAccount(signedOut),
+  switchOrganization: async (organizationId) => {
+    const { account } = accountNow
+    if (account) setStoryAccount({ ...accountNow, account: { ...account, organizationId } })
+  }
 }
 
 /** Puts the service and the system dialogs back as they were before any story changed them. */
