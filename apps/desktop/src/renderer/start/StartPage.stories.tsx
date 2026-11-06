@@ -3,17 +3,19 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useMemo, useState } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import type { PictureFrame, PictureScreen, ProjectPicture } from "../../shared/protocol.ts"
-import dashboardDesktop from "../stories/pictures/dashboard-desktop.webp?inline"
-import dashboardMobile from "../stories/pictures/dashboard-mobile.webp?inline"
-import pricingDesktop from "../stories/pictures/pricing-desktop.webp?inline"
-import pricingMobile from "../stories/pictures/pricing-mobile.webp?inline"
-import settingsDesktop from "../stories/pictures/settings-desktop.webp?inline"
-import settingsMobile from "../stories/pictures/settings-mobile.webp?inline"
-import signInDesktop from "../stories/pictures/sign-in-desktop.webp?inline"
-import signInMobile from "../stories/pictures/sign-in-mobile.webp?inline"
-import teamMembersDesktop from "../stories/pictures/team-members-desktop.webp?inline"
-import teamMembersMobile from "../stories/pictures/team-members-mobile.webp?inline"
+import { setStoryAccount } from "../stories/host.ts"
 import { useResolvedTheme } from "../theme.ts"
+import { examplePicture } from "./example-picture.ts"
+import dashboardDesktop from "./example-pictures/dashboard-desktop.webp?inline"
+import dashboardMobile from "./example-pictures/dashboard-mobile.webp?inline"
+import pricingDesktop from "./example-pictures/pricing-desktop.webp?inline"
+import pricingMobile from "./example-pictures/pricing-mobile.webp?inline"
+import settingsDesktop from "./example-pictures/settings-desktop.webp?inline"
+import settingsMobile from "./example-pictures/settings-mobile.webp?inline"
+import signInDesktop from "./example-pictures/sign-in-desktop.webp?inline"
+import signInMobile from "./example-pictures/sign-in-mobile.webp?inline"
+import teamMembersDesktop from "./example-pictures/team-members-desktop.webp?inline"
+import teamMembersMobile from "./example-pictures/team-members-mobile.webp?inline"
 import { Home } from "./HomePage.tsx"
 import { NewTab } from "./NewTabPage.tsx"
 import { type PictureSource, PictureSourceProvider } from "./pictures.ts"
@@ -76,6 +78,9 @@ const pricing = { name: "Pricing", main: desktop(pricingDesktop), phone: mobile(
 
 const picture = (...screens: PictureScreen[]): ProjectPicture => ({ taken: minutes(12), screens })
 
+/** Where the example lives, as a copy of Parity that has it would give it. */
+const exampleRoot = "D:\\canvas\\examples\\shadcn-vite"
+
 /**
  * Pictures for most of the sample projects: several screens to flip through, one screen, one without a phone frame,
  * and a phone alone. The rest haven't opened since pictures were kept, so they show the placeholder.
@@ -102,11 +107,17 @@ function Sample({
   recent = sampleRecent,
   notes = sampleNotes,
   pictures = samplePictures,
+  missing = [],
+  example = false,
   children
 }: {
   recent?: readonly string[]
   notes?: Record<string, ProjectNote>
   pictures?: Record<string, ProjectPicture>
+  /** Folders that aren't there any more. */
+  missing?: readonly string[]
+  /** Whether this copy of Parity has the example to offer. */
+  example?: boolean
   children: (projects: readonly KnownProject[]) => ReactNode
 }) {
   const [listed, setListed] = useState(recent)
@@ -119,6 +130,7 @@ function Sample({
       <StartActionsProvider
         value={{
           open: ignore,
+          ...(example ? { example: { root: exampleRoot, name: "Acme", picture: examplePicture } } : {}),
           openFolder: ignore,
           openFile: ignore,
           search: ignore,
@@ -127,7 +139,11 @@ function Sample({
         }}
       >
         <div className="flex h-screen flex-col bg-background text-foreground">
-          {children(knownProjects(listed, kept))}
+          {children(
+            knownProjects(listed, kept).map((project) =>
+              missing.includes(project.root) ? { ...project, missing: true } : project
+            )
+          )}
         </div>
         {/* The kit follows the system's theme unless told, which in a light story is the wrong one. */}
         <SonnerToaster theme={theme} position="bottom-right" />
@@ -138,6 +154,19 @@ function Sample({
 
 /** Home: the project you were last in, then the rest. For you is empty until something can need you. */
 export const HomePage: Story = {
+  render: () => <Sample>{(projects) => <Home projects={projects} />}</Sample>
+}
+
+/** Home signed in: For you sits beside Continue, empty until something can need you. */
+export const HomeSignedIn: Story = {
+  loaders: [
+    () =>
+      setStoryAccount({
+        account: { email: "andrew@kestrel.dev", name: "Andrew Craswell", untilQuit: false },
+        attempt: null,
+        ended: null
+      })
+  ],
   render: () => <Sample>{(projects) => <Home projects={projects} />}</Sample>
 }
 
@@ -169,13 +198,41 @@ export const HomeWithoutPictures: Story = {
   render: () => <Sample pictures={{}}>{(projects) => <Home projects={projects} />}</Sample>
 }
 
-/** Home before any project has opened: the ways to open one. */
+/**
+ * Home before any project has opened, where this copy of Parity has the example: Acme where Continue will be, the ways
+ * to bring your own app beside it, and what each list will show.
+ */
 export const HomeFirstTime: Story = {
+  render: () => (
+    <Sample recent={[]} notes={{}} example>
+      {(projects) => <Home projects={projects} />}
+    </Sample>
+  )
+}
+
+/** Home before any project has opened, without the example: what Parity does with your app, and how to open it. */
+export const HomeFirstTimeWithoutExample: Story = {
   render: () => (
     <Sample recent={[]} notes={{}}>
       {(projects) => <Home projects={projects} />}
     </Sample>
   )
+}
+
+/**
+ * Projects whose folders aren't there any more: moved, renamed, deleted, or on a drive that isn't plugged in. Each is
+ * greyed and says so, Continue offers the next one, and opening one says where it was and offers to remove it.
+ */
+export const HomeMissingFolders: Story = {
+  render: () => (
+    <Sample missing={["D:\\apps\\kestrel-website", "D:\\apps\\walkies", "D:\\apps\\design-system"]}>
+      {(projects) => <Home projects={projects} />}
+    </Sample>
+  ),
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "walkies" }))
+    await waitFor(() => expect(within(document.body).getByText("Parity can't find walkies")).toBeInTheDocument())
+  }
 }
 
 /** Home's Starred list, which keeps a starred project even after it leaves the recent list. */
@@ -192,11 +249,11 @@ export const HomeSharedWithYou: Story = {
   render: () => <Sample>{(projects) => <Home projects={projects} />}</Sample>,
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Shared with you" }))
-    await expect(within(canvasElement).getByText("Nothing has been shared with you yet.")).toBeInTheDocument()
+    await expect(within(canvasElement).getByText("Nothing shared with you")).toBeInTheDocument()
   }
 }
 
-/** A project's menu: open it, star it, start a new project from it, copy its link, or take it off the list. */
+/** A project's menu: open it, star it, copy its link, or take it off the list. */
 export const ProjectMenu: Story = {
   render: () => <Sample>{(projects) => <Home projects={projects} />}</Sample>,
   play: async ({ canvasElement }) => {

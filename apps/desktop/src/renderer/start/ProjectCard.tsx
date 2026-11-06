@@ -6,12 +6,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { AppWindow, CopyPlus, Ellipsis, Link, Star, X } from "lucide-react"
-import { type CSSProperties, useRef, useState } from "react"
+import { AppWindow, Ellipsis, FolderX, Link, Star, X } from "lucide-react"
+import { type CSSProperties, useId, useRef, useState } from "react"
+import { toast } from "sonner"
 import { Hint } from "../chrome/Hint.tsx"
 import { ProjectArt, useScreenCount, useScreenName } from "./ProjectArt.tsx"
 import { type KnownProject, whenLabel } from "./projects.ts"
-import { newProjectNotReady, notReady, useStartActions } from "./start-actions.ts"
+import { notReady, useStartActions } from "./start-actions.ts"
 
 /** Parity's own accent, from its mark, for the ring round a project or template under the pointer. */
 export const accent = { "--parity": "oklch(0.7 0.16 275)" } as CSSProperties
@@ -20,6 +21,17 @@ export const accent = { "--parity": "oklch(0.7 0.16 275)" } as CSSProperties
 function openedLine(project: KnownProject, now: number): string {
   if (project.opened === undefined) return project.root.slice(0, -project.name.length - 1) || project.root
   return `Opened ${whenLabel(project.opened, now)}`
+}
+
+/**
+ * Says a project's folder isn't where it was, and offers to take it off the list. It stays listed until then, since a
+ * drive that isn't plugged in comes back.
+ */
+export function folderMissing(project: KnownProject, remove?: () => void): void {
+  toast(`Parity can't find ${project.name}`, {
+    description: `Its folder isn't at ${project.root} any more. Put it back, or remove it from Recent.`,
+    ...(remove ? { action: { label: "Remove", onClick: remove } } : {})
+  })
 }
 
 /** What can be done with a project from the start page. */
@@ -43,14 +55,13 @@ function ProjectMenu({
         }
       />
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={() => actions.open(project.root)}>
+        <DropdownMenuItem
+          onClick={() => (project.missing ? folderMissing(project, onRemove) : actions.open(project.root))}
+        >
           <AppWindow /> Open
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.star(project.root, !project.starred)}>
           <Star /> {project.starred ? "Unstar" : "Star"}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => newProjectNotReady(actions)}>
-          <CopyPlus /> New project from this
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => notReady("Links to projects aren't ready yet")}>
           <Link /> Copy link
@@ -80,11 +91,13 @@ export function ProjectCard({
   onRemove?: () => void
 }) {
   const actions = useStartActions()
+  const line = useId()
   const art = useRef<HTMLDivElement>(null)
   const count = useScreenCount(project)
   const [screen, setScreen] = useState(0)
   const [hovered, setHovered] = useState(false)
   const name = useScreenName(project, screen)
+  const open = () => (project.missing ? folderMissing(project, onRemove) : actions.open(project.root))
   return (
     <article
       className="group/card relative flex min-w-0 flex-col gap-2.5"
@@ -100,8 +113,15 @@ export function ProjectCard({
         ref={art}
         className="relative overflow-hidden rounded-lg ring-1 ring-foreground/10 transition-shadow duration-150 group-hover/card:ring-2 group-hover/card:ring-(--parity)"
       >
-        <ProjectArt project={project} screen={screen} />
-        {count > 1 && (
+        <div className={project.missing ? "opacity-40 grayscale" : undefined}>
+          <ProjectArt project={project} screen={screen} />
+        </div>
+        {project.missing && (
+          <span className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-0.5 text-[11px] font-medium shadow-sm">
+            <FolderX className="size-3" /> Folder not found
+          </span>
+        )}
+        {count > 1 && !project.missing && (
           <div
             aria-hidden
             className={`pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-linear-to-t from-black/70 to-transparent px-3 pt-6 pb-2.5 transition-opacity duration-150 ${hovered ? "opacity-100" : "opacity-0"}`}
@@ -124,14 +144,17 @@ export function ProjectCard({
             <Hint label={project.root} wait>
               <button
                 type="button"
-                onClick={() => actions.open(project.root)}
+                onClick={open}
+                aria-describedby={project.missing ? line : undefined}
                 className="block max-w-full truncate text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
               >
                 {project.name}
               </button>
             </Hint>
           </h3>
-          <span className="truncate text-xs text-muted-foreground">{openedLine(project, now)}</span>
+          <span id={line} className="truncate text-xs text-muted-foreground">
+            {project.missing ? "Folder not found" : openedLine(project, now)}
+          </span>
         </div>
         <ProjectMenu
           project={project}

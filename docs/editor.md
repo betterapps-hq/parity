@@ -3889,7 +3889,7 @@ On first launch the installed app shows the sign-in screen, and Home once you si
 was. Development can request an initial project through its runner. `workspace.test.ts` covers these startup choices
 (PAR-8, PAR-605).
 
-### The start page: Home and new tabs (PAR-605, PAR-607)
+### The start page: Home and new tabs (PAR-605, PAR-607, PAR-188)
 
 Home is pinned first in the tab strip, an icon that can't be closed, and shows whenever no tab is chosen. Alt+Home or
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
@@ -3897,13 +3897,22 @@ at the end of the strip. Both are the start page from the explorations (decision
 
 - **Home** has the organization switcher, once you're signed in, then Search, Open and New project along the top. Below
   them, the Continue where you left off section offers the project opened last, which its picture, Resume or Enter
-  opens, with For you beside it. Before any project has opened, the Open a project panel takes its place, with Open a
-  folder and Open a project file.
+  opens, with For you beside it once you're signed in; signed out there's no For you. For you says nothing needs you,
+  and what will show up there, until something can.
+- **The first time (PAR-188),** before any project has opened, Home keeps that layout. Where this copy of Parity has the
+  example, as it does run from the repository, Acme takes Continue's place: its picture, shipped with Parity until its
+  own is kept, a line on what to try there, and Open Acme. Bring your own app sits beside it, with Open a folder and
+  Open a project file. Without the example, the place shows what Parity does with your app, with the same two buttons.
 - **A new tab** has a large Search field, then New project and Open.
 - **Both list your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
   more. A card has the project's picture, its folder's name and when it was last opened; its tooltip is the folder's
-  path. Its menu opens it, stars or unstars it, and removes it from Recent. Home's Recent leaves out the project it
-  offers to continue.
+  path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent. Home's Recent leaves out the
+  project it offers to continue. A list with nothing in it says what will show up there, in a dashed box a row of cards
+  tall.
+- **A project whose folder is gone (PAR-188)** — moved, renamed, deleted, or on a drive that isn't plugged in — is
+  greyed, with Folder not found on its picture and under its name. Continue offers the next one instead, and opening it
+  says where the folder was and offers Remove. It stays listed until removed, since a drive comes back. The service
+  checks the listed folders when the window starts, when the list changes, and each time Home or a new tab shows.
 - **Opening from a new tab uses that tab.** A project already open elsewhere is switched to, and the new tab closes.
 - **Search is Ctrl+K,** which lists your projects as well as actions: first on Home and in a new tab, last in a project.
 - **A project's picture is its canvas as last saved (PAR-607).** It shows the project's first screens as the canvas drew
@@ -3911,44 +3920,53 @@ at the end of the strip. Both are the start page from the explorations (decision
   window, or shorter where the frame is. Moving the pointer across a card flips through them, naming each; Home's
   Continue picture names the frames above them, as the canvas does. Up to five screens are pictured: those with a phone
   frame beside them first, then the rest, each in Layers' order; components and frames aren't. A project not opened
-  since shows a placeholder, a board and a phone in a color of its own with its initial.
+  since shows a placeholder, a board and a phone in a color of its own with its initial. Each frame has a mid-grey edge,
+  so a phone over a desktop frame shows against it whether their screens are light or dark.
   - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
     and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
     Edits not saved yet are never pictured: a picture that would show them waits for the next save.
   - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
     the start page stops listing it.
-- **Stubs:** For you and Shared with you are empty, and signed out For you offers Sign in; New project, New project from
-  this, cloning, Copy link, Invite people and New organization show a toast saying they aren't ready yet. New project's
-  toast also offers Open a folder.
+- **Stubs:** For you and Shared with you are empty; New project, cloning, Copy link, Invite people and New organization
+  show a toast saying they aren't ready yet. New project's toast also offers Open a folder. A project's menu has no New
+  project from this until projects can be made (PAR-284).
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
 `StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home, new tabs and
-each project's notes; `chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the
-projects. Pictures: `start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and
-`start/picture-screens.ts` (`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts`
-(`keepProjectPicture`, started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
-`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
-`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
-in the folder main names as `PARITY_PICTURE_DIR`.
+each project's notes, and asks the service which folders are gone and where the example is (`checkFolders`, through
+`start.check`, answered by `utility/start-folders.ts`); `start/example-picture.ts` is the example's shipped picture;
+`chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures:
+`start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and `start/picture-screens.ts`
+(`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`,
+started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and `frameBitmap` in
+`canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in `utility/webp.ts`,
+through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`, in the folder main
+names as `PARITY_PICTURE_DIR`.
 
-Tests: `start/projects.test.ts` (8: the order recent and starred projects list in, each scope, the times from minutes to
-another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new tabs" (8, with a project's
-picture let go once it isn't listed) and "starting the workspace" (Home on a fresh install, and staying there).
-`start/picture-screens.test.ts` (4: screens with a phone frame first, then the rest, in Layers' order; no components or
-frames, and no more than the most; no second phone beside a phone; a phone by its device or its width) and
-`utility/pictures.test.ts` (6: a picture kept with each frame cut to its window and read back; the latest in place of
-the one before; projects with none, or a file that can't be read, left out; a kept frame that isn't an image refused;
-the pictures of projects no longer listed let go, and partial files only once old; nothing kept without a folder).
-Stories: Parity/Start page (Home, a card flipping through screens, which plays, Home without pictures, the first time,
-Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures,
-Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New
-tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with
-Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
+Tests: `start/projects.test.ts` (9: the order recent and starred projects list in, projects whose folders are gone, each
+scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new
+tabs" (8, with a project's picture let go once it isn't listed), "starting the workspace" (Home on a fresh install, and
+staying there) and "checking the start page's folders" (2: gone folders flagged and the example kept; checked again when
+Home shows). `utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where
+Parity runs once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a
+phone frame first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone
+beside a phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame
+cut to its window and read back; the latest in place of the one before; projects with none, or a file that can't be
+read, left out; a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial
+files only once old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping
+through screens, which plays, Home without pictures, the first time with and without the example, folders that are gone,
+which plays, Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's
+pictures, Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab
+and New tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again
+with Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
 2026-11-05, where opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving
 across its card flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and
 saved with Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as
-tall as its content.
+tall as its content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on
+2026-11-06: with the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects,
+and Open Acme opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it
+showed where it was with Remove.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
