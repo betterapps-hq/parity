@@ -4093,13 +4093,13 @@ Code: `#root` in `apps/desktop/src/renderer/styles.css`, the group heading in `c
 canvas control keeps in `canvas/shortcuts.ts`.
 
 Tests: end to end, `apps/desktop/e2e/window.e2e.ts` (1): with a Members layer selected, Layers is scrolled and the page
-neither overflows nor scrolls; Shift+Tab back from Members' title to the New screen button scrolls Layers up to it and
-not the page; Tab on from the title leaves the page still; and a click on a layer then selects it. It fails without the
-fix, at the first check. `e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State
-and Modes menus and its mode caption, where Enter selects the mode column, then out of the canvas without reaching
-another title or board, where before it went on to the next design's title. Every end-to-end test also fails if the page
-scrolled during it (see "Testing in the app" above); before the fix that also failed the older test that tabs on from
-Sign in's title.
+neither overflows nor scrolls; Shift+Tab back from Members' title into Layers leaves the page still (since PAR-187 the
+New screen button, scrolled out of view, isn't drawn, so focus reaches the tree instead); Tab on from the title leaves
+the page still; and a click on a layer then selects it. It fails without the fix, at the first check.
+`e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State and Modes menus and its
+mode caption, where Enter selects the mode column, then out of the canvas without reaching another title or board, where
+before it went on to the next design's title. Every end-to-end test also fails if the page scrolled during it (see
+"Testing in the app" above); before the fix that also failed the older test that tabs on from Sign in's title.
 
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
