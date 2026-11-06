@@ -1,0 +1,144 @@
+import type { Meta, StoryObj } from "@storybook/react-vite"
+import { TokenColorEditor } from "./color-picker.tsx"
+import { colorTokens } from "./data.ts"
+import { StylingPrototype } from "./prototype.tsx"
+
+/**
+ * The styling controls designers expect from Figma, proposed for the inspector (PAR-186): a color picker that answers
+ * with the nearest token, opacity on a token color, radius per corner, stroke per side, blur and backdrop blur, aspect
+ * ratio, a text layer's tag, grid tracks and placement, baseline alignment and reversed order, and a typed frame size.
+ *
+ * Each story is the same prototype, a stand-in for Plans on the canvas and the inspector beside it, starting on one
+ * control. Every control works: the stand-in redraws as it changes. Styles stay locked to the project's tokens, so a
+ * freely picked color is answered with the token nearest it, and only the Tokens panel's picker writes a raw color,
+ * into the token itself.
+ */
+const meta = {
+  title: "Parity/Explorations/Styling controls",
+  parameters: { layout: "fullscreen" }
+} satisfies Meta
+
+export default meta
+type Story = StoryObj<typeof meta>
+
+/**
+ * Plans, a card with a translucent fill, per-corner radius and a backdrop blur over shapes behind it, so the fill's
+ * opacity (`bg-card/70`) and the blur show. Radius per corner and Stroke per side are toggles beside their rows, as
+ * Padding's per side is; the corners sit where they are on the layer. Stroke widths switch between px and rem.
+ */
+export const Appearance: Story = {
+  render: () => (
+    <StylingPrototype
+      start={{
+        draft: {
+          background: "card",
+          backgroundAlpha: 70,
+          radius: ["radius-2xl", "radius-2xl", "radius-sm", "radius-sm"],
+          border: "border",
+          borderWidth: [0, 0, 2, 0],
+          backdropBlur: "blur-md"
+        }
+      }}
+    />
+  )
+}
+
+/**
+ * The fill's picker on Custom: the saturation and brightness square, the hue strip, hex and HSB, and the eyedropper.
+ * Below it, the token nearest the picked color, with a button to use it. Drag in the square to see the suggestion
+ * follow.
+ */
+export const PickingAColor: Story = {
+  render: () => <StylingPrototype start={{ draft: { background: "chart-2" }, fillPicker: "custom" }} />
+}
+
+/** The fill's picker on Tokens: the project's colors with swatches. The opacity after the button stays as it was. */
+export const PickingAToken: Story = {
+  render: () => (
+    <StylingPrototype start={{ draft: { background: "secondary", backgroundAlpha: 50 }, fillPicker: "tokens" }} />
+  )
+}
+
+/** The Tokens panel's picker on primary: the same square, strip and fields, writing the token's own value on Save. */
+export const EditingAColorToken: Story = {
+  render: () => (
+    <div className="grid h-screen place-items-center bg-background text-foreground">
+      <TokenColorEditor token={colorTokens.find((token) => token.name === "chart-2")!} />
+    </div>
+  )
+}
+
+/**
+ * Plans as a grid: three columns of 1fr, 2fr and 120px, and one auto row. Each track is a chip that opens to Fill,
+ * Fixed, Hug or Min and its size; + adds one. A fixed track is a length like Width, typed in px or rem.
+ */
+export const GridTracks: Story = {
+  render: () => (
+    <StylingPrototype
+      start={{
+        draft: {
+          background: "muted",
+          radius: "radius-lg",
+          columns: [
+            { kind: "fr", value: 1 },
+            { kind: "fr", value: 2 },
+            { kind: "px", value: 120 }
+          ],
+          rows: [{ kind: "auto" }]
+        }
+      }}
+    />
+  )
+}
+
+/**
+ * Pro plan selected inside Plans' grid: the column and row it starts at and how many it spans, in place of Align self.
+ * Click Hobby or Team on the canvas to go back to Plans.
+ */
+export const GridPlacement: Story = {
+  render: () => (
+    <StylingPrototype
+      start={{
+        child: true,
+        draft: {
+          background: "muted",
+          radius: "radius-lg",
+          columns: [
+            { kind: "fr", value: 1 },
+            { kind: "fr", value: 1 },
+            { kind: "fr", value: 1 }
+          ],
+          colStart: 2,
+          colSpan: 2
+        }
+      }}
+    />
+  )
+}
+
+/**
+ * Plans as a horizontal row, reversed and aligned to the text's baseline: Pro plan's larger text lines up with the
+ * others' first line. Baseline shows only for a horizontal layout, where it means something.
+ */
+export const BaselineAndReverse: Story = {
+  render: () => (
+    <StylingPrototype
+      start={{
+        draft: { background: "muted", radius: "radius-lg", direction: "row", reverse: true, align: "baseline" }
+      }}
+    />
+  )
+}
+
+/** Plans at 16:9 with the headline as Heading 2: the aspect ratio under Size, and the tag at the top of Text. */
+export const AspectRatioAndTag: Story = {
+  render: () => (
+    <StylingPrototype start={{ draft: { background: "muted", radius: "radius-lg", aspect: "16/9", tag: "h2" } }} />
+  )
+}
+
+/**
+ * Pricing's frame in Desktop, typed: width and height, with presets. Height left empty hugs the content. The unit after
+ * a size switches it between px and rem, as the canvas's type box does, so 1280px shows as 80rem; either can be typed.
+ */
+export const FrameSize: Story = { render: () => <StylingPrototype start={{ draft: {}, frame: true }} /> }

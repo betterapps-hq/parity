@@ -2783,10 +2783,11 @@ the style to set.
   on the refresh button, and its findings faded. Checking again keeps the last findings, faded, under "Checking again",
   rather than emptying the panel.
 
-Code: `contrastFix`, `contrastRatio` and `colorDistance` in `packages/tokens/src/contrast.ts`; the frame's readings
-(`contrastReadings`, `follows`, `tokenColors`) in `apps/desktop/src/renderer/render.ts`; `addContrastFixes` in
-`packages/agent/src/frames.ts`; `ContrastFixRow`, `ImpactTally` and `DesignCheck` in
-`apps/desktop/src/renderer/chrome/AccessibilityPanel.tsx`; `fixLine` in `packages/cli/src/client.ts`.
+Code: `contrastFix` and `contrastRatio` in `packages/tokens/src/contrast.ts`, `colorDistance` in
+`packages/tokens/src/color.ts`; the frame's readings (`contrastReadings`, `follows`, `tokenColors`) in
+`apps/desktop/src/renderer/render.ts`; `addContrastFixes` in `packages/agent/src/frames.ts`; `ContrastFixRow`,
+`ImpactTally` and `DesignCheck` in `apps/desktop/src/renderer/chrome/AccessibilityPanel.tsx`; `fixLine` in
+`packages/cli/src/client.ts`.
 
 Tests: `packages/tokens/src/contrast.test.ts` (WCAG ratios, translucent colors, the closest passing token, passing
 frames, preferred tokens and the fallback, large text, no token); `packages/agent/src/run.test.ts` ("gives contrast

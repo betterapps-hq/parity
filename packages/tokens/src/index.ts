@@ -1,4 +1,5 @@
 export * from "./checks.ts"
+export * from "./color.ts"
 export * from "./contrast.ts"
 export * from "./dtcg.ts"
 export * from "./kinds.ts"
