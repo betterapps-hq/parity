@@ -4621,6 +4621,31 @@ surface now, "parity-web, and parity-dashboard" beside the app and CLI, and that
   limit didn't block the handover. Whether to pay for a plan is yours: the Team plan adds alerts that file Linear issues
   and a larger replay quota, which the agent loop relies on.
 
+## Sentry files Linear bugs (PAR-622)
+
+Two alerts turn what Sentry sees in the app and the CLI into bugs in PAR's Todo, as the plan's "Agents in the loop" sets
+out. What they are and how they behave is in [sentry.md](sentry.md#alerts). My calls:
+
+- **Two alerts, each covering both projects:** one for new issues and regressions, one for user feedback. Feedback gets
+  its own so it can file every report with no interval, since each report is its own Sentry issue.
+- **Every environment files,** `development` and `ci` included, as PAR-622 asked: agents' test passes are where most
+  bugs are found now.
+- **Filed bugs have no priority.** Sentry can't tell how much a bug matters, so whoever picks it up from Todo sets it.
+- **Spikes don't file.** Every Sentry issue already has its bug from its first event, and a spike would only file a
+  second one for it. Rate alerts, such as crash-free sessions and failing agent operations, are PAR-643's.
+- **A regression keeps its bug.** Linear reopens the linked issue when Sentry marks a regression, and the alert's action
+  doesn't file a second one, so the regression trigger only matters for an issue with no bug yet. It reopens in Backlog,
+  not Todo. PAR-668 will fix that, and add the release, environment and `test_run` Linear's action leaves out.
+- **At most once in 30 minutes for errors,** Sentry's default, so an issue going in and out of resolved doesn't churn.
+- **Written down, not in Terraform,** like the rest of Sentry's setup until the pipelines can pass a Sentry token.
+- **They depend on the plan.** If the trial ends on 2026-11-19 without an upgrade, these alerts may stop filing, as
+  PAR-617 noted above.
+
+Tried on 2026-11-06 by sending an error and two reports to `parity-desktop`'s DSN: each became a bug (PAR-663, PAR-664,
+PAR-666). Closing PAR-663 resolved its Sentry issue, resolving that closed PAR-663 again, and the error from a later
+release reopened it without a second bug. PAR-620's own check in a development build filed its errors too (PAR-659 to
+PAR-661 and PAR-665), along with a real one it hit (PAR-662).
+
 ## Errors, crashes and hangs go to Sentry from every process (PAR-620)
 
 `@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to
