@@ -2461,7 +2461,7 @@ Tests:
   and a component's text refused; a name that isn't usable, is reserved, is a param's or another slot's; a slot inside
   another, or around one; the free name a new slot takes; `designSlots` skipping screens and nested slots; the file
   refusing a bad or repeated name; and copies and detached instances losing the mark.
-- Stories: Parity/Inspector/Layer (Layout In A Component, which makes a slot, Children Slot, Named Slot and Layout
+- Stories: Parity/Inspector/Layer/Slots (Layout In A Component, which makes a slot, Children Slot, Named Slot and Layout
   Inside A Slot), Parity/Inspector/Design (Component With Slots, Slot Opened, and Slot Name Taken, which types a param's
   name), Parity/Left panel/Layers › Slots, and Parity/Canvas/Selection › Component Slots.
 
@@ -2910,12 +2910,12 @@ Tests:
 - `apps/desktop/src/renderer/chrome/edit-scope.test.ts` (3): no note in the base state, the state's name, the variant's.
 - `apps/desktop/src/renderer/chrome/prop-values.test.ts` (4): fields by declared type before there's a value, by the
   value's own type, JSON refused rather than kept as text, and any value read as JSON or text.
-- `chrome/LayerPanel.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
+- `chrome/LayerInstances.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
   Yearly.
 - `packages/core/src/edit.test.ts`, "clearing a prop, as the inspector does" (2, PAR-421): a prop the design turns on,
   cleared in one state, off there and still on in the design, and Reset taking it back; and clearing in the base state
   removing it, with a value set as before.
-- `chrome/LayerPanel.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
+- `chrome/LayerStates.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
   `disabled` switch turned off in Wrong password, then Reset, which turns it back on and leaves nothing to reset.
 
 Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, the notes in the inspector, the

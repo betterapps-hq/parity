@@ -1,5 +1,6 @@
 import {
   Button,
+  ButtonGroup,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -374,37 +375,36 @@ export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutN
     )
   }
   const slot = node.slot
+  // The kit's button group, with the same small outline buttons as Make component beside it, so the two line up.
   return (
-    <div
-      className="flex h-8 min-w-0 flex-1 items-center rounded-md border text-xs"
-      style={{ borderColor: tint(45), background: tint(8) }}
-    >
-      <button
-        type="button"
+    <ButtonGroup className="min-w-0 flex-1">
+      <Button
+        variant="outline"
+        size="sm"
+        className="min-w-0 flex-1 justify-start"
         aria-label={`Edit the ${slot} slot in ${entry.container.name}'s props`}
         onClick={() => {
           session.selection.set({ design: entry.key })
           openSlotRow(entry.key, slot)
         }}
-        className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-l-md px-2 hover:bg-accent/50"
       >
-        <SquareDashed className="size-3.5 shrink-0" style={{ color: slotColor }} />
+        <SquareDashed style={{ color: slotColor }} />
         <span className="truncate font-mono" style={{ color: slotColor }}>
           {slot}
         </span>
-      </button>
+      </Button>
       <Hint label={`Remove the ${slot} slot`}>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="icon-sm"
           aria-label={`Remove the ${slot} slot`}
           onClick={() =>
             store.updateContainer(entry.key, "Remove slot", (current) => setSlot(current, node.id, undefined))
           }
-          className="grid h-full w-8 place-items-center rounded-r-md text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          <X className="size-3.5" />
-        </button>
+          <X />
+        </Button>
       </Hint>
-    </div>
+    </ButtonGroup>
   )
 }

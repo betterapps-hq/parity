@@ -60,6 +60,26 @@ const topBarWithSlot = () => {
  */
 export const ComponentWithSlots: Story = { loaders: [inspecting("design", topBarWithSlot)] }
 
+/**
+ * Two slots: Plan card's features as its children and its price block as a named slot, `pricing`. Props lists the named
+ * one first and children last, as code takes them, and In code shows `pricing` as a prop and children between the tags.
+ */
+export const ComponentWithSeveralSlots: Story = {
+  loaders: [
+    inspecting("design", () => {
+      const key = design("Plan card")
+      example().store.updateContainer(key, "Make slot", (container) =>
+        setSlot(
+          setSlot(container, node("Plan card", "Features"), "children"),
+          node("Plan card", "Price block"),
+          "pricing"
+        )
+      )
+      return { design: key }
+    })
+  ]
+}
+
 /** The `actions` slot's row opened: its kind, Children or Named, its name, its layout, and Remove slot. */
 export const SlotOpened: Story = {
   loaders: [inspecting("design", topBarWithSlot)],

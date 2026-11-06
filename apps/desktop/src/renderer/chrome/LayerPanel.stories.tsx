@@ -1,38 +1,26 @@
-import { insertNode, mapNode, setSlot } from "@parity-app/core"
+import { insertNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { userEvent, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answering } from "../stories/host.ts"
 import { DesignTab } from "./DesignPanel.tsx"
-import { inspecting, InspectorStage, slowly, typing } from "./inspector-stories.tsx"
-import { Inspector } from "./Inspector.tsx"
+import { inspecting, slowly } from "./inspector-stories.tsx"
+import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
 /**
- * The Design tab with one layer selected: its name and kind, which state edits go to, then what it holds (text, a
- * component's props, an instance's params, an image), whether it shows, and its style.
+ * The Design tab with one layer of each kind selected: what it holds (text, a component's props, an image), then whether
+ * it shows, and its style. The other Layer folders hold its name and header, states, instances and slots.
  */
 const meta = {
-  title: "Parity/Inspector/Layer",
+  title: "Parity/Inspector/Layer/Kinds",
   component: DesignTab,
-  render: () => <Inspector />,
-  decorators: [
-    (Story) => (
-      <InspectorStage>
-        <Story />
-      </InspectorStage>
-    )
-  ]
+  render: renderInspector,
+  decorators: [inspectorStage]
 } satisfies Meta<typeof DesignTab>
 
 export default meta
 type Story = StoryObj<typeof meta>
-
-/** Selects one layer of an example design, by its name or its component, as the canvas or Layers would. */
-const pick = (designName: string, layerName: string, state?: string) =>
-  inspecting("design", () =>
-    layersSelection(design(designName), [node(designName, layerName)], state ? { state } : undefined)
-  )
 
 /** A text layer, Pricing's headline: its text to edit, then visibility, and its type set large and centered. */
 export const TextLayer: Story = { loaders: [pick("Pricing", "Headline")] }
@@ -73,95 +61,6 @@ export const ComponentWithoutStyle: Story = {
 /** A layout, Pricing's hero: no content section, and a Layout section first among its styles. */
 export const LayoutLayer: Story = { loaders: [pick("Pricing", "Hero")] }
 
-/** Marks a layout of an example component design as a slot, then selects `layerName`, which may be another layout. */
-const slotted = (designName: string, slots: Record<string, string>, layerName: string) =>
-  inspecting("design", () => {
-    const key = design(designName)
-    example().store.updateContainer(key, "Make slot", (container) =>
-      Object.entries(slots).reduce(
-        (current, [layer, name]) => setSlot(current, node(designName, layer), name),
-        container
-      )
-    )
-    return layersSelection(key, [node(designName, layerName)])
-  })
-
-/**
- * A layout in a component design, Plan card's features (PAR-83): Make slot beside Make component, the other thing a
- * layer can become. Clicking it makes the layout the children slot, and the button becomes the slot's name.
- */
-export const LayoutInAComponent: Story = {
-  loaders: [pick("Plan card", "Features")],
-  play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    await userEvent.click(await panel.findByRole("button", { name: "Make slot" }, slowly))
-    await expect(
-      await panel.findByRole("button", { name: "Edit the children slot in Plan card's props" }, slowly)
-    ).toBeVisible()
-  }
-}
-
-/** Plan card's features as its children slot: its name opens it in Plan card's props, and × makes it a plain layout. */
-export const ChildrenSlot: Story = { loaders: [slotted("Plan card", { Features: "children" }, "Features")] }
-
-/** App top bar's actions as a named slot, `actions`, which becomes a prop that takes layers in code. */
-export const NamedSlot: Story = {
-  loaders: [slotted("App top bar", { "Top bar actions": "actions" }, "Top bar actions")]
-}
-
-/**
- * A layout inside the children slot, one of Plan card's features: it's placeholder content, so Make slot is unavailable
- * and says why.
- */
-export const LayoutInsideASlot: Story = { loaders: [slotted("Plan card", { Features: "children" }, "Feature 1")] }
-
-/** The design's outermost layer: everything a layout has, but no Make component, since it's the design itself. */
-export const OutermostLayer: Story = { loaders: [pick("Pricing", "Page")] }
-
-/** A layer without a name of its own: the name field shows what Layers calls it, as a placeholder. */
-export const UnnamedLayer: Story = { loaders: [pick("Pricing", "Badge")] }
-
-/** A layer with a very long name. */
-export const LongLayerName: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Pricing")
-      const id = node("Pricing", "Billing period")
-      example().store.updateContainer(key, "Rename layer", (container) => ({
-        ...container,
-        root: mapNode(container.root, id, (current) => ({
-          ...current,
-          name: "Billing period switch with the yearly discount badge beside it"
-        }))
-      }))
-      return layersSelection(key, [id])
-    })
-  ]
-}
-
-/** An instance of a component design, Pricing's Pro plan: which state of Plan card it shows, and each of its params. */
-export const InstanceLayer: Story = { loaders: [pick("Pricing", "Pro plan")] }
-
-/** The Pro plan picked in Pricing's Yearly state, which changes its price and billing: those params can be reset. */
-export const InstanceChangedInAState: Story = { loaders: [pick("Pricing", "Pro plan", "yearly")] }
-
-/** An instance whose component design was deleted: the panel says it doesn't exist. */
-export const InstanceOfMissingComponent: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Pricing")
-      const id = node("Pricing", "Business plan")
-      example().store.updateContainer(key, "Break instance", (container) => ({
-        ...container,
-        root: mapNode(container.root, id, (current) =>
-          current.type === "instance" ? { ...current, design: "enterprise-plan-card" } : current
-        )
-      }))
-      return layersSelection(key, [id])
-    })
-  ]
-}
-
 /** An image layer: its file, alt text for screen readers, how it fills its box, and who took it. */
 export const ImageLayer: Story = {
   loaders: [
@@ -188,72 +87,4 @@ export const ImageLayer: Story = {
       return layersSelection(key, ["hero-photo"])
     })
   ]
-}
-
-/** A layer hidden in the base design, Sign in's error alert: the Visible switch is off. */
-export const HiddenLayer: Story = { loaders: [pick("Sign in", "Sign in error")] }
-
-/**
- * A layer picked in another state, Sign in's password field in Wrong password: the editing bar turns the agent color
- * and says edits change only this state, and the props that state changes can each be reset.
- */
-export const EditingAState: Story = { loaders: [pick("Sign in", "Password input", "wrong-password")] }
-
-/**
- * A prop the base design turns on, turned off in one state (PAR-421): Sign in's button is disabled in the base, and in
- * Wrong password its `disabled` switch turns off there only. The field is marked as changed, and Reset takes the
- * state's change back, so the switch is on again.
- */
-export const TurningAPropOffInAState: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Sign in")
-      const id = node("Sign in", "Sign in button")
-      example().store.updateContainer(key, "Disable button", (container) => ({
-        ...container,
-        root: mapNode(container.root, id, (current) =>
-          current.type === "component" ? { ...current, props: { ...current.props, disabled: true } } : current
-        )
-      }))
-      return layersSelection(key, [id], { state: "wrong-password" })
-    })
-  ],
-  play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    const disabled = await panel.findByRole("switch", { name: "disabled" }, slowly)
-    await expect(disabled).toBeChecked()
-    await userEvent.click(disabled)
-    await expect(panel.getByRole("switch", { name: "disabled" })).not.toBeChecked()
-    await userEvent.click(await panel.findByRole("button", { name: "Reset disabled to the base design" }, slowly))
-    await expect(await panel.findByRole("switch", { name: "disabled" }, slowly)).toBeChecked()
-    await expect(panel.queryByRole("button", { name: "Reset disabled to the base design" })).toBeNull()
-  }
-}
-
-/** The state picker opened from the editing bar: every state of the design, to send edits to another. */
-export const ChoosingTheState: Story = {
-  loaders: [pick("Sign in", "Password input")],
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getAllByRole("combobox")[0]!)
-    await within(document.body).findByRole("listbox", undefined, slowly)
-  }
-}
-
-/** Make component clicked: a field for the new component's name, ready to type in. */
-export const NamingAComponent: Story = {
-  loaders: [pick("Pricing", "Billing period")],
-  play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    await userEvent.click(panel.getByRole("button", { name: "Make component" }))
-    await userEvent.type(
-      await panel.findByPlaceholderText("Component name", undefined, slowly),
-      "Billing switch",
-      typing
-    )
-  }
-}
-
-/** The selected layer was deleted, by an agent or another window: the panel says it no longer exists. */
-export const LayerGone: Story = {
-  loaders: [inspecting("design", () => layersSelection(design("Pricing"), ["deleted-layer"]))]
 }
