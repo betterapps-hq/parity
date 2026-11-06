@@ -1,15 +1,28 @@
-import { readRequest, replies, requestJsonSchema, requests, skillRequest } from "@parity-app/agent/contracts"
+import {
+  type AgentMethod,
+  type AgentMethods,
+  readRequest,
+  replies,
+  requestJsonSchema,
+  requests,
+  skillRequest
+} from "@parity-app/agent/contracts"
 import { z } from "zod"
 import type { Routing } from "./client.ts"
 import { type ExecResponse, execResponse, executionFailed, structuredExec } from "./execute.ts"
 
-/** Sends one call to the app and returns its answer once `reply` has checked it. */
-export type Send = <Reply extends z.ZodType>(
-  method: string,
-  params: Record<string, unknown>,
-  routing: Routing,
-  reply: Reply
-) => Promise<z.output<Reply>>
+/**
+ * Sends one call to the app and returns its answer once its schema has checked it. The method map is the one the app's
+ * dispatch answers by (PAR-564).
+ */
+export type Send = <M extends AgentMethod>(
+  method: M,
+  params: AgentMethods[M]["params"],
+  routing: Routing
+) => Promise<AgentMethods[M]["result"]>
+
+/** The methods an agent asks with input of its own: every one but `copy`, which the CLI asks on its own. */
+type Requested = AgentMethod & keyof typeof requests
 
 /**
  * The adapters share these contracts; they only parse their syntax and format results. Each operation's input and the
@@ -40,13 +53,12 @@ interface Options<Result> {
  * An operation whose canonical result is built from the app's checked answer, given the checked request. A request's
  * error points at the field, since an operation's fields are flat.
  */
-function mapped<Input extends z.ZodObject, Reply extends z.ZodType, Result extends object>(
-  method: string,
-  input: Input,
-  reply: Reply,
-  result: (reply: z.output<Reply>, request: z.output<Input>) => Result,
+function mapped<M extends Exclude<Requested, "exec">, Result extends object>(
+  method: M,
+  result: (reply: AgentMethods[M]["result"], request: AgentMethods[M]["params"]) => Result,
   options: Options<Result> = {}
 ): Operation<Result> {
+  const input: z.ZodObject = requests[method]
   const fields = Object.keys(input.shape)
   const routing = routingFor(fields)
   return {
@@ -54,8 +66,8 @@ function mapped<Input extends z.ZodObject, Reply extends z.ZodType, Result exten
     fields,
     routing,
     async run(given, send) {
-      const request = readRequest(input, given, 1)
-      return result(await send(method, request, routing, reply), request)
+      const request = readRequest(input, given, 1) as AgentMethods[M]["params"]
+      return result(await send(method, request, routing), request)
     },
     failed: options.failed ?? (() => false),
     structured: options.structured ?? ((value) => Object.fromEntries(Object.entries(value)))
@@ -70,13 +82,11 @@ function routingFor(fields: readonly string[]): Routing {
 }
 
 /** An operation whose canonical result is the app's answer. */
-function operation<Input extends z.ZodObject, Reply extends z.ZodType<object>>(
-  method: string,
-  input: Input,
-  reply: Reply,
-  options: Options<z.output<Reply>> = {}
-): Operation<z.output<Reply>> {
-  return mapped(method, input, reply, (answer) => answer, options)
+function operation<M extends Exclude<Requested, "exec" | "tabs" | "tokens">>(
+  method: M,
+  options: Options<AgentMethods[M]["result"]> = {}
+): Operation<AgentMethods[M]["result"]> {
+  return mapped(method, (answer) => answer, options)
 }
 
 /** The first `count` items, with how many there were, so a reply says when it left some out. */
@@ -101,34 +111,32 @@ export type ConsoleResponse = z.output<typeof consoleResult>
 export type TokensResponse = z.output<typeof tokensResult>
 
 export const operations = {
-  tabs: mapped("tabs", requests.tabs, replies.tabs, (tabs): TabsResponse => ({ tabs })),
-  state: operation("state", requests.state, replies.state),
-  status: operation("status", requests.status, replies.status),
-  modes: operation("modes", requests.modes, replies.modes),
-  open: operation("open", requests.open, replies.open),
+  tabs: mapped("tabs", (tabs): TabsResponse => ({ tabs })),
+  state: operation("state"),
+  status: operation("status"),
+  modes: operation("modes"),
+  open: operation("open"),
   screenshot: mapped(
     "screenshot",
-    requests.screenshot,
-    replies.screenshot,
     (reply): ExecResponse => execResponse(reply, Object.keys(requests.screenshot.shape)),
     { failed: executionFailed, structured: structuredExec }
   ),
-  problems: operation("problems", requests.problems, replies.problems, {
+  problems: operation("problems", {
     failed: (result) => result.problems.length > 0
   }),
-  accessibility: operation("accessibility", requests.accessibility, replies.accessibility, {
+  accessibility: operation("accessibility", {
     failed: (result) => result.findings.length > 0
   }),
-  console: mapped("console", requests.console, replies.console, ({ tab, entries }, request): ConsoleResponse => {
+  console: mapped("console", ({ tab, entries }, request): ConsoleResponse => {
     const { items, total, truncated } = bounded(entries, request.limit, "last")
     return { tab, entries: items, total, truncated }
   }),
-  tokens: mapped("tokens", requests.tokens, replies.tokens, (tokens, request): TokensResponse => {
+  tokens: mapped("tokens", (tokens, request): TokensResponse => {
     const { items, total, truncated } = bounded(tokens, request.limit)
     return { tokens: items, total, truncated }
   }),
-  components: operation("components", requests.components, replies.components),
-  props: operation("props", requests.props, replies.props)
+  components: operation("components"),
+  props: operation("props")
 }
 
 export const skillOperation = {

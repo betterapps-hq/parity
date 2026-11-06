@@ -1,7 +1,7 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, nodeInState } from "@parity-app/core"
 import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
-import { moveLayersAcross, moveLayersWithin } from "./move-layers.ts"
+import { moveLayersAcross, moveLayersWithin, readLayersDrag } from "./move-layers.ts"
 
 const text = (id: string): DesignNode => ({ type: "text", id, text: id })
 
@@ -170,5 +170,21 @@ describe("moving layers into another design", () => {
     expect(moved).toEqual({ source, destination, copies: [] })
     expect(moved.source).toBe(source)
     expect(moved.destination).toBe(destination)
+  })
+})
+
+describe("layers dragged in the Layers panel", () => {
+  it("read back as the design and the layers dragged", () => {
+    expect(readLayersDrag(JSON.stringify({ design: "screen:dashboard", ids: ["title"] }))).toEqual({
+      design: "screen:dashboard",
+      ids: ["title"]
+    })
+  })
+
+  it("read as nothing when the drag holds something else, so the drop does nothing", () => {
+    expect(readLayersDrag("")).toBeUndefined()
+    expect(readLayersDrag(JSON.stringify({ design: "screen:dashboard", ids: "title" }))).toBeUndefined()
+    expect(readLayersDrag(JSON.stringify({ design: "screen:dashboard", ids: [] }))).toBeUndefined()
+    expect(readLayersDrag(JSON.stringify({ ids: ["title"] }))).toBeUndefined()
   })
 })

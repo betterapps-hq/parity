@@ -12,6 +12,7 @@ import {
   sharedPreviewFiles
 } from "@parity-app/project"
 import type { ComponentPreview, PreviewJob } from "../shared/protocol.ts"
+import { previewName } from "../shared/render-job.ts"
 import { previewIndex, storedPreview, storePreview } from "./bitmap-store.ts"
 import { codeServedAt, previewProject } from "./projects.ts"
 import { renderPreview } from "./render.ts"
@@ -103,9 +104,9 @@ async function lookup(preview: PreviewJob): Promise<ComponentPreview | undefined
 }
 
 /**
- * A preview's key: what its job draws, less where it's drawn from and what the guest was given, and the files it
- * depends on, as the address the job draws from first served them. Unsaved token previews aren't drawn in previews, so
- * a token being tried changes none of them; saved, it changes the stylesheet, and so every one.
+ * A preview's key: its job as `previewName` names it, and the files it depends on, as the address the job draws from
+ * first served them. Unsaved token previews aren't drawn in previews, so a token being tried changes none of them;
+ * saved, it changes the stylesheet, and so every one.
  */
 async function keyFor({ job }: PreviewJob): Promise<string | undefined> {
   const project = previewProject(job.projectId)
@@ -122,17 +123,8 @@ async function keyFor({ job }: PreviewJob): Promise<string | undefined> {
   const closure = await moduleClosure([...entries, ...project.stylesheets], (path) =>
     importsOf(project.root, snapshot, path)
   )
-  const {
-    guestUrl: _address,
-    components: _given,
-    previews: _tokens,
-    audit: _audit,
-    colorTokens: _colors,
-    projectId: _project,
-    ...drawn
-  } = job
   return previewKey({
-    drawn,
+    drawn: previewName(job),
     files: [...closure, ...sharedPreviewFiles(snapshot)],
     snapshot,
     salt: `${previewFormat}:${snapshot.salt}`

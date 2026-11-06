@@ -1,5 +1,5 @@
 import { childNodes, type DesignNode, locateNode, nodeOnBoard } from "@parity-app/core"
-import { activeState } from "@parity-app/editor"
+import { activeState, selectedNodes, type Selection } from "@parity-app/editor"
 import { ChevronRight, EyeOff, MonitorSmartphone, PenLine, Plus } from "lucide-react"
 import { type KeyboardEvent, useMemo, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
@@ -8,7 +8,7 @@ import { createDesign } from "../../chrome/create.ts"
 import { Hint } from "../../chrome/Hint.tsx"
 import { IconButton } from "../../chrome/IconButton.tsx"
 import { type ContainerEntry, useContainerEntries } from "../../design-store.ts"
-import { selectedNodes, type Selection, useHover, useSelection } from "../../selection.ts"
+import { useHover, useSelection } from "../../selection.ts"
 
 /*
  * The Layers tab once a screen and its root are one thing: each screen or component lists its root's children straight

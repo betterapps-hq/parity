@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Refuse SetTokens values the token detail refuses: brackets, missing tokens, loops, and values not of the token's kind",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

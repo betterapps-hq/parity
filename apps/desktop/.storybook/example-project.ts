@@ -3,8 +3,8 @@ import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { guestModuleSource } from "@parity-app/builder-vite"
 import { inferProps } from "@parity-app/code"
-import { type ComponentInfo, defaultModeSettings, type PackageManifest, parseCanvasDocument } from "@parity-app/core"
-import { detectProject, discoverProject } from "@parity-app/project"
+import { type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
+import { detectProject, discoverProject, readPackage } from "@parity-app/project"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
 import type { Plugin } from "vite"
@@ -99,7 +99,8 @@ async function discover(): Promise<{
   info: Omit<ProjectInfo, "guestUrl">
   components: Record<string, ComponentInfo>
 }> {
-  const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as PackageManifest
+  const pkg = (await readPackage(root))?.manifest
+  if (!pkg) throw new Error(`There's no package.json in ${root}`)
   const config = await discoverProject(root, reactRenderer, pkg)
   const stylesheet = config.styles[0]
   const theme = stylesheet ? await tailwindStyles.loadTheme(root, stylesheet).catch(() => []) : []

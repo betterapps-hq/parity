@@ -9,9 +9,8 @@ import {
   locateInner,
   nodeLabel
 } from "@parity-app/core"
-import { editingState } from "@parity-app/editor"
+import { editingState, layersSelection, selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
-import { layersSelection, selectedDesigns, selectedNodes, type Selection } from "../selection.ts"
 import { type Command, keymap } from "./keymap.ts"
 
 /**

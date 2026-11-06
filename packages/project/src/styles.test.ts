@@ -38,6 +38,14 @@ describe("findStyles", () => {
     expect((await findStyles(root)).styles).toEqual(["styles/app.css"])
   })
 
+  it("says what's wrong with a components.json it can't read, and looks elsewhere", async () => {
+    await write("src/index.css", "")
+    await write("components.json", '{ "tailwind": { "css": ["styles/app.css"] } }')
+    const notes: string[] = []
+    expect((await findStyles(root, notes)).styles).toEqual(["src/index.css"])
+    expect(notes[0]).toBe("Couldn't load components: /tailwind/css: expected a string")
+  })
+
   it("reads a root-absolute import from the project's root, as Vite does", async () => {
     await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
     await write("src/main.tsx", 'import "/theme/site.css"')

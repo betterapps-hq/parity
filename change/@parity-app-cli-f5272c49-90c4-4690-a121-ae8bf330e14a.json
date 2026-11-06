@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Absolutely placed layers preview while dragged and save once on drop; dropping from the panel and layer snapping measure less per move; a field scrub commits without a gesture of its own.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

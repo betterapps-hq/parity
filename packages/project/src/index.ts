@@ -15,7 +15,7 @@ import {
 } from "@parity-app/core"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { findStorybook } from "./storybook.ts"
-import { field, shadcnConfig, stylesWith } from "./styles.ts"
+import { type ShadcnConfig, shadcnConfig, stylesWith } from "./styles.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
@@ -176,14 +176,14 @@ async function addWorkspacePackages(
  */
 async function findUiKit(
   root: string,
-  shadcn: unknown,
+  shadcn: ShadcnConfig | undefined,
   tsconfig: ProjectTsconfig,
   renderer: RendererAdapter,
   notes: string[]
 ): Promise<string | undefined> {
   const candidates: string[] = []
-  const alias = field(shadcn, "aliases", "ui")
-  if (typeof alias === "string") {
+  const alias = shadcn?.aliases?.ui
+  if (alias !== undefined) {
     const resolved = resolveAlias(root, tsconfig, alias)
     if (resolved) candidates.push(resolved)
   }

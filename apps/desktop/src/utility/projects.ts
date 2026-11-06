@@ -24,7 +24,6 @@ import {
   defaultModeSettings,
   libraryCanvas,
   libraryManifestExtension,
-  type PackageManifest,
   parseCanvasDocument,
   parseLibraryManifest,
   type ProjectDetection,
@@ -43,6 +42,7 @@ import {
   importersOf,
   lockfileFolders,
   readChangedFiles,
+  readPackage,
   readTsconfig
 } from "@parity-app/project"
 import { reactRenderer } from "@parity-app/renderer-react"
@@ -198,7 +198,8 @@ export function getProject(projectId: string): OpenProject {
 }
 
 async function start(root: string): Promise<ProjectInfo> {
-  const pkg = (await readJson(join(root, "package.json"))) as PackageManifest
+  const pkg = (await readPackage(root))?.manifest
+  if (!pkg) throw new Error(`There's no package.json in ${root}`)
   const renderer = renderers.find((adapter) => adapter.detect(pkg))
   if (!renderer) throw new Error(`No renderer supports ${pkg.name ?? root}`)
   const found = await findBuilder(root)
@@ -692,7 +693,7 @@ function isConfigInput(project: OpenProject, file: string): boolean {
 /**
  * Sorts the app's sources again, then reads props and the type check again, after a config input changed. Components
  * in files the config now leaves out drop off the list and those in files it newly includes join it, as on opening.
- * The type checker makes the project's program again from the config as it is now (see `utility/props-worker.ts`), so
+ * The type checker makes the project's program again from the config as it is now (see `programCache` in `@parity-app/code`), so
  * the answers match a project opened afresh.
  */
 async function rereadConfig(project: OpenProject, changed: () => void): Promise<void> {
@@ -891,14 +892,6 @@ async function findBuilder(
     misses.push(`${builder.name}: ${detection.summary}`)
   }
   return { misses }
-}
-
-async function readJson(path: string): Promise<unknown> {
-  try {
-    return JSON.parse(await readFile(path, "utf8"))
-  } catch (error) {
-    throw new Error(`Could not read ${path}: ${message(error)}`, { cause: error })
-  }
 }
 
 export function message(error: unknown): string {

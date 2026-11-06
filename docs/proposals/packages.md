@@ -4,10 +4,11 @@ Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-
 `@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. `@parity-app/tokens` holds reading,
 editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32), drop
 rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. `@parity-app/models` holds the lens
-models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577), and `@parity-app/project` the one reader
-of installed packages (PAR-573), on 2026-11-05. `@parity-app/account` holds signing in with WorkOS (PAR-613), and
-`@parity-app/telemetry` telemetry's event model (PAR-618), on 2026-11-05. The rule and the first items are in
-[decisions.md](../decisions.md) and in Linear's Package boundaries stream.
+models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and the selection model and edit target
+(PAR-570), and `@parity-app/project` the one reader of installed packages (PAR-573), on 2026-11-05.
+`@parity-app/account` holds signing in with WorkOS (PAR-613), and `@parity-app/telemetry` telemetry's event model
+(PAR-618), on 2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and in Linear's Package
+boundaries stream.
 
 ## In one line
 
@@ -29,7 +30,9 @@ when it's spread through UI code. Today:
 
 - **`@parity-app/core` is the `.par` model and the operations on it:** documents, edits, instances, render resolution,
   modes, CSS and the library manifest, with the token types its contracts name. It imports nothing from Node, Electron
-  or React, and has 12 test files.
+  or React, and has 12 test files. Its `values/` module checks and evaluates decorator and sample values (PAR-572); the
+  guest imports its evaluator and `icon-names.ts` alone, as `@parity-app/core/values/evaluate` and
+  `@parity-app/core/icon-names`, since they import nothing at runtime.
 - **Framework-specific code sits behind adapter interfaces:** `@parity-app/renderer-react`, `@parity-app/builder-vite`
   and `@parity-app/styles-tailwind`.
 - **The agent API calls core's edits** (`setContainer`, `insertNode`, `moveNode`, `applyChanges` and the rest) rather
@@ -50,7 +53,10 @@ when it's spread through UI code. Today:
      `@parity-app/editor` since PAR-32);
    - [snap.ts](../../apps/desktop/src/renderer/canvas/snap.ts): snapping (in `@parity-app/editor` since PAR-33);
    - [design-store.ts](../../apps/desktop/src/renderer/design-store.ts): undo, unsaved tracking and save state, inside a
-     store that also holds React hooks (in `@parity-app/editor` since PAR-34).
+     store that also holds React hooks (in `@parity-app/editor` since PAR-34);
+   - [selection.ts](../../apps/desktop/src/renderer/selection.ts) and `editingState` in `LayerPanel.tsx`, with copies in
+     the canvas menu and nudging: the selection model, and which design, state and viewport an edit lands on (in
+     `@parity-app/editor` since PAR-570, as `selection.ts` and `edit-frame.ts`; the app keeps the store and its hooks).
 2. **Code is read three times, by three packages.** `project/components.ts` parses files to list components,
    `libgen/components.ts` runs TypeScript's checker to find them, and `@parity/props` runs it again for props. (They are
    [listing.ts](../../packages/code/src/listing.ts), [checker.ts](../../packages/code/src/checker.ts) and
@@ -89,24 +95,28 @@ when it's spread through UI code. Today:
 
 ## The packages
 
-| Package                                 | What it owns                                                                                                                                                                              | Comes from                                                                                                |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `@parity-app/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review.                | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet.        |
-| Project edits, in `@parity-app/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                               | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`.        |
-| `@parity-app/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, moving, resizing and nudging, selection, undo and unsaved tracking. | The renderer files listed above.                                                                          |
-| `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.                             | New code.                                                                                                 |
-| `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                                              | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                              |
-| `@parity-app/account`                   | Signing in with WorkOS without the views: the authorize URL and PKCE, the link the browser hands back, the code exchange and refresh, the token's claims, and when to refresh.            | New code, from [sign-in.md](sign-in.md) (PAR-613).                                                        |
-| `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, matching described tokens to custom properties, and checking what a token edit may write (PAR-569).                         | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.               |
-| `@parity-app/channel`                   | Requests and replies over any port: request ids, waiting for a port, failing on close, coded details both ways, unknown methods and checked params.                                       | The preload script, `utility/index.ts`, `render.ts`, `console.ts`, `worker-client.ts` and main (PAR-565). |
-| `@parity-app/telemetry`                 | Telemetry's event model without Sentry: the envelope, registered events with zod schemas, spans with W3C trace IDs, sinks, a test sink and the last 500 events.                           | New code, from [product-telemetry.md](product-telemetry.md) (PAR-618).                                    |
+| Package                                 | What it owns                                                                                                                                                                                             | Comes from                                                                                                |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `@parity-app/code`                      | One TypeScript program per project. Listing components, props, file ownership by hash, writing a component file from a design, reading an edited file back, drift, review.                               | `project/components.ts`, `libgen/components.ts`, `@parity/props`, and the CMP items not built yet.        |
+| Project edits, in `@parity-app/project` | File edits built as data, shown as a diff, applied together, undone together, remembered so the app ignores its own writes.                                                                              | The writes in `utility/projects.ts`, `utility/libraries.ts`, `utility/images.ts` and `cli/lib.ts`.        |
+| `@parity-app/editor`                    | Editor behaviour without the views: clipboard, drop rules, arranging, inserting, Make component, placement, snapping, moving, resizing and nudging, style editing, selection, undo and unsaved tracking. | The renderer files listed above.                                                                          |
+| `@parity-app/models`, then one per lens | The lens schemas (PAR-15), then each lens's standards reader and model operations. Each adapter, such as Drizzle or TanStack Router, is a package of its own.                                            | New code.                                                                                                 |
+| `@parity-app/storybook`                 | Everything Storybook-specific, behind the `StoryAdapter` in [storybook.md](../storybook.md).                                                                                                             | `project/storybook.ts` and `utility/storybook.ts` (PAR-114).                                              |
+| `@parity-app/account`                   | Signing in with WorkOS without the views: the authorize URL and PKCE, the link the browser hands back, the code exchange and refresh, the token's claims, and when to refresh.                           | New code, from [sign-in.md](sign-in.md) (PAR-613).                                                        |
+| `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, matching described tokens to custom properties, and checking what a token edit may write (PAR-569).                                        | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.               |
+| `@parity-app/channel`                   | Requests and replies over any port: request ids, waiting for a port, failing on close, coded details both ways, unknown methods and checked params.                                                      | The preload script, `utility/index.ts`, `render.ts`, `console.ts`, `worker-client.ts` and main (PAR-565). |
+| `@parity-app/telemetry`                 | Telemetry's event model without Sentry: the envelope, registered events with zod schemas, spans with W3C trace IDs, sinks, a test sink and the last 500 events.                                          | New code, from [product-telemetry.md](product-telemetry.md) (PAR-618).                                    |
 
 ### `@parity-app/code`: design and code, both ways
 
 This is the one you expect to iterate on most, so it gets the clearest boundary.
 
 - **One program per project** serves listing, checking and props, within the memory budget the detection proposal sets.
-  It's still kept by the app's worker, `utility/props-worker.ts`, until PAR-603 moves it here.
+  `programCache` in [program-cache.ts](../../packages/code/src/program-cache.ts) keeps it: it takes the root, the files
+  to read and the lockfiles, and answers the check and props through a `ComponentFinder`. It builds the program again
+  when a file it read changes, makes it afresh when a config input changes, keeps two projects' programs, and builds
+  none below a gigabyte of free memory. The app's worker, `utility/props-worker.ts`, only takes requests and replies
+  (PAR-603).
 - **The component list is worked out in one step.** `nextComponentList` in
   [component-list.ts](../../packages/code/src/component-list.ts) takes an open project's list and what happened: the
   project opened, a saved detection was found, the type checker read files, the parse read changed files (every file,
@@ -172,6 +182,26 @@ and the copies disagreed.
   The canvas measures a layer or a frame when a gesture begins, and the module gives the style or size for each pointer
   move or arrow press: steps or fill, insets, snapped edges, `grow`, a frame's snap-back and smallest size, and
   reordering. The app keeps the measuring (`frameDrawn`, `LayerSnapping`), the gesture lifecycle and the writes.
+- **Style editing for a selection is one module,** [style-editing.ts](../../packages/editor/src/style-editing.ts)
+  (PAR-567), next to `withTextSizing`. It takes the design, the selected ids and the state they were picked in, and
+  gives where edits go, the style the layers share, what differs and what the state changes, the layout they sit in, and
+  each row's edit and reset across the layers. Each row's keys are listed once, in `styleRows`. The app keeps the rows'
+  views, measuring, previewing and the store (`chrome/style-editor.ts`).
+
+### Agent calls, in `@parity-app/agent`
+
+Built in PAR-564 (2026-11-05). The app's half of every agent call was 527 lines of `utility/agent.ts` that ran only in
+Electron, with no tests.
+
+- **`dispatch` in [dispatch.ts](../../packages/agent/src/dispatch.ts) answers each RPC method:** its defaults, the
+  caller's cursor starting and ending, the state report, counting a check's frames, the answer's shape, and a coded
+  error for a method the app doesn't have. The window's Export and accessibility check use its `exportPictures` and
+  `accessibility`.
+- **What only the desktop can do comes through an `AgentHost`:** the editor window's tabs and snapshot, applying
+  changes, presence, the offscreen renderer, the console and saving screenshots. The app's `desktopHost` is one host,
+  and `dispatch.test.ts`'s fixture tab is another.
+- **The method map is `AgentMethods` in [contracts.ts](../../packages/agent/src/contracts.ts),** from PAR-590's schemas.
+  The CLI client asks by it and `dispatch` answers by it, so a shape that drifts fails to compile on either side.
 
 ### Lenses and adapters
 
@@ -189,6 +219,8 @@ and the copies disagreed.
   method map: the preload script the window's `MessagePort`, the service each window's `MessagePortMain` and its
   `parentPort`, main the service's `UtilityProcess`, and the type checker's client its `Worker`. The method maps and the
   service's param checks are in `shared/`, and the `canvas:*` IPC names in `shared/channels.ts`.
+- **Agent calls' desktop half** (PAR-564): `utility/agent.ts` is the HTTP endpoint and `desktopHost`, which reaches the
+  window, the offscreen renderer and the console, and writes PNG files. Which method does what is `@parity-app/agent`'s.
 - **The renderer:** views, tldraw wiring, hooks, and DOM measuring.
 
 ## Order
@@ -202,8 +234,9 @@ and the copies disagreed.
 5. **`@parity-app/models` with PAR-15,** then a package per lens and adapter as each starts.
 6. **`@parity-app/storybook` with PAR-114.**
 7. **`@parity-app/tokens`** (PAR-35, done on 2026-10-30; it depends on core, which keeps the token types its own
-   contracts name; the token detail's value checks followed on 2026-11-05, PAR-569), and the agent API's 1,320-line
-   workspace split by area when it next grows.
+   contracts name; the token detail's value checks followed on 2026-11-05, PAR-569), and the agent API's workspace split
+   by area (PAR-574, 2026-11-05): lint (`lint.ts`), board geometry (`boards.ts`) and frame reading (`frames.ts`) take
+   data and return data, and the working copy, lookup, reads, edits and presence stay together in `workspace.ts`.
 
 ## Calls made here
 

@@ -1,7 +1,22 @@
 import { execute, type FrameRequest } from "@parity-app/agent"
 import { type ContainerSpec, frameGeometry, type ModeSettings, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { drawnComponents, renderJobMode } from "./render-job.ts"
+import type { RenderJob } from "./protocol.ts"
+import {
+  bitmapName,
+  deviceBox,
+  devicePixels,
+  drawnComponents,
+  frameBox,
+  frameHeight,
+  frameKeys,
+  type JobFrame,
+  type JobGuest,
+  previewName,
+  renderJob,
+  renderJobMode
+} from "./render-job.ts"
+import { serviceChecks } from "./service-checks.ts"
 
 /** A 1280px screen 1234px tall, whose height is the mode's own rather than the nearest device's 800. */
 const modes: ModeSettings = {
@@ -124,5 +139,147 @@ describe("drawnComponents", () => {
       "Card",
       "src/cards.tsx#Card"
     ])
+  })
+})
+
+const guest: JobGuest = {
+  projectId: "D:/shop",
+  guestUrl: "http://localhost:5001",
+  theme: [{ name: "--x", value: "1" }]
+}
+const drawsText: JobFrame = {
+  tree: [{ nodeId: "a", type: "text", text: "Sign in" }],
+  mode,
+  frame: { width: 320, height: 200, viewport: { width: 320, height: 200 } },
+  scale: 0.25
+}
+const token = { name: "--x", theme: "light", value: "2" }
+
+describe("renderJob", () => {
+  it("leaves out what a frame doesn't have: given components, previewed tokens, and colors when not auditing", () => {
+    const job = renderJob(guest, { ...drawsText, tokens: [], colorTokens: ["--x"] })
+    expect(Object.keys(job)).toEqual(["projectId", "guestUrl", "theme", "tree", "mode", "scale"])
+    const audited = renderJob(
+      { ...guest, components: { Card: { path: "src/card.tsx", export: "Card" } } },
+      { ...drawsText, tokens: [token], audit: true, colorTokens: ["--x"], inlinePortals: true }
+    )
+    expect(audited).toMatchObject({ audit: true, colorTokens: ["--x"], inlinePortals: true, previews: [token] })
+    expect(audited.components).toEqual({ Card: { path: "src/card.tsx", export: "Card" } })
+  })
+
+  it("passes the service's check whole, so each process draws the job it was given", () => {
+    const job = renderJob(
+      { ...guest, components: { Card: { path: "src/card.tsx", export: "Card" } } },
+      { ...drawsText, tokens: [token], audit: true, colorTokens: ["--x"], inlinePortals: true }
+    )
+    expect(serviceChecks["frames.capture"]({ job }).job).toEqual(job)
+    expect(
+      serviceChecks["previews.make"]({ preview: { component: "Card", job }, priority: "idle" }).preview.job
+    ).toEqual(job)
+  })
+})
+
+describe("a job's names", () => {
+  const job = renderJob(guest, drawsText)
+  const drawing = { id: 1, code: 3 }
+  const names = (named: RenderJob) => ({
+    memory: frameKeys(named, drawing),
+    bitmap: bitmapName(named, {}),
+    preview: JSON.stringify(previewName(named))
+  })
+
+  it("leave out a field the job gains, in the job or its mode, until this module names it", () => {
+    const grown = { ...job, opacity: 0.5, mode: { ...job.mode, safeArea: 20 } } as RenderJob
+    expect(names(grown)).toEqual(names(job))
+  })
+
+  it("leave out where the guest is on disk, so a project opened again at a new address finds what it kept", () => {
+    const moved = { ...job, guestUrl: "http://localhost:5002" }
+    expect(bitmapName(moved, {})).toBe(bitmapName(job, {}))
+    expect(previewName(moved)).toEqual(previewName(job))
+    // In memory the address is the guest's, which a new address replaces.
+    expect(frameKeys(moved, drawing).drawn).not.toBe(frameKeys(job, drawing).drawn)
+  })
+
+  it("leave out a frame's check, which changes nothing drawn", () => {
+    const audited = { ...job, audit: true, colorTokens: ["--x"] }
+    expect(names(audited)).toEqual(names(job))
+  })
+
+  it("change with what's drawn: the tree, the mode, the size and the scale", () => {
+    const changes: RenderJob[] = [
+      { ...job, tree: [{ nodeId: "a", type: "text", text: "Sign up" }] },
+      { ...job, mode: { ...job.mode, classNames: ["dark"] } },
+      { ...job, mode: { ...job.mode, width: 321 } },
+      { ...job, mode: { ...job.mode, viewport: { width: 320, height: 640 } } },
+      { ...job, scale: 0.5 }
+    ]
+    for (const changed of changes) {
+      const [before, after] = [names(job), names(changed)]
+      expect(after.memory.key).not.toBe(before.memory.key)
+      expect(after.bitmap).not.toBe(before.bitmap)
+      expect(after.preview).not.toBe(before.preview)
+    }
+  })
+
+  it("keep each theme's preview apart, so switching back finds the one made", () => {
+    const dark = { ...job, mode: { ...job.mode, classNames: ["dark"] } }
+    expect(previewName(dark)).not.toEqual(previewName(job))
+    expect(previewName({ ...dark, mode: { ...dark.mode, classNames: [] } })).toEqual(previewName(job))
+  })
+
+  it("name the tokens previewed on a bitmap and in memory, but not on a preview, which never draws them", () => {
+    const previewing = { ...job, previews: [token] }
+    expect(bitmapName(previewing, {})).not.toBe(bitmapName(job, {}))
+    expect(frameKeys(previewing, drawing).key).not.toBe(frameKeys(job, drawing).key)
+    // The live frame lays tokens over itself, so what it draws is the same.
+    expect(frameKeys(previewing, drawing).drawn).toBe(frameKeys(job, drawing).drawn)
+    expect(previewName(previewing)).toEqual(previewName(job))
+  })
+
+  it("name the guest and its code in memory, which the disk names have in the code the stores add", () => {
+    expect(frameKeys(job, { id: 2, code: 3 }).drawn).not.toBe(frameKeys(job, drawing).drawn)
+    expect(frameKeys(job, { id: 1, code: 4 }).drawn).not.toBe(frameKeys(job, drawing).drawn)
+  })
+
+  it("name a bitmap by where the components it draws come from, however they reached the guest", () => {
+    const card = { path: "src/card.tsx", export: "Card" }
+    const drawsCard = { ...job, tree: [{ kind: "component", nodeId: "a", component: "Card", props: {}, slots: {} }] }
+    // A guest given Card by the type checker, and one served it from the start, draw the same bitmap.
+    expect(bitmapName({ ...drawsCard, components: { Card: card } }, {})).toBe(bitmapName(drawsCard, { Card: card }))
+    expect(bitmapName(drawsCard, { Card: { path: "src/cards.tsx", export: "Card" } })).not.toBe(
+      bitmapName(drawsCard, { Card: card })
+    )
+  })
+
+  it("name a bitmap as before PAR-575, so the bitmaps kept already are found", () => {
+    // The job as the service read it, less the address and the components, then where each component comes from.
+    const checked = serviceChecks["frames.stored"]({ job: renderJob(guest, { ...drawsText, tokens: [token] }) }).job
+    const { guestUrl: _address, components: _given, ...drawn } = checked
+    expect(bitmapName(checked, {})).toBe(`${JSON.stringify(drawn)}\0${JSON.stringify([])}`)
+  })
+})
+
+describe("the scale", () => {
+  it("sizes the window in whole device pixels, at least one", () => {
+    expect(devicePixels(1280, 0.25)).toBe(320)
+    expect(devicePixels(1281, 0.25)).toBe(321)
+    expect(devicePixels(0, 2)).toBe(1)
+  })
+
+  it("crops to the device pixels that cover a box", () => {
+    expect(deviceBox({ x: 10.5, y: 3.2, width: 100.1, height: 0 }, 2)).toEqual({ x: 21, y: 6, width: 201, height: 1 })
+  })
+
+  it("measures back in the frame's CSS pixels, to a tenth", () => {
+    const box = { left: 110, top: 53, width: 33, height: 10 }
+    expect(frameBox(box, { left: 10, top: 3 }, 0.25)).toEqual({ x: 400, y: 200, width: 132, height: 40 })
+    expect(frameBox({ left: 1, top: 1, width: 1, height: 1 }, { left: 0, top: 0 }, 3)).toEqual({
+      x: 0.3,
+      y: 0.3,
+      width: 0.3,
+      height: 0.3
+    })
+    expect(frameHeight(50.1, 0.25)).toBe(201)
   })
 })

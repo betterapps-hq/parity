@@ -3,7 +3,6 @@ import {
   type ContainerViewSettings,
   type ModeSettings,
   type ResolvedMode,
-  resolveModes,
   shownModes
 } from "@parity-app/core"
 
@@ -70,12 +69,4 @@ export function toggleShownMode(
 export function modeNames(all: readonly ResolvedMode[], ids: readonly string[]): string {
   const names = all.filter((mode) => ids.includes(mode.id)).map((mode) => mode.name)
   return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
-}
-
-/**
- * The viewport of the frame a layer was picked in, by its mode: the key its design's responsive patches use, so an edit
- * reads the layer as that frame shows it. None when no frame is known.
- */
-export function frameViewport(modes: ModeSettings, mode: string | undefined): string | undefined {
-  return mode === undefined ? undefined : resolveModes(modes).find((candidate) => candidate.id === mode)?.viewport
 }

@@ -1,5 +1,5 @@
 import type { ContainerKind } from "@parity-app/core"
-import { selectedDesigns, selectedNodes } from "../selection.ts"
+import { selectedDesigns, selectedNodes } from "@parity-app/editor"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {

@@ -1,21 +1,18 @@
 import type {
   AccessibilityFinding,
   AccessibilityIssue,
-  AgentEvent,
   FrameContrast,
   IconNames,
-  IconSet,
   MeasuredNode
 } from "@parity-app/agent"
+import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
+import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
-  CodeEditorChoice,
   ChangeConflict,
   ComponentInfo,
-  ComponentRenderStatus,
   ComponentSource,
-  ContainerSpec,
   DescribedTokens,
   DesignChange,
   DetectionCorrections,
@@ -30,7 +27,9 @@ import type {
   UpdateState
 } from "@parity-app/core"
 import type { EditStatus } from "@parity-app/editor"
-import type { Token, TokenChange, TokenWrite } from "@parity-app/tokens"
+import type { TokenChange, TokenWrite } from "@parity-app/tokens"
+import type { z } from "zod"
+import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -229,16 +228,17 @@ export interface WindowMethods {
   "agent.tabs": { params: undefined; result: TabSummary[] }
   /** The window's tabs and when it last had focus, which agents' calls are routed by (PAR-514). */
   "agent.copy": { params: undefined; result: CopyReport<TabSummary> }
-  "agent.snapshot": { params: { tab?: string }; result: TabSnapshot }
+  /** A tab's live state, by the tab an agent's call names, as its schema in `contracts.ts` read it (PAR-598). */
+  "agent.snapshot": { params: Pick<AgentMethods["state"]["params"], "tab">; result: TabSnapshot }
   /** Where a tab's edits stand: applied, undoable and saved. Reading it changes nothing. */
-  "agent.status": { params: { tab?: string; summary?: boolean; limit?: number }; result: TabStatus }
+  "agent.status": { params: AgentMethods["status"]["params"]; result: TabStatus }
   /**
    * Merges an agent's changes in as one undoable step, or, when any overlaps what changed in the editor since the
    * agent's snapshot, applies nothing and gives back the conflicts.
    */
   "agent.apply": { params: AgentChanges; result: ChangeConflict[] }
   "agent.presence": { params: PresenceEvent[]; result: undefined }
-  "agent.open": { params: { root: string }; result: TabSummary }
+  "agent.open": { params: AgentMethods["open"]["params"]; result: TabSummary }
   /** An icon set's names in one style's module, from the tab's own copy of the set, for `Icons(set)`. */
   "agent.iconNames": { params: { tab: string; set: string; module?: string }; result: IconNames }
   /** Whether the browser takes each value for its CSS property, for checking an agent's `SetTokens` (PAR-584). */
@@ -335,17 +335,6 @@ export interface DocumentEntry {
   error?: string
 }
 
-export interface TabSummary {
-  id: string
-  name: string
-  root: string
-  active: boolean
-  status: "loading" | "ready" | "error"
-  error?: string
-  designs: number
-}
-
-/** Everything an agent reads from a tab before it works on it. */
 /**
  * Where a tab's edits stand (see `editStatus` in `@parity-app/editor`), with the revision as the agent API gives it:
  * opaque, and equal only while nothing has changed in this tab since it opened.
@@ -357,42 +346,6 @@ export type TabStatus = Omit<EditStatus, "revision"> & {
   autosave: boolean
 }
 
-export interface TabSnapshot {
-  tab: TabSummary
-  /** The tab's revision (see `TabStatus`), which changes with every change to its designs, modes or token edits. */
-  revision: string
-  projectId: string
-  guestUrl: string
-  components: string[]
-  /** Where each component comes from, with the parents and sample a library part is inserted with. */
-  sources: Record<string, ComponentSource>
-  /** Components the type checker found after the guest loaded, which other pages' guests have to add themselves. */
-  addedComponents?: Record<string, Pick<ComponentSource, "path" | "export">>
-  /** The app's exports the type checker left out, with why. */
-  leftOut?: LeftOutExport[]
-  /** How each component drawn so far fares on the canvas: drawn, or failing with what it threw. */
-  renderStatus?: Record<string, ComponentRenderStatus>
-  /** The project's icon sets, without the tags their icons are searched by, which `agent.iconNames` reads. */
-  iconSets: IconSet[]
-  tokens: Token[]
-  theme: ThemeVariable[]
-  modes: ModeSettings
-  documents: { path: string; document: CanvasDocument }[]
-  /** The component designs the project's libraries bring, which instances place as the canvas's do. */
-  libraryDesigns: ContainerSpec[]
-  /** Every token value the canvas's unsaved edits leave different from the compiled CSS, which frames lay over it. */
-  tokenOverrides: TokenChange[]
-  mainDocument: string
-  props: Record<string, ComponentInfo>
-  selection: { design?: string; node?: string; mode?: string }
-  /** The part of the canvas the person is looking at. */
-  viewport: { x: number; y: number; width: number; height: number; zoom: number }
-  /** Each design's board on the canvas, by design key. */
-  bounds: Record<string, { x: number; y: number; width: number; height: number }>
-  /** What detection found in the project, and where. */
-  detection: ProjectDetection
-}
-
 /** An agent's call to apply in a tab: the designs it changed with how it found them, its modes and token values. */
 export interface AgentChanges {
   tab: string
@@ -400,27 +353,6 @@ export interface AgentChanges {
   designs: DesignChange[]
   modes?: ModesChange
   tokens?: TokenChange[]
-}
-
-/** What an agent touched, so the editor can show it working. */
-export interface PresenceEvent {
-  tab: string
-  /** What the agent is doing: the cursor's badge shows an icon for it, and its look depends on it. */
-  kind: AgentEvent["kind"]
-  /** Who is calling, such as "Claude Code" or "Cursor", named on the cursor. */
-  agent?: string
-  /** Tells agents with the same name apart, each with its own cursor. */
-  agentId?: string
-  /** The call's label, shown while it runs. */
-  label?: string
-  design?: string
-  node?: string
-  state?: string
-  mode?: string
-  error?: string
-  /** Where a moved design's board was and where it goes, on the canvas. */
-  from?: { x: number; y: number }
-  to?: { x: number; y: number }
 }
 
 /** Installed release identity, independent of the user's update channel preference. */
@@ -470,7 +402,7 @@ export interface CanvasHost {
   /** Opens the window's developer tools, or closes them. */
   toggleDevTools(): Promise<void>
   /** The app's theme, so the window's title bar buttons and system dialogs match it. */
-  setTheme(theme: "light" | "dark" | "system"): Promise<void>
+  setTheme(theme: ThemeSource): Promise<void>
   /**
    * Runs when the window is asked to close, which waits for it: true closes it, false keeps it open, as when the
    * person cancels on being asked about unsaved changes.
@@ -496,20 +428,9 @@ export interface ProcessUsage {
 }
 
 /** A file to open in the person's editor (PAR-527). */
-export interface OpenInEditorRequest {
-  /** Its absolute path. */
-  file: string
-  /** The export to open it at, as a component's source names it. */
-  export?: string
-  /** What Settings says to open it with. */
-  editor: CodeEditorChoice
-}
+export type OpenInEditorRequest = z.infer<typeof openInEditorRequest>
 
-export interface SaveDialogOptions {
-  title: string
-  defaultPath?: string
-  filters?: { name: string; extensions: string[] }[]
-}
+export type SaveDialogOptions = z.infer<typeof saveDialogOptions>
 
 /** A frame the offscreen render window draws, to measure it or capture it. */
 export interface RenderJob {
@@ -612,7 +533,7 @@ export interface ComponentPreview {
   last?: PreviewImage
 }
 
-export type { MeasuredNode }
+export type { ConsoleEntry, MeasuredNode, PresenceEvent, TabSnapshot, TabSummary }
 
 export interface RenderedFrame {
   width: number
@@ -628,19 +549,4 @@ export interface RenderedFrame {
   error?: string
   issues?: AccessibilityIssue[]
   contrast?: FrameContrast
-}
-
-/** A message the project's own code wrote to the console. The same message several times in a row is one entry. */
-export interface ConsoleEntry {
-  level: "info" | "warning" | "error" | "debug"
-  text: string
-  /** The script that wrote it, and the line. */
-  source: string
-  line: number
-  /** On the person's canvas, or in the hidden window agents render in. */
-  where: "canvas" | "offscreen"
-  count: number
-  /** When it was first and last written, in milliseconds since 1970. */
-  first: number
-  last: number
 }

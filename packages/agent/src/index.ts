@@ -1,5 +1,5 @@
-export { callerIdentity } from "./caller.ts"
 export type { IconMatch, IconOptions, IconSetSummary } from "./icons.ts"
+export * from "./dispatch.ts"
 export * from "./run.ts"
 export * from "./types.ts"
 export * from "./warnings.ts"

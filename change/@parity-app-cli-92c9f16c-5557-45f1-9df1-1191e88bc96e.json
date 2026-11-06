@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Check and evaluate decorator and sample values in one core module, with one copy of icon alias grouping",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

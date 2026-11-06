@@ -9,6 +9,7 @@ import {
   isMadeValue,
   isSampleRender,
   type MadeValue,
+  type PackageManifest,
   type SampleChild,
   type SampleRender
 } from "@parity-app/core"
@@ -43,12 +44,6 @@ export interface ExampleFile {
   text: string
 }
 
-interface PackageJson {
-  name?: string
-  version?: string
-  repository?: string | { url?: string; directory?: string }
-}
-
 /** Example and story files: stories, demos, examples and docs' demo files, in TypeScript or JavaScript. */
 const examplePath =
   /(?:\.stories\.[jt]sx?$|\.demo\.[\w.-]*\.?[jt]sx?$|-demo\.[jt]sx?$|\/(?:examples?|demos?|stories)\/.*\.[jt]sx?$)/
@@ -61,7 +56,7 @@ const skipped = /(?:^|\/)(?:node_modules|dist|build|__tests__|test|tests)\//
  * says why, and generation goes on without them.
  */
 export async function fetchExamples(
-  pkg: PackageJson,
+  pkg: PackageManifest,
   packageDir: string,
   hints: ExampleHints = {},
   cacheRoot = join(homedir(), ".parity", "cache", "examples")
@@ -105,7 +100,7 @@ async function readUpstream(packageDir: string): Promise<{ repository?: string; 
   }
 }
 
-function repositoryOf(pkg: PackageJson): string | undefined {
+function repositoryOf(pkg: PackageManifest): string | undefined {
   return typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url
 }
 
@@ -121,7 +116,7 @@ export function normalizeRepo(url: string | undefined): string | undefined {
 /** The commit the installed version was published from: recorded upstream, npm's `gitHead`, a tag, or by date. */
 async function findCommit(
   repo: string,
-  pkg: PackageJson,
+  pkg: PackageManifest,
   upstream: string | undefined,
   cacheRoot: string
 ): Promise<{ commit: string; how: ExampleSource["how"] } | undefined> {
@@ -154,7 +149,7 @@ async function findCommit(
   return commit.trim() ? { commit: commit.trim(), how: "date" } : undefined
 }
 
-async function npmVersion(pkg: PackageJson): Promise<{ gitHead?: string; time?: string } | undefined> {
+async function npmVersion(pkg: PackageManifest): Promise<{ gitHead?: string; time?: string } | undefined> {
   if (!pkg.name || !pkg.version) return undefined
   try {
     const response = await fetch(`https://registry.npmjs.org/${pkg.name.replace("/", "%2F")}`, {

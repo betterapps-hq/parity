@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 import { findConfig, loadConfig } from "./configs.ts"
 
 let root: string
@@ -47,15 +48,20 @@ describe("findConfig", () => {
     expect(await findConfig(root, root, source)).toBeUndefined()
     await fixture({ "package.json": { name: "app", example: { theme: "dark" } } })
     expect(await findConfig(root, root, source)).toBe("package.json")
-    expect(await loadConfig(root, root, source)).toEqual({ path: "package.json", value: { theme: "dark" } })
+    expect(await loadConfig(root, root, source, z.unknown())).toEqual({
+      path: "package.json",
+      value: { theme: "dark" }
+    })
   })
 })
 
 describe("loadConfig", () => {
+  const components = { files: ["components"], extensions: ["json"], here: true, jsonc: true }
+  const stylesheet = z.looseObject({ tailwind: z.looseObject({ css: z.string() }) })
+
   it("reads JSON with comments", async () => {
     await fixture({ "components.json": '{\n  // the stylesheet\n  "tailwind": { "css": "src/index.css" }\n}\n' })
-    const source = { files: ["components"], extensions: ["json"], here: true, jsonc: true }
-    expect(await loadConfig(root, root, source)).toEqual({
+    expect(await loadConfig(root, root, components, stylesheet)).toEqual({
       path: "components.json",
       value: { tailwind: { css: "src/index.css" } }
     })
@@ -63,7 +69,7 @@ describe("loadConfig", () => {
 
   it("runs a TypeScript config, as the tool would", async () => {
     await fixture({ "example.config.ts": "const size: number = 2\nexport default { size }\n" })
-    expect(await loadConfig(root, root, { files: ["example.config"], here: true })).toEqual({
+    expect(await loadConfig(root, root, { files: ["example.config"], here: true }, z.unknown())).toEqual({
       path: "example.config.ts",
       value: { size: 2 }
     })
@@ -71,7 +77,20 @@ describe("loadConfig", () => {
 
   it("says which config it couldn't load", async () => {
     await fixture({ "components.json": "{ broken" })
-    const source = { files: ["components"], extensions: ["json"], here: true, jsonc: true }
-    await expect(loadConfig(root, root, source)).rejects.toThrow(/^Couldn't load components: /)
+    await expect(loadConfig(root, root, components, stylesheet)).rejects.toThrow(/^Couldn't load components: /)
+  })
+
+  it("names the config and the field its schema refuses", async () => {
+    await fixture({ "components.json": { tailwind: { css: 1 } } })
+    await expect(loadConfig(root, root, components, stylesheet)).rejects.toThrow(
+      "components.json: /tailwind/css: expected a string"
+    )
+  })
+
+  it("skips a package.json whose fields have the wrong type", async () => {
+    await fixture({ "package.json": { name: 1, example: { theme: "dark" } } })
+    expect(
+      await findConfig(root, root, { files: ["example.config"], packageKey: "example", here: true })
+    ).toBeUndefined()
   })
 })

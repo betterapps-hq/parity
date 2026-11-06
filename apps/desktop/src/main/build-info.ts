@@ -1,7 +1,19 @@
+import { finiteNumber } from "@parity-app/core"
+import { z } from "zod"
 import type { BuildInfo } from "../shared/protocol.ts"
-import { githubRelease } from "./github-releases.ts"
+import { githubRelease, releaseSummary } from "./github-releases.ts"
 
 const refreshMs = 5 * 60 * 1000
+
+/** The app's own package.json, which a beta build marks with `releaseChannel`. */
+const appManifest = z.looseObject({ releaseChannel: z.unknown() })
+
+/** `installed-build.json`, a cache of what GitHub said this version is. A bad `checkedAt` only means asking again. */
+const savedBuild = z.looseObject({
+  version: z.string(),
+  channel: z.enum(["beta", "stable"]),
+  checkedAt: finiteNumber.optional().catch(undefined)
+})
 
 /** Version-keyed offline identity. Promotion changes GitHub metadata, never the installed artifacts. */
 export class InstalledBuild {
@@ -23,36 +35,16 @@ export class InstalledBuild {
     this.info = { version: options.version, channel: options.packaged ? "unknown" : "development" }
     if (!options.packaged) return
     try {
-      const metadata = options.metadata?.()
-      if (
-        metadata &&
-        typeof metadata === "object" &&
-        "releaseChannel" in metadata &&
-        metadata.releaseChannel === "beta"
-      )
+      if (appManifest.safeParse(options.metadata?.()).data?.releaseChannel === "beta")
         this.info = { version: options.version, channel: "beta" }
     } catch {
       // Optional build metadata must never prevent the app from starting or reading a confirmed cache.
     }
     try {
-      const saved = options.read()
-      if (
-        typeof saved !== "object" ||
-        saved === null ||
-        !("version" in saved) ||
-        saved.version !== options.version ||
-        !("channel" in saved) ||
-        (saved.channel !== "beta" && saved.channel !== "stable")
-      )
-        return
+      const saved = savedBuild.safeParse(options.read()).data
+      if (!saved || saved.version !== options.version) return
       this.info = { version: options.version, channel: saved.channel }
-      if (
-        "checkedAt" in saved &&
-        typeof saved.checkedAt === "number" &&
-        Number.isFinite(saved.checkedAt) &&
-        saved.checkedAt <= this.now()
-      )
-        this.checkedAt = saved.checkedAt
+      if (saved.checkedAt !== undefined && saved.checkedAt <= this.now()) this.checkedAt = saved.checkedAt
     } catch {
       // Keep the embedded identity, never inferring a channel from the update preference or numeric version.
     }
@@ -75,18 +67,9 @@ export class InstalledBuild {
     try {
       const tag = `v${this.options.version}`
       const { status, data } = await githubRelease(`/tags/${encodeURIComponent(tag)}`, this.options.request)
-      if (
-        status === 200 &&
-        typeof data === "object" &&
-        data !== null &&
-        "tag_name" in data &&
-        data.tag_name === tag &&
-        "draft" in data &&
-        data.draft === false &&
-        "prerelease" in data &&
-        typeof data.prerelease === "boolean"
-      ) {
-        this.info = { version: this.options.version, channel: data.prerelease ? "beta" : "stable" }
+      const release = status === 200 ? releaseSummary.safeParse(data).data : undefined
+      if (release?.tag_name === tag && !release.draft) {
+        this.info = { version: this.options.version, channel: release.prerelease ? "beta" : "stable" }
         try {
           this.options.save({ ...this.info, checkedAt: this.now() })
         } catch {

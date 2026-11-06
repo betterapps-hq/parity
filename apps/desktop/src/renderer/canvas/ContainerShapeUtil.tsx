@@ -1,5 +1,5 @@
 import { boardLayoutAt } from "@parity-app/core"
-import { snaps } from "@parity-app/editor"
+import { designsSelection, selectedDesigns, snaps } from "@parity-app/editor"
 import { type PointerEvent as ReactPointerEvent, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   type Atom,
@@ -22,7 +22,6 @@ import {
 import { moveDesigns } from "../chrome/arrange.ts"
 import { getPreferences } from "../chrome/preferences.ts"
 import { useContainerEntry } from "../design-store.ts"
-import { designsSelection, selectedDesigns } from "../selection.ts"
 import { isRestingFar, isTabHidden, shapeIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"

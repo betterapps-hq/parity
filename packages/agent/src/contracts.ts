@@ -1,13 +1,13 @@
 /**
  * What agents send Parity and what it answers, as zod schemas (PAR-590): each RPC method's params and its result. The
  * CLI and its MCP server check agents' requests with them, publish them to MCP clients as JSON Schema, and check the
- * app's answers before reading them. The app can check what it's sent with the same schemas (PAR-598). Nothing here
+ * app's answers before reading them. The app checks what it's sent with the same schemas (PAR-598). Nothing here
  * touches files or the network, or loads the rest of core or the agent's workspace, so the CLI starts quickly.
  */
 
 import { CodedError } from "@parity-app/core/errors"
 import { propGroups, propKinds } from "@parity-app/core/props"
-import { checkData, plainObject } from "@parity-app/core/schema"
+import { checkData, jsonText, plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
 
 // Requests. Each message names its field, as the CLI has always worded them, so it reads on its own in a terminal,
@@ -214,6 +214,23 @@ export const requests = {
 
 /** Reading the skill or a file it references, which the CLI does on its own, with no app. */
 export const skillRequest = fields({ path: text("path", "Skill file to read.").default("SKILL.md") })
+
+/**
+ * What the CLI posts to the app's `/rpc` endpoint, as JSON text (PAR-598): the method, its params, and who's calling
+ * when the CLI or MCP knows. The app checks the params with the method's own schema in `requests`, and reads the caller
+ * leniently, since it's only shown on the canvas.
+ */
+export const rpcRequest = jsonText(
+  z.object(
+    {
+      method: z.string("method must be a string"),
+      params: z.unknown().optional(),
+      agent: z.unknown().optional(),
+      agentId: z.unknown().optional()
+    },
+    "The request must be a JSON object"
+  )
+)
 
 // Answers, as the app sends them. A field that older copies of the app leave out is optional and says so. Objects
 // stay open, so a field a newer copy adds passes through to agents rather than failing the check.
@@ -632,4 +649,23 @@ export const replies = {
   tokens: z.array(tokenInfo),
   components: componentsReply,
   props: propsReply
+}
+
+/**
+ * Each RPC method's params, as the CLI sends them once its request schema has read them, and its answer (PAR-564). The
+ * CLI client asks by it and the app's dispatch answers by it, so a shape that drifts on either side fails to compile.
+ * `copy` takes nothing.
+ */
+export type AgentMethods = {
+  [M in keyof typeof replies]: {
+    params: M extends keyof typeof requests ? z.output<(typeof requests)[M]> : Record<string, never>
+    result: z.output<(typeof replies)[M]>
+  }
+}
+
+export type AgentMethod = keyof AgentMethods
+
+/** Whether `method` is one the app answers. */
+export function isAgentMethod(method: string): method is AgentMethod {
+  return Object.hasOwn(replies, method)
 }

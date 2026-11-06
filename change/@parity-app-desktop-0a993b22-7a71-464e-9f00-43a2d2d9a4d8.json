@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "The window answers the project service's agent.supports requests again",
+  "comment": "Check and evaluate decorator and sample values in one core module, with one copy of icon alias grouping",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

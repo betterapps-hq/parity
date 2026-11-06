@@ -6,9 +6,11 @@ import {
   type LayoutNode,
   locateNode
 } from "@parity-app/core"
-import { flowOf, type HereLayout, type Point } from "@parity-app/editor"
+import { type EditFrame, flowOf, type HereLayout, type HereSlot, type Point, slotHere } from "@parity-app/editor"
 import { findNodeElement, flowingBoxes, nodeBox } from "../frame.ts"
-import { type Hit, inside } from "./hit.ts"
+import { spacingUnit } from "../tokens-store.ts"
+import type { ProjectSession } from "../workspace.ts"
+import { type Hit, hitTest, inside, pickedIn } from "./hit.ts"
 
 /**
  * Paste here, from the canvas's right-click menu, for layers: this measures the layout under the pointer in its frame,
@@ -51,6 +53,37 @@ export class HereMeasures {
     this.frame = undefined
     this.kept = undefined
   }
+}
+
+/** What's at a point on the canvas, for placing something there. */
+export type PointPlace =
+  /** Over no design's frame: the empty canvas, or a board around its frames. */
+  | { kind: "canvas" }
+  /** Over a design's frame, with no layout or component's slot under the point to place into. */
+  | { kind: "none"; hit: Hit }
+  /** Over a layout or a component's slot: what's placed goes in `slot`, in `frame`'s state and viewport. */
+  | { kind: "layout"; hit: Hit; here: HereLayout; frame: EditFrame; slot: HereSlot }
+
+/**
+ * Where something placed at a point (client coordinates) lands, the one step inserting, dropping image files, Paste
+ * here and the text tool share (PAR-570): the deepest of the design's own layouts or slots under it, measured in the
+ * frame there, and the slot under the pointer in it, or the pointer itself in an absolutely placed layout (see
+ * `slotHere`). It goes in the state and viewport of that frame (see `editFrame`). A drag passes `measures`, so the
+ * layout under the pointer is measured once while it stays over it.
+ */
+export function placeAtPoint(
+  session: ProjectSession,
+  area: ParentNode,
+  point: Point,
+  measures?: HereMeasures
+): PointPlace {
+  const { store, editor } = session
+  const hit = hitTest(area, store, point, editor)
+  if (!hit) return { kind: "canvas" }
+  const here = measureHere(hit, point, spacingUnit(session.tokens.get()), measures)
+  const frame = store.editFrame(pickedIn(hit))
+  const slot = here && frame && slotHere(frame.container, here, frame.state, frame.viewport)
+  return here && frame && slot ? { kind: "layout", hit, here, frame, slot } : { kind: "none", hit }
 }
 
 /**

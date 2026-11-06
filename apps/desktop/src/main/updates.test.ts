@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 const platform = vi.hoisted(() => ({
   check: vi.fn<() => Promise<{ isUpdateAvailable: boolean; updateInfo: { version: string } }>>(),
@@ -22,17 +22,14 @@ vi.mock("electron-updater", () => ({
 
 import { createUpdates } from "./updates.ts"
 
-beforeEach(() => {
-  vi.clearAllMocks()
-  vi.stubEnv("APPIMAGE", "/test/Parity.AppImage")
-})
+/** An AppImage, so updates are on when the tests run on Linux too. */
+const installed = { APPIMAGE: "/test/Parity.AppImage" }
 
-afterEach(() => vi.unstubAllEnvs())
+beforeEach(() => vi.clearAllMocks())
 
 describe("installed updater empty-feed handling", () => {
   it("does not check or download when a renamed Electron runs under the dev runner", async () => {
-    vi.stubEnv("PARITY_DEV_RUNNER", "1234")
-    const session = createUpdates(vi.fn())
+    const session = createUpdates(vi.fn(), { ...installed, PARITY_DEV_RUNNER: 1234 })
     await session.check()
     expect(session.get().phase).toBe("disabled")
     expect(platform.check).not.toHaveBeenCalled()
@@ -42,7 +39,7 @@ describe("installed updater empty-feed handling", () => {
     const error = new Error("No stable release")
     platform.check.mockRejectedValue(error)
     platform.confirmEmpty.mockResolvedValue(true)
-    const session = createUpdates(vi.fn())
+    const session = createUpdates(vi.fn(), installed)
     await session.check()
     expect(session.get()).toEqual({ phase: "current", beta: false })
     expect(platform.confirmEmpty).toHaveBeenCalledWith(error, false)
@@ -52,7 +49,7 @@ describe("installed updater empty-feed handling", () => {
   it("preserves the original updater failure when no empty feed could be confirmed", async () => {
     platform.check.mockRejectedValue(new Error("Network unavailable"))
     platform.confirmEmpty.mockResolvedValue(false)
-    const session = createUpdates(vi.fn())
+    const session = createUpdates(vi.fn(), installed)
     await session.check()
     expect(session.get()).toEqual({ phase: "error", beta: false, message: "Network unavailable" })
     expect(platform.download).not.toHaveBeenCalled()
@@ -60,7 +57,7 @@ describe("installed updater empty-feed handling", () => {
 
   it("does not probe GitHub or replace a successful generic-feed check", async () => {
     platform.check.mockResolvedValue({ isUpdateAvailable: false, updateInfo: { version: "0.3.0" } })
-    const session = createUpdates(vi.fn())
+    const session = createUpdates(vi.fn(), installed)
     await session.check()
     expect(session.get().phase).toBe("current")
     expect(platform.confirmEmpty).not.toHaveBeenCalled()
