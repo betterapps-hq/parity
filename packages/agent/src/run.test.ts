@@ -855,6 +855,14 @@ describe("render inputs", () => {
     }
   }
 
+  it("says which design and state each frame draws, so what it writes to the console is that design's (PAR-147)", async () => {
+    const requests: FrameRequest[] = []
+    await execute({ label: "Look", code: `await Measure("signup")` }, snapshot(), recording(requests))
+    expect(requests.map(({ design, state }) => ({ design, state }))).toEqual([
+      { design: "app.par#signup", state: "default" }
+    ])
+  })
+
   it("draws an instance of a library's component design, as the canvas does", async () => {
     const project = snapshot()
     const [signup] = project.documents[0]!.document.containers

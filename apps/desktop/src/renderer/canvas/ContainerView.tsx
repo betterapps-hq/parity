@@ -51,6 +51,7 @@ import { frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
+import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
@@ -114,6 +115,7 @@ export function ContainerView({ ref, entry, hovered, onTitlePointerDown, title, 
         color={isSelected ? color : undefined}
         onPointerDown={onTitlePointerDown}
       />
+      <ConsoleBadge design={key} name={container.name} />
       <TitleControls>
         {Object.values(container.params ?? {}).some((param) => param.type === "variant") && (
           <VariantMenu
@@ -652,7 +654,7 @@ const FrameTile = memo(function FrameTile({
   useGutterStyle(figure, place)
   const tile = useRef<HTMLDivElement>(null)
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
-  const shows = useFrameShows(session, tree, mode, frame, scale)
+  const shows = useFrameShows(session, tree, mode, frame, scale, { key: entry.key, state: state.id })
   const { key } = shows
   // The first row's frames are what the project's picture shows (PAR-607).
   useFirstRowFrame(session.id, entry.key, mode.id, shows, caption)

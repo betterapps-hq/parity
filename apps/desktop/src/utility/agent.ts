@@ -138,7 +138,7 @@ export function desktopHost(window: WindowChannel): AgentHost {
 /** Draws an agent's frame in the offscreen render window, with the tab's guest and theme. */
 async function renderFrame(
   snapshot: TabSnapshot,
-  { tree, mode, height, viewport, scale, capture, audit, colorTokens, tokens }: FrameRequest
+  { design, state, tree, mode, height, viewport, scale, capture, audit, colorTokens, tokens }: FrameRequest
 ): Promise<FrameResult> {
   const { frame, png } = await renderOffscreen(
     renderJob(
@@ -155,7 +155,8 @@ async function renderFrame(
         scale,
         ...(audit ? { audit } : {}),
         ...(colorTokens ? { colorTokens } : {}),
-        tokens
+        tokens,
+        design: { key: design, ...(state ? { state } : {}), mode: mode.id }
       }
     ),
     capture

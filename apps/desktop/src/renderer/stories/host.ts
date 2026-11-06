@@ -166,7 +166,14 @@ export function installHost(): void {
         { role: "builder", name: "Vite for shop", pid: 5, cpu: 0.2, memory: 180_000_000 },
         { role: "app", name: "Parity", pid: 1, cpu: 0.4, memory: 120_000_000 },
         { role: "gpu", name: "GPU", pid: 4, cpu: 1.1, memory: 150_000_000 }
-      ])
+      ]),
+    // Stories fill each project's console log themselves.
+    console: {
+      announce: () => undefined,
+      read: () => Promise.resolve([]),
+      clear: () => Promise.resolve(),
+      subscribe: () => () => undefined
+    }
   }
   window.canvasHost = host
 }

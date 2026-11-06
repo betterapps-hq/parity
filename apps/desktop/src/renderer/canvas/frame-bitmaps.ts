@@ -66,7 +66,9 @@ export function useFrameShows(
   tree: RenderNode[],
   mode: ResolvedMode,
   frame: FrameGeometry,
-  scale: number
+  scale: number,
+  /** The design and state drawn, by key and id, for what the frame writes to the console while it's drawn offscreen. */
+  drawn: { key: string; state: string }
 ): FrameShows {
   const previews = useSyncExternalStore(session.tokens.subscribe, session.tokens.previews)
   const { guest } = session.loaded
@@ -89,10 +91,26 @@ export function useFrameShows(
             viewport: { width: viewportWidth, height: viewportHeight }
           },
           scale: bitmapScale * scale,
-          tokens: previews
+          tokens: previews,
+          design: { key: drawn.key, state: drawn.state, mode: mode.id }
         }
       ),
-    [session.id, guestUrl, added, theme, tree, mode, width, height, viewportWidth, viewportHeight, scale, previews]
+    [
+      session.id,
+      guestUrl,
+      added,
+      theme,
+      tree,
+      mode,
+      width,
+      height,
+      viewportWidth,
+      viewportHeight,
+      scale,
+      previews,
+      drawn.key,
+      drawn.state
+    ]
   )
   const id = guestId(guest)
   return useMemo(() => ({ ...frameKeys(job, { id, code }), job }), [job, id, code])

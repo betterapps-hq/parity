@@ -5020,3 +5020,31 @@ own Code tab, before Accessibility, and asked for real syntax highlighting. My c
   component is written in, and `Measure`, the layout snapshot, gives each node's `source`, the element it draws
   outermost. Listing every element inside every instance would make `Measure` much longer for little more: the node's
   line leads to its file, which has the rest.
+
+## The designs' console reads main's log, by the design that wrote each message (PAR-147)
+
+Called on 2026-11-05. PAR-147 asked for errors and warnings with a count in the status bar and by design in a panel,
+during interaction and after offscreen renders, from the same log as `parity console`. You saw the design in Storybook
+and didn't object. My calls:
+
+- **Main's log is the one log.** Main already kept what every window's projects write, for agents. It now gives each
+  message an id and sends what's new or counted again to the editor windows, batched 100 ms after the first, and Clear
+  empties it there, so the panel and `parity console` never disagree.
+- **Offscreen, the job names its design.** A render job carries the design, state and mode it draws, and a message the
+  window writes while it draws is that design's. No stored name has the field, so bitmaps and previews keep theirs.
+- **On the canvas, the window announces the frame.** Frames share one window, so main can't tell them apart. While a
+  frame handles a person's event, and through the rest of that task, the window wraps the console so each call first
+  sends main the frame's design, state and mode, then writes the message. Main gives the announcement to the next
+  message of that level from the window, within a second. The announcement is sent before the message is written, and
+  `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the window's
+  developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is left in
+  place.
+- **What isn't known stays unknown.** What a frame writes on its own, after a timer or a fetch, or as it first draws on
+  the canvas, is the project's rather than a guess at a design. Its offscreen draw usually writes the same message as
+  the design's.
+- **A message is one row however many frames wrote it.** Main counts repeats per frame, and the panel merges a design's
+  same message across frames, with each frame as a chip.
+- **The place is the project's line.** A message's own line when it's in the project's files, else its stack's first
+  call that is, since React's warnings come from react-dom and name the component in their stack.
+- **Agents get the design too:** each console entry has its design's key, state and mode when known, and their frames
+  name their state.
