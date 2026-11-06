@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Check agents' requests to the app with the CLI's schemas, so a malformed body, an unknown method or bad params get invalid_input with their path",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -212,7 +212,13 @@ Electron, with no tests.
 
 - **Main:** windows, menus, the render window and process lifecycles.
 - **The project service:** reading and watching files, applying project edits, starting processes and answering IPC. The
-  logic it runs comes from packages.
+  logic it runs comes from packages. The open projects are `openProjects(adapters)` in `utility/projects.ts` (PAR-576),
+  made in `utility/index.ts` with the builder link, the type checker, the detection cache, the ports, the windows'
+  listeners and the folder watcher, and reading the environment then. What it decides from data is
+  `@parity-app/project`'s `open-project.ts` (the main project file, reading designs, where a save may go, what a watched
+  change means, and the `ProjectInfo` the windows are told) and `@parity-app/code`'s `typeCheckSummary`. Component
+  previews are `componentPreviews(projects)` in `utility/previews.ts`, and the image, library and Storybook handlers
+  take the open project they act on.
 - **The ports, through `@parity-app/channel`** (PAR-565). Each process connects its port with an adapter and answers its
   method map: the preload script the window's `MessagePort`, the service each window's `MessagePortMain` and its
   `parentPort`, main the service's `UtilityProcess`, and the type checker's client its `Worker`. The method maps and the

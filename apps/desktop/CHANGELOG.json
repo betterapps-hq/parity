@@ -2,6 +2,51 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 02:49:03 GMT",
+      "version": "0.12.7",
+      "tag": "@parity-app/desktop_v0.12.7",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5ddc36158d4fb38e7a6c10719c9f8cf88f460ecd",
+            "comment": "Check agents' requests to the app with the CLI's schemas, so a malformed body, an unknown method or bad params get invalid_input with their path"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "41097ac13a4da68c48661aa9b3c9669a4d540df4",
+            "comment": "Check and evaluate decorator and sample values in one core module, with one copy of icon alias grouping"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c2b263e9aab99d70a4168939428d3652cc8273cf",
+            "comment": "Read package manifests, shadcn's components.json and tool configs through zod schemas, naming the file and field at fault"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a1bd1ea63240f87e2dc8d7c9dcdc41d6549a5fd1",
+            "comment": "Render jobs are built, named and scaled in one module, and component previews draw their portals in place again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d49fda5af900b2af7c18c12a9a5e1ce259e55df3",
+            "comment": "Snippet API functions check their arguments with zod and refuse a wrong one as invalid_input naming its field"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "86d1986efa59fab731186fd9275bb1061ff47d39",
+            "comment": "Open projects through a factory that takes its adapters, and keep .par saves inside the project folder"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 01:41:30 GMT",
       "version": "0.12.6",
       "tag": "@parity-app/desktop_v0.12.6",

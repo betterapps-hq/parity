@@ -13,20 +13,16 @@ import type {
   ChangeConflict,
   ComponentInfo,
   ComponentSource,
-  DescribedTokens,
   DesignChange,
   DetectionCorrections,
   FrameViewport,
   LeftOutExport,
-  LibraryInfo,
-  ModeSettings,
   ModesChange,
-  ProjectDetection,
-  StorybookInfo,
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
 import type { EditStatus } from "@parity-app/editor"
+import type { ProjectInfo } from "@parity-app/project"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
@@ -293,49 +289,7 @@ export const windowMethods = Object.keys({
   "project.guestMoved": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
-export interface ProjectInfo {
-  /** Identifies the open project; its absolute root. */
-  id: string
-  root: string
-  name: string
-  renderer: { id: string; name: string }
-  builder: { id: string; name: string; toolVersion: string }
-  /** The styling framework whose theme the tokens include, when one was recognized. */
-  styles?: { id: string; name: string; stylesheet: string; error?: string }
-  /** The styling framework's full theme, which compiled CSS trims to what the project's code uses. */
-  theme: ThemeVariable[]
-  guestUrl: string
-  componentCount: number
-  /** Where each component comes from: the project's own files, or a library. */
-  sources: Record<string, ComponentSource>
-  /** The app's capitalised exports the type checker left out, with why, once it has read them. */
-  leftOut?: LeftOutExport[]
-  /** How the project was discovered. */
-  notes: string[]
-  /**
-   * What detection found and where: the package manager, and the version and config of each tool Parity runs or
-   * renders with. Its `notice` names versions the cutoff drops.
-   */
-  detection: ProjectDetection
-  documents: DocumentEntry[]
-  /** Component libraries the project depends on. */
-  libraries: LibraryInfo[]
-  /** The project's Storybook, and which components have stories, when it has one. */
-  storybook?: StorybookInfo
-  /** Tokens described in DTCG by the project's own `.lib.par` and its libraries'. */
-  describedTokens?: DescribedTokens[]
-  /** The `.par` file new designs, components and modes are saved in, relative to the root. */
-  mainDocument: string
-  /** Project-wide modes: the defaults until someone edits them, then saved in the main project file. */
-  modes: { settings: ModeSettings; custom: boolean }
-}
-
-/** A design file, or the reason it couldn't be read. */
-export interface DocumentEntry {
-  path: string
-  document?: CanvasDocument
-  error?: string
-}
+export type { ProjectInfo }
 
 /**
  * Where a tab's edits stand (see `editStatus` in `@parity-app/editor`), with the revision as the agent API gives it:
