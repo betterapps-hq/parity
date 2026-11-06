@@ -42,6 +42,10 @@ interface PageHelpers {
   clipboard: { text: string }
   /** How many times the window's page has scrolled since the last test ended (see `install` and `reset`). */
   scrolls: { count: number }
+  /** The tooltips open now: what each says, where it's drawn, and the elements showing one. */
+  tooltips(): string[]
+  /** What the last press met, for a failure to quote: the element it went to, and the tooltips open as it did. */
+  pressed: { at?: Point; target?: string; tooltips?: string[] }
 }
 
 declare global {
@@ -255,7 +259,8 @@ export class App {
 
   /**
    * What a click at a point met, for a failure to quote: the elements there, top first, inside a frame's shadow root
-   * too, and the selection, tool, hovered layer, camera and focus at the time. The window can't be seen on CI.
+   * too, and the selection, tool, hovered layer, camera, focus and open tooltips at the time, with what the last press
+   * went to and the tooltips open as it did. The window can't be seen on CI.
    */
   async describe(point: Point): Promise<string> {
     const seen = await this.page.evaluate((point) => {
@@ -279,7 +284,9 @@ export class App {
         tool: selection.getTool(),
         hover: selection.getHover(),
         camera: editor ? { state: editor.getCameraState(), ...editor.getCamera() } : undefined,
-        focus: document.activeElement ? name(document.activeElement) : undefined
+        focus: document.activeElement ? name(document.activeElement) : undefined,
+        tooltips: window.e2e!.tooltips(),
+        pressed: window.e2e!.pressed
       }
     }, point)
     return JSON.stringify(seen)
@@ -871,6 +878,36 @@ function install(): void {
     },
     true
   )
+  // An open tooltip takes a press meant for what it covers, and may have moved on by the time a failure is described
+  // (PAR-657), so each press notes what it went to and the tooltips open then.
+  const round = (rect: DOMRect) => [rect.x, rect.y, rect.width, rect.height].map((value) => Math.round(value)).join(",")
+  const tag = (element: Element) =>
+    `${element.tagName.toLowerCase()}${[...element.classList]
+      .slice(0, 2)
+      .map((name) => `.${name}`)
+      .join("")} "${(element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 40)}"`
+  const tooltips = () => [
+    ...[...document.querySelectorAll<HTMLElement>("[data-slot=tooltip-content]")].map((popup) => {
+      const shown = getComputedStyle(popup.parentElement ?? popup).opacity
+      return `tooltip "${popup.innerText.replace(/\s+/g, " ").trim().slice(0, 60)}" at ${round(popup.getBoundingClientRect())}, ${
+        popup.getAttribute("data-side") ?? "unplaced"
+      }, opacity ${shown}`
+    }),
+    ...[...document.querySelectorAll("[data-base-ui-tooltip-trigger][data-popup-open]")].map(
+      (trigger) => `for ${tag(trigger)} at ${round(trigger.getBoundingClientRect())}`
+    )
+  ]
+  const pressed: PageHelpers["pressed"] = {}
+  window.addEventListener(
+    "pointerdown",
+    (event) => {
+      const target = event.composedPath()[0]
+      pressed.at = { x: event.clientX, y: event.clientY }
+      pressed.target = target instanceof Element ? tag(target) : target?.constructor.name
+      pressed.tooltips = tooltips()
+    },
+    true
+  )
   window.e2e = {
     session,
     key: (design) => {
@@ -912,7 +949,9 @@ function install(): void {
       })
     },
     clipboard,
-    scrolls
+    scrolls,
+    tooltips,
+    pressed
   }
   document.title = "Parity (pnpm test:app is driving this copy, which closes by itself)"
 }
