@@ -379,6 +379,8 @@ export interface CanvasHost {
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
+  /** The telemetry level main started at, which says what the window records (PAR-624). None means off. */
+  telemetry?: "all" | "errors" | "off"
   /**
    * Asks the project service, and never fails: a failure is an answer, with its details. The page asks through
    * `request` in `renderer/service.ts`, which throws it as a `CodedError` again.

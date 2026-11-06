@@ -42,6 +42,33 @@ its environment. Unit tests leave it off.
 Choose the level in Settings > Telemetry, or set `PARITY_TELEMETRY` to `all`, `errors` or `off`. The CLI reads the same
 setting and variable.
 
+## Replays and frame bitmaps
+
+Sentry's Session Replay records the editor window, so a bug's event links to what happened before it: the panels, the
+canvas, selections, menus and dialogs, as they looked, with what was clicked and typed. Nothing is masked, as with every
+other event. The offscreen render windows aren't recorded, and neither are Storybook or the CLI.
+
+- **At All, every session is recorded.** The share is `replaySessionRate` in `apps/desktop/src/renderer/replay.ts`, 1
+  for now; lower it when replay volume or Sentry's quota says so.
+- **At Errors, only the buffer before an error is sent:** Sentry records about the last minute in memory and sends it
+  with each error.
+- **At Off, nothing is recorded,** and the recorder isn't started.
+
+A project's frames are shadow roots in the editor page, so they're recorded with it, and zoomed out they're bitmaps,
+recorded as images. The offscreen windows that draw those bitmaps aren't recorded, so failures carry the frames
+themselves:
+
+- **Every error from the editor window** has `frames.json` attached, listing the frames on the canvas: the project,
+  design, state and mode of each, its size and whether it has a bitmap.
+- **A frame whose offscreen capture fails** is reported as an error tagged `render: failed`, with the WebP bitmap the
+  frame last showed attached as `frame.webp`, from before the edit whose render failed. A capture tried again until it
+  works is reported once.
+
+The frames are noted in `apps/desktop/src/renderer/canvas/frames-on-screen.ts`.
+
+The window doesn't read the level itself: main passes it the level it started at as it opens the window. Replay
+recordings aren't scrubbed for secrets yet; Sentry's server-side scrubbing is the only net there (PAR-679).
+
 ## Secrets are scrubbed
 
 Names, paths, values and messages are sent as written, since they're what makes a bug findable. Secrets aren't: they're

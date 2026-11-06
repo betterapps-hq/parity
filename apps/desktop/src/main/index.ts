@@ -73,7 +73,7 @@ import { createUpdates } from "./updates.ts"
 /** Main's environment variables, read once, as it starts. */
 const environment = readEnvironment(process.env)
 // Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
-startTelemetry(process.env, {
+const telemetry = startTelemetry(process.env, {
   installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
   rendererName: (contents) => {
     const window = BrowserWindow.fromWebContents(contents)
@@ -255,6 +255,8 @@ function createWindow(): void {
     webPreferences: {
       additionalArguments: [
         `--parity-version=${app.getVersion()}`,
+        // Which says whether the window records a replay (PAR-624).
+        `--parity-telemetry=${telemetry.level}`,
         ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : [])
       ],
       preload: join(import.meta.dirname, "preload.cjs"),

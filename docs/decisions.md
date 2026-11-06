@@ -5416,3 +5416,32 @@ Sentry's server-side scrubbing stays on as a second net. My calls:
 - **Only attributes are scrubbed in `createTelemetry`.** The envelope's own fields are Parity's IDs, names and paths. An
   `Error` is copied as its own class with its message, stack, fields and cause scrubbed; dates, byte arrays and other
   objects that aren't plain go as they are.
+
+## Session Replay records the editor window (PAR-624)
+
+`@sentry/electron`'s renderer SDK brings Session Replay and its canvas recording, so no package was added. The editor
+window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `replayCanvasIntegration` on, as
+"Parity's own telemetry goes to Sentry, on by default" decided. My calls:
+
+- **Every session is recorded at All** (`replaySessionRate` is 1, in `renderer/replay.ts`). **At Errors the session rate
+  is 0 and the error rate 1,** so only the buffer Sentry keeps before an error is sent. **At Off the recorder isn't
+  started,** so it costs no memory, as well as main sending nothing.
+- **Main passes the window its level** as a launch argument, which the preload gives the page as `canvasHost.telemetry`.
+  Main is still the one place that reads the environment.
+- **Only the editor window records.** `replayOptions` is called from `main.tsx` alone, so the offscreen renderers, which
+  share `startTelemetry`, neither record nor load the recorder.
+- **Frames replay with the page.** The proposal took them for cross-origin iframes, but a frame on the canvas is an open
+  shadow root in the editor page with adopted stylesheets, both of which Sentry's recorder handles, and zoomed out it's
+  a bitmap, recorded as an image. Whether every project's styles show right in Sentry's player wasn't checked.
+- **Failures still carry the frames,** since the offscreen windows that draw bitmaps aren't recorded and a buffer keeps
+  only a minute: every error from the editor window attaches `frames.json`, the frames on the canvas without their
+  bitmaps or render keys, which hold the whole design and made it 3 MB. A frame's failed offscreen capture is reported
+  once for what it shows, tagged `render: failed`, with the bitmap the frame last showed as `frame.webp`.
+- **What it costs:** the editor window's bundle grows by 153 kB (49 kB gzipped); `render.js` doesn't change. On the
+  example project, a minute of selecting after opening left the JS heap within 0 to 6 MB of the 110 MB it holds with
+  telemetry off, after garbage collection, over two runs each. The page then held about 28,000 DOM nodes against 6,700:
+  the recorder keeps nodes the canvas has removed. Sentry ends a session after an hour, which lets them go; PAR-683
+  watches it over longer sessions. `pnpm perf` couldn't give its numbers: it stops at "zoom hovering a layer" with
+  telemetry off too (PAR-684).
+- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. A render failure
+  thrown in the page arrives as Electron's "Script failed to execute", without the page's message; that's PAR-680.
