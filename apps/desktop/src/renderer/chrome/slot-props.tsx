@@ -22,19 +22,7 @@ import {
   slotProblem,
   walkNodes
 } from "@parity-app/core"
-import {
-  Braces,
-  Columns3,
-  Hash,
-  type LucideIcon,
-  Plus,
-  Rows3,
-  SquareDashed,
-  ToggleRight,
-  Trash2,
-  Type,
-  X
-} from "lucide-react"
+import { Braces, Columns3, Hash, type LucideIcon, Plus, Rows3, SquareDashed, ToggleRight, Type, X } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
@@ -148,8 +136,8 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
 
 /**
  * A slot in Props, lined up with the params: its tile, its name to rename, and where a param has its default, the
- * layout it fills, which selects that layout. Hovering it outlines the layout on the canvas, and a trash icon removes
- * it on hover or focus. A refused name stays typed, with the reason under it.
+ * layout it fills, which selects that layout. Hovering it outlines the layout on the canvas, and an × inside that field
+ * removes it on hover or focus. A refused name stays typed, with the reason under it.
  */
 export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: DesignSlot }) {
   const session = useProject()
@@ -194,11 +182,12 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
             if (event.key === "Enter") rename(event.currentTarget.value)
           }}
         />
-        <div className="flex min-w-0 items-center gap-1">
+        {/* The × sits inside the field, so showing it never changes the field's width. */}
+        <div className="relative min-w-0">
           <Button
             variant="outline"
             size="sm"
-            className="min-w-0 flex-1 justify-start px-2 text-xs font-normal"
+            className="w-full min-w-0 justify-start px-2 pr-7 text-xs font-normal"
             aria-label={`Select ${node.name ?? "its layout"}`}
             onFocus={() => hover(true)}
             onBlur={() => hover(false)}
@@ -211,17 +200,16 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
             <span className="truncate">{node.name ?? "Layout"}</span>
           </Button>
           <Hint label={`Remove the ${name} slot`}>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="hidden group-focus-within:inline-flex group-hover:inline-flex"
+            <button
+              type="button"
               aria-label={`Remove the ${name} slot`}
+              className="absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
               onClick={() =>
                 session.store.updateContainer(key, "Remove slot", (current) => setSlot(current, node.id, undefined))
               }
             >
-              <Trash2 className="size-3" />
-            </Button>
+              <X className="size-3" />
+            </button>
           </Hint>
         </div>
       </div>

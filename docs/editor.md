@@ -2440,9 +2440,10 @@ which one code nests between the tags.
 - **Props** lists a component's slots after its params, each with its type's tile. Where a param has its default, a slot
   has the layout it fills, which selects that layout. Its name is renamed in place, camelCased (`Side actions` is
   `sideActions`), and refused, with why under the row, when it isn't usable, is reserved (`children` among them), or is
-  one of the component's params or another slot's. A trash icon on hover or focus removes it. **Add** offers "Slot from
-  a layout" with the layouts that can be one, outlining each on the canvas as it's pointed at; the new slot's name is
-  selected to rename. With none left, Add stays focusable and says why rather than opening an empty menu.
+  one of the component's params or another slot's. An × inside the layout's field, on hover or focus, removes it.
+  **Add** offers "Slot from a layout" with the layouts that can be one, outlining each on the canvas as it's pointed at;
+  the new slot's name is selected to rename. With none left, Add stays focusable and says why rather than opening an
+  empty menu.
 - **In code**, below Modes, shows how an instance reads: each param with its default, and each slot. Code nests the slot
   holding the most layers between the tags, as React's `children` and Vue's default slot, the first in layer order on a
   tie (`childrenSlot`), and passes the others as props that take layers.
