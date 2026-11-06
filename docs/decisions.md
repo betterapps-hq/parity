@@ -4829,3 +4829,30 @@ less a few fields, so a field added to the job joined them unasked. My calls:
   arithmetic.
 - **Pure tests replace two disk-backed ones.** That a bitmap is found from a guest given a component, and that a light
   and a dark preview are kept apart, are now tests of the names; the stores' tests keep what needs the disk.
+
+## The open projects are a factory that takes its adapters (PAR-576)
+
+`utility/projects.ts` kept the open projects in module-level maps, with its adapters fixed at import and the environment
+read then, so a test could only mock the whole module. PAR-576 made it `openProjects(adapters)`, as the type checker's
+`typeChecker(client)` is. My calls in doing it:
+
+- **What it's given is what reaches outside the service:** the renderer, builder and styles adapters, the builder link
+  (`startBuilder`, which forks the builder's process), the type checker, the detection cache, the port finder, the
+  windows' listeners, the watcher (`fs.watch` unless given) and the environment (`process.env` unless given, read once
+  when it's made). `utility/index.ts` makes the one the service uses.
+- **The project folder is the real disk.** Discovery, detection and the code snapshot in `@parity-app/project` and
+  `@parity-app/code` read it directly, so a file adapter here would cover only part of what's read. The tests open a
+  project in a temp folder instead, with the builder, type checker and watcher standing in.
+- **The handlers that act on one project take it,** rather than looking it up: `importImage`, `catalogFor`,
+  `addLibrary`, `importStyles` and `openStorybook` are given `projects.get(projectId)` by `utility/index.ts`, and
+  component previews are `componentPreviews(projects)`. Only what they use is public: `OpenProject` is the info, the
+  stylesheets and the known file contents; the list, the builder's session and the watchers stay inside the factory.
+- **`ProjectInfo` moved into `@parity-app/project`,** beside `openedProjectInfo`, which assembles it, and
+  `withComponentList`, which adds the list as it is now. `shared/protocol.ts` re-exports the type.
+- **The watcher's path rules are one function,** `projectFileChange(path, { componentExtensions, configInput })`, which
+  says whether a change is to the config, a component file or a project file. Whether a path is a config input depends
+  on what the project's config lists now, so the factory works that out and passes it in.
+- **A save goes inside the root by its relative path** (`documentTarget`), not by the absolute path's prefix, so a
+  sibling folder such as `D:\shop-old` isn't taken for inside `D:\shop`.
+- **Closing a project also clears its watcher's timers,** so a change caught just before the close isn't acted on after
+  it.

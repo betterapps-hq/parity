@@ -138,3 +138,15 @@ function sameSource(a: ComponentSource, b: ComponentSource): boolean {
     own.length === other.size && own.every(([key, value]) => JSON.stringify(value) === JSON.stringify(other.get(key)))
   )
 }
+
+/** What a type check changed, as "Read 12 files and found 2 more components", for the processes list. */
+export function typeCheckSummary(files: number, step: Pick<ComponentListStep, "guest">): string {
+  const added = Object.keys(step.guest.add).length
+  const removed = step.guest.drop.length
+  const read = files === 1 ? "Read 1 file" : `Read ${files} files`
+  const changes = [
+    added > 0 && (added === 1 ? "found 1 more component" : `found ${added} more components`),
+    removed > 0 && (removed === 1 ? "left 1 out" : `left ${removed} out`)
+  ].filter(Boolean)
+  return changes.length > 0 ? `${read} and ${changes.join(" and ")}` : `${read}, no changes`
+}

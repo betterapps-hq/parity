@@ -1,31 +1,24 @@
+import { portFree, viteBuilder } from "@parity-app/builder-vite"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
+import { reactRenderer } from "@parity-app/renderer-react"
+import { tailwindStyles } from "@parity-app/styles-tailwind"
 import type { MessagePortMain } from "electron"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import type { ConnectMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
-import { builderReadings } from "./builders.ts"
+import { builderReadings, startBuilder } from "./builders.ts"
+import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
 import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
-import { lookupPreviews, makePreview } from "./previews.ts"
+import { componentPreviews } from "./previews.ts"
+import { freePort } from "./process-manager.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
-import {
-  closeProject,
-  codeServedAt,
-  correctComponents,
-  getProject,
-  onFileChange,
-  openProject,
-  openRoots,
-  projectComponents,
-  projectRootFor,
-  saveDocument,
-  saveDocumentCopy,
-  saveTokens
-} from "./projects.ts"
+import { openProjects, saveDocumentCopy } from "./projects.ts"
+import { checker } from "./props.ts"
 import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { openStorybook } from "./storybook.ts"
@@ -36,29 +29,57 @@ import { windowChannel, windowClosed } from "./window-channel.ts"
 // must inherit Node mode; otherwise a platform probe launches another app and overwrites agent discovery.
 process.env.ELECTRON_RUN_AS_NODE = "1"
 
+let editor: Channel<ServiceMethods, WindowMethods> | undefined
+
+const projects = openProjects({
+  renderers: [reactRenderer],
+  builders: [viteBuilder],
+  styles: [tailwindStyles],
+  startBuilder,
+  checker,
+  detections: { saved: savedDetection, save: saveDetection },
+  ports: { free: freePort, isFree: portFree },
+  listeners: {
+    fileChanged: (change) => {
+      editor?.request("project.fileChanged", change).catch(() => undefined)
+    },
+    componentsChanged: (change) => {
+      editor?.request("project.componentsChanged", change).catch(() => undefined)
+    },
+    guestMoved: (change) =>
+      editor
+        ? editor.request("project.guestMoved", change).then(
+            () => true,
+            () => false
+          )
+        : Promise.resolve(false)
+  }
+})
+const previews = componentPreviews(projects)
+
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
   file: process.env.PARITY_REOPEN_FILE,
-  open: (root) => openProject(root).finally(rememberOpen),
-  close: (root) => closeProject(root).finally(rememberOpen)
+  open: (root) => projects.open(root).finally(rememberOpen),
+  close: (root) => projects.close(root).finally(rememberOpen)
 })
 
 function rememberOpen(): void {
-  reopening.remember(openRoots())
+  reopening.remember(projects.roots())
 }
 
 const handlers: Handlers<ServiceMethods> = {
   "project.open": ({ root }) => {
-    const projectRoot = projectRootFor(root)
+    const projectRoot = projects.rootFor(root)
     reopening.claim(projectRoot)
-    return openProject(projectRoot).finally(rememberOpen)
+    return projects.open(projectRoot).finally(rememberOpen)
   },
-  "project.close": ({ projectId }) => closeProject(projectId).finally(rememberOpen),
-  "document.save": saveDocument,
+  "project.close": ({ projectId }) => projects.close(projectId).finally(rememberOpen),
+  "document.save": projects.saveDocument,
   "document.saveCopy": saveDocumentCopy,
-  "images.import": importImage,
-  "project.undoEdit": ({ projectId, id }) => undoProjectEdit(getProject(projectId), id),
-  "storybook.open": openStorybook,
+  "images.import": (params) => importImage(projects.get(params.projectId), params),
+  "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
+  "storybook.open": (params) => openStorybook(projects.get(params.projectId), params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
     const { frame, png } = await renderOffscreen(job, true)
@@ -69,12 +90,12 @@ const handlers: Handlers<ServiceMethods> = {
     // Kept and shown as a lossless WebP (PAR-535); where sharp can't load, the PNG shows and nothing's kept.
     const webp = await losslessWebp(Buffer.from(png, "base64")).catch(() => undefined)
     if (!webp) return { src: `data:image/png;base64,${png}`, height: kept }
-    const served = codeServedAt(job.projectId, job.guestUrl)
+    const served = projects.codeServedAt(job.projectId, job.guestUrl)
     if (served) void storeBitmap(served, job, webp, kept)
     return { src: `data:image/webp;base64,${webp.toString("base64")}`, height: kept }
   },
   "frames.stored": async ({ job }) => {
-    const served = codeServedAt(job.projectId, job.guestUrl)
+    const served = projects.codeServedAt(job.projectId, job.guestUrl)
     const kept = served && (await storedBitmap(served, job))
     return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
   },
@@ -82,15 +103,15 @@ const handlers: Handlers<ServiceMethods> = {
   "pictures.store": ({ root, picture }) => storePicture(root, picture),
   "pictures.read": ({ roots }) => readPictures(roots),
   "pictures.keepOnly": ({ roots }) => keepOnlyPictures(roots),
-  "previews.lookup": async ({ previews }) => ({ previews: await lookupPreviews(previews) }),
-  "previews.make": ({ preview, priority }) => makePreview(preview, priority),
+  "previews.lookup": async (params) => ({ previews: await previews.lookupPreviews(params.previews) }),
+  "previews.make": ({ preview, priority }) => previews.makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
-  "project.components": projectComponents,
-  "project.correctComponents": correctComponents,
-  "library.catalog": catalogFor,
-  "library.add": addLibrary,
-  "library.importStyles": importStyles,
-  "tokens.save": saveTokens,
+  "project.components": ({ projectId }) => projects.components(projectId),
+  "project.correctComponents": projects.correctComponents,
+  "library.catalog": ({ projectId }) => catalogFor(projects.get(projectId)),
+  "library.add": (params) => addLibrary(projects.get(params.projectId), params),
+  "library.importStyles": (params) => importStyles(projects.get(params.projectId), params),
+  "tokens.save": projects.saveTokens,
   "processes.list": listProcesses,
   "processes.stop": stopProcess,
   "processes.restart": restartProcess,
@@ -104,8 +125,6 @@ export interface WindowChannel {
     params: WindowMethods[M]["params"]
   ): Promise<WindowMethods[M]["result"]>
 }
-
-let editor: Channel<ServiceMethods, WindowMethods> | undefined
 
 export function editorWindow(): WindowChannel {
   if (!editor) throw new Error("The canvas window isn't open")
@@ -132,22 +151,6 @@ process.parentPort.on("message", (event: { data: unknown; ports: MessagePortMain
 })
 mainProcess.serve({ builders: () => builderReadings() })
 mainProcess.connect(nodePort(process.parentPort, { wrapped: true }))
-
-onFileChange(
-  (change) => {
-    editor?.request("project.fileChanged", change).catch(() => undefined)
-  },
-  (change) => {
-    editor?.request("project.componentsChanged", change).catch(() => undefined)
-  },
-  (change) =>
-    editor
-      ? editor.request("project.guestMoved", change).then(
-          () => true,
-          () => false
-        )
-      : Promise.resolve(false)
-)
 
 // Kept bitmaps past their limits go when the service starts, so a session never begins over them.
 void sweepBitmaps()
