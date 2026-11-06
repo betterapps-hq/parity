@@ -123,7 +123,7 @@ field shows what its value comes to on this layer, and every field has the same 
 Each field offers the tokens whose kind fits it, marks a value that isn't a token with the nearest token one click away,
 and treats Tailwind's documented steps as on the system, though steps of opacity, z-index, border width and duration
 only while the project has no tokens of their kind. Semantic and Primitive, kinds and overrides are in
-[design-options-tokens.md](design-options-tokens.md); whether values off the system are allowed is call 1.
+[design-options-tokens.md](design-options-tokens.md); values off the system are allowed when valid (call 1).
 
 **What the design model needs.** `NodeStyle` stores each value with its form (`{ token }`, `{ step }`, `{ value }`,
 `{ keyword }`, `{ expr }`, `{ size }` for width and height, and `{ fr }` for grid tracks), so whether a value is a token
@@ -136,12 +136,12 @@ from. [design-options-code.md](design-options-code.md) has the details.
 
 These need Andrew's answer before the work they hold up starts. Each has a recommendation.
 
-1. **Can a layer use a value that isn't a token?** PAR-194 keeps lengths off the scale but says colors, type, radius and
-   shadows stay tokens, and PAR-186's color picker edits tokens rather than layers. Recommended: every field takes a
-   value of its own, marked as not a token, with the nearest token one click away. A color picker that can only edit
-   tokens, and gradients and shadows that can only be tokens, would fall short of the request and of Figma. Four levels
-   per kind (Any value, Marked, Tokens only, Semantic only for colors), set in the project's `.lib.par` so CI reads
-   them, with Allow here for a reasoned exception ([design-options-tokens.md](design-options-tokens.md), Levels).
+1. **Can a layer use a value that isn't a token?** Decided: yes, if it's valid
+   ([decisions.md](../decisions.md#a-layer-can-use-its-own-values-not-only-tokens-if-theyre-valid-par-652)). Every field
+   takes a value of its own, checked against its value type and `CSS.supports` before it's stored, and marked as not a
+   token, with the nearest token one click away. Four levels per kind (Any value, Marked, Tokens only, Semantic only for
+   colors), set in the project's `.lib.par` so CI reads them, with Allow here for a reasoned exception
+   ([design-options-tokens.md](design-options-tokens.md), Levels).
 2. **What does Stroke's position write?** CSS has no single stroke with Figma's inside, center and outside. Recommended:
    Stroke owns `border` and `outline`, and Effects alone owns `box-shadow`. Include in layout, on for a new stroke,
    writes `border`, as Figma's updated auto layout counts an inside stroke (July 2026). Off, Inside, Center and Outside

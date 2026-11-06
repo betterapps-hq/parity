@@ -5557,4 +5557,27 @@ envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My call
   schemas (outside installed builds): to windows as a command-line argument, to the service and its worker in an
   environment variable. The install ID is kept in `<userData>/install-id`; PAR-626 adds resetting it and showing it.
 - **No process exports its telemetry yet.** `startTelemetry` and `startEvents` return it; the issues that record the
-  first events (PAR-629 onwards) decide how code reaches it.
+  first events (PAR-629 onwards) decide how code reaches it. =======
+
+## A layer can use its own values, not only tokens, if they're valid (PAR-652)
+
+Call 1 of the Design panel proposal ([design-options.md](proposals/design-options.md)) asked whether a layer can use a
+value that isn't a token. PAR-194 let lengths leave the spacing scale but kept colours, type, radius and shadows as
+tokens, and PAR-186's colour picker edited tokens rather than layers. Andrew's answer: you should be able to add custom
+values, not just be locked to the design tokens, and the value should be checked against its type and verified to be
+valid.
+
+- **Every field takes a value of its own** as well as a token: a colour, a gradient, a shadow, a font size or a radius,
+  not just a length. It's marked as off the system, with the nearest token one click away.
+- **A value is checked before it's stored.** A typed value must parse as the field's value type (a length, a colour, an
+  angle and so on) and be one `CSS.supports` accepts for the property. One that isn't stays in the field, outlined in
+  the error colour with the reason under it, and nothing is stored (Invalid as typed in
+  [design-options-fields.md](proposals/design-options-fields.md)). Values read from code or a file are checked the same
+  way and marked if invalid.
+- **How strict a project is stays its own setting,** per kind, in its `.lib.par`: Any value, Marked (the default),
+  Tokens only, and Semantic only for colours, with Allow here for an exception
+  ([design-options-tokens.md](proposals/design-options-tokens.md), Levels).
+- This widens PAR-194's "colours, type, radius and shadows stay tokens"; its flag for lengths off the scale becomes this
+  mark.
+
+> > > > > > > a0e1575a (docs: record that layers can use valid values of their own (PAR-652))
