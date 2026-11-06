@@ -4646,6 +4646,26 @@ PAR-666). Closing PAR-663 resolved its Sentry issue, resolving that closed PAR-6
 release reopened it without a second bug. PAR-620's own check in a development build filed its errors too (PAR-659 to
 PAR-661 and PAR-665), along with a real one it hit (PAR-662).
 
+## Sessions read Sentry through its MCP server (PAR-628)
+
+Agents picking up a bug Sentry filed read its events, trace and replay first, as the plan's "Agents in the loop" sets
+out and [work.md](work.md#bugs-from-sentry) says how. My calls, which you approved on 2026-11-06:
+
+- **Configured in the repository, for both tools,** so a fresh worktree has it: `.mcp.json` for Claude Code, with
+  `.claude/settings.json` turning it on without a prompt, and `.codex/config.toml` for Codex.
+- **Sentry's hosted server, scoped to `better-apps`** by its URL (`https://mcp.sentry.dev/mcp/better-apps`), so tools
+  don't ask which organisation, and nothing runs locally.
+- **Each session signs in with OAuth** as `admin@betterapps.io`, the organisation's only member. No token is kept in the
+  repository.
+- **`PARITY_TEST_RUN` and `parity report` are in the guidance before they exist,** since work.md is where a test pass
+  looks. `parity report` is PAR-646's.
+
+Tried on 2026-11-06 by picking up PAR-662 through Sentry's MCP server: its Sentry issue (PARITY-DESKTOP-3) gave the
+stack, tags, release and environment, its breadcrumbs showed the clicks and the window loads before it, and its trace
+held the event's two errors. The trace had no spans and there were no replays yet, since those are PAR-627's and
+PAR-624's. Both Claude Code (`claude mcp get sentry`) and Codex (`codex mcp get sentry`) load the server from a fresh
+worktree.
+
 ## Errors, crashes and hangs go to Sentry from every process (PAR-620)
 
 `@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to
