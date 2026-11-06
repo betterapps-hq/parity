@@ -4,28 +4,19 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { homedir } from "node:os"
 import { join } from "node:path"
 import {
-  type AccessibilityFinding,
-  type AgentEvent,
-  type AgentHooks,
-  type AgentSnapshot,
-  AgentWorkspace,
+  accessibility,
+  type AgentHost,
   callerIdentity,
-  execute,
-  type ExecRequest,
-  type ExecResult,
-  type Problem
+  dispatch,
+  exportPictures,
+  type FrameRequest,
+  type FrameResult,
+  type TabSnapshot
 } from "@parity-app/agent"
 import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry"
 import { registryVersion } from "@parity-app/agent/routing"
-import {
-  describeRenderStatus,
-  type DesignModes,
-  errorDetails,
-  type ModesReport,
-  renderProblem,
-  resolveModes
-} from "@parity-app/core"
-import type { ServiceMethods, TabSnapshot, WindowMethods } from "../shared/protocol.ts"
+import { errorDetails } from "@parity-app/core"
+import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJobMode } from "../shared/render-job.ts"
 import { readConsole } from "./console.ts"
 import { renderOffscreen } from "./render.ts"
@@ -79,349 +70,95 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
   try {
     const chunks: Buffer[] = []
     for await (const chunk of request) chunks.push(chunk as Buffer)
+    // Checking the params with the contracts' schemas is PAR-598.
     const { method, params, agent, agentId } = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
       method: string
-      params?: Record<string, unknown>
+      params?: unknown
       agent?: unknown
       agentId?: unknown
     }
-    const caller = callerIdentity(agent, agentId)
-    reply(200, { result: await call(method, params ?? {}, window(), caller) })
+    reply(200, { result: await dispatch(method, params ?? {}, desktopHost(window()), callerIdentity(agent, agentId)) })
   } catch (error) {
     const details = errorDetails(error)
     reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })
   }
 }
 
-/** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
-interface Caller {
-  name: string
-  id: string
-}
-
-/** Runs an agent's call. Its caller gets its own cursor on the canvas. */
-export async function call(
-  method: string,
-  params: Record<string, unknown>,
-  window: WindowChannel,
-  caller: Caller | undefined
-): Promise<unknown> {
-  switch (method) {
-    case "tabs":
-      return window.request("agent.tabs", undefined)
-    // What the CLI routes each call by: this copy's tabs, and when its window last had focus (PAR-514).
-    case "copy":
-      return window.request("agent.copy", undefined)
-    case "open":
-      return window.request("agent.open", { root: String(params.root) })
-    case "state": {
-      const snapshot = await window.request("agent.snapshot", { tab: params.tab as string | undefined })
-      const presence = presenceFor(window, snapshot.tab.id, caller)
-      return showing(presence, { kind: "board", label: "Look over the board" }, async () => state(snapshot))
-    }
-    case "exec":
-      return exec(window, params.tab as string | undefined, params as unknown as ExecRequest, caller)
-    case "screenshot": {
-      const options = { state: params.state, mode: params.mode, scale: params.scale }
-      // The snippet is Parity's own, so a failure has nothing for the agent to retry by editId.
-      const { editId: _editId, ...result } = await exec(
-        window,
-        params.tab as string | undefined,
-        {
-          label: `Screenshot ${String(params.design)}`,
-          code: `Print(await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)}))`
-        },
-        caller
-      )
-      return result
-    }
-    case "accessibility": {
-      const snapshot = await window.request("agent.snapshot", { tab: params.tab as string | undefined })
-      const result = await accessibility(
-        snapshot,
-        String(params.design),
-        { state: params.state ?? "all", mode: params.mode ?? "shown" },
-        presenceFor(window, snapshot.tab.id, caller)
-      )
-      return { tab: { id: snapshot.tab.id, name: snapshot.tab.name }, ...result }
-    }
-    case "problems": {
-      const snapshot = await window.request("agent.snapshot", { tab: params.tab as string | undefined })
-      const { found, ...result } = await checkDesign(
-        snapshot,
-        String(params.design),
-        `Look for problems in ${String(params.design)}`,
-        presenceFor(window, snapshot.tab.id, caller),
-        (api, design) => api.Problems(design, { state: params.state ?? "all", mode: params.mode ?? "shown" })
-      )
-      return { tab: { id: snapshot.tab.id, name: snapshot.tab.name }, ...result, problems: found }
-    }
-    case "console": {
-      const snapshot = await window.request("agent.snapshot", { tab: params.tab as string | undefined })
-      const presence = presenceFor(window, snapshot.tab.id, caller)
-      const entries = await showing(presence, { kind: "console", label: "Read the console" }, () =>
-        readConsole(snapshot.guestUrl, params.clear === true)
-      )
-      return { tab: { id: snapshot.tab.id, name: snapshot.tab.name }, entries }
-    }
-    case "status": {
-      const { tab, ...status } = await window.request("agent.status", {
-        ...(typeof params.tab === "string" ? { tab: params.tab } : {}),
-        summary: params.summary === true,
-        ...(typeof params.limit === "number" ? { limit: params.limit } : {})
-      })
-      return { tab: { id: tab.id, name: tab.name }, ...status }
-    }
-    case "modes": {
-      const snapshot = await window.request("agent.snapshot", { tab: params.tab as string | undefined })
-      const { settings: _settings, ...report } = readOnly(snapshot).GetModes(
-        typeof params.design === "string" ? params.design : undefined
-      )
-      return { tab: { id: snapshot.tab.id, name: snapshot.tab.name }, ...report }
-    }
-    // Reads for a terminal, which agents do in a snippet.
-    case "tokens":
-    case "components":
-    case "props": {
-      const snapshot = await window.request("agent.snapshot", { tab: params.tab as string | undefined })
-      const api = readOnly(snapshot)
-      if (method === "tokens") {
-        const filter = { category: params.category, source: params.source, search: params.search }
-        return api.GetTokens(filter as Parameters<ReadApi["GetTokens"]>[0])
-      }
-      if (method === "components") return componentsReport(snapshot, api.Components())
-      return api.Props(String(params.component), { all: params.all === true })
-    }
-    default:
-      throw new Error(
-        `Unknown method ${method}. Methods: tabs, copy, open, state, status, modes, exec, screenshot, accessibility, problems, console, tokens, components, props`
-      )
-  }
-}
-
 /**
- * What `parity components` reports: the components, the exports the type checker left out and why, the components
- * failing to draw on the canvas and why, and the person's corrections in the main project file, saved or not.
+ * The desktop's side of an agent call: the editor window's live tabs, the offscreen renderer, the console and the
+ * screenshots folder. Which method does what is `dispatch` in `@parity-app/agent`.
  */
-function componentsReport(snapshot: TabSnapshot, components: string[]) {
-  const statuses = Object.entries(snapshot.renderStatus ?? {})
-  const failing = statuses.flatMap(([id, status]) =>
-    "error" in status ? [{ id, problem: renderProblem(status.error), reason: describeRenderStatus(status) }] : []
-  )
-  const main = snapshot.documents.find((entry) => entry.path === snapshot.mainDocument)?.document
-  const listed = main?.detection?.include ?? []
+export function desktopHost(window: WindowChannel): AgentHost {
   return {
-    components,
-    iconLibraries: snapshot.iconSets.map((set) => set.id),
-    // Less what the person listed by hand, which are components now.
-    leftOut: (snapshot.leftOut ?? []).filter(
-      (entry) => !listed.some((ref) => ref.path === entry.path && ref.export === entry.export)
-    ),
-    drawn: statuses.length - failing.length,
-    failing,
-    corrections: main?.detection ?? {}
-  }
-}
-
-/** Sends a caller's events to its tab's canvas, where its cursor shows what it's doing. */
-function presenceFor(window: WindowChannel, tab: string, caller: Caller | undefined): AgentHooks["presence"] {
-  return (events) => {
-    void window
-      .request(
-        "agent.presence",
-        events.map((event) => ({ tab, ...(caller ? { agent: caller.name, agentId: caller.id } : {}), ...event }))
-      )
-      .catch(() => undefined)
-  }
-}
-
-/** Runs a call that isn't a snippet, showing it on the canvas the way a snippet shows: started, doing what, done. */
-async function showing<T>(
-  presence: AgentHooks["presence"],
-  event: AgentEvent & { label: string },
-  run: () => Promise<T>
-): Promise<T> {
-  presence([{ kind: "start", label: event.label }, event])
-  try {
-    const result = await run()
-    presence([{ kind: "end", label: event.label }])
-    return result
-  } catch (error) {
-    presence([{ kind: "end", label: event.label, error: error instanceof Error ? error.message : String(error) }])
-    throw error
-  }
-}
-
-function toAgentSnapshot(snapshot: TabSnapshot): AgentSnapshot {
-  return {
-    tab: snapshot.tab.id,
-    components: snapshot.components,
-    iconSets: snapshot.iconSets,
-    tokens: snapshot.tokens,
-    theme: snapshot.theme,
-    modes: snapshot.modes,
-    documents: snapshot.documents,
-    libraryDesigns: snapshot.libraryDesigns,
-    tokenOverrides: snapshot.tokenOverrides,
-    mainDocument: snapshot.mainDocument,
-    props: snapshot.props,
-    sources: snapshot.sources,
-    ...(snapshot.renderStatus ? { renderStatus: snapshot.renderStatus } : {}),
-    selection: snapshot.selection,
-    bounds: snapshot.bounds
-  }
-}
-
-/** Everything an agent needs to get its bearings in a tab, in one read. */
-async function state(snapshot: TabSnapshot) {
-  const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
-  const api = new AgentWorkspace(toAgentSnapshot(snapshot), noop, "state").api() as {
-    Designs(): unknown
-    Selection(): unknown
-    Overlaps(): unknown
-  }
-  const semantic = snapshot.tokens.filter((token) => token.source === "semantic")
-  return {
-    tab: snapshot.tab,
-    /** Changes with every change to the tab's designs, modes or token edits; `status` says what's saved. */
-    revision: snapshot.revision,
-    selection: api.Selection(),
-    designs: api.Designs(),
-    /** Boards on top of each other, to move apart. */
-    overlaps: api.Overlaps(),
-    // resolveModes makes new objects on every call, so the first one is the primary mode by position (PAR-579).
-    modes: resolveModes(snapshot.modes).map((mode, index) => ({
-      id: mode.id,
-      name: mode.name,
-      width: mode.width,
-      primary: index === 0
-    })),
-    components: snapshot.components,
-    tokens: {
-      count: snapshot.tokens.length,
-      semantic: semantic.map((token) => token.name),
-      themeCategories: [
-        ...new Set(snapshot.tokens.filter((token) => token.source === "theme").map((token) => token.category))
-      ]
+    tabs: () => window.request("agent.tabs", undefined),
+    copy: () => window.request("agent.copy", undefined),
+    open: (root) => window.request("agent.open", { root }),
+    snapshot: (tab) => window.request("agent.snapshot", tab === undefined ? {} : { tab }),
+    status: (request) => window.request("agent.status", request),
+    presence: (events) => {
+      window.request("agent.presence", events).catch(() => undefined)
     },
-    viewport: snapshot.viewport,
-    /**
-     * What Parity found in the project and where: the package manager, each tool's installed version and config, and
-     * a notice when the version cutoff drops any of them.
-     */
-    detection: snapshot.detection
-  }
-}
-
-/** Draws an agent's frames in the offscreen render window, with the tab's guest and theme. */
-function renderFor(snapshot: TabSnapshot): AgentHooks["render"] {
-  return async ({ tree, mode, height, viewport, scale, capture, audit, colorTokens, tokens }) => {
-    const { frame, png } = await renderOffscreen(
-      {
-        projectId: snapshot.projectId,
-        guestUrl: snapshot.guestUrl,
-        ...(snapshot.addedComponents ? { components: snapshot.addedComponents } : {}),
-        theme: snapshot.theme,
-        tree,
-        mode: renderJobMode(mode, { width: mode.width, ...(height === undefined ? {} : { height }), viewport }),
-        scale,
-        ...(audit ? { audit } : {}),
-        ...(audit && colorTokens?.length ? { colorTokens } : {}),
-        ...(tokens.length > 0 ? { previews: tokens } : {})
-      },
-      capture
-    )
-    return { ...frame, ...(png ? { png } : {}) }
-  }
-}
-
-async function exec(
-  window: WindowChannel,
-  tab: string | undefined,
-  request: ExecRequest,
-  caller: Caller | undefined
-): Promise<
-  Omit<ExecResult, "changes" | "screenshots"> & {
-    applied: boolean
-    screenshots: { path: string; png: string; design: string; state: string; mode: string }[]
-  }
-> {
-  const snapshot = await window.request("agent.snapshot", { tab })
-  const tabId = snapshot.tab.id
-  const result = await execute(
-    { label: request.label || "Agent edit", code: request.code, editId: request.editId, edits: request.edits },
-    toAgentSnapshot(snapshot),
-    {
-      presence: presenceFor(window, tabId, caller),
-      render: renderFor(snapshot),
-      iconNames: (set, module) =>
-        window.request("agent.iconNames", { tab: tabId, set, ...(module === undefined ? {} : { module }) }),
-      apply: (changes) =>
-        window.request("agent.apply", { tab: tabId, label: request.label || "Agent edit", ...changes }),
-      supports: (queries) => window.request("agent.supports", queries)
+    render: (snapshot, request) => renderFrame(snapshot, request),
+    iconNames: (tab, set, module) =>
+      window.request("agent.iconNames", { tab, set, ...(module === undefined ? {} : { module }) }),
+    apply: (tab, label, changes) => window.request("agent.apply", { tab, label, ...changes }),
+    supports: (queries) => window.request("agent.supports", queries),
+    console: (snapshot, clear) => readConsole(snapshot.guestUrl, clear),
+    async saveScreenshots(screenshots) {
+      await mkdir(screenshotDir, { recursive: true })
+      const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-")
+      return Promise.all(
+        screenshots.map(async (shot, index) => {
+          const path = join(screenshotDir, `${stamp}-${index + 1}-${shot.design}-${shot.state}-${shot.mode}.png`)
+          await writeFile(path, Buffer.from(shot.png, "base64"))
+          return path
+        })
+      )
     }
+  }
+}
+
+/** Draws an agent's frame in the offscreen render window, with the tab's guest and theme. */
+async function renderFrame(
+  snapshot: TabSnapshot,
+  { tree, mode, height, viewport, scale, capture, audit, colorTokens, tokens }: FrameRequest
+): Promise<FrameResult> {
+  const { frame, png } = await renderOffscreen(
+    {
+      projectId: snapshot.projectId,
+      guestUrl: snapshot.guestUrl,
+      ...(snapshot.addedComponents ? { components: snapshot.addedComponents } : {}),
+      theme: snapshot.theme,
+      tree,
+      mode: renderJobMode(mode, { width: mode.width, ...(height === undefined ? {} : { height }), viewport }),
+      scale,
+      ...(audit ? { audit } : {}),
+      ...(audit && colorTokens?.length ? { colorTokens } : {}),
+      ...(tokens.length > 0 ? { previews: tokens } : {})
+    },
+    capture
   )
-  const { changes, screenshots, ...rest } = result
-  const hasChanges = changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0
-  await mkdir(screenshotDir, { recursive: true })
-  const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-")
-  const saved = await Promise.all(
-    screenshots.map(async (shot, index) => {
-      const path = join(screenshotDir, `${stamp}-${index + 1}-${shot.design}-${shot.state}-${shot.mode}.png`)
-      await writeFile(path, Buffer.from(shot.png, "base64"))
-      return { path, png: shot.png, design: shot.design, state: shot.state, mode: shot.mode }
-    })
-  )
-  return { ...rest, applied: result.ok && hasChanges, screenshots: saved }
+  return { ...frame, ...(png ? { png } : {}) }
 }
 
 /**
- * Renders designs to PNGs in a folder the person picked, through the same offscreen renderer agents use, without
- * showing agent activity on the canvas. Each design is exported in every state, in its main mode and the modes beside
- * it; file names say which, when there's more than one.
+ * Renders designs to PNG files in a folder the person picked, through the same offscreen renderer agents use, without
+ * showing agent activity on the canvas.
  */
 export async function exportDesigns(
   window: WindowChannel,
   { projectId, folder, designs, scale }: ServiceMethods["designs.export"]["params"]
 ): Promise<ServiceMethods["designs.export"]["result"]> {
-  const snapshot = await window.request("agent.snapshot", { tab: projectId })
-  const options = JSON.stringify({ state: "all", mode: "shown", scale })
-  const result = await execute(
-    {
-      label: "Export",
-      code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${options})`
-    },
-    toAgentSnapshot(snapshot),
-    {
-      presence: () => undefined,
-      render: renderFor(snapshot)
-    }
-  )
-  if (!result.ok) throw new Error(result.error ?? "The designs couldn't be rendered")
-  const containers = new Map(
-    snapshot.documents.flatMap(({ document }) => document.containers.map((container) => [container.id, container]))
-  )
-  const modes = new Map(resolveModes(snapshot.modes).map((mode) => [mode.id, mode.name]))
-  const perDesign = (design: string, field: "state" | "mode") =>
-    new Set(result.screenshots.filter((shot) => shot.design === design).map((shot) => shot[field])).size
+  const host = desktopHost(window)
+  const { files, warnings } = await exportPictures(host, await host.snapshot(projectId), designs, scale)
   await mkdir(folder, { recursive: true })
-  const used = new Set<string>()
-  const files: string[] = []
-  for (const shot of result.screenshots) {
-    const container = containers.get(shot.design)
-    const state = container?.states.find((candidate) => candidate.id === shot.state)
-    const parts = [container?.name ?? shot.design]
-    if (perDesign(shot.design, "state") > 1) parts.push(state?.name ?? shot.state)
-    if (perDesign(shot.design, "mode") > 1) parts.push(modes.get(shot.mode) ?? shot.mode)
-    const base = fileName(parts.join(" ")) + (scale === 1 ? "" : `@${scale}x`)
-    let name = `${base}.png`
-    for (let copy = 2; used.has(name.toLowerCase()); copy++) name = `${base} ${copy}.png`
-    used.add(name.toLowerCase())
+  const paths: string[] = []
+  for (const { name, png } of files) {
     const path = join(folder, name)
-    await writeFile(path, Buffer.from(shot.png, "base64"))
-    files.push(path)
+    await writeFile(path, Buffer.from(png, "base64"))
+    paths.push(path)
   }
-  return { files, warnings: result.warnings }
+  return { files: paths, warnings }
 }
 
 /**
@@ -432,99 +169,6 @@ export async function checkAccessibility(
   window: WindowChannel,
   { projectId, design }: ServiceMethods["accessibility.check"]["params"]
 ): Promise<ServiceMethods["accessibility.check"]["result"]> {
-  const snapshot = await window.request("agent.snapshot", { tab: projectId })
-  return accessibility(snapshot, design, { state: "all", mode: "shown" })
-}
-
-/**
- * Checks a design in the states and modes asked for, as `Accessibility()` does for agents. With `presence`, an agent's
- * cursor shows it checking each frame.
- */
-async function accessibility(
-  snapshot: TabSnapshot,
-  design: string,
-  options: { state: unknown; mode: unknown },
-  presence: AgentHooks["presence"] = () => undefined
-): Promise<ServiceMethods["accessibility.check"]["result"] & { design: { id: string; name: string } }> {
-  const { found, ...result } = await checkDesign(
-    snapshot,
-    design,
-    `Check ${design}'s accessibility`,
-    presence,
-    (api, reference) => api.Accessibility(reference, options)
-  )
-  return { ...result, findings: found }
-}
-
-/** The agent API's checks, which render frames offscreen. */
-interface CheckApi {
-  Accessibility(design: string, options: { state: unknown; mode: unknown }): Promise<AccessibilityFinding[]>
-  Problems(design: string, options: { state: unknown; mode: unknown }): Promise<Problem[]>
-  GetDesign(reference: string): { id: string; name: string }
-}
-
-/**
- * Runs one of the agent API's checks on a design outside a snippet, counting the frames it renders. With `presence`,
- * an agent's cursor shows it working, as it would in a snippet.
- */
-async function checkDesign<T>(
-  snapshot: TabSnapshot,
-  design: string,
-  label: string,
-  presence: AgentHooks["presence"],
-  check: (api: CheckApi, design: string) => Promise<T>
-): Promise<{ design: { id: string; name: string }; found: T; frames: number; warnings: string[] }> {
-  let frames = 0
-  const render = renderFor(snapshot)
-  const workspace = new AgentWorkspace(
-    toAgentSnapshot(snapshot),
-    {
-      presence,
-      render: (request) => {
-        frames++
-        return render(request)
-      }
-    },
-    label
-  )
-  const api = workspace.api() as unknown as CheckApi
-  workspace.emit({ kind: "start" })
-  try {
-    const found = await check(api, design)
-    const { id, name } = api.GetDesign(design)
-    workspace.emit({ kind: "end" })
-    return { design: { id, name }, found, frames, warnings: workspace.result().warnings }
-  } catch (error) {
-    workspace.emit({ kind: "end", error: error instanceof Error ? error.message : String(error) })
-    throw error
-  } finally {
-    workspace.flush()
-  }
-}
-
-/** The agent API's reads, for calls that only look. */
-interface ReadApi {
-  GetModes(design?: string): ModesReport & { settings: unknown; designs: DesignModes[] }
-  GetTokens(filter?: { category?: string; source?: string; search?: string }): unknown[]
-  Components(): string[]
-  Props(component: string, options?: { all?: boolean }): unknown
-}
-
-function readOnly(snapshot: TabSnapshot): ReadApi {
-  const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
-  return new AgentWorkspace(toAgentSnapshot(snapshot), noop, "Read").api() as unknown as ReadApi
-}
-
-/** A name that's safe as a file name on every system: no reserved characters, no control characters. */
-function fileName(name: string): string {
-  const kept = name
-    .split("")
-    .filter((character) => character >= " " && !'<>:"/\\|?*'.includes(character))
-    .join("")
-  return (
-    kept
-      .replaceAll(/\s+/g, " ")
-      .trim()
-      .replace(/[. ]+$/, "") || "design"
-  )
+  const host = desktopHost(window)
+  return accessibility(host, await host.snapshot(projectId), design, { state: "all", mode: "shown" })
 }

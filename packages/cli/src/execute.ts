@@ -81,6 +81,6 @@ export const executeOperation = {
   inputSchema: discoverySchema,
   async run(input: unknown, send: Send): Promise<ExecResponse> {
     const request = executeRequest(input)
-    return execResponse(await send("exec", request, "tab", replies.exec))
+    return execResponse(await send("exec", request, "tab"))
   }
 }
