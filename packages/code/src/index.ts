@@ -15,7 +15,8 @@ export {
   type ComponentList,
   type ComponentListEvent,
   type ComponentListStep,
-  nextComponentList
+  nextComponentList,
+  typeCheckSummary
 } from "./component-list.ts"
 export { type ConfigChange, configChange, type ConfigInputs, configInputs, type ConfigStamps } from "./config-inputs.ts"
 export {

@@ -5,12 +5,9 @@ import { addCommand, detectPackageManager, libraryCatalog, withStylesImport } fr
 import type { ProjectEditResult, ServiceMethods } from "../shared/protocol.ts"
 import { applyProjectEdit } from "./edits.ts"
 import { killTree, trackProcess } from "./processes.ts"
-import { getProject, message } from "./projects.ts"
+import { message, type OpenProject } from "./projects.ts"
 
-export async function catalogFor({
-  projectId
-}: ServiceMethods["library.catalog"]["params"]): Promise<ServiceMethods["library.catalog"]["result"]> {
-  const { info } = getProject(projectId)
+export async function catalogFor({ info }: OpenProject): Promise<ServiceMethods["library.catalog"]["result"]> {
   return (await libraryCatalog()).map((library) => ({
     id: library.id,
     name: library.name,
@@ -25,11 +22,10 @@ export async function catalogFor({
  * Adds a library to the project: installs it with the project's own package manager, then imports its Tailwind entry
  * from the project's stylesheet. The person asked for it from the canvas, so this changes their project.
  */
-export async function addLibrary({
-  projectId,
-  library
-}: ServiceMethods["library.add"]["params"]): Promise<ServiceMethods["library.add"]["result"]> {
-  const project = getProject(projectId)
+export async function addLibrary(
+  project: OpenProject,
+  { library }: ServiceMethods["library.add"]["params"]
+): Promise<ServiceMethods["library.add"]["result"]> {
   const definition = (await libraryCatalog()).find((candidate) => candidate.id === library)
   if (!definition) throw new Error(`No library "${library}"`)
   // Detected again, in case the project changed package manager since it opened.
@@ -38,11 +34,11 @@ export async function addLibrary({
   let child: ChildProcess | undefined
   const task = trackProcess(
     {
-      id: `install:${projectId}`,
+      id: `install:${project.info.id}`,
       kind: "install",
       shape: "task",
       name: `Install ${definition.name}`,
-      projectId,
+      projectId: project.info.id,
       project: project.info.name,
       status: "running",
       detail: [command, ...args].join(" ")
@@ -54,7 +50,7 @@ export async function addLibrary({
   try {
     log = await run(command, args, project.info.root, (spawned) => (child = spawned))
     if (definition.tailwindEntry) {
-      edit = await importLibraryStyles(projectId, definition.name, `${definition.package}/${definition.tailwindEntry}`)
+      edit = await importLibraryStyles(project, definition.name, `${definition.package}/${definition.tailwindEntry}`)
     }
   } catch (error) {
     if (task.stopping) {
@@ -68,24 +64,19 @@ export async function addLibrary({
   return edit ? { log, edit } : { log }
 }
 
-export async function importStyles({
-  projectId,
-  library
-}: ServiceMethods["library.importStyles"]["params"]): Promise<ProjectEditResult | undefined> {
-  const { info } = getProject(projectId)
+export async function importStyles(
+  project: OpenProject,
+  { library }: ServiceMethods["library.importStyles"]["params"]
+): Promise<ProjectEditResult | undefined> {
+  const { info } = project
   const installed = info.libraries.find((candidate) => candidate.id === library)
   if (!installed?.tailwindEntry) throw new Error(`${library} has no styles to import`)
-  const edit = await importLibraryStyles(
-    projectId,
-    installed.name,
-    `${installed.importName}/${installed.tailwindEntry}`
-  )
+  const edit = await importLibraryStyles(project, installed.name, `${installed.importName}/${installed.tailwindEntry}`)
   installed.stylesImported = true
   return edit
 }
 
-function stylesheetOf(projectId: string): string {
-  const project = getProject(projectId)
+function stylesheetOf(project: OpenProject): string {
   const stylesheet = project.info.styles?.stylesheet ?? project.stylesheets[0]
   if (!stylesheet) throw new Error("The project has no stylesheet to import the library's styles into")
   return stylesheet
@@ -93,12 +84,11 @@ function stylesheetOf(projectId: string): string {
 
 /** Imports a library's styles into the project's stylesheet, unless it imports them already. */
 async function importLibraryStyles(
-  projectId: string,
+  project: OpenProject,
   name: string,
   specifier: string
 ): Promise<ProjectEditResult | undefined> {
-  const project = getProject(projectId)
-  const stylesheet = stylesheetOf(projectId)
+  const stylesheet = stylesheetOf(project)
   const source = await readFile(join(project.info.root, stylesheet), "utf8")
   const content = withStylesImport(source, specifier)
   if (content === undefined) return undefined

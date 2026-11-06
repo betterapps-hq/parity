@@ -112,7 +112,8 @@ export function typeChecker(
   }
 }
 
-const checker = typeChecker(
+/** The service's type checker, on a worker that stops when it has nothing to do. */
+export const checker = typeChecker(
   workerClient<CheckerMethods>({
     // Half the computer's memory at most, so a project too big to check stops the worker rather than the computer.
     start: () =>
@@ -128,5 +129,3 @@ const checker = typeChecker(
       )
   })
 )
-
-export const { inferComponents, checkComponents, closeChecker } = checker

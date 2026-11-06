@@ -41,6 +41,18 @@ export {
 } from "./edits.ts"
 export { type CodeSnapshot, codeSnapshot } from "./code-fingerprint.ts"
 export {
+  type DocumentEntry,
+  documentTarget,
+  type OpenedProject,
+  type OpenedProjectInfo,
+  openedProjectInfo,
+  pickMainDocument,
+  projectFileChange,
+  type ProjectInfo,
+  readDesigns,
+  withComponentList
+} from "./open-project.ts"
+export {
   importedFiles,
   moduleClosure,
   type PreviewKeyInput,
