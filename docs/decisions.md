@@ -5134,6 +5134,42 @@ My calls:
 - **Signing in is checked in an installed build later.** The scheme and passing links between copies only work in an
   installed app, which wasn't tried here.
 
+## Several accounts are built (PAR-669)
+
+You asked on 2026-11-06 to stay signed in to several accounts, such as your own and your company's, and switch between
+them as Figma does. You approved the design in Parity/Explorations/Home: Home's workspace menu at the top left, and your
+accounts in a panel from your picture at the end of the title bar, each with its own Sign out. Your calls:
+
+- **Accounts and organizations are separate controls.** The title bar's panel is who you are; Home's workspace menu is
+  where you're working in the account you're in.
+- **People and Settings leave the menus.** Settings stays in the app's menu, and an organization's people wait for
+  organization settings.
+- **Any account can be signed out of**, not only the one you're in, from its own row, with no menu under Sign out.
+
+My calls:
+
+- **Main keeps a session for each account,** each with its own refresh token and refresh timer, in the one encrypted
+  `account` file, with the account Parity was last in. Switching accounts doesn't ask WorkOS, so it's instant, and
+  Parity starts in the same account next launch.
+- **An account is its email.** Signing in again as an account that's listed takes its place rather than listing it
+  twice.
+- **Signing out of the account you're in moves you to the one you used last** whose session is still going; with none
+  left, you're signed out. Signing out of another leaves you where you are.
+- **An account whose session WorkOS ends stays listed,** dimmed, with who it was and how they signed in but no token, so
+  one click signs in again as it and Remove forgets it. That's kept across launches. Session ended shows over what's
+  open only for the account you're in, and you're moved to another meanwhile; another account's ending doesn't
+  interrupt.
+- **Adding an account asks the provider which one.** Google, GitHub and Microsoft get `prompt=select_account` through
+  WorkOS's `provider_query_params`, written as WorkOS's own SDK writes it,
+  `provider_query_params[prompt]=select_account`, so a browser signed in to one Google account still offers the others.
+  Signing in again as an account names it with `login_hint` instead, and a work email goes to AuthKit with `login_hint`
+  as before. Whether WorkOS passes the prompt on hasn't been tried yet: its reference documents `provider_query_params`
+  without saying how it's written.
+- **A file from a build that kept one account isn't read,** since it's prototype data: anyone signed in then signs in
+  once more.
+- **Copies of Parity still share accounts.** Each change reads the newest file and replaces only its own account, since
+  every refresh replaces a token.
+
 ## Telemetry's event model is data in and data out in `@parity-app/telemetry` (PAR-618)
 
 The package holds the envelope, the event registry, spans, sinks and the ring buffer, as

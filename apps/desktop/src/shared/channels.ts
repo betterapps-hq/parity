@@ -36,9 +36,12 @@ export const ipc = {
   accountSignIn: "canvas:account-sign-in",
   accountReopen: "canvas:account-reopen",
   accountCancel: "canvas:account-cancel",
+  /** The window asks main to sign out of one account, by its email, or forget one whose session ended. */
   accountSignOut: "canvas:account-sign-out",
   /** The window asks main to move the session to another organization, with a refresh. */
   accountSwitch: "canvas:account-switch",
+  /** The window asks main to switch to another account signed in, by its email (PAR-669). */
+  accountUse: "canvas:account-use",
   /** Main asks a window whether it may close. */
   closing: "canvas:closing",
   /** The window answers at once that it's deciding, then that it's ready to close or wants to stay open. */

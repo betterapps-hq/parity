@@ -484,15 +484,19 @@ export function ChooseOrganizationPanel({
 
 /**
  * WorkOS ended the session on refresh, as after an organization's session limit or an admin removing the person.
- * Parity knows who it was and how they signed in, so it's one button, and nothing open is lost.
+ * Parity knows who it was and how they signed in, so it's one button, and nothing open is lost. With another account
+ * signed in, you're in that one meanwhile.
  */
 export function SessionEndedPanel({
   ended,
+  stillIn,
   dialog,
   onSignIn,
   onOther
 }: {
   ended: { person: AccountPerson; provider: SignInProvider }
+  /** The account you're in now, when you're signed in to another. */
+  stillIn?: string | undefined
   dialog?: boolean
   onSignIn: (request: SignInRequest) => void
   onOther: () => void
@@ -507,7 +511,10 @@ export function SessionEndedPanel({
             Sign in again to keep working
           </Heading>
           <Description dialog={dialog}>
-            Your session ended, so you&apos;re signed out. Your open projects stay as they are, unsaved changes too.
+            {stillIn
+              ? `Your session ended, so you're in ${stillIn} for now.`
+              : "Your session ended, so you're signed out."}{" "}
+            Your open projects stay as they are, unsaved changes too.
           </Description>
         </div>
       </div>
@@ -520,11 +527,7 @@ export function SessionEndedPanel({
         <Lock className="size-4 text-muted-foreground" aria-hidden />
       </div>
       <div className="flex flex-col gap-3">
-        <Button
-          size="lg"
-          className="h-10 gap-2"
-          onClick={() => onSignIn(provider === "authkit" ? { provider, email: person.email } : { provider })}
-        >
+        <Button size="lg" className="h-10 gap-2" onClick={() => onSignIn({ provider, email: person.email })}>
           {providers.find((candidate) => candidate.provider === provider)?.mark ?? <KeyRound />}
           Continue with {providerName(provider)}
         </Button>

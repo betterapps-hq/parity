@@ -1,16 +1,19 @@
 import type { Fetch } from "@parity-app/account"
 import { describe, expect, it } from "vite-plus/test"
-import type { AccountState } from "../shared/account.ts"
+import type { AccountState, SignInProvider } from "../shared/account.ts"
 import { type AccountOptions, createAccount } from "./account.ts"
-import type { SessionStore, StoredSession } from "./session-store.ts"
+import type { SessionStore, StoredAccounts } from "./session-store.ts"
 
 const jwt = (claims: Record<string, unknown>) =>
   ["header", JSON.stringify(claims), "signature"].map((part) => Buffer.from(part).toString("base64url")).join(".")
 
-/** WorkOS's answer to a code or a refresh, handing back `refresh`, with a token that lasts five minutes from `now`. */
-function session(refresh: string, now: number, claims: Record<string, unknown> = {}) {
+/**
+ * WorkOS's answer to a code or a refresh, handing back `refresh`, with a token that lasts five minutes from `now`, for
+ * Ada's own account or another of hers.
+ */
+function session(refresh: string, now: number, claims: Record<string, unknown> = {}, email = "ada@example.com") {
   return {
-    user: { id: "user_1", email: "ada@example.com", email_verified: true, first_name: "Ada", last_name: "Lovelace" },
+    user: { id: `user_${email}`, email, email_verified: true, first_name: "Ada", last_name: "Lovelace" },
     organization_id: "org_1",
     access_token: jwt({
       sub: "user_1",
@@ -26,13 +29,16 @@ function session(refresh: string, now: number, claims: Record<string, unknown> =
 }
 
 /** A store in memory, or one that can't keep anything, as on Linux without a keyring. */
-function memoryStore(persistent = true): SessionStore & { kept?: StoredSession } {
-  const store: SessionStore & { kept?: StoredSession } = {
+function memoryStore(persistent = true): SessionStore & { kept?: StoredAccounts } {
+  const store: SessionStore & { kept?: StoredAccounts } = {
     persistent: async () => persistent,
     read: async () => store.kept,
-    async save(next) {
-      if (persistent) store.kept = next
-      return persistent
+    async update(change) {
+      if (!persistent) return false
+      const next = change(store.kept ?? { accounts: [] })
+      if (next.accounts.length === 0) delete store.kept
+      else store.kept = next
+      return true
     },
     clear() {
       delete store.kept
@@ -40,6 +46,10 @@ function memoryStore(persistent = true): SessionStore & { kept?: StoredSession }
   }
   return store
 }
+
+/** What the store keeps for the account signed in as `email`. */
+const keptFor = (store: { kept?: StoredAccounts }, email = "ada@example.com") =>
+  store.kept?.accounts.find((each) => each.person.email === email)
 
 /**
  * The account with everything it talks to stood in for: WorkOS answers from a queue, the browser records what it was
@@ -120,18 +130,17 @@ describe("signing in", () => {
       client_id: "client_test"
     })
     expect(test.requests[0]).not.toHaveProperty("client_secret")
+    const ada = { email: "ada@example.com", name: "Ada Lovelace", organizationId: "org_1", role: "admin" }
     expect(test.account.state()).toEqual({
-      account: {
-        email: "ada@example.com",
-        name: "Ada Lovelace",
-        organizationId: "org_1",
-        role: "admin",
-        untilQuit: false
-      },
+      account: { ...ada, untilQuit: false },
+      accounts: [{ ...ada, provider: "GitHubOAuth" }],
       attempt: null,
       ended: null
     })
-    expect(test.store.kept).toMatchObject({ refreshToken: "refresh_1", provider: "GitHubOAuth" })
+    expect(test.store.kept).toEqual({
+      current: "ada@example.com",
+      accounts: [{ refreshToken: "refresh_1", person: ada, provider: "GitHubOAuth" }]
+    })
     expect(test.closed()).toBe(1)
   })
 
@@ -218,7 +227,7 @@ describe("signing in", () => {
     const taking = test.account.takeLink(test.callback({ code: "1" }))
     test.account.cancel()
     expect(await taking).toBe("problem")
-    expect(test.account.state()).toEqual({ account: null, attempt: null, ended: null })
+    expect(test.account.state()).toEqual({ account: null, accounts: [], attempt: null, ended: null })
   })
 
   it("keeps the session only until quit where the system has no keyring", async () => {
@@ -257,7 +266,7 @@ describe("switching organizations", () => {
   it("remembers the organizations WorkOS named, through refreshes and in the kept session", async () => {
     const test = await chose()
     expect(test.account.state().account).toMatchObject({ organizationId: "org_1", organizations })
-    expect(test.store.kept?.person.organizations).toEqual(organizations)
+    expect(keptFor(test.store)?.person.organizations).toEqual(organizations)
     test.answer(200, sessionIn("org_1", "refresh_2", test.now() + 240_000))
     await test.tick()
     expect(test.account.state().account?.organizations).toEqual(organizations)
@@ -274,7 +283,7 @@ describe("switching organizations", () => {
       organization_id: "org_2"
     })
     expect(test.account.state().account).toMatchObject({ organizationId: "org_2", organizations })
-    expect(test.store.kept?.refreshToken).toBe("refresh_2")
+    expect(keptFor(test.store)?.refreshToken).toBe("refresh_2")
     expect(test.opened).toHaveLength(2)
   })
 
@@ -287,7 +296,7 @@ describe("switching organizations", () => {
 
   it("forgets them on signing out, and for a sign-in that doesn't choose", async () => {
     const test = await chose()
-    test.account.signOut()
+    await test.account.signOut("ada@example.com")
     await test.account.signIn({ provider: "GoogleOAuth" })
     test.answer(200, session("refresh_3", test.now()))
     await test.account.takeLink(test.callback({ code: "3" }))
@@ -314,7 +323,7 @@ describe("refreshing", () => {
       client_id: "client_test",
       refresh_token: "refresh_1"
     })
-    expect(test.store.kept?.refreshToken).toBe("refresh_2")
+    expect(keptFor(test.store)?.refreshToken).toBe("refresh_2")
     expect(test.pending()).toEqual([240_000])
   })
 
@@ -332,15 +341,17 @@ describe("refreshing", () => {
     await test.tick()
     expect(test.account.state()).toMatchObject({
       account: null,
+      accounts: [{ email: "ada@example.com", provider: "GitHubOAuth", ended: true }],
       ended: { person: { email: "ada@example.com" }, provider: "GitHubOAuth" }
     })
-    expect(test.store.kept).toBeUndefined()
+    // Who it was stays kept, to sign in to again after a restart, but not the token WorkOS refused.
+    expect(test.store.kept).toEqual({ accounts: [{ person: expect.anything(), provider: "GitHubOAuth" }] })
     expect(test.pending()).toEqual([])
   })
 
   it("uses the token another copy of Parity refreshed to", async () => {
     const test = await signedIn()
-    test.store.kept = { ...test.store.kept!, refreshToken: "refresh_from_another_copy" }
+    keptFor(test.store)!.refreshToken = "refresh_from_another_copy"
     test.answer(200, session("refresh_3", test.now() + 240_000))
     await test.tick()
     expect(test.requests.at(-1)).toMatchObject({ refresh_token: "refresh_from_another_copy" })
@@ -357,9 +368,13 @@ describe("refreshing", () => {
   it("signs back in from the kept session as Parity starts", async () => {
     const store = memoryStore()
     store.kept = {
-      refreshToken: "refresh_kept",
-      person: { email: "ada@example.com", name: "Ada Lovelace" },
-      provider: "GoogleOAuth"
+      accounts: [
+        {
+          refreshToken: "refresh_kept",
+          person: { email: "ada@example.com", name: "Ada Lovelace" },
+          provider: "GoogleOAuth"
+        }
+      ]
     }
     const test = setUp({ store })
     test.answer(200, session("refresh_next", test.now()))
@@ -367,7 +382,7 @@ describe("refreshing", () => {
     expect(test.states[0]?.account).toEqual({ email: "ada@example.com", name: "Ada Lovelace", untilQuit: false })
     expect(test.requests[0]).toMatchObject({ refresh_token: "refresh_kept" })
     expect(test.account.state().account).toMatchObject({ organizationId: "org_1", role: "admin" })
-    expect(store.kept?.refreshToken).toBe("refresh_next")
+    expect(keptFor(store)?.refreshToken).toBe("refresh_next")
   })
 })
 
@@ -377,9 +392,154 @@ describe("signing out", () => {
     await test.account.signIn({ provider: "GoogleOAuth" })
     test.answer(200, session("refresh_1", test.now()))
     await test.account.takeLink(test.callback({ code: "1" }))
-    test.account.signOut()
-    expect(test.account.state()).toEqual({ account: null, attempt: null, ended: null })
+    await test.account.signOut("ada@example.com")
+    expect(test.account.state()).toEqual({ account: null, accounts: [], attempt: null, ended: null })
     expect(test.store.kept).toBeUndefined()
     expect(test.pending()).toEqual([])
+  })
+})
+
+describe("several accounts", () => {
+  const ada = "ada@example.com"
+  const work = "ada@contoso.com"
+  const hey = "ada@hey.com"
+
+  /** Signs in as `email`, with an access token that lasts `seconds`. */
+  async function add(test: ReturnType<typeof setUp>, email: string, provider: SignInProvider, seconds = 300) {
+    await test.account.signIn({ provider })
+    test.answer(200, session(`refresh_${email}`, test.now(), { exp: test.now() / 1000 + seconds }, email))
+    expect(await test.account.takeLink(test.callback({ code: email }))).toBe("signed-in")
+  }
+
+  it("adds another account, asking the provider which one, and you're in it", async () => {
+    const test = setUp()
+    await add(test, ada, "GoogleOAuth")
+    await add(test, work, "MicrosoftOAuth")
+    const prompt = (url: string) => new URL(url).searchParams.get("provider_query_params[prompt]")
+    expect(test.opened.map(prompt)).toEqual([null, "select_account"])
+    expect(test.account.state().account?.email).toBe(work)
+    expect(test.account.state().accounts.map((each) => [each.email, each.provider])).toEqual([
+      [ada, "GoogleOAuth"],
+      [work, "MicrosoftOAuth"]
+    ])
+    expect(test.store.kept?.current).toBe(work)
+    expect(test.pending()).toHaveLength(2)
+  })
+
+  it("signs in to an account that's already there in its place", async () => {
+    const test = setUp()
+    await add(test, ada, "GoogleOAuth")
+    test.answer(200, session("refresh_again", test.now()))
+    await test.account.signIn({ provider: "GoogleOAuth" })
+    await test.account.takeLink(test.callback({ code: "again" }))
+    expect(test.account.state().accounts).toHaveLength(1)
+    expect(keptFor(test.store)?.refreshToken).toBe("refresh_again")
+    expect(test.pending()).toHaveLength(1)
+  })
+
+  it("switches between accounts at once, without asking WorkOS", async () => {
+    const test = setUp()
+    await add(test, ada, "GoogleOAuth")
+    await add(test, work, "MicrosoftOAuth")
+    const asked = test.requests.length
+    await test.account.use(ada)
+    expect(test.account.state().account?.email).toBe(ada)
+    expect(test.requests).toHaveLength(asked)
+    expect(test.store.kept?.current).toBe(ada)
+    await expect(test.account.use("someone@example.com")).rejects.toThrow(/isn't signed in as someone@example.com/)
+  })
+
+  it("signs out of another account, and you stay in the one you're in", async () => {
+    const test = setUp()
+    await add(test, ada, "GoogleOAuth")
+    await add(test, work, "MicrosoftOAuth")
+    await test.account.signOut(ada)
+    expect(test.account.state().account?.email).toBe(work)
+    expect(test.account.state().accounts.map((each) => each.email)).toEqual([work])
+    expect(test.store.kept).toMatchObject({ current: work, accounts: [{ person: { email: work } }] })
+    expect(test.pending()).toHaveLength(1)
+  })
+
+  it("moves you to the account you used last when you sign out of the one you're in", async () => {
+    const test = setUp()
+    await add(test, ada, "GoogleOAuth")
+    await add(test, work, "MicrosoftOAuth")
+    await add(test, hey, "GitHubOAuth")
+    await test.account.use(ada)
+    await test.account.use(hey)
+    await test.account.signOut(hey)
+    expect(test.account.state().account?.email).toBe(ada)
+    expect(test.store.kept?.current).toBe(ada)
+  })
+
+  it("keeps an account whose session ended listed, to sign in again as it, and you stay where you are", async () => {
+    const test = setUp()
+    await add(test, ada, "GoogleOAuth")
+    await add(test, work, "MicrosoftOAuth", 600)
+    test.answer(400, { error: "invalid_grant" })
+    await test.tick()
+    expect(test.account.state()).toMatchObject({
+      account: { email: work },
+      accounts: [{ email: ada, ended: true }, { email: work }],
+      ended: null
+    })
+    expect(keptFor(test.store)).not.toHaveProperty("refreshToken")
+
+    // Signing in again names the account, rather than asking which one.
+    await test.account.signIn({ provider: "GoogleOAuth", email: ada })
+    const url = new URL(test.opened.at(-1)!)
+    expect(url.searchParams.get("login_hint")).toBe(ada)
+    expect(url.searchParams.has("provider_query_params[prompt]")).toBe(false)
+    test.answer(200, session("refresh_again", test.now()))
+    await test.account.takeLink(test.callback({ code: "again" }))
+    expect(test.account.state().account?.email).toBe(ada)
+    expect(test.account.state().accounts.map((each) => [each.email, each.ended])).toEqual([
+      [ada, undefined],
+      [work, undefined]
+    ])
+  })
+
+  it("forgets an account whose session ended when it's removed", async () => {
+    const test = setUp()
+    await add(test, ada, "GoogleOAuth")
+    await add(test, work, "MicrosoftOAuth", 600)
+    test.answer(400, { error: "invalid_grant" })
+    await test.tick()
+    await test.account.signOut(ada)
+    expect(test.account.state().accounts.map((each) => each.email)).toEqual([work])
+    expect(keptFor(test.store)).toBeUndefined()
+  })
+
+  it("moves you to another account when the one you're in ends, and says so", async () => {
+    const test = setUp()
+    await add(test, ada, "GoogleOAuth", 600)
+    await add(test, work, "MicrosoftOAuth")
+    test.answer(400, { error: "invalid_grant" })
+    await test.tick()
+    expect(test.account.state()).toMatchObject({
+      account: { email: ada },
+      ended: { person: { email: work }, provider: "MicrosoftOAuth" }
+    })
+    expect(test.store.kept?.current).toBe(ada)
+  })
+
+  it("restores every account as Parity starts, in the one it was last in", async () => {
+    const store = memoryStore()
+    store.kept = {
+      current: work,
+      accounts: [
+        { refreshToken: "refresh_ada", person: { email: ada }, provider: "GoogleOAuth" },
+        { refreshToken: "refresh_work", person: { email: work }, provider: "MicrosoftOAuth" },
+        { person: { email: hey }, provider: "GitHubOAuth" }
+      ]
+    }
+    const test = setUp({ store })
+    test.answer(200, session("refresh_ada_2", test.now()))
+    test.answer(200, session("refresh_work_2", test.now(), {}, work))
+    await test.account.restore()
+    expect(test.account.state().account?.email).toBe(work)
+    expect(test.account.state().accounts.map((each) => each.ended ?? false)).toEqual([false, false, true])
+    expect(test.requests.map((request) => request.refresh_token)).toEqual(["refresh_ada", "refresh_work"])
+    expect(keptFor(store, work)?.refreshToken).toBe("refresh_work_2")
   })
 })

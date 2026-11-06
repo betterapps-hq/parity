@@ -3,7 +3,7 @@ import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type Desig
 import type { TokenWrite } from "@parity-app/tokens"
 import discovered from "virtual:parity/example-project"
 import desktop from "../../../package.json"
-import { type AccountState, signedOut } from "../../shared/account.ts"
+import { type AccountState, type SignedInAccount, signedOut } from "../../shared/account.ts"
 import type {
   CanvasHost,
   ProjectEditResult,
@@ -89,9 +89,16 @@ export function setStoryAccount(next: AccountState): void {
   receiveAccount(next)
 }
 
+/** You're in `chosen` now, as main says it: who, without how they signed in. */
+function inAccount(chosen: SignedInAccount | undefined): AccountState["account"] {
+  if (!chosen) return null
+  const { provider: _provider, ended: _ended, ...person } = chosen
+  return { ...person, untilQuit: accountNow.account?.untilQuit ?? false }
+}
+
 /**
  * Main's side of signing in, as far as a story can play it: a button waits for a browser that never hands back, and
- * Cancel and Sign out do what they say. Nothing opens or leaves the story.
+ * Cancel, switching accounts and Sign out do what they say. Nothing opens or leaves the story.
  */
 const storyAccount: CanvasHost["account"] = {
   get: () => Promise.resolve(accountNow),
@@ -109,10 +116,25 @@ const storyAccount: CanvasHost["account"] = {
     }),
   reopen: () => Promise.resolve(),
   cancel: async () => setStoryAccount({ ...accountNow, attempt: null, ended: null }),
-  signOut: async () => setStoryAccount(signedOut),
+  signOut: async (email) => {
+    const accounts = accountNow.accounts.filter((each) => each.email !== email)
+    // Leaving the account you're in moves to another whose session is still going.
+    const here = accountNow.account?.email === email
+    const account = here ? inAccount(accounts.find((each) => !each.ended)) : accountNow.account
+    setStoryAccount({ ...accountNow, account, accounts })
+  },
   switchOrganization: async (organizationId) => {
-    const { account } = accountNow
-    if (account) setStoryAccount({ ...accountNow, account: { ...account, organizationId } })
+    const { account, accounts } = accountNow
+    if (!account) return
+    setStoryAccount({
+      ...accountNow,
+      account: { ...account, organizationId },
+      accounts: accounts.map((each) => (each.email === account.email ? { ...each, organizationId } : each))
+    })
+  },
+  use: async (email) => {
+    const chosen = accountNow.accounts.find((each) => each.email === email && !each.ended)
+    if (chosen) setStoryAccount({ ...accountNow, account: inAccount(chosen) })
   }
 }
 
