@@ -6,6 +6,7 @@ import type {
   MeasuredNode
 } from "@parity-app/agent"
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
+import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
@@ -227,16 +228,17 @@ export interface WindowMethods {
   "agent.tabs": { params: undefined; result: TabSummary[] }
   /** The window's tabs and when it last had focus, which agents' calls are routed by (PAR-514). */
   "agent.copy": { params: undefined; result: CopyReport<TabSummary> }
-  "agent.snapshot": { params: { tab?: string }; result: TabSnapshot }
+  /** A tab's live state, by the tab an agent's call names, as its schema in `contracts.ts` read it (PAR-598). */
+  "agent.snapshot": { params: Pick<AgentMethods["state"]["params"], "tab">; result: TabSnapshot }
   /** Where a tab's edits stand: applied, undoable and saved. Reading it changes nothing. */
-  "agent.status": { params: { tab?: string; summary?: boolean; limit?: number }; result: TabStatus }
+  "agent.status": { params: AgentMethods["status"]["params"]; result: TabStatus }
   /**
    * Merges an agent's changes in as one undoable step, or, when any overlaps what changed in the editor since the
    * agent's snapshot, applies nothing and gives back the conflicts.
    */
   "agent.apply": { params: AgentChanges; result: ChangeConflict[] }
   "agent.presence": { params: PresenceEvent[]; result: undefined }
-  "agent.open": { params: { root: string }; result: TabSummary }
+  "agent.open": { params: AgentMethods["open"]["params"]; result: TabSummary }
   /** An icon set's names in one style's module, from the tab's own copy of the set, for `Icons(set)`. */
   "agent.iconNames": { params: { tab: string; set: string; module?: string }; result: IconNames }
   /** Whether the browser takes each value for its CSS property, for checking an agent's `SetTokens` (PAR-584). */
