@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 07:13:55 GMT",
+      "version": "0.18.0",
+      "tag": "@parity-app/desktop_v0.18.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dfefb47fcdf54bfcffa9ee8deab4282820197999",
+            "comment": "Layers draws only the rows in view, closes rows opened for an earlier selection, and adds search, Collapse all, an eye on each layer and dragging designs to reorder them"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 05:34:50 GMT",
       "version": "0.17.0",
       "tag": "@parity-app/desktop_v0.17.0",

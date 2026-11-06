@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Layers draws only the rows in view, closes rows opened for an earlier selection, and adds search, Collapse all, an eye on each layer and dragging designs to reorder them",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
