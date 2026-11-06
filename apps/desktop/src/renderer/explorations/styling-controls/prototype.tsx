@@ -3,6 +3,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
   Popover,
   PopoverContent,
@@ -17,13 +19,19 @@ import {
   ArrowDownUp,
   ArrowRight,
   Baseline,
+  ChevronDown,
   Ellipsis,
   Grid3x3,
   Lock,
   LockOpen,
+  PanelBottom,
+  PanelLeft,
+  PanelRight,
+  PanelTop,
   Plus,
   Repeat,
   SlidersHorizontal,
+  Square,
   SquareDashed,
   SquareRoundCorner,
   WrapText,
@@ -609,7 +617,6 @@ function SizeSection({ draft, set }: SectionProps) {
     const near = namedRatios.find((option) => Math.abs(ratioOf(option.value)! / (shown / height) - 1) < 0.01)
     set({ aspect: near?.value ?? reducedRatio(shown, height), height: undefined })
   }
-  const named = namedRatios.some((option) => option.value === draft.aspect)
   return (
     <PanelSection title="Size">
       <div className="flex flex-col gap-1">
@@ -649,16 +656,8 @@ function SizeSection({ draft, set }: SectionProps) {
           </div>
         </Field>
         {draft.aspect !== undefined && (
-          <Field label="Ratio" hint="Height follows the width at this ratio">
-            <ChoiceInput
-              value={draft.aspect}
-              options={[
-                ...namedRatios,
-                ...(named ? [] : [{ value: draft.aspect, label: draft.aspect.replace(" / ", ":") }])
-              ]}
-              placeholder="Free"
-              onChange={(aspect) => (aspect ? set({ aspect }) : lock(false))}
-            />
+          <Field label="Ratio" hint="Height follows the width at this ratio. Type 16:9, 16/9, 16x9 or 1.78">
+            <RatioField aspect={draft.aspect} onChange={(aspect) => set({ aspect })} />
           </Field>
         )}
       </div>
@@ -666,12 +665,67 @@ function SizeSection({ draft, set }: SectionProps) {
   )
 }
 
+/** Named ratios, as Tailwind names two of them (`aspect-square`, `aspect-video`). */
 const namedRatios = [
-  { value: "1 / 1", label: "Square, 1:1" },
-  { value: "4 / 3", label: "4:3" },
-  { value: "16 / 9", label: "16:9" },
-  { value: "21 / 9", label: "21:9" }
+  { value: "1 / 1", name: "Square" },
+  { value: "4 / 3", name: undefined },
+  { value: "16 / 9", name: "Video" },
+  { value: "21 / 9", name: undefined }
 ]
+
+/** `16 / 9` as the field shows it, `16:9`; a ratio typed as one number stays one. */
+const ratioText = (aspect: string) => aspect.replace(/\s*\/\s*/, ":")
+
+/** Reads `16:9`, `16/9`, `16x9` or `1.78` as CSS writes a ratio (`16 / 9`, `1.78`). */
+function readRatio(text: string): string | undefined {
+  const pair = /^\s*(\d+(?:\.\d+)?)\s*[:/x×]\s*(\d+(?:\.\d+)?)\s*$/i.exec(text)
+  if (pair) return Number(pair[1]) > 0 && Number(pair[2]) > 0 ? `${Number(pair[1])} / ${Number(pair[2])}` : undefined
+  const single = Number(text)
+  return text.trim() !== "" && single > 0 ? String(single) : undefined
+}
+
+/** The ratio, typed, with its name after it (Video) and the named ratios in its menu. */
+function RatioField({ aspect, onChange }: { aspect: string; onChange: (aspect: string) => void }) {
+  const [typed, setTyped] = useState<string>()
+  const name = namedRatios.find((option) => option.value === aspect)?.name
+  return (
+    <div className="flex items-center gap-1">
+      <label className="flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md border bg-transparent px-1.5 text-xs focus-within:ring-2 focus-within:ring-ring dark:bg-input/30">
+        <input
+          aria-label="Aspect ratio"
+          value={typed ?? ratioText(aspect)}
+          onChange={(event) => setTyped(event.target.value)}
+          onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
+          onBlur={() => {
+            const read = typed === undefined ? undefined : readRatio(typed)
+            if (read) onChange(read)
+            setTyped(undefined)
+          }}
+          className="w-16 min-w-0 bg-transparent tabular-nums outline-none"
+        />
+        {name && typed === undefined && <span className="truncate text-muted-foreground">{name}</span>}
+      </label>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Named ratios"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+        >
+          <ChevronDown className="size-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuRadioGroup value={aspect} onValueChange={(next) => onChange(next as string)}>
+            {namedRatios.map((option) => (
+              <DropdownMenuRadioItem key={option.value} value={option.value} className="text-xs">
+                {ratioText(option.value)}
+                {option.name && <span className="text-muted-foreground">{option.name}</span>}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
 
 /** A ratio as CSS writes it, `16 / 9`, in its lowest terms. */
 function reducedRatio(width: number, height: number): string {
@@ -682,7 +736,7 @@ function reducedRatio(width: number, height: number): string {
 
 /** Width over height, from `16 / 9`. */
 function ratioOf(aspect: string): number | undefined {
-  const [width, height] = aspect.split("/").map((part) => Number(part.trim()))
+  const [width, height = 1] = aspect.split("/").map((part) => Number(part.trim()))
   return width && height ? width / height : undefined
 }
 
@@ -711,7 +765,11 @@ function AppearanceSection({
             alpha={draft.backgroundAlpha}
             open={fillPicker !== undefined}
             tab={fillPicker}
-            onChange={(background, backgroundAlpha) => set({ background, backgroundAlpha })}
+            allowed={draft.backgroundAllowed}
+            onAllow={(backgroundAllowed) => set({ backgroundAllowed })}
+            onChange={(background, backgroundAlpha) =>
+              set({ background, backgroundAlpha, backgroundAllowed: undefined })
+            }
           />
         </Field>
         <Field label="Radius">
@@ -855,12 +913,20 @@ function TokenChoice({
             variant="outline"
             size="sm"
             aria-label={`${label}: ${value ?? "none"}`}
-            className="h-7 w-full min-w-0 justify-start gap-1.5 px-2 text-xs font-normal"
+            className="h-7 w-full min-w-0 justify-start gap-1.5 px-1 text-xs font-normal"
           >
-            {icon}
-            <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>
-              {value ? short(value) : "None"}
-            </span>
+            {value ? (
+              // A token is a chip on a tinted background, named without the namespace the field implies (lg in Radius).
+              <span className="flex min-w-0 items-center gap-1.5 rounded-sm bg-accent px-1 py-0.5">
+                {icon}
+                <span className="truncate font-mono">{short(value)}</span>
+              </span>
+            ) : (
+              <span className="flex min-w-0 items-center gap-1.5 px-1 text-muted-foreground">
+                {icon}
+                None
+              </span>
+            )}
           </Button>
         }
       />
@@ -888,8 +954,64 @@ function TokenChoice({
 
 const sides = ["Top", "Right", "Bottom", "Left"] as const
 
+/** Figma's stroke sides: every side, one side alone, or each side its own (Custom). */
+type SideMode = "all" | "top" | "right" | "bottom" | "left" | "custom"
+
+const sideNames = { top: "Top", right: "Right", bottom: "Bottom", left: "Left" } as const
+
+const sideOptions = [
+  { value: "all", label: "All", Icon: Square },
+  { value: "top", label: "Top", Icon: PanelTop },
+  { value: "bottom", label: "Bottom", Icon: PanelBottom },
+  { value: "left", label: "Left", Icon: PanelLeft },
+  { value: "right", label: "Right", Icon: PanelRight },
+  { value: "custom", label: "Custom", Icon: SquareDashed }
+] as const satisfies readonly { value: SideMode; label: string; Icon: unknown }[]
+
+/** Which of the menu's choices a stroke width is: one width, one side alone, or anything else. */
+function sideModeOf(width: Draft["borderWidth"]): SideMode {
+  if (!Array.isArray(width)) return "all"
+  const stroked = width.flatMap((side, index) => (side > 0 ? [index] : []))
+  if (stroked.length === 1) return (["top", "right", "bottom", "left"] as const)[stroked[0]!]!
+  return "custom"
+}
+
+/** The widths for a choice: one width for All, one side's width alone, or the four as they are for Custom. */
+function widthsFor(mode: SideMode, width: number, current?: readonly number[]): Draft["borderWidth"] {
+  if (mode === "all") return width
+  if (mode === "custom") return (current ? [...current] : [width, width, width, width]) as Draft["borderWidth"]
+  return sides.map((side) => (side === sideNames[mode] ? width : 0)) as Draft["borderWidth"]
+}
+
+/** The button after Width that picks which sides are stroked, as Figma's stroke sides menu does. */
+function SidesMenu({ mode, onChange }: { mode: SideMode; onChange: (mode: SideMode) => void }) {
+  const Icon = sideOptions.find((option) => option.value === mode)!.Icon
+  return (
+    <DropdownMenu>
+      <Hint label="Stroke sides">
+        <DropdownMenuTrigger
+          aria-label={`Stroke sides: ${sideOptions.find((option) => option.value === mode)!.label}`}
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+        >
+          <Icon className="size-4" />
+        </DropdownMenuTrigger>
+      </Hint>
+      <DropdownMenuContent align="end" className="w-36">
+        <DropdownMenuRadioGroup value={mode} onValueChange={(next) => onChange(next as SideMode)}>
+          {sideOptions.map(({ value, label, Icon: OptionIcon }) => (
+            <DropdownMenuRadioItem key={value} value={value} className="gap-2 text-xs">
+              <OptionIcon className="size-3.5" />
+              {label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
-  const perSide = Array.isArray(draft.borderWidth)
+  const sideMode = sideModeOf(draft.borderWidth)
   const widths = Array.isArray(draft.borderWidth)
     ? draft.borderWidth
     : ([0, 0, 0, 0].map(() => (draft.borderWidth as number | undefined) ?? 1) as [number, number, number, number])
@@ -903,12 +1025,14 @@ function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
             used={usedColors}
             value={draft.border}
             alpha={draft.borderAlpha}
-            onChange={(border, borderAlpha) => set({ border, borderAlpha })}
+            allowed={draft.borderAllowed}
+            onAllow={(borderAllowed) => set({ borderAllowed })}
+            onChange={(border, borderAlpha) => set({ border, borderAlpha, borderAllowed: undefined })}
           />
         </Field>
         <Field label="Width">
           <div className="flex items-start gap-1">
-            {perSide ? (
+            {sideMode === "custom" && (
               <div className="grid min-w-0 flex-1 grid-cols-2 gap-1">
                 {sides.map((side, index) => (
                   <Num
@@ -926,28 +1050,23 @@ function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
                   />
                 ))}
               </div>
-            ) : (
+            )}
+            {sideMode !== "custom" && (
               <div className="min-w-0 flex-1">
                 <Num
-                  label="Stroke width"
+                  label={sideMode === "all" ? "Stroke width" : `${sideNames[sideMode]} stroke width`}
+                  inner={sideMode === "all" ? undefined : sideNames[sideMode][0]}
                   pixels
-                  value={widths[0]}
+                  value={sideMode === "all" ? widths[0] : widths[sides.indexOf(sideNames[sideMode])]}
                   min={0}
-                  onChange={(value) => set({ borderWidth: value ?? 1 })}
+                  onChange={(value) => set({ borderWidth: widthsFor(sideMode, value ?? 1) })}
                 />
               </div>
             )}
-            <Hint label="Stroke per side">
-              <Toggle
-                size="sm"
-                className="size-7 min-w-7 shrink-0 p-0"
-                aria-label="Stroke per side"
-                pressed={perSide}
-                onPressedChange={(on) => set({ borderWidth: on ? [...widths] : widths[0] })}
-              >
-                <SquareDashed />
-              </Toggle>
-            </Hint>
+            <SidesMenu
+              mode={sideMode}
+              onChange={(mode) => set({ borderWidth: widthsFor(mode, Math.max(...widths) || 1, widths) })}
+            />
           </div>
         </Field>
       </div>

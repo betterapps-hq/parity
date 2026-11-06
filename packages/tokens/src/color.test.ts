@@ -5,11 +5,17 @@ import {
   formatHex,
   formatOklch,
   hsbToRgba,
+  hslToRgba,
   nearestColor,
+  oklchToRgba,
   parseColor,
   parseHex,
   parseOklch,
+  rgb255ToRgba,
   rgbaToHsb,
+  rgbaToHsl,
+  rgbaToOklch,
+  rgbaToRgb255,
   sameColorDistance
 } from "./color.ts"
 
@@ -77,6 +83,39 @@ describe("oklch()", () => {
       const written = parseOklch(formatOklch(hex(value)))!
       expect(colorDistance(written, hex(value))).toBeLessThan(sameColorDistance / 10)
     }
+  })
+})
+
+describe("the picker's other models", () => {
+  it("reads a blue the way RGB, HSL and OKLCH fields show it", () => {
+    const blue = hex("#3b82f6")
+    const rgb = rgbaToRgb255(blue)
+    expect([rgb.r, rgb.g, rgb.b].map(Math.round)).toEqual([59, 130, 246])
+    const hsl = rgbaToHsl(blue)
+    expect([hsl.h, hsl.s, hsl.l].map(Math.round)).toEqual([217, 91, 60])
+    const oklch = rgbaToOklch(blue)
+    expect(oklch.l).toBeCloseTo(0.623, 3)
+    expect(oklch.c).toBeCloseTo(0.188, 3)
+    expect(oklch.h).toBeCloseTo(259.8, 1)
+  })
+
+  it("gives back the same hex from each model's fields", () => {
+    for (const value of ["#3b82f6", "#e7000b", "#009689", "#fafafa", "#000000", "#737373"]) {
+      const color = hex(value)
+      expect(formatHex(rgb255ToRgba(rgbaToRgb255(color)))).toBe(value)
+      expect(formatHex(hslToRgba(rgbaToHsl(color)))).toBe(value)
+      expect(formatHex(oklchToRgba(rgbaToOklch(color)))).toBe(value)
+    }
+  })
+
+  it("keeps a gray's hue at 0 in HSL and OKLCH, as in HSB", () => {
+    expect(rgbaToHsl(hex("#737373")).h).toBe(0)
+    expect(rgbaToOklch(hex("#737373"))).toEqual({ l: expect.closeTo(0.556, 3), c: 0, h: 0 })
+  })
+
+  it("carries alpha through, and keeps channels typed past their range inside it", () => {
+    expect(hslToRgba({ h: 0, s: 100, l: 50 }, 0.5)).toEqual({ r: 1, g: 0, b: 0, a: 0.5 })
+    expect(rgb255ToRgba({ r: 300, g: -5, b: 128 }, 2)).toEqual({ r: 1, g: 0, b: expect.closeTo(0.502, 3), a: 1 })
   })
 })
 

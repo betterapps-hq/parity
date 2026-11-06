@@ -4,14 +4,14 @@ import { colorTokens } from "./data.ts"
 import { StylingPrototype } from "./prototype.tsx"
 
 /**
- * The styling controls designers expect from Figma, proposed for the inspector (PAR-186): a color picker that answers
- * with the nearest token, opacity on a token color, radius per corner, stroke per side, blur and backdrop blur, aspect
- * ratio, a text layer's tag, grid tracks and placement, baseline alignment and reversed order, and a typed frame size.
+ * The styling controls designers expect from Figma, proposed for the inspector (PAR-186): a color picker with the
+ * nearest token, opacity on a color, radius per corner, stroke per side, blur and backdrop blur, aspect ratio, a text
+ * layer's tag, grid tracks and placement, baseline alignment and reversed order, and a typed frame size. The fields
+ * follow PAR-652's design options pages (design-options-fields.md and design-options-values.md).
  *
  * Each story is the same prototype, a stand-in for Plans on the canvas and the inspector beside it, starting on one
- * control. Every control works: the stand-in redraws as it changes. Styles stay locked to the project's tokens, so a
- * freely picked color is answered with the token nearest it, and only the Tokens panel's picker writes a raw color,
- * into the token itself.
+ * control. Every control works: the stand-in redraws as it changes. A token shows as a chip; a color that isn't a token
+ * is kept as typed and marked, with the nearest token one click away, and a project set to Tokens only refuses it.
  */
 const meta = {
   title: "Parity/Explorations/Styling controls",
@@ -23,8 +23,9 @@ type Story = StoryObj<typeof meta>
 
 /**
  * Plans, a card with a translucent fill, per-corner radius and a backdrop blur over shapes behind it, so the fill's
- * opacity (`bg-card/70`) and the blur show. Radius per corner and Stroke per side are toggles beside their rows, as
- * Padding's per side is; the corners sit where they are on the layer. Stroke widths switch between px and rem.
+ * opacity (`bg-card/70`) and the blur show. Fill, radius and blur tokens show as chips. Radius per corner is a toggle
+ * beside its row, with the corners laid out where they are on the layer. Stroke's sides are Figma's menu after Width:
+ * All, Top, Bottom, Left, Right or Custom; this card has a bottom stroke only. Stroke widths switch between px and rem.
  */
 export const Appearance: Story = {
   render: () => (
@@ -44,27 +45,28 @@ export const Appearance: Story = {
 }
 
 /**
- * The fill's picker on Custom: the saturation and brightness square, the hue strip, hex and HSB, and the eyedropper.
- * Below it, the token nearest the picked color, with Use for the color as it is and Use for the token; when they're
- * the same color, only the token is offered. In this design starts the square from a color the design already uses.
- * Drag in the square to see the suggestion follow.
+ * The fill's picker on Custom: the saturation and brightness square, the hue and opacity strips, the eyedropper, and
+ * the model menu (Hex, RGB, HSL, HSB, OKLCH) with its fields; a color picked in OKLCH is written as `oklch()`. Custom
+ * edits the fill as you go, as a plain color. Below, the nearest token, with Use to swap it in, and In this design,
+ * the colors the design already uses. Drag in the square to see the nearest token follow.
  */
 export const PickingAColor: Story = {
   render: () => <StylingPrototype start={{ draft: { background: "chart-2" }, fillPicker: "custom" }} />
 }
 
 /**
- * Plans filled with a plain blue, #2f6fed, that isn't one of the project's tokens. Its swatch is round rather than
- * square, the line under Fill says it isn't a token, and Use blue-600 there swaps in the nearest token in one click.
- * Opacity is written into the plain color's own alpha (#2f6fed80) rather than after a token's name.
+ * Plans filled with a plain blue, #2f6fed, that isn't one of the project's tokens. Fill shows it in short form,
+ * `2F6FED`, with a hollow mark after it: its menu has Use nearest (blue-600), Create token, which names a token with
+ * this color as its value, and Allow here, which fills the mark. Opacity is part of a plain color (#2f6fed80), where a
+ * token's is written after its name. The picker opens on Custom for a plain color, and on Tokens for a token.
  */
 export const PlainColor: Story = {
   render: () => <StylingPrototype start={{ draft: { background: "#2f6fed", radius: "radius-lg" } }} />
 }
 
 /**
- * The same plain blue in a project set to Tokens only: the line under Fill turns red and says the project takes tokens
- * only, and the picker's Custom tab offers only the nearest token, never the color as it is.
+ * The same plain blue in a project set to Tokens only: Fill is outlined in the error color, with "Not a token. Nearest:
+ * blue-600" under it, and the picker's Custom tab doesn't change the fill; it offers only the nearest token.
  */
 export const TokensOnly: Story = {
   render: () => (
@@ -91,8 +93,9 @@ export const EditingAColorToken: Story = {
 }
 
 /**
- * Plans as a grid: three columns of 1fr, 2fr and at least 120px, and one auto row. Each track is a chip that opens to
- * Fill, Fixed, Hug, Min, Max or Range (CSS's `minmax()`, at least a length, then a share) and its size; + adds one.
+ * Plans as a grid: three columns, Fill, Fill ×2 and 120–Fill (at least 120px, then a share), and one Hug row. Each
+ * track is a chip, in words, that opens to Fill, Fixed, Hug, Min, Max or Range (CSS's `minmax()`) and its size; + adds
+ * one. A Fill track is drawn as `minmax(0, 1fr)`, as `grid-cols-3` writes it, so long content can't widen it.
  * Fixed and Range lengths are typed in px or rem. Equal Fill columns show as a count instead, as Grid placement's do,
  * until Edit tracks opens this list.
  */
@@ -177,8 +180,9 @@ export const BaselineAndReverse: Story = {
 
 /**
  * Plans locked at 16:9, with the headline as Heading 2. The lock sits between W and H, as in Figma UI3; locking keeps
- * the ratio the layer has, leaves H to it (Auto), and shows the ratio as its own row with named ratios. Typing H while
- * locked changes W to keep the ratio. Unlock to fix the height where the ratio left it. The tag is at the top of Text.
+ * the ratio the layer has, leaves H to it (Auto), and shows the ratio as its own row: `16:9 Video`, typed as 16:9,
+ * 16/9, 16x9 or 1.78, with named ratios in its menu. Typing H while locked changes W to keep the ratio. Unlock to fix
+ * the height where the ratio left it. The tag is at the top of Text.
  */
 export const AspectRatioAndTag: Story = {
   render: () => (

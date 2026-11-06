@@ -77,18 +77,75 @@ export function parseOklch(value: string): Rgba | undefined {
   const h = component(hue!.replace(/deg$/i, ""), 1)
   const a = alpha === undefined ? 1 : component(alpha, 1)
   if ([l, c, h, a].some((part) => part === undefined)) return undefined
-  const radians = (h! * Math.PI) / 180
-  return { ...fromOklab(l!, c! * Math.cos(radians), c! * Math.sin(radians)), a: clamp(a!) }
+  return oklchToRgba({ l: l!, c: c!, h: h! }, a!)
 }
 
 /** `oklch(L C H)` to three decimals, with `/ A` when the color is translucent. */
 export function formatOklch(color: Rgba): string {
+  const { l, c, h } = rgbaToOklch(color)
+  const parts = [l, c, h].map((part) => decimals(part, 3))
+  return `oklch(${parts.join(" ")}${color.a < 1 ? ` / ${decimals(color.a, 3)}` : ""})`
+}
+
+/** A color in OKLCH: lightness from 0 to 1, chroma from 0 (about 0.4 at most in sRGB), and hue in degrees. */
+export interface Oklch {
+  l: number
+  c: number
+  h: number
+}
+
+/** A color's lightness, chroma and hue. A gray has no hue, so it keeps hue 0 rather than one rounding wanders to. */
+export function rgbaToOklch(color: Rgba): Oklch {
   const [l, a, b] = toOklab(color)
   const chroma = Math.hypot(a, b)
-  // A gray has no hue; writing 0 keeps it from wandering with rounding.
-  const hue = chroma < 0.0005 ? 0 : ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360
-  const parts = [l, chroma < 0.0005 ? 0 : chroma, hue].map((part) => decimals(part, 3))
-  return `oklch(${parts.join(" ")}${color.a < 1 ? ` / ${decimals(color.a, 3)}` : ""})`
+  if (chroma < 0.0005) return { l, c: 0, h: 0 }
+  return { l, c: chroma, h: ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360 }
+}
+
+/** The color at a lightness, chroma and hue, with `alpha` from 0 to 1, brought into sRGB when it falls outside. */
+export function oklchToRgba({ l, c, h }: Oklch, alpha = 1): Rgba {
+  const radians = (h * Math.PI) / 180
+  return { ...fromOklab(l, c * Math.cos(radians), c * Math.sin(radians)), a: clamp(alpha) }
+}
+
+/** A color as the picker's RGB fields show it: each channel from 0 to 255. */
+export interface Rgb255 {
+  r: number
+  g: number
+  b: number
+}
+
+export const rgbaToRgb255 = ({ r, g, b }: Rgba): Rgb255 => ({ r: r * 255, g: g * 255, b: b * 255 })
+
+export const rgb255ToRgba = ({ r, g, b }: Rgb255, alpha = 1): Rgba => ({
+  r: clamp(r / 255),
+  g: clamp(g / 255),
+  b: clamp(b / 255),
+  a: clamp(alpha)
+})
+
+/** A color as the picker's HSL fields show it: hue in degrees, saturation and lightness from 0 to 100. */
+export interface Hsl {
+  h: number
+  s: number
+  l: number
+}
+
+/** A color's hue, saturation and lightness, from its hue, saturation and brightness. A gray keeps hue 0. */
+export function rgbaToHsl(color: Rgba): Hsl {
+  const { h, s, b } = rgbaToHsb(color)
+  const value = b / 100
+  const lightness = value * (1 - s / 200)
+  const saturation = lightness === 0 || lightness === 1 ? 0 : (value - lightness) / Math.min(lightness, 1 - lightness)
+  return { h, s: saturation * 100, l: lightness * 100 }
+}
+
+/** The color at a hue, saturation and lightness, with `alpha` from 0 to 1. */
+export function hslToRgba({ h, s, l }: Hsl, alpha = 1): Rgba {
+  const lightness = clamp(l / 100)
+  const value = lightness + clamp(s / 100) * Math.min(lightness, 1 - lightness)
+  const saturation = value === 0 ? 0 : 2 * (1 - lightness / value)
+  return hsbToRgba({ h, s: saturation * 100, b: value * 100 }, alpha)
 }
 
 /** Parses `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`. */

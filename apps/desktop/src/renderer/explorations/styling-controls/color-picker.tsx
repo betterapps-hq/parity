@@ -1,10 +1,15 @@
-/* oxlint-disable jsx-a11y/prefer-tag-over-role -- the saturation and brightness square is a slider on two axes, which no input element is; the hue strip beside it is drawn and keyed the same way */
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- the saturation and brightness square is a slider on two axes, which no input element is; the hue and alpha strips beside it are drawn and keyed the same way */
 import {
   Button,
   Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tabs,
   TabsContent,
   TabsList,
@@ -12,34 +17,38 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   formatHex,
+  formatOklch,
   type Hsb,
   hsbToRgba,
+  hslToRgba,
   nearestColor,
+  oklchToRgba,
   parseColor,
-  parseHex,
+  type Rgba,
+  rgb255ToRgba,
   rgbaToHsb,
+  rgbaToHsl,
+  rgbaToOklch,
+  rgbaToRgb255,
   sameColorDistance
 } from "@parity-app/tokens"
-import { Check, ChevronsUpDown, Pipette } from "lucide-react"
-import { type PointerEvent, useState } from "react"
+import { Check, ChevronsUpDown, Circle, CircleCheck, Pipette } from "lucide-react"
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { type ColorToken, colorTokens } from "./data.ts"
 
 /*
- * The color picker: a saturation and brightness square, a hue strip, hex and HSB typed, and the eyedropper. A style
- * names a token, so a color picked freely is answered with the token nearest it; the Tokens panel's picker edits the
- * token's own value instead.
+ * The color field and its picker, as PAR-652's design-options-values.md (Color) and design-options-fields.md specify
+ * them. At rest, a token is a chip; a plain color is its value in short form, with a hollow mark for a value off the
+ * token system. The picker's Custom tab edits the color live: a square, hue and alpha strips, a model menu, the
+ * eyedropper, the design's colors and the nearest token. The Tokens panel's picker edits a token's own value.
  */
 
-/** A hex color as the picker's fields show it, in whole numbers. */
-function hexToHsb(hex: string): Hsb {
-  const { h, s, b } = rgbaToHsb(parseHex(hex) ?? { r: 0, g: 0, b: 0, a: 1 })
-  return { h: Math.round(h) % 360, s: Math.round(s), b: Math.round(b) }
-}
+/** Whether a style's color is a plain value (`#2563eb`, `oklch(…)`) rather than a token's name. */
+const isPlainColor = (value: string | undefined): value is string =>
+  value !== undefined && parseColor(value) !== undefined
 
-const hsbToHex = (hsb: Hsb) => formatHex(hsbToRgba(hsb))
-
-/** The stand-in token whose color looks closest to `hex`, and how far off it is. */
+/** The stand-in token whose color looks closest to `value`, and how far off it is. */
 function nearestToken(value: string): { token: ColorToken; distance: number } | undefined {
   const color = parseColor(value)
   const nearest = color && nearestColor(color, Object.fromEntries(colorTokens.map((token) => [token.name, token.hex])))
@@ -47,78 +56,143 @@ function nearestToken(value: string): { token: ColorToken; distance: number } | 
   return nearest && token && { token, distance: nearest.distance }
 }
 
-/** The square, strip, fields and eyedropper, on a color given as hex. */
-export function ColorEditor({ hex, onChange }: { hex: string; onChange: (hex: string) => void }) {
-  const [hsb, setHsb] = useState(() => hexToHsb(hex))
-  const [typed, setTyped] = useState(hex)
-  const update = (next: Hsb) => {
+/** A plain color in short form, as Figma shows it: `2F6FED` for hex, `oklch 62% .19 260` for OKLCH. */
+function shortForm(value: string): string {
+  if (value.startsWith("#")) return value.slice(1, 7).toUpperCase()
+  const { l, c, h } = rgbaToOklch(parseColor(value)!)
+  return `oklch ${Math.round(l * 100)}% ${c.toFixed(2).replace(/^0/, "")} ${Math.round(h)}`
+}
+
+type ColorModel = "hex" | "rgb" | "hsl" | "hsb" | "oklch"
+
+const models: { value: ColorModel; label: string }[] = [
+  { value: "hex", label: "Hex" },
+  { value: "rgb", label: "RGB" },
+  { value: "hsl", label: "HSL" },
+  { value: "hsb", label: "HSB" },
+  { value: "oklch", label: "OKLCH" }
+]
+
+/** A color written in the model it was picked in: OKLCH as `oklch()`, the rest as hex, as HSB is written. */
+const written = (color: Rgba, model: ColorModel) =>
+  model === "oklch" ? formatOklch({ ...color, a: 1 }) : formatHex({ ...color, a: 1 })
+
+/**
+ * The square, hue and alpha strips, the model's fields and the eyedropper, on an opaque color and its alpha (0 to 100,
+ * unset for opaque): one alpha, shown here and as the % beside the swatch.
+ */
+export function ColorEditor({
+  value,
+  alpha,
+  onChange,
+  model: modelAtStart
+}: {
+  value: string
+  alpha: number | undefined
+  onChange: (value: string, alpha: number | undefined) => void
+  model?: ColorModel
+}) {
+  const start = parseColor(value) ?? { r: 0, g: 0, b: 0, a: 1 }
+  const [hsb, setHsb] = useState(() => rgbaToHsb(start))
+  const [model, setModel] = useState<ColorModel>(modelAtStart ?? (value.startsWith("oklch") ? "oklch" : "hex"))
+  const opacity = alpha ?? 100
+  const color = hsbToRgba(hsb)
+  const update = (next: Hsb, nextAlpha = alpha, nextModel = model) => {
     setHsb(next)
-    const value = hsbToHex(next)
-    setTyped(value)
-    onChange(value)
+    onChange(written(hsbToRgba(next), nextModel), nextAlpha)
   }
-  const drag = (event: PointerEvent<HTMLDivElement>, apply: (x: number, y: number) => void) => {
-    const box = event.currentTarget.getBoundingClientRect()
-    const move = (x: number, y: number) =>
-      apply(Math.min(1, Math.max(0, (x - box.left) / box.width)), Math.min(1, Math.max(0, (y - box.top) / box.height)))
-    move(event.clientX, event.clientY)
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const target = event.currentTarget
-    const onMove = (next: globalThis.PointerEvent) => move(next.clientX, next.clientY)
-    const onUp = () => {
-      target.removeEventListener("pointermove", onMove)
-      target.removeEventListener("pointerup", onUp)
-    }
-    target.addEventListener("pointermove", onMove)
-    target.addEventListener("pointerup", onUp)
+  // A gray keeps the hue the strip was on, so dragging into the gray corner and out again doesn't jump to red.
+  const fromRgba = (rgba: Rgba) => {
+    const next = rgbaToHsb(rgba)
+    update(next.s === 0 || next.b === 0 ? { ...next, h: hsb.h } : next)
   }
   const eyedropper = "EyeDropper" in window
   const pickFromScreen = async () => {
     const EyeDropper = (window as unknown as { EyeDropper: new () => { open: () => Promise<{ sRGBHex: string }> } })
       .EyeDropper
     const picked = await new EyeDropper().open().catch(() => undefined)
-    if (picked) update(hexToHsb(picked.sRGBHex))
+    const rgba = picked && parseColor(picked.sRGBHex)
+    if (rgba) fromRgba(rgba)
   }
+  const rgb = rgbaToRgb255(color)
+  const hsl = rgbaToHsl(color)
+  const oklch = rgbaToOklch(color)
+  const fields: Record<ColorModel, ReactNode> = {
+    hex: <HexField key="hex" color={color} onChange={fromRgba} />,
+    rgb: (["r", "g", "b"] as const).map((channel) => (
+      <ChannelField
+        key={channel}
+        label={{ r: "Red", g: "Green", b: "Blue" }[channel]}
+        value={rgb[channel]}
+        max={255}
+        onChange={(next) => fromRgba(rgb255ToRgba({ ...rgb, [channel]: next }))}
+      />
+    )),
+    hsl: (["h", "s", "l"] as const).map((channel) => (
+      <ChannelField
+        key={channel}
+        label={{ h: "Hue", s: "Saturation", l: "Lightness" }[channel]}
+        value={channel === "h" ? hsb.h : hsl[channel]}
+        max={channel === "h" ? 359 : 100}
+        onChange={(next) => {
+          if (channel === "h") update({ ...hsb, h: next })
+          else fromRgba(hslToRgba({ ...hsl, h: hsb.h, [channel]: next }))
+        }}
+      />
+    )),
+    hsb: (["h", "s", "b"] as const).map((channel) => (
+      <ChannelField
+        key={channel}
+        label={{ h: "Hue", s: "Saturation", b: "Brightness" }[channel]}
+        value={hsb[channel]}
+        max={channel === "h" ? 359 : 100}
+        onChange={(next) => update({ ...hsb, [channel]: next })}
+      />
+    )),
+    oklch: [
+      <ChannelField
+        key="l"
+        label="Lightness"
+        value={oklch.l * 100}
+        max={100}
+        onChange={(next) => fromRgba(oklchToRgba({ ...oklch, l: next / 100 }))}
+      />,
+      <ChannelField
+        key="c"
+        label="Chroma"
+        value={oklch.c}
+        max={0.4}
+        step={0.01}
+        places={3}
+        onChange={(next) => fromRgba(oklchToRgba({ ...oklch, c: next }))}
+      />,
+      <ChannelField
+        key="h"
+        label="Hue"
+        value={oklch.h}
+        max={359}
+        onChange={(next) => fromRgba(oklchToRgba({ ...oklch, h: next }))}
+      />
+    ]
+  }
+  const solid = formatHex(color)
   return (
     <div className="flex flex-col gap-2">
-      <div
-        role="slider"
-        aria-label="Saturation and brightness"
-        aria-valuetext={`Saturation ${hsb.s}%, brightness ${hsb.b}%`}
-        aria-valuenow={hsb.s}
-        tabIndex={0}
-        onKeyDown={(event) => {
-          const step = event.shiftKey ? 10 : 1
-          const keys: Record<string, Partial<Hsb>> = {
-            ArrowLeft: { s: Math.max(0, hsb.s - step) },
-            ArrowRight: { s: Math.min(100, hsb.s + step) },
-            ArrowUp: { b: Math.min(100, hsb.b + step) },
-            ArrowDown: { b: Math.max(0, hsb.b - step) }
-          }
-          const change = keys[event.key]
-          if (!change) return
-          event.preventDefault()
-          update({ ...hsb, ...change })
-        }}
-        onPointerDown={(event) =>
-          drag(event, (x, y) => update({ ...hsb, s: Math.round(x * 100), b: Math.round((1 - y) * 100) }))
-        }
-        className="relative h-36 cursor-crosshair touch-none rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        style={{
-          background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hsb.h} 100% 50%))`
-        }}
-      >
-        <span
-          className="pointer-events-none absolute size-3 -translate-1/2 rounded-full border-2 border-white shadow"
-          style={{ left: `${hsb.s}%`, top: `${100 - hsb.b}%` }}
-        />
-      </div>
+      <Strip2d
+        label="Saturation and brightness"
+        valueText={`Saturation ${Math.round(hsb.s)}%, brightness ${Math.round(hsb.b)}%`}
+        x={hsb.s / 100}
+        y={1 - hsb.b / 100}
+        onMove={(x, y) => update({ ...hsb, s: x * 100, b: (1 - y) * 100 })}
+        onKey={(dx, dy) => update({ ...hsb, s: clamp(hsb.s + dx, 0, 100), b: clamp(hsb.b - dy, 0, 100) })}
+        background={`linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hsb.h} 100% 50%))`}
+      />
       <div className="flex items-center gap-2">
         <Hint label={eyedropper ? "Pick a color from the screen" : "The eyedropper needs Parity's own window"}>
           <Button
             variant="outline"
             size="icon-sm"
-            className="size-7"
+            className="size-7 shrink-0"
             aria-label="Pick a color from the screen"
             disabled={!eyedropper}
             onClick={pickFromScreen}
@@ -126,81 +200,246 @@ export function ColorEditor({ hex, onChange }: { hex: string; onChange: (hex: st
             <Pipette />
           </Button>
         </Hint>
-        <div
-          role="slider"
-          aria-label="Hue"
-          aria-valuemin={0}
-          aria-valuemax={359}
-          aria-valuenow={hsb.h}
-          tabIndex={0}
-          onKeyDown={(event) => {
-            const step = event.shiftKey ? 10 : 1
-            if (event.key === "ArrowLeft" || event.key === "ArrowDown")
-              update({ ...hsb, h: (hsb.h - step + 360) % 360 })
-            else if (event.key === "ArrowRight" || event.key === "ArrowUp") update({ ...hsb, h: (hsb.h + step) % 360 })
-            else return
-            event.preventDefault()
-          }}
-          onPointerDown={(event) => drag(event, (x) => update({ ...hsb, h: Math.round(x * 359) }))}
-          className="relative h-3 flex-1 cursor-ew-resize touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          style={{
-            background: "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)"
-          }}
-        >
-          <span
-            className="pointer-events-none absolute top-1/2 size-3.5 -translate-1/2 rounded-full border-2 border-white shadow"
-            style={{ left: `${(hsb.h / 359) * 100}%` }}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <Strip
+            label="Hue"
+            value={hsb.h}
+            max={359}
+            unit="°"
+            background="linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)"
+            onChange={(h) => update({ ...hsb, h })}
+          />
+          <Strip
+            label="Opacity"
+            value={opacity}
+            max={100}
+            unit="%"
+            checker
+            background={`linear-gradient(to right, transparent, ${solid})`}
+            onChange={(next) => update(hsb, Math.round(next) >= 100 ? undefined : Math.round(next))}
           />
         </div>
       </div>
-      <div className="grid grid-cols-[1fr_repeat(3,2.5rem)] gap-1">
-        <Input
-          aria-label="Hex"
-          value={typed}
-          onChange={(event) => setTyped(event.target.value)}
-          onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
-          onBlur={() => {
-            const value = typed.startsWith("#") ? typed : `#${typed}`
-            if (parseHex(value)) update(hexToHsb(value))
-            else setTyped(hsbToHex(hsb))
+      <div className="flex items-center gap-1">
+        <Select
+          items={models}
+          value={model}
+          onValueChange={(next) => {
+            if (!next) return
+            setModel(next as ColorModel)
+            // A plain color is written in the model it's picked in.
+            update(hsb, alpha, next as ColorModel)
           }}
-          className="h-7 px-2 font-mono text-xs"
-        />
-        {(["h", "s", "b"] as const).map((channel) => (
-          <Input
-            key={channel}
-            aria-label={{ h: "Hue", s: "Saturation", b: "Brightness" }[channel]}
-            inputMode="numeric"
-            value={hsb[channel]}
-            onChange={(event) => {
-              const number = Number(event.target.value)
-              if (!Number.isFinite(number)) return
-              const max = channel === "h" ? 359 : 100
-              update({ ...hsb, [channel]: Math.min(max, Math.max(0, Math.round(number))) })
-            }}
-            className="h-7 px-1.5 text-center text-xs tabular-nums"
-          />
-        ))}
-      </div>
-      <div className="grid grid-cols-[1fr_repeat(3,2.5rem)] gap-1 text-center text-[10px] text-muted-foreground">
-        <span className="text-left">Hex</span>
-        <span>H</span>
-        <span>S</span>
-        <span>B</span>
+        >
+          <SelectTrigger size="sm" aria-label="Color model" className="h-7 w-[4.5rem] shrink-0 px-2 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {models.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="grid min-w-0 flex-1 auto-cols-fr grid-flow-col gap-1">{fields[model]}</div>
       </div>
     </div>
   )
 }
 
-/** Whether a style's color is a plain value (`#2563eb`, `oklch(…)`) rather than a token's name. */
-export const isPlainColor = (value: string | undefined): value is string =>
-  value !== undefined && parseColor(value) !== undefined
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+/** A hex field: `2F6FED` with or without `#`, of 3, 6 or 8 digits; an `oklch()` pasted in is read too. */
+function HexField({ color, onChange }: { color: Rgba; onChange: (color: Rgba) => void }) {
+  const shown = formatHex(color).slice(1).toUpperCase()
+  const [typed, setTyped] = useState<string>()
+  return (
+    <Input
+      aria-label="Hex"
+      value={typed ?? shown}
+      onChange={(event) => setTyped(event.target.value)}
+      onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
+      onBlur={() => {
+        if (typed === undefined) return
+        const text = typed.trim()
+        const read = parseColor(text) ?? parseColor(`#${text}`)
+        if (read) onChange({ ...read, a: 1 })
+        setTyped(undefined)
+      }}
+      className="h-7 px-2 font-mono text-xs uppercase"
+    />
+  )
+}
+
+/** One of a model's channels, typed or stepped with the arrow keys (Shift for ten), committed on Enter or leaving. */
+function ChannelField({
+  label,
+  value,
+  max,
+  step = 1,
+  places = 0,
+  onChange
+}: {
+  label: string
+  value: number
+  max: number
+  step?: number
+  places?: number
+  onChange: (value: number) => void
+}) {
+  const [typed, setTyped] = useState<string>()
+  const shown = places === 0 ? String(Math.round(value)) : value.toFixed(places).replace(/^0/, "")
+  return (
+    <Hint label={label}>
+      <Input
+        aria-label={label}
+        inputMode="decimal"
+        value={typed ?? shown}
+        onChange={(event) => setTyped(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur()
+          if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return
+          event.preventDefault()
+          setTyped(undefined)
+          const by = (event.key === "ArrowUp" ? step : -step) * (event.shiftKey ? 10 : 1)
+          onChange(clamp(value + by, 0, max))
+        }}
+        onBlur={() => {
+          if (typed === undefined) return
+          const number = Number(typed)
+          if (typed.trim() !== "" && Number.isFinite(number)) onChange(clamp(number, 0, max))
+          setTyped(undefined)
+        }}
+        className="h-7 min-w-0 px-1 text-center text-xs tabular-nums"
+      />
+    </Hint>
+  )
+}
+
+/** Moves a pointer drag's position, as fractions of the box, until the button goes up. */
+function drag(event: PointerEvent<HTMLDivElement>, apply: (x: number, y: number) => void) {
+  const box = event.currentTarget.getBoundingClientRect()
+  const move = (x: number, y: number) =>
+    apply(clamp((x - box.left) / box.width, 0, 1), clamp((y - box.top) / box.height, 0, 1))
+  move(event.clientX, event.clientY)
+  event.currentTarget.setPointerCapture(event.pointerId)
+  const target = event.currentTarget
+  const onMove = (next: globalThis.PointerEvent) => move(next.clientX, next.clientY)
+  const onUp = () => {
+    target.removeEventListener("pointermove", onMove)
+    target.removeEventListener("pointerup", onUp)
+  }
+  target.addEventListener("pointermove", onMove)
+  target.addEventListener("pointerup", onUp)
+}
+
+/** The arrow keys' step, ten with Shift, as every field steps. */
+const keyStep = (event: KeyboardEvent) => (event.shiftKey ? 10 : 1)
+
+/** The square: a slider on two axes, dragged or moved with the arrow keys. */
+function Strip2d({
+  label,
+  valueText,
+  x,
+  y,
+  background,
+  onMove,
+  onKey
+}: {
+  label: string
+  valueText: string
+  x: number
+  y: number
+  background: string
+  onMove: (x: number, y: number) => void
+  onKey: (dx: number, dy: number) => void
+}) {
+  return (
+    <div
+      role="slider"
+      aria-label={label}
+      aria-valuetext={valueText}
+      aria-valuenow={Math.round(x * 100)}
+      tabIndex={0}
+      onKeyDown={(event) => {
+        const moves: Record<string, [number, number]> = {
+          ArrowLeft: [-1, 0],
+          ArrowRight: [1, 0],
+          ArrowUp: [0, -1],
+          ArrowDown: [0, 1]
+        }
+        const move = moves[event.key]
+        if (!move) return
+        event.preventDefault()
+        onKey(move[0] * keyStep(event), move[1] * keyStep(event))
+      }}
+      onPointerDown={(event) => drag(event, onMove)}
+      className="relative h-36 cursor-crosshair touch-none rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      style={{ background }}
+    >
+      <span
+        className="pointer-events-none absolute size-3 -translate-1/2 rounded-full border-2 border-white shadow"
+        style={{ left: `${x * 100}%`, top: `${y * 100}%` }}
+      />
+    </div>
+  )
+}
+
+/** A strip: hue or alpha, dragged or stepped with the arrow keys. */
+function Strip({
+  label,
+  value,
+  max,
+  unit,
+  background,
+  checker = false,
+  onChange
+}: {
+  label: string
+  value: number
+  max: number
+  unit: string
+  background: string
+  checker?: boolean
+  onChange: (value: number) => void
+}) {
+  return (
+    <div
+      role="slider"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={max}
+      aria-valuenow={Math.round(value)}
+      aria-valuetext={`${Math.round(value)}${unit}`}
+      tabIndex={0}
+      onKeyDown={(event) => {
+        const direction = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }[event.key]
+        if (direction === undefined) return
+        event.preventDefault()
+        onChange(clamp(value + direction * keyStep(event), 0, max))
+      }}
+      onPointerDown={(event) => drag(event, (x) => onChange(x * max))}
+      className="relative h-3 cursor-ew-resize touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      style={{
+        background: checker
+          ? `${background}, repeating-conic-gradient(#ccc 0 25%, #fff 0 50%) 0 0 / 6px 6px`
+          : background
+      }}
+    >
+      <span
+        className="pointer-events-none absolute top-1/2 size-3.5 -translate-1/2 rounded-full border-2 border-white shadow"
+        style={{ left: `${(value / max) * 100}%` }}
+      />
+    </div>
+  )
+}
 
 /**
- * A style's color: a token by name, or a plain color marked as not a token with the nearest token one click away. The
- * opacity after it is written with a token (`primary/50`) or into a plain color's own alpha. The picker has the
- * project's color tokens and a Custom tab, whose color can be used as it is or answered with the nearest token. A
- * project that takes tokens only refuses plain colors: the mark says so, and Custom offers only the token.
+ * A style's color: a token as a chip, or a plain color in short form with its status mark; then its alpha as its own %
+ * field. The picker opens on Tokens for a token and Custom for a value. Custom edits the layer's color live, as a plain
+ * value, and offers the nearest token in one click. A project that takes tokens only refuses plain colors: Custom only
+ * offers the nearest token, and a plain color already there shows in the error color with the nearest token under it.
  */
 export function ColorInput({
   label,
@@ -208,9 +447,12 @@ export function ColorInput({
   alpha,
   onChange,
   tokensOnly = false,
+  allowed = false,
+  onAllow,
   used = [],
   open: openAtStart = false,
-  tab: tabAtStart = "tokens"
+  tab: tabAtStart,
+  model
 }: {
   label: string
   value: string | undefined
@@ -218,50 +460,73 @@ export function ColorInput({
   onChange: (value: string | undefined, alpha: number | undefined) => void
   /** The project's Tokens only setting. */
   tokensOnly?: boolean
+  /** Whether this plain color is allowed here as an exception, which fills its mark. */
+  allowed?: boolean
+  onAllow?: (allowed: boolean) => void
   /** Colors the design already uses, offered at the bottom of Custom. */
   used?: string[]
   open?: boolean
+  /** The tab it opens on at first, for a story; afterwards it opens on the one for the color's form. */
   tab?: "tokens" | "custom"
+  model?: ColorModel
 }) {
   const [open, setOpen] = useState(openAtStart)
-  const [tab, setTab] = useState(tabAtStart)
   const current = colorTokens.find((token) => token.name === value)
   const plain = isPlainColor(value)
-  const swatch = plain ? value : current?.hex
-  // Custom works in hex; a plain color written as oklch() starts it from the same color.
-  const [custom, setCustom] = useState(() => (plain ? formatHex(parseColor(value)!) : (current?.hex ?? "#3b82f6")))
-  // The editor starts again from a color picked from Used in this design.
+  const [tab, setTab] = useState<"tokens" | "custom">(tabAtStart ?? (plain ? "custom" : "tokens"))
+  // Custom works from the layer's color, or the token's, and Tokens only keeps what's picked here until it's used.
+  const [custom, setCustom] = useState(() => (plain ? value : (current?.hex ?? "#3b82f6")))
+  // The editor starts again from a color picked from In this design.
   const [round, setRound] = useState(0)
   const nearest = nearestToken(custom)
   const nearestToValue = plain ? nearestToken(value) : undefined
-  const [typedAlpha, setTypedAlpha] = useState(alpha === undefined ? "" : String(alpha))
+  const [typedAlpha, setTypedAlpha] = useState<string>()
   const choose = (next: string) => {
     onChange(next, alpha)
     setOpen(false)
   }
-  const same = nearest !== undefined && nearest.distance < sameColorDistance
+  const pick = (next: string, nextAlpha: number | undefined) => {
+    setCustom(next)
+    if (!tokensOnly) onChange(next, nextAlpha)
+  }
+  const refused = plain && tokensOnly
+  const swatch = plain ? value : current?.hex
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1">
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next)
+            if (next) setTab(plain ? "custom" : "tokens")
+          }}
+        >
           <PopoverTrigger
             render={
               <Button
                 variant="outline"
                 size="sm"
                 aria-label={`${label}: ${value ?? "none"}${plain ? ", not a token" : ""}`}
-                aria-invalid={plain && tokensOnly}
-                className="h-7 min-w-0 flex-1 justify-between gap-1.5 px-2 text-xs font-normal"
+                aria-invalid={refused}
+                className="h-7 min-w-0 flex-1 justify-between gap-1.5 px-1 text-xs font-normal aria-invalid:border-destructive"
               >
-                <span className="flex min-w-0 items-center gap-1.5">
-                  {swatch && (
-                    <Checker hex={swatch} alpha={alpha} className={plain ? "size-3.5 rounded-full" : undefined} />
-                  )}
-                  <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>
-                    {value ?? "None"}
+                {current ? (
+                  // A token is a chip on a tinted background, as Figma UI3's variable pill is.
+                  <span className="flex min-w-0 items-center gap-1.5 rounded-sm bg-accent px-1 py-0.5">
+                    <Checker hex={current.hex} alpha={alpha} />
+                    <span className="truncate font-mono">{current.name}</span>
                   </span>
-                </span>
-                <ChevronsUpDown className="size-3 opacity-50" />
+                ) : (
+                  <span className="flex min-w-0 items-center gap-1.5 px-1">
+                    {swatch && <Checker hex={swatch} alpha={alpha} />}
+                    <span
+                      className={`truncate font-mono ${value ? "" : "text-muted-foreground"} ${refused ? "text-destructive" : ""}`}
+                    >
+                      {plain ? shortForm(value) : "None"}
+                    </span>
+                  </span>
+                )}
+                <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
               </Button>
             }
           />
@@ -290,7 +555,7 @@ export function ColorInput({
                 ))}
               </TabsContent>
               <TabsContent value="custom" className="flex flex-col gap-3 p-2">
-                <ColorEditor key={round} hex={custom} onChange={setCustom} />
+                <ColorEditor key={round} value={custom} alpha={alpha} model={model} onChange={pick} />
                 {nearest && (
                   <div className="flex flex-col gap-2 rounded-md border p-2">
                     <div className="flex items-center gap-2">
@@ -308,21 +573,14 @@ export function ColorInput({
                         This project takes tokens only, so a color is set by its nearest token.
                       </p>
                     )}
-                    <div className="flex gap-1">
-                      {!tokensOnly && !same && (
-                        <Button size="sm" className="h-7 flex-1 text-xs" onClick={() => choose(custom)}>
-                          Use {custom}
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant={tokensOnly || same ? "default" : "outline"}
-                        className="h-7 min-w-0 flex-1 text-xs"
-                        onClick={() => choose(nearest.token.name)}
-                      >
-                        <span className="truncate">Use {nearest.token.name}</span>
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant={tokensOnly ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => choose(nearest.token.name)}
+                    >
+                      Use {nearest.token.name}
+                    </Button>
                   </div>
                 )}
                 {used.length > 0 && (
@@ -333,9 +591,9 @@ export function ColorInput({
                         <Hint key={color} label={color}>
                           <button
                             type="button"
-                            aria-label={`Start from ${color}`}
+                            aria-label={`Use ${color}`}
                             onClick={() => {
-                              setCustom(color)
+                              pick(color, alpha)
                               setRound(round + 1)
                             }}
                             className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -351,9 +609,23 @@ export function ColorInput({
             </Tabs>
           </PopoverContent>
         </Popover>
+        {plain && !tokensOnly && nearestToValue && (
+          <OffSystemMark
+            label={label}
+            value={value}
+            nearest={nearestToValue.token}
+            allowed={allowed}
+            onUse={() => onChange(nearestToValue.token.name, alpha)}
+            onCreate={(name) => {
+              colorTokens.push({ name, hex: formatHex({ ...parseColor(value)!, a: 1 }) })
+              onChange(name, alpha)
+            }}
+            onAllow={(next) => onAllow?.(next)}
+          />
+        )}
         <Hint
           label={`${label} opacity`}
-          detail={plain ? "Written into the color, as #2563eb80" : "Written with the token, as bg-primary/50"}
+          detail={plain ? "Part of the color, written as #2f6fed80" : "Written after the token, as bg-primary/50"}
         >
           <div className="flex h-7 w-14 shrink-0 items-center rounded-md border bg-transparent pr-1.5 focus-within:ring-2 focus-within:ring-ring dark:bg-input/30">
             <input
@@ -361,13 +633,14 @@ export function ColorInput({
               inputMode="numeric"
               placeholder="100"
               disabled={!value}
-              value={typedAlpha}
+              value={typedAlpha ?? (alpha === undefined ? "" : String(alpha))}
               onChange={(event) => setTypedAlpha(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
               onBlur={() => {
+                if (typedAlpha === undefined) return
                 const number = Number(typedAlpha)
                 const next = typedAlpha === "" || number >= 100 ? undefined : Math.max(0, Math.round(number))
-                setTypedAlpha(next === undefined ? "" : String(next))
+                setTypedAlpha(undefined)
                 onChange(value, next)
               }}
               className="w-full min-w-0 bg-transparent px-1.5 text-right text-xs tabular-nums outline-none placeholder:text-muted-foreground"
@@ -376,23 +649,125 @@ export function ColorInput({
           </div>
         </Hint>
       </div>
-      {plain && nearestToValue && (
-        <p
-          role={tokensOnly ? "alert" : "status"}
-          className={`flex flex-wrap items-center gap-x-1 text-[11px] leading-snug ${tokensOnly ? "text-destructive" : "text-muted-foreground"}`}
-        >
-          {tokensOnly ? "Not a token, and this project takes tokens only." : "Not a token."}
+      {refused && nearestToValue && (
+        <p role="alert" className="flex flex-wrap items-center gap-x-1 text-[11px] leading-snug text-destructive">
+          Not a token. Nearest:
           <button
             type="button"
             onClick={() => onChange(nearestToValue.token.name, alpha)}
             className="inline-flex items-center gap-1 rounded-sm font-medium text-foreground underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <Checker hex={nearestToValue.token.hex} className="size-2.5" />
-            Use {nearestToValue.token.name}
+            {nearestToValue.token.name}
           </button>
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * The status slot's mark for a value off the token system: hollow, or filled once it's allowed here. Its menu has the
+ * nearest token, Create token (named here, with this color as its value) and Allow here.
+ */
+function OffSystemMark({
+  label,
+  value,
+  nearest,
+  allowed,
+  onUse,
+  onCreate,
+  onAllow
+}: {
+  label: string
+  value: string
+  nearest: ColorToken
+  allowed: boolean
+  onUse: () => void
+  onCreate: (name: string) => void
+  onAllow: (allowed: boolean) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState<string>()
+  const taken = name !== undefined && colorTokens.some((token) => token.name === name.trim())
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setName(undefined)
+      }}
+    >
+      <Hint label={allowed ? "Not a token, allowed here" : "Not a token"} detail={`Nearest: ${nearest.name}`}>
+        <PopoverTrigger
+          aria-label={`${label} isn't a token${allowed ? ", allowed here" : ""}`}
+          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+        >
+          {allowed ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" strokeDasharray="3 2" />}
+        </PopoverTrigger>
+      </Hint>
+      <PopoverContent className="w-60 gap-1 p-1" align="end">
+        <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">
+          {value} isn&apos;t one of the project&apos;s tokens. It stays the same in every theme.
+        </p>
+        <MenuButton
+          onClick={() => {
+            onUse()
+            setOpen(false)
+          }}
+        >
+          <Checker hex={nearest.hex} />
+          Use nearest, <span className="font-mono">{nearest.name}</span>
+        </MenuButton>
+        {name === undefined ? (
+          <MenuButton onClick={() => setName("")}>Create token…</MenuButton>
+        ) : (
+          <form
+            className="flex flex-col gap-1 px-1 py-1"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (!name.trim() || taken) return
+              onCreate(name.trim())
+              setOpen(false)
+            }}
+          >
+            <Input
+              ref={(input) => input?.focus()}
+              aria-label="New token's name"
+              placeholder="brand"
+              value={name}
+              onChange={(event) => setName(event.target.value.replace(/\s+/g, "-").toLowerCase())}
+              aria-invalid={taken}
+              className="h-7 font-mono text-xs"
+            />
+            {taken && <p className="text-[11px] text-destructive">{`There's a token called ${name} already.`}</p>}
+            <Button type="submit" size="sm" className="h-7 text-xs" disabled={!name.trim() || taken}>
+              Create {name.trim() || "token"}
+            </Button>
+          </form>
+        )}
+        <MenuButton
+          onClick={() => {
+            onAllow(!allowed)
+            setOpen(false)
+          }}
+        >
+          {allowed ? "Don't allow here" : "Allow here"}
+        </MenuButton>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function MenuButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent"
+    >
+      {children}
+    </button>
   )
 }
 
@@ -415,36 +790,36 @@ export function Checker({ hex, alpha, className = "size-3.5" }: { hex: string; a
   )
 }
 
-/** The Tokens panel's color token, its value edited with the same picker. */
+/** The Tokens panel's color token, its value edited with the same picker and written on Save. */
 export function TokenColorEditor({ token: start }: { token: ColorToken }) {
-  const [hex, setHex] = useState(start.hex)
+  const [value, setValue] = useState(start.hex)
   const [saved, setSaved] = useState(start.hex)
   // Cancel puts the editor back on the saved value, so it starts again from there.
   const [round, setRound] = useState(0)
   return (
     <div className="flex w-64 flex-col gap-3 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md">
       <div className="flex items-center gap-2">
-        <Checker hex={hex} className="size-8" />
+        <Checker hex={value} className="size-8" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-mono text-xs">{start.name}</p>
-          <p className="font-mono text-[11px] text-muted-foreground">{hex}</p>
+          <p className="font-mono text-[11px] text-muted-foreground">{value}</p>
         </div>
       </div>
-      <ColorEditor key={round} hex={hex} onChange={setHex} />
+      <ColorEditor key={round} value={value} alpha={undefined} onChange={(next) => setValue(next)} />
       <div className="flex justify-end gap-1">
         <Button
           variant="ghost"
           size="sm"
           className="h-7 text-xs"
-          disabled={hex === saved}
+          disabled={value === saved}
           onClick={() => {
-            setHex(saved)
+            setValue(saved)
             setRound(round + 1)
           }}
         >
           Cancel
         </Button>
-        <Button size="sm" className="h-7 text-xs" disabled={hex === saved} onClick={() => setSaved(hex)}>
+        <Button size="sm" className="h-7 text-xs" disabled={value === saved} onClick={() => setSaved(value)}>
           Save
         </Button>
       </div>

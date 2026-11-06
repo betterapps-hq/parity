@@ -80,15 +80,20 @@ const contentTracks = {
   max: { label: "Max", css: "max-content" }
 } as const
 
+/** Fill, or Fill ×2 for a larger share, in words as Size's Fill is. */
+const fillLabel = (share: number) => (share === 1 ? "Fill" : `Fill ×${share}`)
+
+/** A track in words where a size mode fits: Fill, Fill ×2, Hug, 200 (pixels), 120–Fill for a range. */
 export const trackLabel = (track: Track): string => {
-  if (track.kind === "fr") return `${track.value}fr`
-  if (track.kind === "px") return `${track.value}px`
-  if (track.kind === "range") return `${track.min}px–${track.max}fr`
+  if (track.kind === "fr") return fillLabel(track.value)
+  if (track.kind === "px") return String(track.value)
+  if (track.kind === "range") return `${track.min}–${fillLabel(track.max)}`
   return contentTracks[track.kind].label
 }
 
+/** A Fill track is `minmax(0, 1fr)`, as `grid-cols-N` writes it, so long content can't widen its column. */
 export const trackCss = (track: Track): string => {
-  if (track.kind === "fr") return `${track.value}fr`
+  if (track.kind === "fr") return `minmax(0, ${track.value}fr)`
   if (track.kind === "px") return `${track.value}px`
   if (track.kind === "range") return `minmax(${track.min}px, ${track.max}fr)`
   return contentTracks[track.kind].css
@@ -108,12 +113,16 @@ export function placementCss(start: number | undefined, span: Span | undefined):
 
 /** What the exploration's layer has: the proposed style fields, each beside the one it extends. */
 export interface Draft {
+  /** A color token's name, or a plain color as typed (`#2f6fed`, `oklch(…)`). */
   background?: string
   backgroundAlpha?: number
+  /** A plain fill allowed here as an exception to the token system. */
+  backgroundAllowed?: boolean
   /** One radius, or each corner from the top left, clockwise. */
   radius?: string | [string?, string?, string?, string?]
   border?: string
   borderAlpha?: number
+  borderAllowed?: boolean
   /** One width, or each side from the top, clockwise. */
   borderWidth?: number | [number, number, number, number]
   blur?: string
