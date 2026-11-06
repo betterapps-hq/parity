@@ -53,6 +53,7 @@ import type {
   PreviewPictures,
   ServiceProcessMethods
 } from "../shared/service.ts"
+import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from "../shared/telemetry-run.ts"
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
@@ -65,7 +66,7 @@ import { launchLink, passLink } from "./pass-link.ts"
 import { privateMemory } from "./private-memory.ts"
 import { auditResult, canvasHeightResult, renderResult } from "./render-results.ts"
 import { sessionStore } from "./session-store.ts"
-import { serviceStarted, startTelemetry, watchWindowHangs } from "./telemetry.ts"
+import { recordForwarded, serviceStarted, startEvents, startTelemetry, watchWindowHangs } from "./telemetry.ts"
 import { savedTheme } from "./theme-file.ts"
 import type { UpdateSession } from "./update-session.ts"
 import { createUpdates } from "./updates.ts"
@@ -107,6 +108,13 @@ if (environment.PARITY_WINDOW_SIZE) app.commandLine.appendSwitch("disable-featur
 // @parity-app/desktop (PAR-425).
 app.setPath("userData", environment.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
 app.setName("Parity")
+// Events from every process are recorded from here on, and the other processes start theirs with this run (PAR-627).
+const telemetryRun = writeTelemetryRun(
+  startEvents({
+    userData: app.getPath("userData"),
+    installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
+  }).run
+)
 
 let service: UtilityProcess | undefined
 let updates: UpdateSession | undefined
@@ -177,7 +185,8 @@ function startService(): UtilityProcess {
       // Names this copy's entry in the agent registry, so a restarted service writes the same one, and says how long
       // the copy has been running: a project open in two copies goes to the older (PAR-514).
       PARITY_APP_PID: String(process.pid),
-      PARITY_APP_STARTED: String(appStarted)
+      PARITY_APP_STARTED: String(appStarted),
+      [telemetryRunVariable]: telemetryRun
     }
   })
   const channel = createChannel<MainMethods, ServiceProcessMethods>({
@@ -192,7 +201,8 @@ function startService(): UtilityProcess {
         const taken = account.owns(link)
         if (taken) void account.takeLink(link)
         return { taken }
-      }
+      },
+      record: (envelope) => recordForwarded(envelope)
     },
     disconnected: () => new Error("The project service stopped")
   })
@@ -261,6 +271,7 @@ function createWindow(): void {
     webPreferences: {
       additionalArguments: [
         `--parity-version=${app.getVersion()}`,
+        `${telemetryRunArgument}${telemetryRun}`,
         ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : [])
       ],
       preload: join(import.meta.dirname, "preload.cjs"),
@@ -602,6 +613,12 @@ ipcMain.handle(
   checked(openInEditorRequest, (_event, request) => openInEditor(request))
 )
 
+// Windows and render windows send the events they record, named by the window that sent them (PAR-627).
+ipcMain.on(ipc.telemetry, (event, envelope: unknown) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  recordForwarded(envelope, window && isRenderWindow(window) ? "render" : "renderer")
+})
+
 // The editor says which frame's event it's handling just before a console message is written there (PAR-147). Word
 // that isn't one is ignored, and the message is kept as the project's.
 ipcMain.on(ipc.consoleAnnounce, (event, announcement: unknown) => {
@@ -751,7 +768,14 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
       show: false,
       width: 1280,
       height: 800,
-      webPreferences: { offscreen: true, contextIsolation: true, sandbox: true }
+      webPreferences: {
+        offscreen: true,
+        contextIsolation: true,
+        sandbox: true,
+        // Only so the page can send main its telemetry: the project's components run in it too.
+        preload: join(import.meta.dirname, "render-preload.cjs"),
+        additionalArguments: [`${telemetryRunArgument}${telemetryRun}`]
+      }
     })
     watchWindowHangs(window, "offscreen renderer", "render")
     // A message is the design's the window is drawing as it's written (PAR-147).
