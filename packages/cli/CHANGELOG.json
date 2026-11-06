@@ -2,6 +2,35 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 10:43:10 GMT",
+      "version": "0.13.0",
+      "tag": "@parity-app/cli_v0.13.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c9accc1a3a8e550d6d872e8d90fdc66b292adbf8",
+            "comment": "Keep a size or inset off the spacing scale, flagged with the nearest step one click away, and nudge layers by 1px"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1a1bae91b9a37a7ed12a90cb87c0153062f328dc",
+            "comment": "Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aeaacd836cb13d0765b3c25a84289a3fe338edb5",
+            "comment": "Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom when frames run slow"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 07:14:05 GMT",
       "version": "0.12.0",
       "tag": "@parity-app/cli_v0.12.0",

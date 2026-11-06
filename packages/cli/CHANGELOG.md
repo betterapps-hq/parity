@@ -1,8 +1,24 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 07:14:05 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 10:43:10 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.13.0
+
+Fri, 06 Nov 2026 10:43:10 GMT
+
+### Minor changes
+
+- Keep a size or inset off the spacing scale, flagged with the nearest step one click away, and nudge layers by 1px
+  (ajcraswell@gmail.com)
+- Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom
+  when frames run slow (ajcraswell@gmail.com)
 
 ## 0.12.0
 
