@@ -5221,8 +5221,14 @@ PAR-83 marks them in a component design, and PAR-84 fills them from instances. M
   keeping its layers, since a component has one slot by each name. A component turned into a screen keeps its marks,
   which do nothing until it's a component again.
 - **Names are camelCased,** so `Side actions` is `sideActions`, and a new slot takes its layout's name.
-- **Filling slots waits for PAR-84,** in the same real panels: Filled and Empty on an instance's slots, a picture of
-  what fills one on hover, and selecting a slot to add to it.
+- **Filling a slot is the instance's (PAR-84).** It keeps what fills each slot as layers of the design it sits in, so
+  they're picked, selected and edited as the design's own, drawn in place of the placeholder and baked in by Detach.
+  Layers doesn't list them under the instance: an instance's insides are never shown inline. Its panel has each slot
+  after the params, filled with its layer count or Empty, with a picture of what shows there on hover, drawn by itself;
+  a selected slot has a panel of its own, and a click in Components adds into it.
+- **Props' Add makes value props too.** Text, Number and Toggle, each named in a row as it's added, beside slots from a
+  layout. A prop no layer uses still does nothing on the canvas, so a layer's text and visibility can use a prop, or
+  make one from what they show, with the field showing the prop's name until it stops using it.
 
 ## The first run offers the example, and gone folders are flagged (PAR-188)
 

@@ -94,6 +94,22 @@ export const AddingASlot: Story = {
   }
 }
 
+/** Add in Props, then Text: a row to name it, and Enter adds `subtitle`, a text prop with a default to change. */
+export const AddingATextProp: Story = {
+  loaders: [inspecting("design", () => ({ design: design("Plan card") }))],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    const add = await panel.findByRole("button", { name: "Add a prop" }, slowly)
+    add.focus()
+    await userEvent.keyboard("{Enter}")
+    await userEvent.click(await within(document.body).findByRole("menuitem", { name: "Text" }, slowly))
+    const name = await panel.findByRole("textbox", { name: "New text prop's name" }, slowly)
+    await userEvent.type(name, "Subtitle{Enter}", typing)
+    await expect(await panel.findByText("subtitle", undefined, slowly)).toBeVisible()
+    await expect(panel.getByText(`subtitle="Text"`, { exact: false })).toBeVisible()
+  }
+}
+
 /** Renaming the slot after one of App top bar's params, `page`: the name stays, and the row says why. */
 export const SlotNameTaken: Story = {
   loaders: [inspecting("design", topBarWithSlot)],

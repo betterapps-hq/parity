@@ -21,7 +21,7 @@ import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { revealSelection } from "./reveal.ts"
-import { AddProp, CodeLines, PropTile, SlotPropRow } from "./slot-props.tsx"
+import { AddProp, CodeLines, NewPropRow, PropTile, SlotPropRow } from "./slot-props.tsx"
 
 /**
  * Breaking a screen into components. Repeated parts are found exactly; extracting one makes a component design with
@@ -176,6 +176,7 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
           {slots.map((slot) => (
             <SlotPropRow key={slot.node.id} entry={entry} slot={slot} />
           ))}
+          <NewPropRow entry={entry} />
         </div>
       </PanelSection>
     </>

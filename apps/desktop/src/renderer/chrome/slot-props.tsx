@@ -6,28 +6,33 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
+  addValueProp,
   childrenSlot,
   type ContainerSpec,
   type DesignSlot,
   freeSlotName,
   type LayoutNode,
   type ParamSpec,
+  propNameProblem,
   setSlot,
   slotName,
   slotPlaceProblem,
   slotProblem,
+  type ValuePropType,
   walkNodes
 } from "@parity-app/core"
 import { Braces, Columns3, Hash, type LucideIcon, Plus, Rows3, SquareDashed, ToggleRight, Type, X } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useProject } from "../canvas/context.ts"
-import { kindColors } from "../canvas/kinds.tsx"
+import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
+import { refuseNewProp, startNewProp, useNewProp } from "./new-prop.ts"
 import type { ValueKind } from "./prop-values.ts"
 import { revealSelection } from "./reveal.ts"
 import { focusSlot, refuseSlotName, slotFocused, useSlotFocus } from "./slot-focus.ts"
@@ -75,32 +80,23 @@ function freeLayouts(container: ContainerSpec): LayoutNode[] {
   return list
 }
 
+/** The value props Add offers, as Props shows their kinds. */
+const valueKinds: { type: ValuePropType; label: string; icon: LucideIcon }[] = [
+  { type: "text", label: "Text", icon: Type },
+  { type: "number", label: "Number", icon: Hash },
+  { type: "boolean", label: "Toggle", icon: ToggleRight }
+]
+
 /**
- * Props' Add: a slot is a kind of prop, made from one of the component's layouts and named after it, with its name
- * focused to rename. Resting on a layout outlines it on the canvas. With no layout left that can be one, the button
- * stays focusable and says why rather than opening an empty menu.
+ * Props' Add: a value prop of a kind, Text, Number or Toggle, whose name is then typed in a new row; or a slot, made
+ * from one of the component's layouts and named after it, with its name focused to rename. Resting on a layout
+ * outlines it on the canvas. With no layout left that can be one, slots aren't offered: Make slot on a layout says why.
  */
 export function AddProp({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const { container, key } = entry
   const layouts = freeLayouts(container)
   const hover = (node?: string) => session.selection.setHover(node ? { design: key, node } : undefined)
-  if (layouts.length === 0) {
-    const reason = `No more slots: every other layout in ${container.name} is inside a slot or holds one.`
-    return (
-      <Hint label={reason}>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-xs opacity-50"
-          aria-disabled
-          aria-label={`Add a prop, unavailable: ${reason}`}
-        >
-          <Plus /> Add
-        </Button>
-      </Hint>
-    )
-  }
   return (
     <DropdownMenu onOpenChange={(open) => !open && hover()}>
       <DropdownMenuTrigger
@@ -112,28 +108,86 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
       />
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Slot from a layout</DropdownMenuLabel>
-          {layouts.map((node) => (
-            <DropdownMenuItem
-              key={node.id}
-              onPointerEnter={() => hover(node.id)}
-              onFocus={() => hover(node.id)}
-              onClick={() => {
-                const name = freeSlotName(container, node.id)
-                if (!name) return
-                session.store.updateContainer(key, "Make slot", (current) => setSlot(current, node.id, name))
-                focusSlot(key, node.id)
-              }}
-            >
-              <LayoutIcon node={node} /> {node.name ?? "Layout"}
+          <DropdownMenuLabel>Value</DropdownMenuLabel>
+          {valueKinds.map(({ type, label, icon: Icon }) => (
+            <DropdownMenuItem key={type} onClick={() => startNewProp(key, type)}>
+              <Icon /> {label}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
+        {layouts.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Slot from a layout</DropdownMenuLabel>
+              {layouts.map((node) => (
+                <DropdownMenuItem
+                  key={node.id}
+                  onPointerEnter={() => hover(node.id)}
+                  onFocus={() => hover(node.id)}
+                  onClick={() => {
+                    const name = freeSlotName(container, node.id)
+                    if (!name) return
+                    session.store.updateContainer(key, "Make slot", (current) => setSlot(current, node.id, name))
+                    focusSlot(key, node.id)
+                  }}
+                >
+                  <LayoutIcon node={node} /> {node.name ?? "Layout"}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
+/**
+ * The row a new value prop's name is typed in, at the end of Props, with its kind's tile: Enter adds it, with a default
+ * for its kind to change in the row it becomes; Escape, or leaving it empty, doesn't. A name that can't be used stays
+ * typed, with the reason under it.
+ */
+export function NewPropRow({ entry }: { entry: ContainerEntry }) {
+  const { store } = useProject()
+  const adding = useNewProp(entry.key)
+  if (!adding) return null
+  const kind = valueKinds.find((each) => each.type === adding.type)!
+  const add = (text: string) => {
+    const name = slotName(text)
+    if (!name) return startNewProp(entry.key, undefined)
+    const problem = propNameProblem(entry.container, name)
+    if (problem) return refuseNewProp(problem)
+    store.updateContainer(entry.key, `Add ${name}`, (current) => addValueProp(current, name, adding.type))
+    startNewProp(entry.key, undefined)
+  }
+  return (
+    <div>
+      <div className="grid grid-cols-[20px_96px_1fr] items-center gap-2 px-1">
+        <PropTile kind={adding.type} />
+        <Input
+          ref={focusOnMount}
+          placeholder="Name"
+          aria-label={`New ${kind.label.toLowerCase()} prop's name`}
+          aria-invalid={adding.error ? true : undefined}
+          aria-describedby={adding.error ? "new-prop-error" : undefined}
+          className="-ml-1 h-7 min-w-0 px-1 font-mono text-xs"
+          onBlur={(event) => add(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") add(event.currentTarget.value)
+            if (event.key === "Escape") startNewProp(entry.key, undefined)
+          }}
+        />
+        <span className="truncate text-xs text-muted-foreground">{kind.label}, Enter to add</span>
+      </div>
+      {adding.error && (
+        <p id="new-prop-error" role="alert" className="px-1 pt-1 text-xs text-destructive">
+          {adding.error}
+        </p>
+      )}
+    </div>
+  )
+}
 /**
  * A slot in Props, lined up with the params: its tile, its name to rename, and where a param has its default, the
  * layout it fills, which selects that layout. Hovering it outlines the layout on the canvas, and an × inside that field

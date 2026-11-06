@@ -8,6 +8,7 @@ import {
   SelectValue
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
+  type BindableField,
   boardTarget,
   changesField,
   type ComponentLibrary,
@@ -55,6 +56,7 @@ import { wrapSelection } from "./commands.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
+import { FieldWithProp } from "./field-prop.tsx"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
@@ -326,13 +328,26 @@ function LayerSections({
   const propPreview = useChangePreview(session.store, entry.key)
   const setProp = (name: string, value: unknown) => (gesture?: string) =>
     change(`Change ${name}`, propChange(name, value), gesture)
+  // A component design's own layers can use its props for their text and visibility; a copy's can't.
+  const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
+  const withProp = (field: BindableField, input: ReactNode) =>
+    usesProps ? (
+      <FieldWithProp entry={entry} nodeId={nodeId} field={field} bound={node.bind?.[field]}>
+        {input}
+      </FieldWithProp>
+    ) : (
+      input
+    )
   return (
     <>
       {(node.type === "text" || (node.type === "component" && typeof node.props?.children === "string")) && (
         <PanelSection title="Content">
           {node.type === "text" ? (
             <Field label="Text" changed={override?.text !== undefined} onReset={() => reset({ kind: "text" })}>
-              <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
+              {withProp(
+                "text",
+                <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
+              )}
             </Field>
           ) : (
             <Field
@@ -354,7 +369,13 @@ function LayerSections({
 
       <PanelSection title="Visibility">
         <Field label="Visible" changed={override?.hidden !== undefined} onReset={() => reset({ kind: "hidden" })}>
-          <SwitchInput value={!node.hidden} onChange={(visible) => change("Toggle visibility", { hidden: !visible })} />
+          {withProp(
+            "visible",
+            <SwitchInput
+              value={!node.hidden}
+              onChange={(visible) => change("Toggle visibility", { hidden: !visible })}
+            />
+          )}
         </Field>
       </PanelSection>
 

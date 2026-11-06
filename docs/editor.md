@@ -2472,6 +2472,39 @@ Tests:
 Gaps: the slot outlines and the hover from Props have no automated DOM test. They were checked in those stories on
 2026-11-06, with a param's name typed into a slot's name and refused, and the slot chip focusing the name in Props.
 
+### Adding a prop, and a layer using one
+
+A component design's props can be made by hand as well as by Extract component. **Add** in Props offers Text, Number and
+Toggle, then a row to type the prop's name in, with its kind's tile: Enter adds it, camelCased, with a default for its
+kind (`Text`, `0`, off) to change in the row it becomes; Escape, or leaving it empty, doesn't. A name that isn't usable,
+is reserved, or is another prop's or slot's stays typed, with why under the row. Slots come after, as "Slot from a
+layout", while a layout can be one.
+
+A layer of the component design can use a prop for its text, if it's text, and for whether it shows:
+
+- **Unbound,** the field has a button beside it, Use a prop for this text (or whether it shows), offering the
+  component's props of the right kind, text props or toggles, and New prop from this text, which adds one named after
+  the layer, with what the field shows as its default, so nothing changes until an instance sets it.
+- **Bound,** the field is the prop's name in the component color, which goes to the component's Props, with an × inside
+  to stop using it, keeping what it showed as the layer's own value.
+
+A copy's layers, inside an instance, don't offer it: they belong to their component.
+
+Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `bindableProps`,
+`bindField` and `propFromField`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
+row being typed and a refused name), and `chrome/field-prop.tsx` with `LayerSections` in `chrome/LayerPanel.tsx`.
+
+Tests:
+
+- `packages/core/src/prop-binding.test.ts` (6): adding each kind with its default; names refused as unusable, another
+  prop's or a slot's, and a free one numbered; the props a field can use; using one and going back to its value; a prop
+  of the wrong kind, and text on a layer that isn't text; and a prop made from a field.
+- Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop, Visibility
+  Using A Prop, and Making A Prop From Text, which makes `period` from Plan card's period).
+
+Gaps: a prop can't be renamed or removed from Props yet, and a component's label (a code component's `children`) can't
+use one from its field.
+
 ### Filling a slot from an instance (PAR-84)
 
 An instance fills its component's slots with layers of the design it sits in, shown in place of each slot's placeholder.
