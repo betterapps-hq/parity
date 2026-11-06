@@ -73,7 +73,7 @@ export interface Session {
  */
 export type AuthenticateResult =
   | { kind: "session"; session: Session }
-  | { kind: "refused"; status: number; code?: string; message?: string }
+  | { kind: "refused"; status: number; code?: string; message?: string; email?: string }
   | { kind: "unavailable"; status?: number; message: string }
 
 /** Whether a status is worth trying again after: a timeout, too many requests, or WorkOS failing. */
@@ -106,7 +106,8 @@ export async function authenticate(fetch: Fetch, body: CodeRequest | RefreshRequ
       kind: "refused",
       status: response.status,
       ...(code !== undefined && { code }),
-      ...(message !== undefined && { message })
+      ...(message !== undefined && { message }),
+      ...(details?.email !== undefined && { email: details.email })
     }
   }
 

@@ -131,6 +131,39 @@ describe("the component preview store", () => {
     ])
   })
 
+  it.each([
+    { name: "isn't JSON", index: '{"format": 1, "components": {"ui/Butt' },
+    { name: "is of another format", index: JSON.stringify({ format: 2, components: { "ui/Button": { key } } }) },
+    { name: "has no components", index: JSON.stringify({ format: 1, components: [] }) }
+  ])("reads an index that $name as empty after a restart, so every preview is looked for again", async ({ index }) => {
+    await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
+    const [project] = await readdir(folder)
+    await writeFile(join(folder, project!, "previews", "index.json"), index)
+    vi.resetModules()
+    const restarted: typeof BitmapStore = await import("./bitmap-store.ts")
+    expect(await restarted.previewIndex("D:/shop")).toEqual(new Map())
+    // The pictures are still there for the key they were made for.
+    expect(await restarted.storedPreview("D:/shop", key)).toMatchObject({ width: 600, height: 100 })
+  })
+
+  it("leaves out only the records of an index it can't read", async () => {
+    await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
+    const [project] = await readdir(folder)
+    const components = {
+      "ui/Button": { key },
+      "ui/Card": { key: "not a key" },
+      "ui/Badge": { key: newer, empty: false },
+      "ui/Menu": { key: newer, error: "Menu needs a MenuProvider" }
+    }
+    await writeFile(join(folder, project!, "previews", "index.json"), JSON.stringify({ format: 1, components }))
+    vi.resetModules()
+    const restarted: typeof BitmapStore = await import("./bitmap-store.ts")
+    expect([...(await restarted.previewIndex("D:/shop"))]).toEqual([
+      ["ui/Button", { key }],
+      ["ui/Menu", { key: newer, error: "Menu needs a MenuProvider" }]
+    ])
+  })
+
   it("has none for a key it hasn't made", async () => {
     expect(await store.storedPreview("D:/shop", newer)).toBeUndefined()
   })

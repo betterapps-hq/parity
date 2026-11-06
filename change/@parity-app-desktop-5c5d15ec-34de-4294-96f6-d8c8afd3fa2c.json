@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Open projects through a factory that takes its adapters, and keep .par saves inside the project folder",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

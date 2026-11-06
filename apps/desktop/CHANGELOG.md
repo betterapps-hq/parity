@@ -1,8 +1,27 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 01:41:30 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 02:49:03 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.12.7
+
+Fri, 06 Nov 2026 02:49:03 GMT
+
+### Patches
+
+- Check agents' requests to the app with the CLI's schemas, so a malformed body, an unknown method or bad params get
+  invalid_input with their path (ajcraswell@gmail.com)
+- Check and evaluate decorator and sample values in one core module, with one copy of icon alias grouping
+  (ajcraswell@gmail.com)
+- Read package manifests, shadcn's components.json and tool configs through zod schemas, naming the file and field at
+  fault (ajcraswell@gmail.com)
+- Render jobs are built, named and scaled in one module, and component previews draw their portals in place again
+  (ajcraswell@gmail.com)
+- Snippet API functions check their arguments with zod and refuse a wrong one as invalid_input naming its field
+  (ajcraswell@gmail.com)
+- Open projects through a factory that takes its adapters, and keep .par saves inside the project folder
+  (ajcraswell@gmail.com)
 
 ## 0.12.6
 

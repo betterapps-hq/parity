@@ -1,8 +1,27 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 01:41:42 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 02:49:12 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.7.7
+
+Fri, 06 Nov 2026 02:49:12 GMT
+
+### Patches
+
+- Snippet API functions check their arguments with zod and refuse a wrong one as invalid_input naming its field
+  (ajcraswell@gmail.com)
+- Open projects through a factory that takes its adapters, and keep .par saves inside the project folder
+  (ajcraswell@gmail.com)
+- Check npm's registry documents, upstream.json, shipped token files, the library file being replaced and MUI, Chakra
+  and Fluent theme objects with zod (ajcraswell@gmail.com)
+- Read package manifests, shadcn's components.json and tool configs through zod schemas, naming the file and field at
+  fault (ajcraswell@gmail.com)
+- Check and evaluate decorator and sample values in one core module, with one copy of icon alias grouping
+  (ajcraswell@gmail.com)
+- Check agents' requests to the app with the CLI's schemas, so a malformed body, an unknown method or bad params get
+  invalid_input with their path (ajcraswell@gmail.com)
 
 ## 0.7.6
 

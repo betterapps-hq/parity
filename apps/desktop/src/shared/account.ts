@@ -1,0 +1,76 @@
+import { z } from "zod"
+
+/*
+ * What main and the window say to each other about signing in (PAR-612). Main keeps every token; the window gets who's
+ * signed in, their organization and role, and how far a sign-in has got. Both sides check what they receive against
+ * these schemas, since IPC is data from outside (conventions.md, "Data from outside is checked where it comes in").
+ */
+
+/** How a person signs in: Google, GitHub or Microsoft in the browser, or AuthKit for a work email. */
+export const signInProvider = z.enum(["GoogleOAuth", "GitHubOAuth", "MicrosoftOAuth", "authkit"])
+export type SignInProvider = z.infer<typeof signInProvider>
+
+/** What the window asks main to start: a provider, and for AuthKit the work email it fills in. */
+export const signInRequest = z.strictObject({
+  provider: signInProvider,
+  email: z.string().trim().min(1).max(320).optional()
+})
+export type SignInRequest = z.infer<typeof signInRequest>
+
+/** Someone signed in, as the window knows them: no tokens. */
+export const accountPerson = z.strictObject({
+  email: z.string(),
+  name: z.string().optional(),
+  pictureUrl: z.string().optional(),
+  /** Their organization in this session; none when they're in no organization yet. */
+  organizationId: z.string().optional(),
+  /** Their role in that organization, such as `member` or `admin`. */
+  role: z.string().optional()
+})
+export type AccountPerson = z.infer<typeof accountPerson>
+
+/**
+ * Ways a sign-in ends without a session: turned down in the browser, an error, an account WorkOS turns down, or an
+ * organization that requires its single sign-on.
+ */
+export const signInProblem = z.enum(["canceled", "failed", "refused", "single-sign-on"])
+export type SignInProblem = z.infer<typeof signInProblem>
+
+/** A sign-in under way: waiting for the browser, or ended without a session. */
+export const signInAttempt = z.discriminatedUnion("at", [
+  z.strictObject({
+    at: z.literal("waiting"),
+    provider: signInProvider,
+    email: z.string().optional(),
+    /** WorkOS's page, to open again or copy. It holds no secret: the verifier stays in main. */
+    url: z.string()
+  }),
+  z.strictObject({
+    at: z.literal("problem"),
+    provider: signInProvider,
+    problem: signInProblem,
+    /** The account WorkOS named, when it turned one down or sent it to single sign-on. */
+    email: z.string().optional(),
+    /** What WorkOS said, to copy for help. */
+    details: z.string().optional()
+  })
+])
+export type SignInAttempt = z.infer<typeof signInAttempt>
+
+export const accountState = z.strictObject({
+  /** Who's signed in, or null. `untilQuit` when the system has no keyring to keep the session. */
+  account: accountPerson.extend({ untilQuit: z.boolean() }).nullable(),
+  attempt: signInAttempt.nullable(),
+  /** A session WorkOS ended on refresh: who it was and how they signed in, to sign in again the same way. */
+  ended: z.strictObject({ person: accountPerson, provider: signInProvider }).nullable()
+})
+export type AccountState = z.infer<typeof accountState>
+
+export const signedOut: AccountState = { account: null, attempt: null, ended: null }
+
+/**
+ * A link the browser handed to a copy of Parity that didn't start its sign-in, passed to another copy's local service
+ * (`POST /auth/link`), which answers whether it was that copy's.
+ */
+export const passedLink = z.strictObject({ link: z.string().max(8192) })
+export const passedLinkAnswer = z.looseObject({ taken: z.boolean() })

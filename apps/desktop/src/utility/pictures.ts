@@ -5,6 +5,7 @@ import { finiteNumber, jsonText, parseData } from "@parity-app/core"
 import { z } from "zod"
 import type { PictureFrame, PictureScreen, ProjectPicture } from "../shared/protocol.ts"
 import { writeWhole } from "./bitmap-store.ts"
+import { environment } from "./environment.ts"
 import { topOfPicture } from "./webp.ts"
 
 /**
@@ -13,7 +14,7 @@ import { topOfPicture } from "./webp.ts"
  * aren't a cache: Clear bitmap cache leaves them, and one goes only when the start page stops listing its project.
  * Without a folder, as in tests, nothing is kept.
  */
-const folder = process.env.PARITY_PICTURE_DIR
+const folder = environment().PARITY_PICTURE_DIR
 
 /** How long a file being written can sit beside its name before it counts as left behind. */
 const partialMs = 60_000

@@ -3,6 +3,7 @@ import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type Desig
 import type { TokenWrite } from "@parity-app/tokens"
 import discovered from "virtual:parity/example-project"
 import desktop from "../../../package.json"
+import { type AccountState, signedOut } from "../../shared/account.ts"
 import type {
   CanvasHost,
   ProjectEditResult,
@@ -11,6 +12,7 @@ import type {
   ServiceMethod,
   ServiceMethods
 } from "../../shared/protocol.ts"
+import { receiveAccount, resetAccountView } from "../account/account.ts"
 import { preloadAnswers } from "../service.ts"
 
 /**
@@ -79,12 +81,45 @@ export function pickingWith(dialogs: Partial<Pick<CanvasHost, keyof typeof cance
  */
 export const running: { processes: ProjectProcess[] } = { processes: [] }
 
+let accountNow: AccountState = signedOut
+
+/** Says who's signed in, as main would, to the window's account store. */
+export function setStoryAccount(next: AccountState): void {
+  accountNow = next
+  receiveAccount(next)
+}
+
+/**
+ * Main's side of signing in, as far as a story can play it: a button waits for a browser that never hands back, and
+ * Cancel and Sign out do what they say. Nothing opens or leaves the story.
+ */
+const storyAccount: CanvasHost["account"] = {
+  get: () => Promise.resolve(accountNow),
+  subscribe: () => () => undefined,
+  signIn: async ({ provider, email }) =>
+    setStoryAccount({
+      ...accountNow,
+      attempt: {
+        at: "waiting",
+        provider,
+        url: "https://api.workos.com/user_management/authorize?client_id=client_story",
+        ...(email === undefined ? {} : { email })
+      },
+      ended: null
+    }),
+  reopen: () => Promise.resolve(),
+  cancel: async () => setStoryAccount({ ...accountNow, attempt: null, ended: null }),
+  signOut: async () => setStoryAccount(signedOut)
+}
+
 /** Puts the service and the system dialogs back as they were before any story changed them. */
 export function resetHost(): void {
   Object.assign(service, defaultService)
   running.processes = []
   overrides.clear()
   Object.assign(window.canvasHost, cancelled)
+  accountNow = signedOut
+  resetAccountView()
 }
 
 /**
@@ -113,6 +148,7 @@ export function installHost(): void {
         return (override.answer as unknown as Answer<M>)(params, usual)
       })
     }),
+    account: storyAccount,
     serve: () => undefined,
     onReconnect: () => undefined,
     ...cancelled,

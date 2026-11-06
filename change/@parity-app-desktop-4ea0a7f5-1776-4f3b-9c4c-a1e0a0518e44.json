@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Snippet API functions check their arguments with zod and refuse a wrong one as invalid_input naming its field",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

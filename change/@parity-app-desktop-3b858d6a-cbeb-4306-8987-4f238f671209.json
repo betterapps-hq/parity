@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Render jobs are built, named and scaled in one module, and component previews draw their portals in place again",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

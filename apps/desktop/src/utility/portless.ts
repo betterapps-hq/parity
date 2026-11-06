@@ -1,13 +1,23 @@
 import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
+import { jsonText } from "@parity-app/core"
+import { z } from "zod"
+import { environment } from "./environment.ts"
 
 /** A name Portless routes to a local server: the hostname, the port behind it, and the process that claimed it. */
-export interface Route {
-  hostname: string
-  port: number
-  pid?: number
-}
+const route = z.looseObject({ hostname: z.string(), port: z.int(), pid: z.int().optional() })
+
+export type Route = z.infer<typeof route>
+
+/** Portless's `routes.json`, each route read on its own, so one it wrote in a newer shape loses only itself. */
+const routesFile = jsonText(z.array(z.unknown()))
+
+/** Portless's `proxy.port`: the port its proxy listens on. */
+const proxyPort = z.coerce.number().pipe(z.int().min(1).max(65_535))
+
+/** Portless's `proxy.tls`: whether its proxy serves HTTPS, as `1` or `true`. */
+const proxyTls = z.stringbool()
 
 export interface PortlessState {
   /** The routes whose process is still running, as Portless itself counts them. */
@@ -20,28 +30,22 @@ export interface PortlessState {
  * The names Portless gives local servers, from its state folder: each hostname and the port it routes to, and how its
  * proxy is reached. Without Portless, there are none.
  */
-export async function readPortless(): Promise<PortlessState> {
-  const folder = process.env.PORTLESS_STATE_DIR || join(homedir(), ".portless")
+export async function readPortless(
+  folder = environment().PORTLESS_STATE_DIR ?? join(homedir(), ".portless")
+): Promise<PortlessState> {
   const read = (name: string) =>
     readFile(join(folder, name), "utf8").then(
       (text) => text.trim(),
       () => ""
     )
   const [routesText, portText, tlsText] = await Promise.all(["routes.json", "proxy.port", "proxy.tls"].map(read))
-  let routes: Route[] = []
-  try {
-    const parsed = JSON.parse(routesText || "[]") as unknown
-    if (Array.isArray(parsed)) {
-      routes = parsed.filter(
-        (route): route is Route =>
-          typeof route?.hostname === "string" && typeof route.port === "number" && alive(route.pid)
-      )
-    }
-  } catch {
-    // A half-written file reads again on the next poll.
-  }
-  const port = Number(portText) || 443
-  const tls = tlsText === "1" || tlsText === "true"
+  // A half-written file reads again on the next poll.
+  const routes = (routesFile.safeParse(routesText || "[]").data ?? []).flatMap((value) => {
+    const read = route.safeParse(value)
+    return read.success && alive(read.data.pid) ? [read.data] : []
+  })
+  const port = proxyPort.safeParse(portText).data ?? 443
+  const tls = proxyTls.safeParse(tlsText).data ?? false
   const standard = port === (tls ? 443 : 80)
   return {
     routes,
@@ -50,8 +54,8 @@ export async function readPortless(): Promise<PortlessState> {
 }
 
 /** A route left behind by a process that was killed isn't live. Portless keeps routes without one, numbered 0. */
-function alive(pid: unknown): boolean {
-  if (typeof pid !== "number" || pid === 0) return true
+function alive(pid: number | undefined): boolean {
+  if (pid === undefined || pid === 0) return true
   try {
     process.kill(pid, 0)
     return true

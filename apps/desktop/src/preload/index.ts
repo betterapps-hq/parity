@@ -82,6 +82,20 @@ const host: CanvasHost = {
       }
     }
   },
+  account: {
+    get: () => ipcRenderer.invoke(ipc.accountState),
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, state: unknown) => listener(state)
+      ipcRenderer.on(ipc.accountChanged, changed)
+      return () => {
+        ipcRenderer.removeListener(ipc.accountChanged, changed)
+      }
+    },
+    signIn: (request) => ipcRenderer.invoke(ipc.accountSignIn, request) as Promise<void>,
+    reopen: () => ipcRenderer.invoke(ipc.accountReopen) as Promise<void>,
+    cancel: () => ipcRenderer.invoke(ipc.accountCancel) as Promise<void>,
+    signOut: () => ipcRenderer.invoke(ipc.accountSignOut) as Promise<void>
+  },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
     ?.split("=")
