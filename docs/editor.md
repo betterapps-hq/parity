@@ -1132,13 +1132,13 @@ Components, component designs and images go in from the Assets panel and Quick i
 a component design; the Layers panel's add buttons start new designs. Each is one undo step, and selects what it made.
 
 - **A drop lands in the slot under the pointer** (PAR-205), in the deepest of the design's own layouts there, or of its
-  components' slots that hold layers (PAR-419), as a dropped image file and Paste here land (`measureHere`, `slotHere`,
-  through `slotAt`): in a grid or a wrapping row the line of children the pointer is on comes first, then the slot along
-  it, so a card dropped on the second row of Projects' grid goes there, not in the first row. In a layout that's
-  absolutely placed as the board shows it, it goes last, placed at the pointer in half steps of the spacing scale. While
-  dragging, the layout is outlined and a line shows the slot, or a corner marks the pointer where it goes in an
-  absolutely placed layout. A drop on the empty canvas makes a screen there (PAR-546, below); one over a design where
-  there's no layout says so.
+  components' slots that hold layers (PAR-419), as a dropped image file, Paste here and the text tool land
+  (`placeAtPoint`, through `measureHere`, `slotHere` and `slotAt`, PAR-570): in a grid or a wrapping row the line of
+  children the pointer is on comes first, then the slot along it, so a card dropped on the second row of Projects' grid
+  goes there, not in the first row. In a layout that's absolutely placed as the board shows it, it goes last, placed at
+  the pointer in half steps of the spacing scale. While dragging, the layout is outlined and a line shows the slot, or a
+  corner marks the pointer where it goes in an absolutely placed layout. A drop on the empty canvas makes a screen there
+  (PAR-546, below); one over a design where there's no layout says so.
 - **A click inserts at the selection:** into a selected layout, at its end; just after any other selected layer, in its
   layout or slot; or at the end of a selected design's root. With nothing selected it makes a screen in the middle of
   the view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
@@ -1171,31 +1171,33 @@ a component design; the Layers panel's add buttons start new designs. Each is on
 Code: the rules are in `packages/editor/src/insert.ts`, `components.ts`, `create.ts` and `placement.ts`
 (`@parity-app/editor`), with the new layer's props and label in `componentNode` and a library part's parents and samples
 in `withLibraryContext`, both in `packages/core/src/library-insert.ts`, and `fixedSize` read by `setsOwnSize` in
-`packages/code/src/props.ts`. The app's `canvas/insert.ts` measures the layout under the pointer and applies an insert
-to the selection and the store, `chrome/components.ts` measures the designs and applies Make component, and
-`chrome/create.ts` adds a new design and zooms to it.
+`packages/code/src/props.ts`. The app's `canvas/insert.ts` finds where a drop lands through `placeAtPoint` in
+`canvas/paste-here.ts`, the step drops, Paste here and the text tool share, and applies an insert to the selection and
+the store, `chrome/components.ts` measures the designs and applies Make component, and `chrome/create.ts` adds a new
+design and zooms to it.
 
 Tests: `packages/editor/src/insert.test.ts`: the layer for a component (required props, given props, a library's name),
 an instance and an image (its size, alt text and credit, and a tiny one); the labels; inserting between children, at the
 end, in a slot, at the pointer in an absolutely placed layout, inside a library part's parents or among them already,
 and a detached copy; and where a click inserts (a layout, after a layer, in a slot, the root, and nowhere). Where a drop
 lands is `slotHere`'s, in `packages/editor/src/paste-here.test.ts`: the slot and its line in a row, a grid's second row
-where one line along every child would pick the first, and the pointer's place in an absolutely placed layout.
-`components.test.ts`: making a component into the project file, a taken id and param names, a project file that doesn't
-exist yet, and the errors; and instances in layouts and slots across designs. `create.test.ts`: a new screen and
-component, and a taken id. `placement.test.ts`: a new design beside everything, one the canvas hasn't drawn, an empty
-canvas, and a component above everything. A library part's parents and samples are core's, in
-`packages/core/src/library-insert.test.ts`. The extraction and its check are core's `extractComponent`, in
-`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
-refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
-the part, whether the board shows it or not (PAR-493), but not one that changes what's outside it; each option of two
-variant params checked in turn, refused for one the board doesn't show; and refused when a layer in the part shows a
-param's default. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for a
-component that sets its own size, unless given; none for a part whose sample gives no children; and a part without a
-sample taking the children its library's other samples give it (none for an icon's box or one used without any, their
-text), else its name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount,
-CardHeader and Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's
-inside or taken from a parent. The extraction and its check are core's `extractComponent`, in
+where one line along every child would pick the first, and the pointer's place in an absolutely placed layout; and,
+under "placing at a point" (2, PAR-570), a new text layer landing where a drop would, before the layer under the pointer
+and at the pointer in an absolutely placed layout. `components.test.ts`: making a component into the project file, a
+taken id and param names, a project file that doesn't exist yet, and the errors; and instances in layouts and slots
+across designs. `create.test.ts`: a new screen and component, and a taken id. `placement.test.ts`: a new design beside
+everything, one the canvas hasn't drawn, an empty canvas, and a component above everything. A library part's parents and
+samples are core's, in `packages/core/src/library-insert.test.ts`. The extraction and its check are core's
+`extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state
+changing the part refused, a single part's texts as params, and the check against the board, refused under a variant
+option that changes the part, whether the board shows it or not (PAR-493), but not one that changes what's outside it;
+each option of two variant params checked in turn, refused for one the board doesn't show; and refused when a layer in
+the part shows a param's default. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518):
+none for a component that sets its own size, unless given; none for a part whose sample gives no children; and a part
+without a sample taking the children its library's other samples give it (none for an icon's box or one used without
+any, their text), else its name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar,
+AvatarGroupCount, CardHeader and Separator but not Card, Badge or Button, and a library's compiled parts, leaving out
+classes for what's inside or taken from a parent. The extraction and its check are core's `extractComponent`, in
 `packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
 refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
 the part but not one that changes what's outside it or isn't shown, and refused when a layer in the part shows a param's
@@ -1633,10 +1635,10 @@ project under `public/images/` through `images.import`, as a pasted image is, an
 Code: which files are taken (`imageTypeOf`, `sortDrop`, by the `imageTypes` and `imageLimit` that `images.import` uses
 too), the message (`skippedMessage`), the label (`dropHint`), the undo label and the new screen (`designOfImages`) are
 in `packages/editor/src/drop-files.ts` (`@parity-app/editor`). In the app, `canvas/drop-files.ts` finds where a drop
-lands (`fileDropAt`, through `hitTest`, `measureHere` and `slotHere`), saves the files through `importImage` in
-`canvas/clipboard.ts`, and places them as one step (`dropFiles`, through `pasteHere`); `keepFilesFromOpening` there
-refuses drops elsewhere, from `main.tsx`. `canvas/CanvasDrop.tsx` handles the drag on the canvas and draws the outline,
-the slot, the corner and the label. Saving is `apps/desktop/src/utility/images.ts`.
+lands (`fileDropAt`, through `placeAtPoint`), saves the files through `importImage` in `canvas/clipboard.ts`, and places
+them as one step (`dropFiles`, through `pasteHere`); `keepFilesFromOpening` there refuses drops elsewhere, from
+`main.tsx`. `canvas/CanvasDrop.tsx` handles the drag on the canvas and draws the outline, the slot, the corner and the
+label. Saving is `apps/desktop/src/utility/images.ts`.
 
 Tests:
 
@@ -1928,6 +1930,10 @@ Double-clicking a selected text layer, or Enter on it, opens an editor over the 
 a component whose only child is text, such as a button's label, and on text just added with the text tool or the insert
 picker.
 
+- **The text tool adds text where a drop would land** (PAR-570): in the slot under the pointer, in the layout or
+  component's slot there, or at the pointer in an absolutely placed layout, in the state and viewport of the frame
+  clicked (`placeAtPoint`, then `pasteHere`). It used to go after the layer under the pointer, so text clicked into the
+  first half of a card landed after it. On the empty canvas it makes a note.
 - **What's selected when it opens.** A double-click selects the word under the pointer, as a browser does: the word
   holding that character, or the space or punctuation there when it isn't a word, on any line. Enter, the text tool and
   the insert picker select the whole text, so typing replaces it. A double-click that lands off the characters (between
@@ -1992,6 +1998,8 @@ Tests:
   it was (PAR-582); and every switch landing where `textSizing` reads it back.
 - `packages/core/src/render.test.ts`, sizing: hug text drawn `max-content`, still wrapped by a maximum width, and other
   widths as before.
+- `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
+  the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
   "upgrade" and on "viewers", on the second line, selects that word; Enter selects the whole text; the editor sits over
   the text's 560px box, on its two lines, and grows down as it's typed in; it follows the text as the wheel pans and
@@ -2224,8 +2232,14 @@ as that state's or variant's changes ("changes only this state", "changes only t
   shows, each bound param's value, and the responsive patches of the frame the layer was picked in, when one is known.
   Where they write doesn't change: an edit still lands in the state, or the variant, the Editing control names. The
   inspector reads the board without a viewport, as the text editor and Hide do, since its edits change the design or the
-  state rather than a viewport's patch. The app's wiring, which frame's viewport each command passes, has no automated
-  test.
+  state rather than a viewport's patch.
+- **One rule says which design, state and viewport an edit lands on** (PAR-570). `@parity-app/editor`'s `editFrame`
+  takes what was picked (a selection, a hit on the canvas, a layer's resize handles or the text being edited) and gives
+  its design, the state it was picked in, and the viewport of that frame's mode. When the state picked is gone, or none
+  was, it's the state the board shows. A design picked whole edits its base styles, a mode column its mode's viewport,
+  and several designs the one picked last; a note or nothing has none. The text editor reads and writes through it, so
+  it can't show one state's text and save into another. Before, the inspector, the canvas menu, nudging and Select
+  matching each had a copy of the state rule, and the text editor wrote by one of its own.
 - **The style rows read and write one way** (PAR-567). One layer, several layers, a layer inside an instance and the
   inspector's stories all go through `@parity-app/editor`'s `styleSelection`, so each reads its layers and the layout
   they sit in as the board shows them, with the variant shown, and its edits and resets land in the state or variant
@@ -2261,12 +2275,13 @@ patch against the board) and `render.ts` (`boardArgs`, which `resolveDesign` giv
 with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layers or one inside an instance).
 `packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation reads with,
 `packages/editor/src/style-editing.ts` (`styleSelection`) the style rows' reads, edits and resets, and
-`canvas/view.ts`'s `frameViewport` gives the viewport of the frame a layer was picked in. In the app,
-`canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark),
-`chrome/layers-menu.ts` (its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it,
-`BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's words),
-`chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`), used by `PropsSection.tsx`,
-`LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
+`packages/editor/src/edit-frame.ts` (`editFrame`, `editingState`, `modeViewport`) the design, state and viewport an edit
+lands on, from the selection model in `packages/editor/src/selection.ts`. The app's `DesignStore.editFrame` looks the
+design up for it. In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`),
+`chrome/LayerTree.tsx` (the row's hidden mark), `chrome/layers-menu.ts` (its Hide in menu item), `chrome/LayerPanel.tsx`
+(the layer as the board shows it, `BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts`
+(`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx`
+(`ValueInput`), used by `PropsSection.tsx`, `LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
 
 Tests:
 
@@ -2285,6 +2300,11 @@ Tests:
 - `packages/editor/src/shown.test.ts` (7): `shownNode` and `boardReader` agree with each other for every layer in each
   of the shared fixture's cases, in every viewport; a bound text's default, the variant shown and a viewport's patches;
   and a layer inside an instance by its path, with the library. The operations' own tests are under their sections.
+- `packages/editor/src/edit-frame.test.ts` (9, PAR-570): the edit frame for layers picked in a frame, a layer whose
+  state is gone, a design picked whole, a mode column, several designs, and a note, nothing or a design that's gone; and
+  the state and viewport rules on their own.
+- `packages/editor/src/selection.test.ts` (5, PAR-570): layers with the one picked last, a design picked whole, designs
+  only without a layer or mode, Shift adding and taking out layers, and the selection's key.
 - `apps/desktop/src/renderer/chrome/edit-scope.test.ts` (3): no note in the base state, the state's name, the variant's.
 - `apps/desktop/src/renderer/chrome/prop-values.test.ts` (4): fields by declared type before there's a value, by the
   value's own type, JSON refused rather than kept as text, and any value read as JSON or text.

@@ -1,5 +1,5 @@
 import { boardTarget, layerOnBoard } from "@parity-app/core"
-import { openingSelection, type TextRange, textSizing, editingState } from "@parity-app/editor"
+import { openingSelection, type TextRange, textSizing } from "@parity-app/editor"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import { useProject } from "./context.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
@@ -35,16 +35,9 @@ export function TextEditor() {
   useEffect(() => {
     const textarea = ref.current
     const area = textarea?.closest<HTMLElement>(".canvas-area")
-    const entry = store.getEntry(editing.design)
+    const edited = store.editFrame(editing)
     // The text as the frame shows it: the state's and the variant's, or the param's default it's bound to.
-    const node =
-      entry &&
-      layerOnBoard(
-        entry.container,
-        editing.node,
-        store.getLibrary(entry.key),
-        editingState(entry.container, editing.state)
-      )
+    const node = edited && layerOnBoard(edited.container, editing.node, store.getLibrary(edited.design), edited.state)
     const find = () => {
       const host = area && selectionFrame(area, editing.design, editing)
       return host && nodeInFrames(area, editing.design, editing.node, host).find((item) => item.picked)?.element
@@ -103,13 +96,13 @@ export function TextEditor() {
     selection.setEditing(undefined)
     const original = opened.current?.text
     if (original === undefined || text === original) return
-    const entry = store.getEntry(editing.design)
-    const node = entry && findLayer(store, entry.container, editing.node)
-    if (!entry || !node) return
-    const state = editing.state ?? entry.container.view?.state ?? entry.container.states[0]!.id
+    // Written to the state it was read from (see `editFrame`).
+    const frame = store.editFrame(editing)
+    const node = frame && findLayer(store, frame.container, editing.node)
+    if (!frame || !node) return
     const change = node.type === "text" ? { text } : { props: { children: text } }
-    store.updateContainer(entry.key, "Edit text", (container) =>
-      editLayer(store, container, boardTarget(container, state), editing.node, change)
+    store.updateContainer(frame.design, "Edit text", (container) =>
+      editLayer(store, container, boardTarget(container, frame.state.id), editing.node, change)
     )
   }
 

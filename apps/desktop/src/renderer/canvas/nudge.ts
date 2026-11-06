@@ -1,18 +1,19 @@
 import {
   type Arrow,
   type Drawn,
-  editingState,
   flowOf,
   type LayersNudge,
   nudgedPosition,
-  nudgeLayers
+  nudgeLayers,
+  selectedDesigns,
+  selectedNodes,
+  selectionKey
 } from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
 import { findNodeElement, flowingBoxes } from "../frame.ts"
-import { selectedDesigns, selectedNodes, type SelectionStore, selectionKey } from "../selection.ts"
+import { type SelectionStore } from "../selection.ts"
 import { GestureRun } from "./gesture.ts"
 import { selectionFrame } from "./hit.ts"
-import { frameViewport } from "./view.ts"
 
 /**
  * The arrow keys, through the keymap: the selection nudged by `@parity-app/editor`'s rules (`nudgeLayers`,
@@ -38,17 +39,15 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
   const current = selection.get()
   const gesture = runGesture(store, selection)
   const layers = selectedNodes(current)
-  const entry = current.design ? store.getEntry(current.design) : undefined
-  if (entry && layers.length > 0) {
+  const frame = store.editFrame(current)
+  if (frame && layers.length > 0) {
     let blocked: LayersNudge["blocked"]
-    const state = editingState(entry.container, current.state)
-    const viewport = frameViewport(store.getModes(), current.mode)
     store.updateContainer(
-      entry.key,
+      frame.design,
       layers.length === 1 ? "Nudge layer" : `Nudge ${layers.length} layers`,
       (container) => {
-        const drawn = session.drawn?.(entry.key) ?? nothingDrawn
-        const result = nudgeLayers(container, layers, state, arrow, big, drawn, viewport)
+        const drawn = session.drawn?.(frame.design) ?? nothingDrawn
+        const result = nudgeLayers(container, layers, frame.state, arrow, big, drawn, frame.viewport)
         blocked = result.blocked
         return result.container
       },

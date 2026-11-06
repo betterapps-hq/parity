@@ -1,7 +1,7 @@
+import { designsSelection, layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { AppWindow } from "../App.tsx"
 import { setPreferences } from "../chrome/preferences.ts"
-import { designsSelection, layersSelection } from "../selection.ts"
 import { design, example, layerElement, node, onCanvas } from "../stories/fixtures.tsx"
 import { insertMime } from "./insert.ts"
 import { setTabOrderShown } from "./tab-order.ts"

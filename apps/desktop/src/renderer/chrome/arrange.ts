@@ -16,13 +16,15 @@ import {
   topLayers,
   unwrapLayout,
   wrapInLayout,
-  editingState
+  type EditFrame,
+  designsSelection,
+  layersSelection,
+  selectedDesigns,
+  selectedNodes
 } from "@parity-app/editor"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
-import { frameViewport } from "../canvas/view.ts"
 import type { ContainerEntry } from "../design-store.ts"
-import { designsSelection, layersSelection, selectedDesigns, selectedNodes } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /**
@@ -32,13 +34,16 @@ import type { ProjectSession } from "../workspace.ts"
  */
 
 /** The design the selected layers are in, with their ids, outermost first. Undefined unless layers are selected. */
-export function selectedLayers(session: ProjectSession): { entry: ContainerEntry; ids: string[] } | undefined {
+export function selectedLayers(
+  session: ProjectSession
+): { entry: ContainerEntry; ids: string[]; frame: EditFrame } | undefined {
   const current = session.selection.get()
   const entry = current.design ? session.store.getEntry(current.design) : undefined
+  const frame = session.store.editFrame(current)
   const ids = selectedNodes(current)
-  if (!entry || ids.length === 0) return undefined
+  if (!entry || !frame || ids.length === 0) return undefined
   const top = topLayers(entry.container, ids)
-  return top.length > 0 ? { entry, ids: top } : undefined
+  return top.length > 0 ? { entry, ids: top, frame } : undefined
 }
 
 export function deleteLayers(session: ProjectSession): boolean {
@@ -112,9 +117,7 @@ export function wrapLayers(session: ProjectSession): boolean {
   const layers = selectedLayers(session)
   if (!layers) return false
   const { entry, ids } = layers
-  const current = session.selection.get()
-  const state = editingState(entry.container, current.state)
-  const viewport = frameViewport(session.store.getModes(), current.mode)
+  const { state, viewport } = layers.frame
   let id: string | undefined
   try {
     session.store.updateContainer(entry.key, "Wrap in layout", (container) => {
@@ -127,7 +130,7 @@ export function wrapLayers(session: ProjectSession): boolean {
     return false
   }
   if (!id) return false
-  session.selection.set(layersSelection(entry.key, [id], current))
+  session.selection.set(layersSelection(entry.key, [id], session.selection.get()))
   return true
 }
 
@@ -175,10 +178,9 @@ export function orderLayer(session: ProjectSession, order: Order): boolean {
 export function toggleHiddenLayers(session: ProjectSession): boolean {
   const layers = selectedLayers(session)
   if (!layers) return false
-  const { entry, ids } = layers
-  const picked = session.selection.get().state
+  const { entry, ids, frame } = layers
   session.store.updateContainer(entry.key, "Toggle visibility", (container) =>
-    toggleHidden(container, editingState(container, picked).id, ids)
+    toggleHidden(container, frame.state.id, ids)
   )
   return true
 }
@@ -190,9 +192,7 @@ export function toggleHiddenLayers(session: ProjectSession): boolean {
 export function align(session: ProjectSession, alignment: Alignment): void {
   const layers = selectedLayers(session)
   if (layers) {
-    const current = session.selection.get()
-    const state = editingState(layers.entry.container, current.state)
-    const viewport = frameViewport(session.store.getModes(), current.mode)
+    const { state, viewport } = layers.frame
     session.store.updateContainer(layers.entry.key, "Align", (container) =>
       alignInLayouts(container, layers.ids, state, alignment, viewport)
     )

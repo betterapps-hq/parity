@@ -1,7 +1,7 @@
 import { addVariant, editNode } from "@parity-app/core"
+import { designsSelection, layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
-import { designsSelection, layersSelection } from "../selection.ts"
 import { design, example, findTooltip, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
 import { formatKeys } from "./keys.ts"
 import { renameLayer } from "./LayerPanel.tsx"

@@ -1,6 +1,6 @@
 import { type DesignNode, isInnerPath } from "@parity-app/core"
+import { designsSelection, layersSelection, selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
-import { designsSelection, layersSelection, selectedDesigns, selectedNodes, type Selection } from "../selection.ts"
 import { childLayers, findLayer } from "./layers.ts"
 
 /**

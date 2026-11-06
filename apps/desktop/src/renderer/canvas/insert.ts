@@ -1,22 +1,18 @@
 import {
   type Box,
   designOfItem,
-  editingState,
   type InsertAt,
   type InsertContext,
   type InsertItem,
   insertIntoDesign,
   insertLabel,
-  slotHere,
+  type Point,
   whereToInsert
 } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
-import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { hitTest, type Point } from "./hit.ts"
 import { designNames, viewCenter } from "./new-screen.ts"
-import { type HereMeasures, measureHere } from "./paste-here.ts"
-import { frameViewport } from "./view.ts"
+import { type HereMeasures, placeAtPoint } from "./paste-here.ts"
 
 /**
  * Inserting from the Assets panel, by a drop on the canvas or a click. The rules are `@parity-app/editor`'s; this
@@ -40,9 +36,9 @@ export interface DropTarget extends InsertAt {
 /**
  * Where an item dragged from the panel and dropped at a point lands (PAR-205): the deepest of the design's own layouts
  * under it, in the frame there, at the slot under the pointer, as a dragged layer, a dropped image file and Paste here
- * land (`slotHere`, through `slotAt`), so in a grid or a wrapping row the line of children the pointer is on comes
- * first. In an absolutely placed layout it goes last, at the pointer. A drag passes `measures`, so the layout under the
- * pointer is measured once while it stays over it, not at every event.
+ * land (`placeAtPoint`, through `slotHere` and `slotAt`), so in a grid or a wrapping row the line of children the
+ * pointer is on comes first. In an absolutely placed layout it goes last, at the pointer. A drag passes `measures`, so
+ * the layout under the pointer is measured once while it stays over it, not at every event.
  */
 export function dropTarget(
   session: ProjectSession,
@@ -50,14 +46,10 @@ export function dropTarget(
   point: Point,
   measures?: HereMeasures
 ): DropTarget | undefined {
-  const { store, editor } = session
-  const hit = hitTest(area, store, point, editor)
-  const here = hit && measureHere(hit, point, spacingUnit(session.tokens.get()), measures)
-  if (!hit || !here) return undefined
-  const state = editingState(hit.entry.container, hit.state)
-  const slot = slotHere(hit.entry.container, here, state, frameViewport(store.getModes(), hit.mode))
-  if (!slot) return undefined
-  const { box } = here
+  const place = placeAtPoint(session, area, point, measures)
+  if (place.kind !== "layout") return undefined
+  const { hit, slot } = place
+  const { box } = place.here
   return {
     entry: hit.entry,
     parent: slot.layout,

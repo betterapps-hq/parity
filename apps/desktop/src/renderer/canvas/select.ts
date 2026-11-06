@@ -8,10 +8,15 @@ import {
   topmostNodes,
   walkNodes
 } from "@parity-app/core"
-import { boardReader, activeState } from "@parity-app/editor"
+import {
+  boardReader,
+  designsSelection,
+  layersSelection,
+  selectedDesigns,
+  selectedNodes,
+  type Selection
+} from "@parity-app/editor"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
-import { designsSelection, layersSelection, selectedDesigns, selectedNodes, type Selection } from "../selection.ts"
-import { frameViewport } from "./view.ts"
 
 /** Select inverse, select matching layers, and stepping from one design to the next, as Figma's keys do them. */
 
@@ -106,19 +111,17 @@ export function matchingLayers(
  * selected, every design of the same kind, screens or components. Undefined when there's nothing to match.
  */
 export function matchingSelection(store: DesignStore, current: Selection): Selection | undefined {
-  const entry = current.design ? store.getEntry(current.design) : undefined
+  const frame = store.editFrame(current)
   const layers = selectedNodes(current)
-  if (entry && layers.length > 0) {
-    const state =
-      entry.container.states.find((candidate) => candidate.id === current.state) ?? activeState(entry.container)
-    const found = matchingLayers(entry.container, layers, state, frameViewport(store.getModes(), current.mode))
+  if (frame && layers.length > 0) {
+    const found = matchingLayers(frame.container, layers, frame.state, frame.viewport)
     if (found.length === 0) return undefined
     // The layer picked last stays the one the inspector shows.
     const ordered =
       current.node && found.includes(current.node)
         ? [...found.filter((id) => id !== current.node), current.node]
         : found
-    return layersSelection(entry.key, ordered, current)
+    return layersSelection(frame.design, ordered, current)
   }
   const designs = selectedDesigns(current)
   if (designs.length === 0) return undefined

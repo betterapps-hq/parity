@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Work out which design, state and viewport an edit lands on in one place, and place the text tool's text where a drop would land",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

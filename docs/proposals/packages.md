@@ -4,10 +4,10 @@ Status: draft. `@parity-app/code` exists (PKG-3), project edits are in `@parity-
 `@parity-app/editor` has arranging and the clipboard (PAR-7), all on 2026-10-29. `@parity-app/tokens` holds reading,
 editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make component and placement (PAR-32), drop
 rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. `@parity-app/models` holds the lens
-models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577), and `@parity-app/project` the one reader
-of installed packages (PAR-573), on 2026-11-05. `@parity-app/account` holds signing in with WorkOS (PAR-613), on
-2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and in Linear's Package boundaries
-stream.
+models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and the selection model and edit target
+(PAR-570), and `@parity-app/project` the one reader of installed packages (PAR-573), on 2026-11-05.
+`@parity-app/account` holds signing in with WorkOS (PAR-613), on 2026-11-05. The rule and the first items are in
+[decisions.md](../decisions.md) and in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -50,7 +50,10 @@ when it's spread through UI code. Today:
      `@parity-app/editor` since PAR-32);
    - [snap.ts](../../apps/desktop/src/renderer/canvas/snap.ts): snapping (in `@parity-app/editor` since PAR-33);
    - [design-store.ts](../../apps/desktop/src/renderer/design-store.ts): undo, unsaved tracking and save state, inside a
-     store that also holds React hooks (in `@parity-app/editor` since PAR-34).
+     store that also holds React hooks (in `@parity-app/editor` since PAR-34);
+   - [selection.ts](../../apps/desktop/src/renderer/selection.ts) and `editingState` in `LayerPanel.tsx`, with copies in
+     the canvas menu and nudging: the selection model, and which design, state and viewport an edit lands on (in
+     `@parity-app/editor` since PAR-570, as `selection.ts` and `edit-frame.ts`; the app keeps the store and its hooks).
 2. **Code is read three times, by three packages.** `project/components.ts` parses files to list components,
    `libgen/components.ts` runs TypeScript's checker to find them, and `@parity/props` runs it again for props. (They are
    [listing.ts](../../packages/code/src/listing.ts), [checker.ts](../../packages/code/src/checker.ts) and
