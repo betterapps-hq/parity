@@ -520,6 +520,10 @@ still need your call.
   - The bars show whenever a single layout is selected, over its hatching, rather than only on hover as in Figma, so
     padding of 0 can be dragged out of nothing. A side's press target starts 4px inside its edge, clear of the resize
     strip there.
+  - No press target covers a child, so a click inside a selected layout still selects what's under it, as before. A
+    target is cut back to the free space and dropped under 4px, so padding of 0 drags out only where no child is against
+    that edge. This narrows the No padding story Andrew approved, whose children fill their row: clicks on children
+    opening the box broke selecting layers by clicking, in the end-to-end tests on #266.
   - Dragging a padding bar away from the content makes that padding bigger on every side, as an edge dragged out makes a
     layer bigger. A gap grows as its bar goes right or down. Both go in whole steps of the spacing scale.
   - Alt gives the opposite side the dragged side's value, and Alt+Shift every side, re-read at each move, so letting go

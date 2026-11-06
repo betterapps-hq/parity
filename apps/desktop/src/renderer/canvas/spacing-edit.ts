@@ -73,17 +73,21 @@ export function measureSpacing(
     >
   const padding = sides("padding")
   const row = style.flexDirection.startsWith("row")
-  const drawnChildren = children.flatMap((child) => {
-    if (!child || getComputedStyle(child).position === "absolute") return []
+  const drawn = children.flatMap((child) => {
+    if (!child) return []
     const box = child.getBoundingClientRect()
-    return box.width > 0 || box.height > 0 ? [toOverlay(box)] : []
+    return box.width > 0 || box.height > 0
+      ? [{ box: toOverlay(box), flows: getComputedStyle(child).position !== "absolute" }]
+      : []
   })
   return {
     layout: {
       rect: toOverlay(rect),
       border: scaled(sides("border", "-width")),
       padding: scaled(padding),
-      children: drawnChildren,
+      children: drawn.filter((child) => child.flows).map((child) => child.box),
+      // No handle covers a child, so a click on one selects it, those placed absolutely too.
+      covered: drawn.map((child) => child.box),
       direction: row ? "row" : "column",
       oneLine: style.display.includes("flex") && style.flexWrap === "nowrap"
     },
