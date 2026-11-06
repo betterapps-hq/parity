@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -92,7 +92,21 @@ still need your call.
   call: linked is the default because it's what keeps an app following the library, and a copy is Detach done at once,
   with the same rules. A linked copy can't go to its main component or push overrides to it, as the main is the
   library's. The agent's edit API doesn't see library designs yet.
-- **Open:** Buildkit's nova `tokens.json`, which isn't DTCG yet.
+- **Buildkit's styles ship their tokens as DTCG (PAR-139).** Each style's `tokens.json` is a 2025.10 resolver: one set
+  with the light values and a `theme` modifier whose `dark` context holds what changes. Every token has a type and a
+  description, written once in Buildkit's generator for all eight styles, and `parity lib` copies the file into each
+  registry `.lib.par`. A token's path is its CSS variable's name split at each hyphen (`card.foreground`), with a
+  group's own token in `$root`, so it matches its custom property by its whole path. You chose on 2026-11-06 to replace
+  the old format in place rather than ship two files, as only Buildkit's own release check read it. My call: the eight
+  registry files were regenerated from 0.5.0 with `--only new`, which changed only their tokens and version, and cover
+  `^0.4.0 || ^0.5.0`, since 0.4's components are the same and its projects would otherwise lose their file. They list
+  the 39 tokens Buildkit describes instead of the 119 libgen read from the stylesheet, which the Tokens panel still
+  shows from the project's own CSS.
+- **Parity's own reader is the one DTCG parser and validator.** You asked for one, not two, on 2026-11-06. Terrazzo
+  (`@terrazzo/parser` 2.10) was tried as the replacement and rejected: it treats the CSS strings libgen writes for
+  values DTCG has no form for as errors, keeps a malformed token with a broken value instead of leaving it out, throws
+  on a broken alias when told to carry on, and drops a plain token file's descriptions. Buildkit checks its file's shape
+  when it releases, and Parity's tests read each registry copy with this reader.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked
   to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. A file that's the same as what was
