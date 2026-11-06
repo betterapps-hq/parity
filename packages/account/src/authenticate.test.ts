@@ -133,6 +133,24 @@ describe("authenticate", () => {
     expect(await authenticate(answering(401, "Unauthorized").fetch, refresh)).toEqual({ kind: "refused", status: 401 })
   })
 
+  it("names the account WorkOS sends to single sign-on", async () => {
+    const code = codeRequest({ clientId: "client_01TEST", code: "01CODE", verifier: "verifier" })
+    const sso = answering(403, {
+      code: "sso_required",
+      message: "User must authenticate using one of the matching connections.",
+      email: "ana@acme.test",
+      connection_ids: ["conn_01"],
+      pending_authentication_token: "pending_01"
+    })
+    expect(await authenticate(sso.fetch, code)).toEqual({
+      kind: "refused",
+      status: 403,
+      code: "sso_required",
+      message: "User must authenticate using one of the matching connections.",
+      email: "ana@acme.test"
+    })
+  })
+
   it("is unavailable when WorkOS is busy or down, or the network fails", async () => {
     const refresh = refreshRequest({ clientId: "client_01TEST", refreshToken: "refresh_01" })
     for (const status of [408, 429, 500, 503])

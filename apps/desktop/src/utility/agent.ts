@@ -15,10 +15,12 @@ import {
 import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry"
 import { registryVersion } from "@parity-app/agent/routing"
 import { errorDetails } from "@parity-app/core"
+import { passedLink } from "../shared/account.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
 import { readConsole } from "./console.ts"
 import { readCopyEnvironment } from "./environment.ts"
+import { mainProcess } from "./main-process.ts"
 import { renderOffscreen } from "./render.ts"
 
 interface WindowChannel {
@@ -67,6 +69,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
   const given = Buffer.from(request.headers.authorization?.replace(/^Bearer /, "") ?? "")
   const expected = Buffer.from(token)
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) return reply(401, { error: "Wrong token" })
+  if (request.method === "POST" && request.url === "/auth/link") return passLinkToMain(request, reply)
   if (request.method !== "POST" || request.url !== "/rpc") return reply(404, { error: "POST /rpc" })
   try {
     const chunks: Buffer[] = []
@@ -76,6 +79,22 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
   } catch (error) {
     const details = errorDetails(error)
     reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })
+  }
+}
+
+/**
+ * A sign-in link another copy of Parity got from the browser (PAR-612). Main says whether it's the sign-in this copy is
+ * waiting for, and takes it if so; only it has the PKCE verifier the code needs.
+ */
+async function passLinkToMain(request: IncomingMessage, reply: (status: number, body: unknown) => void) {
+  try {
+    const chunks: Buffer[] = []
+    for await (const chunk of request) chunks.push(chunk as Buffer)
+    const passed = passedLink.safeParse(JSON.parse(Buffer.concat(chunks).toString("utf8")))
+    if (!passed.success) return reply(400, { error: "Expected { link }" })
+    reply(200, await mainProcess.request("signInLink", passed.data))
+  } catch (error) {
+    reply(200, { taken: false, error: error instanceof Error ? error.message : String(error) })
   }
 }
 
