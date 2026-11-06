@@ -1,8 +1,34 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 04:25:16 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 05:34:58 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.11.0
+
+Fri, 06 Nov 2026 05:34:58 GMT
+
+### Minor changes
+
+- Read prefers-color-scheme blocks as a theme: a project's dark block is its dark theme, the light values stay the
+  defaults, and each frame draws the block for its own mode (ajcraswell@gmail.com)
+
+## 0.10.0
+
+Fri, 06 Nov 2026 05:21:34 GMT
+
+### Minor changes
+
+- Frames on the canvas: the frame tool draws them, text and anything landing on the empty canvas make them, and Convert
+  to switches between frames, components and screens (ajcraswell@gmail.com)
+- Show component previews in the Components panel, in Names, List and Grid views, with each component's card, and in the
+  insert picker (ajcraswell@gmail.com)
+
+### Patches
+
+- Spacing handles no longer cover a layout's children, so a click on a child still selects it (ajcraswell@gmail.com)
+- Keep hover and selection outlines on their layers in every frame of a zoom, and stop the overlays laying the page out
+  partway through each frame (ajcraswell@gmail.com)
 
 ## 0.9.0
 

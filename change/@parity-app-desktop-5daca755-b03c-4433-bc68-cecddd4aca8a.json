@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Frames on the canvas: the frame tool draws them, text and anything landing on the empty canvas make them, and Convert to switches between frames, components and screens",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

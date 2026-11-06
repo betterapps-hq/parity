@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Spacing handles no longer cover a layout's children, so a click on a child still selects it",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

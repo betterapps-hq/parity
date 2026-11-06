@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Wait for components that load on demand before the e2e helpers call a design settled",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

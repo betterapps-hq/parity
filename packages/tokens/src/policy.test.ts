@@ -57,15 +57,25 @@ describe("themeOfSelector", () => {
     expect(themeOfSelector("", [{ name: "theme", prelude: "inline" }], { tailwindTheme: true })).toBe("default")
   })
 
-  it("reads a prefers-color-scheme block as its theme only when asked to", () => {
-    expect(themeOfSelector(":root", [media("(prefers-color-scheme: dark)")])).toBeUndefined()
-    expect(themeOfSelector(":root", [media("(prefers-color-scheme: dark)")], { colorScheme: true })).toBe("dark")
-    expect(themeOfSelector(":root", [media("(prefers-color-scheme: light)")], { colorScheme: true })).toBe("default")
-    expect(themeOfSelector(".dark", [media("(prefers-color-scheme: dark)")], { colorScheme: true })).toBe("dark")
-    expect(themeOfSelector(".ocean", [media("(prefers-color-scheme: dark)")], { colorScheme: true })).toBeUndefined()
-    expect(themeOfSelector(":root", [media("screen and (prefers-color-scheme: dark)")], { colorScheme: true })).toBe(
-      undefined
+  it("reads a prefers-color-scheme block as its theme (PAR-138)", () => {
+    expect(themeOfSelector(":root", [media("(prefers-color-scheme: dark)")])).toBe("dark")
+    expect(themeOfSelector(":root", [media("(prefers-color-scheme: light)")])).toBe("default")
+    expect(themeOfSelector(".dark", [media("(prefers-color-scheme: dark)")])).toBe("dark")
+    expect(themeOfSelector(":root", [{ name: "layer", prelude: "base" }, media("(prefers-color-scheme: dark)")])).toBe(
+      "dark"
     )
+    expect(themeOfSelector(".ocean", [media("(prefers-color-scheme: dark)")])).toBeUndefined()
+    expect(themeOfSelector(":root", [media("screen and (prefers-color-scheme: dark)")])).toBeUndefined()
+    expect(
+      themeOfSelector(":root", [media("(prefers-color-scheme: dark)"), media("(prefers-color-scheme: light)")])
+    ).toBeUndefined()
+  })
+
+  it("reads a prefers-color-scheme block as frames draw it as the same theme", () => {
+    const drawn = (scheme: string) => `:where([data-canvas-body][data-canvas-color-scheme="${scheme}"])`
+    expect(themeOfSelector(drawn("dark"), [])).toBe("dark")
+    expect(themeOfSelector(drawn("light"), [])).toBe("default")
+    expect(themeOfSelector(`${drawn("dark")} .card`, [])).toBeUndefined()
   })
 })
 
@@ -82,13 +92,14 @@ describe("themeAttributes", () => {
     })
   })
 
-  it("leaves out class themes, the light theme, attributes on the root and conditional rules", () => {
+  it("leaves out class themes, the light theme, attributes on the root, conditional rules and colour schemes", () => {
     const css = [
       ":root { --bg: #fff; }",
       ".dark { --bg: #111; }",
       "[data-theme=light] { --bg: #fafafa; }",
       ":root[data-theme=ocean], :host([data-theme=ocean]) { --bg: blue; }",
-      "@media (width > 40rem) { [data-theme=sand] { --bg: tan; } }"
+      "@media (width > 40rem) { [data-theme=sand] { --bg: tan; } }",
+      "@media (prefers-color-scheme: dark) { :root { --bg: #000; } }"
     ].join("\n")
     expect(read(css)).toEqual({})
   })
@@ -103,15 +114,28 @@ describe("frameAttributes", () => {
 
   it("adds a theme's attributes when the mode has its class", () => {
     expect(frameAttributes({ classNames: ["dark"], attributes: { lang: "en" } }, themes)).toEqual({
+      "data-canvas-color-scheme": "dark",
       "data-theme": "dark",
       lang: "en"
     })
-    expect(frameAttributes({ classNames: [], attributes: { lang: "en" } }, themes)).toEqual({ lang: "en" })
+    expect(frameAttributes({ classNames: [], attributes: { lang: "en" } }, themes)).toEqual({
+      "data-canvas-color-scheme": "light",
+      lang: "en"
+    })
+  })
+
+  it("gives the frame the dark colour scheme only when its mode shows the dark theme (PAR-138)", () => {
+    const scheme = (classNames: string[]) =>
+      frameAttributes({ classNames, attributes: {} }, {})["data-canvas-color-scheme"]
+    expect(scheme(["dark"])).toBe("dark")
+    expect(scheme(["contrast", "dark"])).toBe("dark")
+    expect(scheme(["ocean"])).toBe("light")
+    expect(scheme([])).toBe("light")
   })
 
   it("keeps an attribute the mode sets itself", () => {
-    const mode = { classNames: ["dark"], attributes: { "data-theme": "midnight" } }
-    expect(frameAttributes(mode, themes)).toEqual({ "data-theme": "midnight" })
+    const mode = { classNames: ["dark"], attributes: { "data-theme": "midnight", "data-canvas-color-scheme": "light" } }
+    expect(frameAttributes(mode, themes)).toEqual({ "data-theme": "midnight", "data-canvas-color-scheme": "light" })
   })
 })
 
