@@ -611,20 +611,23 @@ says so.
   another, the file opens at its top. A part named through its family, as `Dialog.Root`, opens at the family's export.
 
 Code: `codeEditors`, `editorsFor`, `commandPaths` and `exportLine` in `packages/core/src/code-editors.ts`;
-`openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `canvas:open-in-editor`; `componentFile` and `viewCode`
-in `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by `chrome/AssetsPanel.tsx`;
-the setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
+`openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `canvas:open-in-editor`, whose request
+`openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592); `componentFile` and `viewCode` in
+`renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by `chrome/AssetsPanel.tsx`; the
+setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
 
 Tests: `packages/core/src/code-editors.test.ts` (10: the editors each choice tries; VS Code's and Zed's arguments; the
 paths on PATH on Windows and elsewhere; and the export's line for a function, constant or class, one an export list
 names, a list over several lines, a longer name that isn't it, a default export, a declared one, a missing one, and
 Windows line endings). `apps/desktop/src/renderer/chrome/code-editor.test.ts` (2: the project's own component's file
-from a Windows or POSIX root, and a library component's declarations, or none). `chrome/ComponentMenu.stories.tsx`:
-WithStories, ChoosingViewCode, StorybookNotRunning, WithoutStories, NoCodeInTheProject and LibraryDesign; and
-ComponentMenu, ListedByHand and FailingToDraw in `chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and
-the system's default app in `main/code-editor.ts` have no test of their own. They were tried in a debug copy: View code
-on Button opened VS Code at `button.tsx:43`, its `function Button`, and Badge's menu said "Starts Storybook" with none
-running.
+from a Windows or POSIX root, and a library component's declarations, or none).
+`apps/desktop/src/shared/ipc-checks.test.ts` (3: a good request reaches `openInEditor`; a path that isn't absolute, an
+editor Settings doesn't list, an unknown field or a request that isn't an object is refused before it; every listed
+editor is taken). `chrome/ComponentMenu.stories.tsx`: WithStories, ChoosingViewCode, StorybookNotRunning,
+WithoutStories, NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedByHand and FailingToDraw in
+`chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and the system's default app in `main/code-editor.ts`
+have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at `button.tsx:43`, its
+`function Button`, and Badge's menu said "Starts Storybook" with none running.
 
 ## Moving, reordering and resizing
 

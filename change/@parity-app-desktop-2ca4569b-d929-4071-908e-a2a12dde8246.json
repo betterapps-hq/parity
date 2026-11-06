@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Check the main process's IPC arguments, files, environment and render page answers with zod",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -3,15 +3,15 @@ import { isPackaged } from "./packaged.ts"
 
 describe("isPackaged", () => {
   it("is packaged when Electron says so outside the dev runner", () => {
-    expect(isPackaged(true, {})).toBe(true)
+    expect(isPackaged(true, undefined)).toBe(true)
   })
 
   it("isn't packaged under the dev runner, which runs a copy of Electron named Parity", () => {
-    expect(isPackaged(true, { PARITY_DEV_RUNNER: "1234" })).toBe(false)
+    expect(isPackaged(true, 1234)).toBe(false)
   })
 
   it("isn't packaged when Electron runs under its own name", () => {
-    expect(isPackaged(false, {})).toBe(false)
-    expect(isPackaged(false, { PARITY_DEV_RUNNER: "1234" })).toBe(false)
+    expect(isPackaged(false, undefined)).toBe(false)
+    expect(isPackaged(false, 1234)).toBe(false)
   })
 })
