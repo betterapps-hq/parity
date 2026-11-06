@@ -27,6 +27,7 @@ catalogMode: prefer
 # Versions set once for the workspace. Reference them with "catalog:".
 catalog:
   "@buildkitgg/shadcn-baseui-kit": npm:@buildkitgg/shadcn-baseui-nova@0.4.6
+  "@sentry/electron": 8.3.0
   beachball: 2.66.0
   electron-builder: 26.18.0
   electron-updater: 6.8.11

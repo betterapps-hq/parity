@@ -2,10 +2,12 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useLayoutEffect } from "react"
 import { userEvent, within } from "storybook/test"
 import type { AccountState } from "../../shared/account.ts"
+import { HomeAccountMenu } from "../start/StartControls.tsx"
 import { setStoryAccount } from "../stories/host.ts"
 import { accountActions, useAccount } from "./account.ts"
 import { AccountMenu } from "./AccountMenu.tsx"
 import { SignInDialog, SignInScreen, UntilQuitDialog } from "./SignIn.tsx"
+import { WaitingPanel } from "./SignInPanels.tsx"
 
 /**
  * Signing in, as the app builds it from the Sign in explorations (PAR-612). The host stands in for main: a button
@@ -49,6 +51,41 @@ export const FirstLaunch: Story = { render: () => <Screen state={signedOut} /> }
 /** After a button: Parity waits for the browser, and never gives up on its own. */
 export const WaitingForBrowser: Story = {
   render: () => <Screen state={{ ...signedOut, attempt: { at: "waiting", provider: "GitHubOAuth", url } }} />
+}
+
+/** Half a minute on: the page may never have shown, so opening it again comes first. */
+export const StillWaitingForBrowser: Story = {
+  render: () => (
+    <div className="grid h-screen min-h-[600px] place-items-center bg-background p-6 text-foreground">
+      <WaitingPanel
+        attempt={{ at: "waiting", provider: "GitHubOAuth", url }}
+        slow
+        onReopen={accountActions.reopen}
+        onCancel={accountActions.back}
+      />
+    </div>
+  )
+}
+
+/** Someone in more than one organization: WorkOS names them, and AuthKit signs in to the one chosen. */
+export const ChooseOrganization: Story = {
+  render: () => (
+    <Screen
+      state={{
+        ...signedOut,
+        attempt: {
+          at: "problem",
+          provider: "GoogleOAuth",
+          problem: "choose-organization",
+          email: "ada@kestrel.dev",
+          organizations: [
+            { id: "org_01KESTREL", name: "Kestrel" },
+            { id: "org_01ANALYTICAL", name: "Analytical Engines and Difference Machines Incorporated" }
+          ]
+        }
+      }}
+    />
+  )
 }
 
 /** Canceled at the provider or on AuthKit's page. */
@@ -159,3 +196,62 @@ export const AccountMenuUntilQuit: Story = {
 
 /** Signed out: an outline of an avatar, whose menu offers Sign in and keeps Settings. */
 export const AccountMenuSignedOut: Story = { render: () => <TitleBar state={signedOut} />, play: openMenu }
+
+/** The top of Home, where you are takes the organization switcher's place. */
+function HomeHeader({ state }: { state: AccountState }) {
+  return (
+    <Seeded state={state}>
+      <div className="h-screen bg-background p-6 text-foreground sm:px-10">
+        <HomeAccountMenu />
+        <SignInDialog />
+        <UntilQuitDialog />
+      </div>
+    </Seeded>
+  )
+}
+
+const openHomeMenu = async () => {
+  const body = within(document.body)
+  await userEvent.click(await body.findByRole("button", { name: /^(Ada Lovelace|ada@hey\.com) / }))
+}
+
+const kestrel = { id: "org_01KESTREL", name: "Kestrel" }
+const engines = { id: "org_01ENGINES", name: "Analytical Engines" }
+
+/** In two organizations Parity knows by name: choosing the other one switches in the background. */
+export const HomeAccountMenuTwoOrganizations: Story = {
+  render: () => (
+    <HomeHeader
+      state={{
+        ...signedOut,
+        account: {
+          ...ada,
+          organizationId: kestrel.id,
+          role: "admin",
+          organizations: [kestrel, engines],
+          untilQuit: false
+        }
+      }}
+    />
+  ),
+  play: openHomeMenu
+}
+
+/** In one organization, which WorkOS picked without naming it, so Parity calls it Your organization. */
+export const HomeAccountMenuOneOrganization: Story = {
+  render: () => (
+    <HomeHeader
+      state={{ ...signedOut, account: { ...ada, organizationId: kestrel.id, role: "member", untilQuit: false } }}
+    />
+  ),
+  play: openHomeMenu
+}
+
+/** In no organization: Personal. */
+export const HomeAccountMenuPersonal: Story = {
+  render: () => <HomeHeader state={{ ...signedOut, account: { email: "ada@hey.com", untilQuit: false } }} />,
+  play: openHomeMenu
+}
+
+/** Signed out: Sign in, so nothing looks signed in. */
+export const HomeAccountMenuSignedOut: Story = { render: () => <HomeHeader state={signedOut} /> }

@@ -10,7 +10,14 @@ import {
 import { useEffect, useState } from "react"
 import type { AccountState } from "../../shared/account.ts"
 import { accountActions, useAccount } from "./account.ts"
-import { glow, ProblemPanel, SessionEndedPanel, SignInPanel, WaitingPanel } from "./SignInPanels.tsx"
+import {
+  ChooseOrganizationPanel,
+  glow,
+  ProblemPanel,
+  SessionEndedPanel,
+  SignInPanel,
+  WaitingPanel
+} from "./SignInPanels.tsx"
 
 /** How long Parity waits before it says what to do if the browser never showed the page. */
 const slowAfter = 30_000
@@ -45,8 +52,24 @@ export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: bo
     )
   }
   if (attempt?.at === "problem") {
+    const { problem } = attempt
+    if (problem === "choose-organization") {
+      return (
+        <ChooseOrganizationPanel
+          dialog={dialog}
+          attempt={attempt}
+          onSignIn={accountActions.signIn}
+          onOther={accountActions.back}
+        />
+      )
+    }
     return (
-      <ProblemPanel dialog={dialog} attempt={attempt} onSignIn={accountActions.signIn} onOther={accountActions.back} />
+      <ProblemPanel
+        dialog={dialog}
+        attempt={{ ...attempt, problem }}
+        onSignIn={accountActions.signIn}
+        onOther={accountActions.back}
+      />
     )
   }
   if (ended) {

@@ -1,3 +1,4 @@
+import "./start-telemetry.ts"
 import { portFree, viteBuilder } from "@parity-app/builder-vite"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { reactRenderer } from "@parity-app/renderer-react"

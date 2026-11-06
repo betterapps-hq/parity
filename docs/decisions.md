@@ -4556,6 +4556,12 @@ My calls:
   A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
 - **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
 - **The client IDs go in the code,** since they're public. The API key never ships in the app.
+- **Better Apps checks the desktop's access token with the WorkOS SDK, not a new JWT library** (PAR-615). Its WorkOS
+  identity takes the token as a bearer, checks the signature against WorkOS's JWKS, and checks the issuer against the
+  one WorkOS publishes. A dev copy's real Staging token, decoded in main on 2026-11-06, has the published issuer,
+  `https://api.workos.com/user_management/client_01M6Q2PGV0Z2R7CXZBFRJH150R`. It names Staging's own client, not
+  Parity's (`client_01M6Q30XB58AF2CEHTE79ACMWS`), so the expected issuer comes from WorkOS's
+  `/.well-known/openid-configuration`, never from Parity's client ID.
 
 ## Signing in is data in and data out in `@parity-app/account` (PAR-613)
 
@@ -4614,6 +4620,31 @@ surface now, "parity-web, and parity-dashboard" beside the app and CLI, and that
 - **The organisation is on a Business trial until 2026-11-19,** which you had started so the free plan's one-member
   limit didn't block the handover. Whether to pay for a plan is yours: the Team plan adds alerts that file Linear issues
   and a larger replay quota, which the agent loop relies on.
+
+## Errors, crashes and hangs go to Sentry from every process (PAR-620)
+
+`@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to
+`parity-desktop`. My calls:
+
+- **Main decides what leaves the computer.** Windows and the service always start Sentry and send through main, whose
+  client is off when `PARITY_TELEMETRY=off` or `DO_NOT_TRACK=1` is set, or under Vitest. The decision is
+  `telemetryLevel` and `telemetryEnvironment` in `@parity-app/telemetry`, so the CLI can share it (PAR-642). A
+  `PARITY_TELEMETRY` value that isn't `all`, `errors` or `off` stops the app, rather than sending what someone meant to
+  turn off. The Telemetry setting is PAR-626.
+- **Environments:** `ci` wherever `CI` is set, `tester` for an installed build, and `development` otherwise.
+- **The `process` tag uses the telemetry envelope's names** (`main`, `renderer`, `render`, `service`, `worker`,
+  `builder`), set on each event. Sentry copies a window's scope into main's, so a scope tag would have labelled main's
+  own errors as the window's.
+- **Windows report only errors thrown from Parity's own pages** (`allowUrls` is the page's origin). A project's
+  components run in the same page, and their errors are the project's to show, not Parity's bugs.
+- **React errors go through the root's `onUncaughtError` and `onCaughtError`,** with their component stack. Boundaries
+  around the canvas, panels and dialogs need a fallback UI designed first, so they're PAR-667.
+- **Main's hangs are measured by a late timer, not Sentry's native hang detection,** which needs a module built for
+  Electron's ABI that the build doesn't ship. It reports how long main was stuck, though not where; PAR-631 can bring in
+  the native module. Windows' hangs come from their `unresponsive` and `responsive` events.
+- **Exits:** a window or child process that exits abnormally, fails to launch or runs out of memory is reported, along
+  with crashes' minidumps. The service's restarts are breadcrumbs. A builder that stops by itself is reported with its
+  last 50 lines of output, and the props worker's failures from the service.
 
 ## The rest of signing in is designed (PAR-614)
 
@@ -4965,6 +4996,18 @@ You asked on 2026-11-05 for the main process's side of signing in and the window
   PAR-616 can switch organizations from the app, once its service lists them.
 - **The access token names the organization by ID only.** Until Parity's service can look one up (PAR-616), the app
   calls it Your organization.
+- **Finishing with a pending token needs the client secret.** The organization-selection grant
+  (`urn:workos:oauth:grant-type:organization-selection`) and the email-verification grant
+  (`urn:workos:oauth:grant-type:email-verification:code`) both answered 400 `invalid_client`, "Invalid client secret.",
+  with the client ID alone. So Parity can't finish either itself; whatever needs the secret stays in AuthKit's pages
+  until Parity has a server.
+- **Choosing an organization happens in Parity, and AuthKit finishes it.** WorkOS's 403
+  `organization_selection_required` names the user and their organizations (ID and name), so the app lists them.
+  Choosing one opens AuthKit with `organization_id`, whose page loads and keeps it, to sign in to that organization.
+  `organization_id` with a provider such as `GoogleOAuth` fails instead, with `organization_invalid` "No Connection
+  associated with Organization", since there it names the organization's single sign-on.
+- **Email verification stays in AuthKit.** Its grant needs the secret, and AuthKit verifies on its own page, which
+  Staging never asked for while signing in with Google.
 - **The token's `iss` is the environment's client** (`client_01M6Q2PGV0Z2R7CXZBFRJH150R`), as its OpenID configuration
   says, which the PAR-615 adapter reads.
 
@@ -4975,6 +5018,11 @@ Your calls, from trying it in `pnpm dev`:
 - **The account menu keeps Settings and Sign in or Sign out,** and leaves Keyboard shortcuts and the keys to the app's
   menus. It has no agents yet, since connecting one isn't built.
 - **Under the ways in, one short line,** "Parity never sees your password", with a shield.
+- **Waiting for the browser shows one button at a time:** Cancel, then Open it again once it's slow, with the other ways
+  round a page that didn't show as a line of links under it.
+- **The browser's hand-back page badges the mark** with a green check or an amber warning, so a failure reads at a
+  glance. Choosing an organization or single sign-on isn't a failure, so it says Continue in Parity, with a purple
+  arrow.
 
 My calls:
 
@@ -5280,3 +5328,20 @@ its shape on almost every frame of a zoom: 190 to 280 ms of `getClientRects` in 
   rather than once the pan ends.
 - **The zoom passing back through where it settled counts as settled for that frame.** A board might measure itself once
   mid-zoom then; checking it apart from the zoom wasn't worth a second clock.
+
+## docs/telemetry.md lists the events from their schemas (PAR-623)
+
+[telemetry.md](telemetry.md) says what Parity sends Sentry and lists every event, as principle 9 of
+[proposals/product-telemetry.md](proposals/product-telemetry.md) asks. My calls:
+
+- **An event says which processes send it and when,** as `sentBy` and `when` in `defineEvent`, and each attribute says
+  what it means with zod's `.describe()`. All three are required: the catalog throws when one is missing, so an event
+  can't reach the page half described.
+- **`registeredEvents` in `packages/telemetry/src/registry.ts` is the one list,** the page's source. Each process still
+  passes `createTelemetry` only the events it sends.
+- **Only the Events section is generated,** between two comments; the prose around it is written by hand. Types are
+  written as TypeScript writes them, from zod's JSON Schema of what `track()` takes, and a nested object's fields are
+  listed by their dotted path.
+- **Regenerating is `pnpm exec vp test run packages/telemetry -u`,** through Vitest's file snapshots, as the fixtures'
+  `expected.json` files are, so no script was added. The test that fails says so.
+- **The tables are padded as `vp fmt` writes them,** so formatting the page on commit leaves the generated part alone.

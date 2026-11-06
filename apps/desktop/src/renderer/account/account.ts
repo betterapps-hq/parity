@@ -147,5 +147,10 @@ export const accountActions = {
       () => toast("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." }),
       (error: unknown) => console.error("Signing out failed", error)
     ),
-  explainUntilQuit: (open: boolean) => update({ untilQuit: open })
+  explainUntilQuit: (open: boolean) => update({ untilQuit: open }),
+  /** Moves the session to another of the person's organizations. Main refreshes, and the window follows its state. */
+  switchOrganization: (organizationId: string) =>
+    void window.canvasHost.account
+      .switchOrganization(organizationId)
+      .catch(failed("Parity couldn't switch organizations"))
 }
