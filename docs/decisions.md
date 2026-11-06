@@ -4755,3 +4755,31 @@ a value's imports (`valueImports`), works it out against a host (`evaluateValue`
   was called with.
 - **Icon aliases are grouped once,** by `iconAliases` in `icon-names.ts`, so libgen's `icons.count` and the guest's icon
   list agree. `byCodeUnit` and `shorterName` live there too, in place of four copies.
+
+## A render job is built, named and scaled in `shared/render-job.ts` (PAR-575)
+
+The canvas's bitmaps, component previews and agents' frames each built their render job, three stores each named it, and
+the arithmetic between CSS and device pixels was split between main and the offscreen page. Both disk names took the job
+less a few fields, so a field added to the job joined them unasked. My calls:
+
+- **One builder, `renderJob(guest, frame)`.** It takes where the job is drawn (the project, its guest, its components
+  and theme) and what it draws (the tree, the mode with its frame geometry, the scale, the tokens previewed, the check,
+  and inline portals), and leaves out what a frame doesn't have, so the three callers can't disagree about when a field
+  is there.
+- **Each name lists its fields.** `frameKeys`, `bitmapName` and `previewName` sit side by side, with a comment saying
+  why they differ: memory goes by the guest and its address, which live as long as it does, and leaves out the theme;
+  the disk names go by the code the guest was served instead, which the stores add; only a bitmap names the tokens
+  previewed and the project, since previews never draw unsaved tokens and each project has its own folder of them; no
+  name has the check (`audit`, `colorTokens`), which changes nothing drawn. The stores still do the hashing, since
+  `node:crypto` isn't in the page.
+- **Kept bitmaps keep their names.** `bitmapName` writes the fields in the order the service's check gives them, so a
+  bitmap's name is what it was, and a test holds it to the old formula. Previews' keys change, once, because of the next
+  call.
+- **`inlinePortals` is in the service's check.** PAR-565's check dropped it from preview jobs, so previews made since
+  were drawn with their portals outside the crop. A test now passes a job built with every field through the check and
+  expects it back whole.
+- **The scale arithmetic is four functions:** `devicePixels` and `deviceBox` for the window and the crop main makes,
+  `frameBox` and `frameHeight` for what the page measures back. `host.style.zoom` stays in the page, as it isn't
+  arithmetic.
+- **Pure tests replace two disk-backed ones.** That a bitmap is found from a guest given a component, and that a light
+  and a dark preview are kept apart, are now tests of the names; the stores' tests keep what needs the disk.

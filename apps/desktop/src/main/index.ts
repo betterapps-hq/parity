@@ -39,6 +39,7 @@ import {
   themeSource
 } from "../shared/ipc-checks.ts"
 import type { ProcessUsage, RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import { deviceBox, devicePixels } from "../shared/render-job.ts"
 import type {
   BuilderReading,
   ConnectMessage,
@@ -610,12 +611,7 @@ async function renderPreview(
   const { frame } = await renderOffscreen(priority, job, true, async (window, drawn) => {
     const box = drawn.nodes.find((node) => node.id === crop)
     if (!box) return { frame: drawn }
-    const image = await window.webContents.capturePage({
-      x: Math.floor(box.x * job.scale),
-      y: Math.floor(box.y * job.scale),
-      width: Math.max(1, Math.ceil(box.width * job.scale)),
-      height: Math.max(1, Math.ceil(box.height * job.scale))
-    })
+    const image = await window.webContents.capturePage(deviceBox(box, job.scale))
     const { width, height } = image.getSize()
     if (drawsNothing(image.toBitmap())) {
       empty = true
@@ -658,14 +654,14 @@ function renderOffscreen(
   const done = renderIdle.use()
   const run = async (index: number) => {
     const window = await ensureRenderWindow(index)
-    const width = Math.max(1, Math.ceil(job.mode.width * job.scale))
+    const width = devicePixels(job.mode.width, job.scale)
     window.setContentSize(width, 800)
     const frame = renderResult(
       await window.webContents.executeJavaScript(`window.canvasRender(${JSON.stringify(job)})`, true)
     )
     if (!whole || frame.error) return { frame }
     // The whole frame is in view, so a capture or a contrast check sees all of it.
-    const height = Math.max(1, Math.ceil(frame.height * job.scale))
+    const height = devicePixels(frame.height, job.scale)
     window.setContentSize(width, height)
     await window.webContents.executeJavaScript("window.canvasSettle()", true)
     return then(window, frame, width, height)

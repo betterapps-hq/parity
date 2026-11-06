@@ -2,7 +2,7 @@ import { frameViewport, nextPreview, previewMode, previewSettleMs, resolveModes 
 import { componentPreviewTree, previewFrameWidth } from "@parity-app/editor"
 import { useEffect, useState, useSyncExternalStore } from "react"
 import type { ComponentPreview, PreviewImage, PreviewJob } from "../shared/protocol.ts"
-import { renderJobMode } from "../shared/render-job.ts"
+import { renderJob } from "../shared/render-job.ts"
 import { bitmapsWaiting } from "./canvas/frame-bitmaps.ts"
 import { request } from "./service.ts"
 import { getResolvedTheme, type ResolvedTheme, subscribeResolvedTheme } from "./theme.ts"
@@ -54,16 +54,15 @@ export function previewJob(
   const viewport = frameViewport({ width: mode.width }, mode)
   return {
     component,
-    job: {
-      projectId: session.id,
-      guestUrl: session.info.guestUrl,
-      ...(session.added ? { components: session.added } : {}),
-      theme: session.info.theme,
-      tree,
-      mode: renderJobMode(mode, { width: previewFrameWidth, viewport }),
-      scale: previewScale,
-      inlinePortals: true
-    }
+    job: renderJob(
+      {
+        projectId: session.id,
+        guestUrl: session.info.guestUrl,
+        ...(session.added ? { components: session.added } : {}),
+        theme: session.info.theme
+      },
+      { tree, mode, frame: { width: previewFrameWidth, viewport }, scale: previewScale, inlinePortals: true }
+    )
   }
 }
 
