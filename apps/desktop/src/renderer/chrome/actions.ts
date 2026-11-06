@@ -13,7 +13,7 @@ import {
   detachSelection,
   distributeSelection,
   duplicateSelection,
-  exportImages,
+  exportSelected,
   goHome,
   goToMainComponent,
   hideSelection,
@@ -182,7 +182,7 @@ export const actions: Record<Command, Action> = {
   openFile: { run: openProjectFile, scope: "app" },
   save: { run: () => save(), available: hasSession, scope: "app" },
   saveCopy: { run: () => saveCopy(), available: hasSession, scope: "app" },
-  exportSelection: { run: () => exportImages("selection"), available: hasSession, scope: "app" },
+  exportSelection: { run: () => exportSelected(), available: hasSession, scope: "app" },
   closeTab: { run: () => closeTab(), scope: "app" },
   settings: { run: () => openDialog("settings"), scope: "app" },
 

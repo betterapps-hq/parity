@@ -1673,6 +1673,48 @@ direction. Files land in a component's slot as Paste here does (PAR-419), which 
 browser rather than the system (a picture dragged from a web page carries a URL, not a file) aren't handled. Interact's
 drop into a design wasn't tried.
 
+## Exporting
+
+### Layers and designs as PNG or JPG (PAR-185)
+
+The Design tab ends with an **Export** section for whatever is selected: a design, a layer, several layers of one
+design, or several designs. It lists the sizes to write, each a PNG or a JPG at 1x, 2x or 3x, with **+** to add the next
+size not asked for (PNGs from 1x up, then JPGs) and **−** to remove one, down to the last. Under them it names the files
+that makes, the first three and how many more, and **Export** asks for a folder and writes them. The canvas menu ends
+with **Export…** and the Layers row menu has it before Delete; both, like Ctrl+Shift+E and File > Export selected,
+export the selection at the same sizes. The sizes are remembered for every export, not per layer.
+
+- **Names:** each file is its layer's name as the Layers panel shows it, with `@2x` or `@3x` for those scales and none
+  at 1x, as iOS and Android name theirs: `Headline@2x.png`. Characters a file name can't hold on Windows, macOS or Linux
+  go, and an empty name is `Layer`. Layers named alike get a number from the second on (`Card`, `Card 2`), whatever
+  their case, so no file overwrites another, and a size asked for twice is written once.
+- **What's drawn:** each design is drawn offscreen once at each scale asked for, in the state the canvas shows and its
+  main mode, as it is on the canvas, saved or not; each layer is cut from it by the box the frame measured for it,
+  covering every pixel it touches. A PNG keeps what's see-through; a JPG has none, so those parts are white, which the
+  section says when a JPG is asked for.
+- **What can't be written:** a layer the shown state doesn't draw, one with no size, or a design that didn't draw is
+  left out with a warning toast, and the rest are written. A toast says how many files were written, with Show for the
+  first.
+- **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05 (decisions.md); the icon set's dialog
+  is kept as an exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state
+  and mode it shows, at Settings' export scale. Copy as PNG is CAN-39.
+
+Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
+section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
+`MultiPanel.tsx`; `exportLayers` and `exportSelected` in `chrome/commands.ts`; the menus' items in
+`chrome/canvas-menu.ts` and `chrome/layers-menu.ts`; the sizes in `chrome/preferences.ts`; `framePictures` in
+`packages/agent/src/dispatch.ts`, which keeps each layer's box with a screenshot; and `exportLayers` in
+`utility/agent.ts` with `cutPicture` in `utility/webp.ts`, behind the service's `layers.export`.
+
+Tests: `packages/editor/src/export-files.test.ts` (10: names with each size's suffix and format, numbering alike names,
+a size once, the next size offered, safe names, the short list, a layer's crop at 2x, a design's whole frame, the three
+reasons a file can't be written, and a crop kept inside the picture). `apps/desktop/src/utility/webp.test.ts` (2 more: a
+PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
+`chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back.
+`chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
+`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys. Gaps: drawing offscreen and writing the files run in
+the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
+
 ## Fields
 
 How the inspector's number, length and token fields read what's typed, scrubbed or stepped.

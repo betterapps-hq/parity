@@ -4658,3 +4658,23 @@ doing it:
   options.
 - **The rest stays together.** The working copy, lookup, reads, edits and presence share the working copy, lookup and
   `emit`, so they stay in `workspace.ts`, now about 1,640 lines.
+
+## Layers export as PNG or JPG from the Design tab (PAR-185)
+
+Called on 2026-11-05, with your approval in Storybook. PAR-185 asked for PNG at 1x to 3x or SVG, several layers at once
+and icons in bulk as SVG. You changed it: PNG or JPG, and SVG isn't necessary. You dropped the icon set export too: the
+project already has its icon library's icons in code, so writing them out again gave nothing new. My calls:
+
+- **An Export section at the foot of the Design tab,** as Figma has one, for a design, a layer, several layers or
+  several designs, with Export… in the canvas and Layers menus and Ctrl+Shift+E doing the same. It's a section of the
+  Design tab rather than a dialog, so the sizes and the files they make show beside what's selected.
+- **The sizes are remembered for every export, not stored with each layer** as Figma's export settings are. Storing them
+  per layer would put them in the design file, and nothing else needs them there yet.
+- **Layers are cut from their design's frame,** drawn offscreen in the state the canvas shows and its main mode, by the
+  box the frame measured, rather than drawn alone: a layer drawn alone would lose its parent's layout and what's
+  inherited. So a layer's PNG has what's behind it within its box, and see-through parts only where the design has them.
+- **A JPG's see-through parts are white,** and the section says so when one is asked for.
+- **Files are named as iOS and Android name theirs,** `Headline@2x.png` with no suffix at 1x, and alike names get a
+  number rather than overwriting each other.
+- **The icon set dialog is kept as an exploration,** Parity/Explorations/Icon export, in case it comes back.
+- **File > Export all stays as it was:** every design in every state and mode it shows, at Settings' export scale.

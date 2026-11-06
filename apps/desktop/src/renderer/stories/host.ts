@@ -363,6 +363,11 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       return { src: `/images/${String(params.name)}`, path: `public/images/${String(params.name)}` }
     case "storybook.open":
       return { url: "http://localhost:6006/?path=/docs/components-button--docs" }
+    case "layers.export":
+      return {
+        files: (params.files as { name: string }[]).map((file) => `D:/exports/${file.name}`),
+        warnings: []
+      }
     case "designs.export":
       return {
         files: (params.designs as string[]).map((design) => `D:/exports/${design.split("#").at(-1)}.png`),

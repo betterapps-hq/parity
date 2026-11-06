@@ -2,7 +2,7 @@ import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import type { MessagePortMain } from "electron"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import type { ConnectMessage } from "../shared/service.ts"
-import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
+import { checkAccessibility, exportDesigns, exportLayers, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings } from "./builders.ts"
 import { undoProjectEdit } from "./edits.ts"
@@ -60,6 +60,7 @@ const handlers: Handlers<ServiceMethods> = {
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(getProject(projectId), id),
   "storybook.open": openStorybook,
   "designs.export": (params) => exportDesigns(editorWindow(), params),
+  "layers.export": (params) => exportLayers(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
     const { frame, png } = await renderOffscreen(job, true)
     if (frame.error || !png) return {}

@@ -68,6 +68,17 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
     designs: z.array(z.string()),
     scale: finiteNumber.positive()
   }),
+  "layers.export": project.extend({
+    folder: z.string(),
+    layers: z.array(z.object({ design: z.string(), node: z.string().optional() })),
+    files: z.array(
+      z.object({
+        layer: z.number().int().nonnegative(),
+        name: z.string(),
+        size: z.object({ format: z.enum(["png", "jpg"]), scale: z.union([z.literal(1), z.literal(2), z.literal(3)]) })
+      })
+    )
+  }),
   "frames.capture": z.object({ job: renderJob, height: finiteNumber.optional() }),
   "frames.stored": z.object({ job: renderJob }),
   "frames.clearStored": z.undefined(),

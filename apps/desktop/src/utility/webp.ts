@@ -41,3 +41,19 @@ export async function topOfPicture(picture: Uint8Array, ratio: number): Promise<
   if (kept >= height) return undefined
   return sharp(picture).extract({ left: 0, top: 0, width, height: kept }).webp({ lossless: true }).toBuffer()
 }
+
+/**
+ * Part of a picture as a PNG, or as a JPG with see-through parts white, for the Export section (PAR-185). Fails when
+ * sharp can't load or can't read it.
+ */
+export async function cutPicture(
+  picture: Uint8Array,
+  crop: { left: number; top: number; width: number; height: number },
+  format: "png" | "jpg"
+): Promise<Buffer> {
+  const sharp = await loadSharp()
+  const cut = sharp(picture).extract(crop)
+  return format === "jpg"
+    ? cut.flatten({ background: "#ffffff" }).jpeg({ quality: 92 }).toBuffer()
+    : cut.png().toBuffer()
+}
