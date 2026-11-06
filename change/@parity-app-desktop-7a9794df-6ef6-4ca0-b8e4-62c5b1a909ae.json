@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "End-to-end tests start with the designs' console empty",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
