@@ -13,8 +13,11 @@ import {
   type LibraryEdits,
   type LibraryManifest,
   libraryManifestExtension,
+  jsonText,
   type ParentSignal,
+  parseData,
   parseLibraryManifest,
+  plainObject,
   type TokenCategory
 } from "@parity-app/core"
 import {
@@ -28,6 +31,7 @@ import {
 } from "@parity-app/project"
 import { readLibraryEdits } from "@parity-app/registry"
 import ts from "typescript"
+import { z } from "zod"
 import { type AnatomyCheck, checkAnatomy, readAnatomy } from "./anatomy.ts"
 import {
   type ExampleFile,
@@ -400,7 +404,8 @@ export async function reviseLibrary(
 ): Promise<GeneratedLibrary> {
   const manifest = { ...generated.manifest }
   const report = { ...generated.report }
-  const previous = previousComponents(options.previous)
+  const read = readPrevious(options.previous)
+  const previous = read?.manifest.components?.list
   const components = manifest.components as { import?: string; list: Record<string, LibraryComponent> } | undefined
   if (previous && components) {
     report.changes = compareComponents(previous, components.list)
@@ -409,7 +414,7 @@ export async function reviseLibrary(
       list: selectComponents(previous, components.list, report.changes, options.only ?? "all")
     }
   }
-  const kept = (options.previous as Record<string, unknown> | undefined)?.edits
+  const kept = read?.file.edits
   const edits = options.edits ?? kept
   if (edits !== undefined) {
     manifest.edits = edits
@@ -420,12 +425,20 @@ export async function reviseLibrary(
   return { manifest, report }
 }
 
-function previousComponents(previous: unknown): Record<string, LibraryComponent> | undefined {
-  if (typeof previous !== "object" || previous === null) return undefined
+/**
+ * The library file being regenerated, read through the library schema (PAR-594), and the file's own object, whose
+ * edits and authored fields are kept as written. One that doesn't read stops generation, naming the field, since
+ * writing over it would lose what a person wrote there.
+ */
+function readPrevious(previous: unknown): { manifest: LibraryManifest; file: Record<string, unknown> } | undefined {
+  if (previous === undefined) return undefined
   try {
-    return parseLibraryManifest(previous).components?.list
-  } catch {
-    return undefined
+    return { manifest: parseLibraryManifest(previous), file: parseData(plainObject, previous) }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new TypeError(`The library file being replaced doesn't read, so fix or delete it first: ${reason}`, {
+      cause: error
+    })
   }
 }
 
@@ -573,8 +586,8 @@ export async function appManifestPath(root: string): Promise<string> {
  * what a person wrote (the canvas, decorators, a name or description) stays.
  */
 export function mergeManifest(existing: unknown, generated: Record<string, unknown>): Record<string, unknown> {
-  if (typeof existing !== "object" || existing === null) return generated
-  const kept = existing as Record<string, unknown>
+  const kept = readPrevious(existing)?.file
+  if (!kept) return generated
   const authored = ["$schema", "id", "name", "description", "decorators", "edits", "canvas"]
   const merged: Record<string, unknown> = { ...generated }
   for (const key of authored) if (kept[key] !== undefined) merged[key] = kept[key]
@@ -639,18 +652,18 @@ function defaultRange(version: string): string {
   return major === "0" ? `^0.${minor}.0` : `^${major}.0.0`
 }
 
+/** A DTCG token file or resolver: a JSON object, with a resolver's `resolutionOrder` a list. */
+const tokenFile = jsonText(plainObject.pipe(z.looseObject({ resolutionOrder: z.array(z.unknown()).optional() })))
+
 /** A DTCG token file the package ships, if it has one in the format; Buildkit's `tokens.json` isn't yet. */
 async function dtcgIn(dir: string): Promise<{ path: string; tokens: Record<string, unknown> } | undefined> {
   for (const candidate of ["tokens.json", "dist/tokens.json", "tokens.resolver.json", "dist/tokens.resolver.json"]) {
     const text = await readFile(join(dir, candidate), "utf8").catch(() => undefined)
     if (!text) continue
-    try {
-      const parsed = JSON.parse(text) as Record<string, unknown>
-      if (Array.isArray(parsed.resolutionOrder) || /"\$value"\s*:/.test(text))
-        return { path: candidate, tokens: parsed }
-    } catch {
-      // Not JSON; not tokens.
-    }
+    // A file that isn't a JSON object isn't tokens. What's in it is checked when the tokens are read (PAR-591).
+    const parsed = tokenFile.safeParse(text).data
+    if (parsed && (parsed.resolutionOrder !== undefined || /"\$value"\s*:/.test(text)))
+      return { path: candidate, tokens: parsed }
   }
   return undefined
 }

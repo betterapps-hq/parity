@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Check npm's registry documents, upstream.json, shipped token files, the library file being replaced and MUI, Chakra and Fluent theme objects with zod",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
