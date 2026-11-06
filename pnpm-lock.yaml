@@ -274,6 +274,9 @@ importers:
         specifier: ^7.5.0
         version: 7.5.0
     devDependencies:
+      '@parity-app/account':
+        specifier: workspace:*
+        version: link:../../packages/account
       '@parity-app/agent':
         specifier: workspace:*
         version: link:../../packages/agent

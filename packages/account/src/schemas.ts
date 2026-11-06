@@ -33,7 +33,9 @@ export const workosError = z.looseObject({
   code: z.string().optional().catch(undefined),
   message: z.string().optional().catch(undefined),
   error: z.string().optional().catch(undefined),
-  error_description: z.string().optional().catch(undefined)
+  error_description: z.string().optional().catch(undefined),
+  /** The account it turned down, which WorkOS names when it requires single sign-on or a verified email. */
+  email: z.string().optional().catch(undefined)
 })
 
 /** The access token's claims: a short-lived JWT naming the person, their session, organization, role and permissions. */

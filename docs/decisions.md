@@ -4625,3 +4625,48 @@ design and state together on the write side. My calls in moving it:
   `pasteHere`, so it lands where a drop does, in the slot under the pointer, rather than after the layer under it.
 - **The text editor reads and writes through `editFrame`.** That makes PAR-585's two rules one. PAR-585 stays open for
   its reproduction and test, as it asks.
+
+## Signing in is built (PAR-612)
+
+You asked on 2026-11-05 for the main process's side of signing in and the window's screens, from
+[proposals/sign-in.md](proposals/sign-in.md) and the Sign in stories, with Staging's client ID until Production exists
+(PAR-611). What was tried against WorkOS Staging that day:
+
+- **A public client refreshes with the client ID alone.** The dev copy's own refresh, 4 minutes after signing in with
+  Google, worked with no `client_secret`, as `authkit-js` does. The reference's "required" doesn't hold for public
+  clients.
+- **A public client's refresh can move the session to another organization.** With `organization_id` on the refresh,
+  WorkOS answered 200 with that organization's `org_id` and the person's `role` in it (your Staging user, which I added
+  to Staging's Test Organization as a member to try it). A later refresh without it stays in that organization. So
+  PAR-616 can switch organizations from the app, once its service lists them.
+- **The access token names the organization by ID only.** Until Parity's service can look one up (PAR-616), the app
+  calls it Your organization.
+- **The token's `iss` is the environment's client** (`client_01M6Q2PGV0Z2R7CXZBFRJH150R`), as its OpenID configuration
+  says, which the PAR-615 adapter reads.
+
+Your calls, from trying it in `pnpm dev`:
+
+- **Signed out, Home has no organization switcher,** so nothing looks signed in; the account menu and For you offer Sign
+  in. This changes PAR-614's call that signed-out Home is Personal.
+- **The account menu keeps Settings and Sign in or Sign out,** and leaves Keyboard shortcuts and the keys to the app's
+  menus. It has no agents yet, since connecting one isn't built.
+- **Under the ways in, one short line,** "Parity never sees your password", with a shield.
+
+My calls:
+
+- **The first launch is a fresh install:** no choice made on the sign-in screen, no project Parity knows, and none it
+  was started with. So people upgrading don't meet it, and neither do `pnpm dev`, `pnpm perf` or the end-to-end tests,
+  which start with a project. Opening a project another way while it shows counts as going on without.
+- **Main keeps the session in one encrypted file** in the app's data, with who it signs in and how, so Parity shows them
+  before the first refresh answers and Session ended can name them. It uses `safeStorage`'s async calls, since Electron
+  45 deprecates the others.
+- **Copies of Parity that share the app's data share the session.** Each refresh reads the newest refresh token from the
+  file first, since only the newest works; a refusal after another copy refreshed is tried again with its token; and a
+  copy whose file was removed by Sign out elsewhere signs out too.
+- **A copy answers a passed link at once and trades the code after,** so the copy passing it can quit. The route is
+  `POST /auth/link` on each copy's agent service, behind the same token as agents' calls.
+- **A failed exchange is one of three problems:** single sign-on for `sso_required` and
+  `organization_authentication_methods_required`, with the email WorkOS names; an account turned down for any other 403;
+  and an error otherwise. `@parity-app/account` now passes on the email WorkOS's refusal names.
+- **Signing in is checked in an installed build later.** The scheme and passing links between copies only work in an
+  installed app, which wasn't tried here.

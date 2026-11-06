@@ -2,7 +2,7 @@ import { existsSync, readFileSync, watch, writeFileSync } from "node:fs"
 import { readFile, utimes } from "node:fs/promises"
 import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
-import { agentRegistry, removeEntry } from "@parity-app/agent/registry"
+import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
 import {
   drawsNothing,
@@ -20,13 +20,16 @@ import {
   Menu,
   MessageChannelMain,
   nativeTheme,
+  net,
   protocol,
+  safeStorage,
   screen,
   shell,
   type UtilityProcess,
   utilityProcess,
   webContents
 } from "electron"
+import { type AccountState, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
 import type {
@@ -44,12 +47,16 @@ import type {
   PreviewPictures,
   ServiceProcessMethods
 } from "../shared/service.ts"
+import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
 import { idleClose } from "./idle-close.ts"
+import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
+import { launchLink, passLink } from "./pass-link.ts"
 import { privateMemory } from "./private-memory.ts"
+import { sessionStore } from "./session-store.ts"
 import type { UpdateSession } from "./update-session.ts"
 import { createUpdates } from "./updates.ts"
 
@@ -148,7 +155,13 @@ function startService(): UtilityProcess {
     handlers: {
       render: ({ job, capture }) => renderFrame(job, capture),
       preview: ({ job, crop, priority }) => renderPreview(job, crop, priority),
-      console: ({ origin, clear }) => readConsole(origin, clear)
+      console: ({ origin, clear }) => readConsole(origin, clear),
+      // Another copy got a sign-in link and asks whether it's this copy's: it answers at once, then trades the code.
+      signInLink: ({ link }) => {
+        const taken = account.owns(link)
+        if (taken) void account.takeLink(link)
+        return { taken }
+      }
     },
     disconnected: () => new Error("The project service stopped")
   })
@@ -356,8 +369,8 @@ function ownerOf(event: Electron.IpcMainInvokeEvent): BrowserWindow | undefined 
   return BrowserWindow.fromWebContents(event.sender) ?? undefined
 }
 
-/** Updater commands come only from the app's own main frame, never a guest or offscreen renderer. */
-function updateOwner(event: Electron.IpcMainInvokeEvent): BrowserWindow {
+/** The Parity window a request came from, refused from a guest, an offscreen renderer or anything else. */
+function appWindowOf(event: Electron.IpcMainInvokeEvent, refusal: string): BrowserWindow {
   const window = ownerOf(event)
   if (
     !window ||
@@ -365,10 +378,102 @@ function updateOwner(event: Electron.IpcMainInvokeEvent): BrowserWindow {
     event.senderFrame !== event.sender.mainFrame ||
     event.sender.getURL() !== rendererUrl
   ) {
-    throw new Error("Only the Parity window can control updates.")
+    throw new Error(refusal)
   }
   return window
 }
+
+/** Updater commands come only from the app's own main frame, never a guest or offscreen renderer. */
+function updateOwner(event: Electron.IpcMainInvokeEvent): BrowserWindow {
+  return appWindowOf(event, "Only the Parity window can control updates.")
+}
+
+/** The app's windows, as against the offscreen renderers. */
+function appWindows(): BrowserWindow[] {
+  return BrowserWindow.getAllWindows().filter((window) => !isRenderWindow(window))
+}
+
+/**
+ * Signing in (PAR-612). An installed app hands back through `parity://`, which its installer registers; a `pnpm dev`
+ * copy listens on a loopback port of its own for each sign-in, since several copies run at once and only an installed
+ * app gets the scheme. Both use WorkOS's Staging environment until Production exists (PAR-611).
+ */
+const packaged = isPackaged(app.isPackaged, process.env)
+const account = createAccount({
+  clientId: workosClientId,
+  fetch: (url, init) => net.fetch(url, init),
+  redirect: () =>
+    packaged
+      ? Promise.resolve({ uri: schemeRedirect, close: () => undefined })
+      : listenOnLoopback((link) => account.takeLink(link)),
+  openBrowser: (url) => shell.openExternal(url),
+  store: sessionStore(join(app.getPath("userData"), "account"), safeStorage, process.platform),
+  changed: (state: AccountState) => {
+    for (const window of appWindows()) window.webContents.send(ipc.accountChanged, state)
+  },
+  focus: () => {
+    const [window] = appWindows()
+    if (!window) return
+    if (window.isMinimized()) window.restore()
+    window.show()
+    window.focus()
+  },
+  now: Date.now,
+  later: (run, ms) => {
+    const timer = setTimeout(run, ms)
+    return () => clearTimeout(timer)
+  }
+})
+
+/** A sign-in link this copy got from the system: its own sign-in's, or another copy's, which it passes on. */
+async function receiveLink(link: string): Promise<boolean> {
+  if (account.owns(link)) {
+    void account.takeLink(link)
+    return true
+  }
+  const taken = await passLink(
+    link,
+    readEntries(agentRegistry(process.env, homedir()), homedir()),
+    process.pid,
+    (url, init) => net.fetch(url, init)
+  )
+  if (!taken) console.error("No copy of Parity was waiting for that sign-in")
+  return taken
+}
+
+/**
+ * On Windows and Linux, the system starts a new Parity process with the link, since Parity holds no single-instance
+ * lock. That process only passes the link on, and quits without opening a window.
+ */
+const handedLink = process.platform === "darwin" ? undefined : launchLink(process.argv)
+
+// macOS gives the running app the link; one that isn't running is started first, and gets it as it starts.
+app.on("open-url", (event, url) => {
+  event.preventDefault()
+  void receiveLink(url)
+})
+
+const signInRefusal = "Only the Parity window can sign in."
+ipcMain.handle(ipc.accountState, (event) => {
+  appWindowOf(event, signInRefusal)
+  return account.state()
+})
+ipcMain.handle(ipc.accountSignIn, (event, request: unknown) => {
+  appWindowOf(event, signInRefusal)
+  return account.signIn(signInRequest.parse(request))
+})
+ipcMain.handle(ipc.accountReopen, (event) => {
+  appWindowOf(event, signInRefusal)
+  return account.reopen()
+})
+ipcMain.handle(ipc.accountCancel, (event) => {
+  appWindowOf(event, signInRefusal)
+  account.cancel()
+})
+ipcMain.handle(ipc.accountSignOut, (event) => {
+  appWindowOf(event, signInRefusal)
+  account.signOut()
+})
 
 const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 const installedBuild = new InstalledBuild({
@@ -684,6 +789,12 @@ async function servePreview(request: Request): Promise<Response> {
 }
 
 void app.whenReady().then(() => {
+  if (handedLink) {
+    void receiveLink(handedLink).finally(() => app.quit())
+    return
+  }
+  // The installer registers the scheme on macOS; on Windows and Linux the app does, pointing it at itself.
+  if (packaged && !app.isDefaultProtocolClient("parity")) app.setAsDefaultProtocolClient("parity")
   void installedBuild.get()
   protocol.handle("parity-preview", servePreview)
   protocol.registerSource("parity", {
@@ -699,6 +810,8 @@ void app.whenReady().then(() => {
   })
   service = startService()
   createWindow()
+  // The keychain is only ready once the app is.
+  void account.restore()
   void updates.check()
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

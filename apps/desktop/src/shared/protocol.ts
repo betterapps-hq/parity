@@ -28,6 +28,7 @@ import type {
 } from "@parity-app/core"
 import type { EditStatus } from "@parity-app/editor"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
+import type { SignInRequest } from "./account.ts"
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -369,6 +370,20 @@ export interface CanvasHost {
     act: () => Promise<void>
     subscribe: (listener: (state: UpdateState) => void) => () => void
     onShow: (listener: () => void) => () => void
+  }
+  /**
+   * Signing in, which main does (PAR-612). What main says is unchecked here: the window checks it against
+   * `accountState` in `shared/account.ts` as it arrives.
+   */
+  account: {
+    get: () => Promise<unknown>
+    subscribe: (listener: (state: unknown) => void) => () => void
+    signIn: (request: SignInRequest) => Promise<void>
+    /** Opens the waiting sign-in's page in the browser again. */
+    reopen: () => Promise<void>
+    /** Stops waiting, and puts away what went wrong or the session that ended. */
+    cancel: () => Promise<void>
+    signOut: () => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
