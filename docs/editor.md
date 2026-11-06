@@ -743,24 +743,26 @@ and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in `rendere
 layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry` and `FrameRequest.state` in
 `packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
 
-Tests: `apps/desktop/src/main/console-log.test.ts` (7: an id each and a repeat in the same frame counted, another
+Tests: `apps/desktop/src/main/console-log.test.ts` (8: an id each and a repeat in the same frame counted, another
 frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
-cleared, with listeners told; an announcement held for the next message of its level alone, briefly; changes batched,
-each once as it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message
-for several frames with each frame and every time; the place from the stack when a library wrote it, with the stack
-apart and short; counts by message, of one design or all; a project file's place without Vite's query; none for a
-library's, Vite's or another server's; each project given its builder's messages and cleared with it).
-`renderer/canvas/console-capture.test.ts` (3: the frame from an event's path; an announcement before each message while
-a frame handles an event and none after its task; the console left alone outside frames, and a wrapper added since
-kept). `shared/render-job.test.ts` (the job's design passes the service's check, and no name has it),
-`shared/ipc-checks.test.ts` (an announcement and a builder's address checked), `chrome/layout.test.ts` (the console's
-open state and height kept, and their defaults), `packages/agent/src/run.test.ts` (each frame names its design and
-state) and `packages/cli/src/client.test.ts` (the design, state and mode in the text).
-`chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign, WarningsOnly and NothingLogged, fed main's
-entries through the same mapping. In the running app, `e2e/console.e2e.ts` clicks Ada's row on the Members screen in
-Interact, which warns, and finds the warning counted on Members' board and listed under Members in the panel, which
-covers the window's announcement reaching main ahead of Electron's `console-message` event. Gaps: no end-to-end test
-draws a design offscreen that writes to the console.
+cleared, with listeners told; an announcement held for the next message of its level alone, briefly; a frame's message
+through the window's wrapper kept at the frame's own call, and Parity's own still dropped; changes batched, each once as
+it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message for several
+frames with each frame and every time; the place from the stack when a library wrote it, with the stack apart and short;
+counts by message, of one design or all; a project file's place without Vite's query; none for a library's, Vite's or
+another server's; each project given its builder's messages and cleared with it).
+`renderer/canvas/console-capture.test.ts` (4: the frame from an event's path; an announcement before each message while
+a frame handles an event and none after its task; the frame code's call found past the wrapper in the stack; the console
+left alone outside frames, and a wrapper added since kept). `e2e/app.ts` clears the console before each end-to-end test,
+since a test's clicks would otherwise badge boards for the tests after it. `shared/render-job.test.ts` (the job's design
+passes the service's check, and no name has it), `shared/ipc-checks.test.ts` (an announcement and a builder's address
+checked), `chrome/layout.test.ts` (the console's open state and height kept, and their defaults),
+`packages/agent/src/run.test.ts` (each frame names its design and state) and `packages/cli/src/client.test.ts` (the
+design, state and mode in the text). `chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign,
+WarningsOnly and NothingLogged, fed main's entries through the same mapping. In the running app, `e2e/console.e2e.ts`
+clicks Ada's row on the Members screen in Interact, which warns, and finds the warning counted on Members' board and
+listed under Members in the panel, which covers the window's announcement reaching main ahead of Electron's
+`console-message` event. Gaps: no end-to-end test draws a design offscreen that writes to the console.
 
 ## Moving, reordering and resizing
 

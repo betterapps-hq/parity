@@ -399,8 +399,12 @@ export interface CanvasHost {
   console: ConsoleHost
 }
 
-/** The design a console message was written for, with the state and mode it was drawn in (PAR-147). */
-export type ConsoleContext = Pick<ConsoleEntry, "design" | "state" | "mode">
+/**
+ * The design a console message was written for, with the state and mode it was drawn in (PAR-147). On the canvas it
+ * also says where the frame's code made the call, since the console then reports the window's wrapper as the source.
+ */
+export type ConsoleContext = Pick<ConsoleEntry, "design" | "state" | "mode"> &
+  Partial<Pick<ConsoleEntry, "source" | "line">>
 
 /** A message the main process keeps, with the id windows know it by while its count grows. */
 export type LoggedEntry = ConsoleEntry & { id: number }

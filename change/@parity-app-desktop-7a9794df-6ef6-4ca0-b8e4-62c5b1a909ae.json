@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A design's console messages from a click or a key on the canvas are kept, at the line that wrote them",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

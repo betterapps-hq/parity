@@ -207,6 +207,11 @@ export class App {
       e2e.clipboard.text = ""
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     })
+    // What a test's clicks made the designs write stays in main's log and badges their boards, which adds a control to
+    // each title (PAR-147), so every test starts with the console empty.
+    await this.page.evaluate(() => window.canvasHost.console.clear(window.e2e!.session().info.guestUrl))
+    const badges = this.page.getByRole("button", { name: / in the console$/ })
+    if (!(await until(async () => (await badges.count()) === 0))) throw new Error("The console's badges stayed")
     await this.page.keyboard.press("Alt+1")
     const unsaved = await this.unsaved()
     if (unsaved.length > 0) throw new Error(`Undoing everything left changes in ${unsaved.join(", ")}`)

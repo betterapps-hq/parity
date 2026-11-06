@@ -5038,11 +5038,13 @@ and didn't object. My calls:
   window writes while it draws is that design's. No stored name has the field, so bitmaps and previews keep theirs.
 - **On the canvas, the window announces the frame.** Frames share one window, so main can't tell them apart. While a
   frame handles a person's event, and through the rest of that task, the window wraps the console so each call first
-  sends main the frame's design, state and mode, then writes the message. Main gives the announcement to the next
-  message of that level from the window, within a second. The announcement is sent before the message is written, and
-  `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the window's
-  developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is left in
-  place.
+  sends main the frame's design, state and mode, then writes the message. Electron then reports the wrapper, in Parity's
+  own code, as where the message was written, which main would drop as Parity's own, so the announcement also carries
+  the frame code's call: the stack's first frame from another origin than the wrapper's. Main gives the announcement to
+  the next message of that level from the window, within a second. The announcement is sent before the message is
+  written, and `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the
+  window's developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is
+  left in place.
 - **What isn't known stays unknown.** What a frame writes on its own, after a timer or a fetch, or as it first draws on
   the canvas, is the project's rather than a guess at a design. Its offscreen draw usually writes the same message as
   the design's.
