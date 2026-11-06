@@ -746,6 +746,71 @@ transform tags. Gaps: reading the attribute in the offscreen page (`renderer/ren
 Measure and render-result tests pass a source through, and the canvas's reading of the same attribute is covered by the
 stories.
 
+### The designs' console (PAR-147)
+
+What the project's code writes to the console shows in the editor as it's written, from the same log `parity console`
+gives agents. The status bar counts the errors and warnings, and clicking the count opens the Console panel under the
+canvas, as View > Console and Ctrl+` do. A board whose design wrote errors or warnings shows its own count beside its
+name, and clicking that opens the console on the design's messages alone.
+
+The panel groups messages by the design that wrote them, in the order each design first wrote one, with the messages no
+design is known for last, under Project. Each group's name selects the design. A message shows its level, its text cut
+to two lines, how often it came, the frames it came from (a state in a mode, the first two and how many more), the file
+and line in the project it was written at, which opens in the person's editor, and how long ago. An error with a stack
+opens to show it, with the project's files from the root and a library's by its file's name. The header filters by
+level, each with its count, by design and by words, and Clear empties the log for agents too. The panel's height is
+dragged at its top edge and kept with the layout.
+
+- **One log:** main keeps the last 500 messages from every window, as it did for `parity console`, now with an id each.
+  It sends what's new or counted again to the editor windows in batches, 100 ms after the first, so a component logging
+  in a loop doesn't flood them. Each window routes a message to the open project whose builder served the code that
+  wrote it, and reads what's there already when a project opens.
+- **One message, several frames:** main counts a repeat on the last message only when it's from the same frame. The
+  panel shows a message one design wrote in several frames once, with each frame and every time it came.
+- **Which design wrote it, offscreen:** each render job names the design, state and mode it draws, and a message the
+  offscreen window writes while it draws one is that design's. Component previews name none. No stored name has it, so
+  bitmaps and previews keep their names.
+- **Which design wrote it, on the canvas:** frames share the window, so main can't tell. While a frame handles a
+  person's event (a click, a key, a pointer moving over it, input), and in what that event's task runs, as the render it
+  causes, the window says which frame each console call comes from just before it's written. Main keeps the word for the
+  next message of that level from the window, for a second at most. Outside those tasks the console is untouched, so the
+  window's developer tools still point at the lines that wrote each message. What a frame writes as it first draws on
+  the canvas, or later on its own, is the project's, unless its offscreen draw wrote it too.
+- **Where it was written:** the message's own line when that's in the project's files, or else the first call in its
+  stack that is, as React's warnings name the component in their stack. Vite's own modules and installed packages are
+  never a place.
+- **For agents:** each entry `parity console` and `get_console` give has the design's key, state and mode when known,
+  and the text says `from design pricing (yearly, desktop-light)`. Agents' frames name the state they draw.
+
+Code: `createConsoleLog`, `announcedContexts`, `recordConsole` and `batchedChanges` in
+`apps/desktop/src/main/console-log.ts`, wired in `main/index.ts` with `canvas:console-*` in `shared/channels.ts`,
+checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and `window.canvasHost.console` in the
+preload script; the job's `design` in `shared/render-job.ts` and `shared/protocol.ts`; `captureConsole` and
+`frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`, `projectPlace`, `routeConsoleChange`, `tally`
+and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in `renderer/console-feed.ts`; the panel in
+`chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's in `canvas/ConsoleBadge.tsx`; the
+layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry` and `FrameRequest.state` in
+`packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
+
+Tests: `apps/desktop/src/main/console-log.test.ts` (7: an id each and a repeat in the same frame counted, another
+frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
+cleared, with listeners told; an announcement held for the next message of its level alone, briefly; changes batched,
+each once as it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message
+for several frames with each frame and every time; the place from the stack when a library wrote it, with the stack
+apart and short; counts by message, of one design or all; a project file's place without Vite's query; none for a
+library's, Vite's or another server's; each project given its builder's messages and cleared with it).
+`renderer/canvas/console-capture.test.ts` (3: the frame from an event's path; an announcement before each message while
+a frame handles an event and none after its task; the console left alone outside frames, and a wrapper added since
+kept). `shared/render-job.test.ts` (the job's design passes the service's check, and no name has it),
+`shared/ipc-checks.test.ts` (an announcement and a builder's address checked), `chrome/layout.test.ts` (the console's
+open state and height kept, and their defaults), `packages/agent/src/run.test.ts` (each frame names its design and
+state) and `packages/cli/src/client.test.ts` (the design, state and mode in the text).
+`chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign, WarningsOnly and NothingLogged, fed main's
+entries through the same mapping. In the running app, `e2e/console.e2e.ts` clicks Ada's row on the Members screen in
+Interact, which warns, and finds the warning counted on Members' board and listed under Members in the panel, which
+covers the window's announcement reaching main ahead of Electron's `console-message` event. Gaps: no end-to-end test
+draws a design offscreen that writes to the console.
+
 ## Moving, reordering and resizing
 
 Dragging layers and designs, where they land, resize handles and duplicates.
@@ -886,8 +951,8 @@ design has them on its frames' right and bottom.
 - **A frame** takes a width and a height in whole pixels for its viewport, at least 160 by 80. Within 6 screen pixels of
   its viewport's width the width is left unset, so it follows the viewport again; a frame that hugged its content when
   the drag began goes back to hugging it the same way, and one with a height of its own keeps one.
-- **A double-click** on a handle goes back to the default size on its axes: a layer's size is taken away, and a frame
-  goes back to its viewport's width or its content's height.
+- **A double-click** on a handle makes a layer's size on its axes hug its content, and Alt+double-click makes it fill
+  its parent (PAR-169, below); a frame goes back to its viewport's width or its content's height.
 - **The hint** ("Drag to resize") closes when a handle is pressed and stays closed through the drag and after it, until
   the pointer next rests on a handle.
 - **Small layers keep their middle** (PAR-193). Along an axis where a layer is under 24 screen pixels, its handles sit
@@ -961,6 +1026,102 @@ which goes through the same `followPress`. A resize writes as the pointer moves,
 pauses (PAR-441, see "One undo step per gesture"). Checked in the app on 2026-10-30, in a copy on its own ports: the
 handles above and below New project at 50%, the arrows over the design 90px below the handle, and Escape leaving the
 button as it was.
+
+### Padding, gaps and several layers on the canvas (PAR-169)
+
+A selected layout's padding and gaps are handles, as in Figma: a short pink bar in the middle of each side's padding and
+of each gap between its children, drawn over the hatching. Resize handles also take several layers at once, resize from
+the middle with Alt, and hug or fill on a double-click. Decisions.md has the calls.
+
+- **Where the bars are.** Each side has one, even at padding 0, so padding can be dragged out of nothing. A side's press
+  target runs from 4px inside the layout's edge, clear of the resize strip there, to the padding's inside, at least 8px
+  deep and 24px along. A gap has one between each two children drawn in a single line, in a flex layout that doesn't
+  wrap, at least 8px across; a grid or a wrap has gaps in two directions and no gap bars yet. A side or a gap shorter
+  than 24px has none. Inside an instance, a layout's padding and gaps are the component's, so they have no bars.
+- **A click on a child still selects it.** No press target covers a child, those placed absolutely included: each is cut
+  back to the free space, and a side or a gap with less than 4px of it free has no bar. So padding of 0 drags out only
+  where no child sits against that edge. Before, a target reached 8px in over the children, and clicks meant for them,
+  such as on Titles' first line with no padding or on Header actions' empty row at its end, opened the box to type in,
+  which then took the keys; the end-to-end tests caught it on #266.
+- **Dragging.** Pressing a bar shades its space; hovering shows its value beside it, as pixels and a token: the length
+  token it's bound to, or else its step of the spacing scale (`20 spacing-5`). Padding grows as its bar goes outwards,
+  away from the content, on every side; a gap grows as its bar goes right in a row or down in a column. The value goes
+  in whole steps from what's drawn, never below 0, and nothing changes until the pointer has gone 4px towards or away
+  from the space. On the Dashboard's Content, padding `[8, 8]`, the left bar dragged 16px left makes `[8, 8, 8, 12]`. It
+  writes as the pointer moves, as one undo step (Change padding or Change gap), and Escape takes it back, as a resize
+  does (`gestures.resize`).
+- **Alt and Alt+Shift.** Alt gives the opposite side the dragged side's value, and Alt+Shift every side, both read at
+  each move, so letting go mid-drag puts the other sides back. Every side that changes is shaded. A layout has one gap,
+  so a gap's bar changes them all, and while one is hovered or dragged every gap is shaded.
+- **Tokens stay bound.** A side or a gap bound to a length token stays bound while the drag lands on a length token's
+  value, its own first; between tokens it's steps. A number stays a number, even on a token's value.
+- **Typing.** A click on a bar, or Enter on a focused one, opens a box beside it with the value, or the token's name
+  when it's bound, selected. It reads what the inspector's length fields read (`20`, `1.5rem`, `+8`, a token's name),
+  shows `px` after a plain number, which switches to rem (16 to the rem, so 16 becomes 1), and has the inspector's list
+  of the project's length tokens and the spacing scale beside it, each with a bar drawn as the token previews draw
+  spacing, in that unit. Enter or leaving it makes the change; Escape closes it; something it can't read stays with the
+  reason under it, as the fields' do. The sides it changes are those held at the click.
+- **The keyboard and assistive technology.** Each bar is a slider named after its side (Top padding, Gap 1), with its
+  value and token as its text. Tab reaches it; Up or Right steps it one step, Down or Left back, Shift ten, Alt and
+  Alt+Shift as for a drag; each press is its own undo step. The canvas's own arrow keys don't nudge meanwhile.
+- **The hints and the keymap.** A bar's hint says "Drag, or click to type", and a padding bar's lists Alt for both sides
+  and Alt+Shift for all sides, as `Kbd`. A layer's resize hint lists Alt for from the middle and says double-click to
+  hug, Alt+double-click to fill. These keys are the keymap's gestures, which Keyboard shortcuts lists under Tools, and
+  the handles read the same entries, so what's listed is what works.
+- **Several layers.** Two or more selected layers have one set of resize handles, on the box around them all. Each layer
+  takes its share of the movement, its size across that box's, so they grow in proportion and the box's edge follows the
+  pointer; each keeps where its layout puts it, and they don't snap. All of them start once the pointer has gone 4px.
+  Two of the Dashboard's stat cards, 228px each, dragged 40px narrower from their right edge, are 52 steps wide each.
+  One undo step (Resize layers). A selection holding a layer inside an instance has no handles.
+- **From the middle.** Alt while resizing moves the opposite edge as far, so a layer in a layout grows by twice the
+  pointer's movement and doesn't fill; an absolutely placed layer's inset moves back by half of what it grows, both
+  insets of a layer stretched between them. It doesn't snap.
+- **Hug and fill.** A double-click on a layer's handle makes its size on the handle's axes hug, Alt+double-click fill,
+  for every layer the handle is on, one undo step (Set to hug or Set to fill). Along the layout's direction it takes
+  `grow` away.
+
+Code: the rules are in `@parity-app/editor`. `packages/editor/src/spacing-handles.ts`: `spacingHandles` says where the
+bars go from a layout's measured boxes, `spacingDrag` follows a drag, `spacingStep` a key, `typedSpacing` and
+`pickedSpacing` a typed or picked value, `changedSides` the sides held, and `spacingScaleName` and `spacingName` what a
+label and a slider say. `packages/editor/src/move-resize.ts`: `resizeGesture` and `resizeInsets` take `centre`,
+`layersResize` follows several layers, and `layerSizeReset` hugs or fills. In the app, `canvas/SpacingHandles.tsx` draws
+the bars, their shading, labels and sliders and the box a value is typed in, with `sidesHeld` reading the keys;
+`canvas/spacing-edit.ts` measures a layout (`measureSpacing`), lists its length tokens (`lengthTokens`) and writes each
+edit in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them for a single
+selected layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys are
+`gestures` in `chrome/keymap.ts`, read through `holds` in `chrome/keys.ts`, and shown by `canvas/KeyHints.tsx`.
+
+Tests:
+
+- `packages/editor/src/spacing-handles.test.ts` (26): a handle on each side and gap; a padding's bar centred, its press
+  target clear of the resize strip; a handle on padding of 0; no target over a child: none with the children against
+  every edge, too thin 6px from it, cut back 10px from it, and cut back by an absolutely placed badge; a gap's bar
+  between children, at least 8px across, a narrower gap taken whole and one under 4px with none; children drawn in
+  reverse; gaps in a column; no gap handles in a grid or wrap, and none on a side too short; inside a border. The sides
+  changed. Dragging: padding growing outwards on each side and shrinking inwards, a gap in a row and a column, the 4px
+  start, whole steps at 50% and never below 0, the opposite side and every side and letting go, a token kept bound on a
+  token's value with its own first, a number kept a number, an unset side from 0. Steps from a half step and with a
+  token. Typing pixels, rem, maths and a token, the sides held, an empty box and one it can't read. Picking a token or a
+  step. A label's token or step, and a slider's name.
+- `packages/editor/src/move-resize.test.ts` (9 more): a double-click hugging, filling with Alt, and taking `grow` away
+  along the layout's direction only; from the middle, twice the movement either way, no fill, and an absolutely placed
+  layer's insets from the near side, both sides and the far side; several layers in proportion, starting together at 4px
+  though each one's share is less, and from the middle.
+- `canvas/SpacingHandles.stories.tsx` (Parity/Canvas/Spacing handles): PaddingAndGap, BoundToTokens, NoPadding and
+  SeveralLayers, running the rules and `followPress` on a stand-in layout with the style each change writes beside it.
+- `canvas/ResizeHandles.test.ts`, in Chrome: a double-click still reaching the handle's reset.
+
+Gaps: there's no end-to-end test yet; `moving.e2e.ts` would take the drags above. Checked in the app on 2026-11-05, on a
+copy of the example on its own ports, with the pointer and keyboard over the DevTools protocol: on Content at 100%, the
+left bar 16px out to `[8, 8, 8, 12]` (Change padding), the top bar 8px out with Alt to `[10, 8]`, Escape mid-drag
+leaving nothing to undo, a click on a gap opening the box at 24 with focus, 40 typed making 10 steps (Change gap), Up
+and Shift+Up making 17 with Main's children left in order, Escape in the box closing it with Content still selected, the
+sliders' names and values; Header actions' right edge double-clicked to hug and Alt+double-clicked to fill, and dragged
+16px with Alt to 62 steps; two stat cards to 52 steps each; the hints, with `Kbd`; and Keyboard shortcuts listing the
+padding keys. The same run at 50% gave twice the steps for the same movement. A run of key presses isn't one undo step,
+as the inspector's are (PAR-441). Gap bars in a grid or a wrap, with column and row gaps, aren't done. A token whose
+length can't be worked out on Parity's page, one built on a variable other than `--spacing`, isn't listed and can't be
+stayed on.
 
 ### Empty layouts (PAR-193)
 
@@ -1339,7 +1500,7 @@ Gaps: clicking in the panels, the messages, and a drop into an absolutely placed
 
 Making a screen or component is one visible step, as PAR-541's approved designs show, without the start in the middle of
 an empty canvas that PAR-560 dropped: New screen and New component are everywhere a command is, and whatever lands on
-empty space on the canvas makes a screen there.
+empty space on the canvas makes a frame there (PAR-545; see Frames, below).
 
 - **New screen (Ctrl+Alt+N) and New component (Ctrl+Alt+Shift+N)** are in the keymap's Object group, so the Keyboard
   shortcuts dialog lists them and their keys work on the canvas, not in a text field. They lead File, above opening a
@@ -1357,24 +1518,24 @@ empty space on the canvas makes a screen there.
   empty group leaves the count out, since its row says so, and the row is a button that makes the first one: "No screens
   yet. New screen", the action in the kind's color. Enter or Space on either makes one, rather than renaming the
   selected row as Enter in the tree does.
-- **The inspector with nothing selected** asks for "a screen or component on the canvas or in Layers", whatever is on
-  the canvas.
-- **What lands on empty space on the canvas makes a screen there,** by one rule. Its top left is where it landed, it
-  holds what landed in a padded column, and it's selected, as one undo step named for what landed ("Paste layer", "Paste
-  7 layers", "Add Badge", "Add vertical layout"). It's named after what's in it, never "Pasted": one layer as Layers
-  names it (a component without its library, "Button"; an instance after its design; text by its words; a layout Column
-  or Row); several images Images; several other layers the first and how many more ("Nav and 6 more").
+- **The inspector with nothing selected** asks for "a screen, component or frame on the canvas or in Layers", whatever
+  is on the canvas.
+- **What lands on empty space on the canvas makes a frame there,** by one rule. Its top left is where it landed, it
+  holds what landed in a padded column that hugs it, and it's selected, as one undo step named for what landed ("Paste
+  layer", "Paste 7 layers", "Add Badge", "Add vertical layout"). It's named after what's in it, never "Pasted": one
+  layer as Layers names it (a component without its library, "Button"; an instance after its design; text by its words;
+  a layout Column or Row); several images Images; several other layers the first and how many more ("Nav and 6 more").
   - Layers pasted on the empty canvas with Paste here, or with nothing selected with Ctrl+V, in the middle of the view;
     and the insert picker's Text and layouts with nothing selected.
   - A component, component design or image from the Components panel dropped on the empty canvas, where a corner in the
-    screen's color marks its top left while dragging; or clicked in the panel or picked in the insert picker with
-    nothing selected, in the middle of the view. It goes in as inserting it into a layout would: with its required
-    props, a library part inside the parents it needs, and a detached copy as the layers its design shows.
+    layer color marks its top left while dragging; or clicked in the panel or picked in the insert picker with nothing
+    selected, in the middle of the view. It goes in as inserting it into a layout would: with its required props, a
+    library part inside the parents it needs, and a detached copy as the layers its design shows.
   - Image files dropped on the empty canvas, named after the file or Images (see Dropping image files, below).
   - Over a design where there's no layout under the pointer, nothing lands, and a message says "There's no layout here
     to drop into", as it does for files. With a design selected that has nowhere to insert, the insert picker and the
     Components panel both say "Select a layout, or a layer to add it after".
-  - Frames will take this over once PAR-545 builds them.
+  - Pasted text makes a text frame, as the text tool does (see Frames, below).
 
 Code: the commands are `newScreen` and `newComponent` in `chrome/keymap.ts` and `chrome/actions.ts`, run through
 `createDesign` in `chrome/create.ts`, which takes a point for the canvas menu. `AppMenu.tsx` (`NewItems`),
@@ -1382,17 +1543,17 @@ Code: the commands are `newScreen` and `newComponent` in `chrome/keymap.ts` and 
 (`matchWords`) is Search actions' filter in `ActionsSearch.tsx`; the headings and empty rows are in
 `chrome/LayerTree.tsx`, and the inspector's prompt in `DesignPanel.tsx`. The rule and the names are
 `packages/editor/src/new-screen.ts` (`layersName`, `designOfLayers`, `designOfItem`); the app's `canvas/new-screen.ts`
-finds the empty canvas (`emptyCanvasAt`) and the middle of the view and adds a screen of layers, `canvas/insert.ts` adds
-one of an item (`addScreenOfItem`, from `insertAtSelection` and drops), and `canvas/clipboard.ts` and
+finds the empty canvas (`emptyCanvasAt`) and the middle of the view and adds a frame of layers, `canvas/insert.ts` adds
+one of an item (`addFrameOfItem`, from `insertAtSelection` and drops), and `canvas/clipboard.ts` and
 `canvas/CanvasDrop.tsx` call them.
 
 Tests:
 
 - `packages/editor/src/new-screen.test.ts` (11): one layer named as Layers names it, a component without its library and
   by its own name, an instance by its design or its id, several images, several layers and the first, and never Pasted;
-  a screen of layers at the point, named after them, with a free id, fresh ids and no bindings; and a screen of a
-  component with its props, a design's instance, an image by its alt text, and a library part inside its parents, named
-  after the part.
+  a frame of layers at the point, named after them, hugging them, with a free id, fresh ids and no bindings; and a frame
+  of a component with its props, a design's instance, an image by its alt text, and a library part inside its parents,
+  named after the part.
 - `chrome/keymap.test.ts`: Ctrl+Alt+N, Ctrl+Alt+Shift+N and Cmd+Alt+N, and Ctrl+N left free; `chrome/word-match.test.ts`
   (4): "new" finding New screen and New component only, a word inside a name ranked after a name that starts with it,
   typed words in any order and case, and everything before anything's typed; `chrome/canvas-menu.test.ts`: the menu
@@ -1406,7 +1567,7 @@ Tests:
 - End to end (PAR-202), `apps/desktop/e2e/menus.e2e.ts`: a right-click on the empty canvas lists New screen, New
   component and Insert… with their keys, and New screen makes an untitled screen at the pointer, selected, as "New
   screen"; `e2e/dropping.e2e.ts`: Badge dragged from the Components panel onto the empty canvas shows the corner and no
-  outline, and makes a screen called Badge at the drop point holding it, selected, as "Add Badge", which Undo takes out.
+  outline, and makes a frame called Badge at the drop point holding it, selected, as "Add Badge", which Undo takes out.
 
 Checked in `pnpm dev` on the example on 2026-11-05: File and Object start with both items and their keys; Ctrl+Alt+N and
 Ctrl+Alt+Shift+N make and select an untitled screen and component; Ctrl+K and "new" lists the two, and Enter makes a
@@ -1418,6 +1579,86 @@ layers, copied, make "Nav and 6 more" with Paste here and with Ctrl+V. Each undi
 Gaps: the end-to-end tests run only in CI. A screen made with nothing selected goes in the middle of the view, as pasted
 layers always have, even when a design is there. A component in a new screen fills its width, as it would in any column;
 the proposal's "keeps its own width" is not part of this.
+
+### Frames and the frame tool (PAR-545)
+
+Frames are the light kind of design, beside screens and components, as PAR-540's approved exploration (Parity /
+Explorations / Frames) shows them, on PAR-539's model: a frame is drawn once, at its own size, in the project's primary
+mode, with one state, and isn't written to code.
+
+- **On the canvas a frame has no board:** its name above it, smaller and quieter than a board's title, with lucide's
+  Frame icon, neutral until it's selected and then in the layer color, and the design at its own size, filled with the
+  primary mode's background. It has no state or mode menus, captions or gutter, and its outline is square. Its name runs
+  past a narrow frame rather than being cut off. Selected, its size shows under it, and its handles on the right, the
+  bottom and the corner resize it; a double-click on one goes back to the primary mode's width or the content's height.
+- **The frame tool (F, or A as in Figma)** sits after Move and Hand, beside Text, in its own group. The pointer is a
+  crosshair, over the designs too. A drag draws a frame, with its size under it as it grows, snapping each edge within 6
+  screen pixels to the edges of the designs around it, with a guide where it snapped; Ctrl or Cmd draws freely, and
+  Escape draws nothing. A click without a drag makes a 100 × 100 frame. Either is named Frame 1, Frame 2 and so on,
+  selected, with the move tool back, as one undo step, "Draw frame".
+- **The frame tool's menu,** the arrow beside it, lists each viewport the modes use once, with the modes that use it and
+  its size, a viewport with only a width taking the height of the device nearest it. With a frame selected a size
+  resizes it ("Resize frame to Mobile"); otherwise it adds a frame at that size in the middle of the view. New screen
+  and New component sit below the sizes, with their keys.
+- **Text on the empty canvas:** T and a click in empty space makes a text layer, "Text", in a frame that hugs it, with 2
+  steps of padding, and edits it at once. The frame takes the text's name as it's edited in place, until it's renamed. T
+  over a design still adds text where a drop would land. Notes already in a file still show; nothing makes a new one.
+- **A frame that hugs its content** (its root layout's width is Hug) is as wide as its root is drawn: the canvas
+  measures the root at its content's width, rounded up to a whole pixel, and keeps that as the frame's size, without an
+  undo step of its own. A width of its own, from the handles, the menu's sizes or the inspector, stops it hugging.
+- **Whatever lands on the empty canvas makes a frame,** as "New screen, New component and the empty canvas" above says,
+  hugging what's in it and named after it. Pasted text makes a text frame, as the text tool does.
+- **The inspector for a frame:** its name; its kind, Frame, Component or Screen, lightest first; where it's drawn
+  ("Drawn in Desktop Light", with the primary mode's crown) and that it isn't written to code; then its root layout's
+  layout, spacing, size and fill straight away, with no states, modes or params. The size rows are the frame's own size:
+  a fixed width or height resizes it, Hug makes it hug its content, and Fill or Auto puts back the primary mode's width
+  or the content's height. Export is at the foot, as for any design.
+- **Convert to,** in every design's title menu ("Convert to component", "Convert to screen", "Convert to frame", with
+  each kind's icon), in the inspector's kind switch, and as Make component's Convert to component in the canvas and
+  Object menus. A frame becomes a screen or a component at once, keeping its size as its preview's, with a toast ("Plan
+  card is a component") whose Undo makes it a frame again. A screen or component becomes a frame at once when it drops
+  nothing; otherwise a dialog lists what goes (states after the first, previews beside the main one, params, and each
+  design's instances, which become plain layers), with Cancel and Convert to frame. Each is one undo step, and
+  converting a component detaches its instances in the same step.
+- **Layers lists Frames** after Components and Screens once there are any, with their count; its + picks the frame tool.
+
+Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
+`framePresets`, `frameOfText`, `textFrameRenamed`, `hugsContent`, `fittedFrame`, `withFrameSize`, `frameRootShown` and
+`frameRootStored`, `instanceCount` and `detachInstancesOf`), with `turnInto` in `kinds.ts`, `withFrame` and
+`frameResize` in `move-resize.ts`, and the empty canvas's rule in `new-screen.ts` (`landedStyle`) and `drop-files.ts`.
+In the app, `canvas/frame-tool.ts` draws and places frames, `canvas/ContainerView.tsx` draws a frame without a board
+(`FrameView`) and keeps a hugging one fitted (`useFitToContent`), `canvas/CanvasOverlay.tsx` takes the frame tool's
+press, draws the frame being dragged and the selected frame's size, `canvas/new-screen.ts` adds a text frame
+(`addFrameOfText`), `chrome/Toolbar.tsx` has the tool and its menu, `chrome/designs.ts` converts (`setDesignKind`),
+`chrome/convert-to-frame.ts` says what a conversion drops and `chrome/ConvertToFrameDialog.tsx` asks, and
+`chrome/style-editor.ts` maps a frame's root size to its own.
+
+Tests:
+
+- `packages/editor/src/frames.test.ts` (13): names after the frames before, a drawn frame's size, place and id, the box
+  between two corners, snapping to the nearest edge in reach, the menu's sizes once each, resizing a hugging frame, a
+  text frame's padding, hug and name, following its text until renamed, fitting to the drawn width, a frame's size shown
+  and stored through its root, and counting and detaching a component's instances.
+- `packages/editor/src/new-screen.test.ts` and `drop-files.test.ts`: what lands on the empty canvas is a frame that hugs
+  it, and the drop hint says "New frame with the image".
+- `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts` (3): the dialog's lines for a component with states,
+  previews, params and instances, and none for a screen that drops nothing.
+- End to end (PAR-202), `apps/desktop/e2e/frames.e2e.ts`: F and a drag draws Frame 1, selected, with the move tool back,
+  as "Draw frame", which Undo takes out; A and a click makes 100 × 100; the menu resizes the selected frame to Mobile; T
+  and typing makes a frame named after the text that hugs it on one line; Component in the kind switch converts at once
+  and the toast's Undo makes it a frame; and Frame for Pricing asks, and Cancel leaves it a screen.
+  `e2e/dropping.e2e.ts`: an image and Badge dropped on the empty canvas make frames.
+
+Checked in the app on 2026-11-05, on a copy of the example started as the end-to-end suite starts it and driven over the
+DevTools protocol: F and a drag, A and a click, the menu's sizes, T and typing, Ctrl+V of a copied layer with nothing
+selected, the title menu's Convert to component and its toast's Undo, the kind switch both ways, and Pricing's dialog
+and Cancel. Each change undid as one step. The toolbar's names were read from its accessibility tree, F, A and Escape
+switched tools, and Enter opened the menu with its first size focused; a 900 × 800 window kept the toolbar and the size
+label in view.
+
+Gaps: a hugging frame's root is measured at its content's width, so text that wraps on purpose in a hugging frame
+doesn't; give it a width. Text edited in the inspector's Content field doesn't rename a text frame, only editing in
+place does. The end-to-end tests run only in CI.
 
 ## Keyboard
 

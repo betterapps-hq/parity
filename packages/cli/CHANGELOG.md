@@ -1,8 +1,21 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 03:55:41 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 04:25:16 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.9.0
+
+Fri, 06 Nov 2026 04:25:16 GMT
+
+### Minor changes
+
+- In development, each element a project's JSX writes carries its file, line and column: the inspector's Code tab shows
+  and opens it, parity components gives each component's file, and Measure each node's source (ajcraswell@gmail.com)
+- Drag a layout's padding and gaps on the canvas, type or pick a value, resize several layers together or from the
+  middle, and double-click an edge to hug or fill (ajcraswell@gmail.com)
+- Errors and warnings from the designs show with a count in the status bar, on each board and by design in a Console
+  panel (ajcraswell@gmail.com)
 
 ## 0.8.0
 

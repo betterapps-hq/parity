@@ -46,6 +46,7 @@ import {
   Maximize,
   Paintbrush,
   PanelsLeftRight,
+  SquareTerminal,
   PenLine,
   Plus,
   Redo2,
@@ -267,6 +268,9 @@ function ViewItems() {
         onCheckedChange={(open) => setLayout({ left: open, right: open })}
       >
         <PanelsLeftRight /> Panels <MenubarShortcut>{formatKeys(keymap.panels.keys[0])}</MenubarShortcut>
+      </MenubarCheckboxItem>
+      <MenubarCheckboxItem checked={!!layout.console} onCheckedChange={(open) => setLayout({ console: open })}>
+        <SquareTerminal /> Console <MenubarShortcut>{formatKeys(keymap.console.keys[0])}</MenubarShortcut>
       </MenubarCheckboxItem>
       <MenubarCheckboxItem
         checked={preferences.layoutGrid}

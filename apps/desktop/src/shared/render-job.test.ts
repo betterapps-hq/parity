@@ -170,7 +170,15 @@ describe("renderJob", () => {
   it("passes the service's check whole, so each process draws the job it was given", () => {
     const job = renderJob(
       { ...guest, components: { Card: { path: "src/card.tsx", export: "Card" } } },
-      { ...drawsText, tokens: [token], audit: true, colorTokens: ["--x"], inlinePortals: true }
+      {
+        ...drawsText,
+        tokens: [token],
+        audit: true,
+        colorTokens: ["--x"],
+        inlinePortals: true,
+        // What the frame writes to the console is the design's (PAR-147).
+        design: { key: "app.par#pricing", state: "default", mode: "desktop" }
+      }
     )
     expect(serviceChecks["frames.capture"]({ job }).job).toEqual(job)
     expect(
@@ -204,6 +212,11 @@ describe("a job's names", () => {
   it("leave out a frame's check, which changes nothing drawn", () => {
     const audited = { ...job, audit: true, colorTokens: ["--x"] }
     expect(names(audited)).toEqual(names(job))
+  })
+
+  it("leave out the design drawn, which is only for the console, so two designs drawing alike share a bitmap", () => {
+    const pricing = { ...job, design: { key: "app.par#pricing", state: "default", mode: "desktop" } }
+    expect(names(pricing)).toEqual(names(job))
   })
 
   it("change with what's drawn: the tree, the mode, the size and the scale", () => {

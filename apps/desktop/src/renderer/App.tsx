@@ -6,12 +6,14 @@ import { serveAgents } from "./agent/handlers.ts"
 import { useAppShortcuts } from "./canvas/shortcuts.ts"
 import { AboutDialog } from "./chrome/AboutDialog.tsx"
 import { ActionsSearch } from "./chrome/ActionsSearch.tsx"
+import { ConvertToFrameDialog } from "./chrome/ConvertToFrameDialog.tsx"
 import { QuickInsert } from "./chrome/QuickInsert.tsx"
 import { SettingsDialog } from "./chrome/SettingsDialog.tsx"
 import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
 import { TabBar } from "./chrome/TabBar.tsx"
 import { UnsavedPrompt } from "./chrome/UnsavedPrompt.tsx"
 import { startUpdates } from "./chrome/updates.tsx"
+import { startConsole } from "./console-feed.ts"
 import { ProjectView } from "./ProjectView.tsx"
 import { HomePage } from "./start/HomePage.tsx"
 import { NewTabPage } from "./start/NewTabPage.tsx"
@@ -30,6 +32,7 @@ export function App() {
     window.canvasHost.onClosing(() => workspace.confirmQuit())
     window.canvasHost.onReconnect(() => void workspace.reconnect())
     startUpdates()
+    startConsole()
     startAccount()
   }, [])
 
@@ -75,6 +78,7 @@ export function AppWindow() {
       <QuickInsert />
       <ActionsSearch />
       <SettingsDialog />
+      <ConvertToFrameDialog />
       <ShortcutsDialog />
       <AboutDialog />
       <UnsavedPrompt />

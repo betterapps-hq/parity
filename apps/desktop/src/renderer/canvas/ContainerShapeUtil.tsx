@@ -91,13 +91,20 @@ export class ContainerShapeUtil extends ShapeUtil<ContainerShape> {
     )
   }
 
-  /** The board's outline, round its corners, which follow the zoom as its gutter does. */
+  /**
+   * The board's outline, round its corners, which follow the zoom as its gutter does. A frame has no board, so its
+   * outline is square, as the frame is.
+   */
   override getIndicatorPath(shape: ContainerShape) {
     const path = new Path2D()
-    path.roundRect(0, 0, shape.props.w, shape.props.h, boardLayoutAt(this.editor.getZoomLevel()).radius)
+    const radius = frameShapes.has(shape.id) ? 0 : boardLayoutAt(this.editor.getZoomLevel()).radius
+    path.roundRect(0, 0, shape.props.w, shape.props.h, radius)
     return path
   }
 }
+
+/** The shapes that draw frames, the kind with no board, for their square outlines. */
+const frameShapes = new Set<string>()
 
 /** Whether the camera is still, by editor, which every board's size waits for (see `ContainerContent`). */
 const cameraStill = new WeakMap<Editor, Computed<boolean>>()
@@ -122,6 +129,13 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   const x = useValue("board x", () => editor.getShape(shape.id)?.x ?? 0, [editor, shape.id])
   const y = useValue("board y", () => editor.getShape(shape.id)?.y ?? 0, [editor, shape.id])
   const titleLayer = useTitleLayer(editor)
+
+  const frame = entry?.container.kind === "frame"
+  useLayoutEffect(() => {
+    if (!frame) return undefined
+    frameShapes.add(shape.id)
+    return () => void frameShapes.delete(shape.id)
+  }, [frame, shape.id])
 
   const [drawn, setDrawn] = useState(false)
   // Its frames sleep zoomed far out, except on the selected board, and in a tab hidden a while once they've been drawn;

@@ -395,6 +395,28 @@ export interface CanvasHost {
   onClosing(listener: () => Promise<boolean>): void
   /** CPU and memory for each of the app's processes, for the performance stats. */
   metrics(): Promise<ProcessUsage[]>
+  /** The log of what projects' code writes to the console, which agents read with `parity console` (PAR-147). */
+  console: ConsoleHost
+}
+
+/** The design a console message was written for, with the state and mode it was drawn in (PAR-147). */
+export type ConsoleContext = Pick<ConsoleEntry, "design" | "state" | "mode">
+
+/** A message the main process keeps, with the id windows know it by while its count grows. */
+export type LoggedEntry = ConsoleEntry & { id: number }
+
+/** What changed in the log: messages kept or counted again, or a project's cleared, by its builder's origin. */
+export type ConsoleChange = { entries: LoggedEntry[] } | { cleared: string }
+
+/** The console log as the window reaches it. */
+export interface ConsoleHost {
+  /** Says which frame the console message about to be written comes from, at that level. */
+  announce(level: ConsoleEntry["level"], context: ConsoleContext & { design: string }): void
+  /** What a project's builder, by its origin, has had written so far, oldest first. */
+  read(origin: string): Promise<LoggedEntry[]>
+  /** Forgets it, for agents and every window. */
+  clear(origin: string): Promise<void>
+  subscribe(listener: (change: ConsoleChange) => void): () => void
 }
 
 /** One of the app's processes, as the performance stats show it. */
@@ -456,6 +478,11 @@ export interface RenderJob {
    * changes. Each frame starts from the compiled stylesheet and lays these over it, so no frame inherits another's.
    */
   previews?: TokenChange[]
+  /**
+   * The design it draws, by key, with the state and mode, so what the frame writes to the console is kept as that
+   * design's (PAR-147). None for a component preview. No stored name has it.
+   */
+  design?: { key: string; state?: string; mode?: string }
 }
 
 /** A component's preview to look up or make: the job that draws it, as inserting it would place it. */

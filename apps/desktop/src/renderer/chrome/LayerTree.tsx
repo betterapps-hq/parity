@@ -6,7 +6,7 @@ import {
   ContextMenuTrigger,
   ContextMenuShortcut
 } from "@buildkitgg/shadcn-baseui-kit"
-import { childNodes, type DesignNode, locateNode, nodeOnBoard } from "@parity-app/core"
+import { childNodes, type ContainerKind, type DesignNode, locateNode, nodeOnBoard } from "@parity-app/core"
 import {
   activeState,
   kindName,
@@ -89,7 +89,8 @@ export function LayerTree() {
 
   const groups = useMemo(() => {
     const components = entries.filter((entry) => entry.container.kind === "component")
-    const screens = entries.filter((entry) => entry.container.kind !== "component")
+    const screens = entries.filter((entry) => !entry.container.kind || entry.container.kind === "screen")
+    const frames = entries.filter((entry) => entry.container.kind === "frame")
     return [
       {
         title: "Components",
@@ -104,9 +105,18 @@ export function LayerTree() {
         command: "newScreen" as const,
         none: "No screens yet.",
         entries: screens
-      }
+      },
+      // Frames are listed once there are some; the frame tool draws them on the canvas.
+      ...(frames.length > 0
+        ? [{ title: "Frames", kind: "frame" as const, command: "frame" as const, none: "", entries: frames }]
+        : [])
     ]
   }, [entries])
+  // The + for frames picks the frame tool, to draw one; the others make a design.
+  const add = (kind: ContainerKind) => {
+    if (kind === "frame") session.selection.setTool("frame")
+    else createDesign(session, kind)
+  }
   const rows = useMemo(() => {
     const list: Row[] = []
     for (const entry of groups.flatMap((group) => group.entries)) {
@@ -283,7 +293,7 @@ export function LayerTree() {
             <IconButton
               label={keymap[group.command].label}
               shortcut={keymap[group.command].keys[0]}
-              onClick={() => createDesign(session, group.kind)}
+              onClick={() => add(group.kind)}
               className="size-6"
             >
               <Plus />

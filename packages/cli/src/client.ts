@@ -583,9 +583,16 @@ export function describeConsole(result: ConsoleResponse): string {
     const [first = "", ...rest] = entry.text.split("\n")
     lines.push("", `${time} ${entry.level}${repeats}: ${first}`, ...rest.map((line) => `  ${line}`))
     const offscreen = entry.where === "offscreen" ? ", in an offscreen render" : ""
-    lines.push(`  at ${scriptPath(entry.source)}:${entry.line}${offscreen}`)
+    lines.push(`  at ${scriptPath(entry.source)}:${entry.line}${offscreen}${writtenBy(entry)}`)
   }
   return lines.join("\n")
+}
+
+/** The design a message came from, by id, with the state and mode it was drawn in, when the app knows (PAR-147). */
+function writtenBy({ design, state, mode }: ConsoleEntry): string {
+  if (!design) return ""
+  const frame = [state, mode].filter(Boolean).join(", ")
+  return `, from design ${design.slice(design.lastIndexOf("#") + 1)}${frame ? ` (${frame})` : ""}`
 }
 
 /** Compares two names alphabetically, with `name` before every other. */

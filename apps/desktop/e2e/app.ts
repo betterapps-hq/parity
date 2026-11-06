@@ -296,12 +296,17 @@ export class App {
     return this.page.evaluate(() => window.e2e!.session().store.unsavedPaths())
   }
 
-  designs(): Promise<{ key: string; name: string; position: Point }[]> {
+  designs(): Promise<{ key: string; name: string; kind: string; position: Point }[]> {
     return this.page.evaluate(() =>
       window
         .e2e!.session()
         .store.getEntries()
-        .map((entry) => ({ key: entry.key, name: entry.container.name, position: entry.container.position }))
+        .map((entry) => ({
+          key: entry.key,
+          name: entry.container.name,
+          kind: entry.container.kind ?? "screen",
+          position: entry.container.position
+        }))
     )
   }
 
@@ -481,25 +486,39 @@ export class App {
    * Waits until the camera and a design's main frame stop moving or changing, over a few frames, and its board's frames
    * are drawn where they would wake: frames asleep, as they are once zoomed far out, wake once the camera rests near
    * them above the far line (25% on a 1x screen, and a little past it coming back in), or on the selected board.
+   * Components that load on demand have arrived too: until its module loads, one draws nothing and its frame doesn't
+   * change, however many frames that takes. A reopened project has a new guest, and its frames sleep on kept bitmaps
+   * without drawing, so the first design shown after it loads its components then (PAR-654).
    */
   async settle(design: string): Promise<void> {
     await this.page.evaluate(async (design) => {
       const e2e = window.e2e!
       const key = e2e.key(design)
       const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-      let last = ""
-      for (let still = 0, tries = 0; still < 4 && tries < 400; tries++) {
-        await frame()
+      /** Where the frame and camera are and what the frame holds, and whether the board's frames have still to wake. */
+      const look = () => {
         const host = e2e.frame(key)
         const { x, y, width, height } = host.getBoundingClientRect()
         const camera = e2e.session().editor!.getCamera()
         const elements = host.shadowRoot?.querySelectorAll("*").length
-        const now = `${x},${y},${width},${height},${elements},${camera.x},${camera.y},${camera.z}`
         const board = host.closest(".container-view")
         const wakes = camera.z * devicePixelRatio > 0.25 * 1.15 || !!board?.hasAttribute("data-live")
-        const asleep = wakes && !!board?.querySelector("[data-asleep]")
+        return {
+          now: `${x},${y},${width},${height},${elements},${camera.x},${camera.y},${camera.z}`,
+          asleep: wakes && !!board?.querySelector("[data-asleep]")
+        }
+      }
+      let last = ""
+      for (let still = 0, tries = 0; still < 4 && tries < 400; tries++) {
+        await frame()
+        const { now, asleep } = look()
         still = now === last && !asleep ? still + 1 : 0
         last = now
+        // Still, it waits for what's loading on demand, which draws as it arrives, and counts again if that changed it.
+        if (still === 4) {
+          await e2e.session().loaded.guest.loaded?.()
+          if (look().now !== last) still = 0
+        }
       }
     }, design)
   }
