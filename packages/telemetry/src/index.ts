@@ -1,5 +1,7 @@
+export * from "./catalog.ts"
 export * from "./envelope.ts"
 export * from "./events.ts"
+export * from "./registry.ts"
 export * from "./ring-buffer.ts"
 export * from "./sink.ts"
 export * from "./telemetry.ts"
