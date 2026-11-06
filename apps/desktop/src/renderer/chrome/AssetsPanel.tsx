@@ -50,6 +50,7 @@ import {
 } from "lucide-react"
 import {
   type DragEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactElement,
   type ReactNode,
   useLayoutEffect,
@@ -120,14 +121,17 @@ function dragItem(item: InsertItem) {
   }
 }
 
-function SearchField({
+/** A panel's search field, with a magnifier; the Layers panel's too. */
+export function SearchField({
   value,
   onChange,
-  placeholder
+  placeholder,
+  onKeyDown
 }: {
   value: string
   onChange: (value: string) => void
   placeholder: string
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLInputElement>) => void
 }) {
   return (
     <div className="relative px-2 pt-2">
@@ -135,6 +139,7 @@ function SearchField({
       <Input
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}
+        onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label={placeholder}
         className="h-8 pl-7 text-xs"

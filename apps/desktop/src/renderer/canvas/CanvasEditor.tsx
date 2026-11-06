@@ -380,7 +380,27 @@ export function CanvasEditor({
       followSelection()
       const layerHovered = atom("hovering a layer", false)
       hoveringLayer.set(editor, layerHovered)
-      const stopHover = selection.subscribe(() => layerHovered.set(!!selection.getHover()?.node))
+      // Only the Layers panel hovers a design without a layer, which outlines its board as hovering the board does.
+      const rowHovered = atom<string | undefined>("design hovered in Layers", undefined)
+      const stopHover = selection.subscribe(() => {
+        const hover = selection.getHover()
+        layerHovered.set(!!hover?.node)
+        rowHovered.set(hover && !hover.node ? hover.design : undefined)
+      })
+      // tldraw takes its hover away as it handles the pointer leaving the canvas, a tick after the row is entered, so the
+      // board's is put back whenever it changes while the row stays hovered (PAR-187).
+      let outlined: TLShapeId | undefined
+      const stopOutline = react("outline the design hovered in Layers", () => {
+        const design = rowHovered.get()
+        const hovered = editor.getHoveredShapeId()
+        if (design) {
+          outlined = shapeIdFor(design)
+          if (hovered !== outlined) editor.setHoveredShape(outlined)
+        } else if (outlined) {
+          if (hovered === outlined) editor.setHoveredShape(null)
+          outlined = undefined
+        }
+      })
 
       // Containers size themselves after their content renders, so fit once they have.
       const fit = setTimeout(() => editor.zoomToFit({ animation: { duration: 200 } }), 400)
@@ -398,6 +418,7 @@ export function CanvasEditor({
         stopSelection()
         stopFollowing()
         stopHover()
+        stopOutline()
         hoveringLayer.delete(editor)
         onEditor(undefined)
       }
