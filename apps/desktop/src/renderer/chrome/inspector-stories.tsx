@@ -1,24 +1,26 @@
 import {
+  boardTarget,
+  type DesignNode,
   editNode,
-  isBaseState,
   locateNode,
   type NodeChange,
-  type NodeStyle,
+  type PatchField,
   propChange,
-  resetOverride
+  resetOverride,
+  targetPatches
 } from "@parity-app/core"
 import { boardReader, editingState } from "@parity-app/editor"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"
 import { useComponents } from "../components-store.ts"
-import { useContainerEntry } from "../design-store.ts"
+import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
 import { type Selection, useSelection } from "../selection.ts"
 import { example, openProjects, type ProjectName, ProjectStage } from "../stories/fixtures.tsx"
-import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import { setLayout } from "./layout.ts"
 import { PropsSection } from "./PropsSection.tsx"
-import { type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
+import { useStyleEditor } from "./style-editor.ts"
+import { StyleSections } from "./StyleSections.tsx"
 
 /*
  * What the inspector's stories share: a stage that puts the panel where the app does, loaders that open the example
@@ -70,49 +72,23 @@ function useSelectedLayer() {
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
   const components = useComponents(session.components)
-  const tokens = useTokenList(session.tokens)
   const nodeId = selected.node
   const location = entry && nodeId ? locateNode(entry.container.root, nodeId) : undefined
   if (!entry || !nodeId || !location) return undefined
   const { container, key } = entry
   const state = editingState(container, selected.state)
-  const override = isBaseState(container, state.id) ? undefined : state.overrides?.[nodeId]
+  const target = boardTarget(container, state.id)
+  const override = targetPatches(container, target)?.[nodeId]
   const change = (label: string, value: NodeChange, gesture?: string) =>
-    store.updateContainer(key, label, (current) => editNode(current, state.id, nodeId, value), { gesture })
-  const reset = (field: Parameters<typeof resetOverride>[3]) =>
-    store.updateContainer(key, "Reset change", (current) => resetOverride(current, state.id, nodeId, field))
-  const shown = boardReader(container, { state })
-  const node = shown(location.node)
-  const parent = location.ancestors.at(-1)
-  const parentStyle = parent?.type === "layout" ? (shown(parent).style ?? {}) : undefined
-  const editor: StyleEditor = {
-    style: node.style ?? {},
-    changed: (name) => override?.style?.[name] !== undefined,
-    reset: (name) => reset({ kind: "style", key: name }),
-    set: (edit, label = "Change style", gesture) => {
-      const values = styleValues(edit, node.style ?? {}, {
-        base: true,
-        measure: () => undefined,
-        type: node.type,
-        column: !!parentStyle && (parentStyle.direction ?? "column") === "column"
-      }) as NodeStyle
-      change(label, { style: values }, gesture)
-    },
-    tokens,
-    unit: spacingUnit(tokens),
-    measure: () => undefined
-  }
-  return {
-    node,
-    components,
-    override,
-    change,
-    reset,
-    editor,
-    parent: parentStyle
-      ? { direction: parentStyle.direction ?? "column", grid: parentStyle.display === "grid" }
-      : undefined
-  }
+    store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
+      gesture
+    })
+  const reset = (field: PatchField) =>
+    store.updateContainer(key, "Reset change", (current) =>
+      resetOverride(current, boardTarget(current, state.id), nodeId, field)
+    )
+  const node = boardReader(container, { state })(location.node)
+  return { entry, nodeId, node, components, override, change, reset }
 }
 
 /** The selected component layer's props section, as the layer panel shows it. */
@@ -131,11 +107,16 @@ export function SelectedProps() {
   )
 }
 
-/** The selected layer's style sections, as the layer panel shows them. */
+/** The selected layer's style sections, as the layer panel shows them, edited in the state and variant shown. */
 export function SelectedStyles() {
   const layer = useSelectedLayer()
   if (!layer) return null
-  return <StyleSections editor={layer.editor} node={layer.node} parent={layer.parent} />
+  return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} node={layer.node} />
+}
+
+function LayerStyles({ entry, nodeId, node }: { entry: ContainerEntry; nodeId: string; node: DesignNode }) {
+  const editor = useStyleEditor(entry, [nodeId])
+  return editor ? <StyleSections editor={editor} node={node} /> : null
 }
 
 /** Types as a person would, a key at a time. */

@@ -27,7 +27,6 @@ import {
   type NodeChange,
   nodeOnBoard,
   type NodePatch,
-  type NodeStyle,
   overrideCount,
   type PatchField,
   propChange,
@@ -39,7 +38,7 @@ import {
   swapInstance,
   targetPatches
 } from "@parity-app/core"
-import { boardReader, editingState } from "@parity-app/editor"
+import { editingState } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
@@ -47,11 +46,9 @@ import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
-import { useStylePreview } from "../canvas/style-preview.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
-import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { wrapSelection } from "./commands.ts"
 import { extractIntoComponent } from "./components.ts"
@@ -65,7 +62,8 @@ import { valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
 import { hasStories, openInStorybook } from "./storybook.ts"
-import { type EditedLayer, type StyleEditor, StyleSections, styleValues } from "./StyleSections.tsx"
+import { useStyleEditor } from "./style-editor.ts"
+import { StyleSections } from "./StyleSections.tsx"
 
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
@@ -104,8 +102,6 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
     store.updateContainer(key, "Reset change", (current) =>
       resetOverride(current, boardTarget(current, state.id), nodeId, field)
     )
-  const parent = location.ancestors.at(-1)
-  const parentStyle = parent?.type === "layout" ? (boardReader(container, { state })(parent).style ?? {}) : undefined
 
   return (
     <>
@@ -148,15 +144,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
         />
       )}
 
-      <LayerSections
-        entry={entry}
-        nodeId={nodeId}
-        node={node}
-        override={override}
-        change={change}
-        reset={reset}
-        parentStyle={parentStyle}
-      />
+      <LayerSections entry={entry} nodeId={nodeId} node={node} override={override} change={change} reset={reset} />
     </>
   )
 }
@@ -201,8 +189,6 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
       return [pushed.container, pushed.component]
     })
   }
-  const parent = inner.location.ancestors.at(-1)
-  const parentStyle = parent?.type === "layout" ? (parent.style ?? {}) : undefined
   // The component this layer belongs to: the nested one for a layer inside a nested instance.
   const owner = entries.find((candidate) => candidate.container.id === inner.component.id)
 
@@ -287,16 +273,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
         />
       )}
 
-      <LayerSections
-        entry={entry}
-        nodeId={path}
-        node={node}
-        override={override}
-        change={change}
-        reset={reset}
-        parentStyle={parentStyle}
-        inner
-      />
+      <LayerSections entry={entry} nodeId={path} node={node} override={override} change={change} reset={reset} inner />
     </>
   )
 }
@@ -309,7 +286,6 @@ function LayerSections({
   override,
   change,
   reset,
-  parentStyle,
   inner = false
 }: {
   entry: ContainerEntry
@@ -321,58 +297,16 @@ function LayerSections({
   /** Makes a change, as part of a gesture's one undo step when given (see `NumberField`). */
   change: (label: string, value: NodeChange, gesture?: string) => void
   reset: (field?: PatchField) => void
-  parentStyle: NodeStyle | undefined
   /** Inside an instance, where an image's file and description belong to the component. */
   inner?: boolean
 }) {
   const session = useProject()
-  const { tokens: tokenStore, selection } = session
   const components = useComponents(session.components)
-  const tokens = useTokenList(tokenStore)
-  const selected = useSelection(selection)
-  const parentLayout = parentStyle
-    ? { direction: parentStyle.direction ?? "column", grid: parentStyle.display === "grid" }
-    : undefined
-  // A field's edit previews on the canvas, applied as `change` would apply it, until it's made or taken back.
-  const preview = useStylePreview(session, entry.key)
+  const styleEditor = useStyleEditor(entry, [nodeId])
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
   const propPreview = useChangePreview(session.store, entry.key)
   const setProp = (name: string, value: unknown) => (gesture?: string) =>
     change(`Change ${name}`, propChange(name, value), gesture)
-  const edited = (style: NodeStyle) => (current: ContainerSpec) => {
-    const target = boardTarget(current, editingState(current, selected.state).id)
-    return inner
-      ? editLayer(session.store, current, target, nodeId, { style })
-      : editNode(current, target, nodeId, { style })
-  }
-  // Inside an instance, edits are the copy's changes; elsewhere they change the design unless a state or variant shows.
-  const layer: EditedLayer = {
-    base:
-      !inner &&
-      editsDesign(entry.container, boardTarget(entry.container, editingState(entry.container, selected.state).id)),
-    measure: (axis, round = Math.round) => {
-      const size = measureNode(session, entry.key, nodeId, selected)
-      return size && Math.max(1, round(size[axis] / spacingUnit(tokens)))
-    },
-    type: node.type,
-    column: parentLayout?.direction === "column"
-  }
-  const styleEditor: StyleEditor = {
-    style: node.style ?? {},
-    changed: (name) => changesField(override, { kind: "style", key: name }),
-    reset: (name) => reset({ kind: "style", key: name }),
-    set: (edit, label = "Change style", gesture) => {
-      const values = styleValues(edit, node.style ?? {}, layer) as NodeStyle
-      preview.settle(edited(values))
-      change(label, { style: values }, gesture)
-    },
-    preview: (edit) => preview.show(edited(styleValues(edit, node.style ?? {}, layer) as NodeStyle)),
-    endPreview: () => preview.cancel(),
-    tokens,
-    unit: spacingUnit(tokens),
-    measure: layer.measure
-  }
-
   return (
     <>
       {(node.type === "text" || (node.type === "component" && typeof node.props?.children === "string")) && (
@@ -435,7 +369,7 @@ function LayerSections({
         <NoStyleNote component={node.component} wrap={!inner} />
       )}
 
-      <StyleSections editor={styleEditor} node={node} parent={parentLayout} />
+      {styleEditor && <StyleSections editor={styleEditor} node={node} />}
     </>
   )
 }

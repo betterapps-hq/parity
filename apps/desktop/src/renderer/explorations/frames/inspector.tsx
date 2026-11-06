@@ -11,7 +11,8 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import type { ContainerSpec, DesignNode, NodeStyle } from "@parity-app/core"
+import type { ContainerSpec, DesignNode } from "@parity-app/core"
+import { styleSelection } from "@parity-app/editor"
 import {
   Accessibility,
   CircleMinus,
@@ -24,7 +25,8 @@ import { type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { Hint } from "../../chrome/Hint.tsx"
 import { SidePanel } from "../../chrome/SidePanel.tsx"
-import { type StyleEditor, StyleSections, styleValues } from "../../chrome/StyleSections.tsx"
+import type { StyleEditor } from "../../chrome/style-editor.ts"
+import { StyleSections } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import type { ContainerEntry } from "../../design-store.ts"
 import { spacingUnit, useTokenList } from "../../tokens-store.ts"
@@ -113,28 +115,25 @@ function FrameStyles({ root, onSize }: { root: DesignNode; onSize?: (width?: num
   const session = useProject()
   const tokens = useTokenList(session.tokens)
   const unit = spacingUnit(tokens)
-  const [style, setStyle] = useState<NodeStyle>(root.style ?? {})
-  const node = { ...root, style }
+  // The frame as a design of its own, so its edits go through the same rows as a layer's.
+  const [frame, setFrame] = useState<ContainerSpec>(() => ({
+    id: "frame",
+    name: "Frame",
+    position: { x: 0, y: 0 },
+    root,
+    states: [{ id: "default", name: "Default" }]
+  }))
+  const selection = styleSelection(frame, [root.id], undefined)!
   const editor: StyleEditor = {
-    style,
-    changed: () => false,
-    reset: (name) => setStyle(({ [name]: _, ...rest }) => rest),
-    set: (edit) => {
-      const values = styleValues(edit, style, {
-        base: true,
-        measure: () => undefined,
-        type: root.type,
-        column: false
-      })
-      const next: Record<string, unknown> = { ...style }
-      for (const [key, value] of Object.entries(values)) {
-        if (value === undefined) delete next[key]
-        else next[key] = value
-      }
-      setStyle(next as NodeStyle)
+    selection,
+    reset: (row) => setFrame(selection.reset(row)(frame)),
+    set: (row, edit) => {
+      const next = selection.edit(row, edit)(frame)
+      setFrame(next)
       // A fixed width or height resizes the frame on the canvas too.
-      const { width, height } = next
-      if ("width" in values || "height" in values) {
+      const was = frame.root.style ?? {}
+      const { width, height } = next.root.style ?? {}
+      if (width !== was.width || height !== was.height) {
         onSize?.(
           typeof width === "number" ? width * unit : undefined,
           typeof height === "number" ? height * unit : undefined
@@ -145,7 +144,7 @@ function FrameStyles({ root, onSize }: { root: DesignNode; onSize?: (width?: num
     unit,
     measure: () => undefined
   }
-  return <StyleSections editor={editor} node={node} />
+  return <StyleSections editor={editor} node={frame.root} />
 }
 
 /** The inspector as the app lays it out, its Design tab showing `children`. */
