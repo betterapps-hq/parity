@@ -41,6 +41,35 @@ so there's nothing to set up ahead of the SDKs.
 - **Sentry's MCP server** is how agents read an issue's events, trace and replay. It signs in with OAuth, as
   `admin@betterapps.io`.
 
+## Alerts
+
+Two alerts file Linear bugs from `parity-desktop` and `parity-cli`, in every environment. Each has one action, Linear's
+"Create a Linear issue": team Parity, project Parity, status Todo, label Bug, no priority. The calls behind them are in
+[decisions.md](decisions.md#sentry-files-linear-bugs-par-622).
+
+| Alert                                                                                               | Fires on                                   | For                           | At most        |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------- | -------------- |
+| [File new issues and regressions in Linear](https://better-apps.sentry.io/monitors/alerts/6301645/) | A new issue, or a resolved one coming back | Every issue but user feedback | Once in 30 min |
+| [File user feedback in Linear](https://better-apps.sentry.io/monitors/alerts/6301647/)              | A new issue                                | User feedback                 | Every time     |
+
+What a filed issue carries:
+
+- **The title is the Sentry issue's.** For user feedback, Sentry writes a short summary of the message.
+- **The description is empty.** The Sentry link is attached to the Linear issue, and the release, environment and
+  `test_run` are in the Sentry issue it points to. Linear's action can't add them, and PAR-668 will.
+- **The two are linked both ways.** The Sentry issue lists the Linear one under its linked issues. Resolving the Sentry
+  issue closes the Linear one, and closing the Linear issue resolves the Sentry one in the next release.
+- **There's one Linear issue per Sentry issue.** A regression reopens the linked Linear issue, in Backlog, rather than
+  filing another, even when the alert fires on it.
+- **Linear's "in the next release" is literal.** Events from the release the bug was closed in, and from the next
+  release Sentry sees, count as fixed and don't reopen it.
+
+Errors thrown on purpose, such as a check that Sentry receives them, file bugs too, since they're new issues. Close each
+one when the check is done, and say in it that it was a test.
+
+Sentry's own defaults stay as they are: each project's "Send a notification for high priority issues" and the
+organisation's "Send a notification when pull requests are ready" email `admin@betterapps.io`.
+
 ## Secrets
 
 - **`SENTRY_AUTH_TOKEN`** on `betterapps-hq/parity` is the `parity-ci` organisation token, scoped to `org:ci`: uploading
@@ -57,3 +86,6 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
 4. Installed the Linear integration from Settings > Integrations > Linear, approved in Linear.
 5. Installed the GitHub integration from Settings > Integrations > GitHub, approved in GitHub for `betterapps-hq`.
 6. Created the `parity-ci` organisation token and stored it with `gh secret set SENTRY_AUTH_TOKEN`.
+7. Created the two alerts above with Sentry's MCP server, signed in as `admin@betterapps.io`. Linear's action takes
+   Linear's ids: team `ffa6e3c4-91d5-4501-868e-a7a7a797e256`, project `84f1963b-e7c0-4ee8-9f3b-0a23cddd3714`, Todo
+   `141b0d67-7506-4a2a-91b9-c77117d7204f` and Bug `a6475d27-8132-4225-88de-b7f0c2d09177`.

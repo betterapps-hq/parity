@@ -228,9 +228,9 @@ The point of all this is that the agent fixing a bug can see what the agent or t
 1. **Agents report what they find.** `parity report "<what's wrong>"` and an MCP tool, `report_problem`, send a Sentry
    user feedback tied to the current trace and replay, with a screenshot of the window and the frames involved, and
    return its link. An agent's test pass calls it whenever something looks wrong but nothing threw.
-2. **Sentry files the bug.** Alert rules turn a new issue, a regression, a spike or a report into a Linear issue in
-   PAR's Todo with the Bug label, its Sentry link, release and `test_run`. Sentry's Linear integration links the two, so
-   resolving one resolves the other.
+2. **Sentry files the bug.** Alert rules turn a new issue, a regression or a report into a Linear issue in PAR's Todo
+   with the Bug label, its Sentry link, release and `test_run`. Sentry's Linear integration links the two, so resolving
+   one resolves the other.
 3. **Agents read the context.** Sessions in this repository get Sentry's MCP server, so an agent picking up a bug reads
    its events, stack, trace, breadcrumbs and replay without leaving the session. `parity logs` reads the local copy for
    a bug on the agent's own machine.
