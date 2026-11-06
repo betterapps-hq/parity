@@ -14,6 +14,7 @@ import {
 import type {
   AccountPerson,
   AccountState,
+  Organization,
   SignInAttempt,
   SignInProblem,
   SignInProvider,
@@ -65,6 +66,11 @@ export interface Account {
   cancel(): void
   /** Forgets both tokens. */
   signOut(): void
+  /**
+   * Moves the session to another of the person's organizations with a refresh in the background. Throws when WorkOS
+   * doesn't answer or turns it down, and the session stays where it was.
+   */
+  switchOrganization(organizationId: string): Promise<void>
   /** Whether a link the browser handed back is for the sign-in this copy is waiting for. */
   owns(link: string): boolean
   /**
@@ -104,6 +110,17 @@ export function createAccount(options: AccountOptions): Account {
   let waiting: Waiting | undefined
   let live: Live | undefined
   let cancelRefresh: (() => void) | undefined
+  /**
+   * The organizations WorkOS named when it asked which one, kept with the session that follows so the person can switch
+   * between them. WorkOS names them only then, until Parity's service can list them (PAR-616).
+   */
+  let named: Organization[] | undefined
+
+  /** Who a session signs in, with the organizations Parity knows they're in. */
+  const personWith = (session: Session, organizations: Organization[] | undefined): AccountPerson => ({
+    ...personOf(session),
+    ...(organizations?.length && { organizations })
+  })
 
   const emit = (next: Partial<AccountState>) => {
     state = { ...state, ...next }
@@ -142,7 +159,7 @@ export function createAccount(options: AccountOptions): Account {
   const signedIn = async (session: Session, provider: SignInProvider) => {
     const current: Live = {
       refreshToken: session.refreshToken,
-      person: personOf(session),
+      person: personWith(session, named),
       provider,
       kept: false,
       failures: 0
@@ -158,6 +175,26 @@ export function createAccount(options: AccountOptions): Account {
     forget()
     options.store.clear()
     emit({ account: null, ended: { person: current.person, provider: current.provider } })
+  }
+
+  /** Takes a refreshed session: the new token kept, the next refresh scheduled, and the window told who it is now. */
+  const refreshed = async (current: Live, session: Session) => {
+    current.refreshToken = session.refreshToken
+    current.failures = 0
+    const person = personWith(session, current.person.organizations)
+    const changed = JSON.stringify(person) !== JSON.stringify(current.person)
+    current.person = person
+    schedule(refreshDelay(session.token, options.now()))
+    if (current.kept) current.kept = await keep(current)
+    if (changed && live === current) emit({ account: { ...person, untilQuit: !current.kept } })
+  }
+
+  /** The newest refresh token, which another copy sharing the kept session may have replaced; none once signed out. */
+  const newestToken = async (current: Live): Promise<string | undefined> => {
+    if (!current.kept) return current.refreshToken
+    const stored = await options.store.read()
+    if (stored) current.refreshToken = stored.refreshToken
+    return stored?.refreshToken
   }
 
   async function refresh(): Promise<void> {
@@ -179,14 +216,7 @@ export function createAccount(options: AccountOptions): Account {
     const result = await authenticate(options.fetch, refreshRequest({ clientId: options.clientId, refreshToken: used }))
     if (live !== current) return
     if (result.kind === "session") {
-      current.refreshToken = result.session.refreshToken
-      current.failures = 0
-      const person = personOf(result.session)
-      const changed = JSON.stringify(person) !== JSON.stringify(current.person)
-      current.person = person
-      schedule(refreshDelay(result.session.token, options.now()))
-      if (current.kept) current.kept = await keep(current)
-      if (changed && live === current) emit({ account: { ...person, untilQuit: !current.kept } })
+      await refreshed(current, result.session)
       return
     }
     if (result.kind === "unavailable") {
@@ -220,14 +250,17 @@ export function createAccount(options: AccountOptions): Account {
       await refresh()
     },
 
-    async signIn({ provider, email }) {
+    async signIn({ provider, email, organizationId }) {
       stopWaiting()
+      // The organizations WorkOS named are for signing in to one of them, not to another sign-in.
+      if (organizationId === undefined) named = undefined
       const redirect = await options.redirect()
       const { url, pending } = await startSignIn({
         clientId: options.clientId,
         redirectUri: redirect.uri,
         provider,
-        ...(email !== undefined && { loginHint: email })
+        ...(email !== undefined && { loginHint: email }),
+        ...(organizationId !== undefined && { organizationId })
       })
       waiting = { pending, provider, url, redirect, ...(email !== undefined && { email }) }
       emit({ attempt: { at: "waiting", provider, url, ...(email !== undefined && { email }) }, ended: null })
@@ -246,8 +279,24 @@ export function createAccount(options: AccountOptions): Account {
     signOut() {
       stopWaiting()
       forget()
+      named = undefined
       options.store.clear()
       emit({ account: null, attempt: null, ended: null })
+    },
+
+    async switchOrganization(organizationId) {
+      const current = live
+      if (!current) throw new Error("Nobody is signed in")
+      if (current.person.organizationId === organizationId) return
+      const token = await newestToken(current)
+      if (live !== current || token === undefined) throw new Error("Signed out while switching")
+      const result = await authenticate(
+        options.fetch,
+        refreshRequest({ clientId: options.clientId, refreshToken: token, organizationId })
+      )
+      if (live !== current) throw new Error("Signed out while switching")
+      if (result.kind !== "session") throw new Error(`WorkOS didn't switch: ${problemOf(result).details}`)
+      await refreshed(current, result.session)
     },
 
     owns: (link) => waiting !== undefined && readCallback(link, waiting.pending).kind !== "refused",
@@ -280,8 +329,11 @@ export function createAccount(options: AccountOptions): Account {
         await signedIn(result.session, provider)
         return "signed-in"
       }
-      problem(provider, problemOf(result))
-      return "problem"
+      const said = problemOf(result)
+      if (said.organizations) named = said.organizations
+      problem(provider, said)
+      // Choosing an organization or using single sign-on isn't a failure, only one more step in Parity.
+      return said.problem === "choose-organization" || said.problem === "single-sign-on" ? "continue" : "problem"
     }
   }
 }
@@ -303,18 +355,24 @@ export function personOf(session: Session): AccountPerson {
 const singleSignOnCodes = new Set(["sso_required", "organization_authentication_methods_required"])
 
 /**
- * What went wrong trading the code: an organization that requires single sign-on, an account WorkOS turned down (403),
- * or anything else, which is an error. The details are what WorkOS said, to copy for help.
+ * What went wrong trading the code: someone in several organizations who has to choose one, an organization that
+ * requires single sign-on, an account WorkOS turned down (403), or anything else, which is an error. The details are
+ * what WorkOS said, to copy for help.
  */
 export function problemOf(result: Exclude<AuthenticateResult, { kind: "session" }>): {
   problem: SignInProblem
   email?: string
   details: string
+  organizations?: { id: string; name: string }[]
 } {
   const said = result.kind === "refused" ? [result.status, result.code].filter(Boolean).join(" ") : result.status
   const details = ["POST /user_management/authenticate", said, result.message].filter(Boolean).join("\n")
   if (result.kind === "unavailable") return { problem: "failed", details }
   const email = result.email === undefined ? {} : { email: result.email }
+  // Finishing it with WorkOS's pending token needs the client secret, so the person chooses in Parity and signs in
+  // again with that organization named (decisions.md, "Signing in is built").
+  if (result.code === "organization_selection_required" && result.organizations?.length)
+    return { problem: "choose-organization", ...email, details, organizations: result.organizations }
   if (result.code !== undefined && singleSignOnCodes.has(result.code))
     return { problem: "single-sign-on", ...email, details }
   if (result.status === 403) return { problem: "refused", ...email, details }

@@ -374,6 +374,8 @@ export interface CanvasHost {
     /** Stops waiting, and puts away what went wrong or the session that ended. */
     cancel: () => Promise<void>
     signOut: () => Promise<void>
+    /** Moves the session to another organization the person is in, refreshing in the background. */
+    switchOrganization: (organizationId: string) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string

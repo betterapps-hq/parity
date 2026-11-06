@@ -23,6 +23,7 @@
   "dependencies": {
     "@buildkitgg/shadcn-baseui-kit": "catalog:",
     "@fontsource-variable/geist": "^5.3.0",
+    "@sentry/electron": "catalog:",
     "@tanstack/react-virtual": "3.14.24",
     "axe-core": "4.14.0",
     "lucide-react": "^1.66.0",
@@ -47,6 +48,7 @@
     "@parity-app/registry": "workspace:*",
     "@parity-app/renderer-react": "workspace:*",
     "@parity-app/styles-tailwind": "workspace:*",
+    "@parity-app/telemetry": "workspace:*",
     "@parity-app/tokens": "workspace:*",
     "@storybook/react-vite": "10.6.5",
     "@tailwindcss/vite": "4.3.3",

@@ -43,6 +43,13 @@ describe("authorizeUrl", () => {
     expect(url.searchParams.get("provider")).toBe("authkit")
     expect(url.searchParams.get("login_hint")).toBe("ana@acme.test")
   })
+
+  it("names the organization to sign in to", () => {
+    const url = new URL(
+      authorizeUrl({ ...options, provider: "authkit", organizationId: "org_01ACME", state: "s", codeChallenge: "c" })
+    )
+    expect(url.searchParams.get("organization_id")).toBe("org_01ACME")
+  })
 })
 
 describe("startSignIn", () => {
