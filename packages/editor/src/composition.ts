@@ -8,6 +8,7 @@ import {
   isSampleRender,
   type ParentSignal,
   renderProblem,
+  renderSlotKey,
   renderSlotOf,
   withLibraryContext
 } from "@parity-app/core"
@@ -146,9 +147,7 @@ function slotsOf(source: ComponentSource | undefined, info: ComponentInfo | unde
   }
   const render = renderSlotOf(sample)
   if (render) {
-    const pass = render.render.pass ? `?pass=${render.render.pass.join(",")}` : ""
-    const key = `${render.render.spread ? "$renderWith" : "$render"}:${render.prop}${pass}`
-    slots.set(render.prop, { name: render.prop, key, kind: "render" })
+    slots.set(render.prop, { name: render.prop, key: renderSlotKey(render.prop, render.render), kind: "render" })
   }
   // A library part whose sample holds children takes them, though its props haven't been read yet.
   if (!slots.has("children") && sample?.children?.some((child) => !isSampleRender(child))) {

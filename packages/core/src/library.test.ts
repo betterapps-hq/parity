@@ -4,7 +4,6 @@ import type { ContainerSpec } from "./document.ts"
 import { detachInstance } from "./instances.ts"
 import {
   applyLibraryEdits,
-  isSampleRender,
   libraryImports,
   parseLibraryEdits,
   remapLibraryImports,
@@ -15,6 +14,7 @@ import {
   withLibraryCanvas
 } from "./library.ts"
 import { componentLibrary, resolveDesign } from "./render.ts"
+import { isSampleRender } from "./values/evaluate.ts"
 
 describe("parseLibraryManifest", () => {
   it("reads a library's name, styles and breakpoints, smallest first", () => {

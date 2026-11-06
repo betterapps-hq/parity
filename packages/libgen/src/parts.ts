@@ -2,6 +2,8 @@ import type { FoundComponent } from "@parity-app/code"
 import {
   type ComponentSample,
   type DecoratorElement,
+  evaluateValue,
+  exportOf,
   isMadeValue,
   renderSlotOf,
   isSampleElement,
@@ -10,7 +12,9 @@ import {
   type ParentSignal,
   type SampleChild,
   type SampleElement,
-  type SampleRender
+  type SampleRender,
+  type ValueHost,
+  valueImports
 } from "@parity-app/core"
 import { type ExampleUse, exampleLevels, familyOf } from "./examples.ts"
 import type { RenderCall, RenderedChild } from "./hosts.ts"
@@ -101,6 +105,13 @@ export async function relateParts(
   }
 
   const byName = new Map(components.map((component) => [component.name, component]))
+  const host = await trialHost(load, [
+    ...valueImports(providers.map((provider) => provider.props)),
+    ...valueImports(
+      [...examples.values()].map((use) => use.sample),
+      "sample"
+    )
+  ])
   // Providers a frame gets from the decorators are never a part's parents. Each is used if it renders with no props;
   // one that needs a frame (an Emotion cache, a theme object) is left to the frame.
   const wrappers: { type: unknown; props: unknown }[] = []
@@ -109,7 +120,7 @@ export async function relateParts(
     try {
       let found: unknown = await load(provider.import)
       for (const part of provider.component.split(".")) found = (found as Record<string, unknown>)?.[part]
-      if (found) wrappers.push({ type: found, props: await trialValue(load, provider.props ?? {}) })
+      if (found) wrappers.push({ type: found, props: evaluateValue(provider.props ?? {}, host) })
     } catch {
       // Not loadable outside a frame.
     }
@@ -148,7 +159,7 @@ export async function relateParts(
       const key = JSON.stringify(call)
       if (!byCall.has(key)) {
         try {
-          byCall.set(key, await trialValue(load, call))
+          byCall.set(key, evaluateValue(call, host, "sample"))
         } catch {
           byCall.set(key, undefined)
         }
@@ -998,52 +1009,29 @@ export function spelledOut(children: SampleChild[], name: string): SampleChild[]
 }
 
 /**
- * A decorator's value outside a frame, for trying parts on the server: imports and calls are made, a mode's value is
- * its default, and the frame's own nodes are left undefined, as there's no frame. Direction and language take the
- * frame's defaults.
+ * What values are worked out against outside a frame, for trying parts on the server: the modules they import, loaded
+ * first, since evaluating is synchronous, a mode's value is its default, and the frame's own nodes are undefined, as there's no frame. Direction and
+ * language take the frame's defaults. A module Node loads as CommonJS without a `default` is its own default export.
  */
-async function trialValue(load: Load, value: unknown): Promise<unknown> {
-  if (Array.isArray(value)) return Promise.all(value.map((item) => trialValue(load, item)))
-  if (typeof value !== "object" || value === null) return value
-  const record = value as Record<string, unknown>
-  if (typeof record.$import === "string")
-    return exported(await load(record.$import), String((record.export ?? "default") as unknown))
-  if (typeof record.$call === "object" && record.$call !== null) {
-    const call = record.$call as { import: string; export?: string }
-    const fn = exported(await load(call.import), call.export ?? "default")
-    const args = (await trialValue(load, record.args ?? [])) as unknown[]
-    if (typeof fn !== "function") return undefined
-    const made = (fn as (...args: unknown[]) => unknown)(...args)
-    for (const step of (record.methods ?? []) as { method: string; args?: unknown[] }[]) {
-      const method = (made as Record<string, unknown> | null | undefined)?.[step.method]
-      if (typeof method !== "function") continue
-      const args = (await trialValue(load, step.args ?? [])) as unknown[]
-      try {
-        method.apply(made, args)
-      } catch {
-        // A call the examples make may need what the app has; the made value is still usable.
-      }
+async function trialHost(load: Load, imports: string[]): Promise<ValueHost> {
+  const modules = new Map<string, Record<string, unknown>>()
+  for (const specifier of new Set(imports)) {
+    try {
+      modules.set(specifier, await load(specifier))
+    } catch {
+      // Not loadable outside a frame; a value that needs it isn't made.
     }
-    return made
   }
-  if (typeof record.$global === "string") return trialValue(load, record.default)
-  if (typeof record.$frame === "string") {
-    if (record.$frame === "dir") return "ltr"
-    return record.$frame === "lang" ? "en-US" : undefined
+  return {
+    exported(specifier, path) {
+      const module = modules.get(specifier)
+      if (!module) throw new Error(`${specifier} isn't loaded`)
+      return exportOf(module, path) ?? (path === "default" ? module : undefined)
+    },
+    global: () => undefined,
+    frame: (part) => ({ dir: "ltr", lang: "en-US" })[part as string],
+    made: new Map()
   }
-  if ("$function" in record) {
-    const result = await trialValue(load, record.$function)
-    return () => result
-  }
-  const resolved: Record<string, unknown> = {}
-  for (const [key, item] of Object.entries(record)) resolved[key] = await trialValue(load, item)
-  return resolved
-}
-
-function exported(module: Record<string, unknown>, name: string): unknown {
-  let found: unknown = module
-  for (const part of name.split(".")) found = (found as Record<string, unknown>)?.[part]
-  return found ?? (name === "default" ? module : undefined)
 }
 
 /** The parts the package puts inside another, as sample children, keeping only those it exports. */

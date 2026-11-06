@@ -1,16 +1,9 @@
 import type { DesignNode } from "./document.ts"
 import { generateId } from "./edit.ts"
-import {
-  type ComponentSample,
-  isSampleElement,
-  isSampleRender,
-  type LibraryComponent,
-  renderSlotOf,
-  type SampleChild,
-  type SampleRender
-} from "./library.ts"
+import type { ComponentSample, LibraryComponent, SampleChild, SampleRender } from "./library.ts"
 import { type ComponentSource, openProps } from "./project.ts"
 import type { ComponentInfo } from "./props.ts"
+import { isSampleElement, isSampleRender, readRenderSlotKey, renderSlotKey, renderSlotOf } from "./values/evaluate.ts"
 
 /** Nodes whose `children` is the name `componentNode` gave them, rather than text someone set. */
 const named = new WeakSet<DesignNode>()
@@ -91,8 +84,7 @@ export function withLibraryContext(
     const plain: Record<string, unknown> = {}
     const slots: Record<string, DesignNode[]> = {}
     const renderSlot = (prop: string, render: SampleRender) => {
-      const pass = render.pass ? `?pass=${render.pass.join(",")}` : ""
-      slots[`${render.spread ? "$renderWith" : "$render"}:${prop}${pass}`] = nodes(render.$render)
+      slots[renderSlotKey(prop, render)] = nodes(render.$render)
     }
     for (const [key, value] of Object.entries(props)) {
       if (isSampleRender(value)) renderSlot(key, value)
@@ -155,12 +147,10 @@ export function withLibraryContext(
     // A parent that calls its children, or a render prop (`TreeView.Node`'s `render`), gets the part in that render
     // slot, as its sample's own are.
     const calls = renderSlotOf(sources[parent]?.sample)
-    const slot = calls
-      ? `$render:${calls.prop}${calls.render.pass ? `?pass=${calls.render.pass.join(",")}` : ""}`
-      : "children"
+    const slot = calls ? renderSlotKey(calls.prop, calls.render) : "children"
     const kept = Object.fromEntries(
       Object.entries(wrapper.type === "component" ? (wrapper.slots ?? {}) : {}).filter(
-        ([name]) => !calls || !name.startsWith(`$render:${calls.prop}`)
+        ([name]) => !calls || readRenderSlotKey(name)?.prop !== calls.prop
       )
     )
     placed = wrapper.type === "component" ? { ...wrapper, slots: { ...(calls ? kept : {}), [slot]: [placed] } } : placed

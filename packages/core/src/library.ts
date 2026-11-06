@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { type CanvasDocument, type ContainerSpec, type DesignNode, canvasDocument } from "./document.ts"
 import { fileObject, finiteNumber, parseData, plainObject } from "./schema.ts"
+import { decoratorProps, decoratorValue, sampleProps } from "./values/grammar.ts"
 
 // A library file is checked by the schemas below, leaves first, as a `.par` is in `document.ts`. Its `canvas` is a
 // `.par`'s document, so problems in it point inside `/canvas`.
@@ -53,7 +54,7 @@ export type SampleRender = z.infer<typeof sampleRender>
 /** A component of the same library, by its name in `components.list`, with its props and children. */
 const sampleComponent = fileObject({
   component: z.string(),
-  props: plainObject.optional(),
+  props: sampleProps.optional(),
   get children(): z.ZodOptional<z.ZodArray<typeof sampleChild>> {
     return z.array(sampleChild).optional()
   }
@@ -75,40 +76,10 @@ export type SampleElement = z.infer<typeof sampleElement>
 
 /** What a component needs to draw something: props with sample values, and children, as for a collection's items. */
 const componentSample = fileObject({
-  props: plainObject.optional(),
+  props: sampleProps.optional(),
   children: z.array(sampleChild).optional()
 })
 export type ComponentSample = z.infer<typeof componentSample>
-
-// Tree walks call these for every value, so they look at the one key that marks each form rather than parsing it. The
-// manifest was checked when it loaded.
-
-/** Whether a sample's prop value is elements. */
-export function isSampleElement(value: unknown): value is SampleElement {
-  return typeof value === "object" && value !== null && Array.isArray((value as Record<string, unknown>).$element)
-}
-
-/** Whether a sample's prop value is one the package makes. */
-export function isMadeValue(value: unknown): value is MadeValue {
-  const call = typeof value === "object" && value !== null ? (value as Record<string, unknown>).$call : undefined
-  return typeof call === "object" && call !== null && typeof (call as Record<string, unknown>).import === "string"
-}
-
-/** Whether a sample's child or prop value is a render function. */
-export function isSampleRender(value: unknown): value is SampleRender {
-  return typeof value === "object" && value !== null && Array.isArray((value as Record<string, unknown>).$render)
-}
-
-/**
- * Where a part's sample calls what's inside it: its function children, else a render prop (Chakra's `TreeView.Node`
- * `render`), with the render function.
- */
-export function renderSlotOf(sample: ComponentSample | undefined): { prop: string; render: SampleRender } | undefined {
-  const children = sample?.children?.find(isSampleRender)
-  if (children) return { prop: "children", render: children }
-  const entry = Object.entries(sample?.props ?? {}).find(([, value]) => isSampleRender(value))
-  return entry ? { prop: entry[0], render: entry[1] as SampleRender } : undefined
-}
 
 /** A regular expression's source, checked by compiling it. */
 const pattern = z.string().refine((source) => {
@@ -238,103 +209,11 @@ const libraryIcons = fileObject({
 })
 export type LibraryIcons = z.infer<typeof libraryIcons>
 
-/**
- * A decorator's value: JSON, or one of five forms that the guest works out for each frame. An object with one of the
- * forms' keys must be that form; any other object is plain JSON, its values decorator values too.
- *
- * - `{ "$import": "pkg", "export": "name" }`: something the package exports, such as a theme object. `export` defaults
- *   to `default`.
- * - `{ "$call": { "import": "pkg", "export": "name" }, "args": [...], "methods": [...] }`: what calling it returns.
- * - `{ "$global": "theme", "values": { "dark": ... }, "default": ... }`: picked by the frame's global, which is the
- *   mode's option for that variable.
- * - `{ "$frame": "root" | "host" | "body" }`: the frame's shadow root, the element it hangs from (which `:root[...]`
- *   rules match, as `:host(...)`), or the element standing in for its `<body>`. Also `document`, `dir`, `lang`, and
- *   `selector`, a CSS selector for the body alone.
- * - `{ "$function": ... }`: a function returning the value it holds.
- *
- * Values are checked once, when their library file loads. The guest evaluates them on every frame without zod.
- */
-// The values inside a form are decorator values, and samples' made values hold whatever JSON an example passed. Their
-// type stays `unknown`, as the guest reads them; the schema is what checks them.
-const decoratorValue: z.ZodType<unknown> = z.lazy(() =>
-  z.union([
-    z.string(),
-    finiteNumber,
-    z.boolean(),
-    z.null(),
-    z.array(decoratorValue),
-    form("$import", importedValue),
-    form("$call", madeValue),
-    form("$global", globalValue),
-    form("$frame", frameValue),
-    form("$function", functionValue),
-    plainValue
-  ])
-)
-export type DecoratorValue = unknown
-
-const valueForms = ["$import", "$call", "$global", "$frame", "$function"] as const
-
-/** Something the package exports, such as a theme object. */
-const importedValue = fileObject({ $import: z.string(), export: z.string().optional() })
-
-/**
- * A value the package makes by calling one of its own functions, as an example does (Chakra's
- * `collection={createTreeCollection({ rootNode })}`): the canvas calls it with `args`, once per frame.
- */
-const madeValue = fileObject({
-  $call: fileObject({ import: z.string(), export: z.string() }),
-  args: z.array(decoratorValue).optional(),
-  /**
-   * Methods called on what it makes, in order, as the examples call them (Chakra's `toaster.create({ title })`), so a
-   * toaster is drawn with a toast in it.
-   */
-  methods: z.array(fileObject({ method: z.string(), args: z.array(decoratorValue).optional() })).optional()
-})
-export type MadeValue = z.infer<typeof madeValue>
-
-/** Picked by the frame's global, which is the mode's option for that variable, else `default`. */
-const globalValue = fileObject({
-  $global: z.string(),
-  values: z.record(z.string(), decoratorValue),
-  default: decoratorValue.optional()
-})
-
-/** Part of the frame itself. */
-const frameValue = fileObject({ $frame: z.enum(["root", "host", "body", "document", "dir", "lang", "selector"]) })
-
-/** A function returning the value it holds. */
-const functionValue = fileObject({ $function: decoratorValue })
-
-/**
- * An object with a form's key is that form. Any other object is refused as another type of value would be, which
- * `parseData` passes over, so a broken form reports its own mistake and not the closest of the other forms.
- */
-function form(key: (typeof valueForms)[number], schema: z.ZodType) {
-  return z
-    .unknown()
-    .superRefine((value, context) => {
-      if (!(typeof value === "object" && value !== null && key in value)) {
-        context.addIssue({ code: "invalid_type", expected: "object", input: value })
-      }
-    })
-    .pipe(schema)
-}
-
-/** Plain JSON, its values decorator values too. An object with a form's key is refused, for the form to report. */
-const plainValue = plainObject
-  .superRefine((record, context) => {
-    if (valueForms.some((key) => key in record)) {
-      context.addIssue({ code: "invalid_type", expected: "object", input: record })
-    }
-  })
-  .pipe(z.record(z.string(), decoratorValue))
-
 const decoratorElement = fileObject({
   import: z.string(),
   /** The export to render; `default` for a default export. */
   component: z.string(),
-  props: z.record(z.string(), decoratorValue).optional()
+  props: decoratorProps.optional()
 })
 export type DecoratorElement = z.infer<typeof decoratorElement>
 
@@ -352,8 +231,8 @@ const libraryDecorator = fileObject({
   wrap: decoratorElement.optional(),
   add: decoratorElement.optional(),
   class: decoratorValue.optional(),
-  attributes: z.record(z.string(), decoratorValue).optional(),
-  style: z.record(z.string(), decoratorValue).optional()
+  attributes: decoratorProps.optional(),
+  style: decoratorProps.optional()
 }).superRefine((decorator, context) => {
   const effects = decoratorEffects.filter((key) => decorator[key] !== undefined)
   if (effects.length !== 1) {
