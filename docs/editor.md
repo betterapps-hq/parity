@@ -2528,8 +2528,8 @@ that doesn't gets no new variable. `GetTokens` (and `parity tokens`, MCP `get_to
 the project has a token of that name, which is listed instead. An agent's `radius: "radius-full"`, in a design, a
 viewport's patch or a state, gets no "isn't a token" warning; under any other key it's still not a token.
 
-Code: `radiusKeywords` and `radiusCss` in `packages/core/src/render.ts`; `tokensAndKeywords` and `lint` in
-`packages/agent/src/workspace.ts`.
+Code: `radiusKeywords` and `radiusCss` in `packages/core/src/render.ts`; `tokensAndKeywords` in
+`packages/agent/src/workspace.ts` and `lintDocument` in `packages/agent/src/lint.ts`.
 
 Tests: `packages/core/src/render.test.ts` (a 24px and a 384px avatar and a component's root drawn fully round, a
 viewport's patch switching to it from `radius-md`); `packages/agent/src/run.test.ts` (2: `GetTokens` listing the keyword
@@ -2568,7 +2568,7 @@ the style to set.
 
 Code: `contrastFix`, `contrastRatio` and `colorDistance` in `packages/tokens/src/contrast.ts`; the frame's readings
 (`contrastReadings`, `follows`, `tokenColors`) in `apps/desktop/src/renderer/render.ts`; `addContrastFixes` in
-`packages/agent/src/workspace.ts`; `ContrastFixRow`, `ImpactTally` and `DesignCheck` in
+`packages/agent/src/frames.ts`; `ContrastFixRow`, `ImpactTally` and `DesignCheck` in
 `apps/desktop/src/renderer/chrome/AccessibilityPanel.tsx`; `fixLine` in `packages/cli/src/client.ts`.
 
 Tests: `packages/tokens/src/contrast.test.ts` (WCAG ratios, translucent colors, the closest passing token, passing
@@ -3963,9 +3963,9 @@ give each layout problem as a finding: its `kind` (`frame-overflow` or `clipped`
 by 10px on the right", and the CLI puts the layer's name before its id. Overflow of a parent that doesn't clip, inside
 the frame, isn't reported; see [decisions.md](decisions.md), "Problems reports where a node overflows".
 
-Code: `layoutFindings` and `describeLayoutFinding` in `packages/agent/src/overflow.ts`, used by `problems` in
-`packages/agent/src/workspace.ts`; `clipper` and `nodeParent` in `apps/desktop/src/renderer/render.ts` measure each
-node; `describeProblems` in `packages/cli/src/client.ts` and the problems schema in `operations.ts`.
+Code: `layoutFindings` and `describeLayoutFinding` in `packages/agent/src/overflow.ts`, used by `frameProblems` in
+`packages/agent/src/frames.ts`; `clipper` and `nodeParent` in `apps/desktop/src/renderer/render.ts` measure each node;
+`describeProblems` in `packages/cli/src/client.ts` and the problems schema in `operations.ts`.
 
 Tests:
 
@@ -3974,6 +3974,8 @@ Tests:
   nearest ancestor at each level; a clipping element outside the layers; children going no further than their reported
   parent left out, one going further kept; a bottom edge only with a fixed height; nodes drawn at no size; the
   sentences.
+- `packages/agent/src/frames.test.ts` (3 of its 6): a clean frame, then a render error, an unknown component and a node
+  past the edge named by its layer, and content wider than the frame that no node accounts for.
 - `packages/agent/src/run.test.ts` (2 of its 46): the finding in only the mode whose frame the button passes, with its
   boxes, the frame's overflow not reported again, a clipped title in every mode, and Measure's parent, state and mode; a
   node wider than every frame found once in each.
@@ -4237,14 +4239,17 @@ that isn't drawn yet. Pairs the call didn't touch are counted in one `canvas_ove
 `Overlaps()`, so a call that only reads doesn't make a crowded canvas look clear. The skill's canvas section shows an
 audit with `Overlaps()` and placing a board with `FindEmptySpace({ width, height })`.
 
-Implementation: `packages/agent/src/workspace.ts` (`overlaps`, `overlapWarnings`), `packages/agent/src/warnings.ts` (the
-categories), `packages/cli/src/operations.ts` (`state`'s overlap schema) and `execute.ts` (the categories' description).
+Implementation: `packages/agent/src/boards.ts` (`boardOverlaps`, `overlapWarnings`, `emptySpace`),
+`packages/agent/src/warnings.ts` (the categories), `packages/cli/src/operations.ts` (`state`'s overlap schema) and
+`execute.ts` (the categories' description).
 
 Tests: `packages/agent/src/run.test.ts` ("shows a move as a drag…": a collision with an estimated board; "counts a
 board's title as part of it": title clearance; "says measured when both boards were drawn"; "estimates an undrawn
 board's height…": both boards named when neither is drawn; "doesn't call a crowded canvas clear when the call moved
 nothing": a read on a canvas with three crowded pairs; "warns only about the boards the call moved, and counts the
-rest"). `packages/cli/src/skill-examples.test.ts` runs the audit example.
+rest"). `packages/agent/src/boards.test.ts` checks the same rules on boards alone: sizes drawn or estimated, collisions
+and title bands, the warnings for touched boards and the note for the rest, and empty space.
+`packages/cli/src/skill-examples.test.ts` runs the audit example.
 
 ### Which copy of the app a call reaches (PAR-514)
 
