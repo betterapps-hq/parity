@@ -144,17 +144,30 @@ function Legal() {
   )
 }
 
-/** The sign-in screen: the mark, one line on what Parity is, and the ways in. */
-export function SignInPanel({ dialog, onSignIn }: { dialog?: boolean; onSignIn: (request: SignInRequest) => void }) {
+/**
+ * The sign-in screen: the mark, one line on what Parity is, and the ways in. Adding another account, from inside
+ * Parity, gives its own heading and line and leaves the mark out.
+ */
+export function SignInPanel({
+  dialog,
+  title,
+  description = "Design with your real components, your team and your agents.",
+  onSignIn
+}: {
+  dialog?: boolean
+  title?: string
+  description?: string
+  onSignIn: (request: SignInRequest) => void
+}) {
   return (
     <div className="flex w-full flex-col gap-7">
       <div className="flex flex-col items-center gap-4 text-center">
-        <Mark size={dialog ? 40 : 48} />
+        {!title && <Mark size={dialog ? 40 : 48} />}
         <div className="flex flex-col gap-1.5">
           <Heading dialog={dialog} className="text-2xl leading-tight font-semibold tracking-tight">
-            Sign in to Parity
+            {title ?? "Sign in to Parity"}
           </Heading>
-          <Description dialog={dialog}>Design with your real components, your team and your agents.</Description>
+          <Description dialog={dialog}>{description}</Description>
         </div>
       </div>
       <SignInForm onSignIn={onSignIn} />
@@ -211,10 +224,11 @@ export function WaitingPanel({
   onReopen: () => void
   onCancel: () => void
 }) {
+  const as = attempt.email ? ` as ${attempt.email}` : ""
   const opened =
     attempt.provider === "authkit"
-      ? "We opened your browser to sign you in."
-      : `We opened ${providerName(attempt.provider)} in your browser to sign you in.`
+      ? `We opened your browser to sign you in${as}.`
+      : `We opened ${providerName(attempt.provider)} in your browser to sign you in${as}.`
   const copyLink = () => copy(attempt.url, "Copied the link", "copied-link")
   return (
     <div className="flex flex-col items-center gap-8">

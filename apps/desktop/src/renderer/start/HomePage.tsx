@@ -47,7 +47,7 @@ export function Home({ projects, active = true }: { projects: readonly KnownProj
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-4 pt-6 pb-14 sm:px-10">
         <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <HomeAccountMenu />
-          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
+          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2 max-sm:w-full">
             <SearchButton />
             <OpenMenu />
             <NewProjectButton />

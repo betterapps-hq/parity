@@ -51,7 +51,7 @@ export function SearchButton({ large, takeFocus = false }: { large?: boolean; ta
       className={`flex items-center gap-2.5 border bg-card/60 text-left text-muted-foreground outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring ${
         large
           ? "h-12 w-full rounded-xl px-4 text-[15px] shadow-[0_8px_30px_-12px_rgb(0_0_0/0.35)]"
-          : "h-8 w-[280px] max-w-full min-w-0 shrink rounded-lg px-3 text-sm"
+          : "h-8 w-[280px] max-w-full min-w-0 shrink rounded-lg px-3 text-sm max-sm:w-full"
       }`}
     >
       <Search className={large ? "size-[18px]" : "size-4"} />
