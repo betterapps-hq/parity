@@ -1,4 +1,12 @@
+import { z } from "zod"
+
 const releasesUrl = "https://api.github.com/repos/betterapps-hq/parity/releases"
+
+/** What Parity reads of a release from GitHub's REST API; the rest of it is left alone. */
+export const releaseSummary = z.looseObject({ tag_name: z.string(), draft: z.boolean(), prerelease: z.boolean() })
+
+/** A page of releases, of which only whether each is a draft or a prerelease is read. */
+const releaseList = z.array(releaseSummary.pick({ draft: true, prerelease: true }))
 
 /** A release body can contain notes and assets; neither is needed here. Bound both time and bytes. */
 export async function githubRelease(
@@ -57,20 +65,9 @@ export async function noStableRelease(error: unknown, beta: boolean, request: ty
     if (latest.status !== 404) return false
     // A 404 alone could mean an inaccessible repository. Confirm the public releases endpoint works too.
     const releases = await githubRelease("?per_page=1", request)
-    return (
-      releases.status === 200 &&
-      Array.isArray(releases.data) &&
-      releases.data.every(
-        (release: unknown) =>
-          typeof release === "object" &&
-          release !== null &&
-          "draft" in release &&
-          typeof release.draft === "boolean" &&
-          "prerelease" in release &&
-          typeof release.prerelease === "boolean" &&
-          (release.draft || release.prerelease)
-      )
-    )
+    if (releases.status !== 200) return false
+    const listed = releaseList.safeParse(releases.data).data
+    return !!listed && listed.every((release) => release.draft || release.prerelease)
   } catch {
     return false
   }

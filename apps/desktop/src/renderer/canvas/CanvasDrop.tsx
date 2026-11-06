@@ -1,4 +1,4 @@
-import { type Box, dropHint, type InsertItem, mayBeImage } from "@parity-app/editor"
+import { type Box, dropHint, mayBeImage, readInsertItem } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useProject } from "./context.ts"
@@ -136,7 +136,8 @@ export function CanvasDrop() {
       const point = pointOf(event)
       const target = dropTarget(session, area, point)
       const canvas = target ? undefined : emptyCanvasAt(session, area, point)
-      const item = JSON.parse(event.dataTransfer!.getData(insertMime)) as InsertItem
+      const item = readInsertItem(event.dataTransfer!.getData(insertMime))
+      if (!item) return
       if (target) insertItem(session, target, item)
       else if (canvas) addScreenOfItem(session, item, canvas)
       else toast.info("There's no layout here to drop into")

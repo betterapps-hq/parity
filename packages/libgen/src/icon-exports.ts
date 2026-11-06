@@ -1,3 +1,4 @@
+import { shorterName } from "@parity-app/core"
 import ts from "typescript"
 
 /**
@@ -27,16 +28,15 @@ export function preferredExports(
       declared: target.name === symbol.name
     })
   }
-  const shortest = (a: string, b: string) => a.length - b.length || byCodeUnit(a, b)
   const preferred: string[] = []
   for (const group of groups) {
     const names = group.filter(usable)
-    const fallback = [...names].sort(shortest)[0]
+    const fallback = [...names].sort(shorterName)[0]
     const rank = (name: string) => {
       const mark = marks.get(name)
       return (mark?.deprecated ? 2 : 0) + (mark?.declared === false ? 1 : 0)
     }
-    const best = [...names].sort((a, b) => rank(a) - rank(b) || shortest(a, b))[0]
+    const best = [...names].sort((a, b) => rank(a) - rank(b) || shorterName(a, b))[0]
     if (best && best !== fallback) preferred.push(best)
   }
   return preferred.sort()
@@ -51,10 +51,4 @@ export function typesFor(specifier: string, from: string): string | undefined {
     ts.sys
   ).resolvedModule?.resolvedFileName
   return resolved && /\.d\.[cm]?ts$/.test(resolved) ? resolved : undefined
-}
-
-/** Compares two strings by their UTF-16 code units, as `sort` does without a comparer. */
-function byCodeUnit(a: string, b: string): number {
-  if (a < b) return -1
-  return a > b ? 1 : 0
 }

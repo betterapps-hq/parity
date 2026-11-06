@@ -6,13 +6,17 @@ import {
   type ContainerSpec,
   type DesignNode,
   detachInstance,
+  finiteNumber,
   generateId,
-  type ImageCredit,
+  imageCredit,
   insertNode,
+  jsonText,
   locateNode,
   nodeIds,
+  plainObject,
   withLibraryContext
 } from "@parity-app/core"
+import { z } from "zod"
 import { placedAt } from "./paste-here.ts"
 
 /**
@@ -25,20 +29,35 @@ import { placedAt } from "./paste-here.ts"
  * Something from the Assets panel: one of the project's or a library's components (icons included), a component
  * design, or an image.
  */
-export type InsertItem =
-  | {
-      kind: "component"
-      component: string
-      /** Props it starts with, such as the weight a Phosphor icon is drawn in. */
-      props?: Record<string, unknown>
-    }
-  | {
-      kind: "instance"
-      design: string
-      /** Placed as a copy of what it shows, no longer linked, as a library's design can be. */
-      detached?: true
-    }
-  | { kind: "image"; src: string; alt?: string; credit?: ImageCredit; width: number; height: number }
+const insertItem = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("component"),
+    component: z.string(),
+    /** Props it starts with, such as the weight a Phosphor icon is drawn in. */
+    props: plainObject.optional()
+  }),
+  z.object({
+    kind: z.literal("instance"),
+    design: z.string(),
+    /** Placed as a copy of what it shows, no longer linked, as a library's design can be. */
+    detached: z.literal(true).optional()
+  }),
+  z.object({
+    kind: z.literal("image"),
+    src: z.string(),
+    alt: z.string().optional(),
+    credit: imageCredit.optional(),
+    width: finiteNumber,
+    height: finiteNumber
+  })
+])
+
+export type InsertItem = z.infer<typeof insertItem>
+
+/** The item dragged from the Assets panel, read back from the drag's text, or undefined when it doesn't parse. */
+export function readInsertItem(text: string): InsertItem | undefined {
+  return jsonText(insertItem).safeParse(text).data
+}
 
 /** Images go in this many spacing steps wide (320px at 4px a step), their height following their shape. */
 const imageSteps = 80

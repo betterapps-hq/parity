@@ -63,6 +63,18 @@ describe("publishedVersion", () => {
       globalThis.fetch = usual
     }
   })
+
+  it("names the field of a malformed npm document", async () => {
+    const usual = globalThis.fetch
+    globalThis.fetch = (async () => Response.json({ "dist-tags": { latest: 1 } })) as typeof fetch
+    try {
+      await expect(publishedVersion("lucide-react", "latest")).rejects.toThrow(
+        "npm's document for lucide-react: /dist-tags/latest: expected a string"
+      )
+    } finally {
+      globalThis.fetch = usual
+    }
+  })
 })
 
 describe("installedVersion", () => {

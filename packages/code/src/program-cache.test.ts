@@ -1,24 +1,18 @@
 import { mkdir, mkdtemp, rm, stat, unlink, utimes, writeFile } from "node:fs/promises"
-import type * as Os from "node:os"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { ComponentInfo } from "@parity-app/core"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import { answer } from "./props-worker.ts"
-
-// The worker won't build a program below a gigabyte of free memory, and a CI runner (macOS counts cached memory as
-// used) can report less, which would make these tests depend on the machine. These projects are a few files.
-vi.mock("node:os", async (original) => ({
-  ...(await original<typeof Os>()),
-  freemem: () => 8 * 2 ** 30
-}))
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import { reactFinder } from "./finder.ts"
+import { type ProgramCache, programCache } from "./program-cache.ts"
 
 let root: string
+/** Each test's cache. Memory is reported as plentiful, so the tests don't depend on the machine they run on. */
+let programs: ProgramCache
 /** Each write's modification time, a second past the last, so a change shows on a clock coarser than the test. */
 let clock = Date.now() / 1000
 
-async function write(path: string, content: string) {
-  const file = join(root, path)
+async function write(path: string, content: string, base = root) {
+  const file = join(base, path)
   await mkdir(dirname(file), { recursive: true })
   await writeFile(file, content)
   clock += 1
@@ -38,27 +32,27 @@ const programTimeout = 30_000
 
 const components = { Button: { path: "src/button.tsx", export: "Button", as: "function" as const } }
 
-/** The Button's prop names, as the worker's warm checker for the project reads them. */
+/** The Button's prop names, as the project's warm program reads them. */
 function props(lockfiles: string[] = []): string[] {
-  const found = answer({ kind: "props", root, components, lockfiles }) as Record<string, ComponentInfo>
+  const found = programs.props({ root, components, lockfiles })
   return (found.Button?.props ?? []).map((prop) => prop.name)
 }
 
-/** The same, from a checker made afresh, as a reopened project or a worker started again gets. */
+/** The same, from a program made afresh, as a reopened project or a worker started again gets. */
 function freshProps(lockfiles: string[] = []): string[] {
-  answer({ kind: "close", root })
+  programs.close(root)
   return props(lockfiles)
 }
 
 beforeEach(async () => {
-  root = (await mkdtemp(join(tmpdir(), "canvas-props-worker-"))).replaceAll("\\", "/")
+  root = (await mkdtemp(join(tmpdir(), "parity-program-cache-"))).replaceAll("\\", "/")
+  programs = programCache(reactFinder, { freeMb: () => 8 * 1024 })
   await write("package.json", '{ "name": "app" }')
   await write("a/props.ts", 'export interface ButtonProps { variant?: "primary" | "ghost" }')
   await write("b/props.ts", 'export interface ButtonProps { size?: "sm" | "lg" }')
 })
 
 afterEach(async () => {
-  answer({ kind: "close", root })
   await rm(root, { recursive: true, force: true })
 })
 
@@ -70,7 +64,101 @@ const tsconfig = (paths: string, extra: Record<string, unknown> = {}) =>
   })
 
 describe(
-  "the props worker after the project's config changes",
+  "a project's program",
+  () => {
+    const files = ["src/button.tsx"]
+
+    beforeEach(async () => {
+      await write("tsconfig.json", tsconfig("./a/*"))
+      await write(
+        "src/button.tsx",
+        'import type { ButtonProps } from "@lib/props"\nexport function Button(props: ButtonProps) { return null }'
+      )
+    })
+
+    it("is reused while its files, config and lockfiles are unchanged", () => {
+      const first = programs.program({ root, files, lockfiles: [] })
+      expect(programs.program({ root, files, lockfiles: [] })).toBe(first)
+      expect(programs.check({ root, files, lockfiles: [] }).components.map((found) => found.name)).toEqual(["Button"])
+      expect(programs.program({ root, files, lockfiles: [] })).toBe(first)
+    })
+
+    it("is made again when a file it read changes", async () => {
+      const first = programs.program({ root, files, lockfiles: [] })
+      await write("a/props.ts", 'export interface ButtonProps { tone?: "loud" }')
+      expect(programs.program({ root, files, lockfiles: [] })).not.toBe(first)
+      expect(props()).toEqual(["tone"])
+    })
+
+    it("is made again when a request asks for a file it hasn't read", async () => {
+      const first = programs.program({ root, files, lockfiles: [] })
+      await write("src/card.tsx", "export function Card() { return null }")
+      const next = programs.program({ root, files: ["src/card.tsx"], lockfiles: [] })
+      expect(next).not.toBe(first)
+      expect(next.getSourceFile(`${root}/src/button.tsx`)).toBeDefined()
+    })
+
+    it("is made again when the config changes", async () => {
+      const first = programs.program({ root, files, lockfiles: [] })
+      await write("tsconfig.json", tsconfig("./b/*"))
+      expect(programs.program({ root, files, lockfiles: [] })).not.toBe(first)
+    })
+
+    it("is made again when a lockfile changes", async () => {
+      await write("pnpm-lock.yaml", "lockfileVersion: '9.0'\n")
+      const first = programs.program({ root, files, lockfiles: ["pnpm-lock.yaml"] })
+      await write("pnpm-lock.yaml", "lockfileVersion: '9.0'\n\nimporters: {}\n")
+      expect(programs.program({ root, files, lockfiles: ["pnpm-lock.yaml"] })).not.toBe(first)
+    })
+
+    it("isn't built when too little memory is free", () => {
+      const starved = programCache(reactFinder, { freeMb: () => 100 })
+      expect(() => starved.program({ root, files, lockfiles: [] })).toThrow(/100 MB of memory is free/)
+    })
+  },
+  programTimeout
+)
+
+describe(
+  "the projects a cache keeps",
+  () => {
+    const others: string[] = []
+
+    afterEach(async () => {
+      for (const other of others.splice(0)) await rm(other, { recursive: true, force: true })
+    })
+
+    async function project(): Promise<string> {
+      const dir = (await mkdtemp(join(tmpdir(), "parity-program-cache-"))).replaceAll("\\", "/")
+      others.push(dir)
+      await write("src/button.tsx", "export function Button() { return null }", dir)
+      return dir
+    }
+
+    it("let the least recently used go past the limit", async () => {
+      const [first, second, third] = [await project(), await project(), await project()]
+      const files = ["src/button.tsx"]
+      programs.program({ root: first, files, lockfiles: [] })
+      programs.program({ root: second, files, lockfiles: [] })
+      programs.program({ root: first, files, lockfiles: [] })
+      expect(programs.roots()).toEqual([first, second])
+
+      programs.program({ root: third, files, lockfiles: [] })
+      expect(programs.roots()).toEqual([third, first])
+    })
+
+    it("let a closed project go", async () => {
+      const other = await project()
+      programs.program({ root: other, files: ["src/button.tsx"], lockfiles: [] })
+      programs.close(other)
+      expect(programs.roots()).toEqual([])
+    })
+  },
+  programTimeout
+)
+
+describe(
+  "a project's program after its config changes",
   () => {
     beforeEach(async () => {
       await write(
@@ -79,7 +167,7 @@ describe(
       )
     })
 
-    it("reads an alias moved in the tsconfig the way a fresh checker does", async () => {
+    it("reads an alias moved in the tsconfig the way a fresh program does", async () => {
       await write("tsconfig.json", tsconfig("./a/*"))
       expect(props()).toEqual(["variant"])
 
@@ -89,7 +177,7 @@ describe(
       expect(freshProps()).toEqual(warm)
     })
 
-    it("reads an alias moved in an extends base the way a fresh checker does", async () => {
+    it("reads an alias moved in an extends base the way a fresh program does", async () => {
       await write("tsconfig.json", JSON.stringify({ extends: "./tsconfig.base.json", include: ["src", "a", "b"] }))
       await write("tsconfig.base.json", tsconfig("./a/*"))
       expect(props()).toEqual(["variant"])
@@ -111,7 +199,7 @@ describe(
       expect(freshProps()).toEqual(warm)
     })
 
-    it("reads a referenced config deleted, asked about, then restored the way a fresh checker does", async () => {
+    it("reads a referenced config deleted, asked about, then restored the way a fresh program does", async () => {
       await write("tsconfig.json", JSON.stringify({ files: [], references: [{ path: "./tsconfig.app.json" }] }))
       await write("tsconfig.app.json", tsconfig("./a/*"))
       expect(props()).toEqual(["variant"])
@@ -124,7 +212,7 @@ describe(
       expect(freshProps()).toEqual(warm)
     })
 
-    it("reads a tsconfig deleted, asked about, then restored the way a fresh checker does", async () => {
+    it("reads a tsconfig deleted, asked about, then restored the way a fresh program does", async () => {
       await write("tsconfig.json", tsconfig("./a/*"))
       expect(props()).toEqual(["variant"])
 
@@ -136,7 +224,7 @@ describe(
       expect(freshProps()).toEqual(warm)
     })
 
-    it("reads a tsconfig added to a project without one the way a fresh checker does", async () => {
+    it("reads a tsconfig added to a project without one the way a fresh program does", async () => {
       const before = props()
       expect(before).not.toContain("size")
 
@@ -158,7 +246,7 @@ describe(
 )
 
 describe(
-  "the props worker after the dependencies change",
+  "a project's program after the dependencies change",
   () => {
     const kit = (prop: string) => `export interface ButtonProps { ${prop}?: boolean }`
 
@@ -176,7 +264,7 @@ describe(
       )
     })
 
-    it("reads installed declarations again when the lockfile changes, as a fresh checker does", async () => {
+    it("reads installed declarations again when the lockfile changes, as a fresh program does", async () => {
       const lockfiles = ["package-lock.json"]
       expect(props(lockfiles)).toEqual(["tone"])
       await write("node_modules/kit/index.d.ts", kit("pressed"))

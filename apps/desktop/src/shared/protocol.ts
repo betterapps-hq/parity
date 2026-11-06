@@ -6,29 +6,27 @@ import type {
   MeasuredNode
 } from "@parity-app/agent"
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
+import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
-  CodeEditorChoice,
   ChangeConflict,
   ComponentInfo,
   ComponentSource,
-  DescribedTokens,
   DesignChange,
   DetectionCorrections,
   FrameViewport,
   LeftOutExport,
-  LibraryInfo,
-  ModeSettings,
   ModesChange,
-  ProjectDetection,
-  StorybookInfo,
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
 import type { EditStatus } from "@parity-app/editor"
+import type { ProjectInfo } from "@parity-app/project"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
+import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
+import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -227,16 +225,17 @@ export interface WindowMethods {
   "agent.tabs": { params: undefined; result: TabSummary[] }
   /** The window's tabs and when it last had focus, which agents' calls are routed by (PAR-514). */
   "agent.copy": { params: undefined; result: CopyReport<TabSummary> }
-  "agent.snapshot": { params: { tab?: string }; result: TabSnapshot }
+  /** A tab's live state, by the tab an agent's call names, as its schema in `contracts.ts` read it (PAR-598). */
+  "agent.snapshot": { params: Pick<AgentMethods["state"]["params"], "tab">; result: TabSnapshot }
   /** Where a tab's edits stand: applied, undoable and saved. Reading it changes nothing. */
-  "agent.status": { params: { tab?: string; summary?: boolean; limit?: number }; result: TabStatus }
+  "agent.status": { params: AgentMethods["status"]["params"]; result: TabStatus }
   /**
    * Merges an agent's changes in as one undoable step, or, when any overlaps what changed in the editor since the
    * agent's snapshot, applies nothing and gives back the conflicts.
    */
   "agent.apply": { params: AgentChanges; result: ChangeConflict[] }
   "agent.presence": { params: PresenceEvent[]; result: undefined }
-  "agent.open": { params: { root: string }; result: TabSummary }
+  "agent.open": { params: AgentMethods["open"]["params"]; result: TabSummary }
   /** An icon set's names in one style's module, from the tab's own copy of the set, for `Icons(set)`. */
   "agent.iconNames": { params: { tab: string; set: string; module?: string }; result: IconNames }
   /** Whether the browser takes each value for its CSS property, for checking an agent's `SetTokens` (PAR-584). */
@@ -289,49 +288,7 @@ export const windowMethods = Object.keys({
   "project.guestMoved": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
-export interface ProjectInfo {
-  /** Identifies the open project; its absolute root. */
-  id: string
-  root: string
-  name: string
-  renderer: { id: string; name: string }
-  builder: { id: string; name: string; toolVersion: string }
-  /** The styling framework whose theme the tokens include, when one was recognized. */
-  styles?: { id: string; name: string; stylesheet: string; error?: string }
-  /** The styling framework's full theme, which compiled CSS trims to what the project's code uses. */
-  theme: ThemeVariable[]
-  guestUrl: string
-  componentCount: number
-  /** Where each component comes from: the project's own files, or a library. */
-  sources: Record<string, ComponentSource>
-  /** The app's capitalised exports the type checker left out, with why, once it has read them. */
-  leftOut?: LeftOutExport[]
-  /** How the project was discovered. */
-  notes: string[]
-  /**
-   * What detection found and where: the package manager, and the version and config of each tool Parity runs or
-   * renders with. Its `notice` names versions the cutoff drops.
-   */
-  detection: ProjectDetection
-  documents: DocumentEntry[]
-  /** Component libraries the project depends on. */
-  libraries: LibraryInfo[]
-  /** The project's Storybook, and which components have stories, when it has one. */
-  storybook?: StorybookInfo
-  /** Tokens described in DTCG by the project's own `.lib.par` and its libraries'. */
-  describedTokens?: DescribedTokens[]
-  /** The `.par` file new designs, components and modes are saved in, relative to the root. */
-  mainDocument: string
-  /** Project-wide modes: the defaults until someone edits them, then saved in the main project file. */
-  modes: { settings: ModeSettings; custom: boolean }
-}
-
-/** A design file, or the reason it couldn't be read. */
-export interface DocumentEntry {
-  path: string
-  document?: CanvasDocument
-  error?: string
-}
+export type { ProjectInfo }
 
 /**
  * Where a tab's edits stand (see `editStatus` in `@parity-app/editor`), with the revision as the agent API gives it:
@@ -414,7 +371,7 @@ export interface CanvasHost {
   /** Opens the window's developer tools, or closes them. */
   toggleDevTools(): Promise<void>
   /** The app's theme, so the window's title bar buttons and system dialogs match it. */
-  setTheme(theme: "light" | "dark" | "system"): Promise<void>
+  setTheme(theme: ThemeSource): Promise<void>
   /**
    * Runs when the window is asked to close, which waits for it: true closes it, false keeps it open, as when the
    * person cancels on being asked about unsaved changes.
@@ -440,20 +397,9 @@ export interface ProcessUsage {
 }
 
 /** A file to open in the person's editor (PAR-527). */
-export interface OpenInEditorRequest {
-  /** Its absolute path. */
-  file: string
-  /** The export to open it at, as a component's source names it. */
-  export?: string
-  /** What Settings says to open it with. */
-  editor: CodeEditorChoice
-}
+export type OpenInEditorRequest = z.infer<typeof openInEditorRequest>
 
-export interface SaveDialogOptions {
-  title: string
-  defaultPath?: string
-  filters?: { name: string; extensions: string[] }[]
-}
+export type SaveDialogOptions = z.infer<typeof saveDialogOptions>
 
 /** A frame the offscreen render window draws, to measure it or capture it. */
 export interface RenderJob {

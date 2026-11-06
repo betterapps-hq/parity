@@ -1,10 +1,12 @@
 // The offscreen render window's page. The main process asks it to draw one frame, measures it, and captures it, so
 // agents can lay out and screenshot any state in any mode without touching the person's canvas.
 import type { AccessibilityIssue, ContrastDetail, ContrastReading, FrameContrast } from "@parity-app/agent"
-import { guestChanges, type RenderNode, renderedComponents } from "@parity-app/core"
+import { finiteNumber, guestChanges, type RenderNode, renderedComponents } from "@parity-app/core"
 import { frameAttributes } from "@parity-app/tokens"
 import axe, { type NodeResult, type RunOptions } from "axe-core"
+import { z } from "zod"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import { frameBox, frameHeight } from "../shared/render-job.ts"
 import {
   drawnNodeIds,
   findNodeElement,
@@ -115,12 +117,7 @@ window.canvasRender = async (job) => {
       const element = findNodeElement(host, id)
       const rect = nodeBox(host, id)
       if (!element || !rect) continue
-      const inFrame = (box: DOMRect) => ({
-        x: round((box.left - origin.left) / job.scale),
-        y: round((box.top - origin.top) / job.scale),
-        width: round(box.width / job.scale),
-        height: round(box.height / job.scale)
-      })
+      const inFrame = (box: DOMRect) => frameBox(box, origin, job.scale)
       const measured: MeasuredNode = { id, ...inFrame(rect) }
       const parent = nodeParent(host, id)
       if (parent) measured.parent = parent
@@ -135,7 +132,7 @@ window.canvasRender = async (job) => {
     const known = new Set(loaded.guest.components)
     return {
       width: job.mode.width,
-      height: job.mode.height ?? Math.ceil(origin.height / job.scale),
+      height: job.mode.height ?? frameHeight(origin.height, job.scale),
       nodes,
       overflowsX: body.scrollWidth > body.clientWidth + 1,
       unknownComponents: [
@@ -306,19 +303,17 @@ function detailOf(node: NodeResult): { detail: string; contrast?: ContrastDetail
   return { detail: message.replace(/([\w-]+="[^"]*")/g, "`$1`") }
 }
 
-function contrastOf(data: unknown): ContrastDetail | undefined {
-  const measured = data as
-    | {
-        fgColor?: string
-        bgColor?: string
-        contrastRatio?: number
-        expectedContrastRatio?: string
-        fontSize?: string
-        fontWeight?: string
-      }
-    | undefined
-  if (!measured?.fgColor || !measured.bgColor || typeof measured.contrastRatio !== "number") return undefined
-  return {
+/** What axe-core's color-contrast check measured, as its `data`, read as the colors and sizes a contrast failure names. */
+const contrastMeasure = z
+  .object({
+    fgColor: z.string().min(1),
+    bgColor: z.string().min(1),
+    contrastRatio: finiteNumber,
+    expectedContrastRatio: z.string().optional(),
+    fontSize: z.string().optional(),
+    fontWeight: z.string().optional()
+  })
+  .transform((measured): ContrastDetail => ({
     foreground: measured.fgColor,
     background: measured.bgColor,
     ratio: measured.contrastRatio,
@@ -326,7 +321,10 @@ function contrastOf(data: unknown): ContrastDetail | undefined {
     // axe-core gives the size as "10.5pt (14px)".
     fontSize: Number(/\(([\d.]+)px\)/.exec(measured.fontSize ?? "")?.[1] ?? 0),
     bold: measured.fontWeight === "bold"
-  }
+  }))
+
+function contrastOf(data: unknown): ContrastDetail | undefined {
+  return contrastMeasure.safeParse(data).data
 }
 
 /** Half a CSS pixel, for subpixel layout: the agent's `overflowTolerance`, which judges what this reports. */
@@ -371,8 +369,4 @@ function imagesLoaded(host: HTMLElement): Promise<unknown> {
   return Promise.all(
     images.map((image) => (image.complete ? Promise.resolve() : image.decode().catch(() => undefined)))
   )
-}
-
-function round(value: number): number {
-  return Math.round(value * 10) / 10
 }

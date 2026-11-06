@@ -1,7 +1,7 @@
 import { CodedError, defaultModeSettings, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { type AgentMethod, replies } from "./contracts.ts"
-import { type AgentHost, dispatch, exportPictures } from "./dispatch.ts"
+import { type AgentHost, answerRequest, dispatch, exportPictures } from "./dispatch.ts"
 import type { AgentChangeSet, FrameRequest, PresenceEvent, TabSnapshot } from "./types.ts"
 
 /** A tab with one screen, Sign up, holding a title and a Button, in the default modes. */
@@ -267,6 +267,81 @@ describe("dispatch", () => {
     await expect(refused).rejects.toBeInstanceOf(CodedError)
     await expect(refused).rejects.toMatchObject({ details: { code: "invalid_input", field: "method" } })
     await expect(refused).rejects.toThrow(/Methods: tabs, copy, open, state/)
+  })
+})
+
+describe("answerRequest", () => {
+  /** Answers a `/rpc` body, or gives back the coded error it failed with and what the host was asked. */
+  async function refused(body: string) {
+    const { host, asked } = fixtureHost()
+    const error: unknown = await answerRequest(body, host).catch((thrown: unknown) => thrown)
+    expect(error).toBeInstanceOf(CodedError)
+    return { error: error as CodedError, asked }
+  }
+
+  it("dispatches a body's method and params, showing the caller it names", async () => {
+    const { host, asked } = fixtureHost()
+    const body = { method: "state", params: { tab: "App" }, agent: "Claude Code", agentId: "session-1" }
+    const answer = await answerRequest(JSON.stringify(body), host)
+    expect(replies.state.safeParse(answer).success).toBe(true)
+    expect(asked.snapshots).toEqual(["App"])
+    expect(asked.presence[0]).toMatchObject({ agent: "Claude Code", agentId: "session-1" })
+  })
+
+  it("refuses a body that isn't a JSON object naming a method", async () => {
+    expect((await refused("{method: state}")).error).toMatchObject({
+      message: "expected JSON",
+      details: { code: "invalid_input" }
+    })
+    expect((await refused("[1]")).error).toMatchObject({
+      message: "The request must be a JSON object",
+      details: { code: "invalid_input" }
+    })
+    expect((await refused('{"params":{}}')).error).toMatchObject({
+      message: "method must be a string",
+      details: { code: "invalid_input", field: "method" }
+    })
+  })
+
+  it("refuses a method the app doesn't have", async () => {
+    const { error } = await refused('{"method":"delete"}')
+    expect(error).toMatchObject({ details: { code: "invalid_input", field: "method" } })
+  })
+
+  it("refuses params their method's schema doesn't take, at their path, before asking the host anything", async () => {
+    const cases: [unknown, string, string][] = [
+      [
+        { method: "screenshot", params: { design: "signup", scale: 9 } },
+        "scale",
+        "scale must be a finite number from 0.25 to 3"
+      ],
+      [{ method: "state", params: { tab: "App", design: "signup" } }, "design", "Unknown input field design"],
+      [{ method: "props", params: {} }, "component", "component must be a nonblank string"],
+      [{ method: "open", params: { root: "app" } }, "root", "root must be an absolute project folder path"],
+      [
+        { method: "exec", params: { editId: "e1", edits: [{ find: "", replace: "x" }] } },
+        "edits/0/find",
+        "Each edit needs a nonempty find string"
+      ],
+      [{ method: "status", params: "all" }, "", "Operation input must be an object"]
+    ]
+    for (const [body, field, message] of cases) {
+      const { error, asked } = await refused(JSON.stringify(body))
+      expect(error.message).toBe(message)
+      expect(error.details).toEqual({ code: "invalid_input", retryable: false, ...(field ? { field } : {}) })
+      expect(asked.snapshots).toEqual([])
+    }
+  })
+
+  it("reads params with their schema's defaults", async () => {
+    const { host } = fixtureHost()
+    const statuses: unknown[] = []
+    host.status = async (request) => {
+      statuses.push(request)
+      return fixtureHost().host.status(request)
+    }
+    await answerRequest('{"method":"status"}', host)
+    expect(statuses).toEqual([{ summary: false, limit: 10 }])
   })
 })
 

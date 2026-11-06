@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Read package manifests, shadcn's components.json and tool configs through zod schemas, naming the file and field at fault",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

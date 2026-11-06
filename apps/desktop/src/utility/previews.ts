@@ -12,8 +12,9 @@ import {
   sharedPreviewFiles
 } from "@parity-app/project"
 import type { ComponentPreview, PreviewJob } from "../shared/protocol.ts"
+import { previewName } from "../shared/render-job.ts"
 import { previewIndex, storedPreview, storePreview } from "./bitmap-store.ts"
-import { codeServedAt, previewProject } from "./projects.ts"
+import type { OpenProjects } from "./projects.ts"
 import { renderPreview } from "./render.ts"
 import { losslessWebp } from "./webp.ts"
 
@@ -31,31 +32,57 @@ const previewFormat = 3
 const imports = new WeakMap<CodeSnapshot, Map<string, Promise<string[]>>>()
 /** A project's tsconfig aliases, by snapshot, as `resolvePathAlias` reads them. */
 const aliases = new WeakMap<CodeSnapshot, (specifier: string) => string | undefined>()
-/** Previews being made, by project and key, so asking twice draws once. */
-const making = new Map<string, Promise<ComponentPreview>>()
 
-/** What's kept of each preview for its job's code, in the order asked; one whose project isn't open is left out. */
-export async function lookupPreviews(previews: PreviewJob[]): Promise<ComponentPreview[]> {
-  const found = await Promise.all(previews.map(lookup))
-  return found.filter((preview) => preview !== undefined)
-}
+/** What component previews need of the open projects. */
+export type PreviewProjects = Pick<OpenProjects, "codeServedAt" | "previewProject">
 
-/**
- * Makes a component's preview, unless it's made for its key already, failed to draw for it or drew nothing to see, and
- * keeps it. A draw that failed or showed nothing is kept as such, so the same code isn't drawn again on every open; one
- * that didn't finish, as when the offscreen window closed under it, isn't, and is tried again when it's next asked for.
- */
-export async function makePreview(preview: PreviewJob, priority: "visible" | "idle"): Promise<ComponentPreview> {
-  const looked = await lookup(preview)
-  if (!looked) throw new Error("The project's code isn't known yet")
-  if (looked.image || looked.error || looked.empty) return looked
-  const id = `${preview.job.projectId}\0${looked.key}`
-  let made = making.get(id)
-  if (!made) {
-    made = make(preview, looked, priority).finally(() => making.delete(id))
-    making.set(id, made)
+/** Component previews of the projects open in `projects`. */
+export function componentPreviews(projects: PreviewProjects): {
+  lookupPreviews: (previews: PreviewJob[]) => Promise<ComponentPreview[]>
+  makePreview: (preview: PreviewJob, priority: "visible" | "idle") => Promise<ComponentPreview>
+} {
+  /** Previews being made, by project and key, so asking twice draws once. */
+  const making = new Map<string, Promise<ComponentPreview>>()
+
+  async function lookup(preview: PreviewJob): Promise<ComponentPreview | undefined> {
+    const { component, job } = preview
+    const key = await keyFor(projects, preview)
+    if (!key) return undefined
+    const image = await storedPreview(job.projectId, key)
+    if (image) return { component, key, image }
+    const record = (await previewIndex(job.projectId)).get(component)
+    if (record?.key === key && record.error) return { component, key, error: record.error }
+    if (record?.key === key && record.empty) return { component, key, empty: true }
+    const last = record && !record.error && !record.empty ? await storedPreview(job.projectId, record.key) : undefined
+    return { component, key, ...(last ? { last } : {}) }
   }
-  return made
+
+  return {
+    /** What's kept of each preview for its job's code, in the order asked; one whose project isn't open is left out. */
+    async lookupPreviews(previews) {
+      const found = await Promise.all(previews.map(lookup))
+      return found.filter((preview) => preview !== undefined)
+    },
+
+    /**
+     * Makes a component's preview, unless it's made for its key already, failed to draw for it or drew nothing to see,
+     * and keeps it. A draw that failed or showed nothing is kept as such, so the same code isn't drawn again on every
+     * open; one that didn't finish, as when the offscreen window closed under it, isn't, and is tried again when it's
+     * next asked for.
+     */
+    async makePreview(preview, priority) {
+      const looked = await lookup(preview)
+      if (!looked) throw new Error("The project's code isn't known yet")
+      if (looked.image || looked.error || looked.empty) return looked
+      const id = `${preview.job.projectId}\0${looked.key}`
+      let made = making.get(id)
+      if (!made) {
+        made = make(preview, looked, priority).finally(() => making.delete(id))
+        making.set(id, made)
+      }
+      return made
+    }
+  }
 }
 
 async function make(
@@ -89,27 +116,14 @@ async function make(
   return image ? { component, key, image } : looked
 }
 
-async function lookup(preview: PreviewJob): Promise<ComponentPreview | undefined> {
-  const { component, job } = preview
-  const key = await keyFor(preview)
-  if (!key) return undefined
-  const image = await storedPreview(job.projectId, key)
-  if (image) return { component, key, image }
-  const record = (await previewIndex(job.projectId)).get(component)
-  if (record?.key === key && record.error) return { component, key, error: record.error }
-  if (record?.key === key && record.empty) return { component, key, empty: true }
-  const last = record && !record.error && !record.empty ? await storedPreview(job.projectId, record.key) : undefined
-  return { component, key, ...(last ? { last } : {}) }
-}
-
 /**
- * A preview's key: what its job draws, less where it's drawn from and what the guest was given, and the files it
- * depends on, as the address the job draws from first served them. Unsaved token previews aren't drawn in previews, so
- * a token being tried changes none of them; saved, it changes the stylesheet, and so every one.
+ * A preview's key: its job as `previewName` names it, and the files it depends on, as the address the job draws from
+ * first served them. Unsaved token previews aren't drawn in previews, so a token being tried changes none of them;
+ * saved, it changes the stylesheet, and so every one.
  */
-async function keyFor({ job }: PreviewJob): Promise<string | undefined> {
-  const project = previewProject(job.projectId)
-  const served = codeServedAt(job.projectId, job.guestUrl)
+async function keyFor(projects: PreviewProjects, { job }: PreviewJob): Promise<string | undefined> {
+  const project = projects.previewProject(job.projectId)
+  const served = projects.codeServedAt(job.projectId, job.guestUrl)
   if (!project || !served) return undefined
   const snapshot = await served.code
   // A library's components are its package, which the lockfile stands for.
@@ -122,17 +136,8 @@ async function keyFor({ job }: PreviewJob): Promise<string | undefined> {
   const closure = await moduleClosure([...entries, ...project.stylesheets], (path) =>
     importsOf(project.root, snapshot, path)
   )
-  const {
-    guestUrl: _address,
-    components: _given,
-    previews: _tokens,
-    audit: _audit,
-    colorTokens: _colors,
-    projectId: _project,
-    ...drawn
-  } = job
   return previewKey({
-    drawn,
+    drawn: previewName(job),
     files: [...closure, ...sharedPreviewFiles(snapshot)],
     snapshot,
     salt: `${previewFormat}:${snapshot.salt}`

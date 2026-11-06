@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
+import { parseManifest } from "@parity-app/core"
 import type { ServiceMethods } from "../shared/protocol.ts"
 import { findRoutedServer, readPortless } from "./portless.ts"
 import { adoptServer, choosePort, knownServers, startServer, stopServer } from "./process-manager.ts"
-import { getProject } from "./projects.ts"
+import type { OpenProject } from "./projects.ts"
 
 /** A running Storybook: where Parity reaches it, and where the browser opens it, by its Portless name when it has one. */
 interface Served {
@@ -25,21 +26,20 @@ const serving = new Map<string, Promise<Served>>()
  * Opens a component's stories: its docs page when it has one, else its first story. Starts the project's Storybook
  * first when it isn't running, which can take a while the first time. Without a component, Storybook's home.
  */
-export async function openStorybook({
-  projectId,
-  component
-}: ServiceMethods["storybook.open"]["params"]): Promise<ServiceMethods["storybook.open"]["result"]> {
-  const { info } = getProject(projectId)
+export async function openStorybook(
+  { info }: OpenProject,
+  { component }: ServiceMethods["storybook.open"]["params"]
+): Promise<ServiceMethods["storybook.open"]["result"]> {
   const storybook = info.storybook
   if (!storybook) throw new Error(`${info.name} has no Storybook`)
   const files = component ? (storybook.stories[component] ?? []) : []
   if (component && files.length === 0) throw new Error(`${component} has no stories`)
   // A Storybook that stopped since it was last used, closed by hand or crashed, is started again.
-  let served = await ensureStorybook(projectId)
+  let served = await ensureStorybook(info)
   let entries = await storyIndex(served.url).catch(() => undefined)
   if (!entries) {
-    stopStorybook(projectId)
-    served = await ensureStorybook(projectId)
+    stopStorybook(info.id)
+    served = await ensureStorybook(info)
     entries = await storyIndex(served.url)
   }
   const { address } = served
@@ -56,21 +56,22 @@ function stopStorybook(projectId: string): void {
 }
 
 /** Starts a project's Storybook again, as from the status bar's processes. */
-async function restartStorybook(projectId: string): Promise<void> {
-  stopStorybook(projectId)
-  await ensureStorybook(projectId)
+async function restartStorybook(info: OpenProject["info"]): Promise<void> {
+  stopStorybook(info.id)
+  await ensureStorybook(info)
 }
 
 function processId(projectId: string): string {
   return `storybook:${projectId}`
 }
 
-function ensureStorybook(projectId: string): Promise<Served> {
+function ensureStorybook(info: OpenProject["info"]): Promise<Served> {
+  const projectId = info.id
   const existing = serving.get(projectId)
   // One the process manager no longer knows has stopped since, or crashed, or its project closed.
   const known = knownServers(projectId).some((server) => server.id === processId(projectId))
   if (existing && known) return existing
-  const ready: Promise<Served> = start(projectId).catch((error: unknown) => {
+  const ready: Promise<Served> = start(info).catch((error: unknown) => {
     if (serving.get(projectId) === ready) serving.delete(projectId)
     throw error
   })
@@ -78,8 +79,8 @@ function ensureStorybook(projectId: string): Promise<Served> {
   return ready
 }
 
-async function start(projectId: string): Promise<Served> {
-  const { info } = getProject(projectId)
+async function start(info: OpenProject["info"]): Promise<Served> {
+  const projectId = info.id
   const storybook = info.storybook!
   const storyPaths = Object.values(storybook.stories).flatMap((files) => files.map((file) => file.path))
   /** Whether a Storybook answers at `base` with this project's stories. With none to check, any Storybook does. */
@@ -120,7 +121,7 @@ async function start(projectId: string): Promise<Served> {
   } catch {
     throw new Error("Storybook isn't installed in the project. Install its dependencies first.")
   }
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { bin?: string | Record<string, string> }
+  const manifest = parseManifest(readFileSync(manifestPath, "utf8"), manifestPath)
   const bin =
     typeof manifest.bin === "string" ? manifest.bin : (manifest.bin?.storybook ?? Object.values(manifest.bin ?? {})[0])
   if (!bin) throw new Error("Storybook's command line couldn't be found")
@@ -143,7 +144,7 @@ async function start(projectId: string): Promise<Served> {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", BROWSER: "none" },
     url,
     ready: (base) => storyIndex(base).then(() => true),
-    restart: () => restartStorybook(projectId)
+    restart: () => restartStorybook(info)
   })
   await server.ready
   return { url, address: url }

@@ -2,6 +2,60 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 01:41:42 GMT",
+      "version": "0.7.6",
+      "tag": "@parity-app/cli_v0.7.6",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f8d91228fdf794aedab3f7e6e133ff20f5c0d56e",
+            "comment": "The text editor writes an edit to the state whose text it showed, even when the state it was picked in is gone"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "21fecea6ab98858483733b5e38494daf8dbe4329",
+            "comment": "Library files, their edits and decorator values are checked with zod schemas, and a decorator value's form is checked when the file loads."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f36ef736da5cc87d72f3de05d6b2fde7c650c04f",
+            "comment": "Split lint, board geometry and frame reading out of the agent workspace, and type its api()"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0e268c73454dae678313923315447550f8baea95",
+            "comment": "Keep each project's TypeScript program in @parity-app/code's program cache, which the type checker worker calls"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aecc8e5c39c81912d4d4fb95b2334f1943785480",
+            "comment": "Checks the clipboard, drag payloads and saved preferences with zod: a copy or drop that doesn't parse is refused, and a saved value that doesn't read falls back to its default without resetting the rest"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 01:01:59 GMT",
+      "version": "0.7.5",
+      "tag": "@parity-app/cli_v0.7.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0a9ad70f93fddb613ef0dcb12c54794e5ad5dbd0",
+            "comment": "Work out which design, state and viewport an edit lands on in one place, and place the text tool's text where a drop would land"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 00:40:25 GMT",
       "version": "0.7.4",
       "tag": "@parity-app/cli_v0.7.4",

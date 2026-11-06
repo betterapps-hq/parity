@@ -3,7 +3,7 @@ import { CodedError } from "./errors.ts"
 
 /**
  * Checks for data Parity didn't make (PAR-578): files, agent input, environment variables, other programs' JSON. A zod
- * schema is both the check and the type. A failed check reads as core's hand-written ones in `validate.ts` do: a JSON
+ * schema is both the check and the type. A failed check reads as core's hand-written ones in `validate.ts` did: a JSON
  * pointer to the value at fault, then what was expected there, as in `/containers/0/name: expected a string`.
  */
 
@@ -141,7 +141,7 @@ function expectation(issue: z.core.$ZodIssue): string | undefined {
   return undefined
 }
 
-/** Zod's issues in `validate.ts`'s words. Messages a schema gives itself win, and anything else keeps zod's own. */
+/** Zod's issues in the words of core's old `validate.ts`. Messages a schema gives itself win, and anything else keeps zod's own. */
 function issueText(issue: z.core.$ZodRawIssue): string | undefined {
   switch (issue.code) {
     case "invalid_type":

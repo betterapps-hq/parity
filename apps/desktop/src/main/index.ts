@@ -32,13 +32,17 @@ import {
 import { type AccountState, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
-import type {
-  OpenInEditorRequest,
-  ProcessUsage,
-  RenderedFrame,
-  RenderJob,
-  SaveDialogOptions
-} from "../shared/protocol.ts"
+import {
+  betaSetting,
+  checked,
+  folderPickerTitle,
+  openInEditorRequest,
+  saveDialogOptions,
+  shownItem,
+  themeSource
+} from "../shared/ipc-checks.ts"
+import type { ProcessUsage, RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import { deviceBox, devicePixels } from "../shared/render-job.ts"
 import type {
   BuilderReading,
   ConnectMessage,
@@ -51,16 +55,21 @@ import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { readConsole, recordConsole } from "./console-log.ts"
+import { readEnvironment } from "./environment.ts"
 import { idleClose } from "./idle-close.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
 import { launchLink, passLink } from "./pass-link.ts"
 import { privateMemory } from "./private-memory.ts"
+import { auditResult, canvasHeightResult, renderResult } from "./render-results.ts"
 import { sessionStore } from "./session-store.ts"
+import { savedTheme } from "./theme-file.ts"
 import type { UpdateSession } from "./update-session.ts"
 import { createUpdates } from "./updates.ts"
 
-const rendererUrl = process.env.PARITY_RENDERER_URL ?? "parity://app/index.html"
+/** Main's environment variables, read once, as it starts. */
+const environment = readEnvironment(process.env)
+const rendererUrl = environment.PARITY_RENDERER_URL
 // A standard, secure origin keeps storage and project CORS working when the UI comes from the installed files.
 protocol.registerSchemesAsPrivileged([
   { scheme: "parity", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -70,13 +79,15 @@ protocol.registerSchemesAsPrivileged([
 const rendererOrigin = rendererUrl.startsWith("parity://app/") ? "parity://app" : new URL(rendererUrl).origin
 
 // Lets agents and scripts inspect the running canvas over the Chrome DevTools Protocol.
-if (process.env.PARITY_DEBUG_PORT) app.commandLine.appendSwitch("remote-debugging-port", process.env.PARITY_DEBUG_PORT)
+if (environment.PARITY_DEBUG_PORT !== undefined) {
+  app.commandLine.appendSwitch("remote-debugging-port", String(environment.PARITY_DEBUG_PORT))
+}
 // A copy being measured keeps drawing while other windows cover it, which a window otherwise stops doing on Windows.
-if (process.env.PARITY_WINDOW_SIZE) app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion")
+if (environment.PARITY_WINDOW_SIZE) app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion")
 // A second copy, such as the one `pnpm perf` starts, keeps its own tabs, storage and theme. The app's own stay where
 // its package's first name put them, under @parity/desktop, now that the app is named Parity and the package
 // @parity-app/desktop (PAR-425).
-app.setPath("userData", process.env.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
+app.setPath("userData", environment.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
 app.setName("Parity")
 
 let service: UtilityProcess | undefined
@@ -87,21 +98,18 @@ const retired = new WeakSet<UtilityProcess>()
 /** Each service's channel, which its requests to draw and read consoles come over. */
 const serviceChannels = new WeakMap<UtilityProcess, Channel<MainMethods, ServiceProcessMethods>>()
 
-type ThemeSource = "light" | "dark" | "system"
-
 /** The app's theme is kept here too, so the window opens in it before the page loads. */
 const themeFile = join(app.getPath("userData"), "theme.json")
 
-function savedTheme(): ThemeSource {
+function readThemeFile(): string | undefined {
   try {
-    const { theme } = JSON.parse(readFileSync(themeFile, "utf8")) as { theme?: unknown }
-    return theme === "light" || theme === "system" ? theme : "dark"
+    return readFileSync(themeFile, "utf8")
   } catch {
-    return "dark"
+    return undefined
   }
 }
 
-nativeTheme.themeSource = savedTheme()
+nativeTheme.themeSource = savedTheme(readThemeFile())
 
 /** The title bar's colors, which the system's window buttons sit on, matching the tab strip. */
 function titleBarColors(): { background: string; symbols: string } {
@@ -121,7 +129,7 @@ nativeTheme.on("updated", () => {
 })
 
 const serviceName = "Parity project service"
-const serviceDirectory = isPackaged(app.isPackaged, process.env)
+const serviceDirectory = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
   ? join(process.resourcesPath, "app.asar.unpacked")
   : import.meta.dirname
 const serviceEntry = join(serviceDirectory, "utility.mjs")
@@ -206,16 +214,16 @@ function createWindow(): void {
   const { background, symbols } = titleBarColors()
   // A size for the page itself, such as 1439x901, which `pnpm perf` asks for so every run draws the same area, in the
   // middle of the main screen, so every run draws at the same pixel ratio.
-  const [pageWidth, pageHeight] = (process.env.PARITY_WINDOW_SIZE ?? "").split("x").map(Number)
+  const pageSize = environment.PARITY_WINDOW_SIZE
   const { workArea } = screen.getPrimaryDisplay()
   const window = new BrowserWindow({
-    ...(pageWidth && pageHeight
+    ...(pageSize
       ? {
-          width: pageWidth,
-          height: pageHeight,
+          width: pageSize.width,
+          height: pageSize.height,
           useContentSize: true,
-          x: Math.round(workArea.x + Math.max(0, workArea.width - pageWidth) / 2),
-          y: Math.round(workArea.y + Math.max(0, workArea.height - pageHeight) / 2)
+          x: Math.round(workArea.x + Math.max(0, workArea.width - pageSize.width) / 2),
+          y: Math.round(workArea.y + Math.max(0, workArea.height - pageSize.height) / 2)
         }
       : { width: 1440, height: 900 }),
     minWidth: 960,
@@ -230,14 +238,14 @@ function createWindow(): void {
     webPreferences: {
       additionalArguments: [
         `--parity-version=${app.getVersion()}`,
-        ...(process.env.PARITY_PROJECT ? [`--parity-initial-project=${process.env.PARITY_PROJECT}`] : [])
+        ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : [])
       ],
       preload: join(import.meta.dirname, "preload.cjs"),
       contextIsolation: true,
       sandbox: true
     }
   })
-  recordConsole(window.webContents, "canvas", new URL(rendererUrl!).origin)
+  recordConsole(window.webContents, "canvas", new URL(rendererUrl).origin)
   // Every page load gets its own channel to the service.
   window.webContents.on("did-finish-load", () => connectWindow(window))
   // The page decides whether the window closes: it may ask about unsaved changes first, or finish saving. It answers
@@ -300,7 +308,7 @@ function createWindow(): void {
   // The hidden render windows would otherwise keep the app running.
   window.on("closed", closeRenderWindows)
   window.on("closed", () => updateRestarts.delete(window.id))
-  void window.loadURL(rendererUrl!)
+  void window.loadURL(rendererUrl)
 }
 
 let quitting = false
@@ -398,7 +406,7 @@ function appWindows(): BrowserWindow[] {
  * copy listens on a loopback port of its own for each sign-in, since several copies run at once and only an installed
  * app gets the scheme. Both use WorkOS's Staging environment until Production exists (PAR-611).
  */
-const packaged = isPackaged(app.isPackaged, process.env)
+const packaged = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
 const account = createAccount({
   clientId: workosClientId,
   fetch: (url, init) => net.fetch(url, init),
@@ -458,10 +466,13 @@ ipcMain.handle(ipc.accountState, (event) => {
   appWindowOf(event, signInRefusal)
   return account.state()
 })
-ipcMain.handle(ipc.accountSignIn, (event, request: unknown) => {
-  appWindowOf(event, signInRefusal)
-  return account.signIn(signInRequest.parse(request))
-})
+ipcMain.handle(
+  ipc.accountSignIn,
+  checked(signInRequest, (event: Electron.IpcMainInvokeEvent, request) => {
+    appWindowOf(event, signInRefusal)
+    return account.signIn(request)
+  })
+)
 ipcMain.handle(ipc.accountReopen, (event) => {
   appWindowOf(event, signInRefusal)
   return account.reopen()
@@ -478,7 +489,7 @@ ipcMain.handle(ipc.accountSignOut, (event) => {
 const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 const installedBuild = new InstalledBuild({
   version: app.getVersion(),
-  packaged: isPackaged(app.isPackaged, process.env),
+  packaged: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
   metadata: () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")),
   read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
   save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
@@ -496,11 +507,13 @@ ipcMain.handle(ipc.updateCheck, async (event) => {
   updateOwner(event)
   await updates?.check()
 })
-ipcMain.handle(ipc.updateBeta, (event, beta: unknown) => {
-  updateOwner(event)
-  if (typeof beta !== "boolean") throw new Error("The beta setting must be true or false.")
-  updates?.setBeta(beta)
-})
+ipcMain.handle(
+  ipc.updateBeta,
+  checked(betaSetting, (event: Electron.IpcMainInvokeEvent, beta) => {
+    updateOwner(event)
+    updates?.setBeta(beta)
+  })
+)
 ipcMain.handle(ipc.updateAct, async (event) => {
   const window = updateOwner(event)
   const state = updates?.get()
@@ -520,8 +533,11 @@ async function showOpen(event: Electron.IpcMainInvokeEvent, options: Electron.Op
   return result.canceled ? undefined : result.filePaths[0]
 }
 
-ipcMain.handle(ipc.pickFolder, (event, title?: string) =>
-  showOpen(event, { title: title ?? "Open project", properties: ["openDirectory", "createDirectory"] })
+ipcMain.handle(
+  ipc.pickFolder,
+  checked(folderPickerTitle, (event: Electron.IpcMainInvokeEvent, title) =>
+    showOpen(event, { title: title ?? "Open project", properties: ["openDirectory", "createDirectory"] })
+  )
 )
 
 ipcMain.handle(ipc.pickProjectFile, (event) =>
@@ -532,30 +548,41 @@ ipcMain.handle(ipc.pickProjectFile, (event) =>
   })
 )
 
-ipcMain.handle(ipc.saveDialog, async (event, options: SaveDialogOptions) => {
-  const owner = ownerOf(event)
-  const settings = { title: options.title, defaultPath: options.defaultPath, filters: options.filters }
-  const result = owner ? await dialog.showSaveDialog(owner, settings) : await dialog.showSaveDialog(settings)
-  return result.canceled ? undefined : result.filePath
-})
+ipcMain.handle(
+  ipc.saveDialog,
+  checked(saveDialogOptions, async (event: Electron.IpcMainInvokeEvent, settings) => {
+    const owner = ownerOf(event)
+    const result = owner ? await dialog.showSaveDialog(owner, settings) : await dialog.showSaveDialog(settings)
+    return result.canceled ? undefined : result.filePath
+  })
+)
 
-ipcMain.handle(ipc.showItem, (_event, path: string) => shell.showItemInFolder(path))
+ipcMain.handle(
+  ipc.showItem,
+  checked(shownItem, (_event, path) => shell.showItemInFolder(path))
+)
 
-ipcMain.handle(ipc.openInEditor, (_event, request: OpenInEditorRequest) => openInEditor(request))
+ipcMain.handle(
+  ipc.openInEditor,
+  checked(openInEditorRequest, (_event, request) => openInEditor(request))
+)
 
 ipcMain.handle(ipc.quit, () => app.quit())
 
 ipcMain.handle(ipc.toggleDevTools, (event) => event.sender.toggleDevTools())
 
-ipcMain.handle(ipc.setTheme, (_event, theme: ThemeSource) => {
-  if (!["light", "dark", "system"].includes(theme) || nativeTheme.themeSource === theme) return
-  nativeTheme.themeSource = theme
-  try {
-    writeFileSync(themeFile, JSON.stringify({ theme }))
-  } catch (error) {
-    console.error("The theme couldn't be remembered", error)
-  }
-})
+ipcMain.handle(
+  ipc.setTheme,
+  checked(themeSource, (_event, theme) => {
+    if (nativeTheme.themeSource === theme) return
+    nativeTheme.themeSource = theme
+    try {
+      writeFileSync(themeFile, JSON.stringify({ theme }))
+    } catch (error) {
+      console.error("The theme couldn't be remembered", error)
+    }
+  })
+)
 
 /** The service's last answer, for when it's too busy to answer in time. */
 let lastBuilders: BuilderReading[] = []
@@ -649,7 +676,7 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
       height: 800,
       webPreferences: { offscreen: true, contextIsolation: true, sandbox: true }
     })
-    recordConsole(window.webContents, "offscreen", new URL(rendererUrl!).origin)
+    recordConsole(window.webContents, "offscreen", new URL(rendererUrl).origin)
     render = { window, loaded: window.loadURL(new URL("render.html", rendererUrl).href) }
     renderWindows[index] = render
   }
@@ -660,10 +687,9 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
 function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: RenderedFrame; png?: string }> {
   return renderOffscreen("render", job, capture || !!job.audit, async (window, frame, width, height) => {
     if (job.audit) {
-      const audited = (await window.webContents.executeJavaScript(
-        `window.canvasAudit(${JSON.stringify(job.colorTokens ?? [])})`,
-        true
-      )) as Pick<RenderedFrame, "issues" | "contrast">
+      const audited = auditResult(
+        await window.webContents.executeJavaScript(`window.canvasAudit(${JSON.stringify(job.colorTokens ?? [])})`, true)
+      )
       frame.issues = audited.issues
       frame.contrast = audited.contrast
     }
@@ -672,9 +698,7 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
     // A frame that grows with its content keeps the height the canvas lays it out at, measured after the capture
     // (PAR-525).
     if (job.mode.height === undefined) {
-      const canvasHeight = (await window.webContents.executeJavaScript("window.canvasHeight()", true)) as
-        | number
-        | undefined
+      const canvasHeight = canvasHeightResult(await window.webContents.executeJavaScript("window.canvasHeight()", true))
       if (canvasHeight !== undefined) frame.canvasHeight = canvasHeight
     }
     return { frame, png: image.toPNG().toString("base64") }
@@ -695,12 +719,7 @@ async function renderPreview(
   const { frame } = await renderOffscreen(priority, job, true, async (window, drawn) => {
     const box = drawn.nodes.find((node) => node.id === crop)
     if (!box) return { frame: drawn }
-    const image = await window.webContents.capturePage({
-      x: Math.floor(box.x * job.scale),
-      y: Math.floor(box.y * job.scale),
-      width: Math.max(1, Math.ceil(box.width * job.scale)),
-      height: Math.max(1, Math.ceil(box.height * job.scale))
-    })
+    const image = await window.webContents.capturePage(deviceBox(box, job.scale))
     const { width, height } = image.getSize()
     if (drawsNothing(image.toBitmap())) {
       empty = true
@@ -743,15 +762,14 @@ function renderOffscreen(
   const done = renderIdle.use()
   const run = async (index: number) => {
     const window = await ensureRenderWindow(index)
-    const width = Math.max(1, Math.ceil(job.mode.width * job.scale))
+    const width = devicePixels(job.mode.width, job.scale)
     window.setContentSize(width, 800)
-    const frame = (await window.webContents.executeJavaScript(
-      `window.canvasRender(${JSON.stringify(job)})`,
-      true
-    )) as RenderedFrame
+    const frame = renderResult(
+      await window.webContents.executeJavaScript(`window.canvasRender(${JSON.stringify(job)})`, true)
+    )
     if (!whole || frame.error) return { frame }
     // The whole frame is in view, so a capture or a contrast check sees all of it.
-    const height = Math.max(1, Math.ceil(frame.height * job.scale))
+    const height = devicePixels(frame.height, job.scale)
     window.setContentSize(width, height)
     await window.webContents.executeJavaScript("window.canvasSettle()", true)
     return then(window, frame, width, height)
@@ -807,7 +825,7 @@ void app.whenReady().then(() => {
     for (const window of BrowserWindow.getAllWindows()) {
       if (!isRenderWindow(window)) window.webContents.send(ipc.updateChanged, state)
     }
-  })
+  }, environment)
   service = startService()
   createWindow()
   // The keychain is only ready once the app is.
@@ -829,8 +847,8 @@ app.on("quit", () => {
 })
 
 // Under the dev runner, which sets PARITY_DEV_RUNNER to its process id.
-const devRunner = Number(process.env.PARITY_DEV_RUNNER)
-if (devRunner) {
+const devRunner = environment.PARITY_DEV_RUNNER
+if (devRunner !== undefined) {
   // The runner rebuilds the service's bundle next to this one as its code changes; restarting just the service keeps
   // windows open. One build can raise several events, so the bundle's content decides.
   const bundles = ["utility.mjs", "props-worker.mjs", "builder-process.mjs"]

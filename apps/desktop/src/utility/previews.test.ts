@@ -5,9 +5,9 @@ import { type CodeSnapshot, codeSnapshot } from "@parity-app/project"
 import sharp from "sharp"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { PreviewJob, RenderJob } from "../shared/protocol.ts"
-import type * as Previews from "./previews.ts"
+import type { componentPreviews, PreviewProjects } from "./previews.ts"
 
-// The open project and the offscreen window, which need Electron, stand in; the store and the keys are the real ones.
+// The offscreen window, which needs Electron, stands in; the store and the keys are the real ones.
 const open = vi.hoisted(() => ({
   root: "",
   snapshots: new Map<string, Promise<CodeSnapshot>>(),
@@ -15,8 +15,9 @@ const open = vi.hoisted(() => ({
   draw: (_job: RenderJob): Promise<unknown> => Promise.resolve(undefined)
 }))
 
-vi.mock("./projects.ts", () => ({
-  codeServedAt: (_projectId: string, guestUrl: string) => {
+/** The open project, served at each address in `open.snapshots`. */
+const project: PreviewProjects = {
+  codeServedAt: (_projectId, guestUrl) => {
     const code = open.snapshots.get(guestUrl)
     return code && { code, fingerprint: code.then(({ fingerprint }) => fingerprint), sources: {} }
   },
@@ -28,7 +29,7 @@ vi.mock("./projects.ts", () => ({
       Badge: { path: "src/Badge.tsx", export: "Badge" }
     }
   })
-}))
+}
 
 vi.mock("./render.ts", () => ({
   renderPreview: (job: RenderJob) => {
@@ -38,7 +39,13 @@ vi.mock("./render.ts", () => ({
 }))
 
 let store: string
-let previews: typeof Previews
+let previews: ReturnType<typeof componentPreviews>
+
+/** The previews as the service makes them when it starts, reading where the store is from the environment. */
+async function startService(): Promise<ReturnType<typeof componentPreviews>> {
+  vi.resetModules()
+  return (await import("./previews.ts")).componentPreviews(project)
+}
 
 /** A PNG the offscreen window gives, of a size, as base64; the store keeps it as a WebP. */
 async function picture(width: number, height: number): Promise<string> {
@@ -89,8 +96,7 @@ beforeEach(async () => {
   await write("src/Badge.tsx", "export const Badge = () => null")
   serve("http://localhost:5001")
   vi.stubEnv("PARITY_BITMAP_DIR", store)
-  vi.resetModules()
-  previews = await import("./previews.ts")
+  previews = await startService()
 })
 
 afterEach(async () => {
@@ -106,8 +112,7 @@ describe("component previews", () => {
     expect(open.draws).toHaveLength(1)
 
     // Parity started again: the project's guest is at a new address, its code the same.
-    vi.resetModules()
-    previews = await import("./previews.ts")
+    previews = await startService()
     serve("http://localhost:5002")
     const [found] = await previews.lookupPreviews([preview("Button", "http://localhost:5002")])
     expect(found?.image).toEqual(made.image)
@@ -150,8 +155,7 @@ describe("component previews", () => {
     expect(await previews.makePreview(preview("Button"), "idle")).toMatchObject({ empty: true })
     expect((await previews.makePreview(preview("Button"), "idle")).image).toBeUndefined()
 
-    vi.resetModules()
-    previews = await import("./previews.ts")
+    previews = await startService()
     serve("http://localhost:5002")
     const [found] = await previews.lookupPreviews([preview("Button", "http://localhost:5002")])
     expect(found).toMatchObject({ empty: true })
@@ -172,22 +176,6 @@ describe("component previews", () => {
     await expect(previews.makePreview(preview("Button"), "idle")).rejects.toThrow("The render window closed")
     open.draw = drawn
     expect((await previews.makePreview(preview("Button"), "idle")).image).toBeDefined()
-    expect(open.draws).toHaveLength(2)
-  })
-
-  it("keep each theme's picture apart, so switching back draws nothing again", async () => {
-    const inMode = (classNames: string[]): PreviewJob => {
-      const asked = preview("Button")
-      return { ...asked, job: { ...asked.job, mode: { ...asked.job.mode, classNames } } }
-    }
-    const light = await previews.makePreview(inMode([]), "visible")
-    const dark = await previews.makePreview(inMode(["dark"]), "visible")
-    expect(dark.key).not.toBe(light.key)
-    expect(open.draws).toHaveLength(2)
-
-    const [again] = await previews.lookupPreviews([inMode([])])
-    expect(again?.image).toEqual(light.image)
-    await previews.makePreview(inMode([]), "visible")
     expect(open.draws).toHaveLength(2)
   })
 

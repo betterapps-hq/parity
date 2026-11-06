@@ -1,11 +1,8 @@
-import { boardTarget, layerOnBoard } from "@parity-app/core"
-import { openingSelection, type TextRange, textSizing } from "@parity-app/editor"
+import { openingSelection, type TextRange, textSizing, textToEdit, withEditedText } from "@parity-app/editor"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import { useProject } from "./context.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
 import { kindColors } from "./kinds.tsx"
-import { editLayer, findLayer } from "./layers.ts"
-import { editableText } from "./pick.ts"
 
 /** Where the editor draws, in the canvas area's pixels, and how its text looks there. */
 interface EditorLayout {
@@ -35,19 +32,19 @@ export function TextEditor() {
   useEffect(() => {
     const textarea = ref.current
     const area = textarea?.closest<HTMLElement>(".canvas-area")
-    const edited = store.editFrame(editing)
+    const entry = store.getEntry(editing.design)
     // The text as the frame shows it: the state's and the variant's, or the param's default it's bound to.
-    const node = edited && layerOnBoard(edited.container, editing.node, store.getLibrary(edited.design), edited.state)
+    const shown = entry && textToEdit(entry.container, editing.state, editing.node, store.getLibrary(editing.design))
     const find = () => {
       const host = area && selectionFrame(area, editing.design, editing)
       return host && nodeInFrames(area, editing.design, editing.node, host).find((item) => item.picked)?.element
     }
     const element = find()
-    const text = node && editableText(node)
-    if (!textarea || !area || !element || !node || text === undefined) {
+    if (!textarea || !area || !element || !shown) {
       selection.setEditing(undefined)
       return undefined
     }
+    const { node, text } = shown
     const autoWidth = node.type === "text" && textSizing(node.style ?? {}) === "auto-width"
     const grows = autoWidth || noWrap(getComputedStyle(element))
     const offset = editing.at && drawnText(element) === text ? offsetAt(element, editing.at) : undefined
@@ -96,13 +93,10 @@ export function TextEditor() {
     selection.setEditing(undefined)
     const original = opened.current?.text
     if (original === undefined || text === original) return
-    // Written to the state it was read from (see `editFrame`).
-    const frame = store.editFrame(editing)
-    const node = frame && findLayer(store, frame.container, editing.node)
-    if (!frame || !node) return
-    const change = node.type === "text" ? { text } : { props: { children: text } }
-    store.updateContainer(frame.design, "Edit text", (container) =>
-      editLayer(store, container, boardTarget(container, frame.state.id), editing.node, change)
+    // Written to the state it was read from, by the same rule (see `textToEdit`).
+    if (!store.getEntry(editing.design)) return
+    store.updateContainer(editing.design, "Edit text", (container) =>
+      withEditedText(container, editing.state, editing.node, text, store.getLibrary(editing.design))
     )
   }
 

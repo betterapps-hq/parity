@@ -29,7 +29,9 @@ when it's spread through UI code. Today:
 
 - **`@parity-app/core` is the `.par` model and the operations on it:** documents, edits, instances, render resolution,
   modes, CSS and the library manifest, with the token types its contracts name. It imports nothing from Node, Electron
-  or React, and has 12 test files.
+  or React, and has 12 test files. Its `values/` module checks and evaluates decorator and sample values (PAR-572); the
+  guest imports its evaluator and `icon-names.ts` alone, as `@parity-app/core/values/evaluate` and
+  `@parity-app/core/icon-names`, since they import nothing at runtime.
 - **Framework-specific code sits behind adapter interfaces:** `@parity-app/renderer-react`, `@parity-app/builder-vite`
   and `@parity-app/styles-tailwind`.
 - **The agent API calls core's edits** (`setContainer`, `insertNode`, `moveNode`, `applyChanges` and the rest) rather
@@ -108,7 +110,11 @@ when it's spread through UI code. Today:
 This is the one you expect to iterate on most, so it gets the clearest boundary.
 
 - **One program per project** serves listing, checking and props, within the memory budget the detection proposal sets.
-  It's still kept by the app's worker, `utility/props-worker.ts`, until PAR-603 moves it here.
+  `programCache` in [program-cache.ts](../../packages/code/src/program-cache.ts) keeps it: it takes the root, the files
+  to read and the lockfiles, and answers the check and props through a `ComponentFinder`. It builds the program again
+  when a file it read changes, makes it afresh when a config input changes, keeps two projects' programs, and builds
+  none below a gigabyte of free memory. The app's worker, `utility/props-worker.ts`, only takes requests and replies
+  (PAR-603).
 - **The component list is worked out in one step.** `nextComponentList` in
   [component-list.ts](../../packages/code/src/component-list.ts) takes an open project's list and what happened: the
   project opened, a saved detection was found, the type checker read files, the parse read changed files (every file,
@@ -206,7 +212,13 @@ Electron, with no tests.
 
 - **Main:** windows, menus, the render window and process lifecycles.
 - **The project service:** reading and watching files, applying project edits, starting processes and answering IPC. The
-  logic it runs comes from packages.
+  logic it runs comes from packages. The open projects are `openProjects(adapters)` in `utility/projects.ts` (PAR-576),
+  made in `utility/index.ts` with the builder link, the type checker, the detection cache, the ports, the windows'
+  listeners and the folder watcher, and reading the environment then. What it decides from data is
+  `@parity-app/project`'s `open-project.ts` (the main project file, reading designs, where a save may go, what a watched
+  change means, and the `ProjectInfo` the windows are told) and `@parity-app/code`'s `typeCheckSummary`. Component
+  previews are `componentPreviews(projects)` in `utility/previews.ts`, and the image, library and Storybook handlers
+  take the open project they act on.
 - **The ports, through `@parity-app/channel`** (PAR-565). Each process connects its port with an adapter and answers its
   method map: the preload script the window's `MessagePort`, the service each window's `MessagePortMain` and its
   `parentPort`, main the service's `UtilityProcess`, and the type checker's client its `Worker`. The method maps and the
@@ -226,8 +238,9 @@ Electron, with no tests.
 5. **`@parity-app/models` with PAR-15,** then a package per lens and adapter as each starts.
 6. **`@parity-app/storybook` with PAR-114.**
 7. **`@parity-app/tokens`** (PAR-35, done on 2026-10-30; it depends on core, which keeps the token types its own
-   contracts name; the token detail's value checks followed on 2026-11-05, PAR-569), and the agent API's 1,320-line
-   workspace split by area when it next grows.
+   contracts name; the token detail's value checks followed on 2026-11-05, PAR-569), and the agent API's workspace split
+   by area (PAR-574, 2026-11-05): lint (`lint.ts`), board geometry (`boards.ts`) and frame reading (`frames.ts`) take
+   data and return data, and the working copy, lookup, reads, edits and presence stay together in `workspace.ts`.
 
 ## Calls made here
 
