@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Export layers and designs as PNG or JPG at 1x to 3x from the Design tab's Export section, the canvas and Layers menus, and Ctrl+Shift+E",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
