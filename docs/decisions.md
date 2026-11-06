@@ -5048,3 +5048,28 @@ and didn't object. My calls:
   call that is, since React's warnings come from react-dom and name the component in their stack.
 - **Agents get the design too:** each console entry has its design's key, state and mode when known, and their frames
   name their state.
+
+## Sizes and insets can leave the spacing scale, flagged (PAR-194)
+
+Lengths were kept on the spacing scale: a typed length landed on the nearest half step, and nudging moved a step. The
+editor audit (CAN-48) asked for lengths off the scale to be kept and flagged, since a sidebar 280px wide is a fact of
+real apps and engineers already write `w-[280px]`. This loosens the tokens-only model for lengths. My calls:
+
+- **Only sizes and insets leave it.** Width, Height, Min, Max and an absolutely placed layer's insets keep what's typed.
+  Padding, Margin and Gap still land on the nearest half step with a note, since spacing inside a layout is what the
+  scale is for. Colours, type, radius and shadows stay tokens.
+- **A length off the scale is kept in steps,** 281px as 70.25 with a 4px unit, not as pixels. The file format doesn't
+  change, every place that reads a length keeps working, and a value off the scale already opened as it was. If a
+  project's spacing unit changes, such a length scales with it, as lengths on the scale do. Writing it as code is
+  PAR-265's to decide: `w-[281px]`, or `w-70.25` where Tailwind's scale takes it.
+- **It's kept to the hundredth of a pixel,** so 281 stays 281px rather than 280.99999, and a run of 1px nudges with a
+  unit 1px doesn't divide doesn't drift.
+- **The scale is whole and half steps,** as before and as the canvas's distance labels already say "off scale". A
+  quarter step with a 4px unit, 1px, is off it.
+- **The flag is under the row, in amber, with the nearest step as a button:** "281px is off the scale" and "Use 280px".
+  It shows for any length off the scale, whether typed, nudged or already in the file, padding from an older file
+  included. Amber, not the destructive colour, since the value is allowed. Halfway between a whole step and a half step
+  the button offers the whole step, so 281px offers 280px rather than 282px. The wording was checked against the writing
+  style guide, which allows px in design content where space is short.
+- **Nudging moves 1px, or 10px with Shift,** as Figma's does, which CAN-39 waited on. The field's Up and Down still move
+  a step, so they're the way back onto the scale; a length off it goes to the step beside it.

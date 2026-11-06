@@ -25,6 +25,8 @@ import { selectionFrame } from "./hit.ts"
 export interface NudgeSession {
   store: DesignStore
   selection: SelectionStore
+  /** Pixels in a step of the spacing scale, which insets are kept in. */
+  unit: number
   drawn?(design: string): Drawn
 }
 
@@ -47,7 +49,7 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
       layers.length === 1 ? "Nudge layer" : `Nudge ${layers.length} layers`,
       (container) => {
         const drawn = session.drawn?.(frame.design) ?? nothingDrawn
-        const result = nudgeLayers(container, layers, frame.state, arrow, big, drawn, frame.viewport)
+        const result = nudgeLayers(container, layers, frame.state, arrow, big, session.unit, drawn, frame.viewport)
         blocked = result.blocked
         return result.container
       },

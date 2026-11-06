@@ -13,7 +13,14 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import { type DesignNode, type FieldRules, type Length, type NodeStyle, type Size } from "@parity-app/core"
+import {
+  type DesignNode,
+  type FieldRules,
+  type Length,
+  type NodeStyle,
+  offScaleFlag,
+  type Size
+} from "@parity-app/core"
 import {
   fieldEdit,
   layoutTypeEdit,
@@ -56,6 +63,7 @@ import { kindColors } from "../canvas/kinds.tsx"
 import {
   ChoiceInput,
   Field,
+  type FieldFlag,
   type FieldUpdate,
   type FieldValue,
   NumberField,
@@ -480,6 +488,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   title="Minimum width"
                   value={style.minWidth}
                   blank={none}
+                  offScale="keep"
                   {...lengthEdits("min", "minWidth", "Change minimum width")}
                 />
                 <LengthInput
@@ -488,6 +497,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   title="Minimum height"
                   value={style.minHeight}
                   blank={none}
+                  offScale="keep"
                   {...lengthEdits("min", "minHeight", "Change minimum height")}
                 />
               </div>
@@ -500,6 +510,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   title="Maximum width"
                   value={style.maxWidth}
                   blank={none}
+                  offScale="keep"
                   {...lengthEdits("max", "maxWidth", "Change maximum width")}
                 />
                 <LengthInput
@@ -508,6 +519,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   title="Maximum height"
                   value={style.maxHeight}
                   blank={none}
+                  offScale="keep"
                   {...lengthEdits("max", "maxHeight", "Change maximum height")}
                 />
               </div>
@@ -600,6 +612,7 @@ function SizeInput({
           value={fixed ? value : undefined}
           placeholder={placeholder}
           blank={() => editor.measure(axis)}
+          offScale="keep"
           {...edits}
         />
         <ChoiceInput
@@ -665,6 +678,7 @@ function PositionSection({ editor, parent }: SectionProps) {
                   value={style[side]}
                   // An inset can be negative, past the parent's edge.
                   min={-Infinity}
+                  offScale="keep"
                   {...fieldEdits(
                     editor,
                     "insets",
@@ -1015,7 +1029,9 @@ const textSizingOptions = [
 
 /**
  * A length, typed and shown in pixels (320 is 320px) and kept as steps of the spacing scale, or one of the project's
- * length tokens by name. The list beside it picks a step or a token. What it reads is in `@parity-app/core`'s fields.ts.
+ * length tokens by name. The list beside it picks a step or a token. A size or an inset keeps a length off the scale as
+ * typed (`offScale`); others land on the nearest step. Any length off the scale is flagged under the row, with a button
+ * for the nearest step (PAR-194). What it reads is in `@parity-app/core`'s fields.ts.
  */
 export function LengthInput({
   editor,
@@ -1025,6 +1041,7 @@ export function LengthInput({
   placeholder = "0",
   min = 0,
   blank = zero,
+  offScale,
   onPreview,
   onCancel,
   onCommit
@@ -1039,6 +1056,8 @@ export function LengthInput({
   min?: number
   /** What an unset value counts as when an edit works from it. */
   blank?: () => number | undefined
+  /** `keep` for sizes and insets, which can leave the spacing scale; others snap to it. */
+  offScale?: FieldRules["offScale"]
 } & Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit">) {
   const { tokens, unit } = editor
   const [open, setOpen] = useState(false)
@@ -1047,10 +1066,19 @@ export function LengthInput({
   )
   const scale = lengthTokens.filter((token) => token.derived)
   const named = lengthTokens.filter((token) => !token.derived)
-  const rules: FieldRules = { kind: "length", unit, min, label: title }
+  const rules: FieldRules = { kind: "length", unit, min, label: title, ...(offScale ? { offScale } : {}) }
   const pick = (picked: Length) => {
     onCommit(() => picked)
     setOpen(false)
+  }
+  const off = offScaleFlag(value, rules)
+  const flag: FieldFlag | undefined = off && {
+    text: off.text,
+    action: {
+      label: off.action,
+      name: `${off.action} for ${title.charAt(0).toLowerCase()}${title.slice(1)}`,
+      run: () => onCommit(() => off.nearest)
+    }
   }
   return (
     <NumberField
@@ -1061,7 +1089,8 @@ export function LengthInput({
       placeholder={placeholder}
       blank={blank}
       inner={label}
-      hint={typeof value === "number" ? `${title}, ${lengthLabel(value)}` : title}
+      hint={typeof value === "number" ? `${title}, ${off ? "off the spacing scale" : lengthLabel(value)}` : title}
+      flag={flag}
       suffix={typeof value === "number" ? "px" : undefined}
       onPreview={onPreview}
       onCancel={onCancel}

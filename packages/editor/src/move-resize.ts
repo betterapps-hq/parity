@@ -602,7 +602,7 @@ const deltas: Record<Arrow, { x: number; y: number }> = {
   down: { x: 0, y: 1 }
 }
 
-/** How far an arrow moves something along its direction: one, or ten with Shift. */
+/** How far an arrow moves something along its direction, in pixels: one, or ten with Shift. */
 function nudgeBy(arrow: Arrow, big: boolean): { x: number; y: number } {
   const steps = big ? 10 : 1
   const { x, y } = deltas[arrow]
@@ -635,8 +635,9 @@ export interface Drawn {
 
 /**
  * Nudges layers of one design, as the board shows them in the state being edited and the frame's viewport. Absolutely
- * placed ones move by their insets, in that state; the rest move among their siblings, in the layout each sits in, as
- * the frame draws it (or as the design says, when it isn't drawn). Layers inside instances don't move.
+ * placed ones move by their insets, in that state, 1px or 10px with Shift (PAR-194), so an inset can leave the spacing
+ * scale, `unit` pixels a step; the rest move among their siblings, in the layout each sits in, as the frame draws it (or
+ * as the design says, when it isn't drawn). Layers inside instances don't move.
  */
 export function nudgeLayers(
   container: ContainerSpec,
@@ -644,6 +645,7 @@ export function nudgeLayers(
   state: StateSpec,
   arrow: Arrow,
   big: boolean,
+  unit: number,
   drawn: Drawn,
   viewport?: string
 ): LayersNudge {
@@ -660,10 +662,17 @@ export function nudgeLayers(
       flowing.push(node)
       continue
     }
-    const shift = shiftInsets(style, by.x, by.y, drawn.insets(node.id))
+    const shift = shiftInsets(style, by.x / unit, by.y / unit, drawn.insets(node.id))
     if (shift.blocked) blocked ??= { layer: node.id, side: shift.blocked, token: style[shift.blocked]! }
     if (Object.keys(shift.change).length > 0) {
-      next = editNode(next, boardTarget(next, state.id), node.id, { style: shift.change })
+      // To the hundredth of a pixel, so a run of presses with a 6px unit doesn't drift.
+      const change = Object.fromEntries(
+        Object.entries(shift.change).map(([side, steps]) => [
+          side,
+          Math.round((steps as number) * unit * 100) / (unit * 100)
+        ])
+      )
+      next = editNode(next, boardTarget(next, state.id), node.id, { style: change })
     }
   }
 

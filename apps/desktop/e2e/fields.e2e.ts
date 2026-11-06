@@ -63,16 +63,19 @@ describe("typing in a length field", () => {
     await expect.poll(brandWidth).toBe(8)
   })
 
-  it("reads px, and lands an off-scale length on the nearest step with a note", async () => {
+  it("reads px, and keeps a width off the scale, flagged, with the nearest step one click away (PAR-194)", async () => {
     await selectBrand()
     await typeOver(width(), "16px")
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(4)
     await typeOver(width(), "281")
     await width().press("Enter")
-    await expect.poll(brandWidth).toBe(70.5)
-    expect(await width().inputValue()).toBe("282")
-    await expect.poll(() => app.page.getByRole("status").filter({ hasText: "Snapped to 282px" }).count()).toBe(1)
+    await expect.poll(brandWidth).toBe(70.25)
+    expect(await width().inputValue()).toBe("281")
+    await expect.poll(() => app.page.getByRole("status").filter({ hasText: "281px is off the scale" }).count()).toBe(1)
+    await app.page.getByRole("button", { name: "Use 280px for width" }).click()
+    await expect.poll(brandWidth).toBe(70)
+    await expect.poll(() => app.page.getByRole("status").filter({ hasText: "off the scale" }).count()).toBe(0)
   })
 
   it("keeps what it can't read, with the reason, and Escape puts the value back", async () => {
