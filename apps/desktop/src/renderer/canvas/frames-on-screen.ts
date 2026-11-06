@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react"
 
 /**
  * The frames on the canvas, for Parity's errors and failed renders (PAR-624). An error from the window carries the list
- * of frames on the canvas, and a frame whose offscreen render fails the bitmap it last showed, as a WebP, since the
- * offscreen windows aren't recorded and a replay at the Errors level keeps only the minute before.
+ * of frames on the canvas, and a frame whose offscreen render fails the bitmap it last showed, as a WebP, since replays
+ * leave frames out (`replay.ts`) and the offscreen windows aren't recorded.
  */
 export interface FrameOnScreen {
   project: string

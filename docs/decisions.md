@@ -5490,13 +5490,16 @@ window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `
   Main is still the one place that reads the environment.
 - **Only the editor window records.** `replayOptions` is called from `main.tsx` alone, so the offscreen renderers, which
   share `startTelemetry`, neither record nor load the recorder.
-- **Frames replay with the page.** The proposal took them for cross-origin iframes, but a frame on the canvas is an open
-  shadow root in the editor page with adopted stylesheets, both of which Sentry's recorder handles, and zoomed out it's
-  a bitmap, recorded as an image. Whether every project's styles show right in Sentry's player wasn't checked.
-- **Failures still carry the frames,** since the offscreen windows that draw bitmaps aren't recorded and a buffer keeps
-  only a minute: every error from the editor window attaches `frames.json`, the frames on the canvas without their
-  bitmaps or render keys, which hold the whole design and made it 3 MB. A frame's failed offscreen capture is reported
-  once for what it shows, tagged `render: failed`, with the bitmap the frame last showed as `frame.webp`.
+- **Frames are left out of replays,** as boxes their size (`block: ["[data-frame]"]`). The proposal took them for
+  cross-origin iframes, but a frame on the canvas is an open shadow root in the editor page, which Sentry's recorder can
+  record. Recording them, a closed project's canvas stayed in memory: about 26,000 DOM nodes against 6,000 with
+  telemetry off, and `reopening.e2e` failed in CI on 49,000 nodes where it allows 27,600. Blocked, it's about 13,800,
+  held through tldraw's state as the editor closed last.
+- **Failures carry the frames instead,** since replays leave them out, the offscreen windows that draw bitmaps aren't
+  recorded, and a buffer keeps only a minute: every error from the editor window attaches `frames.json`, the frames on
+  the canvas without their bitmaps or render keys, which hold the whole design and made it 3 MB. A frame's failed
+  offscreen capture is reported once for what it shows, tagged `render: failed`, with the bitmap the frame last showed
+  as `frame.webp`.
 - **What it costs:** the editor window's bundle grows by 153 kB (49 kB gzipped); `render.js` doesn't change. On the
   example project, a minute of selecting after opening left the JS heap within 0 to 6 MB of the 110 MB it holds with
   telemetry off, after garbage collection, over two runs each. The page then held about 28,000 DOM nodes against 6,700:
