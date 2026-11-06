@@ -1377,7 +1377,7 @@ function RadiusChoice({
     <TokenChoice
       label={label}
       icon={shape}
-      // A corner's field is narrow, so what its token comes to shows in the hover rather than after it.
+      // A corner's field is narrow, so what its token comes to shows in its hint rather than after it.
       narrow={corner !== undefined}
       value={value}
       tokens={radiusTokens.map((token) => ({ name: token.name, detail: token.px === 9999 ? "Full" : `${token.px}px` }))}
@@ -1409,7 +1409,7 @@ function BlurChoice({
 
 /**
  * A short list of tokens of one kind, with None. The token shows as a chip, then what it comes to, faintly (`lg 10px`);
- * in a narrow field (`narrow`, under about 96px), what it comes to is in the hover instead.
+ * in a narrow field (`narrow`, under about 96px), what it comes to is in its hint instead, with Unset when it's unset.
  */
 function TokenChoice({
   label,
@@ -1430,9 +1430,17 @@ function TokenChoice({
 }) {
   const [open, setOpen] = useState(false)
   const comesTo = tokens.find((token) => token.name === value)?.detail
+  // Unset, a narrow field's hint still names it and says so; a wider field shows None.
+  const hintWhenUnset = narrow ? label : undefined
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <Hint label={value ? `${label}: ${value}` : undefined} detail={narrow ? comesTo : undefined} hidden={open} wait>
+      <Hint
+        // A narrow field's hint carries what it comes to and its status, which have no room in the field.
+        label={value ? `${label}: ${value}` : hintWhenUnset}
+        detail={narrow ? (comesTo ?? "Unset") : undefined}
+        hidden={open}
+        wait
+      >
         <PopoverTrigger
           render={
             <Button
