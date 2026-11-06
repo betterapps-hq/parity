@@ -686,7 +686,8 @@ named from the root; a workspace package's file outside the root named from the 
 modules and files without JSX left alone; development server only). `apps/desktop/src/utility/code.test.ts` (3: a file
 read by its path, one outside the project or the folder itself refused, one too big refused).
 `apps/desktop/src/shared/ipc-checks.test.ts` (a line from an element's source is taken; one that isn't a positive whole
-number is refused). `chrome/canvas-menu.test.ts` (Open in editor ends the menu over an element a project file wrote).
+number is refused). `chrome/canvas-menu.test.ts` (Open in editor ends the menu over an element a project file wrote),
+and in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at `member-row.tsx`).
 `packages/agent/src/dispatch.test.ts` (the file each project component is written in), `packages/agent/src/run.test.ts`
 (`Measure` gives each node's source, and none for Parity's own layers), `packages/cli/src/client.test.ts` (the project's
 own components listed by file) and `apps/desktop/src/main/render-results.test.ts` (a node's source passed on).
