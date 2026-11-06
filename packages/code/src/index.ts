@@ -18,7 +18,14 @@ export {
   nextComponentList
 } from "./component-list.ts"
 export { type ConfigChange, configChange, type ConfigInputs, configInputs, type ConfigStamps } from "./config-inputs.ts"
-export { type AppComponent, appComponents, type ComponentFinder, findAll, reactFinder } from "./finder.ts"
+export {
+  type AppComponent,
+  appComponents,
+  type ComponentFinder,
+  findAll,
+  type ProgramSetup,
+  reactFinder
+} from "./finder.ts"
 export {
   appFiles,
   type CheckedComponent,
@@ -36,5 +43,13 @@ export {
   readChangedFiles,
   rediscoveredFiles
 } from "./listing.ts"
+export {
+  type CheckRequest,
+  type ProgramCache,
+  programCache,
+  type ProgramCacheOptions,
+  type ProgramRequest,
+  type PropsRequest
+} from "./program-cache.ts"
 export { inferProps, propsFiles } from "./props.ts"
 export { importAlias, type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "./tsconfig.ts"

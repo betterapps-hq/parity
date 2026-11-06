@@ -692,7 +692,7 @@ function isConfigInput(project: OpenProject, file: string): boolean {
 /**
  * Sorts the app's sources again, then reads props and the type check again, after a config input changed. Components
  * in files the config now leaves out drop off the list and those in files it newly includes join it, as on opening.
- * The type checker makes the project's program again from the config as it is now (see `utility/props-worker.ts`), so
+ * The type checker makes the project's program again from the config as it is now (see `programCache` in `@parity-app/code`), so
  * the answers match a project opened afresh.
  */
 async function rereadConfig(project: OpenProject, changed: () => void): Promise<void> {

@@ -780,8 +780,9 @@ recommended answer to each of its questions.
 - **A framework's component finding is a `ComponentFinder` in `@parity-app/code`.** My call: the renderer adapter keeps
   the quick parse it already has, and the finder adds the thorough pass and props, each taking the project's one
   program, since every framework Parity expects (React, Vue through vue-component-meta, Svelte) reads types with
-  TypeScript. The props worker calls React's through the contract. `findAll` runs all three passes in one call and
-  returns each component's id, file, export, import, role, evidence and props, for callers without the app's service.
+  TypeScript. The props worker's program cache calls React's through the contract (PAR-603). `findAll` runs all three
+  passes in one call and returns each component's id, file, export, import, role, evidence and props, for callers
+  without the app's service.
 
 ## Libraries, icons and images
 
@@ -4625,3 +4626,23 @@ design and state together on the write side. My calls in moving it:
   `pasteHere`, so it lands where a drop does, in the slot under the pointer, rather than after the layer under it.
 - **The text editor reads and writes through `editFrame`.** That makes PAR-585's two rules one. PAR-585 stays open for
   its reproduction and test, as it asks.
+
+## Each project's TypeScript program is kept by `@parity-app/code` (PAR-603)
+
+The program per project, its caching compiler host, when it's made again and how many are kept lived in the app's type
+checker worker, which also used the React finder's internals to build it. My calls in moving it:
+
+- **The cache is `programCache(finder)`,** in `packages/code/src/program-cache.ts`. It answers `check` and `props`
+  requests as the worker's methods take them, with the root, the files to read, the files an earlier worker read
+  (`known`) and the lockfiles, and `close` lets a project's program go. `program` and `roots` are there for callers and
+  tests that need the program itself or which projects are kept.
+- **A finder says how its programs are made,** with `programSetup(root, tsconfig)`: the compiler options, a host wrapper
+  and the files every program holds besides the app's. React's gives the probe file and its host, so neither the cache
+  nor the worker imports `reactProbe`, `withReactProbe` or `componentOptions`. They stay exported, since libgen uses
+  them.
+- **The limits are the cache's defaults:** two projects kept, and no program built below a gigabyte free. Free memory is
+  an option, so the tests set it rather than mocking `node:os`. Which project was used last is a counter, not the clock,
+  so two requests in one millisecond still order.
+- **The worker's tests moved with the code,** as the cache's tests, and added the cases the issue asks for: a program
+  reused while nothing changed, made again after a file, config or lockfile change or a new file asked for, and the
+  least recently used project let go past the limit.
