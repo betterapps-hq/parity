@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Answer each agent method from @parity-app/agent's dispatch, typed by one method map the CLI client shares",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
