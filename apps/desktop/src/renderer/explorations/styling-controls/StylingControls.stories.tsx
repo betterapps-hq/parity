@@ -199,7 +199,8 @@ export const BaselineAndReverse: Story = {
  *
  * W and H are size fields whose unit opens one menu: Fixed, Hug or Fill; px, % or rem; Min and Max content under More
  * units; and Add min and Add max, which each add a row under the size. A mode shows what it comes to after it, faintly
- * (Hug 249). Up and Down step a length to the next whole spacing step, 4px, and make a mode Fixed at its size first.
+ * (Hug 249). A bare number is in the unit shown, and `spacing-120` is spacing step 120 (480px). Up and Down step a
+ * length to the next whole spacing step, 4px, and make a mode Fixed at its size first.
  * The tag is at the top of Text.
  */
 export const AspectRatioAndTag: Story = {

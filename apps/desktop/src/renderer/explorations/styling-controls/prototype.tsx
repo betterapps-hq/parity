@@ -943,6 +943,8 @@ function SizeField({
     const word = text.trim().toLowerCase()
     if (word === "hug" || word === "fit") return "hug"
     if (word === "fill") return "fill"
+    const step = spacingStepPixels(word)
+    if (step !== undefined) return Math.max(1, step)
     const match = /^(-?\d*\.?\d+)\s*(px|rem|%)?$/i.exec(word)
     if (!match) return "unreadable"
     const number = Number(match[1])
@@ -1131,6 +1133,16 @@ function nextSpacingStep(pixels: number, up: boolean, shift: boolean): number {
 
 /** Pixels in a whole spacing step, at Tailwind's default `--spacing` of 0.25rem. */
 const spacingPixels = 4
+
+/**
+ * A spacing step typed by name, `spacing-4` for step 4 (16px), as a length field reads it; a bare 4 stays 4 in the unit
+ * shown. Steps go in quarters, as `p-3.25` does.
+ */
+function spacingStepPixels(text: string): number | undefined {
+  const steps = /^\s*spacing-(\d*\.?\d+)\s*$/i.exec(text)?.[1]
+  if (steps === undefined || (Number(steps) * 4) % 1 !== 0) return undefined
+  return Math.round(Number(steps) * spacingPixels)
+}
 
 /** Named ratios, as Tailwind names two of them (`aspect-square`, `aspect-video`). */
 const namedRatios = [
@@ -1753,6 +1765,8 @@ function Num({
   const takes = pixels ? "a length in px or rem" : "a number"
   const read = (text: string): number | undefined | "unreadable" => {
     if (text.trim() === "") return undefined
+    const step = spacing ? spacingStepPixels(text) : undefined
+    if (step !== undefined) return Math.max(min, step)
     const match = /^\s*(-?\d*\.?\d+)\s*(px|rem)?\s*$/i.exec(text)
     if (!match || (match[2] && !pixels)) return "unreadable"
     const inRems = (match[2]?.toLowerCase() ?? unit) === "rem" && pixels
