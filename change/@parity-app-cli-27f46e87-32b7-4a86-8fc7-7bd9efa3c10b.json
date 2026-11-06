@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "In development, each element a project's JSX writes carries its file, line and column, for the canvas and agents to point at",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

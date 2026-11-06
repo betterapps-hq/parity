@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto"
 import { readdir, readFile, realpath, stat } from "node:fs/promises"
 import { type AddressInfo, createServer as createNetServer } from "node:net"
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path"
+import { basename, dirname, isAbsolute, join, posix, relative, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
+import { hasElementSources, tagElementSources } from "@parity-app/code"
 import {
   type BuilderAdapter,
   type BuilderDetection,
@@ -80,7 +81,11 @@ export const viteBuilder: BuilderAdapter = {
           .map((component) => component.path),
         ...productionDependencies(vite, options.root, options.renderer.developmentStandIns)
       },
-      plugins: [guestPlugin(options, vite.normalizePath(options.rendererGuestPath)), dependencySourceMaps()]
+      plugins: [
+        guestPlugin(options, vite.normalizePath(options.rendererGuestPath)),
+        elementSources(vite.normalizePath(options.root)),
+        dependencySourceMaps()
+      ]
     })
     try {
       await server.listen()
@@ -242,6 +247,29 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): V
       return guestModuleSource(options.config)
     }
   }
+}
+
+/**
+ * Tags each element the project's own JSX writes with its file, line and column (PAR-167), before the project's
+ * framework plugin compiles it, so the canvas and agents can say where an element inside a component is written. It's
+ * for the guest's development server alone: an installed package's files and a production build carry nothing. `root`
+ * is the project root with forward slashes, as Vite gives module ids; a workspace package's files outside it are named
+ * from the root too.
+ */
+export function elementSources(root: string): Vite.Plugin {
+  return {
+    name: "canvas:element-sources",
+    enforce: "pre",
+    apply: "serve",
+    transform: (code, id) => taggedModule(root, code, id)
+  }
+}
+
+/** A module's code with its elements tagged, when it's the project's own JSX. */
+export function taggedModule(root: string, code: string, id: string): ReturnType<typeof tagElementSources> {
+  const file = id.split("?")[0] ?? id
+  if (file.startsWith("\0") || file.includes("/node_modules/") || !hasElementSources(file)) return undefined
+  return tagElementSources(code, posix.relative(root, file))
 }
 
 /**

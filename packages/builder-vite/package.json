@@ -9,6 +9,7 @@
     "./dependency-maps": "./src/dependency-maps.ts"
   },
   "dependencies": {
+    "@parity-app/code": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/tokens": "workspace:*"
   },

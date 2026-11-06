@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { guestModuleSource } from "./index.ts"
+import { elementSources, guestModuleSource, taggedModule } from "./index.ts"
 
 describe("guestModuleSource", () => {
   it("imports the renderer, styles and components in order", () => {
@@ -249,5 +249,32 @@ describe("guestModuleSource with package stylesheets", () => {
     expect(source).toContain('import("@mantine/core/styles.css?inline")')
     expect(source).toContain("  css: [modules[2].default].join")
     expect(source).toContain("  packageCss: [modules[1].default].join")
+  })
+})
+
+describe("element sources in the guest", () => {
+  const code = "export const Card = () => <div>card</div>\n"
+  const root = "D:/shop"
+
+  it("tags the project's own JSX, named from the root, whatever the query", () => {
+    expect(taggedModule(root, code, "D:/shop/src/card.tsx?t=1")?.code).toContain(
+      'data-parity-source={"src/card.tsx:1:27"}'
+    )
+  })
+
+  it("names a workspace package's file outside the root from the root", () => {
+    expect(taggedModule(root, code, "D:/packages/ui/src/card.tsx")?.code).toContain(
+      '"../packages/ui/src/card.tsx:1:27"'
+    )
+  })
+
+  it("leaves installed packages, virtual modules and files without JSX alone", () => {
+    expect(taggedModule(root, code, "D:/shop/node_modules/kit/card.jsx")).toBeUndefined()
+    expect(taggedModule(root, code, "\0virtual:canvas/guest")).toBeUndefined()
+    expect(taggedModule(root, code, "D:/shop/src/card.ts")).toBeUndefined()
+  })
+
+  it("is for the development server alone", () => {
+    expect(elementSources(root)).toMatchObject({ name: "canvas:element-sources", enforce: "pre", apply: "serve" })
   })
 })
