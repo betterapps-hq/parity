@@ -264,10 +264,13 @@ export interface WindowMethods {
 }
 
 /**
- * A window's answer to the service, as data: a failure's details wouldn't survive the bridge from the page to the
- * preload script as a thrown error, which keeps only its message.
+ * An answer as data, across the bridge between the page and the preload script: a failure thrown across it keeps only
+ * its message, so a coded error's details go beside it, for the other side to check (PAR-580).
  */
-export type ServeAnswer = { result: unknown } | { error: string; details?: unknown }
+export type Answer<Result> = { result: Result } | { error: string; details?: unknown }
+
+/** A window's answer to the service. */
+export type ServeAnswer = Answer<unknown>
 
 export type ServiceMethod = keyof ServiceMethods
 export type WindowMethod = keyof WindowMethods
@@ -440,7 +443,14 @@ export interface CanvasHost {
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
-  request<M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]): Promise<ServiceMethods[M]["result"]>
+  /**
+   * Asks the project service, and never fails: a failure is an answer, with its details. The page asks through
+   * `request` in `renderer/service.ts`, which throws it as a `CodedError` again.
+   */
+  ask<M extends ServiceMethod>(
+    method: M,
+    params: ServiceMethods[M]["params"]
+  ): Promise<Answer<ServiceMethods[M]["result"]>>
   /** Answers the service's requests. One handler per window. */
   serve(handler: (method: WindowMethod, params: unknown) => Promise<ServeAnswer>): void
   /**

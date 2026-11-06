@@ -1,8 +1,6 @@
-import { type Channel, createChannel, type Handlers, nodePort } from "@parity-app/channel"
+import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import type { MessagePortMain } from "electron"
-import { codedErrors } from "../shared/coded-errors.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
-import { serviceChecks, unknownServiceMethod } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
@@ -32,6 +30,7 @@ import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { openStorybook } from "./storybook.ts"
 import { losslessWebp } from "./webp.ts"
+import { windowChannel, windowClosed } from "./window-channel.ts"
 
 // Dependencies such as Rollup probe process.execPath. In an installed app that is Parity.exe, so their children
 // must inherit Node mode; otherwise a platform probe launches another app and overwrites agent discovery.
@@ -118,19 +117,11 @@ export function editorWindow(): WindowChannel {
  * page, so every request's params are checked before a handler sees them (PAR-565).
  */
 function connect(port: MessagePortMain): void {
-  const closed = () => new Error("The canvas window closed")
-  const channel = createChannel<ServiceMethods, WindowMethods>({
-    handlers,
-    checks: serviceChecks,
-    errors: codedErrors,
-    unknownMethod: unknownServiceMethod,
-    disconnected: closed
-  })
+  const channel = windowChannel(handlers, nodePort(port, { wrapped: true }))
   port.on("close", () => {
     if (editor === channel) editor = undefined
-    channel.close(closed())
+    channel.close(windowClosed())
   })
-  channel.connect(nodePort(port, { wrapped: true }))
   editor = channel
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react"
 import type { ComponentPreview, PreviewImage, PreviewJob } from "../shared/protocol.ts"
 import { renderJobMode } from "../shared/render-job.ts"
 import { bitmapsWaiting } from "./canvas/frame-bitmaps.ts"
+import { request } from "./service.ts"
 import { getResolvedTheme, type ResolvedTheme, subscribeResolvedTheme } from "./theme.ts"
 import { type ProjectSession, workspace } from "./workspace.ts"
 
@@ -189,7 +190,7 @@ class ProjectPreviews {
     const run = async () => {
       const jobs = this.components(session).flatMap((component) => previewJob(session, component) ?? [])
       for (let start = 0; start < jobs.length; start += lookupBatch) {
-        const { previews } = await window.canvasHost.request("previews.lookup", {
+        const { previews } = await request("previews.lookup", {
           previews: jobs.slice(start, start + lookupBatch)
         })
         for (const preview of previews) this.apply(preview)
@@ -262,7 +263,7 @@ class ProjectPreviews {
     this.notify()
     this.making = true
     try {
-      const made = await window.canvasHost.request("previews.make", { preview, priority: next.priority })
+      const made = await request("previews.make", { preview, priority: next.priority })
       // Looked up again meanwhile, for newer code: this one's out of date, and stays waiting for its new key.
       if (this.entries.get(next.make)?.key === made.key) this.apply(made)
       else if (this.entries.get(next.make)?.preview.state === "making") this.entries.set(next.make, entry)

@@ -1,5 +1,6 @@
 import type { PictureFrame, PictureScreen, ProjectPicture, RenderJob } from "../shared/protocol.ts"
 import { bitmapsWaiting, type FrameShows, firstRowFrame, frameBitmap } from "./canvas/frame-bitmaps.ts"
+import { request } from "./service.ts"
 import { type PicturedScreen, picturedScreens } from "./start/picture-screens.ts"
 import { keptPictures } from "./start/pictures.ts"
 import type { ProjectSession } from "./workspace.ts"
@@ -72,7 +73,7 @@ async function takePicture(session: ProjectSession, stopped: () => boolean): Pro
     screens: taken.filter((screen): screen is PictureScreen => screen !== undefined)
   }
   const { root } = session.info
-  const kept = await window.canvasHost.request("pictures.store", { root, picture })
+  const kept = await request("pictures.store", { root, picture })
   keptPictures.set(root, kept)
 }
 

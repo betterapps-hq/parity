@@ -17,6 +17,7 @@ import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
 import { selectedDesigns } from "../selection.ts"
+import { request } from "../service.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import { homeTab, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
 import {
@@ -82,7 +83,7 @@ export async function saveCopy(session = activeSession()): Promise<void> {
   if (!path) return
   try {
     await session.store.flush()
-    await window.canvasHost.request("document.saveCopy", { path, document: session.store.merged() })
+    await request("document.saveCopy", { path, document: session.store.merged() })
     toast.success("Saved a copy", {
       description: path,
       action: { label: "Show", onClick: () => void window.canvasHost.showItem(path) }
@@ -99,7 +100,7 @@ export async function saveCopy(session = activeSession()): Promise<void> {
  */
 export async function clearBitmapCache(): Promise<void> {
   try {
-    await window.canvasHost.request("frames.clearStored", undefined)
+    await request("frames.clearStored", undefined)
     toast.success("Bitmap cache cleared", { duration: 2000 })
   } catch (error) {
     toast.error("The bitmap cache couldn't be cleared", {
@@ -127,7 +128,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
   const progress = toast.loading(`Exporting ${named ?? store.designsLabel(designs)}…`)
   try {
     // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
-    const { files, warnings } = await window.canvasHost.request("designs.export", {
+    const { files, warnings } = await request("designs.export", {
       projectId: session.id,
       folder,
       designs,

@@ -104,12 +104,12 @@ function fakePort() {
 describe("the window's channel to the project service", () => {
   it("holds requests until main gives the page its port, then matches the reply", async () => {
     const { ipc, host } = preload()
-    const opened = host.request("project.open", { root: "D:/shop" })
+    const opened = host.ask("project.open", { root: "D:/shop" })
     const first = fakePort()
     ipc.emit("canvas:port", { ports: [first.port] })
     expect(first.sent).toEqual([{ type: "request", id: 1, method: "project.open", params: { root: "D:/shop" } }])
     first.deliver({ type: "response", id: 1, result: { id: "D:/shop" } })
-    expect(await opened).toEqual({ id: "D:/shop" })
+    expect(await opened).toEqual({ result: { id: "D:/shop" } })
   })
 
   it("fails what the old service was asked when a new port comes, and says it reconnected", async () => {
@@ -117,9 +117,9 @@ describe("the window's channel to the project service", () => {
     const reconnected = vi.fn<() => void>()
     host.onReconnect(reconnected)
     ipc.emit("canvas:port", { ports: [fakePort().port] })
-    const lost = host.request("processes.list", {})
+    const lost = host.ask("processes.list", {})
     ipc.emit("canvas:port", { ports: [fakePort().port] })
-    await expect(lost).rejects.toThrow("The project service restarted")
+    expect(await lost).toEqual({ error: "The project service restarted" })
     expect(reconnected).toHaveBeenCalledOnce()
   })
 

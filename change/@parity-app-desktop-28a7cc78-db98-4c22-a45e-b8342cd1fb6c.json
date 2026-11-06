@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A coded error from the project service reaches the window with its code, field and alternatives",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
