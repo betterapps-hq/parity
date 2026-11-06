@@ -25,8 +25,8 @@ export interface ExportFile {
   name: string
 }
 
-/** Characters no file name may hold on Windows, macOS or Linux. Control characters are dropped too. */
-const unsafe = /[<>:"/\\|?*]/g
+/** Characters no file name may hold on Windows, macOS or Linux, and control characters. */
+const unsafe = /[<>:"/\\|?*\p{Cc}]/gu
 
 /**
  * The files exporting `layers`, by their names, at `sizes` writes: `Headline@2x.png`, `Headline.jpg`. One at 1x has
@@ -58,9 +58,7 @@ export function sameSize(a: ExportSize, b: ExportSize): boolean {
 
 /** A layer's name as a file's: trimmed, without characters a file name can't hold, and no trailing dots. */
 export function safeName(name: string): string {
-  const safe = [...name]
-    .map((character) => (character.charCodeAt(0) < 32 ? " " : character))
-    .join("")
+  const safe = name
     .replace(unsafe, " ")
     .replace(/\s+/g, " ")
     .trim()
