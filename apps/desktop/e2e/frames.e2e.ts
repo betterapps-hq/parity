@@ -108,6 +108,7 @@ describe("converting a frame", () => {
   })
 
   it("asks before a screen with states becomes a frame, saying what it drops", async () => {
+    await app.show("Pricing", 0.3)
     await app.selectDesign("Pricing")
     await app.page.getByRole("group", { name: "Kind" }).getByRole("button", { name: "Frame" }).click()
     const dialog = app.page.getByRole("dialog")
