@@ -25,7 +25,8 @@ import { Ban, ChevronRight, CircleX, FolderCode, Info, Search, SquareTerminal, T
 import { type ReactNode, useState, useSyncExternalStore } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
-import { byDesign, type ConsoleMessage, consoleLog, type Level, tally, useConsole } from "../console-store.ts"
+import { clearConsole } from "../console-feed.ts"
+import { byDesign, type ConsoleMessage, type Level, tally, useConsole } from "../console-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { openSource } from "./code-editor.ts"
@@ -200,7 +201,7 @@ function ConsoleHeader({
         />
       </InputGroup>
       <span className="flex-1" />
-      <IconButton label="Clear the console" onClick={() => consoleLog(session.id).clear()}>
+      <IconButton label="Clear the console" onClick={() => clearConsole(session)}>
         <Ban />
       </IconButton>
       <IconButton

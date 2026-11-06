@@ -35,7 +35,8 @@ const renderJob = z.object({
   audit: z.boolean().optional(),
   colorTokens: z.array(z.string()).optional(),
   inlinePortals: z.literal(true).optional(),
-  previews: z.array(tokenChange).optional()
+  previews: z.array(tokenChange).optional(),
+  design: z.object({ key: z.string(), state: z.string().optional(), mode: z.string().optional() }).optional()
 })
 
 const previewJob = z.object({ component: z.string(), job: renderJob })

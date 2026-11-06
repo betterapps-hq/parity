@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
+import type { LoggedEntry } from "../../shared/protocol.ts"
 import { AppWindow } from "../App.tsx"
-import { type ConsoleMessage, consoleLog } from "../console-store.ts"
+import { consoleLog } from "../console-store.ts"
 import { design, example, onCanvas } from "../stories/fixtures.tsx"
 import { showConsole } from "./ConsolePanel.tsx"
 import { setLayout } from "./layout.ts"
@@ -28,78 +29,93 @@ type Story = StoryObj<typeof meta>
 
 const page = () => within(document.body)
 const minutes = (count: number) => Date.now() - count * 60_000
-const guest = "http://localhost:5173"
 
-/** What the example's designs might have written: React's warnings, a thrown error, a library's warning, a log line. */
-function messages(): ConsoleMessage[] {
+/**
+ * What the example's designs might have written, as the main process keeps it: a thrown error with its stack, React's
+ * key warning from three frames, an input's warning, a library's log line, and a module that failed to load, which no
+ * design wrote.
+ */
+function entries(guestUrl: string): LoggedEntry[] {
+  const guest = new URL(guestUrl).origin
   const pricing = design("Pricing")
   const dashboard = design("Dashboard")
-  const at = (path: string, line: number, column = 5) => ({ path, line, column })
-  const base = { where: "canvas" as const, source: `${guest}/src/App.tsx`, line: 1 }
+  const react = `${guest}/node_modules/.vite/deps/react-dom_client.js?v=4f2a`
+  const keyWarning = (id: number, mode: string, first: number) =>
+    ({
+      id,
+      level: "error",
+      where: "canvas",
+      design: pricing,
+      state: "default",
+      mode,
+      text:
+        'Each child in a list should have a unique "key" prop.\n\nCheck the render method of `PlanList`. See https://react.dev/link/warning-keys for more information.\n    at PlanList (' +
+        `${guest}/src/components/ui/card.tsx?t=1730:10:5)`,
+      source: react,
+      line: 2120,
+      count: 1,
+      first: minutes(first),
+      last: minutes(first > 1 ? first - 1 : 1)
+    }) satisfies LoggedEntry
   return [
     {
-      ...base,
-      id: "1",
+      id: 1,
       level: "error",
+      where: "canvas",
       design: pricing,
-      text: "TypeError: Cannot read properties of undefined (reading 'price')",
-      frames: [{ state: "yearly", mode: "desktop-light" }],
-      at: at("src/components/ui/card.tsx", 88, 23),
-      stack: [
-        "at PlanPrice (src/components/ui/card.tsx:88:23)",
-        "at CardContent (src/components/ui/card.tsx:73:5)",
-        "at Card (src/components/ui/card.tsx:10:5)",
-        "at renderWithHooks (react-dom.development.js:15486:18)"
-      ],
+      state: "yearly",
+      mode: "desktop-light",
+      text: [
+        "TypeError: Cannot read properties of undefined (reading 'price')",
+        `    at PlanPrice (${guest}/src/components/ui/card.tsx?t=1730:88:23)`,
+        `    at CardContent (${guest}/src/components/ui/card.tsx?t=1730:73:5)`,
+        `    at Card (${guest}/src/components/ui/card.tsx?t=1730:10:5)`,
+        `    at renderWithHooks (${react}:15486:18)`
+      ].join("\n"),
+      source: `${guest}/src/components/ui/card.tsx?t=1730`,
+      line: 88,
       count: 1,
       first: minutes(2),
       last: minutes(2)
     },
+    keyWarning(2, "desktop-light", 6),
+    keyWarning(3, "desktop-dark", 5),
+    keyWarning(4, "mobile-light", 4),
     {
-      ...base,
-      id: "2",
-      level: "error",
-      design: pricing,
-      text: 'Each child in a list should have a unique "key" prop.\n\nCheck the render method of `PlanList`. See https://react.dev/link/warning-keys for more information.',
-      frames: [
-        { state: "default", mode: "desktop-light" },
-        { state: "default", mode: "desktop-dark" },
-        { state: "default", mode: "mobile-light" }
-      ],
-      at: at("src/components/ui/card.tsx", 10),
-      count: 3,
-      first: minutes(6),
-      last: minutes(1)
-    },
-    {
-      ...base,
-      id: "3",
+      id: 5,
       level: "warning",
+      where: "canvas",
       design: dashboard,
+      state: "loading",
+      mode: "desktop-light",
       text: "Received NaN for the `value` attribute. If this is expected, cast the value to a string.",
-      frames: [{ state: "loading", mode: "desktop-light" }],
-      at: at("src/components/ui/input.tsx", 6),
+      source: `${guest}/src/components/ui/input.tsx`,
+      line: 6,
       count: 12,
       first: minutes(9),
       last: minutes(3)
     },
     {
-      ...base,
-      id: "4",
+      id: 6,
       level: "info",
+      where: "offscreen",
       design: dashboard,
+      state: "default",
+      mode: "desktop-light",
       text: "[chart] drew 12 points in 4.2ms",
-      frames: [{ state: "default", mode: "desktop-light" }],
+      source: `${guest}/node_modules/.vite/deps/recharts.js?v=4f2a`,
+      line: 311,
       count: 2,
       first: minutes(9),
       last: minutes(9)
     },
     {
-      ...base,
-      id: "5",
+      id: 7,
       level: "error",
       where: "offscreen",
-      text: "Failed to fetch dynamically imported module: http://localhost:5173/src/components/ui/chart.tsx",
+      text: `Failed to fetch dynamically imported module: ${guest}/src/components/ui/chart.tsx`,
+      source: `${guest}/@vite/client`,
+      line: 1,
       count: 1,
       first: minutes(12),
       last: minutes(12)
@@ -115,9 +131,10 @@ const logged = (open: boolean, then?: () => Promise<void>) =>
       setLayout({ console: open, consoleHeight: 300 })
       showConsole(undefined)
       setLayout({ console: open })
-      const log = consoleLog(example().id)
+      const { id, info } = example()
+      const log = consoleLog(id)
       log.clear()
-      log.add(messages())
+      log.update(entries(info.guestUrl), info.guestUrl)
     },
     then
   )
@@ -144,8 +161,10 @@ export const Open: Story = logged(true, async () => {
 /** An error opened to its stack: each call, the project's own with their files and lines. */
 export const ErrorStack: Story = logged(true, async () => {
   const panel = within(await page().findByRole("region", { name: "Console" }))
-  await userEvent.click(await panel.findByRole("button", { name: "Show the stack" }))
-  await panel.findByText("at PlanPrice (src/components/ui/card.tsx:88:23)")
+  const row = within((await panel.findByText(/Cannot read properties/)).closest("li")!)
+  await userEvent.click(row.getByRole("button", { name: "Show the stack" }))
+  await row.findByText("at PlanPrice (src/components/ui/card.tsx:88:23)")
+  await row.findByText("at renderWithHooks (react-dom_client.js:15486:18)")
 })
 
 /** Pricing's badge on the canvas, clicked: the console opens on Pricing's messages alone. */

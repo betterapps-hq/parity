@@ -3,6 +3,8 @@ import { contextBridge, ipcRenderer } from "electron"
 import { ipc } from "../shared/channels.ts"
 import {
   type CanvasHost,
+  type ConsoleChange,
+  type LoggedEntry,
   type ProcessUsage,
   type ServeAnswer,
   type ServiceMethods,
@@ -107,6 +109,18 @@ const host: CanvasHost = {
   toggleDevTools: () => ipcRenderer.invoke(ipc.toggleDevTools) as Promise<void>,
   setTheme: (theme) => ipcRenderer.invoke(ipc.setTheme, theme) as Promise<void>,
   metrics: () => ipcRenderer.invoke(ipc.metrics) as Promise<ProcessUsage[]>,
+  console: {
+    announce: (level, context) => ipcRenderer.send(ipc.consoleAnnounce, { level, ...context }),
+    read: (origin) => ipcRenderer.invoke(ipc.consoleRead, origin) as Promise<LoggedEntry[]>,
+    clear: (origin) => ipcRenderer.invoke(ipc.consoleClear, origin) as Promise<void>,
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, change: ConsoleChange) => listener(change)
+      ipcRenderer.on(ipc.consoleChanged, changed)
+      return () => {
+        ipcRenderer.removeListener(ipc.consoleChanged, changed)
+      }
+    }
+  },
   onClosing(listener) {
     ipcRenderer.on(ipc.closing, () => {
       ipcRenderer.send(ipc.closePending)

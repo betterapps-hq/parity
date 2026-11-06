@@ -23,6 +23,12 @@ export const ipc = {
   toggleDevTools: "canvas:toggle-dev-tools",
   setTheme: "canvas:set-theme",
   metrics: "canvas:metrics",
+  /** The window says which frame its next console message comes from (PAR-147). */
+  consoleAnnounce: "canvas:console-announce",
+  consoleRead: "canvas:console-read",
+  consoleClear: "canvas:console-clear",
+  /** Main tells windows what's new in the console log, or that a project's was cleared. */
+  consoleChanged: "canvas:console-changed",
   /** Main asks a window whether it may close. */
   closing: "canvas:closing",
   /** The window answers at once that it's deciding, then that it's ready to close or wants to stay open. */

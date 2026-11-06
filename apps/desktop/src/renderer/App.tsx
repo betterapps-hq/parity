@@ -10,6 +10,7 @@ import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
 import { TabBar } from "./chrome/TabBar.tsx"
 import { UnsavedPrompt } from "./chrome/UnsavedPrompt.tsx"
 import { startUpdates } from "./chrome/updates.tsx"
+import { startConsole } from "./console-feed.ts"
 import { ProjectView } from "./ProjectView.tsx"
 import { HomePage } from "./start/HomePage.tsx"
 import { NewTabPage } from "./start/NewTabPage.tsx"
@@ -28,6 +29,7 @@ export function App() {
     window.canvasHost.onClosing(() => workspace.confirmQuit())
     window.canvasHost.onReconnect(() => void workspace.reconnect())
     startUpdates()
+    startConsole()
   }, [])
 
   return <AppWindow />

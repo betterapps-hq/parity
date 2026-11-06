@@ -697,6 +697,71 @@ transform tags. Gaps: reading the attribute in the offscreen page (`renderer/ren
 Measure and render-result tests pass a source through, and the canvas's reading of the same attribute is covered by the
 stories.
 
+### The designs' console (PAR-147)
+
+What the project's code writes to the console shows in the editor as it's written, from the same log `parity console`
+gives agents. The status bar counts the errors and warnings, and clicking the count opens the Console panel under the
+canvas, as View > Console and Ctrl+` do. A board whose design wrote errors or warnings shows its own count beside its
+name, and clicking that opens the console on the design's messages alone.
+
+The panel groups messages by the design that wrote them, in the order each design first wrote one, with the messages no
+design is known for last, under Project. Each group's name selects the design. A message shows its level, its text cut
+to two lines, how often it came, the frames it came from (a state in a mode, the first two and how many more), the file
+and line in the project it was written at, which opens in the person's editor, and how long ago. An error with a stack
+opens to show it, with the project's files from the root and a library's by its file's name. The header filters by
+level, each with its count, by design and by words, and Clear empties the log for agents too. The panel's height is
+dragged at its top edge and kept with the layout.
+
+- **One log:** main keeps the last 500 messages from every window, as it did for `parity console`, now with an id each.
+  It sends what's new or counted again to the editor windows in batches, 100 ms after the first, so a component logging
+  in a loop doesn't flood them. Each window routes a message to the open project whose builder served the code that
+  wrote it, and reads what's there already when a project opens.
+- **One message, several frames:** main counts a repeat on the last message only when it's from the same frame. The
+  panel shows a message one design wrote in several frames once, with each frame and every time it came.
+- **Which design wrote it, offscreen:** each render job names the design, state and mode it draws, and a message the
+  offscreen window writes while it draws one is that design's. Component previews name none. No stored name has it, so
+  bitmaps and previews keep their names.
+- **Which design wrote it, on the canvas:** frames share the window, so main can't tell. While a frame handles a
+  person's event (a click, a key, a pointer moving over it, input), and in what that event's task runs, as the render it
+  causes, the window says which frame each console call comes from just before it's written. Main keeps the word for the
+  next message of that level from the window, for a second at most. Outside those tasks the console is untouched, so the
+  window's developer tools still point at the lines that wrote each message. What a frame writes as it first draws on
+  the canvas, or later on its own, is the project's, unless its offscreen draw wrote it too.
+- **Where it was written:** the message's own line when that's in the project's files, or else the first call in its
+  stack that is, as React's warnings name the component in their stack. Vite's own modules and installed packages are
+  never a place.
+- **For agents:** each entry `parity console` and `get_console` give has the design's key, state and mode when known,
+  and the text says `from design pricing (yearly, desktop-light)`. Agents' frames name the state they draw.
+
+Code: `createConsoleLog`, `announcedContexts`, `recordConsole` and `batchedChanges` in
+`apps/desktop/src/main/console-log.ts`, wired in `main/index.ts` with `canvas:console-*` in `shared/channels.ts`,
+checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and `window.canvasHost.console` in the
+preload script; the job's `design` in `shared/render-job.ts` and `shared/protocol.ts`; `captureConsole` and
+`frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`, `projectPlace`, `routeConsoleChange`, `tally`
+and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in `renderer/console-feed.ts`; the panel in
+`chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's in `canvas/ConsoleBadge.tsx`; the
+layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry` and `FrameRequest.state` in
+`packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
+
+Tests: `apps/desktop/src/main/console-log.test.ts` (7: an id each and a repeat in the same frame counted, another
+frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
+cleared, with listeners told; an announcement held for the next message of its level alone, briefly; changes batched,
+each once as it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message
+for several frames with each frame and every time; the place from the stack when a library wrote it, with the stack
+apart and short; counts by message, of one design or all; a project file's place without Vite's query; none for a
+library's, Vite's or another server's; each project given its builder's messages and cleared with it).
+`renderer/canvas/console-capture.test.ts` (3: the frame from an event's path; an announcement before each message while
+a frame handles an event and none after its task; the console left alone outside frames, and a wrapper added since
+kept). `shared/render-job.test.ts` (the job's design passes the service's check, and no name has it),
+`shared/ipc-checks.test.ts` (an announcement and a builder's address checked), `chrome/layout.test.ts` (the console's
+open state and height kept, and their defaults), `packages/agent/src/run.test.ts` (each frame names its design and
+state) and `packages/cli/src/client.test.ts` (the design, state and mode in the text).
+`chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign, WarningsOnly and NothingLogged, fed main's
+entries through the same mapping. In the running app, `e2e/console.e2e.ts` clicks Ada's row on the Members screen in
+Interact, which warns, and finds the warning counted on Members' board and listed under Members in the panel, which
+covers the window's announcement reaching main ahead of Electron's `console-message` event. Gaps: no end-to-end test
+draws a design offscreen that writes to the console.
+
 ## Moving, reordering and resizing
 
 Dragging layers and designs, where they land, resize handles and duplicates.

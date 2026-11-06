@@ -654,7 +654,7 @@ const FrameTile = memo(function FrameTile({
   useGutterStyle(figure, place)
   const tile = useRef<HTMLDivElement>(null)
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
-  const shows = useFrameShows(session, tree, mode, frame, scale)
+  const shows = useFrameShows(session, tree, mode, frame, scale, { key: entry.key, state: state.id })
   const { key } = shows
   // The first row's frames are what the project's picture shows (PAR-607).
   useFirstRowFrame(session.id, entry.key, mode.id, shows, caption)
