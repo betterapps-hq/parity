@@ -112,6 +112,18 @@ export interface ServiceMethods {
     result: { files: string[]; warnings: string[] }
   }
   /**
+   * Draws layers and designs offscreen as the canvas has them, as `layers.export` does, and makes one PNG of them all at
+   * 2x for the clipboard (PAR-190). `layers` are by design key, and a layer's id when it isn't the design; `at` is where
+   * the design sits on the canvas, and `name` names the layer in a warning. No PNG when nothing could be drawn.
+   */
+  "layers.picture": {
+    params: {
+      projectId: string
+      layers: { design: string; node?: string; name: string; at: { x: number; y: number } }[]
+    }
+    result: { png?: string; warnings: string[] }
+  }
+  /**
    * Draws one frame offscreen and captures it as a PNG, for the canvas to show in its place when zoomed far out, and
    * keeps it on disk. No PNG when the frame didn't render. `height` is the live frame's height in its own CSS pixels,
    * kept with the bitmap; without one, the offscreen frame's is kept, which can be a few pixels out (PAR-179).

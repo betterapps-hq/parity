@@ -2187,7 +2187,7 @@ export the selection at the same sizes. The sizes are remembered for every expor
   first.
 - **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05 (decisions.md); the icon set's dialog
   is kept as an exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state
-  and mode it shows, at Settings' export scale. Copy as PNG is CAN-39.
+  and mode it shows, at Settings' export scale. Copy as PNG is below.
 
 Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
 section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
@@ -2204,6 +2204,37 @@ PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-me
 `chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
 `chrome/CanvasMenu.stories.tsx` check the menu's item and its keys. Gaps: drawing offscreen and writing the files run in
 the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
+
+### Copy as PNG (PAR-190)
+
+**Ctrl+Shift+C** (Edit > Copy as PNG in the keyboard shortcuts and Search actions) copies the selected layers, or else
+the selected designs, to the clipboard as one PNG at 2x, to paste into a chat, a document or another app. A toast says
+"Copied as PNG". With no layer or design selected, the keys do nothing.
+
+- **What's drawn:** the same as an export's, from the same offscreen frames and cuts: each design drawn once at 2x in
+  the state the canvas shows and its main mode, saved or not. One layer or design copies exactly the PNG exporting it at
+  2x writes.
+- **Several layers of one design** copy as the box around them all, with what's between them, as the canvas shows it.
+- **Several designs** copy as one picture, each where it sits on the canvas, see-through between them.
+- **What can't be drawn** is left out with a warning toast, as in an export; when nothing could be drawn, nothing is
+  copied and a toast says so.
+- **Too big to copy:** a picture over 16,384 pixels wide or tall at 2x, such as every design in a project spread over
+  the canvas, isn't copied, and a toast says to select less or export it. That's only known once the designs are drawn,
+  which for 61 designs took about 13 seconds.
+- **Not here:** no menu item yet, and no other scale or format; copying uses neither the Export section's sizes nor
+  Settings' export scale.
+
+Code: `planPicture`, `copyScale` and `largestPicture` in `packages/editor/src/export-files.ts`; `copySelectedAsPng` in
+`chrome/commands.ts`, sharing `selectedTargets` with `exportSelected`, which writes the clipboard; `copyAsPng` in
+`chrome/keymap.ts` and `chrome/actions.ts`; `layersPicture` in `utility/agent.ts`, through `framePictures`, with
+`composePicture` in `utility/webp.ts`, behind the service's `layers.picture`.
+
+Tests: `packages/editor/src/export-files.test.ts` (6 more: one layer planned exactly as its 2x PNG export, the box
+around a design's layers, designs placed as on the canvas, what can't be drawn left out with why, a picture too big to
+copy, and nothing with a size). `apps/desktop/src/utility/webp.test.ts` (2 more: one piece is byte for byte the export's
+PNG, and pieces placed with see-through between). `chrome/keymap.test.ts` runs Copy as PNG from Ctrl+Shift+C and
+Cmd+Shift+C, apart from Copy and Copy style. Gaps: drawing and writing the clipboard run in the desktop app, which no
+unit test opens, and the e2e suite doesn't copy as PNG.
 
 ## Fields
 

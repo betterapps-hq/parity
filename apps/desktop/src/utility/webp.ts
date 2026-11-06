@@ -1,4 +1,4 @@
-import type { Sharp, SharpOptions } from "sharp"
+import type { SharpConstructor } from "sharp"
 
 /**
  * Frame bitmaps and component previews are kept as lossless WebP, encoded here in the project service with sharp's
@@ -6,9 +6,9 @@ import type { Sharp, SharpOptions } from "sharp"
  * encoder is lossless at full quality too, but wrote larger files than the PNGs. sharp is loaded the first time it's
  * needed, so a system it can't load on still runs, keeping nothing.
  */
-let encoder: Promise<(input: Uint8Array, options?: SharpOptions) => Sharp> | undefined
+let encoder: Promise<SharpConstructor> | undefined
 
-function loadSharp(): Promise<(input: Uint8Array, options?: SharpOptions) => Sharp> {
+function loadSharp(): Promise<SharpConstructor> {
   encoder ??= import("sharp").then(
     ({ default: sharp }) => {
       // Each picture is encoded once, so nothing is worth keeping in sharp's cache.
@@ -56,4 +56,29 @@ export async function cutPicture(
   return format === "jpg"
     ? cut.flatten({ background: "#ffffff" }).jpeg({ quality: 92 }).toBuffer()
     : cut.png().toBuffer()
+}
+
+/**
+ * Pieces of pictures put together as one PNG, see-through where none is, for copying a selection (PAR-190). One piece
+ * filling the picture is cut as `cutPicture` cuts a PNG export, so copying a layer gives the same file as exporting it.
+ * Fails when sharp can't load or can't read a picture.
+ */
+export async function composePicture(
+  pieces: readonly {
+    picture: Uint8Array
+    crop: { left: number; top: number; width: number; height: number }
+    left: number
+    top: number
+  }[],
+  width: number,
+  height: number
+): Promise<Buffer> {
+  const cuts = await Promise.all(pieces.map((piece) => cutPicture(piece.picture, piece.crop, "png")))
+  const [only] = cuts
+  if (only && cuts.length === 1 && pieces[0]!.crop.width === width && pieces[0]!.crop.height === height) return only
+  const sharp = await loadSharp()
+  return sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite(cuts.map((input, index) => ({ input, left: pieces[index]!.left, top: pieces[index]!.top })))
+    .png()
+    .toBuffer()
 }

@@ -16,7 +16,7 @@ import {
 import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry"
 import { registryVersion } from "@parity-app/agent/routing"
 import { errorDetails } from "@parity-app/core"
-import { planExport } from "@parity-app/editor"
+import { copyScale, planExport, planPicture } from "@parity-app/editor"
 import { passedLink } from "../shared/account.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
@@ -24,7 +24,7 @@ import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
 import { renderOffscreen } from "./render.ts"
-import { cutPicture } from "./webp.ts"
+import { composePicture, cutPicture } from "./webp.ts"
 
 interface WindowChannel {
   request<M extends keyof WindowMethods>(
@@ -213,6 +213,37 @@ export async function exportLayers(
     written.push(path)
   }
   return { files: written, warnings }
+}
+
+/**
+ * Draws layers and designs as `exportLayers` does, at 2x, and puts them together as one PNG for the clipboard
+ * (PAR-190), each design where it sits on the canvas (see `planPicture`). What can't be drawn is a warning; with
+ * nothing drawn, there's no PNG.
+ */
+export async function layersPicture(
+  window: WindowChannel,
+  { projectId, layers }: ServiceMethods["layers.picture"]["params"]
+): Promise<ServiceMethods["layers.picture"]["result"]> {
+  const host = desktopHost(window)
+  const snapshot = await host.snapshot(projectId)
+  const designs = [...new Set(layers.map((layer) => layer.design))]
+  const { frames, warnings } = await framePictures(host, snapshot, designs, [copyScale])
+  // Designs are asked for by key, `path#id`; pictures name them by id.
+  const byId = layers.map((layer) => ({ ...layer, design: layer.design.slice(layer.design.lastIndexOf("#") + 1) }))
+  const { width, height, pieces, problems } = planPicture(byId, frames, copyScale)
+  warnings.push(...problems)
+  if (pieces.length === 0) return { warnings }
+  const png = await composePicture(
+    pieces.map(({ frame, crop, left, top }) => ({
+      picture: Buffer.from(frames[frame]!.png, "base64"),
+      crop,
+      left,
+      top
+    })),
+    width,
+    height
+  )
+  return { png: png.toString("base64"), warnings }
 }
 
 /**
