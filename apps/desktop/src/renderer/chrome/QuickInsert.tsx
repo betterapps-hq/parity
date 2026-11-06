@@ -491,9 +491,10 @@ function RowPicture({ session, component }: { session: ProjectSession; component
   const { pictured } = useComponentCard(session, component, false)
   const onScreen = usePreviewOnScreen(session.id, component)
   return (
-    <span ref={onScreen} className="flex shrink-0">
+    // A picture rather than text, so it's a box beside the row's words, not one of them.
+    <div ref={onScreen} className="flex shrink-0">
       <PreviewThumb status={pictured} width={44} height={28} />
-    </span>
+    </div>
   )
 }
 
@@ -567,7 +568,7 @@ function RowContent({
         <RowPicture session={session} component={component} />
       ) : (
         // As wide as a picture, so every row's name starts in one place.
-        <span className="grid w-11 shrink-0 place-items-center">{originIcon(first!.origin, first!.key)}</span>
+        <div className="grid w-11 shrink-0 place-items-center">{originIcon(first!.origin, first!.key)}</div>
       )}
       <span className="truncate">{row.name}</span>
       {detail}
