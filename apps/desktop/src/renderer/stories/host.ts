@@ -10,7 +10,8 @@ import type {
   ProjectInfo,
   ProjectProcess,
   ServiceMethod,
-  ServiceMethods
+  ServiceMethods,
+  TelemetryState
 } from "../../shared/protocol.ts"
 import { receiveAccount, resetAccountView } from "../account/account.ts"
 import { preloadAnswers } from "../service.ts"
@@ -138,8 +139,36 @@ const storyAccount: CanvasHost["account"] = {
   }
 }
 
+/** The stand-in Telemetry setting, at its defaults with a fixed install ID, which stories can start elsewhere. */
+export const defaultTelemetry: TelemetryState = {
+  level: "all",
+  setting: "all",
+  installId: "3f9c2a71-8d4e-4b6a-9e15-c07d2f84b913"
+}
+let telemetryNow: TelemetryState = defaultTelemetry
+
+/** Starts the stand-in Telemetry setting somewhere else, as a variable overriding it. */
+export function setStoryTelemetry(state: TelemetryState): void {
+  telemetryNow = state
+}
+
+const storyTelemetry: CanvasHost["telemetry"] = {
+  get: () => Promise.resolve(telemetryNow),
+  setLevel: async (setting) => {
+    const installId = setting === "off" ? crypto.randomUUID() : telemetryNow.installId
+    telemetryNow = {
+      ...telemetryNow,
+      setting,
+      installId,
+      level: telemetryNow.overriddenBy ? telemetryNow.level : setting
+    }
+    return telemetryNow
+  }
+}
+
 /** Puts the service and the system dialogs back as they were before any story changed them. */
 export function resetHost(): void {
+  telemetryNow = defaultTelemetry
   Object.assign(service, defaultService)
   running.processes = []
   overrides.clear()
@@ -156,6 +185,7 @@ export function installHost(): void {
   const host: CanvasHost = {
     appVersion: desktop.version,
     getBuildInfo: async () => ({ version: desktop.version, channel: "development" }),
+    telemetry: storyTelemetry,
     updates: {
       get: () => Promise.resolve({ phase: "disabled", beta: false }),
       check: () => Promise.resolve(),

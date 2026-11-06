@@ -10,6 +10,9 @@ export const ipc = {
   updateCheck: "canvas:update-check",
   updateBeta: "canvas:update-beta",
   updateAct: "canvas:update-act",
+  /** The Telemetry setting and install ID, which main keeps (PAR-626). */
+  telemetryState: "canvas:telemetry-state",
+  telemetryLevel: "canvas:telemetry-level",
   /** Main tells windows the update state changed. */
   updateChanged: "canvas:update-changed",
   /** Main asks a window to show the updates dialog, from the macOS menu. */

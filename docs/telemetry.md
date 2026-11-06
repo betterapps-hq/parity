@@ -48,19 +48,19 @@ from (`main`, `renderer`, `render`, `service`, `worker`, `builder` or `cli`); th
 run and, where there is one, the `windowId` and `project`. An event inside a trace adds its `traceId` and `spanId`, and
 a span adds its `parentSpanId`, `durationMs` and `outcome` (`ok`, `error` or `cancelled`).
 
-## Turning it down or off
+## Turning it off
 
-Telemetry is on by default, at its fullest level, everywhere Parity runs, development and CI included, each tagged with
-its environment. Unit tests leave it off.
+Telemetry is on by default everywhere Parity runs, development and CI included, each tagged with its environment. It's
+either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does. The local copy
+is written either way. Unit tests leave it off.
 
-| Level             | Sent                                                                     |
-| ----------------- | ------------------------------------------------------------------------ |
-| **All** (default) | Errors, crashes, traces, events, replays and failure bitmaps             |
-| **Errors**        | Errors and crashes, with their breadcrumbs, traces and the replay buffer |
-| **Off**           | Nothing; the local copy is still written                                 |
-
-Choose the level in Settings > Telemetry, or set `PARITY_TELEMETRY` to `all`, `errors` or `off`. The CLI reads the same
-setting and variable.
+- **Settings > Privacy > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
+  install ID in `<userData>/telemetry.json`, which the CLI reads too (`desktopDataFolder` in `@parity-app/telemetry`
+  finds the folder).
+- **`PARITY_TELEMETRY=all` or `off`** decides a run whatever the setting says, and **`DO_NOT_TRACK=1`** turns it off.
+  Settings then shows the variable and leaves the switch disabled. Any other `PARITY_TELEMETRY` value stops the app.
+- **The install ID** is a random UUID made on the first run and sent as Sentry's user. Turning sharing off makes a new
+  one, so what's sent after turning it on again isn't linked to what came before. About shows it beside the versions.
 
 ## Secrets are scrubbed
 
