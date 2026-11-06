@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import { readdir, readFile, realpath, stat } from "node:fs/promises"
+import { createRequire } from "node:module"
 import { type AddressInfo, createServer as createNetServer } from "node:net"
 import { basename, dirname, isAbsolute, join, posix, relative, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -10,12 +11,12 @@ import {
   type BuilderStartOptions,
   commandOption,
   iconStyleModules,
-  isMadeValue,
   type LibraryInfo,
   libraryImports,
-  type PackageManifest,
+  parseManifest,
   type ProjectConfig,
-  scriptRunning
+  scriptRunning,
+  valueImports
 } from "@parity-app/core"
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
@@ -63,7 +64,7 @@ export const viteBuilder: BuilderAdapter = {
         // transforms (React Fast Refresh) that would otherwise expect that page's preamble.
         hmr: false,
         cors: { origin: options.allowedOrigins },
-        fs: { allow: [vite.searchForWorkspaceRoot(options.root), dirname(options.rendererGuestPath)] }
+        fs: { allow: [vite.searchForWorkspaceRoot(options.root), ...guestFolders(options.rendererGuestPath)] }
       },
       resolve: { dedupe: options.renderer.runtimePackages },
       optimizeDeps: {
@@ -222,6 +223,16 @@ export function developmentStandIn(specifier: string, standIns: Record<string, s
   return undefined
 }
 
+/**
+ * Where the guest's files come from. A built guest is one file. In development the guest is its source, which imports
+ * core's value evaluator and icon names as source too, from where the guest's own package resolves them.
+ */
+function guestFolders(rendererGuestPath: string): string[] {
+  if (!/\.tsx?$/.test(rendererGuestPath)) return [dirname(rendererGuestPath)]
+  const evaluator = createRequire(rendererGuestPath).resolve("@parity-app/core/values/evaluate")
+  return [dirname(rendererGuestPath), dirname(dirname(evaluator))]
+}
+
 function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): Vite.Plugin {
   return {
     name: "canvas:guest",
@@ -345,8 +356,8 @@ function guestModule(config: ProjectConfig): { source: string; imports: string[]
   const decoratorModules = [
     ...new Set([
       ...config.libraries.flatMap((library) => libraryImports(library)),
-      ...Object.values(config.components).flatMap((source) => madeImports(source.sample)),
-      ...config.libraries.flatMap((library) => madeImports(library.designs))
+      ...Object.values(config.components).flatMap((source) => valueImports(source.sample, "sample")),
+      ...config.libraries.flatMap((library) => valueImports(library.designs, "sample"))
     ])
   ]
   for (const id of decoratorModules) {
@@ -386,14 +397,6 @@ function guestModule(config: ProjectConfig): { source: string; imports: string[]
     ""
   ].join("\n")
   return { source, imports, optional }
-}
-
-/** The modules a sample's values made by calling a package's function come from. */
-function madeImports(value: unknown): string[] {
-  if (isMadeValue(value)) return [value.$call.import, ...(value.args ?? []).flatMap(madeImports)]
-  if (Array.isArray(value)) return value.flatMap(madeImports)
-  if (typeof value === "object" && value !== null) return Object.values(value).flatMap(madeImports)
-  return []
 }
 
 /** An export path as property access: `Button` is `["Button"]`, and `Dialog.Root` reads into the namespace. */
@@ -463,8 +466,9 @@ const viteServe = /(?:^|[\s;&|(])vite(?![\w.-])(?!\s+(?:build|preview|optimize)\
  * Vite looks for its usual names.
  */
 async function scriptedConfig(root: string): Promise<string | undefined> {
-  const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8").catch(() => "{}")) as PackageManifest
-  const script = scriptRunning(pkg.scripts, viteServe)
+  const file = join(root, "package.json")
+  const text = await readFile(file, "utf8").catch(() => undefined)
+  const script = text === undefined ? undefined : scriptRunning(parseManifest(text, file).scripts, viteServe)
   const named = script && commandOption(script[1], ["-c", "--config"])
   return named ? resolve(root, named) : undefined
 }
@@ -482,10 +486,11 @@ async function loadProjectVite(root: string): Promise<typeof Vite> {
     }
     if (dirname(candidate) === candidate) throw new Error(`Vite is not installed in ${root}`)
   }
-  const manifest = JSON.parse(await readFile(join(folder, "package.json"), "utf8")) as {
-    exports?: Record<string, unknown>
-  }
-  const entry = resolveImportCondition(manifest.exports?.["."])
+  const file = join(folder, "package.json")
+  const { exports } = parseManifest(await readFile(file, "utf8"), file)
+  const entry = resolveImportCondition(
+    typeof exports === "object" && exports !== null && !Array.isArray(exports) ? exports["."] : undefined
+  )
   return (await import(pathToFileURL(join(folder, entry)).href)) as typeof Vite
 }
 

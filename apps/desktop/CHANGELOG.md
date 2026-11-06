@@ -1,8 +1,25 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 01:01:44 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 01:41:30 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.12.6
+
+Fri, 06 Nov 2026 01:41:30 GMT
+
+### Patches
+
+- Split lint, board geometry and frame reading out of the agent workspace, and type its api() (ajcraswell@gmail.com)
+- Check the main process's IPC arguments, files, environment and render page answers with zod (ajcraswell@gmail.com)
+- Library files, their edits and decorator values are checked with zod schemas, and a decorator value's form is checked
+  when the file loads. (ajcraswell@gmail.com)
+- Checks the clipboard, drag payloads and saved preferences with zod: a copy or drop that doesn't parse is refused, and
+  a saved value that doesn't read falls back to its default without resetting the rest (ajcraswell@gmail.com)
+- Keep each project's TypeScript program in @parity-app/code's program cache, which the type checker worker calls
+  (ajcraswell@gmail.com)
+- The text editor writes an edit to the state whose text it showed, even when the state it was picked in is gone
+  (ajcraswell@gmail.com)
 
 ## 0.12.5
 

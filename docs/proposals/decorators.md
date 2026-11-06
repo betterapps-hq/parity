@@ -81,8 +81,9 @@ reads from the project add to it.
    need. Parity turns each entry into a Storybook decorator that reads `context.globals`.
 
    A value is JSON or one of five forms, each marked by its key:
-   - `{ "$import": "pkg", "export": "name" }`: something the package exports. `export` defaults to `default`.
-   - `{ "$call": { "import": "pkg", "export": "name" }, "args": [...], "methods": [...] }`: what calling it returns.
+   - `{ "$import": "pkg", "export": "name" }`: something the package exports. Without `export`, its default export.
+   - `{ "$call": { "import": "pkg", "export": "name" }, "args": [...], "methods": [...] }`: what calling it returns,
+     after its `methods` are called on it in order. A method that's missing or throws is passed over.
    - `{ "$global": "theme", "values": { "dark": ... }, "default": ... }`: the value for the frame's option.
    - `{ "$frame": "root" }`: part of the frame. Also `host`, `body`, `document`, `dir`, `lang` and `selector`.
    - `{ "$function": ... }`: a function returning the value it holds.
@@ -91,6 +92,15 @@ reads from the project add to it.
    (PAR-594). An object with a form's key must be that form, so a `$frame` Parity doesn't know, or a `$call` without an
    `import`, fails the file with its path, such as `/decorators/0/wrap/props/container/$frame`. The guest works the
    values out for each frame without checking them again.
+
+   A component's sample holds values too, and a design node's props copy them, but there only `$call` is a form: the
+   values the package makes, as its examples pass them. An object with one of the other keys is data as written.
+
+   One module in `@parity-app/core`, `values/`, holds this. `grammar.ts` checks values with zod, and `evaluate.ts`
+   collects the modules a value imports, works it out against a host, and writes and reads the keys of render slots
+   (PAR-572). The evaluator imports nothing, since the guest bundles it into the project's own code. It has two hosts:
+   the guest's frame, and libgen's trial outside a frame, where a mode's value is its default and the frame's nodes are
+   undefined.
 
 4. **What Parity can read from the project:**
    - Tailwind's dark variant in the stylesheet, so dark mode adds the right class or attribute. Copacker's is

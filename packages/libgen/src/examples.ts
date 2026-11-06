@@ -8,11 +8,16 @@ import {
   type ComponentSample,
   isMadeValue,
   isSampleRender,
+  jsonText,
   type MadeValue,
+  type PackageManifest,
+  parseData,
   type SampleChild,
   type SampleRender
 } from "@parity-app/core"
 import ts from "typescript"
+import { z } from "zod"
+import { packageDocument } from "./npm.ts"
 import { sampleText } from "./sample-text.ts"
 
 const run = promisify(execFile)
@@ -43,12 +48,6 @@ export interface ExampleFile {
   text: string
 }
 
-interface PackageJson {
-  name?: string
-  version?: string
-  repository?: string | { url?: string; directory?: string }
-}
-
 /** Example and story files: stories, demos, examples and docs' demo files, in TypeScript or JavaScript. */
 const examplePath =
   /(?:\.stories\.[jt]sx?$|\.demo\.[\w.-]*\.?[jt]sx?$|-demo\.[jt]sx?$|\/(?:examples?|demos?|stories)\/.*\.[jt]sx?$)/
@@ -61,12 +60,17 @@ const skipped = /(?:^|\/)(?:node_modules|dist|build|__tests__|test|tests)\//
  * says why, and generation goes on without them.
  */
 export async function fetchExamples(
-  pkg: PackageJson,
+  pkg: PackageManifest,
   packageDir: string,
   hints: ExampleHints = {},
   cacheRoot = join(homedir(), ".parity", "cache", "examples")
 ): Promise<{ files: ExampleFile[]; docs?: ExampleFile[]; source?: ExampleSource; note?: string }> {
-  const upstream = await readUpstream(packageDir)
+  let upstream: Upstream | undefined
+  try {
+    upstream = await readUpstream(packageDir)
+  } catch (error) {
+    return { files: [], note: `Examples weren't read: ${message(error)}` }
+  }
   const repo = normalizeRepo(hints.repo ?? upstream?.repository ?? repositoryOf(pkg))
   if (!repo) return { files: [], note: "No repository is named, so no examples were read." }
   try {
@@ -94,18 +98,24 @@ export async function fetchExamples(
   }
 }
 
-async function readUpstream(packageDir: string): Promise<{ repository?: string; revision?: string } | undefined> {
+/** `upstream.json`, which a package built from another's source ships to say which repository and commit. */
+const upstreamFile = z.looseObject({ repository: z.string().optional(), revision: z.string().optional() })
+
+type Upstream = z.output<typeof upstreamFile>
+
+/** The package's `upstream.json`, or nothing when it has none. Throws, naming the field, when it doesn't match. */
+async function readUpstream(packageDir: string): Promise<Upstream | undefined> {
+  const file = join(packageDir, "upstream.json")
+  const text = await readFile(file, "utf8").catch(() => undefined)
+  if (text === undefined) return undefined
   try {
-    return JSON.parse(await readFile(join(packageDir, "upstream.json"), "utf8")) as {
-      repository?: string
-      revision?: string
-    }
-  } catch {
-    return undefined
+    return parseData(jsonText(upstreamFile), text)
+  } catch (error) {
+    throw new TypeError(`${file}: ${message(error)}`, { cause: error })
   }
 }
 
-function repositoryOf(pkg: PackageJson): string | undefined {
+function repositoryOf(pkg: PackageManifest): string | undefined {
   return typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url
 }
 
@@ -121,7 +131,7 @@ export function normalizeRepo(url: string | undefined): string | undefined {
 /** The commit the installed version was published from: recorded upstream, npm's `gitHead`, a tag, or by date. */
 async function findCommit(
   repo: string,
-  pkg: PackageJson,
+  pkg: PackageManifest,
   upstream: string | undefined,
   cacheRoot: string
 ): Promise<{ commit: string; how: ExampleSource["how"] } | undefined> {
@@ -154,23 +164,13 @@ async function findCommit(
   return commit.trim() ? { commit: commit.trim(), how: "date" } : undefined
 }
 
-async function npmVersion(pkg: PackageJson): Promise<{ gitHead?: string; time?: string } | undefined> {
+async function npmVersion(pkg: PackageManifest): Promise<{ gitHead?: string; time?: string } | undefined> {
   if (!pkg.name || !pkg.version) return undefined
   try {
-    const response = await fetch(`https://registry.npmjs.org/${pkg.name.replace("/", "%2F")}`, {
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(30_000)
-    })
-    if (!response.ok) return undefined
-    const packument = (await response.json()) as {
-      versions?: Record<string, { gitHead?: string }>
-      time?: Record<string, string>
-    }
-    const gitHead = packument.versions?.[pkg.version]?.gitHead
-    return {
-      ...(gitHead ? { gitHead } : {}),
-      ...(packument.time?.[pkg.version] ? { time: packument.time[pkg.version] } : {})
-    }
+    const document = await packageDocument(pkg.name, { full: true, signal: AbortSignal.timeout(30_000) })
+    const gitHead = document.versions?.[pkg.version]?.gitHead
+    const time = document.time?.[pkg.version]
+    return { ...(gitHead ? { gitHead } : {}), ...(typeof time === "string" ? { time } : {}) }
   } catch {
     return undefined
   }

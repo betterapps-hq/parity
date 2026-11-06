@@ -34,6 +34,7 @@ const renderJob = z.object({
   scale: finiteNumber.positive(),
   audit: z.boolean().optional(),
   colorTokens: z.array(z.string()).optional(),
+  inlinePortals: z.literal(true).optional(),
   previews: z.array(tokenChange).optional()
 })
 

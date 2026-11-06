@@ -29,7 +29,9 @@ when it's spread through UI code. Today:
 
 - **`@parity-app/core` is the `.par` model and the operations on it:** documents, edits, instances, render resolution,
   modes, CSS and the library manifest, with the token types its contracts name. It imports nothing from Node, Electron
-  or React, and has 12 test files.
+  or React, and has 12 test files. Its `values/` module checks and evaluates decorator and sample values (PAR-572); the
+  guest imports its evaluator and `icon-names.ts` alone, as `@parity-app/core/values/evaluate` and
+  `@parity-app/core/icon-names`, since they import nothing at runtime.
 - **Framework-specific code sits behind adapter interfaces:** `@parity-app/renderer-react`, `@parity-app/builder-vite`
   and `@parity-app/styles-tailwind`.
 - **The agent API calls core's edits** (`setContainer`, `insertNode`, `moveNode`, `applyChanges` and the rest) rather
@@ -108,7 +110,11 @@ when it's spread through UI code. Today:
 This is the one you expect to iterate on most, so it gets the clearest boundary.
 
 - **One program per project** serves listing, checking and props, within the memory budget the detection proposal sets.
-  It's still kept by the app's worker, `utility/props-worker.ts`, until PAR-603 moves it here.
+  `programCache` in [program-cache.ts](../../packages/code/src/program-cache.ts) keeps it: it takes the root, the files
+  to read and the lockfiles, and answers the check and props through a `ComponentFinder`. It builds the program again
+  when a file it read changes, makes it afresh when a config input changes, keeps two projects' programs, and builds
+  none below a gigabyte of free memory. The app's worker, `utility/props-worker.ts`, only takes requests and replies
+  (PAR-603).
 - **The component list is worked out in one step.** `nextComponentList` in
   [component-list.ts](../../packages/code/src/component-list.ts) takes an open project's list and what happened: the
   project opened, a saved detection was found, the type checker read files, the parse read changed files (every file,

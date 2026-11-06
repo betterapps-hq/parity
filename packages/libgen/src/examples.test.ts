@@ -1,9 +1,13 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 import {
   exampleItem,
   exampleLevels,
   familyOf,
   familySample,
+  fetchExamples,
   localImports,
   nearestParent,
   normalizeRepo,
@@ -516,6 +520,22 @@ describe("families", () => {
       "Select"
     )
     expect(sample).toEqual({ children: ["Pick one", { component: "SelectTrigger", children: ["Fruit"] }] })
+  })
+})
+
+describe("upstream.json", () => {
+  it("says which field of a package's upstream.json is wrong, and reads no examples", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "parity-upstream-"))
+    try {
+      await writeFile(join(dir, "upstream.json"), '{ "repository": "github:acme/ui", "revision": 7 }')
+      const fetched = await fetchExamples({ name: "@acme/ui", version: "1.0.0" }, dir, {}, join(dir, "cache"))
+      expect(fetched).toEqual({
+        files: [],
+        note: `Examples weren't read: ${join(dir, "upstream.json")}: /revision: expected a string`
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
 

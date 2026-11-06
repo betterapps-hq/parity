@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "Split lint, board geometry and frame reading out of the agent workspace, and type its api()",
+  "comment": "Snippet API functions check their arguments with zod and refuse a wrong one as invalid_input naming its field",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

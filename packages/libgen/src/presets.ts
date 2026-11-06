@@ -1,4 +1,5 @@
-import type { LibraryDecorator, LibraryIcons } from "@parity-app/core"
+import { type LibraryDecorator, type LibraryIcons, parseData } from "@parity-app/core"
+import { z } from "zod"
 import type { ExampleHints } from "./examples.ts"
 import type { IconTagSource } from "./icon-tags.ts"
 import type { CollectedToken } from "./tokens.ts"
@@ -10,6 +11,41 @@ export type Load = (specifier: string) => Promise<Record<string, unknown>>
 export interface ThemeTokens {
   tokens: CollectedToken[]
   breakpoints?: { id: string; name: string; width: number }[]
+}
+
+/** A function, which a theme object's schema can only check is one. */
+const callable = z.custom<(...args: never[]) => unknown>((value) => typeof value === "function", "expected a function")
+
+/** Custom properties by name, as a stylesheet object holds them. */
+const declarations = z.record(z.string(), z.unknown())
+
+/** What libgen reads of MUI: `createTheme`, and the stylesheets and theme it makes. */
+const muiStyles = z.looseObject({ createTheme: callable })
+const muiVariablesTheme = z.looseObject({ generateStyleSheets: callable })
+const muiStyleSheets = z.array(z.record(z.string(), declarations))
+const muiPlainTheme = z.looseObject({
+  breakpoints: z.looseObject({ values: z.record(z.string(), z.number()) }),
+  typography: z.record(z.string(), z.unknown())
+})
+/** A typography variant; the theme's other entries, such as `pxToRem` and `fontSize`, aren't objects. */
+const muiVariant = z.looseObject({ fontSize: z.unknown(), lineHeight: z.unknown() })
+
+/** What libgen reads of Chakra: its default system's token stylesheet. */
+const chakraModule = z.looseObject({ defaultSystem: z.looseObject({ getTokenCss: callable }) })
+
+/** What libgen reads of Fluent: each theme's tokens, where it exports them. */
+const fluentTheme = z.record(z.string(), z.union([z.string(), z.number()])).optional()
+
+/**
+ * Checks a theme object libgen reads by running the library, so a change in the library names the field it moved,
+ * as `MUI's createTheme(): /breakpoints/values/sm: expected a number`.
+ */
+function readTheme<T extends z.ZodType>(what: string, schema: T, value: unknown): z.output<T> {
+  try {
+    return parseData(schema, value)
+  } catch (error) {
+    throw new TypeError(`${what}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+  }
 }
 
 /**
@@ -166,14 +202,19 @@ export const presets: Record<string, Preset> = {
       { wrap: { import: "@mui/material", component: "ScopedCssBaseline" } }
     ],
     async theme(load) {
-      const styles = await load("@mui/material/styles")
-      const make = styles.createTheme as (options: unknown) => { generateStyleSheets(): Record<string, unknown>[] }
-      const theme = make({ cssVariables: { colorSchemeSelector: "class" }, colorSchemes: { light: true, dark: true } })
+      const { createTheme } = readTheme("@mui/material/styles", muiStyles, await load("@mui/material/styles"))
+      const make = createTheme as (options: unknown) => unknown
+      const theme = readTheme(
+        "MUI's createTheme()",
+        muiVariablesTheme,
+        make({ cssVariables: { colorSchemeSelector: "class" }, colorSchemes: { light: true, dark: true } })
+      )
+      const sheets = readTheme("MUI's generateStyleSheets()", muiStyleSheets, theme.generateStyleSheets())
       const tokens = new Map<string, CollectedToken>()
-      for (const sheet of theme.generateStyleSheets()) {
-        for (const [selector, declarations] of Object.entries(sheet)) {
+      for (const sheet of sheets) {
+        for (const [selector, properties] of Object.entries(sheet)) {
           const context = /\bdark\b/.test(selector) ? "dark" : "default"
-          for (const [name, value] of Object.entries(declarations as Record<string, unknown>)) {
+          for (const [name, value] of Object.entries(properties)) {
             if (!name.startsWith("--") || (typeof value !== "string" && typeof value !== "number")) continue
             const property = name.slice(2)
             // Channels (`--mui-palette-primary-mainChannel: 25 118 210`) feed MUI's own colour maths.
@@ -187,10 +228,7 @@ export const presets: Record<string, Preset> = {
       // Parity's spacing steps are multiples of `--spacing`; MUI's `spacing(1)` is the same step.
       const unit = tokens.get("mui-spacing")?.values.default
       if (unit) tokens.set("spacing", { var: "spacing", category: "spacing", values: { default: unit } })
-      const plain = make({}) as unknown as {
-        breakpoints: { values: Record<string, number> }
-        typography: Record<string, unknown>
-      }
+      const plain = readTheme("MUI's createTheme()", muiPlainTheme, make({}))
       const breakpoints = plain.breakpoints.values
       // MUI's own variables hold whole `font` shorthands and no widths, so its type scale and breakpoints are declared
       // as tokens of their own, for Parity's type and breakpoint controls.
@@ -203,7 +241,9 @@ export const presets: Record<string, Preset> = {
           })
       }
       for (const [variant, style] of Object.entries(plain.typography)) {
-        const { fontSize, lineHeight } = (style ?? {}) as { fontSize?: unknown; lineHeight?: unknown }
+        const read = muiVariant.safeParse(style)
+        if (!read.success) continue
+        const { fontSize, lineHeight } = read.data
         if (typeof fontSize !== "string") continue
         const size = `mui-font-size-${variant}`
         const leading = `mui-line-height-${variant}`
@@ -274,8 +314,7 @@ export const presets: Record<string, Preset> = {
       "Chakra's Toaster is a snippet the app generates (`npx @chakra-ui/cli snippet add toaster`), not an export."
     ],
     async theme(load) {
-      const chakra = await load("@chakra-ui/react")
-      const system = chakra.defaultSystem as { getTokenCss(): unknown; breakpoints?: { values?: unknown } }
+      const system = readTheme("@chakra-ui/react", chakraModule, await load("@chakra-ui/react")).defaultSystem
       const tokens = new Map<string, CollectedToken>()
       const visit = (styles: unknown, context: string) => {
         if (typeof styles !== "object" || styles === null) return
@@ -292,7 +331,7 @@ export const presets: Record<string, Preset> = {
           } else visit(value, /\bdark\b/.test(key) ? "dark" : context)
         }
       }
-      visit(system.getTokenCss(), "default")
+      visit(readTheme("Chakra's getTokenCss()", declarations, system.getTokenCss()), "default")
       const unit = tokens.get("chakra-spacing-1")?.values.default
       if (unit) tokens.set("spacing", { var: "spacing", category: "spacing", values: { default: unit } })
       return { tokens: [...tokens.values()] }
@@ -379,7 +418,7 @@ export const presets: Record<string, Preset> = {
       const fluent = await load("@fluentui/tokens")
       const tokens = new Map<string, CollectedToken>()
       for (const [context, name] of Object.entries(fluentThemes)) {
-        const theme = fluent[name] as Record<string, string | number> | undefined
+        const theme = readTheme(`@fluentui/tokens' ${name}`, fluentTheme, fluent[name])
         if (!theme) continue
         for (const [property, value] of Object.entries(theme)) {
           const token = tokens.get(property) ?? { var: property, category: fluentCategory(property), values: {} }

@@ -2,6 +2,51 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 01:41:30 GMT",
+      "version": "0.12.6",
+      "tag": "@parity-app/desktop_v0.12.6",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f36ef736da5cc87d72f3de05d6b2fde7c650c04f",
+            "comment": "Split lint, board geometry and frame reading out of the agent workspace, and type its api()"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a2f6e818723bf5037e79a2da4cd1bb0bd660d0a6",
+            "comment": "Check the main process's IPC arguments, files, environment and render page answers with zod"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "21fecea6ab98858483733b5e38494daf8dbe4329",
+            "comment": "Library files, their edits and decorator values are checked with zod schemas, and a decorator value's form is checked when the file loads."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aecc8e5c39c81912d4d4fb95b2334f1943785480",
+            "comment": "Checks the clipboard, drag payloads and saved preferences with zod: a copy or drop that doesn't parse is refused, and a saved value that doesn't read falls back to its default without resetting the rest"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0e268c73454dae678313923315447550f8baea95",
+            "comment": "Keep each project's TypeScript program in @parity-app/code's program cache, which the type checker worker calls"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f8d91228fdf794aedab3f7e6e133ff20f5c0d56e",
+            "comment": "The text editor writes an edit to the state whose text it showed, even when the state it was picked in is gone"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 01:01:44 GMT",
       "version": "0.12.5",
       "tag": "@parity-app/desktop_v0.12.5",

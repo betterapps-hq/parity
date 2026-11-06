@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
+import { parseManifest } from "@parity-app/core"
 import type { ServiceMethods } from "../shared/protocol.ts"
 import { findRoutedServer, readPortless } from "./portless.ts"
 import { adoptServer, choosePort, knownServers, startServer, stopServer } from "./process-manager.ts"
@@ -120,7 +121,7 @@ async function start(projectId: string): Promise<Served> {
   } catch {
     throw new Error("Storybook isn't installed in the project. Install its dependencies first.")
   }
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { bin?: string | Record<string, string> }
+  const manifest = parseManifest(readFileSync(manifestPath, "utf8"), manifestPath)
   const bin =
     typeof manifest.bin === "string" ? manifest.bin : (manifest.bin?.storybook ?? Object.values(manifest.bin ?? {})[0])
   if (!bin) throw new Error("Storybook's command line couldn't be found")
