@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { ProjectProcess } from "../../shared/protocol.ts"
+import { request } from "../service.ts"
 
 /** How often the list is asked for: often while it's shown, now and then for the status bar. */
 const shownInterval = 1000
@@ -18,7 +19,7 @@ const pending = new Map<string, { status: ProjectProcess["status"]; was: Project
 
 function poll(): void {
   clearTimeout(timer)
-  window.canvasHost.request("processes.list", {}).then(
+  request("processes.list", {}).then(
     (next) => {
       processes = next.map((process) => {
         const asked = pending.get(process.id)
@@ -112,7 +113,7 @@ export function isSeen(process: ProjectProcess): boolean {
 export async function dismissProcess(process: ProjectProcess): Promise<void> {
   processes = processes.filter((candidate) => candidate.id !== process.id)
   notify()
-  await window.canvasHost.request("processes.dismiss", { id: process.id }).catch(() => undefined)
+  await request("processes.dismiss", { id: process.id }).catch(() => undefined)
 }
 
 async function act(
@@ -125,7 +126,7 @@ async function act(
   processes = processes.map((candidate) => (candidate.id === process.id ? { ...candidate, status } : candidate))
   notify()
   try {
-    await window.canvasHost.request(method, { id: process.id })
+    await request(method, { id: process.id })
   } catch (error) {
     pending.delete(process.id)
     toast.error(failure, { description: error instanceof Error ? error.message : String(error) })

@@ -1,4 +1,5 @@
 import { toast } from "sonner"
+import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /** Whether a component has stories in the project's Storybook. */
@@ -15,7 +16,7 @@ export async function openInStorybook(session: ProjectSession, component?: strin
     description: "If it isn't running yet, it starts first; that can take a minute."
   })
   try {
-    const { url } = await window.canvasHost.request("storybook.open", { projectId: session.id, component })
+    const { url } = await request("storybook.open", { projectId: session.id, component })
     window.open(url, "_blank")
     toast.success("Opened in your browser", { id: progress, description: url, duration: 3000 })
   } catch (error) {

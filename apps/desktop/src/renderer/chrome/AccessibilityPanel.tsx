@@ -23,6 +23,7 @@ import { DesignIcon, designColor, NodeIcon, nodeColor } from "../canvas/kinds.ts
 import { setTabOrderShown, useTabOrderShown } from "../canvas/tab-order.ts"
 import { type ContainerEntry, useContainerEntry, useHistory, useModeSettings } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
+import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { ruleWords } from "./accessibility-rules.ts"
 import { Hint } from "./Hint.tsx"
@@ -72,7 +73,7 @@ async function runCheck(session: ProjectSession, entry: ContainerEntry): Promise
   const previous = findingsOf(checks.get(key))
   setCheck(key, { ...checked, status: "checking", ...(previous ? { previous } : {}) })
   try {
-    const result = await window.canvasHost.request("accessibility.check", { projectId: session.id, design: entry.key })
+    const result = await request("accessibility.check", { projectId: session.id, design: entry.key })
     setCheck(key, { ...checked, status: "done", ...result })
   } catch (error) {
     setCheck(key, { ...checked, status: "failed", error: error instanceof Error ? error.message : String(error) })

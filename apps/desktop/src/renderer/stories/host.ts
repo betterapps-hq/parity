@@ -11,6 +11,7 @@ import type {
   ServiceMethod,
   ServiceMethods
 } from "../../shared/protocol.ts"
+import { preloadAnswers } from "../service.ts"
 
 /**
  * What the service's `project.open` and `project.components` answer for the example. Its guest URL is the module
@@ -102,7 +103,7 @@ export function installHost(): void {
       subscribe: () => () => undefined,
       onShow: () => () => undefined
     },
-    request: <M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]) => {
+    ask: preloadAnswers(<M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]) => {
       requests.push({ method, params })
       return delay(service.latency).then(() => {
         const usual = () => answer(method, params)
@@ -111,7 +112,7 @@ export function installHost(): void {
         if (override.once) overrides.delete(method)
         return (override.answer as unknown as Answer<M>)(params, usual)
       })
-    },
+    }),
     serve: () => undefined,
     onReconnect: () => undefined,
     ...cancelled,

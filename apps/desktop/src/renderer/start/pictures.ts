@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react"
 import type { ProjectPicture } from "../../shared/protocol.ts"
+import { request } from "../service.ts"
 
 /** Where the start page gets projects' pictures (PAR-607): the ones the service keeps, or a story's own. */
 export interface PictureSource {
@@ -43,9 +44,7 @@ class KeptPictures implements PictureSource {
   private async read(): Promise<void> {
     const roots = this.asking.splice(0)
     if (roots.length === 0) return
-    const read = await window.canvasHost
-      .request("pictures.read", { roots })
-      .catch((): Record<string, ProjectPicture> => ({}))
+    const read = await request("pictures.read", { roots }).catch((): Record<string, ProjectPicture> => ({}))
     // One taken while this was read is newer.
     for (const root of roots) if (!this.pictures.has(root)) this.pictures.set(root, read[root] ?? null)
     this.notify()

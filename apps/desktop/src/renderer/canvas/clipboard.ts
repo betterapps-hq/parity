@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { designsSelection, layersSelection, selectedDesigns, selectedNodes } from "../selection.ts"
+import { request } from "../service.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
@@ -358,7 +359,7 @@ export async function importImage(
   type = blob.type
 ): Promise<DesignNode> {
   const [size, data] = await Promise.all([imageSize(blob, type), base64(blob)])
-  const { src } = await window.canvasHost.request("images.import", {
+  const { src } = await request("images.import", {
     projectId: session.id,
     name,
     type,

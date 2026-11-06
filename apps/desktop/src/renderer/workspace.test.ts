@@ -1,6 +1,7 @@
 import { defaultModeSettings } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ProjectInfo } from "../shared/protocol.ts"
+import { preloadAnswers } from "./service.ts"
 
 // docs/editor.md, Opening and closing projects: a tab closed while its project opens, as tabs restored at launch can
 // be, closes the project once the service has it, so its builder doesn't run on with no tab (PAR-427).
@@ -51,7 +52,8 @@ beforeEach(() => {
   guest.released.length = 0
   vi.stubGlobal("window", {
     canvasHost: {
-      request: (method: string, params: { projectId?: string; roots?: string[] }) => {
+      ask: preloadAnswers((method, answerParams) => {
+        const params = answerParams as { projectId?: string; roots?: string[] }
         if (method === "project.open") return new Promise((resolve) => opens.push(resolve))
         if (method === "project.close") {
           closes.push(params.projectId!)
@@ -63,7 +65,7 @@ beforeEach(() => {
         }
         // Nothing else the tab asks for answers, as nothing the test checks waits on it.
         return new Promise(() => undefined)
-      }
+      })
     }
   })
 })
@@ -482,7 +484,7 @@ describe("moveGuest", () => {
   it("keeps the tab on its old guest, and says it didn't move, when the new address doesn't load", async () => {
     const workspace = await opened()
     const moving = workspace.moveGuest(info.id, moved)
-    guest.failures[1]!(new Error("The builder isn't answering"))
+    guest.failures[1]!(new Error("The builder isn't preloadAnswers"))
     expect(await moving).toBe(false)
     expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(info.guestUrl)
     expect(guest.released).toEqual([])
