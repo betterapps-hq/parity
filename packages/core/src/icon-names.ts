@@ -125,3 +125,40 @@ export function iconVariants(
   }
   return result
 }
+
+/** Compares two strings by their UTF-16 code units, as `sort` does without a comparer. */
+export function byCodeUnit(a: string, b: string): number {
+  if (a < b) return -1
+  return a > b ? 1 : 0
+}
+
+/** Shorter names first, then by code unit: the order an icon's names are tried in for the one to insert. */
+export function shorterName(a: string, b: string): number {
+  return a.length - b.length || byCodeUnit(a, b)
+}
+
+/**
+ * A set's icons, each once: the capitalised exports `drawable` accepts, grouped by the value they export, so aliases of
+ * one icon (`Heart`, `HeartIcon`) are one group. Each keeps the shortest name the set's pattern matches, and every name
+ * it's exported under in the module's order, so aliases the pattern leaves out (Hugeicons' `Gear` and `Cog` for
+ * `Settings01Icon`) still find it. A group the pattern matches none of is left out.
+ */
+export function iconAliases(
+  module: Record<string, unknown>,
+  icons: Pick<LibraryIcons, "match" | "exclude"> | undefined,
+  drawable: (value: unknown, name: string) => boolean
+): { name: string; names: string[] }[] {
+  const pattern = icons?.match ? new RegExp(icons.match) : /^[A-Z]/
+  const excluded = new Set(icons?.exclude)
+  const byValue = new Map<unknown, string[]>()
+  for (const [name, value] of Object.entries(module)) {
+    if (!/^[A-Z]/.test(name) || excluded.has(name) || !drawable(value, name)) continue
+    const group = byValue.get(value)
+    if (group) group.push(name)
+    else byValue.set(value, [name])
+  }
+  return [...byValue.values()].flatMap((names) => {
+    const name = names.filter((candidate) => pattern.test(candidate)).sort(shorterName)[0]
+    return name ? [{ name, names }] : []
+  })
+}

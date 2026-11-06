@@ -10,6 +10,9 @@ import type {
   MountHandle,
   RenderNode
 } from "@parity-app/core"
+// Only modules that import nothing at runtime, since this file runs in the project's own bundle (`evaluate.ts`).
+import { iconAliases, shorterName } from "@parity-app/core/icon-names"
+import { evaluateValue, exportOf, readRenderSlotKey, type ValueHost } from "@parity-app/core/values/evaluate"
 import {
   Component,
   type ComponentType,
@@ -362,23 +365,11 @@ export function createGuest(init: GuestInit): Guest {
     const key = style ? `${library}/${style}` : library
     let list = iconLists.get(key)
     if (list) return list
-    const match = set.match ? new RegExp(set.match) : /^[A-Z]/
-    const excluded = new Set(set.exclude)
-    const byValue = new Map<unknown, string[]>()
-    for (const [name, value] of Object.entries(module)) {
-      if (!/^[A-Z]/.test(name) || excluded.has(name) || !icon(set, name, style)) continue
-      const group = byValue.get(value)
-      if (group) group.push(name)
-      else byValue.set(value, [name])
-    }
     list = { names: [], aliases: {} }
-    const shorter = (a: string, b: string) => a.length - b.length || byCodeUnit(a, b)
-    for (const group of byValue.values()) {
-      const kept = group.filter((name) => match.test(name)).sort(shorter)[0]
-      if (!kept) continue
-      const others = group.filter((name) => name !== kept).sort(shorter)
-      list.names.push(kept)
-      if (others.length > 0) list.aliases[kept] = others
+    for (const { name, names } of iconAliases(module, set, (_, each) => icon(set, each, style) !== undefined)) {
+      const others = names.filter((each) => each !== name).sort(shorterName)
+      list.names.push(name)
+      if (others.length > 0) list.aliases[name] = others
     }
     list.names.sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
     iconLists.set(key, list)
@@ -386,36 +377,20 @@ export function createGuest(init: GuestInit): Guest {
   }
 
   /**
-   * Values a library's package makes (`collection={createTreeCollection(...)}`), each made once by calling the
-   * package's function with its arguments, from the modules the builder loaded for them.
+   * A design node's props, worked out as the sample values they copy: values the library's package makes
+   * (`collection={createTreeCollection(...)}`), each made once by calling the package's function with its arguments,
+   * from the modules the builder loaded for them. Sample values have no other forms, so nothing reads the frame.
    */
-  const made = new Map<string, unknown>()
-  const madeValue = (value: unknown): unknown => {
-    // In a list too (Fluent's `columns={[createTableColumn(...)]}`).
-    if (Array.isArray(value)) return value.some(isMade) ? value.map(madeValue) : value
-    const call = typeof value === "object" && value !== null ? (value as Props).$call : undefined
-    if (typeof call !== "object" || call === null) return value
-    const key = JSON.stringify(value)
-    if (!made.has(key)) {
-      const callee = call as { import: string; export: string }
-      if (!init.decorators) throw new Error(`${callee.import} isn't loaded`)
-      const fn = exported(init.decorators, callee.import, callee.export)
-      if (typeof fn !== "function") throw new Error(`${callee.import} has no function ${callee.export}`)
-      const args = (value as Props).args
-      const result = (fn as (...args: unknown[]) => unknown)(...(Array.isArray(args) ? args.map(madeValue) : []))
-      // The methods the examples call on it (`toaster.create({ title })`), once.
-      for (const step of ((value as Props).methods ?? []) as { method: string; args?: unknown[] }[]) {
-        const method = (result as Record<string, unknown> | null | undefined)?.[step.method]
-        if (typeof method === "function") method.apply(result, (step.args ?? []).map(madeValue))
-      }
-      made.set(key, result)
-    }
-    return made.get(key)
+  const sampleHost: ValueHost = {
+    exported: (specifier, path) => {
+      if (!init.decorators) throw new Error(`${specifier} isn't loaded`)
+      return exported(init.decorators, specifier, path)
+    },
+    global: () => undefined,
+    frame: () => undefined,
+    made: new Map()
   }
-  const isMade = (value: unknown): boolean =>
-    typeof value === "object" && value !== null && typeof (value as Props).$call === "object"
-  const madeProps = (props: Props | undefined): Props =>
-    Object.fromEntries(Object.entries(props ?? {}).map(([name, value]) => [name, madeValue(value)]))
+  const madeProps = (props: Props | undefined): Props => evaluateValue(props ?? {}, sampleHost, "sample") as Props
 
   /**
    * What a render function passes on (`extra`) goes to the node itself, as cloning the element it returns would, since a
@@ -458,12 +433,12 @@ export function createGuest(init: GuestInit): Guest {
           // A `$render:` slot is a function the component calls (`renderInput`, function children); `$renderWith:`
           // spreads what it's called with onto the one element it returns, and `?pass=a,b` gives it to those props, over
           // what's spread, as JSX would.
-          const render = /^\$render(With)?:([^?]+)(?:\?pass=(.+))?$/.exec(slot)
+          const render = readRenderSlotKey(slot)
           if (render) {
-            const [, spread, prop, pass] = render
-            props[prop!] = (argument: unknown) => {
+            const { spread, prop, pass } = render
+            props[prop] = (argument: unknown) => {
               const spreadProps = spread && typeof argument === "object" && argument ? (argument as Props) : {}
-              const named = pass ? Object.fromEntries(pass.split(",").map((name) => [name, argument])) : {}
+              const named = pass ? Object.fromEntries(pass.map((name) => [name, argument])) : {}
               const passing = spread || pass ? { ...spreadProps, ...named } : undefined
               // Only the one element a function returns takes what it's called with.
               const rendered = nodes.map((child, index) =>
@@ -652,12 +627,6 @@ export function createGuest(init: GuestInit): Guest {
       }
     }
   }
-}
-
-/** Compares two strings by their UTF-16 code units, as `sort` does without a comparer. */
-function byCodeUnit(a: string, b: string): number {
-  if (a < b) return -1
-  return a > b ? 1 : 0
 }
 
 /** Tells a frame's node index that React committed the frame, which can move a node's id to other DOM. */
@@ -864,7 +833,8 @@ function applies(decorator: LibraryDecorator, globals: Record<string, string>): 
 }
 
 function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Frame): StoryDecorator | undefined {
-  const value = (raw: unknown) => resolve(raw, setup, frame)
+  const host = frameHost(setup, frame)
+  const value = (raw: unknown) => evaluateValue(raw, host)
   const { undos } = frame
   if (decorator.class !== undefined) {
     const names = String((value(decorator.class) ?? "") as unknown)
@@ -903,54 +873,33 @@ function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Fra
   return (Story) => createElement(Fragment, null, Story(), createElement(component, props))
 }
 
-/** A decorator's value for this frame: plain JSON as written, and the four special forms worked out. */
-function resolve(raw: unknown, setup: GuestDecorators, frame: Frame): unknown {
-  if (Array.isArray(raw)) return raw.map((item) => resolve(item, setup, frame))
-  if (typeof raw !== "object" || raw === null) return raw
-  const record = raw as Record<string, unknown>
-  if (typeof record.$import === "string")
-    return exported(setup, record.$import, String((record.export ?? "default") as unknown))
-  if (typeof record.$call === "object" && record.$call !== null) {
-    const key = JSON.stringify(record)
-    if (!frame.made.has(key)) {
-      const callee = record.$call as { import: string; export?: string }
-      const fn = exported(setup, callee.import, callee.export ?? "default")
-      if (typeof fn !== "function") throw new Error(`${callee.import} has no function ${callee.export ?? "default"}`)
-      const args = Array.isArray(record.args) ? record.args.map((arg) => resolve(arg, setup, frame)) : []
-      frame.made.set(key, (fn as (...args: unknown[]) => unknown)(...args))
-    }
-    return frame.made.get(key)
+/** What a decorator's values are worked out against: the frame, and the modules the builder loaded for them. */
+function frameHost(setup: GuestDecorators, frame: Frame): ValueHost {
+  return {
+    exported: (specifier, path) => exported(setup, specifier, path),
+    global: (name) => frame.globals[name],
+    frame(part) {
+      switch (part) {
+        case "root":
+          return frame.root
+        // The element the frame's shadow root hangs from, which the project's `:root[...]` rules match as `:host(...)`.
+        case "host":
+          return frame.root instanceof ShadowRoot ? frame.root.host : frame.root.documentElement
+        case "body":
+          return frame.body
+        case "document":
+          return frame.body.ownerDocument
+        case "dir":
+          return frame.body.closest("[dir]")?.getAttribute("dir") ?? "ltr"
+        case "lang":
+          return frame.body.closest("[lang]")?.getAttribute("lang") ?? "en-US"
+        // A selector for the body alone, for libraries that write their variables to a selector they're given.
+        case "selector":
+          return bodySelector
+      }
+    },
+    made: frame.made
   }
-  if (typeof record.$global === "string") {
-    const values = (record.values ?? {}) as Record<string, unknown>
-    const chosen = frame.globals[record.$global]
-    const picked = chosen !== undefined && chosen in values ? values[chosen] : record.default
-    return resolve(picked, setup, frame)
-  }
-  if (typeof record.$frame === "string") {
-    switch (record.$frame) {
-      case "root":
-        return frame.root
-      // The element the frame's shadow root hangs from, which the project's `:root[...]` rules match as `:host(...)`.
-      case "host":
-        return frame.root instanceof ShadowRoot ? frame.root.host : frame.root.documentElement
-      case "body":
-        return frame.body
-      case "document":
-        return frame.body.ownerDocument
-      case "dir":
-        return frame.body.closest("[dir]")?.getAttribute("dir") ?? "ltr"
-      case "lang":
-        return frame.body.closest("[lang]")?.getAttribute("lang") ?? "en-US"
-      // A selector for the body alone, for libraries that write their variables to a selector they're given.
-      case "selector":
-        return bodySelector
-      default:
-        throw new Error(`Unknown frame value "${record.$frame}"`)
-    }
-  }
-  if ("$function" in record) return () => resolve(record.$function, setup, frame)
-  return Object.fromEntries(Object.entries(record).map(([key, item]) => [key, resolve(item, setup, frame)]))
 }
 
 /** An export of a decorator's module, following dots into namespaces (`Tooltip.Provider`). */
@@ -960,7 +909,5 @@ function exported(setup: GuestDecorators, specifier: string, path: string): unkn
   if ("loadError" in module && typeof module.loadError === "string") {
     throw new Error(`${specifier} couldn't load: ${module.loadError}`)
   }
-  let value: unknown = module
-  for (const part of path.split(".")) value = (value as Record<string, unknown> | undefined)?.[part]
-  return value
+  return exportOf(module, path)
 }
