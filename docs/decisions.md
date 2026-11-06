@@ -3900,6 +3900,20 @@ below. My calls on how they move:
   - The render page's `canvasRender()`, `canvasAudit()` and `canvasHeight()` are checked, since the page runs project
     code. Checking a frame of 1,000 nodes took 0.09 ms and one of 5,000 0.39 ms, where copying the same frame with
     `structuredClone` took 0.8 ms and 7.5 ms. An audit of 30 issues and 300 texts took 0.13 ms.
+- **The snippet API checks its arguments (PAR-596).** My calls:
+  - Each function's arguments have a schema in `packages/agent/src/arguments.ts`, and `api()` reads every argument
+    through it before the function runs. The argument types come from the schemas. A node is core's `nodeTree`, after it
+    and everything in it get fresh ids, and a patch is core's node patch with each field also taking `null`.
+  - `null` still takes a value away: in `Update`'s change, a state's changes and `Responsive`. Core exports `nodeStyle`,
+    `patchUnset` and `textTags` for these.
+  - A wrong argument fails as `invalid_input`, through core's `checkData`, with a field and a message that start with
+    the same path. An options object's fields name themselves (`width`, `style/gap`). A node starts at `node` or `root`,
+    and anything else at its parameter's name (`design`, `patch`). `SetTokens` keeps its `SetTokens/…` paths.
+  - Options objects and nodes are strict, so a key a function doesn't take is an error. It used to be ignored, apart
+    from nodes and `Update`, which said so in plain errors. `Update` keeps its hint to use Replace, Move or Responsive.
+  - Errors that used to be plain `TypeError`s or `Error`s are now `invalid_input`: a file that doesn't end in `.par`,
+    `Update` changing a name, tag or component in a state, and every "expected an object". The workspace's own
+    `expectObject` is gone.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.

@@ -154,7 +154,7 @@ export type Padding = z.infer<typeof padding>
 
 const alignment = z.enum(["start", "center", "end", "stretch"])
 
-const nodeStyle = fileObject({
+export const nodeStyle = fileObject({
   // Layout (layouts only).
   /** Auto layout (flex, the default) or a grid. */
   display: z.enum(["flex", "grid"]).optional(),
@@ -240,7 +240,7 @@ export type StyleKey = z.infer<typeof styleKey>
 /** Every style key, in the order panels show them. */
 export const styleKeys = styleKey.options
 
-const patchUnset = fileObject({ props: z.array(z.string()).optional(), style: z.array(styleKey).optional() })
+export const patchUnset = fileObject({ props: z.array(z.string()).optional(), style: z.array(styleKey).optional() })
 
 /** Props and style keys a patch takes away. A key a patch sets isn't also taken away by it. */
 export type PatchUnset = z.infer<typeof patchUnset>
@@ -309,10 +309,13 @@ const componentNode = nodeBase.extend({
 /** An instance of one of the project's own components. */
 export type ComponentNode = z.infer<typeof componentNode>
 
+/** The elements a text node can be. */
+export const textTags = ["p", "span", "h1", "h2", "h3", "h4", "strong"] as const
+
 const textNode = nodeBase.extend({
   type: z.literal("text"),
   text: z.string(),
-  tag: z.enum(["p", "span", "h1", "h2", "h3", "h4", "strong"]).optional()
+  tag: z.enum(textTags).optional()
 })
 
 export type TextNode = z.infer<typeof textNode>
