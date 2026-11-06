@@ -1,6 +1,7 @@
 import {
   componentLibrary,
   type ContainerKind,
+  type ElementSource,
   type ContainerSpec,
   type DesignNode,
   findNode,
@@ -51,6 +52,8 @@ export type MenuEntry =
   | { kind: "separator" }
   /** A submenu of every layer under the pointer, outermost first. */
   | { kind: "select-layer"; label: string; choices: LayerChoice[] }
+  /** Opens the file the element under the pointer is written in, at its line (PAR-167). */
+  | { kind: "open-source"; label: string; source: ElementSource }
 
 /** The design under the pointer when the menu opened, and its layers there. */
 export interface MenuTarget {
@@ -60,6 +63,8 @@ export interface MenuTarget {
   /** The frame under the pointer; none around a design's frames. */
   mode?: string
   state?: string
+  /** Where the element under the pointer is written, when a project file wrote it (PAR-167). */
+  source?: ElementSource
 }
 
 /**
@@ -70,7 +75,7 @@ export interface MenuTarget {
  * the order, Wrap in layout and Hide) are left out with designs selected, and Go to the main component unless an
  * instance is. Each is unavailable when the menubar's would be, and, for layers inside an instance, when it can't act
  * on them: Copy, Duplicate, the order, Wrap in layout and Hide. Paste over and Paste to replace stay, and say why they
- * can't.
+ * can't. Over an element a project file wrote, the menu ends with Open in editor, at its line.
  */
 export function canvasMenu(
   target: MenuTarget | undefined,
@@ -118,7 +123,8 @@ export function canvasMenu(
         ? [item("goToMain", true, `Go to ${designName(entries, instance.design) ?? "the main component"}`)]
         : [])
     ],
-    layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : []
+    layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : [],
+    target.source ? [{ kind: "open-source", label: "Open in editor", source: target.source }] : []
   ])
 }
 

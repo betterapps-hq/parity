@@ -368,6 +368,12 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
         files: (params.designs as string[]).map((design) => `D:/exports/${design.split("#").at(-1)}.png`),
         warnings: []
       }
+    case "code.read": {
+      const { default: files } = await import("virtual:parity/example-sources")
+      const text = files[String(params.path)]
+      if (text === undefined) throw new Error(`${String(params.path)} isn't in the project's folder`)
+      return { text }
+    }
     case "accessibility.check":
       return { findings: findingsFor(String(params.design)), frames: 4, warnings: [] }
     case "frames.stored":

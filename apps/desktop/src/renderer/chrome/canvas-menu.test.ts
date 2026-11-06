@@ -71,9 +71,9 @@ const overTitle: MenuTarget = { design, path: ["root", "header", "title"], mode:
 function outline(entries: MenuEntry[]): string[] {
   return entries.map((entry) => {
     if (entry.kind === "separator") return "---"
-    return entry.kind === "select-layer"
-      ? `${entry.label} >`
-      : `${entry.action}${entry.enabled ? "" : " (unavailable)"}`
+    if (entry.kind === "select-layer") return `${entry.label} >`
+    if (entry.kind === "open-source") return `open ${entry.source.path}:${entry.source.line}`
+    return `${entry.action}${entry.enabled ? "" : " (unavailable)"}`
   })
 }
 
@@ -111,6 +111,13 @@ describe("the canvas menu", () => {
     expect(labelOf(menu, "copy")).toBe(keymap.copy.label)
     expect(labelOf(menu, "pasteHere")).toBe("Paste here")
     expect(labelOf(menu, "hide")).toBe("Hide")
+  })
+
+  it("ends with Open in editor over an element a project file wrote, at its line", () => {
+    const source = { path: "src/components/ui/card.tsx", line: 20, column: 5 }
+    const menu = canvasMenu({ ...overTitle, source }, layersSelection(design, ["title"]), entries)
+    expect(outline(menu).slice(-3)).toEqual(["hide", "---", "open src/components/ui/card.tsx:20"])
+    expect(menu.at(-1)).toMatchObject({ label: "Open in editor" })
   })
 
   it("adds Go to the main component, named after it, for an instance", () => {

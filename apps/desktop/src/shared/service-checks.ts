@@ -77,6 +77,7 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
   "previews.lookup": z.object({ previews: z.array(previewJob) }),
   "previews.make": z.object({ preview: previewJob, priority: z.enum(["visible", "idle"]) }),
   "accessibility.check": project.extend({ design: z.string() }),
+  "code.read": project.extend({ path: z.string() }),
   "tokens.save": project.extend({ changes: z.array(tokenWrite) }),
   "processes.list": z.object({}),
   "processes.stop": processId,

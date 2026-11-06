@@ -14,12 +14,17 @@ const usualFolders: Partial<Record<NodeJS.Platform, string[]>> = {
 }
 
 /**
- * Opens a file in the person's editor at the line its export is on (PAR-527): the editor they chose, or with Automatic
- * the first one installed, or the system's default app for the file when none is or they chose that. Says which
- * opened it.
+ * Opens a file in the person's editor at a line, or the line its export is on (PAR-527): the editor they chose, or
+ * with Automatic the first one installed, or the system's default app for the file when none is or they chose that.
+ * Says which opened it.
  */
-export async function openInEditor({ file, export: name, editor }: OpenInEditorRequest): Promise<{ opened: string }> {
-  const line = name ? exportLine(await readFile(file, "utf8").catch(() => ""), name) : undefined
+export async function openInEditor({
+  file,
+  export: name,
+  line: at,
+  editor
+}: OpenInEditorRequest): Promise<{ opened: string }> {
+  const line = at ?? (name ? exportLine(await readFile(file, "utf8").catch(() => ""), name) : undefined)
   const extra = usualFolders[process.platform] ?? []
   const env = { ...process.env, PATH: [process.env.PATH ?? process.env.Path ?? "", ...extra].join(pathSeparator()) }
   for (const candidate of editorsFor(editor)) {

@@ -5,6 +5,7 @@ import type { ConnectMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings } from "./builders.ts"
+import { readProjectFile } from "./code.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
@@ -85,6 +86,7 @@ const handlers: Handlers<ServiceMethods> = {
   "previews.lookup": async ({ previews }) => ({ previews: await lookupPreviews(previews) }),
   "previews.make": ({ preview, priority }) => makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
+  "code.read": ({ projectId, path }) => readProjectFile(getProject(projectId).info.root, path),
   "project.components": projectComponents,
   "project.correctComponents": correctComponents,
   "library.catalog": catalogFor,

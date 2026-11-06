@@ -9,20 +9,23 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { isInnerPath } from "@parity-app/core"
+import { type ElementSource, isInnerPath } from "@parity-app/core"
 import { CheckIcon } from "lucide-react"
 import { type ComponentProps, type ReactElement, useEffect, useRef, useState } from "react"
 import { pasteAtPointer } from "../canvas/clipboard.ts"
 import { useProject } from "../canvas/context.ts"
+import { frameAt, shortSource, sourcedElementAt } from "../canvas/element-sources.ts"
 import { onGestureEnd } from "../canvas/gesture.ts"
 import { hitTest, type Point, selectedIn, underPoint } from "../canvas/hit.ts"
 import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { pickLayer } from "../canvas/pick.ts"
 import { useContainerEntries, useNotes } from "../design-store.ts"
+import { allFrames } from "../frame.ts"
 import { type Selection, useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
+import { openSource } from "./code-editor.ts"
 import { createDesign } from "./create.ts"
 import { formatKeys } from "./keys.ts"
 
@@ -102,7 +105,8 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     if (under) {
       session.selection.set(handle ? before : rightClickSelection(before, under.target, under.clicked, under.root))
     }
-    setOpened({ point, target: under?.target })
+    const source = under && elementSourceAt(event.currentTarget, point)
+    setOpened({ point, target: under && (source ? { ...under.target, source } : under.target) })
   }
 
   // A right-click on the canvas while the menu is open opens it again there, as in Figma. The open menu lays a backdrop
@@ -156,6 +160,12 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
   )
 }
 
+/** Where the element a project file wrote under a point is written, inside whichever frame is there (PAR-167). */
+function elementSourceAt(area: Element, point: Point): ElementSource | undefined {
+  const host = frameAt(allFrames(area), point.x, point.y)
+  return host && sourcedElementAt(host, point.x, point.y)?.source
+}
+
 /**
  * What a press on the open menu's backdrop would have reached without it: the element under the backdrop at the
  * pointer. Undefined when the press wasn't on something hit testing finds there.
@@ -174,6 +184,14 @@ function MenuItems({ opened }: { opened: Opened }) {
   const notes = useNotes(session.store)
   return canvasMenu(opened.target, selection, entries, notes.length).map((entry, index) => {
     if (entry.kind === "separator") return <ContextMenuSeparator key={`line-${index}`} />
+    if (entry.kind === "open-source") {
+      return (
+        <ContextMenuItem key="open-source" onClick={() => void openSource(session, entry.source)}>
+          {entry.label}
+          <ContextMenuShortcut className="font-mono">{shortSource(entry.source)}</ContextMenuShortcut>
+        </ContextMenuItem>
+      )
+    }
     if (entry.kind === "select-layer") {
       return opened.target ? (
         <SelectLayer key="select-layer" label={entry.label} choices={entry.choices} target={opened.target} />
