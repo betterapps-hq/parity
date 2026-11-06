@@ -10,6 +10,7 @@ import { ProjectContext } from "../canvas/context.ts"
 import { setTabOrderShown } from "../canvas/tab-order.ts"
 import { setLayout } from "../chrome/layout.ts"
 import { getPreferences, type Preferences, setPreferences } from "../chrome/preferences.ts"
+import { startPreviews } from "../component-previews.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { useResolvedTheme } from "../theme.ts"
 import { type ProjectSession, useActiveTabId, useTabs, workspace } from "../workspace.ts"
@@ -34,7 +35,14 @@ export async function openProjects(...names: ProjectName[]): Promise<void> {
   toast.dismiss()
   // Panels and preferences are remembered between runs, so a story that changed them would change the next one.
   setLayout({ left: true, right: true, leftWidth: 256, rightWidth: 320, leftTab: undefined, rightTab: undefined })
-  setPreferences({ snapping: true, exportScale: 2, layoutGrid: false, autosave: false, performanceStats: false })
+  setPreferences({
+    snapping: true,
+    exportScale: 2,
+    layoutGrid: false,
+    autosave: false,
+    performanceStats: false,
+    componentsView: "list"
+  })
   setTabOrderShown(false)
   await workspace.flush().catch(() => undefined)
   for (const tab of workspace.getTabs()) await workspace.close(tab.id)
@@ -214,6 +222,14 @@ export function ProjectStage({
 
 /** What to undo when the story ends, newest last. */
 const undo: (() => void)[] = []
+
+/**
+ * Makes the example's previews while the story is open, as its tab does in the app, for stories that show a panel
+ * without the project's view.
+ */
+export function makingPreviews(): void {
+  undo.push(startPreviews(example().id))
+}
 
 /** Changes preferences until the story ends. */
 export function preferring(change: Partial<Preferences>): void {

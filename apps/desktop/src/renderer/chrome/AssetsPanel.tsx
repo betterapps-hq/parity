@@ -7,7 +7,9 @@ import {
   Input,
   Popover,
   PopoverContent,
-  PopoverTrigger
+  PopoverTrigger,
+  ToggleGroup,
+  ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   type CanvasDocument,
@@ -25,12 +27,15 @@ import {
 import {
   compareRanked,
   componentLabel,
+  componentUses,
   type HiddenReason,
   hiddenHeading,
   hiddenReason,
   type InsertItem,
   type InsertOrigin,
   isLate,
+  missingProps,
+  previewVariants,
   searchOption
 } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
@@ -41,15 +46,19 @@ import {
   Component,
   Diamond,
   ImageIcon,
+  LayoutGrid,
   Library,
+  List,
   LoaderCircle,
   MonitorSmartphone,
   Plus,
   Search,
-  Smile
+  Smile,
+  StretchHorizontal
 } from "lucide-react"
 import {
   type DragEvent,
+  type KeyboardEvent,
   type ReactElement,
   type ReactNode,
   useLayoutEffect,
@@ -63,16 +72,18 @@ import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
-import { useComponentPreview, usePreviewOnScreen } from "../component-previews.ts"
+import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { componentFile, viewCode } from "./code-editor.ts"
-import { ComponentPopover } from "./ComponentCard.tsx"
+import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
 import { ComponentMenu } from "./ComponentMenu.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
+import { type Preferences, setPreferences, usePreferences } from "./preferences.ts"
+import { type PreviewStatus, previewStatus } from "./preview-status.ts"
 import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
@@ -308,14 +319,29 @@ function searchFamilies(source: Source, query: string): Family[] {
   return found.sort((a, b) => compareRanked(a, b) || a.index - b.index).map(({ family }) => family)
 }
 
-/** Components to drag into designs: component designs, the project's own, then each library's. */
+type ComponentsView = Preferences["componentsView"]
+
+/** The Components tab's views, each with its icon and name (PAR-208). */
+const views: { view: ComponentsView; label: string; Icon: typeof List }[] = [
+  { view: "names", label: "Names", Icon: StretchHorizontal },
+  { view: "list", label: "List", Icon: List },
+  { view: "grid", label: "Grid", Icon: LayoutGrid }
+]
+
+/**
+ * Components to drag into designs: component designs, the project's own, then each library's. They show as names, as a
+ * list with a picture on each row (the default) or as a grid of larger pictures, which the person picks and Parity
+ * remembers (PAR-208). The pictures are files the offscreen renderer made, so no panel mounts a component.
+ */
 export function ComponentsPanel() {
   const session = useProject()
   const { info, store } = session
   const entries = useContainerEntries(store)
   const [query, setQuery] = useState("")
+  const { componentsView: view } = usePreferences()
 
   const sources = useMemo(() => componentSources(info, entries), [entries, info])
+  const uses = useMemo(() => componentUses(entries.map((entry) => entry.container.root)), [entries])
 
   const needle = query.trim().toLowerCase()
   const shown = needle
@@ -333,12 +359,34 @@ export function ComponentsPanel() {
         </div>
         <AddLibrary kind="components" />
       </div>
+      <div className="flex justify-end px-2 pt-2">
+        <ToggleGroup
+          variant="outline"
+          size="sm"
+          spacing={0}
+          value={[view]}
+          onValueChange={([value]) => {
+            if (value) setPreferences({ componentsView: value as ComponentsView })
+          }}
+          aria-label="Show components as"
+        >
+          {views.map(({ view: value, label, Icon }) => (
+            <Hint key={value} label={label}>
+              <ToggleGroupItem value={value} aria-label={label} className="h-6 w-7">
+                <Icon className="size-3.5" />
+              </ToggleGroupItem>
+            </Hint>
+          ))}
+        </ToggleGroup>
+      </div>
       <div className="min-h-0 flex-1 overflow-y-auto py-2 text-[13px]">
         {shown.map((source) => (
           <SourceSection
             // Starting or clearing a search resets what was collapsed by hand, so matches always show.
             key={`${source.id}${needle ? " search" : ""}`}
             source={source}
+            view={view}
+            uses={uses}
             // The app's components and pages can run to hundreds, so they start closed beside other sections.
             open={!!needle || (source.id !== "project" && source.id !== "project:pages") || shown.length < 3}
           />
@@ -400,7 +448,17 @@ function NotListed({ entries }: { entries: LeftOutExport[] }) {
 }
 
 /** A source's components, open to begin with when `open` says so; after that the person decides. */
-function SourceSection({ source, open }: { source: Source; open: boolean }) {
+function SourceSection({
+  source,
+  open,
+  view,
+  uses
+}: {
+  source: Source
+  open: boolean
+  view: ComponentsView
+  uses: ReadonlyMap<string, number>
+}) {
   const session = useProject()
   const statuses = useRenderStatus(session)
   const storybookRunning = useProcesses(false).some(
@@ -427,49 +485,126 @@ function SourceSection({ source, open }: { source: Source; open: boolean }) {
         source.families.map((family) => (
           <div key={family.name} className="mb-1">
             {family.name && (family.items.length > 1 || family.heading) && (
-              <div className="px-8 pt-1 text-[11px] text-muted-foreground">{family.name}</div>
+              <div className={`${view === "names" ? "px-8" : "px-3"} pt-1 text-[11px] text-muted-foreground`}>
+                {family.name}
+              </div>
             )}
-            {family.items.map((entry) => (
-              <AssetEntry
-                key={entry.key}
-                entry={entry}
-                source={source}
-                status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
-                storybookRunning={storybookRunning}
-              />
-            ))}
+            <div className={view === "grid" ? "grid grid-cols-2 gap-1 px-2 pt-1" : undefined}>
+              {family.items.map((entry) => (
+                <AssetEntry
+                  key={entry.key}
+                  entry={entry}
+                  source={source}
+                  view={view}
+                  uses={uses.get(entry.key) ?? 0}
+                  status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
+                  storybookRunning={storybookRunning}
+                />
+              ))}
+            </div>
           </div>
         ))}
     </section>
   )
 }
 
+/** The sizes of a component's picture in the List and Grid views, in CSS pixels. */
+const thumbSizes = { list: { width: 52, height: 34 }, grid: { width: 104, height: 68 } }
+
 /**
- * An item of a source: a component, whose card opens beside it when the pointer rests on it (PAR-515), or a library's
- * component design, with a hint. Right-clicking a component opens its menu (PAR-527): View in Storybook, and View code
- * in the person's editor, each greyed with why when it can't. A library's design offers its two ways to insert.
+ * An item of a source: a component, whose card opens beside it when the pointer rests on it or the right arrow is
+ * pressed on it (PAR-515, PAR-208), or a library's component design, with a hint. In the List and Grid views a
+ * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): View in
+ * Storybook, and View code in the person's editor, each greyed with why when it can't. A library's design offers its
+ * two ways to insert.
  */
 function AssetEntry({
   entry,
   source,
+  view,
+  uses,
   status,
   storybookRunning
 }: {
   entry: Family["items"][number]
   source: Source
+  view: ComponentsView
+  uses: number
   status: ComponentRenderStatus | undefined
   storybookRunning: boolean
 }) {
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
-  const own = component ? session.info.sources[component] : undefined
   const stories = component !== undefined && hasStories(session, component)
   const failing = status && "error" in status
   const card = useHoverCard()
-  const preview = useComponentPreview(session.id, component ?? "")
+  const { pictured, about } = useComponentCard(session, component, card.open)
+  const file = about.onOpenFile !== undefined
   // Pressing it, to add or drag it, or right-clicking it puts the card away.
   const putAway = () => card.setOpen(false)
+  const icon =
+    item.kind === "instance" ? (
+      <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
+    ) : (
+      <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
+    )
+  const failingMark = failing && (
+    <CircleAlert className="size-3.5 shrink-0 text-destructive" aria-label="Fails to draw" />
+  )
+  // A component design has no picture of its own yet, so its kind's icon stands in for one.
+  const picture = (size: { width: number; height: number }, fill = false) =>
+    component ? (
+      <PreviewThumb status={pictured} {...size} fill={fill} />
+    ) : (
+      <span
+        aria-hidden
+        className="grid shrink-0 place-items-center rounded-[5px] bg-muted"
+        style={fill ? { width: "100%", aspectRatio: `${size.width} / ${size.height}` } : size}
+      >
+        {icon}
+      </span>
+    )
+  let content: ReactNode
+  let layout: string
+  if (view === "grid") {
+    layout = "flex w-full min-w-0 flex-col gap-1 rounded-md p-1"
+    content = (
+      <>
+        {picture(thumbSizes.grid, true)}
+        <span className="flex w-full min-w-0 flex-col px-0.5">
+          <span className="flex min-w-0 items-center gap-1 text-[11px]">
+            <span className="truncate">{entry.label}</span>
+            {failingMark}
+          </span>
+          <StatusLine status={pictured} />
+        </span>
+      </>
+    )
+  } else if (view === "list") {
+    layout = "flex h-11 w-full min-w-0 items-center gap-2.5 rounded-md pr-8 pl-3"
+    content = (
+      <>
+        {picture(thumbSizes.list)}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex min-w-0 items-center gap-1">
+            <span className="truncate">{entry.label}</span>
+            {failingMark}
+          </span>
+          <StatusLine status={pictured} />
+        </span>
+      </>
+    )
+  } else {
+    layout = "flex h-7 w-full items-center gap-2 rounded-md pr-8 pl-8"
+    content = (
+      <>
+        {icon}
+        <span className="truncate">{entry.label}</span>
+        {failingMark}
+      </>
+    )
+  }
   const button = (
     <button
       type="button"
@@ -481,19 +616,18 @@ function AssetEntry({
             onPointerLeave: card.leave,
             onPointerDown: putAway,
             onContextMenu: putAway,
+            onKeyDown: (event: KeyboardEvent) => {
+              if (event.key !== "ArrowRight") return
+              event.preventDefault()
+              card.openWithKeyboard()
+            },
             "aria-expanded": card.open,
             "aria-controls": card.open ? card.id : undefined
           }
         : {})}
-      className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left hover:bg-accent active:cursor-grabbing aria-expanded:bg-accent"
+      className={`${layout} cursor-grab text-left hover:bg-accent active:cursor-grabbing aria-expanded:bg-accent`}
     >
-      {item.kind === "instance" ? (
-        <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-      ) : (
-        <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-      )}
-      <span className="truncate">{entry.label}</span>
-      {failing && <CircleAlert className="size-3.5 shrink-0 text-destructive" aria-label="Fails to draw" />}
+      {content}
     </button>
   )
   const instance = source.library && item.kind === "instance"
@@ -504,11 +638,7 @@ function AssetEntry({
           ? { stories, running: storybookRunning, open: () => void openInStorybook(session, component) }
           : undefined
       }
-      code={
-        component
-          ? { file: componentFile(session, component) !== undefined, open: () => void viewCode(session, component) }
-          : undefined
-      }
+      code={component ? { file, open: () => void viewCode(session, component) } : undefined}
     >
       {instance && (
         // A library's design is placed linked, following the library, or as a copy to change freely.
@@ -526,10 +656,14 @@ function AssetEntry({
     <ComponentPopover
       card={card}
       name={component}
-      path={own?.path}
       note={entry.evidence}
-      preview={preview}
       status={failing ? describeRenderStatus(status) : undefined}
+      {...about}
+      uses={uses}
+      onInsert={() => {
+        putAway()
+        addAtSelection(session, item)
+      }}
     >
       {trigger}
     </ComponentPopover>
@@ -560,7 +694,7 @@ function AssetEntry({
             type="button"
             aria-label={`Open ${entry.label} in Storybook`}
             onClick={() => void openInStorybook(session, entry.key)}
-            className="absolute top-1/2 right-1.5 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100"
+            className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100`}
           >
             <BookOpen className="size-3.5" />
           </button>
@@ -570,12 +704,67 @@ function AssetEntry({
   )
 }
 
+/**
+ * What a component's card shows, beyond its name (PAR-208): its file, its preview and why it has none, its variants'
+ * previews, made only while `shown`, how many stories it has, and opening its file or its stories. `pictured` is its
+ * preview's status, for its row.
+ */
+export function useComponentCard(
+  session: ProjectSession,
+  component: string | undefined,
+  shown: boolean
+): {
+  pictured: PreviewStatus
+  about: Pick<
+    ComponentCardProps,
+    "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "onOpenStorybook"
+  >
+} {
+  const preview = useComponentPreview(session.id, component ?? "")
+  const info = component ? session.components.get()[component] : undefined
+  // Only one that failed or drew nothing is asked which props it lacks, as that's when it says.
+  const lacking = preview?.state === "failed" || preview?.state === "empty"
+  const missing = useMemo(
+    () => (component && lacking ? missingProps(component, info, session.info.sources) : []),
+    [component, lacking, info, session.info.sources]
+  )
+  const variants = useMemo(() => previewVariants(info), [info])
+  const options = useMemo(
+    () => (component && variants ? variants.options.map((value) => ({ prop: variants.prop, value })) : []),
+    [component, variants]
+  )
+  const variantPreviews = useVariantPreviews(session.id, component ?? "", options, shown)
+  if (!component) return { pictured: previewStatus(undefined), about: { preview: undefined } }
+  const stories = session.info.storybook?.stories[component]?.length ?? 0
+  return {
+    pictured: previewStatus(preview, missing),
+    about: {
+      path: session.info.sources[component]?.path,
+      preview,
+      missing,
+      ...(variants
+        ? {
+            variants: {
+              prop: variants.prop,
+              options: variants.options.map((value, index) => ({ value, preview: variantPreviews[index] }))
+            }
+          }
+        : {}),
+      stories,
+      ...(componentFile(session, component) === undefined
+        ? {}
+        : { onOpenFile: () => void viewCode(session, component) }),
+      ...(stories > 0 ? { onOpenStorybook: () => void openInStorybook(session, component) } : {})
+    }
+  }
+}
+
 /** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */
 function AssetRow({ component, children }: { component: string | undefined; children: ReactNode }) {
   const session = useProject()
   const onScreen = usePreviewOnScreen(session.id, component)
   return (
-    <div ref={onScreen} className="group/asset relative">
+    <div ref={onScreen} className="group/asset relative min-w-0">
       {children}
     </div>
   )
