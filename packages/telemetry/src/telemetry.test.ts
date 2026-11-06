@@ -81,6 +81,23 @@ describe("track", () => {
     expect(other.named("file.save_failed")).toEqual(sink.named("file.save_failed"))
   })
 
+  it("scrubs secrets from attributes before any sink or the kept events see them", () => {
+    const sink = createTestSink()
+    const telemetry = createTelemetry({ events, context, sinks: [sink], check: true, secrets: ["acme-shop-secret"] })
+    const message = "POST https://api.acme.dev/upload?access_token=acme-shop-secret failed"
+    telemetry.track("file.save_failed", { path: `/Users/ada/acme/${message}` })
+    telemetry.setSecrets(["another-project-value"])
+    const span = telemetry.startSpan("file.save_failed", { path: "/Users/ada/shop/another-project-value" })
+    span.end("error")
+
+    const scrubbed = "/Users/ada/acme/POST https://api.acme.dev/upload?access_token=[redacted] failed"
+    expect(sink.events[0]?.attributes).toEqual({ path: scrubbed })
+    expect(sink.spans[0]?.attributes).toEqual({ path: "/Users/ada/shop/[redacted]" })
+    expect(telemetry.recent().map((event) => event.attributes)).toEqual([
+      { path: scrubbed },
+      { path: "/Users/ada/shop/[redacted]" }
+    ])
+  })
   it("takes only registered names and their attributes, as types", () => {
     const { telemetry } = setup({ check: false })
     expectTypeOf<Parameters<typeof telemetry.track>[0]>().toEqualTypeOf<

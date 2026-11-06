@@ -1,6 +1,7 @@
 export * from "./envelope.ts"
 export * from "./events.ts"
 export * from "./ring-buffer.ts"
+export * from "./scrub.ts"
 export * from "./sink.ts"
 export * from "./telemetry.ts"
 export * from "./trace.ts"
