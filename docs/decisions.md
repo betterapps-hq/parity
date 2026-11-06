@@ -3858,6 +3858,17 @@ below. My calls on how they move:
   - A stroke style's dash pattern is written as `dashed`, since a CSS border can't draw one.
   - `parseData` passes over a union's options for another type of value, so a malformed shadow reports its bad part
     rather than `expected a string`.
+- **The clipboard, drag payloads and saved values are zod schemas (PAR-595).** My calls:
+  - The clipboard's envelope is a plain object, so a field a newer copy adds to the envelope is ignored, but what it
+    holds isn't: the payload is a discriminated union on `kind` of core's `nodeTree`, `containerSpec` and `noteSpec`,
+    which core now exports, each list at least one long. A copy that doesn't match pastes nothing, as before.
+  - Drags read through `readInsertItem` and `readLayersDrag` in `@parity-app/editor`. A drop whose data doesn't read
+    does nothing.
+  - Preferences, the panel layout and the saved tabs put `.catch` on each field. Text that isn't JSON or isn't an object
+    reads as the defaults. A panel width outside `panelLimits` falls back to its default, and a saved tab or recent
+    project that isn't a root is left out.
+  - axe-core's `check.data` for color contrast is a schema that turns into `ContrastDetail`. Data that doesn't match
+    gives no contrast detail, and axe-core's own message shows instead.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
@@ -4626,6 +4637,28 @@ design and state together on the write side. My calls in moving it:
   `pasteHere`, so it lands where a drop does, in the slot under the pointer, rather than after the layer under it.
 - **The text editor reads and writes through `editFrame`.** That makes PAR-585's two rules one. PAR-585 stays open for
   its reproduction and test, as it asks.
+
+## Lint, board geometry and frame reading are modules of the agent package (PAR-574)
+
+The agent workspace had grown to 2,004 lines, and three of its parts only took data. PAR-574 split them out. My calls in
+doing it:
+
+- **Three modules, each tested on its own.** `lint.ts` takes a document and what it's checked against (components,
+  tokens, icon sets, the component designs instances place, props, and the nodes the call inserted) and returns
+  warnings. `boards.ts` takes boards and returns overlaps, overlap warnings and empty space. `frames.ts` takes a design,
+  a state, a mode and a drawn frame and returns its problems, its accessibility findings and their contrast fixes.
+- **Lint takes the inserted nodes too.** Props and unnamed layouts are only checked on what the call inserted, so that
+  set is part of its input rather than state it reaches for.
+- **`propWarnings` is shared.** `Update` checks a component's props as it changes them, and lint checks them on what was
+  inserted, so both use the one function.
+- **Accessibility's per-frame reading moved with Problems.** Both read one drawn frame, so both are frame reading; the
+  workspace keeps the loop over states and modes, which draws the frames.
+- **`api()` is typed by inference.** `AgentApi` is `ReturnType<AgentWorkspace["api"]>`, so it can't drift from the
+  functions. PAR-564 had moved the casts from the app into `dispatch.ts`, so they're gone from there, with the
+  hand-written `CheckApi` and `ReadApi`. `accessibility` now takes the workspace's `MatrixOptions` rather than `unknown`
+  options.
+- **The rest stays together.** The working copy, lookup, reads, edits and presence share the working copy, lookup and
+  `emit`, so they stay in `workspace.ts`, now about 1,640 lines.
 
 ## Each project's TypeScript program is kept by `@parity-app/code` (PAR-603)
 

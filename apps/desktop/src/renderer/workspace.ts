@@ -113,13 +113,13 @@ export class Workspace {
    * fresh install shows Home.
    */
   restore(): void {
-    let saved: { roots?: string[]; active?: string } = {}
+    let saved: SavedTabs = { roots: [] }
     try {
-      saved = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as typeof saved
+      saved = readSavedTabs(localStorage.getItem(storageKey))
     } catch {
-      // A corrupt entry just means starting fresh.
+      // Storage can be unavailable, which means starting fresh.
     }
-    const roots = saved.roots?.filter(Boolean) ?? []
+    const roots = saved.roots
     // Set first, so the projects reopening behind it don't take its place.
     if (saved.active === homeTab) this.activeId = homeTab
     if (roots.length === 0) {
@@ -600,10 +600,38 @@ function loadNotes(): Record<string, ProjectNote> {
   }
 }
 
+/** A list of project roots as saved, without any that aren't one. */
+const savedRoots = z
+  .array(z.string().catch(""))
+  .catch([])
+  .transform((roots) => roots.filter(Boolean))
+
+const savedTabs = z.object({
+  /** The projects open in tabs, in the strip's order. */
+  roots: savedRoots,
+  /** The root of the tab that was showing, or Home. */
+  active: z.string().optional().catch(undefined)
+})
+
+type SavedTabs = z.infer<typeof savedTabs>
+
+/** The tabs saved as `text`. A corrupt entry reads as none, and one bad value as its default. */
+function readSavedTabs(text: string | null): SavedTabs {
+  return jsonText(savedTabs)
+    .catch({ roots: [] })
+    .parse(text ?? "{}")
+}
+
+/** The recent projects saved as `text`, without any entry that isn't a project's root. */
+function readRecent(text: string | null): string[] {
+  return jsonText(savedRoots)
+    .catch([])
+    .parse(text ?? "[]")
+}
+
 function loadRecent(): string[] {
   try {
-    const saved = JSON.parse(localStorage.getItem(recentKey) ?? "[]") as unknown
-    return Array.isArray(saved) ? saved.filter((root): root is string => typeof root === "string") : []
+    return readRecent(localStorage.getItem(recentKey))
   } catch {
     return []
   }

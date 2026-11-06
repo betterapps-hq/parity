@@ -3,7 +3,6 @@ import {
   addState,
   alternativeLimit,
   boardRoot,
-  boardSize,
   type CanvasDocument,
   childEntries,
   childNodes,
@@ -26,7 +25,6 @@ import {
   findState,
   frameGeometry,
   type FrameSize,
-  frameSize,
   shownModes,
   generateId,
   insertNode,
@@ -34,12 +32,10 @@ import {
   locateNode,
   mapNode,
   type ModeSettings,
-  type NodeStyle,
   modesReport,
   moveNode,
   type NodeChange,
   nodeIds,
-  nodeLabel,
   type NodePatch,
   parseCanvasDocument,
   parseDesignNode,
@@ -62,13 +58,23 @@ import {
   builtOn,
   categorize,
   checkTokenEdit,
-  contrastFix,
   type CssSupports,
   previewKind,
   substituteReferences
 } from "@parity-app/tokens"
+import {
+  type Board,
+  boardOverlaps,
+  canvasBoards,
+  emptySpace,
+  estimateSize,
+  type Overlap,
+  overlapWarnings,
+  type SpaceOptions
+} from "./boards.ts"
+import { accessibilityFindings, addContrastFixes, frameProblems, nodeNames } from "./frames.ts"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
-import { describeLayoutFinding, layoutFindings } from "./overflow.ts"
+import { lintDocument, propWarnings } from "./lint.ts"
 import type {
   AccessibilityFinding,
   AgentEvent,
@@ -150,46 +156,9 @@ const nodeKeys = new Set([
   "fit",
   "credit"
 ])
-/** Lengths given as token names rather than spacing steps, by the style key they're under. */
-function lengthTokens(style: NodeStyle | undefined): [string, string][] {
-  const found: [string, string][] = []
-  for (const name of lengthStyleKeys) {
-    const value = style?.[name]
-    for (const side of Array.isArray(value) ? value : [value]) {
-      if (typeof side === "string" && side !== "fill" && side !== "hug") found.push([name, side])
-    }
-  }
-  return found
-}
 
-const lengthStyleKeys = [
-  "gap",
-  "rowGap",
-  "padding",
-  "margin",
-  "width",
-  "height",
-  "minWidth",
-  "maxWidth",
-  "minHeight",
-  "maxHeight",
-  "top",
-  "right",
-  "bottom",
-  "left"
-] as const
-
-const tokenStyleKeys = [
-  "background",
-  "foreground",
-  "border",
-  "radius",
-  "shadow",
-  "font",
-  "size",
-  "leading",
-  "tracking"
-] as const
+/** The functions a snippet can call, as globals, as the workspace's `api()` returns them. */
+export type AgentApi = ReturnType<AgentWorkspace["api"]>
 
 /**
  * One agent call's view of a tab: a working copy of its designs, modes and tokens. Every function the snippet calls
@@ -228,7 +197,7 @@ export class AgentWorkspace {
   }
 
   /** The functions a snippet can call, as globals. */
-  api(): Record<string, unknown> {
+  api() {
     return {
       document: "document",
       Designs: () => this.listDesigns(),
@@ -285,9 +254,9 @@ export class AgentWorkspace {
           cause: error
         })
       }
-      this.lint(document)
+      this.found.push(...this.lint(document))
     }
-    const groups = groupWarnings([...this.found, ...this.overlapWarnings()])
+    const groups = groupWarnings([...this.found, ...overlapWarnings(this.boards(), this.touched)])
     return {
       changes: {
         designs: [...this.changed].flatMap((path) => this.designChanges(path)),
@@ -1090,46 +1059,11 @@ export class AgentWorkspace {
 
   private async problems(reference: string, options: MatrixOptions = {}): Promise<Problem[]> {
     const { container } = this.findDesign(reference)
-    const names = nodeNames(container, this.designName)
-    // Inside an instance, ids carry the instance's as a prefix; the instance is the layer in this design.
-    const name = (id: string) => names.get(id) ?? names.get(id.split("/")[0]!)
     const found: Problem[] = []
     for (const state of this.statesFor(container, options.state)) {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "problems")
-        const add = (problem: Omit<Problem, "state" | "mode">) =>
-          found.push({ state: state.id, mode: mode.id, ...problem })
-        if (frame.error) add({ kind: "render-error", problem: `render error: ${frame.error}` })
-        for (const component of frame.unknownComponents) {
-          add({ kind: "unknown-component", problem: `"${component}" isn't one of the project's components` })
-        }
-        const size = frameSize(container, mode)
-        const layout = layoutFindings(frame.nodes, {
-          width: size.width,
-          height: size.height ?? frame.height,
-          fixedHeight: size.height !== undefined
-        })
-        for (const finding of layout) {
-          const label = name(finding.node)
-          const by = finding.container.node
-          const byName = by ? name(by) : undefined
-          add({
-            kind: finding.kind,
-            problem: describeLayoutFinding(finding, name),
-            node: finding.node,
-            ...(label ? { name: label } : {}),
-            box: finding.box,
-            container: { ...finding.container, ...(byName ? { name: byName } : {}) },
-            overflow: finding.overflow
-          })
-        }
-        // Content wider than the frame that no node accounts for, such as a component's own element.
-        if (
-          frame.overflowsX &&
-          !layout.some((finding) => finding.kind === "frame-overflow" && finding.overflow.right)
-        ) {
-          add({ kind: "content-wider", problem: `content is wider than the ${size.width}px frame` })
-        }
+        found.push(...frameProblems(container, state, mode, frame, this.designName))
       }
     }
     return found
@@ -1190,61 +1124,18 @@ export class AgentWorkspace {
           continue
         }
         if (frame.contrast) contrast.push(frame.contrast)
-        const seen = new Set<string>()
-        for (const { nodes, ...issue } of frame.issues ?? []) {
-          for (const { id, ...about } of nodes) {
-            // Inside an instance, ids carry the instance's as a prefix; the instance is the layer in this design.
-            const node = names.has(id) ? id : id.split("/")[0]!
-            const name = names.get(node)
-            const once = `${issue.rule}\n${name ? node : ""}`
-            if (seen.has(once)) continue
-            seen.add(once)
-            const finding = { state: state.id, mode: mode.id, ...issue, ...(name ? { node, name } : {}), ...about }
-            found.push(finding)
-            if (finding.contrast && frame.contrast && id === node) inFrame.set(finding, frame.contrast)
-          }
-        }
+        const read = accessibilityFindings(names, state, mode, frame)
+        found.push(...read.found)
+        for (const [finding, measured] of read.contrast) inFrame.set(finding, measured)
       }
     }
-    this.addContrastFixes(container, inFrame, contrast)
-    return found
-  }
-
-  /**
-   * Gives each contrast failure the token closest to its text's color that passes in every frame the layer's text was
-   * measured in, failing or passing, so fixing one frame doesn't break another. A layer whose text takes its color
-   * from inside it, such as a component's own classes, or from inside an instance, gets none, since coloring the layer
-   * wouldn't reach it.
-   */
-  private addContrastFixes(
-    container: ContainerSpec,
-    inFrame: Map<AccessibilityFinding, FrameContrast>,
-    frames: FrameContrast[]
-  ): void {
     const preferred = new Set(
       this.colorTokens()
         .filter((token) => token.source === "semantic")
         .map((token) => token.name)
     )
-    const fixes = new Map<string, ReturnType<typeof contrastFix> | "unreachable">()
-    for (const [finding, frame] of inFrame) {
-      const node = finding.node!
-      if (!fixes.has(node)) {
-        const readings = frames.flatMap((each) => {
-          const reading = each.texts.find((text) => text.id === node)
-          return reading ? [{ ...reading, tokens: each.tokens }] : []
-        })
-        const reachable =
-          locateNode(container.root, node)?.node.type !== "instance" && readings.every((reading) => reading.follows)
-        fixes.set(node, reachable ? contrastFix(readings, { preferred }) : "unreachable")
-      }
-      const fix = fixes.get(node)
-      if (fix === "unreachable") continue
-      finding.contrast = {
-        ...finding.contrast!,
-        fix: fix ? { token: fix.token, color: frame.tokens[fix.token]!, ratio: Math.min(...fix.ratios) } : "none"
-      }
-    }
+    addContrastFixes(container, inFrame, contrast, preferred)
+    return found
   }
 
   private statesFor(container: ContainerSpec, option: string | string[] | undefined): StateSpec[] {
@@ -1262,95 +1153,14 @@ export class AgentWorkspace {
     return ids.map((id) => this.designMode(container, id))
   }
 
-  /**
-   * Every design's board on the canvas: where this call leaves it, as big as it was last drawn. New designs, not yet
-   * drawn, get an estimate from their frames' sizes, laid out as the canvas lays them out (see boardSize).
-   */
+  /** Every design's board on the canvas: where this call leaves it, as big as it was last drawn or estimated. */
   private boards(): Board[] {
-    return this.all().map(({ path, container }) => {
-      const bounds = this.snapshot.bounds[key(path, container.id)]
-      const size = bounds ?? estimateSize(container, this.modes)
-      return {
-        key: key(path, container.id),
-        id: container.id,
-        name: container.name,
-        x: container.position.x,
-        y: container.position.y,
-        width: Math.round(size.width),
-        height: Math.round(size.height),
-        estimated: !bounds
-      }
-    })
+    return canvasBoards(this.all(), this.snapshot.bounds, this.modes)
   }
 
-  /**
-   * Boards that overlap, each pair once; only those involving one design when it's given. A board's title, drawn
-   * above it at screen size, counts as part of it, so a board just below another overlaps it by its title.
-   */
+  /** Boards that overlap, each pair once; only those involving one design when it's given. */
   private overlaps(reference?: string): Overlap[] {
-    const only = reference === undefined ? undefined : this.findDesign(reference).container.id
-    const boards = this.boards()
-    const found: Overlap[] = []
-    for (const [index, a] of boards.entries()) {
-      for (const b of boards.slice(index + 1)) {
-        if (only !== undefined && a.id !== only && b.id !== only) continue
-        const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
-        const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y - titleBand, b.y - titleBand)
-        if (width <= 0 || height <= 0) continue
-        const boards = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 0
-        found.push({
-          designs: [a.id, b.id],
-          names: [a.name, b.name],
-          width,
-          height,
-          ...(boards ? {} : { titleOnly: true as const }),
-          ...(a.estimated || b.estimated ? { estimated: true as const } : {})
-        })
-      }
-    }
-    return found
-  }
-
-  /**
-   * Warnings for boards this call created, changed or moved that now collide with another or sit inside its title's
-   * band, and a note when the canvas has others this call didn't touch, so a call that moved nothing doesn't read as a
-   * clean canvas.
-   */
-  private overlapWarnings(): Warning[] {
-    const boards = this.boards()
-    const ids = new Set(boards.flatMap((board) => (this.touched.has(board.key) ? [board.id] : [])))
-    const drawn = new Map(boards.map((board) => [board.id, !board.estimated]))
-    const found = this.overlaps()
-    const touched = found.filter(({ designs }) => designs.some((id) => ids.has(id)))
-    const warnings: Warning[] = touched.map(({ designs, names, width, height, titleOnly }) => {
-      const [a, b] = designs.map((id, index) => `${names[index]} (${id})`) as [string, string]
-      const guessed = names.filter((_, index) => !drawn.get(designs[index]))
-      const size =
-        guessed.length === 0
-          ? "measured"
-          : `estimated, as ${guessed.join(" and ")} ${guessed.length === 1 ? "isn't" : "aren't"} drawn yet`
-      if (titleOnly)
-        return {
-          category: "title_clearance" as const,
-          message: `The title of ${b} would cover ${a}: the boards are clear, but ${names[1]} starts less than ${titleBand} below it (${width}x${height} shared, ${size}). Move ${names[1]} down or aside with UpdateDesign(id, { x, y }); Overlaps() checks every board.`
-        }
-      return {
-        category: "overlap" as const,
-        message: `${a} and ${b} overlap by ${width}x${height} (${size}). Move one clear with UpdateDesign(id, { x, y }), leaving ${titleBand} above each board for its title; FindEmptySpace finds space and Overlaps() checks every board.`
-      }
-    })
-    const others = found.length - touched.length
-    if (others > 0) {
-      const what =
-        others === 1
-          ? "1 other pair of boards overlaps or crowds a title"
-          : `${others} other pairs of boards overlap or crowd a title`
-      warnings.push({
-        category: "canvas_overlaps",
-        message: `${what} on the canvas. This call didn't create, change or move them, so they aren't listed here; Overlaps() lists every one.`
-      })
-    }
-    return warnings
+    return boardOverlaps(this.boards(), reference === undefined ? undefined : this.findDesign(reference).container.id)
   }
 
   /** Notes a finding for the result, with the node or frame it's about kept apart from what to do. */
@@ -1359,44 +1169,13 @@ export class AgentWorkspace {
   }
 
   private findEmptySpace(options: SpaceOptions): { x: number; y: number } {
-    const padding = options.padding ?? 240
-    const boxes = this.boards()
-    if (boxes.length === 0) return { x: 0, y: 0 }
-    const anchor = options.near
-      ? boxes.find((box) => box.id === this.findDesign(options.near!).container.id)
-      : undefined
-    const direction = options.direction ?? "right"
-    if (anchor) {
-      if (direction === "below")
-        return {
-          x: anchor.x,
-          y:
-            Math.max(
-              ...boxes
-                .filter((box) => overlaps(box.x, box.width, anchor.x, options.width))
-                .map((box) => box.y + box.height)
-            ) + padding
-        }
-      return {
-        x:
-          Math.max(
-            ...boxes
-              .filter((box) => overlaps(box.y, box.height, anchor.y, options.height))
-              .map((box) => box.x + box.width)
-          ) + padding,
-        y: anchor.y
-      }
-    }
-    if (direction === "below") {
-      return {
-        x: Math.min(...boxes.map((box) => box.x)),
-        y: Math.max(...boxes.map((box) => box.y + box.height)) + padding
-      }
-    }
-    return {
-      x: Math.max(...boxes.map((box) => box.x + box.width)) + padding,
-      y: Math.min(...boxes.map((box) => box.y))
-    }
+    const boards = this.boards()
+    const near = options.near === undefined ? undefined : this.findDesign(options.near).container.id
+    return emptySpace(
+      boards,
+      options,
+      boards.find((board) => board.id === near)
+    )
   }
 
   private findRepeats(reference: string) {
@@ -1620,91 +1399,19 @@ export class AgentWorkspace {
 
   /** Props a component doesn't declare, and values outside a prop's options. */
   private checkProps(component: string, props: Record<string, unknown> | undefined, where: string): void {
-    const info = this.snapshot.props[component]
-    if (!info || !props) return
-    for (const [name, value] of Object.entries(props)) {
-      const prop = info.props.find((candidate) => candidate.name === name)
-      if (!prop) {
-        if (!name.startsWith("data-"))
-          this.warn("unknown_prop", `${component} has no prop "${name}". Check Props("${component}").`, where)
-        continue
-      }
-      if (prop.kind === "enum" && value !== undefined && !prop.options?.includes(value as string)) {
-        this.warn(
-          "invalid_option",
-          `${component} ${name} is one of ${prop.options?.map((option) => JSON.stringify(option)).join(", ")}, not ${JSON.stringify(value)}`,
-          where
-        )
-      }
-    }
+    this.found.push(...propWarnings(this.snapshot.props[component], component, props, where))
   }
 
-  /** Warnings for things that are valid but probably not what was meant. */
-  private lint(document: CanvasDocument): void {
-    const components = new Set(this.snapshot.components)
-    const icons = (this.snapshot.iconSets ?? []).map((set) => `${set.id}/`)
-    const tokens = new Set(this.snapshot.tokens.map((token) => token.name))
-    const known = (name: string, value: string) => tokens.has(value) || (name === "radius" && value in radiusKeywords)
-    const library = this.library()
-    for (const container of document.containers) {
-      const check = (node: DesignNode, where: string) => {
-        if (node.type === "instance" && !library.has(node.design)) {
-          this.warn("unknown_component_design", `no component design "${node.design}"`, where)
-        }
-        if (
-          node.type === "component" &&
-          !components.has(node.component) &&
-          !icons.some((prefix) => node.component.startsWith(prefix))
-        ) {
-          this.warn(
-            "unknown_component",
-            `"${node.component}" isn't one of the project's components; it renders as a placeholder. Check Components().`,
-            where
-          )
-        }
-        if (node.type === "component" && this.inserted.has(node.id)) this.checkProps(node.component, node.props, where)
-        for (const style of [node.style, ...Object.values(node.responsive ?? {}).map((patch) => patch.style)]) {
-          for (const name of tokenStyleKeys) {
-            const value = style?.[name]
-            if (value && !known(name, value))
-              this.warn("not_a_token", `${name} "${value}" isn't a token. Use a name from GetTokens().`, where)
-          }
-          for (const [name, value] of lengthTokens(style)) {
-            if (!tokens.has(value)) {
-              this.warn(
-                "not_a_length_token",
-                `${name} "${value}" isn't a length token. Use a spacing step (a number) instead.`,
-                where
-              )
-            }
-          }
-        }
-        if (
-          this.inserted.has(node.id) &&
-          !node.name &&
-          node.type === "layout" &&
-          childEntries(node).some((entry) => entry.nodes.length > 1)
-        ) {
-          this.warn("unnamed_layout", "name layouts that group things, so the layers tree reads well", where)
-        }
-        for (const entry of childEntries(node))
-          for (const child of entry.nodes) check(child, `${container.id}/${child.id}`)
-      }
-      check(container.root, `${container.id}/${container.root.id}`)
-      for (const state of container.states) {
-        for (const [nodeId, patch] of Object.entries(state.overrides ?? {})) {
-          for (const name of tokenStyleKeys) {
-            const value = patch.style?.[name]
-            if (value && !known(name, value))
-              this.warn(
-                "not_a_token",
-                `${name} "${value}" isn't a token`,
-                `${container.id} state ${state.id}/${nodeId}`
-              )
-          }
-        }
-      }
-    }
+  /** Warnings for things in a document that are valid but probably not what was meant. */
+  private lint(document: CanvasDocument): Warning[] {
+    return lintDocument(document, {
+      components: this.snapshot.components,
+      tokens: this.snapshot.tokens,
+      iconSets: this.snapshot.iconSets,
+      library: this.library(),
+      props: this.snapshot.props,
+      inserted: this.inserted
+    })
   }
 }
 
@@ -1763,49 +1470,12 @@ interface FrameOptions {
   mode?: string
 }
 
-interface MatrixOptions {
+/** Which frames a check draws: the states and modes asked for. */
+export interface MatrixOptions {
   /** A state id, a list of them, or "all". Defaults to the state the design shows. */
   state?: string | string[]
   /** A mode id, a list, "shown" (what the design shows) or "all". Defaults to the primary mode. */
   mode?: string | string[]
-}
-
-interface Board {
-  key: string
-  id: string
-  name: string
-  x: number
-  y: number
-  width: number
-  height: number
-  /** Not drawn yet, so its size is a guess. */
-  estimated: boolean
-}
-
-/**
- * Two boards too close, from the whole canvas. Without `titleOnly` the boards themselves collide; with it they're
- * clear, but the lower one's title, drawn in the band above it, covers the upper one. `width` and `height` are the
- * shared area, title band included. `estimated` means one of them isn't drawn yet, so its size is a guess from its
- * frames; without it both sizes are as the canvas last drew them.
- */
-interface Overlap {
-  designs: [string, string]
-  names: [string, string]
-  width: number
-  height: number
-  titleOnly?: true
-  estimated?: true
-}
-
-/** Room above a board for its title, which the canvas draws at screen size: enough down to about 25% zoom. */
-const titleBand = 160
-
-interface SpaceOptions {
-  width: number
-  height: number
-  direction?: "right" | "below"
-  padding?: number
-  near?: string
 }
 
 type Visit = (
@@ -1815,17 +1485,6 @@ type Visit = (
 
 function key(path: string, id: string): string {
   return `${path}#${id}`
-}
-
-/** Every node's id in a design, mapped to the name it shows in the layers. */
-function nodeNames(container: ContainerSpec, designName: (id: string) => string | undefined): Map<string, string> {
-  const names = new Map<string, string>()
-  const collect = (node: DesignNode) => {
-    names.set(node.id, nodeLabel(node, designName))
-    for (const entry of childEntries(node)) entry.nodes.forEach(collect)
-  }
-  collect(container.root)
-  return names
 }
 
 function resolveInDesign(container: ContainerSpec, reference: string): DesignNode {
@@ -1950,12 +1609,6 @@ function refusedToken(change: TokenChange, problem: string): CodedError {
   return new CodedError(`${field}: ${problem}`, { code: "invalid_input", field })
 }
 
-/** The size of a board the canvas hasn't drawn: its shown frames, laid out as the canvas lays them out. */
-function estimateSize(container: ContainerSpec, modes: ModeSettings): { width: number; height: number } {
-  const { main, beside } = shownModes(modes, container)
-  return boardSize(container, [main, ...beside])
-}
-
 /**
  * A frame's size from the `width` and `height` a call gives, over the size it has; none when it gives neither. Only a
  * frame takes them, since screens and components size their frames per viewport.
@@ -1997,8 +1650,4 @@ function describeDropped(dropped: DroppedParts): string | undefined {
     .filter(([, names]) => names.length > 0)
     .map(([what, names]) => `${what} dropped: ${names.join(", ")}.`)
   return said.length > 0 ? said.join(" ") : undefined
-}
-
-function overlaps(start: number, size: number, otherStart: number, otherSize: number): boolean {
-  return start < otherStart + otherSize && otherStart < start + size
 }

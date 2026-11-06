@@ -1,11 +1,4 @@
-import {
-  CodedError,
-  describeRenderStatus,
-  type DesignModes,
-  type ModesReport,
-  renderProblem,
-  resolveModes
-} from "@parity-app/core"
+import { CodedError, describeRenderStatus, renderProblem, resolveModes } from "@parity-app/core"
 import type { ChangeConflict } from "@parity-app/core"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
 import { isAgentMethod } from "./contracts.ts"
@@ -21,12 +14,11 @@ import type {
   FrameResult,
   IconNames,
   PresenceEvent,
-  Problem,
   Screenshot,
   TabSnapshot,
   TabSummary
 } from "./types.ts"
-import { AgentWorkspace } from "./workspace.ts"
+import { type AgentApi, AgentWorkspace, type MatrixOptions } from "./workspace.ts"
 
 /**
  * The app's half of an agent call (PAR-564): which method does what, its defaults, the caller's presence on the canvas,
@@ -255,11 +247,7 @@ function workspaceSnapshot(snapshot: TabSnapshot) {
 /** Everything an agent needs to get its bearings in a tab, in one read. */
 function state(snapshot: TabSnapshot): Answer<"state"> {
   const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
-  const api = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state").api() as unknown as {
-    Designs(): Answer<"state">["designs"]
-    Selection(): Answer<"state">["selection"]
-    Overlaps(): Answer<"state">["overlaps"]
-  }
+  const api = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state").api()
   const semantic = snapshot.tokens.filter((token) => token.source === "semantic")
   return {
     tab: snapshot.tab,
@@ -386,7 +374,7 @@ export async function accessibility(
   host: AgentHost,
   snapshot: TabSnapshot,
   design: string,
-  options: { state: unknown; mode: unknown },
+  options: MatrixOptions,
   presence: AgentHooks["presence"] = () => undefined
 ): Promise<{
   design: { id: string; name: string }
@@ -405,13 +393,6 @@ export async function accessibility(
   return { ...result, findings: found }
 }
 
-/** The agent API's checks, which render frames offscreen. */
-interface CheckApi {
-  Accessibility(design: string, options: { state: unknown; mode: unknown }): Promise<AccessibilityFinding[]>
-  Problems(design: string, options: { state: unknown; mode: unknown }): Promise<Problem[]>
-  GetDesign(reference: string): { id: string; name: string }
-}
-
 /**
  * Runs one of the agent API's checks on a design outside a snippet, counting the frames it renders. With `presence`,
  * an agent's cursor shows it working, as it would in a snippet.
@@ -422,7 +403,7 @@ async function checkDesign<T>(
   design: string,
   label: string,
   presence: AgentHooks["presence"],
-  check: (api: CheckApi, design: string) => Promise<T>
+  check: (api: AgentApi, design: string) => Promise<T>
 ): Promise<{ design: { id: string; name: string }; found: T; frames: number; warnings: string[] }> {
   let frames = 0
   const render = renderFor(host, snapshot)
@@ -437,7 +418,7 @@ async function checkDesign<T>(
     },
     label
   )
-  const api = workspace.api() as unknown as CheckApi
+  const api = workspace.api()
   workspace.emit({ kind: "start" })
   try {
     const found = await check(api, design)
@@ -452,17 +433,10 @@ async function checkDesign<T>(
   }
 }
 
-/** The agent API's reads, for calls that only look. */
-interface ReadApi {
-  GetModes(design?: string): ModesReport & { settings: unknown; designs: DesignModes[] }
-  GetTokens(filter?: { category?: string; source?: string; search?: string }): Answer<"tokens">
-  Components(): string[]
-  Props(component: string, options?: { all?: boolean }): unknown
-}
-
-function readOnly(snapshot: TabSnapshot): ReadApi {
+/** The agent API, for calls that only read. */
+function readOnly(snapshot: TabSnapshot): AgentApi {
   const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
-  return new AgentWorkspace(workspaceSnapshot(snapshot), noop, "Read").api() as unknown as ReadApi
+  return new AgentWorkspace(workspaceSnapshot(snapshot), noop, "Read").api()
 }
 
 /** A name that's safe as a file name on every system: no reserved characters, no control characters. */

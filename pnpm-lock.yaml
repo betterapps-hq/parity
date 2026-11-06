@@ -543,6 +543,9 @@ importers:
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/fixtures:
     dependencies:

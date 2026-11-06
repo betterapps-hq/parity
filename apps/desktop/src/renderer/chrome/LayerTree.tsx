@@ -12,6 +12,7 @@ import {
   kindName,
   designsSelection,
   layersSelection,
+  readLayersDrag,
   selectedDesigns,
   selectedNodes
 } from "@parity-app/editor"
@@ -233,7 +234,9 @@ export function LayerTree() {
     setDropAt(undefined)
     if (!position) return
     event.preventDefault()
-    const { design, ids } = JSON.parse(event.dataTransfer.getData(layersMime)) as { design: string; ids: string[] }
+    const dragged = readLayersDrag(event.dataTransfer.getData(layersMime))
+    if (!dragged) return
+    const { design, ids } = dragged
     const source = store.getEntry(design)
     const target = dropTargetFor(row, position)
     if (source && target) moveLayers(session, source, ids, target)
