@@ -1125,7 +1125,8 @@ export class AgentWorkspace {
           mode: mode.id,
           width: frame.width,
           height: frame.height,
-          png: frame.png
+          png: frame.png,
+          nodes: frame.nodes
         })
         count++
       }

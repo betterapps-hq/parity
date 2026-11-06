@@ -1,5 +1,13 @@
 import { detachInstance, findNode } from "@parity-app/core"
-import { type Alignment, arrowOf, type Order, selectedDesigns } from "@parity-app/editor"
+import {
+  type Alignment,
+  arrowOf,
+  type ExportSize,
+  exportFiles,
+  type Order,
+  selectedDesigns,
+  selectedNodes
+} from "@parity-app/editor"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import {
@@ -106,6 +114,85 @@ export async function clearBitmapCache(): Promise<void> {
       description: error instanceof Error ? error.message : String(error)
     })
   }
+}
+
+/** A design, or a layer of one, to export, with the name its files take. */
+export interface ExportTarget {
+  design: string
+  node?: string
+  name: string
+}
+
+/**
+ * Exports designs and layers at `sizes` to a folder the person picks (PAR-185), each file named after its layer (see
+ * `exportFiles`), as the canvas draws them, saved or not. A toast says how many files it wrote, with a button to show
+ * the first, and warns of any it couldn't draw.
+ */
+export async function exportLayers(
+  session: ProjectSession,
+  targets: readonly ExportTarget[],
+  sizes: readonly ExportSize[]
+): Promise<void> {
+  if (targets.length === 0) return
+  const folder = await window.canvasHost.pickFolder("Export to")
+  if (!folder) return
+  const files = exportFiles(
+    targets.map((target) => target.name),
+    sizes
+  )
+  const progress = toast.loading(
+    files.length === 1 ? `Exporting ${files[0]!.name}…` : `Exporting ${files.length} files…`
+  )
+  try {
+    const { files: written, warnings } = await request("layers.export", {
+      projectId: session.id,
+      folder,
+      layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
+      files
+    })
+    toast.success(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
+      id: progress,
+      description: folder,
+      action: written[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(written[0]!) } : undefined
+    })
+    if (warnings.length > 0) {
+      toast.warning("Some layers couldn't be drawn", {
+        description: warnings.join("\n"),
+        classNames: { description: "whitespace-pre-line" }
+      })
+    }
+  } catch (error) {
+    toast.error("Couldn't export", { id: progress, description: message(error) })
+  }
+}
+
+/**
+ * Exports what's selected at the Export section's sizes (PAR-185): the selected layers, or else the selected designs,
+ * each named as the Layers panel names it. With nothing selected, it says to select something.
+ */
+export async function exportSelected(session = activeSession()): Promise<void> {
+  if (!session) return
+  const { store } = session
+  const selection = session.selection.get()
+  const entry = selection.design ? store.getEntry(selection.design) : undefined
+  const nodes = selectedNodes(selection)
+  const entries = store.getEntries()
+  const library = store.getComponentLibrary()
+  const targets: ExportTarget[] =
+    entry && nodes.length > 0
+      ? nodes.flatMap((node) => {
+          const layer = findNode(entry.container.root, node)
+          return layer ? [{ design: entry.key, node, name: layerLabel(layer, entries, library) }] : []
+        })
+      : selectedDesigns(selection).flatMap((key) => {
+          const design = store.getEntry(key)
+          return design ? [{ design: key, name: design.container.name }] : []
+        })
+  if (targets.length === 0) {
+    toast.info("Select a screen, a component or a layer to export it")
+    return
+  }
+  await exportLayers(session, targets, getPreferences().exportSizes)
 }
 
 export async function exportImages(scope: "selection" | "all", session = activeSession()): Promise<void> {

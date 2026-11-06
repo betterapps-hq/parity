@@ -16,9 +16,10 @@ import {
   Trash2
 } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
-import { designColor, kindColors } from "../canvas/kinds.tsx"
-import type { ContainerEntry } from "../design-store.ts"
+import { designColor, kindColors, layerLabel } from "../canvas/kinds.tsx"
+import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { alignSelection, deleteSelection, distributeSelection, duplicateSelection, wrapSelection } from "./commands.ts"
+import { ExportSection } from "./ExportSection.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
@@ -102,6 +103,10 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
           <Trash2 /> Delete
         </Button>
       </div>
+      <ExportSection
+        targets={entries.map((entry) => ({ design: entry.key, name: entry.container.name }))}
+        label={`Export ${kindsName(entries.map((entry) => entry.container.kind))}`}
+      />
     </>
   )
 }
@@ -111,6 +116,8 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
  * Values they share show as usual; the ones that differ are listed, and setting one gives them all that value.
  */
 export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: string[] }) {
+  const { store } = useProject()
+  const entries = useContainerEntries(store)
   const editor = useStyleEditor(entry, ids)
   if (!editor) return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
   const { selection } = editor
@@ -145,6 +152,14 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         </p>
       )}
       <StyleSections editor={editor} node={primary} />
+      <ExportSection
+        targets={selection.layers.map((layer) => ({
+          design: entry.key,
+          node: layer.id,
+          name: layerLabel(layer.node, entries, store.getComponentLibrary())
+        }))}
+        label={`Export ${selection.layers.length} layers`}
+      />
     </>
   )
 }

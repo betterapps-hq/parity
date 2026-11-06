@@ -93,7 +93,7 @@ function memoryDetections(): DetectionCache & { kept: Map<string, SavedDetection
   }
 }
 
-function setUp(env: NodeJS.ProcessEnv = {}) {
+function setUp(environment: ProjectAdapters["environment"] = {}) {
   const builder = fakeBuilder()
   const watcher = fakeWatcher()
   const detections = memoryDetections()
@@ -118,7 +118,7 @@ function setUp(env: NodeJS.ProcessEnv = {}) {
       componentsChanged: () => undefined,
       guestMoved: () => Promise.resolve(true)
     },
-    env
+    environment
   })
   return { projects, builder, watcher, detections, checker, fileChanged }
 }

@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 03:23:07 GMT",
+      "version": "0.13.0",
+      "tag": "@parity-app/desktop_v0.13.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "78ad04db76a6ba5798dfa8aa705fbe12ae270738",
+            "comment": "Read the project service's caches, Portless's files, Storybook's index and its environment through zod schemas, so a corrupt cache reads as empty"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "bc7036a7688acf0c610725e970a1abbcecd31bd7",
+            "comment": "Sign in to Parity with Google, GitHub, Microsoft or a work email, in your browser through WorkOS"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 02:49:03 GMT",
       "version": "0.12.7",
       "tag": "@parity-app/desktop_v0.12.7",

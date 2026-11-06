@@ -383,6 +383,35 @@ export async function exportPictures(
 }
 
 /**
+ * Each design drawn offscreen once at each scale, in the state the canvas shows and its main mode, with every layer's
+ * box, for the Export section to cut layers from (PAR-185). Each picture names its design by id. A design that didn't
+ * draw is a warning.
+ */
+export async function framePictures(
+  host: AgentHost,
+  snapshot: TabSnapshot,
+  designs: string[],
+  scales: number[]
+): Promise<{ frames: (Screenshot & { scale: number })[]; warnings: string[] }> {
+  const frames: (Screenshot & { scale: number })[] = []
+  const warnings: string[] = []
+  for (const scale of scales) {
+    const result = await execute(
+      {
+        label: "Export",
+        code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${JSON.stringify({ scale })})`
+      },
+      workspaceSnapshot(snapshot),
+      { presence: () => undefined, render: renderFor(host, snapshot) }
+    )
+    if (!result.ok) throw new Error(result.error ?? "The designs couldn't be rendered")
+    frames.push(...result.screenshots.map((shot) => ({ ...shot, scale })))
+    warnings.push(...result.warnings)
+  }
+  return { frames, warnings }
+}
+
+/**
  * Checks a design in the states and modes asked for, as `Accessibility()` does for agents. With `presence`, an agent's
  * cursor shows it checking each frame; without, nothing shows on the canvas, as for the window's own check.
  */

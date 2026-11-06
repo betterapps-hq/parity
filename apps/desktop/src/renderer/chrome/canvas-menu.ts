@@ -74,7 +74,8 @@ export interface MenuTarget {
  * the order, Wrap in layout and Hide) are left out with designs selected, and Go to the main component unless an
  * instance is. Each is unavailable when the menubar's would be, and, for layers inside an instance, when it can't act
  * on them: Copy, Duplicate, the order, Wrap in layout and Hide. Paste over and Paste to replace stay, and say why they
- * can't. Over an element a project file wrote, the menu ends with Open in editor, at its line.
+ * can't. Export, at the Export section's sizes (PAR-185), then, over an element a project file wrote, Open in editor at
+ * its line (PAR-167) end the menu.
  */
 export function canvasMenu(
   target: MenuTarget | undefined,
@@ -123,6 +124,7 @@ export function canvasMenu(
         : [])
     ],
     layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : [],
+    [item("exportSelection", true, "Export…")],
     target.source ? [{ kind: "open-source", label: "Open in editor", source: target.source }] : []
   ])
 }

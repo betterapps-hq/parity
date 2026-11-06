@@ -102,7 +102,9 @@ describe("the canvas menu", () => {
       "wrap",
       "makeComponent",
       "---",
-      "hide"
+      "hide",
+      "---",
+      "exportSelection"
     ])
     const items = menu.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
     expect(items.map((entry) => entry.keys)).toEqual(
@@ -116,7 +118,13 @@ describe("the canvas menu", () => {
   it("ends with Open in editor over an element a project file wrote, at its line", () => {
     const source = { path: "src/components/ui/card.tsx", line: 20, column: 5 }
     const menu = canvasMenu({ ...overTitle, source }, layersSelection(design, ["title"]), entries)
-    expect(outline(menu).slice(-3)).toEqual(["hide", "---", "open src/components/ui/card.tsx:20"])
+    expect(outline(menu).slice(-5)).toEqual([
+      "hide",
+      "---",
+      "exportSelection",
+      "---",
+      "open src/components/ui/card.tsx:20"
+    ])
     expect(menu.at(-1)).toMatchObject({ label: "Open in editor" })
   })
 
@@ -145,7 +153,9 @@ describe("the canvas menu", () => {
       "wrap",
       "makeComponent (unavailable)",
       "---",
-      "hide"
+      "hide",
+      "---",
+      "exportSelection"
     ])
   })
 
@@ -190,9 +200,12 @@ describe("the canvas menu", () => {
       "pasteOver",
       "duplicate",
       "---",
-      "makeComponent"
+      "makeComponent",
+      "---",
+      "exportSelection"
     ])
     expect(labelOf(menu, "makeComponent")).toBe("Convert to component")
+    expect(labelOf(menu, "exportSelection")).toBe("Export…")
     const card = canvasMenu({ design: component, path: ["card"] }, { design: component }, entries)
     expect(labelOf(card, "makeComponent")).toBe("Convert to screen")
   })
@@ -205,7 +218,9 @@ describe("the canvas menu", () => {
       "pasteOver",
       "duplicate",
       "---",
-      "makeComponent (unavailable)"
+      "makeComponent (unavailable)",
+      "---",
+      "exportSelection"
     ])
     expect(labelOf(menu, "makeComponent")).toBe(keymap.makeComponent.label)
   })
@@ -227,7 +242,9 @@ describe("the canvas menu", () => {
       "wrap (unavailable)",
       "makeComponent (unavailable)",
       "---",
-      "hide (unavailable)"
+      "hide (unavailable)",
+      "---",
+      "exportSelection"
     ])
   })
 

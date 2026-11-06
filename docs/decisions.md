@@ -3911,8 +3911,28 @@ below. My calls on how they move:
   - The window's handlers take their agent params' types from the schemas' output, through `WindowMethods`, and answer
     from a map typed by it rather than a cast in each case. The service made those params, so they aren't checked again.
   - `PARITY_APP_PID` and `PARITY_APP_STARTED` are read once through `utility/environment.ts`. Unset, they fall back to
-    the parent's process id and the service's start, as before. A value that isn't a whole number stops the agent server
-    there, naming the variable, since only main sets them.
+    the parent's process id and the service's start, as before. A value that isn't a whole number stops the service
+    there, naming the variable, since only main sets them (PAR-593 made this the service's whole environment).
+- **The project service checks its files, caches and environment (PAR-593).** My calls:
+  - The service's environment is one schema in `utility/environment.ts`, read the first time `environment()` is asked
+    for: the allowed origins (a list from commas), the project it started with, the dev runner, the checker's idle time,
+    the cache, bitmap and picture folders, the reopen file, Portless's state folder and the copy's process id and start.
+    A bad value stops the service, naming the variable, as main's does. An empty variable counts as unset. The open
+    projects take the three they use as an option, so their tests give their own.
+  - Read once means a test that changes a variable starts the module again (`vi.resetModules()`), as the bitmap store's
+    tests already did. `readPortless` takes its folder, so its tests pass their own.
+  - The caches fall back to empty when they don't match. The previews index needs its format and an object of
+    components, and each record is checked on its own, so one bad record loses only itself. The local `isObject` and
+    `isRecord` are gone. The detection cache checks its outer shape: the fingerprint, each component's file and export,
+    each component's name, file and list of props, and the left-out exports. What's inside the props isn't checked,
+    since the records are large and the checker wrote them under the same fingerprint.
+  - `open-projects.json` is `{ roots: string[] }`. A list it can't read opens nothing, where a list with a non-string
+    root used to open the rest; the service writes the file itself, so a bad one is a broken one.
+  - Portless's files are someone else's, so they're read leniently: each route is checked on its own (a hostname and a
+    whole-number port), `proxy.port` must be a port number, else 443, and `proxy.tls` is a yes or no, else no.
+  - Storybook's `/index.json` must be an object whose `entries` is an object. Entries are checked one by one, and one of
+    a kind Parity doesn't know, such as a `page`, is left out. An index that doesn't match rejects, so a server
+    answering something else isn't taken for a Storybook serving the project.
 - **Package manifests and tool configs are read through schemas (PAR-597).** My calls:
   - Core's `parseManifest(text, file)` is the one reader of package.json text. It throws `TypeError` naming the file and
     the field, as `/app/package.json: /bin: expected a string or an object`. Project's `readPackage` and `findPackage`
@@ -4856,6 +4876,97 @@ read then, so a test could only mock the whole module. PAR-576 made it `openProj
   sibling folder such as `D:\shop-old` isn't taken for inside `D:\shop`.
 - **Closing a project also clears its watcher's timers,** so a change caught just before the close isn't acted on after
   it.
+
+## Signing in is built (PAR-612)
+
+You asked on 2026-11-05 for the main process's side of signing in and the window's screens, from
+[proposals/sign-in.md](proposals/sign-in.md) and the Sign in stories, with Staging's client ID until Production exists
+(PAR-611). What was tried against WorkOS Staging that day:
+
+- **A public client refreshes with the client ID alone.** The dev copy's own refresh, 4 minutes after signing in with
+  Google, worked with no `client_secret`, as `authkit-js` does. The reference's "required" doesn't hold for public
+  clients.
+- **A public client's refresh can move the session to another organization.** With `organization_id` on the refresh,
+  WorkOS answered 200 with that organization's `org_id` and the person's `role` in it (your Staging user, which I added
+  to Staging's Test Organization as a member to try it). A later refresh without it stays in that organization. So
+  PAR-616 can switch organizations from the app, once its service lists them.
+- **The access token names the organization by ID only.** Until Parity's service can look one up (PAR-616), the app
+  calls it Your organization.
+- **The token's `iss` is the environment's client** (`client_01M6Q2PGV0Z2R7CXZBFRJH150R`), as its OpenID configuration
+  says, which the PAR-615 adapter reads.
+
+Your calls, from trying it in `pnpm dev`:
+
+- **Signed out, Home has no organization switcher,** so nothing looks signed in; the account menu and For you offer Sign
+  in. This changes PAR-614's call that signed-out Home is Personal.
+- **The account menu keeps Settings and Sign in or Sign out,** and leaves Keyboard shortcuts and the keys to the app's
+  menus. It has no agents yet, since connecting one isn't built.
+- **Under the ways in, one short line,** "Parity never sees your password", with a shield.
+
+My calls:
+
+- **The first launch is a fresh install:** no choice made on the sign-in screen, no project Parity knows, and none it
+  was started with. So people upgrading don't meet it, and neither do `pnpm dev`, `pnpm perf` or the end-to-end tests,
+  which start with a project. Opening a project another way while it shows counts as going on without.
+- **Main keeps the session in one encrypted file** in the app's data, with who it signs in and how, so Parity shows them
+  before the first refresh answers and Session ended can name them. It uses `safeStorage`'s async calls, since Electron
+  45 deprecates the others.
+- **Copies of Parity that share the app's data share the session.** Each refresh reads the newest refresh token from the
+  file first, since only the newest works; a refusal after another copy refreshed is tried again with its token; and a
+  copy whose file was removed by Sign out elsewhere signs out too.
+- **A copy answers a passed link at once and trades the code after,** so the copy passing it can quit. The route is
+  `POST /auth/link` on each copy's agent service, behind the same token as agents' calls.
+- **A failed exchange is one of three problems:** single sign-on for `sso_required` and
+  `organization_authentication_methods_required`, with the email WorkOS names; an account turned down for any other 403;
+  and an error otherwise. `@parity-app/account` now passes on the email WorkOS's refusal names.
+- **Signing in is checked in an installed build later.** The scheme and passing links between copies only work in an
+  installed app, which wasn't tried here.
+
+## Telemetry's event model is data in and data out in `@parity-app/telemetry` (PAR-618)
+
+The package holds the envelope, the event registry, spans, sinks and the ring buffer, as
+[proposals/product-telemetry.md](proposals/product-telemetry.md) sets out, with no Electron, React, Node-only APIs or
+Sentry. Nothing records an event yet: Sentry's sink is PAR-627. My calls:
+
+- **Each process makes one telemetry from the events it may record,**
+  `createTelemetry({ events, context, sinks, check })`, rather than a registry every module adds to as it loads.
+  `track()` and `startSpan()` then type-check only those names, with each event's attributes typed from its zod schema,
+  and a name registered twice throws.
+- **Checking is a switch the app sets,** on in development and tests, where a mismatch or an unknown name throws a
+  `TelemetryError`. Off in installed builds, events go as given and an unknown name is dropped, so recording costs no
+  parse.
+- **A span's event carries its outcome and parent in the envelope,** as `outcome` (`ok`, `error` or `cancelled`) and
+  `parentSpanId`, beside its `durationMs`, so its schema describes only its own attributes. Its `time` is when it
+  started, and it keeps the window and project it started in.
+- **A span sampled out still has IDs,** so spans under it keep their trace. Sampling is decided when an event is tracked
+  or a span starts.
+- **Trace and span IDs are W3C Trace Context's,** 16 and 8 random bytes from Web Crypto, never all zeros.
+  `formatTraceparent` and `parseTraceparent` write and read the header for PAR-629; a header the standard holds invalid
+  reads as none.
+- **A sink's failure never reaches the code that recorded the event.** It goes to `onSinkError` when given, and the
+  other sinks still get the event.
+- **The ring buffer keeps events and ended spans together,** the last 500, oldest first, for breadcrumbs and Report a
+  problem.
+
+## Layers export as PNG or JPG from the Design tab (PAR-185)
+
+Called on 2026-11-05, with your approval in Storybook. PAR-185 asked for PNG at 1x to 3x or SVG, several layers at once
+and icons in bulk as SVG. You changed it: PNG or JPG, and SVG isn't necessary. You dropped the icon set export too: the
+project already has its icon library's icons in code, so writing them out again gave nothing new. My calls:
+
+- **An Export section at the foot of the Design tab,** as Figma has one, for a design, a layer, several layers or
+  several designs, with Export… in the canvas and Layers menus and Ctrl+Shift+E doing the same. It's a section of the
+  Design tab rather than a dialog, so the sizes and the files they make show beside what's selected.
+- **The sizes are remembered for every export, not stored with each layer** as Figma's export settings are. Storing them
+  per layer would put them in the design file, and nothing else needs them there yet.
+- **Layers are cut from their design's frame,** drawn offscreen in the state the canvas shows and its main mode, by the
+  box the frame measured, rather than drawn alone: a layer drawn alone would lose its parent's layout and what's
+  inherited. So a layer's PNG has what's behind it within its box, and see-through parts only where the design has them.
+- **A JPG's see-through parts are white,** and the section says so when one is asked for.
+- **Files are named as iOS and Android name theirs,** `Headline@2x.png` with no suffix at 1x, and alike names get a
+  number rather than overwriting each other.
+- **The icon set dialog is kept as an exploration,** Parity/Explorations/Icon export, in case it comes back.
+- **File > Export all stays as it was:** every design in every state and mode it shows, at Settings' export scale.
 
 ## Each element's source line, in a Code tab and for agents (PAR-167)
 

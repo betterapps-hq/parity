@@ -1,4 +1,6 @@
 import { readFile, rename, writeFile } from "node:fs/promises"
+import { jsonText } from "@parity-app/core"
+import { z } from "zod"
 
 /**
  * The projects open when the service last ran, kept in a file in Parity's app data (`PARITY_REOPEN_FILE`), so a service
@@ -74,13 +76,12 @@ export function startReopening({
 
 /** The roots kept last time; none when there's no list or it can't be read. */
 async function remembered(file: string): Promise<string[]> {
-  try {
-    const { roots } = JSON.parse(await readFile(file, "utf8")) as { roots?: unknown }
-    return Array.isArray(roots) ? roots.filter((root): root is string => typeof root === "string") : []
-  } catch {
-    return []
-  }
+  const text = await readFile(file, "utf8").catch(() => undefined)
+  return (text === undefined ? undefined : openProjectsFile.safeParse(text).data?.roots) ?? []
 }
+
+/** The list as `remember` writes it. */
+const openProjectsFile = jsonText(z.object({ roots: z.array(z.string()) }))
 
 /** Written beside the list and renamed over it, so a reader never finds half a list. */
 async function write(file: string, text: string): Promise<void> {

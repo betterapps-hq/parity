@@ -1809,6 +1809,48 @@ direction. Files land in a component's slot as Paste here does (PAR-419), which 
 browser rather than the system (a picture dragged from a web page carries a URL, not a file) aren't handled. Interact's
 drop into a design wasn't tried.
 
+## Exporting
+
+### Layers and designs as PNG or JPG (PAR-185)
+
+The Design tab ends with an **Export** section for whatever is selected: a design, a layer, several layers of one
+design, or several designs. It lists the sizes to write, each a PNG or a JPG at 1x, 2x or 3x, with **+** to add the next
+size not asked for (PNGs from 1x up, then JPGs) and **−** to remove one, down to the last. Under them it names the files
+that makes, the first three and how many more, and **Export** asks for a folder and writes them. The canvas menu ends
+with **Export…** and the Layers row menu has it before Delete; both, like Ctrl+Shift+E and File > Export selected,
+export the selection at the same sizes. The sizes are remembered for every export, not per layer.
+
+- **Names:** each file is its layer's name as the Layers panel shows it, with `@2x` or `@3x` for those scales and none
+  at 1x, as iOS and Android name theirs: `Headline@2x.png`. Characters a file name can't hold on Windows, macOS or Linux
+  go, and an empty name is `Layer`. Layers named alike get a number from the second on (`Card`, `Card 2`), whatever
+  their case, so no file overwrites another, and a size asked for twice is written once.
+- **What's drawn:** each design is drawn offscreen once at each scale asked for, in the state the canvas shows and its
+  main mode, as it is on the canvas, saved or not; each layer is cut from it by the box the frame measured for it,
+  covering every pixel it touches. A PNG keeps what's see-through; a JPG has none, so those parts are white, which the
+  section says when a JPG is asked for.
+- **What can't be written:** a layer the shown state doesn't draw, one with no size, or a design that didn't draw is
+  left out with a warning toast, and the rest are written. A toast says how many files were written, with Show for the
+  first.
+- **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05 (decisions.md); the icon set's dialog
+  is kept as an exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state
+  and mode it shows, at Settings' export scale. Copy as PNG is CAN-39.
+
+Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
+section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
+`MultiPanel.tsx`; `exportLayers` and `exportSelected` in `chrome/commands.ts`; the menus' items in
+`chrome/canvas-menu.ts` and `chrome/layers-menu.ts`; the sizes in `chrome/preferences.ts`; `framePictures` in
+`packages/agent/src/dispatch.ts`, which keeps each layer's box with a screenshot; and `exportLayers` in
+`utility/agent.ts` with `cutPicture` in `utility/webp.ts`, behind the service's `layers.export`.
+
+Tests: `packages/editor/src/export-files.test.ts` (10: names with each size's suffix and format, numbering alike names,
+a size once, the next size offered, safe names, the short list, a layer's crop at 2x, a design's whole frame, the three
+reasons a file can't be written, and a crop kept inside the picture). `apps/desktop/src/utility/webp.test.ts` (2 more: a
+PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
+`chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back.
+`chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
+`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys. Gaps: drawing offscreen and writing the files run in
+the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
+
 ## Fields
 
 How the inspector's number, length and token fields read what's typed, scrubbed or stepped.
@@ -3433,9 +3475,10 @@ component reloaded the page on the production build, and the prebundle's config 
 
 What opening a project loads into the windows, and what closing it gives back.
 
-On first launch the installed app shows Home. Later launches restore the saved project tabs, and Home if that's where
-the window was. Development can request an initial project through its runner. `workspace.test.ts` covers these startup
-choices (PAR-8, PAR-605).
+On first launch the installed app shows the sign-in screen, and Home once you sign in or go on without (see
+[Signing in](#signing-in-par-612)). Later launches restore the saved project tabs, and Home if that's where the window
+was. Development can request an initial project through its runner. `workspace.test.ts` covers these startup choices
+(PAR-8, PAR-605).
 
 ### The start page: Home and new tabs (PAR-605, PAR-607)
 
@@ -3443,9 +3486,10 @@ Home is pinned first in the tab strip, an icon that can't be closed, and shows w
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
 at the end of the strip. Both are the start page from the explorations (decisions.md, "The start page is built"):
 
-- **Home** has the organization switcher, Search, Open and New project along the top. Below them, the Continue where you
-  left off section offers the project opened last, which its picture, Resume or Enter opens, with For you beside it.
-  Before any project has opened, the Open a project panel takes its place, with Open a folder and Open a project file.
+- **Home** has the organization switcher, once you're signed in, then Search, Open and New project along the top. Below
+  them, the Continue where you left off section offers the project opened last, which its picture, Resume or Enter
+  opens, with For you beside it. Before any project has opened, the Open a project panel takes its place, with Open a
+  folder and Open a project file.
 - **A new tab** has a large Search field, then New project and Open.
 - **Both list your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
   more. A card has the project's picture, its folder's name and when it was last opened; its tooltip is the folder's
@@ -3465,8 +3509,9 @@ at the end of the strip. Both are the start page from the explorations (decision
   - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
     the start page stops listing it.
-- **Stubs:** For you and Shared with you are empty; New project, New project from this, cloning, Copy link, Invite
-  people and New organization show a toast saying they aren't ready yet. New project's toast also offers Open a folder.
+- **Stubs:** For you and Shared with you are empty, and signed out For you offers Sign in; New project, New project from
+  this, cloning, Copy link, Invite people and New organization show a toast saying they aren't ready yet. New project's
+  toast also offers Open a folder.
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
 `StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home, new tabs and
@@ -3930,6 +3975,71 @@ and EveryKindLight: each light in every status, in both themes; and `chrome/Proc
 one light, breathing.
 
 Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
+
+## Signing in (PAR-612)
+
+You sign in with Google, GitHub, Microsoft or a work email, in your browser, through WorkOS AuthKit, as
+[proposals/sign-in.md](proposals/sign-in.md) designs it. Signing in is optional: nothing that works on local folders
+asks for it. Parity carries WorkOS's client ID and never its API key, and the window never sees a token.
+
+- **The first launch shows the sign-in screen** in Home's place: Continue with Google, GitHub or Microsoft, or a work
+  email, and "Open a folder on this computer without signing in", which opens the folder picker over Home. Signing in or
+  going on without is remembered (`parity.signIn` in local storage), and so is opening a project another way while it
+  shows. It doesn't show when Parity already knows a project, or was started with one, as `pnpm dev` and the end-to-end
+  tests start it.
+- **Signing in later** is from the account spot at the end of the title bar, or Sign in in Home's For you. It opens the
+  same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
+- **A button opens the browser** at WorkOS's authorize URL with that provider chosen; the work email opens AuthKit with
+  it filled in. Parity shows Continue in your browser, with Open it again, Copy the link and Cancel; after 30 seconds it
+  says what to do if the page didn't open, and Open it again becomes the main button. It never stops waiting on its own.
+  Cancel goes back to the ways in on the screen, or closes the dialog, and stops listening for that sign-in.
+- **What went wrong says what to do next:** canceled in the browser (`access_denied`), Parity couldn't sign you in (any
+  other error, or trading the code failed), this account can't sign in (WorkOS answered 403), or sign in through your
+  organization (`sso_required` or `organization_authentication_methods_required`), whose Continue with single sign-on
+  opens AuthKit with the account's email. Details hold what WorkOS said, to copy.
+- **The browser hands back to the copy that asked.** An installed app uses `parity://auth/callback`: the installer
+  registers it on macOS (`protocols` in `electron-builder.yml`) and the app registers itself on Windows and Linux as it
+  starts. macOS gives the running app the link as `open-url`; Windows and Linux start a second Parity process with it,
+  which passes it on and quits without opening a window. A copy that gets a link it isn't waiting for asks each other
+  copy in the agent registry, at `POST /auth/link` on its local service with its token, and the one whose `state` it is
+  takes it. A `pnpm dev` copy listens on a free loopback port for each sign-in, `http://127.0.0.1:<port>/auth/callback`,
+  and answers the browser once the code is traded: "You're signed in to Parity" or "Parity couldn't sign you in".
+- **Main keeps the session.** The refresh token is kept encrypted with `safeStorage` in the app data's `account` file,
+  with who it signs in and how; the access token stays in main's memory. Main refreshes a minute before the access token
+  expires, every 4 minutes, using the newest token in the file, since other copies share it; a refresh with no answer is
+  tried again after 5 seconds, doubling to 5 minutes. On Linux without a keyring nothing is kept: a toast says "You're
+  signed in until you quit Parity", the account menu keeps saying so, and both explain why.
+- **A refresh WorkOS refuses shows Session ended** over whatever's open: Sign in again to keep working, with who it was
+  and Continue with the way they signed in. Open projects and unsaved changes stay as they are.
+- **The account menu** shows your picture or initials, your name, and your organization and role, or your email in no
+  organization yet, then Settings and Sign out. Signed out it's an outline of an avatar, with Sign in and Settings. Sign
+  out forgets both tokens and says "You're signed out"; open tabs stay.
+- **Home's organization switcher** shows only once you're signed in: the session's organization, as Your organization
+  until Parity's service can name it (PAR-616), and Personal. Switching, Invite people and New organization say they
+  aren't ready yet.
+
+Code: main's side is `apps/desktop/src/main/account.ts` (`createAccount`: signing in, reading the link, trading the
+code, refreshing, the problems), `session-store.ts`, `loopback.ts` and `pass-link.ts`, wired up in `main/index.ts` (the
+scheme, `open-url`, the second process, IPC). `@parity-app/account` builds the URL and PKCE, reads the link, and asks
+WorkOS. `shared/account.ts` holds the IPC's zod schemas, which main checks requests against and the window checks the
+state against; `shared/hand-back-page.ts` is the loopback's page; `utility/agent.ts` answers `/auth/link`. The window's
+side is `renderer/account/`: `account.ts` (the store, first launch), `SignIn.tsx` (the screen, the dialog, until quit),
+`SignInPanels.tsx` and `AccountMenu.tsx`, with `start/StartControls.tsx` and `start/HomePage.tsx`.
+
+Tests: `main/account.test.ts` (13: the provider and the work email in the URL, the code traded with the client ID and no
+secret, a link that's another copy's, canceled and failed with WorkOS's words, single sign-on and a refused account with
+their email, canceled while trading, kept until quit, refreshing a minute early with the new token kept, trying again
+when WorkOS doesn't answer, Session ended, another copy's newer token, signed out in another copy, signing back in as
+Parity starts, signing out), `main/session-store.test.ts` (4: kept encrypted and forgotten, nothing kept without a
+keyring or encryption, an unreadable file forgotten), `main/pass-link.test.ts` (3: the link in a launch's arguments,
+each other copy asked with its token until one takes it, none taking it) and `main/loopback.test.ts` (1: the link with
+its port, the page once traded, 404 for another sign-in's). `packages/account` covers the URL, PKCE, the link and
+WorkOS's answers. Stories: Parity/Sign in (the first launch, waiting, each problem, the dialog, Session ended, and the
+account menu signed in, in no organization, until quit and signed out). Gaps: no end-to-end test signs in, since that
+needs a real account in a browser. It was tried in `pnpm dev` against WorkOS Staging on 2026-11-05: signing in with
+Google, the loopback's page, the account menu in no organization, a refresh 4 minutes later with the client ID alone,
+the session moved into an organization and kept across a restart, and Session ended after WorkOS revoked the session.
+The `parity://` scheme and passing links between copies need an installed build, which hasn't been tried yet.
 
 ## Rendering frames
 

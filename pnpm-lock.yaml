@@ -274,6 +274,9 @@ importers:
         specifier: ^7.5.0
         version: 7.5.0
     devDependencies:
+      '@parity-app/account':
+        specifier: workspace:*
+        version: link:../../packages/account
       '@parity-app/agent':
         specifier: workspace:*
         version: link:../../packages/agent
@@ -687,6 +690,12 @@ importers:
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
+
+  packages/telemetry:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/tokens:
     dependencies:

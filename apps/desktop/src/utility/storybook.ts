@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import { parseManifest } from "@parity-app/core"
+import { parseData } from "@parity-app/core"
+import { z } from "zod"
 import type { ServiceMethods } from "../shared/protocol.ts"
 import { findRoutedServer, readPortless } from "./portless.ts"
 import { adoptServer, choosePort, knownServers, startServer, stopServer } from "./process-manager.ts"
@@ -13,11 +15,13 @@ interface Served {
   address: string
 }
 
-interface IndexEntry {
-  id: string
-  type: "story" | "docs"
-  importPath: string
-}
+/** An entry of Storybook's `/index.json`: a story or a docs page, and the file it comes from. */
+const indexEntry = z.looseObject({ id: z.string(), type: z.enum(["story", "docs"]), importPath: z.string() })
+
+type IndexEntry = z.infer<typeof indexEntry>
+
+/** Storybook's `/index.json`. Its entries are checked one by one, so one of a kind Parity doesn't know is left out. */
+const storyIndexFile = z.looseObject({ entries: z.record(z.string(), z.unknown()).optional() })
 
 /** Each project's Storybook as it's found or started, so two opens at once share one. */
 const serving = new Map<string, Promise<Served>>()
@@ -150,11 +154,15 @@ async function start(info: OpenProject["info"]): Promise<Served> {
   return { url, address: url }
 }
 
-async function storyIndex(base: string): Promise<IndexEntry[]> {
+/** The stories and docs pages a Storybook at `base` serves, from its `/index.json`. Rejects when it serves none. */
+export async function storyIndex(base: string): Promise<IndexEntry[]> {
   const response = await fetch(`${base}/index.json`, { signal: AbortSignal.timeout(3000) })
   if (!response.ok) throw new Error(`Storybook answered ${response.status}`)
-  const body = (await response.json()) as { entries?: Record<string, IndexEntry> }
-  return Object.values(body.entries ?? {})
+  const body = parseData(storyIndexFile, await response.json(), "/index.json")
+  return Object.values(body.entries ?? {}).flatMap((value) => {
+    const entry = indexEntry.safeParse(value)
+    return entry.success ? [entry.data] : []
+  })
 }
 
 /**

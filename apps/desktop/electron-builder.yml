@@ -21,6 +21,11 @@ extraResources:
   - from: out/node_modules
     to: app.asar.unpacked/node_modules
 artifactName: Parity-${version}-${os}-${arch}.${ext}
+# WorkOS hands sign-in back to parity://auth/callback (PAR-612). This registers the scheme in macOS's Info.plist; on
+# Windows and Linux the app registers it as it starts.
+protocols:
+  - name: Parity
+    schemes: [parity]
 publish:
   provider: github
   owner: betterapps-hq

@@ -9,17 +9,22 @@ import {
   answerRequest,
   exportPictures,
   type FrameRequest,
+  framePictures,
   type FrameResult,
   type TabSnapshot
 } from "@parity-app/agent"
 import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry"
 import { registryVersion } from "@parity-app/agent/routing"
 import { errorDetails } from "@parity-app/core"
+import { planExport } from "@parity-app/editor"
+import { passedLink } from "../shared/account.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
 import { readConsole } from "./console.ts"
-import { readCopyEnvironment } from "./environment.ts"
+import { environment } from "./environment.ts"
+import { mainProcess } from "./main-process.ts"
 import { renderOffscreen } from "./render.ts"
+import { cutPicture } from "./webp.ts"
 
 interface WindowChannel {
   request<M extends keyof WindowMethods>(
@@ -46,7 +51,7 @@ export async function startAgentServer(window: () => WindowChannel): Promise<voi
   const address = server.address()
   if (!address || typeof address === "string") throw new Error("The agent server has no port")
   // The main process names the copy, so a service it restarts writes the same entry.
-  const copy = readCopyEnvironment(process.env)
+  const copy = environment()
   const app = copy.PARITY_APP_PID ?? process.ppid
   const registry = agentRegistry(process.env, homedir())
   writeEntry(registry, {
@@ -67,6 +72,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
   const given = Buffer.from(request.headers.authorization?.replace(/^Bearer /, "") ?? "")
   const expected = Buffer.from(token)
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) return reply(401, { error: "Wrong token" })
+  if (request.method === "POST" && request.url === "/auth/link") return passLinkToMain(request, reply)
   if (request.method !== "POST" || request.url !== "/rpc") return reply(404, { error: "POST /rpc" })
   try {
     const chunks: Buffer[] = []
@@ -76,6 +82,22 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
   } catch (error) {
     const details = errorDetails(error)
     reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })
+  }
+}
+
+/**
+ * A sign-in link another copy of Parity got from the browser (PAR-612). Main says whether it's the sign-in this copy is
+ * waiting for, and takes it if so; only it has the PKCE verifier the code needs.
+ */
+async function passLinkToMain(request: IncomingMessage, reply: (status: number, body: unknown) => void) {
+  try {
+    const chunks: Buffer[] = []
+    for await (const chunk of request) chunks.push(chunk as Buffer)
+    const passed = passedLink.safeParse(JSON.parse(Buffer.concat(chunks).toString("utf8")))
+    if (!passed.success) return reply(400, { error: "Expected { link }" })
+    reply(200, await mainProcess.request("signInLink", passed.data))
+  } catch (error) {
+    reply(200, { taken: false, error: error instanceof Error ? error.message : String(error) })
   }
 }
 
@@ -160,6 +182,37 @@ export async function exportDesigns(
     paths.push(path)
   }
   return { files: paths, warnings }
+}
+
+/**
+ * Exports layers and designs for the Export section (PAR-185): each design drawn offscreen once at each scale asked
+ * for, in the state the canvas shows and its main mode, and each file cut from it and written to `folder`. A file
+ * that can't be written is a warning, and the rest are still written.
+ */
+export async function exportLayers(
+  window: WindowChannel,
+  { projectId, folder, layers, files }: ServiceMethods["layers.export"]["params"]
+): Promise<ServiceMethods["layers.export"]["result"]> {
+  const host = desktopHost(window)
+  const snapshot = await host.snapshot(projectId)
+  const designs = [...new Set(layers.map((layer) => layer.design))]
+  const scales = [...new Set(files.map((file) => file.size.scale))]
+  const { frames, warnings } = await framePictures(host, snapshot, designs, scales)
+  // Designs are asked for by key, `path#id`; pictures name them by id.
+  const byId = layers.map((layer) => ({ ...layer, design: layer.design.slice(layer.design.lastIndexOf("#") + 1) }))
+  await mkdir(folder, { recursive: true })
+  const written: string[] = []
+  for (const { file, frame, crop, problem } of planExport(byId, files, frames)) {
+    const picture = frame === undefined ? undefined : frames[frame]?.png
+    if (problem || !picture || !crop) {
+      warnings.push(problem ?? `${file.name}: its design didn't draw`)
+      continue
+    }
+    const path = join(folder, file.name)
+    await writeFile(path, await cutPicture(Buffer.from(picture, "base64"), crop, file.size.format))
+    written.push(path)
+  }
+  return { files: written, warnings }
 }
 
 /**

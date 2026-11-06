@@ -11,6 +11,7 @@ import {
   Kbd
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, ChevronsUpDown, FileInput, FolderOpen, Plus, Search, UserPlus } from "lucide-react"
+import { useAccount } from "../account/account.ts"
 import { formatKeys } from "../chrome/keys.ts"
 import { AzureDevOpsMark, GitHubMark } from "./marks.tsx"
 import { newProjectNotReady, notReady, useStartActions } from "./start-actions.ts"
@@ -76,12 +77,22 @@ export function NewProjectButton() {
   )
 }
 
+/** The organization signed in to, by the name Parity can give it until its service can look one up (PAR-616). */
+const sessionOrganization = "Your organization"
+
 /**
- * Whose projects the page shows. There's only your own until organizations come, so it lists Personal and offers the
- * rest.
+ * Whose projects the page shows: the organization you're signed in to, or Personal in no organization yet. Every
+ * project on this computer shows either way, since Parity can't tell which organization a folder belongs to. Signed
+ * out there's none, so it doesn't look like you're signed in (your call, 2026-11-05); the account menu and For you offer
+ * Sign in. The menu offers inviting people and making an organization, which aren't ready.
  */
 export function OrgSwitcher() {
-  const organizations = () => notReady("Organizations aren't ready yet", "For now, all your projects are in Personal.")
+  const { state } = useAccount()
+  const { account } = state
+  const organization = account?.organizationId ? sessionOrganization : undefined
+  const notYet = () =>
+    notReady("Organizations aren't ready yet", "For now, your projects are the ones on this computer.")
+  if (!account) return null
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -90,24 +101,32 @@ export function OrgSwitcher() {
             type="button"
             className="-ml-1.5 flex w-fit items-center gap-2 rounded-lg px-1.5 py-1 text-sm outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-muted/50"
           >
-            <PersonalBadge />
-            <span className="font-medium">Personal</span>
+            <OrgBadge name={organization ?? "Personal"} />
+            <span className="font-medium">{organization ?? "Personal"}</span>
             <ChevronsUpDown className="size-3.5 text-muted-foreground" />
           </button>
         }
       />
       <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuRadioGroup value="personal">
+        <DropdownMenuRadioGroup value={organization ? "organization" : "personal"} onValueChange={notYet}>
+          {organization && (
+            <DropdownMenuRadioItem value="organization">
+              <OrgBadge name={organization} size={18} /> {organization}
+            </DropdownMenuRadioItem>
+          )}
           <DropdownMenuRadioItem value="personal">
-            <PersonalBadge size={18} /> Personal
+            <OrgBadge name="Personal" size={18} /> Personal
             <span className="ml-auto text-xs text-muted-foreground">Just you</span>
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={organizations}>
-          <UserPlus /> Invite people
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={organizations}>
+        {/* Inviting needs an organization to invite people to. */}
+        {organization && (
+          <DropdownMenuItem onClick={notYet}>
+            <UserPlus /> Invite people
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={notYet}>
           <Plus /> New organization
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -115,7 +134,9 @@ export function OrgSwitcher() {
   )
 }
 
-function PersonalBadge({ size = 20 }: { size?: number }) {
+/** An organization's first letter in its color: Personal's green, and an organization's violet. */
+function OrgBadge({ name, size = 20 }: { name: string; size?: number }) {
+  const hue = name === "Personal" ? 162 : 275
   return (
     <span
       aria-hidden
@@ -124,11 +145,11 @@ function PersonalBadge({ size = 20 }: { size?: number }) {
         width: size,
         height: size,
         fontSize: size * 0.55,
-        background: "oklch(0.45 0.1 162)",
-        color: "oklch(0.95 0.04 162)"
+        background: `oklch(0.45 0.1 ${hue})`,
+        color: `oklch(0.95 0.04 ${hue})`
       }}
     >
-      P
+      {name.charAt(0)}
     </span>
   )
 }

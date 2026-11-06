@@ -6,8 +6,9 @@ editing and matching tokens (PAR-35), and `@parity-app/editor` inserting, Make c
 rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-30. `@parity-app/models` holds the lens
 models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and the selection model and edit target
 (PAR-570), and `@parity-app/project` the one reader of installed packages (PAR-573), on 2026-11-05.
-`@parity-app/account` holds signing in with WorkOS (PAR-613), on 2026-11-05. The rule and the first items are in
-[decisions.md](../decisions.md) and in Linear's Package boundaries stream.
+`@parity-app/account` holds signing in with WorkOS (PAR-613), and `@parity-app/telemetry` telemetry's event model
+(PAR-618), on 2026-11-05. The rule and the first items are in [decisions.md](../decisions.md) and in Linear's Package
+boundaries stream.
 
 ## In one line
 
@@ -104,6 +105,7 @@ when it's spread through UI code. Today:
 | `@parity-app/account`                   | Signing in with WorkOS without the views: the authorize URL and PKCE, the link the browser hands back, the code exchange and refresh, the token's claims, and when to refresh.                           | New code, from [sign-in.md](sign-in.md) (PAR-613).                                                        |
 | `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, matching described tokens to custom properties, and checking what a token edit may write (PAR-569).                                        | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.               |
 | `@parity-app/channel`                   | Requests and replies over any port: request ids, waiting for a port, failing on close, coded details both ways, unknown methods and checked params.                                                      | The preload script, `utility/index.ts`, `render.ts`, `console.ts`, `worker-client.ts` and main (PAR-565). |
+| `@parity-app/telemetry`                 | Telemetry's event model without Sentry: the envelope, registered events with zod schemas, spans with W3C trace IDs, sinks, a test sink and the last 500 events.                                          | New code, from [product-telemetry.md](product-telemetry.md) (PAR-618).                                    |
 
 ### `@parity-app/code`: design and code, both ways
 
