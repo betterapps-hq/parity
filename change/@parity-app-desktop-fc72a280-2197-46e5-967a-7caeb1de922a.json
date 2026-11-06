@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Sign in to Parity with Google, GitHub, Microsoft or a work email, in your browser through WorkOS",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

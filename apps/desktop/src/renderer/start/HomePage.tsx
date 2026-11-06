@@ -1,6 +1,7 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { FileInput, FolderOpen } from "lucide-react"
 import { useEffect } from "react"
+import { accountActions, useAccount } from "../account/account.ts"
 import { formatKeys } from "../chrome/keys.ts"
 import { useKnownProjects } from "../workspace.ts"
 import { ProjectArt } from "./ProjectArt.tsx"
@@ -27,7 +28,7 @@ export function Home({ projects, active = true }: { projects: readonly KnownProj
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-4 pt-6 pb-14 sm:px-10">
         <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <OrgSwitcher />
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
             <SearchButton />
             <OpenMenu />
             <NewProjectButton />
@@ -114,14 +115,31 @@ function OpenFirst() {
   )
 }
 
-/** What needs you across every project: mentions, reviews, an agent waiting. Nothing can yet, so it's always clear. */
+/**
+ * What needs you across every project: mentions, reviews, an agent waiting. Nothing can yet, so signed in it's always
+ * clear; signed out, it offers Sign in, since what needs you comes through an organization.
+ */
 function ForYou() {
+  const { loaded, state } = useAccount()
   return (
     <section aria-labelledby="for-you" className="flex flex-col gap-1.5">
       <h2 id="for-you" className="text-sm font-semibold">
         For you
       </h2>
-      <p className="py-2 text-sm text-muted-foreground">Nothing needs you right now.</p>
+      {loaded && !state.account ? (
+        <p className="py-2 text-sm text-pretty text-muted-foreground">
+          <button
+            type="button"
+            onClick={accountActions.open}
+            className="rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Sign in
+          </button>{" "}
+          to see comments, mentions and reviews that need you.
+        </p>
+      ) : (
+        <p className="py-2 text-sm text-muted-foreground">Nothing needs you right now.</p>
+      )}
     </section>
   )
 }

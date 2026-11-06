@@ -5,13 +5,17 @@ import {
   type CachedFile,
   type ComponentSource,
   cacheRemovals,
+  jsonText,
+  plainObject,
   webpSize,
   webpText,
   withWebpText
 } from "@parity-app/core"
 import type { CodeSnapshot } from "@parity-app/project"
+import { z } from "zod"
 import type { PreviewImage, RenderJob } from "../shared/protocol.ts"
 import { bitmapName } from "../shared/render-job.ts"
+import { environment } from "./environment.ts"
 
 /**
  * Frame bitmaps and component previews kept on disk, so a project opened again shows them at once (PAR-158, PAR-207).
@@ -31,7 +35,7 @@ export interface ServedCode {
   fingerprint: Promise<string>
   sources: Readonly<Record<string, Pick<ComponentSource, "path" | "export">>>
 }
-const folder = process.env.PARITY_BITMAP_DIR
+const folder = environment().PARITY_BITMAP_DIR
 
 /** Writes since the cache was last swept; it's swept again after this many, and when the service starts. */
 const sweepEvery = 50
@@ -87,12 +91,14 @@ export type PreviewSize = "thumb" | "large"
  * What the index says of a component's latest preview: the key it was made for, why it couldn't be drawn when it
  * couldn't, and whether it drew nothing to see. The pictures themselves say whether they're made.
  */
-export interface PreviewRecord {
-  key: string
-  error?: string
+const previewRecord = z.object({
+  key: z.string().regex(/^[0-9a-f]{40}$/, "expected a preview key"),
+  error: z.string().optional(),
   /** It drew, but its picture showed nothing but the page (PAR-517). */
-  empty?: true
-}
+  empty: z.literal(true).optional()
+})
+
+export type PreviewRecord = z.infer<typeof previewRecord>
 
 /** Each component's latest preview by id, for a project, as kept in its `previews/index.json`. */
 const indexes = new Map<string, Promise<Map<string, PreviewRecord>>>()
@@ -230,17 +236,18 @@ const indexName = "index.json"
 /** The index's format; an index of another is read as empty. */
 const indexFormat = 1
 
+/** An index file: its format, and each component's record, read one by one so one bad record loses only itself. */
+const indexFile = jsonText(z.object({ format: z.literal(indexFormat), components: plainObject }))
+
 async function readIndex(projectId: string): Promise<Map<string, PreviewRecord>> {
   const index = new Map<string, PreviewRecord>()
   if (!folder) return index
-  try {
-    const parsed: unknown = JSON.parse(await readFile(join(previewFolder(projectId), indexName), "utf8"))
-    if (!isObject(parsed) || parsed.format !== indexFormat || !isObject(parsed.components)) return index
-    for (const [component, record] of Object.entries(parsed.components)) {
-      if (isRecord(record)) index.set(component, record)
-    }
-  } catch {
-    // None yet, or one a crash cut short: every preview is looked for again.
+  const text = await readFile(join(previewFolder(projectId), indexName), "utf8").catch(() => undefined)
+  // None yet, one a crash cut short or one of another format: every preview is looked for again.
+  const read = text === undefined ? undefined : indexFile.safeParse(text).data
+  for (const [component, value] of Object.entries(read?.components ?? {})) {
+    const record = previewRecord.safeParse(value)
+    if (record.success) index.set(component, record.data)
   }
   return index
 }
@@ -255,16 +262,6 @@ async function writeIndex(projectId: string, index: Map<string, PreviewRecord>):
   }
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isRecord(value: unknown): value is PreviewRecord {
-  if (!isObject(value) || typeof value.key !== "string" || !/^[0-9a-f]{40}$/.test(value.key)) return false
-  return (value.error === undefined || typeof value.error === "string") && (value.empty ?? true) === true
-}
-
-/** Writes a file beside its name and then renames it, so a reader never finds half of it. */
 /** Writes a file beside its name and then renames it, so a reader never finds half a file. */
 export async function writeWhole(file: string, contents: Uint8Array): Promise<void> {
   const partial = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.partial`

@@ -11,6 +11,7 @@ import { builderReadings, startBuilder } from "./builders.ts"
 import { readProjectFile } from "./code.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
+import { environment } from "./environment.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
@@ -60,7 +61,7 @@ const previews = componentPreviews(projects)
 
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
-  file: process.env.PARITY_REOPEN_FILE,
+  file: environment().PARITY_REOPEN_FILE,
   open: (root) => projects.open(root).finally(rememberOpen),
   close: (root) => projects.close(root).finally(rememberOpen)
 })

@@ -55,6 +55,7 @@ import type { ServedCode } from "./bitmap-store.ts"
 import type { StartedBuilder } from "./builders.ts"
 import type { SavedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
+import { environment, type ServiceEnvironment } from "./environment.ts"
 import { followGuest, type GuestMoved, newGuestPort, type PortFinder, restartPort } from "./guest-ports.ts"
 import { stopProject } from "./process-manager.ts"
 import { forgetProcess, trackProcess } from "./processes.ts"
@@ -117,8 +118,8 @@ export interface ProjectAdapters {
   /** The ports guests are served on. */
   ports: PortFinder
   listeners: ProjectListeners
-  /** The environment, read once when the projects are made. `process.env` unless given. */
-  env?: NodeJS.ProcessEnv
+  /** What the service's environment says of opening projects. The service's own (`environment()`) unless given. */
+  environment?: Pick<ServiceEnvironment, "PARITY_ALLOWED_ORIGINS" | "PARITY_PROJECT" | "PARITY_DEV_RUNNER">
 }
 
 /** An open project, as the service's other modules use it. */
@@ -200,8 +201,8 @@ const bitmapFormat = 2
 export function openProjects(adapters: ProjectAdapters): OpenProjects {
   const { checker, detections, listeners, ports } = adapters
   const watch: WatchFolder = adapters.watch ?? watchFolder
-  const env = adapters.env ?? process.env
-  const allowedOrigins = (env.PARITY_ALLOWED_ORIGINS ?? "").split(",").filter(Boolean)
+  const env = adapters.environment ?? environment()
+  const allowedOrigins = env.PARITY_ALLOWED_ORIGINS ?? []
   const startedWith = env.PARITY_PROJECT
   const devRunner = !!env.PARITY_DEV_RUNNER
 
