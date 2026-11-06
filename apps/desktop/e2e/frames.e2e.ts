@@ -93,7 +93,8 @@ describe("text on the empty canvas", () => {
   })
 })
 
-describe("converting a frame", () => {
+// PAR-657, for its diagnostic run only: the pair of tests below, six times over, to catch the press an open tooltip takes.
+describe.each([1, 2, 3, 4, 5, 6])("converting a frame, round %i", () => {
   it("makes it a component at once, with a toast whose Undo makes it a frame again", async () => {
     const { screen } = await app.showEmptyCanvas()
     const before = await app.designs()
