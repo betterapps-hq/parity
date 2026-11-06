@@ -8,18 +8,15 @@ import {
   registeredEvents,
   isSpanEnvelope,
   type Sink,
-  sendsToSentry,
   type Telemetry,
   type TelemetryEnvironment,
   type TelemetryLevel,
-  telemetryEnvironment,
-  telemetryLevel
+  telemetryEnvironment
 } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
 import { createSentrySink, type SentryTarget } from "../shared/sentry-sink.ts"
 import type { TelemetryRun } from "../shared/telemetry-run.ts"
-import { readInstallId } from "./install-id.ts"
 import { createLogFileSink, createLogFiles } from "./log-files.ts"
 
 /**
@@ -31,46 +28,54 @@ const dsn = "https://1367d69a56a94bcd328db394a4a5a2d4@o4512381874274304.ingest.u
 /** How long a window or main may be stuck before it's reported, in milliseconds. */
 const hangThreshold = 2000
 
-/** What reaches Sentry, which `sendsToSentry` decides from: errors only, logs and spans too, or nothing. */
-let level: TelemetryLevel = "all"
-
 export interface TelemetryStart {
   level: TelemetryLevel
   environment: TelemetryEnvironment
 }
 
+/** Whether this run sends, which Settings can change while it runs (PAR-626). */
+let level: TelemetryLevel = "off"
+
 /**
  * Starts Sentry in main, which must happen before the app is ready, before any scheme is registered and before the
  * service is forked, so windows and the service can reach it. With telemetry off it still starts, so windows and the
- * service have somewhere to send, but nothing leaves the computer.
+ * service have somewhere to send, and so it can be turned on without a restart, but nothing leaves the computer.
  */
 export function startTelemetry(
   env: NodeJS.ProcessEnv,
-  { installed, rendererName }: { installed: boolean; rendererName: (contents: WebContents) => string | undefined }
+  {
+    installed,
+    rendererName,
+    sending
+  }: {
+    installed: boolean
+    rendererName: (contents: WebContents) => string | undefined
+    /** The level and install ID from the setting and the variables. */
+    sending: { level: TelemetryLevel; installId: string }
+  }
 ): TelemetryStart {
-  level = telemetryLevel(env)
   const environment = telemetryEnvironment(env, installed)
   // Secrets are scrubbed from everything Sentry sends, the windows' and the service's events included (PAR-621).
   const scrubber = createScrubber()
   Sentry.init({
     dsn,
     environment,
-    enabled: level !== "off",
     getRendererName: rendererName,
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
-    // The level decides what leaves, for every process's errors, logs and spans, which all come through here.
-    beforeSend: (event) =>
-      sendsToSentry(level, "error") ? scrubber.value({ ...event, tags: { process: "main", ...event.tags } }) : null,
-    beforeSendTransaction: (event) => (sendsToSentry(level, "span") ? scrubber.value(event) : null),
-    beforeSendLog: (log) => (sendsToSentry(level, "log") ? scrubber.value(log) : null),
+    // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
+    beforeSend: (event) => scrubber.value({ ...event, tags: { process: "main", ...event.tags } }),
+    beforeSendTransaction: (event) => scrubber.value(event),
+    beforeSendLog: (log) => scrubber.value(log),
     beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb),
     integrations: [
       // A renderer that runs out of memory may leave no minidump, so it's reported as well as the default exits.
       Sentry.childProcessIntegration({ events: ["abnormal-exit", "launch-failed", "integrity-failure", "oom"] })
     ]
   })
-  if (level !== "off") watchMainLoop()
+  // Started enabled, so its integrations are set up, then turned to the level; every send checks it again.
+  applyTelemetry(sending)
+  watchMainLoop()
   return { level, environment }
 }
 
@@ -93,12 +98,21 @@ let forward: Sink | undefined
  * to Sentry and the local copy, `<userData>/logs/parity-<date>.jsonl`, which is written at every level, Off included.
  * Gives main's telemetry, and the run the other processes start theirs with.
  */
-export function startEvents({ userData, installed }: { userData: string; installed: boolean }): {
+export function startEvents({
+  userData,
+  installed,
+  installId
+}: {
+  userData: string
+  installed: boolean
+  /** From the Telemetry setting's file (PAR-626). */
+  installId: string
+}): {
   run: TelemetryRun
   telemetry: Telemetry<typeof registeredEvents>
 } {
   const run: TelemetryRun = {
-    installId: readInstallId(join(userData, "install-id")),
+    installId,
     sessionId: randomUUID(),
     check: !installed
   }
@@ -142,6 +156,17 @@ export function recordForwarded(sent: unknown, process?: Envelope["process"]): v
   } catch (error) {
     console.warn("[telemetry] couldn't record another process's event:", error)
   }
+}
+
+/**
+ * Sends at this level from now on, reporting as this install. Sentry checks whether it's enabled on every send, so a
+ * change needs no restart.
+ */
+export function applyTelemetry(next: { level: TelemetryLevel; installId: string }): void {
+  level = next.level
+  const client = Sentry.getClient()
+  if (client) client.getOptions().enabled = level !== "off"
+  Sentry.setUser({ id: next.installId })
 }
 
 /** Reports a window that stops answering, once it answers again, with how long it was stuck. */

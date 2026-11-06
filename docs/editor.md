@@ -4333,6 +4333,20 @@ manual checks without a dialog, quiet startup results, repeated checks, retry an
 notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,
 unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
+### Sharing diagnostics (PAR-626)
+
+Settings > Privacy > Share diagnostics is on by default. Off, nothing Parity records leaves the computer; on, errors,
+crashes, traces and a recording of the window go to the Parity team. It takes effect at once, without a restart, and is
+remembered between runs. When `PARITY_TELEMETRY` or `DO_NOT_TRACK` is set, the switch shows what that run does, is
+disabled, and names the variable. Turning it off also starts a new install ID. About lists Diagnostics and the Install
+ID with the versions, and Copy details includes them. Settings scrolls when it's taller than the window.
+
+`@parity-app/telemetry`'s `settings.test.ts` covers how the variables and the saved setting decide a run, reading
+`telemetry.json` and finding the app's data folder on each system. `main/telemetry-setting.test.ts` covers the first
+run's install ID, saving the switch, a variable deciding the run, and a new ID on turning off.
+`chrome/TelemetrySetting.stories.tsx` shows the switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and
+turns it off with the pointer.
+
 ### The page never scrolls (PAR-424)
 
 The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.

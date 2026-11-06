@@ -23,6 +23,7 @@ import type {
 } from "@parity-app/core"
 import type { EditStatus, ExportSize } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
+import type { ResolvedTelemetry, TelemetryLevel } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
@@ -349,10 +350,23 @@ export interface BuildInfo {
   channel: "beta" | "stable" | "development" | "unknown"
 }
 
+/**
+ * What Parity sends Sentry this run, the level saved in Settings, the variable overriding it if one is set, and the
+ * install ID Sentry groups this computer's reports by (PAR-626).
+ */
+export interface TelemetryState extends ResolvedTelemetry {
+  installId: string
+}
+
 /** Exposed on `window.canvasHost` by the preload script. */
 export interface CanvasHost {
   appVersion: string
   getBuildInfo: () => Promise<BuildInfo>
+  /** The Telemetry setting and install ID, which main keeps and applies (PAR-626). */
+  telemetry: {
+    get: () => Promise<TelemetryState>
+    setLevel: (level: TelemetryLevel) => Promise<TelemetryState>
+  }
   updates: {
     get: () => Promise<UpdateState>
     check: () => Promise<void>

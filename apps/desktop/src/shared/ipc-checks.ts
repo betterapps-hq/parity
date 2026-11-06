@@ -52,6 +52,9 @@ export const shownItem = absolutePath
 
 export const betaSetting = z.boolean("The beta setting must be true or false.")
 
+/** The level chosen in Settings > Telemetry (PAR-626). */
+export const telemetrySetting = z.enum(["all", "off"], "The telemetry level must be all or off.")
+
 /** Which frame the console message about to be written comes from, at what level (PAR-147). */
 export const consoleAnnouncement = z.strictObject({
   level: z.enum(["info", "warning", "error", "debug"]),
