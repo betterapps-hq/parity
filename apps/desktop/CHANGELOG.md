@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 05:21:25 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 05:34:50 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.17.0
+
+Fri, 06 Nov 2026 05:34:50 GMT
+
+### Minor changes
+
+- Read prefers-color-scheme blocks as a theme: a project's dark block is its dark theme, the light values stay the
+  defaults, and each frame draws the block for its own mode (ajcraswell@gmail.com)
 
 ## 0.16.0
 

@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 05:34:50 GMT",
+      "version": "0.17.0",
+      "tag": "@parity-app/desktop_v0.17.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cd053b0aed7b4baa0f4f95898b660b33473ddea4",
+            "comment": "Read prefers-color-scheme blocks as a theme: a project's dark block is its dark theme, the light values stay the defaults, and each frame draws the block for its own mode"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 05:21:25 GMT",
       "version": "0.16.0",
       "tag": "@parity-app/desktop_v0.16.0",
