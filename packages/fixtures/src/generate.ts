@@ -3,6 +3,7 @@ import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os"
 import { basename, delimiter, dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import { jsonText, type PackageManifest, parseData, parseManifest, plainObject } from "@parity-app/core"
 
 /**
  * Generates the validation projects in the repo's `fixtures/` folder. Each starts from its tools' own scaffolders at
@@ -153,18 +154,22 @@ async function prepend(dir: string, path: string, text: string): Promise<void> {
   await writeFile(join(dir, path), text + (await readFile(join(dir, path), "utf8")))
 }
 
-type PackageJson = Record<string, unknown> & { dependencies?: Record<string, string> }
-
-async function editPackage(dir: string, edit: (pkg: PackageJson) => void): Promise<void> {
+async function editPackage(dir: string, edit: (pkg: PackageManifest) => void): Promise<void> {
   const path = join(dir, "package.json")
-  const pkg = JSON.parse(await readFile(path, "utf8")) as PackageJson
+  const text = await readFile(path, "utf8")
+  // Spread over the file's own object, so its keys stay in their order and a regenerated project diffs only where it changed.
+  const pkg: PackageManifest = { ...parseData(jsonText(plainObject), text), ...parseManifest(text, path) }
   edit(pkg)
   await writeFile(path, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
 /** Adds dependencies at exact versions, sorted the way package managers keep them. */
-function addDependencies(pkg: PackageJson, field: string, added: Record<string, string>): void {
-  const merged = { ...(pkg[field] as Record<string, string> | undefined), ...added }
+function addDependencies(
+  pkg: PackageManifest,
+  field: "dependencies" | "devDependencies",
+  added: Record<string, string>
+): void {
+  const merged = { ...pkg[field], ...added }
   pkg[field] = Object.fromEntries(Object.entries(merged).sort(([a], [b]) => a.localeCompare(b, "en")))
 }
 

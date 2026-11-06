@@ -12,7 +12,7 @@ import {
   iconStyleModules,
   type LibraryInfo,
   libraryImports,
-  type PackageManifest,
+  parseManifest,
   type ProjectConfig,
   scriptRunning,
   valueImports
@@ -438,8 +438,9 @@ const viteServe = /(?:^|[\s;&|(])vite(?![\w.-])(?!\s+(?:build|preview|optimize)\
  * Vite looks for its usual names.
  */
 async function scriptedConfig(root: string): Promise<string | undefined> {
-  const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8").catch(() => "{}")) as PackageManifest
-  const script = scriptRunning(pkg.scripts, viteServe)
+  const file = join(root, "package.json")
+  const text = await readFile(file, "utf8").catch(() => undefined)
+  const script = text === undefined ? undefined : scriptRunning(parseManifest(text, file).scripts, viteServe)
   const named = script && commandOption(script[1], ["-c", "--config"])
   return named ? resolve(root, named) : undefined
 }
@@ -457,10 +458,11 @@ async function loadProjectVite(root: string): Promise<typeof Vite> {
     }
     if (dirname(candidate) === candidate) throw new Error(`Vite is not installed in ${root}`)
   }
-  const manifest = JSON.parse(await readFile(join(folder, "package.json"), "utf8")) as {
-    exports?: Record<string, unknown>
-  }
-  const entry = resolveImportCondition(manifest.exports?.["."])
+  const file = join(folder, "package.json")
+  const { exports } = parseManifest(await readFile(file, "utf8"), file)
+  const entry = resolveImportCondition(
+    typeof exports === "object" && exports !== null && !Array.isArray(exports) ? exports["."] : undefined
+  )
   return (await import(pathToFileURL(join(folder, entry)).href)) as typeof Vite
 }
 

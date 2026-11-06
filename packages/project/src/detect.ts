@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import type {
   BuilderDetection,
@@ -13,7 +12,7 @@ import { LOCKS } from "package-manager-detector/constants"
 import { detect } from "package-manager-detector/detect"
 import semver from "semver"
 import { nearestLockfiles } from "./lockfile.ts"
-import { findPackage } from "./packages.ts"
+import { findPackage, readPackage } from "./packages.ts"
 import { storybookConfig } from "./storybook.ts"
 
 /** A tool Parity runs or renders with, the packages it comes in, and when each of its majors came out. */
@@ -235,8 +234,9 @@ export async function detectPackageManager(root: string): Promise<PackageManager
     const found = await detect({ cwd: folder, stopDir: folder })
     if (found) {
       const lock = locks?.folder === folder ? locks.names[0] : undefined
-      const manifest = (await readJson(join(folder, "package.json"))) as { packageManager?: unknown } | undefined
-      const field = typeof manifest?.packageManager === "string" ? "packageManager" : "devEngines.packageManager"
+      // Only the evidence's wording depends on the manifest, so one the schema refuses doesn't stop detection.
+      const manifest = await readPackage(folder).catch(() => undefined)
+      const field = manifest?.manifest.packageManager !== undefined ? "packageManager" : "devEngines.packageManager"
       const fromLock = lock !== undefined && LOCKS[lock] === found.name
       const from = path(folder, fromLock ? lock : "package.json")
       const name = agentNames[found.agent] ?? found.name
@@ -260,14 +260,6 @@ export function addCommand(agent: string, packages: string[]): { command: string
   const resolved = resolveCommand(agent as Agent, "add", packages)
   if (!resolved) throw new Error(`Parity doesn't know how to add packages with ${agent}`)
   return resolved
-}
-
-async function readJson(path: string): Promise<unknown> {
-  try {
-    return JSON.parse(await readFile(path, "utf8"))
-  } catch {
-    return undefined
-  }
 }
 
 function toPosix(path: string): string {

@@ -3913,6 +3913,20 @@ below. My calls on how they move:
   - `PARITY_APP_PID` and `PARITY_APP_STARTED` are read once through `utility/environment.ts`. Unset, they fall back to
     the parent's process id and the service's start, as before. A value that isn't a whole number stops the agent server
     there, naming the variable, since only main sets them.
+- **Package manifests and tool configs are read through schemas (PAR-597).** My calls:
+  - Core's `parseManifest(text, file)` is the one reader of package.json text. It throws `TypeError` naming the file and
+    the field, as `/app/package.json: /bin: expected a string or an object`. Project's `readPackage` and `findPackage`
+    use it, and so do the readers outside project: builder-vite, Storybook's command line, the app's build scripts, the
+    fixtures and the Storybook example. Both `readJson` helpers are gone.
+  - `packageManifest` gained `optionalDependencies`, `bin`, `repository` and `packageManager`, the fields those readers
+    take. Opening a project whose package.json has one of its fields of the wrong type fails, naming it.
+  - Two reads stay lenient, since the manifest only decides a detail there: package manager detection's evidence
+    wording, and a tool's config under a package.json key, which reads as absent when the manifest doesn't match.
+  - The fixtures' generator spreads the checked manifest over the file's own object, so keys keep their order.
+  - shadcn's `components.json` is a loose schema of `tailwind.css` and `aliases.ui`. A file it refuses is skipped with a
+    note, as one that isn't JSON was.
+  - `loadConfig(root, folder, source, schema)` takes a schema and returns what it reads. A config it refuses throws with
+    the config's path and the pointer.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.

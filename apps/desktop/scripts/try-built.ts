@@ -4,6 +4,7 @@ import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink } from "no
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { join, relative, resolve, sep } from "node:path"
+import { parseManifest } from "@parity-app/core"
 import { _electron, type ElectronApplication } from "playwright-core"
 
 if (process.env.CI !== "true") throw new Error("The production app startup check runs only in CI.")
@@ -23,11 +24,9 @@ let installationSucceeded = false
 try {
   if (installerMode) {
     if (process.platform !== "win32") throw new Error("The NSIS startup check needs Windows.")
-    const manifest: unknown = JSON.parse(await readFile(join(appDir, "package.json"), "utf8"))
-    if (!manifest || typeof manifest !== "object" || !("version" in manifest) || typeof manifest.version !== "string") {
-      throw new Error("The desktop package has no version")
-    }
-    const version = manifest.version
+    const file = join(appDir, "package.json")
+    const { version } = parseManifest(await readFile(file, "utf8"), file)
+    if (version === undefined) throw new Error("The desktop package has no version")
     const installer = (await readdir(join(appDir, "dist"))).find((file) => file === `Parity-${version}-win-x64.exe`)
     if (!installer) throw new Error("No Windows installer was built.")
     const result = spawnSync(join(appDir, "dist", installer), ["/S", `/D=${installed}`], {

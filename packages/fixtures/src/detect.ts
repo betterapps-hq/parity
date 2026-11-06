@@ -7,14 +7,13 @@ import {
   type ComponentSource,
   type Detection,
   type PackageManagerDetection,
-  type PackageManifest,
   prepareCanvasCss,
   type RendererAdapter,
   type StorybookInfo,
   type StylesAdapter,
   type ThemeVariable
 } from "@parity-app/core"
-import { detectProject, discoverProject } from "@parity-app/project"
+import { detectProject, discoverProject, readPackage } from "@parity-app/project"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { extractTokens } from "@parity-app/tokens"
@@ -71,7 +70,8 @@ export interface ProjectSnapshot {
  * from the stylesheets' sources; the app reads the CSS the builder compiles from them.
  */
 export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
-  const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as PackageManifest & { name?: string }
+  const pkg = (await readPackage(root))?.manifest
+  if (!pkg) throw new Error(`There's no package.json in ${root}`)
   const problems: string[] = []
   const renderer = renderers.find((adapter) => adapter.detect(pkg))
   if (!renderer) problems.push(`No renderer supports ${pkg.name ?? root}`)
