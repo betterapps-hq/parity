@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Drag a layout's padding and gaps on the canvas, type or pick a value, resize several layers together or from the middle, and double-click an edge to hug or fill",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

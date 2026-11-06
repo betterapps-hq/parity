@@ -13,6 +13,7 @@ import {
   frameSizeReset,
   layerResize,
   layerSizeReset,
+  layersResize,
   nudgedPosition,
   nudgeLayers,
   reorder,
@@ -337,11 +338,106 @@ describe("resizing a layer from what the board shows and what was measured", () 
   })
 })
 
-describe("double-clicking a layer's handle", () => {
-  it("takes away the size on the handle's axes", () => {
-    expect(layerSizeReset("e")).toStrictEqual({ width: undefined })
-    expect(layerSizeReset("n")).toStrictEqual({ height: undefined })
-    expect(layerSizeReset("se")).toStrictEqual({ width: undefined, height: undefined })
+describe("double-clicking a layer's handle (PAR-169)", () => {
+  it("makes the size on the handle's axes hug its content", () => {
+    expect(layerSizeReset("e")).toStrictEqual({ width: "hug" })
+    expect(layerSizeReset("n")).toStrictEqual({ height: "hug" })
+    expect(layerSizeReset("se")).toStrictEqual({ width: "hug", height: "hug" })
+  })
+
+  it("makes it fill its parent with Alt", () => {
+    expect(layerSizeReset("w", true)).toStrictEqual({ width: "fill" })
+    expect(layerSizeReset("nw", true)).toStrictEqual({ width: "fill", height: "fill" })
+  })
+
+  it("takes `grow` away along the direction of the layout the layer is in, and keeps it across", () => {
+    const layer = { style: { grow: true }, parentDirection: "row" as const }
+    expect(layerSizeReset("e", false, layer)).toStrictEqual({ width: "hug", grow: undefined })
+    expect(layerSizeReset("s", true, layer)).toStrictEqual({ height: "fill" })
+  })
+})
+
+describe("resizing from the middle with Alt (PAR-169)", () => {
+  const square = box(0, 0, 40, 40)
+  const far = box(-400, -400, 800, 800)
+
+  it("moves the opposite edge as far, so a layer in a layout grows twice the pointer's movement", () => {
+    const gesture = resizeGesture({ edge: "e", rect: square, inner: far, scale: 1, unit: 4 })
+    expect(gesture({ dx: 20, dy: 0, shift: false, centre: true })).toEqual({ width: 20 })
+    expect(gesture({ dx: 20, dy: 0, shift: false })).toEqual({ width: 15 })
+    // From the left, moving left grows it.
+    const left = resizeGesture({ edge: "w", rect: square, inner: far, scale: 1, unit: 4 })
+    expect(left({ dx: -8, dy: 0, shift: false, centre: true })).toEqual({ width: 14 })
+  })
+
+  it("doesn't fill when the edge reaches the inside of its parent", () => {
+    const gesture = resizeGesture({ edge: "e", rect: button, inner: header, scale, unit: 4 })
+    gesture({ dx: -30, dy: 0, shift: false, centre: true })
+    expect(gesture({ dx: -2, dy: 0, shift: false, centre: true })).toEqual({ width: 29 })
+  })
+
+  it("moves an absolutely placed layer's inset back by half of what it grows, keeping its middle", () => {
+    // Calendar's Review slot, 16 steps high at top 40: the top handle 16px up grows it 32px, so 24 steps at top 36.
+    const slot = box(100, 160, 200, 64)
+    const from = (edge: Edge, style: NodeStyle) =>
+      resizeGesture({
+        edge,
+        rect: slot,
+        inner: box(100, 0, 200, 560),
+        scale: 1,
+        unit: 4,
+        absolute: { style, drawn: { top: 40, right: 0, bottom: 84, left: 0 } }
+      })
+    const style: NodeStyle = { top: 40, left: 0, right: 0, height: 16 }
+    expect(from("n", style)({ dx: 0, dy: -16, shift: false, centre: true })).toEqual({ height: 24, top: 36 })
+    // Stretched between both sides, both insets move.
+    expect(from("e", style)({ dx: 12, dy: 0, shift: false, centre: true })).toEqual({ left: -3, right: -3 })
+    // Placed from the bottom alone, the bottom inset moves.
+    expect(from("s", { bottom: 10, left: 0, height: 16 })({ dx: 0, dy: 8, shift: false, centre: true })).toEqual({
+      height: 20,
+      bottom: 8
+    })
+  })
+})
+
+describe("resizing several layers together (PAR-169)", () => {
+  // Three cards 40px wide, 10px apart, in a row from 0 to 140, at full size with a 4px unit.
+  const cards = [box(0, 0, 40, 40), box(50, 0, 40, 40), box(100, 0, 40, 40)]
+  const union = box(0, 0, 140, 40)
+  const together = (edge: Edge) =>
+    layersResize(
+      cards.map((rect) => ({
+        edge,
+        rect,
+        inner: box(-400, -400, 800, 800),
+        scale: 1,
+        unit: 4,
+        layer: { style: {}, parentDirection: "row" as const }
+      })),
+      union
+    )
+
+  it("gives each layer its share of the movement, so they grow in proportion", () => {
+    // 28px across the box, of which each card is 40/140: 8px each, so 12 steps.
+    expect(together("e")({ dx: 28, dy: 0, shift: false, snaps: false })).toEqual([
+      { width: 12 },
+      { width: 12 },
+      { width: 12 }
+    ])
+  })
+
+  it("starts them all once the pointer has gone four pixels, though each one's share is less", () => {
+    const resize = together("e")
+    expect(resize({ dx: 3, dy: 0, shift: false, snaps: false })).toEqual([undefined, undefined, undefined])
+    expect(resize({ dx: 14, dy: 0, shift: false, snaps: false })).toEqual([{ width: 11 }, { width: 11 }, { width: 11 }])
+  })
+
+  it("resizes them all from their middles with Alt", () => {
+    expect(together("e")({ dx: 28, dy: 0, shift: false, centre: true, snaps: false })).toEqual([
+      { width: 14 },
+      { width: 14 },
+      { width: 14 }
+    ])
   })
 })
 
