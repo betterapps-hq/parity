@@ -40,62 +40,61 @@ async function settle(run: () => Promise<unknown>): Promise<ServeAnswer> {
   }
 }
 
-async function answer(method: WindowMethod, params: unknown): Promise<unknown> {
-  switch (method) {
-    case "agent.tabs":
-      return workspace.summaries()
-    case "agent.copy":
-      return { tabs: workspace.summaries(), ...(focusedAt === undefined ? {} : { focusedAt }) }
-    case "agent.open": {
-      const { root } = params as WindowMethods["agent.open"]["params"]
-      const tab = await workspace.open(root)
-      return summary(tab)
+type Handlers = {
+  [M in WindowMethod]: (
+    params: WindowMethods[M]["params"]
+  ) => WindowMethods[M]["result"] | Promise<WindowMethods[M]["result"]>
+}
+
+/**
+ * Each request the project service sends, by method. An agent's params were checked against their schema in
+ * `@parity-app/agent/contracts` before the service sent them (PAR-598), and the service makes the rest itself, so
+ * they're read here as typed, with no second check.
+ */
+const handlers: Handlers = {
+  "agent.tabs": () => workspace.summaries(),
+  "agent.copy": () => ({ tabs: workspace.summaries(), ...(focusedAt === undefined ? {} : { focusedAt }) }),
+  "agent.open": async ({ root }) => summary(await workspace.open(root)),
+  "agent.snapshot": ({ tab }) => snapshot(tab),
+  "agent.status": ({ tab: reference, ...options }) => {
+    const tab = findTab(reference)
+    return { tab: summary(tab), ...ready(tab).store.status(options) }
+  },
+  "agent.iconNames": (params) => iconNames(params),
+  "agent.supports": (queries) => queries.map(({ property, value }) => CSS.supports(property, value)),
+  "agent.apply": (changes) => apply(changes),
+  "agent.presence": (events) => {
+    presence.push(events)
+    return undefined
+  },
+  "project.componentsChanged": ({ projectId, components, sources, leftOut }) => {
+    const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
+    if (sources && tab) workspace.setSources(tab.id, sources, leftOut)
+    tab?.session?.components.set(components)
+    return undefined
+  },
+  "project.guestMoved": async ({ projectId, guestUrl }) => {
+    // A tab that couldn't load it says so, and the service tries again when the builder is started again.
+    if (!(await workspace.moveGuest(projectId, guestUrl))) throw new Error(`The guest at ${guestUrl} didn't load`)
+    return undefined
+  },
+  "project.fileChanged": ({ projectId, path, document }) => {
+    const store = workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session?.store
+    // Unsaved changes here win until the person says otherwise.
+    if (store && !store.reloadDocument(path, document)) {
+      toast.warning(`${path} changed on disk`, {
+        description: "Your unsaved changes are kept. Saving writes them over it.",
+        duration: 15000,
+        action: { label: "Load from disk", onClick: () => store.reloadDocument(path, document, true) }
+      })
     }
-    case "agent.snapshot":
-      return snapshot((params as WindowMethods["agent.snapshot"]["params"]).tab)
-    case "agent.status": {
-      const { tab: reference, ...options } = params as WindowMethods["agent.status"]["params"]
-      const tab = findTab(reference)
-      return { tab: summary(tab), ...ready(tab).store.status(options) }
-    }
-    case "agent.iconNames":
-      return iconNames(params as WindowMethods["agent.iconNames"]["params"])
-    case "agent.supports":
-      return (params as WindowMethods["agent.supports"]["params"]).map(({ property, value }) =>
-        CSS.supports(property, value)
-      )
-    case "agent.apply":
-      return apply(params as AgentChanges)
-    case "agent.presence":
-      presence.push(params as WindowMethods["agent.presence"]["params"])
-      return undefined
-    case "project.componentsChanged": {
-      const { projectId, components, sources, leftOut } = params as WindowMethods["project.componentsChanged"]["params"]
-      const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
-      if (sources && tab) workspace.setSources(tab.id, sources, leftOut)
-      tab?.session?.components.set(components)
-      return undefined
-    }
-    case "project.guestMoved": {
-      const { projectId, guestUrl } = params as WindowMethods["project.guestMoved"]["params"]
-      // A tab that couldn't load it says so, and the service tries again when the builder is started again.
-      if (!(await workspace.moveGuest(projectId, guestUrl))) throw new Error(`The guest at ${guestUrl} didn't load`)
-      return undefined
-    }
-    case "project.fileChanged": {
-      const { projectId, path, document } = params as WindowMethods["project.fileChanged"]["params"]
-      const store = workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session?.store
-      // Unsaved changes here win until the person says otherwise.
-      if (store && !store.reloadDocument(path, document)) {
-        toast.warning(`${path} changed on disk`, {
-          description: "Your unsaved changes are kept. Saving writes them over it.",
-          duration: 15000,
-          action: { label: "Load from disk", onClick: () => store.reloadDocument(path, document, true) }
-        })
-      }
-      return undefined
-    }
+    return undefined
   }
+}
+
+async function answer(method: WindowMethod, params: unknown): Promise<unknown> {
+  // The bridge carries each method with its own params, which the map can't see from `method` alone.
+  return (handlers[method] as (params: unknown) => unknown)(params)
 }
 
 /** A tab by id, root or name, as the CLI matches one when it routes a call; the active tab when none is given. */
