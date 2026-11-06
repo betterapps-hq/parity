@@ -5083,3 +5083,29 @@ from the stories or they left something open:
   had Screens first.
 - **A frame's handles are its previews':** the right side, the bottom and the corner, resizing its own size. Its name
   runs past a narrow frame rather than being cut off, since there's no board to fit.
+
+## Previews in the Components panel and the insert picker (PAR-208)
+
+Built to the Previews exploration's Components stories (Parity/Explorations/Previews) and PAR-515's card. My calls:
+
+- **The view is a preference, the same in every project.** Names, List or Grid is how a person likes to browse, not a
+  property of a project, so it's kept with the app's other preferences, List until they pick another.
+- **A row says what's wrong in words, not what's in progress.** Fails to draw, Needs props, Needs a provider, Server
+  only and Draws nothing go under the name in List and Grid, colored as the exploration has them. Waiting, drawing and
+  updating show in the picture only (an empty box, a shimmer, the last picture dimmed with a mark), and the card says
+  them in words: on a first open a list of "Waiting" under every name would say nothing anyone can act on.
+- **Why there's no picture comes from what's already known.** Needs a provider and Server only come from the preview's
+  error, as the canvas reads its errors (`renderProblem`). Needs props is a preview that failed or drew nothing whose
+  component requires a prop inserting can't fill: inserting gives a required text, number, yes-or-no or option prop a
+  value of its own, so these are lists, objects and other nodes. A component that draws can still be missing one, and
+  isn't marked.
+- **The card's variants are one prop's options:** the component's first style variant (cva) with more than one option,
+  else its first own prop with a few named options, as a size. Five show as small pictures and the rest are counted.
+  They're made only when the card first opens, before anything off screen, and kept in the project's index beside the
+  component's own, as `Button?variant=outline`, so a card opened again shows them at once. Pointing at one, or tabbing
+  to it, shows it large.
+- **The picker's card has no Insert,** since Enter inserts the highlighted row; it keeps Open file and Open in
+  Storybook, which close the picker first. In a window too narrow for both, the picker is the list alone.
+- **Component designs keep their icon for now.** The proposal pictures a design by its board's bitmap, which the canvas
+  keys by its own frame jobs; reading those for the panel is work of its own, so a design shows its icon where a
+  component shows its picture.

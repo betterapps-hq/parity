@@ -580,9 +580,9 @@ Tests:
 Gaps: the Components panel's ordering and hidden heading are covered by the shared module's tests and were checked in
 the app (searching "badge", "theme" and "dialog"), but have no test of their own. Radix Primitives isn't hidden: nothing
 in a library's `.lib.par` says it's unstyled primitives that the project's own components wrap, so it's listed last, as
-a library, rather than left out. Previews are PAR-208. The time is measured to the list being laid out, not to the frame
-that shows it, since in a window in the background frames come about once a second; the trace showed the key press
-taking 31ms and the frame after it 18ms.
+a library, rather than left out. Previews are PAR-208, below. The time is measured to the list being laid out, not to
+the frame that shows it, since in a window in the background frames come about once a second; the trace showed the key
+press taking 31ms and the frame after it 18ms.
 
 ### A component's stories and code from its menu (PAR-527)
 
@@ -761,6 +761,47 @@ entries through the same mapping. In the running app, `e2e/console.e2e.ts` click
 Interact, which warns, and finds the warning counted on Members' board and listed under Members in the panel, which
 covers the window's announcement reaching main ahead of Electron's `console-message` event. Gaps: no end-to-end test
 draws a design offscreen that writes to the console.
+
+### Previews in the Components panel and the insert picker (PAR-208)
+
+The Components tab shows each component's picture (see Component previews, made offscreen and kept on disk), in one of
+three views, picked above the list and remembered as a preference: **Names**, the names alone; **List**, the default, a
+small picture beside each name; and **Grid**, larger pictures two to a row. No panel mounts a component: the pictures
+are files the offscreen window made.
+
+- **Every state says what it is.** A made picture sits on the page it was drawn on. One whose code changed shows its
+  last picture dimmed with a mark until the new one is made; one waiting its turn is an empty box, and one being drawn
+  shimmers. In List and Grid, a component without a picture says why under its name: Fails to draw, Needs props, Needs a
+  provider, Server only or Draws nothing, each with its icon in the picture's place. The card says every state in words,
+  with the error or the props it needs. A screen reader hears the row's name and those words, not the picture.
+- **Resting on a component opens its card,** as before, and so does the right arrow on its row, which also moves the
+  keyboard into the card; Escape gives it back. The card has the large picture; small pictures of one of its props'
+  options (a button's `variant`), made when the card first opens, where pointing at one or tabbing to it shows it large;
+  its file; how many times the designs use it and how many stories it has; and Insert, Open file and Open in Storybook.
+- **The `/` picker** shows each component row's picture, made first while the row is in view, and the highlighted
+  component's card beside the list, following the arrow keys. Enter inserts it, so that card has no Insert. In a window
+  too narrow for both the card is left out.
+
+Code: `previewVariants`, `missingProps`, `previewProblem` and `componentUses`, and the `props` a variant's preview lays
+over the component's, in `packages/editor/src/component-preview.ts`; `previewStatus` and `statusWords` in
+`apps/desktop/src/renderer/chrome/preview-status.ts`; `variantId`, `showVariants` and `useVariantPreviews` in
+`renderer/component-previews.ts`; `ComponentCard`, `PreviewThumb` and `StatusLine` in `chrome/ComponentCard.tsx`;
+`ComponentsPanel`, `AssetEntry` and `useComponentCard` in `chrome/AssetsPanel.tsx`; `PickerCard` and `RowPicture` in
+`chrome/QuickInsert.tsx`; the `componentsView` preference in `chrome/preferences.ts`.
+
+Tests: `packages/editor/src/component-preview.test.ts` (10 of its 20: a variant's props laid on the component inside the
+parents a part needs, and over the sample's; `previewVariants` choosing a style variant before an own prop, needing two
+options, and none for a component without choices or an attribute's; `missingProps` listing what inserting can't fill
+without handlers, and counting placed children; `previewProblem` naming a provider or server code before missing props,
+then props, a failure or nothing drawn; and `componentUses` counting layers in slots).
+`apps/desktop/src/renderer/chrome/preview-status.test.ts` (4: waiting, drawing and made; the last picture while a new
+one waits or is drawn; each reason there's none; only problems counted as problems). Stories, with the example's real
+pictures standing in for the service: ListView, GridView, NamesView, ComponentCardOpen and ComponentCardFromKeyboard in
+`chrome/ComponentsPanel.stories.tsx`; States and VariantsAndActions in `chrome/ComponentCard.stories.tsx`; WithPreviews
+in `chrome/QuickInsert.stories.tsx`. Gaps: the stories' play functions run in Storybook, not in `pnpm verify`. Making a
+card's variants on demand (`showVariants`) has no test of its own, as the rest of the window's store has none; it was
+tried in a debug copy of the app on 2026-11-05, where Button's card showed its six variants and pointing at outline
+showed it large. Component designs show their icon, not their board's picture.
 
 ## Moving, reordering and resizing
 
@@ -3309,12 +3350,12 @@ Each component has a picture of what inserting it would place, made in the offsc
 frame bitmaps, so no panel mounts a component and a project opened again draws none it already has. The Components panel
 shows it in a component's card, opened by resting the pointer on its row as a token's is, beside the row (PAR-515): the
 picture on the project's page in a framed box that fits it, then its name, file and, when it fails on the canvas, why.
-PAR-208 gives it the List and Grid views and the picker. The card is `ComponentCard` and `ComponentPopover` in
-`chrome/ComponentCard.tsx`, with the stories Pictures (six real previews of different shapes), States (waiting, being
-drawn, updating, drawing nothing of its own and failing), BesideItsRow and Tooltips in
-`chrome/ComponentCard.stories.tsx`; `AssetEntry` in `chrome/AssetsPanel.tsx` opens it. Tooltips are raised in the
-theme's own colors, a step lighter than a popover in the dark theme, through the variables shadcn's tooltip reads, set
-in `styles.css`.
+PAR-208 gives it the List and Grid views and the picker (see Previews in the Components panel and the insert picker).
+The card is `ComponentCard` and `ComponentPopover` in `chrome/ComponentCard.tsx`, with the stories Pictures (six real
+previews of different shapes), States (waiting, being drawn, updating, drawing nothing of its own and failing),
+BesideItsRow and Tooltips in `chrome/ComponentCard.stories.tsx`; `AssetEntry` in `chrome/AssetsPanel.tsx` opens it.
+Tooltips are raised in the theme's own colors, a step lighter than a popover in the dark theme, through the variables
+shadcn's tooltip reads, set in `styles.css`.
 
 - **What's pictured is what inserting places:** the node `nodeForItem` and `withLibraryContext` build for an empty
   layout, with the component's sample and the parents a part needs, its layers numbered in order so the tree is the same

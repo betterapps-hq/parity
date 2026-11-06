@@ -14,7 +14,14 @@ import {
 // virtualized list draws and a native select can't hold.
 /* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus */
 import type { DesignNode, LibraryInfo } from "@parity-app/core"
-import { type InsertItem, type InsertOption, type InsertOrigin, type InsertRow, insertRows } from "@parity-app/editor"
+import {
+  componentUses,
+  type InsertItem,
+  type InsertOption,
+  type InsertOrigin,
+  type InsertRow,
+  insertRows
+} from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Columns3, Component, Diamond, Rows3, SearchIcon, Shapes, Type } from "lucide-react"
 import {
@@ -32,10 +39,12 @@ import { toast } from "sonner"
 import { placeLayers } from "../canvas/clipboard.ts"
 import { insertAtSelection } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
+import { usePreviewOnScreen } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
-import { componentSources } from "./AssetsPanel.tsx"
+import { componentSources, useComponentCard } from "./AssetsPanel.tsx"
 import { activeSession } from "./commands.ts"
+import { ComponentCard, PreviewThumb } from "./ComponentCard.tsx"
 import {
   GuestIcon,
   type IconCatalog,
@@ -190,7 +199,8 @@ export function QuickInsert() {
     // outside instead, and the search field keeps Tab.
     <Dialog open onOpenChange={setOpen} modal={false}>
       <DialogContent
-        className="top-1/3 max-w-xl translate-y-0 gap-0 overflow-hidden rounded-xl! p-0"
+        // Room for the list and, beside it, the highlighted component's card (PAR-208).
+        className="top-1/4 max-w-xl translate-y-0 gap-0 overflow-hidden rounded-xl! p-0 md:max-w-[56rem]"
         showCloseButton={false}
       >
         <DialogHeader className="sr-only">
@@ -211,7 +221,7 @@ type Line =
   | { type: "hint"; key: string; text: string; count: number }
 
 /** How tall each kind of line is drawn, so only the lines in view are. */
-const lineHeights: Record<Line["type"], number> = { heading: 28, row: 32, icon: 32, hint: 32 }
+const lineHeights: Record<Line["type"], number> = { heading: 28, row: 36, icon: 32, hint: 32 }
 /** The list's height: 24rem, as before. */
 const listHeight = 384
 
@@ -287,6 +297,12 @@ function InsertList({ session }: { session: ProjectSession }) {
     if (current !== undefined) virtualizer.scrollToIndex(current, { align: "auto" })
   }, [current, virtualizer])
 
+  // The highlighted row's component, whose card shows beside the list.
+  const highlighted = current === undefined ? undefined : lines[current]
+  const action = highlighted?.type === "row" ? offer.actions.get(highlighted.row.options[0]!.key) : undefined
+  const component = action?.kind === "item" && action.item.kind === "component" ? action.item.component : undefined
+  const uses = useMemo(() => componentUses(entries.map((entry) => entry.container.root)), [entries])
+
   const run = (key: string) => {
     const action = offer.actions.get(key)
     if (action?.kind === "basic") insertBasic(session, action.basic)
@@ -316,111 +332,168 @@ function InsertList({ session }: { session: ProjectSession }) {
   const listId = useId()
   const optionId = (index: number) => `${listId}-${index}`
   return (
-    <div className="flex flex-col p-1 text-popover-foreground">
-      <div className="p-1 pb-0">
-        <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
-          <InputGroupInput
-            role="combobox"
-            aria-expanded
-            aria-controls={listId}
-            aria-autocomplete="list"
-            aria-activedescendant={current === undefined ? undefined : optionId(current)}
-            aria-label="Insert a layer, component or icon"
-            // The field takes the keys as it opens. Base UI moves focus into a dialog a frame later, and until then the
-            // canvas had the keys: Escape selected the parent and left the picker open, in a window in the background
-            // for up to a second (PAR-554).
-            // oxlint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Insert a layer, component or icon"
-            className="h-auto text-sm"
-            spellCheck={false}
-            autoComplete="off"
-          />
-          <InputGroupAddon>
-            <SearchIcon className="size-4 shrink-0 opacity-50" />
-          </InputGroupAddon>
-        </InputGroup>
-      </div>
-      <div
-        ref={scroller}
-        id={listId}
-        role="listbox"
-        aria-label="Layers, components and icons"
-        className="no-scrollbar mt-1 overflow-x-hidden overflow-y-auto overscroll-contain px-1 pb-1 outline-none"
-        style={{ maxHeight: listHeight }}
-      >
-        {choices.length === 0 ? (
-          <p className="py-6 text-center text-sm">Nothing matches.</p>
-        ) : (
-          <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-            {virtualizer.getVirtualItems().map((virtual) => {
-              const line = lines[virtual.index]!
-              const style = { transform: `translateY(${virtual.start}px)`, height: virtual.size }
-              const place = "absolute top-0 left-0 w-full"
-              if (line.type === "heading") {
+    <div className="flex text-popover-foreground">
+      <div className="flex min-w-0 flex-1 flex-col p-1">
+        <div className="p-1 pb-0">
+          <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
+            <InputGroupInput
+              role="combobox"
+              aria-expanded
+              aria-controls={listId}
+              aria-autocomplete="list"
+              aria-activedescendant={current === undefined ? undefined : optionId(current)}
+              aria-label="Insert a layer, component or icon"
+              // The field takes the keys as it opens. Base UI moves focus into a dialog a frame later, and until then the
+              // canvas had the keys: Escape selected the parent and left the picker open, in a window in the background
+              // for up to a second (PAR-554).
+              // oxlint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.currentTarget.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Insert a layer, component or icon"
+              className="h-auto text-sm"
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <InputGroupAddon>
+              <SearchIcon className="size-4 shrink-0 opacity-50" />
+            </InputGroupAddon>
+          </InputGroup>
+        </div>
+        <div
+          ref={scroller}
+          id={listId}
+          role="listbox"
+          aria-label="Layers, components and icons"
+          className="no-scrollbar mt-1 overflow-x-hidden overflow-y-auto overscroll-contain px-1 pb-1 outline-none"
+          style={{ maxHeight: listHeight }}
+        >
+          {choices.length === 0 ? (
+            <p className="py-6 text-center text-sm">Nothing matches.</p>
+          ) : (
+            <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+              {virtualizer.getVirtualItems().map((virtual) => {
+                const line = lines[virtual.index]!
+                const style = { transform: `translateY(${virtual.start}px)`, height: virtual.size }
+                const place = "absolute top-0 left-0 w-full"
+                if (line.type === "heading") {
+                  return (
+                    <div
+                      key={line.key}
+                      role="presentation"
+                      className={cn(place, "flex items-end px-2 pb-1.5 text-xs font-medium text-muted-foreground")}
+                      style={style}
+                    >
+                      {line.label}
+                    </div>
+                  )
+                }
+                if (line.type === "hint") {
+                  return (
+                    <p
+                      key={line.key}
+                      role="presentation"
+                      className={cn(place, "flex items-center gap-1.5 px-2 text-xs text-muted-foreground")}
+                      style={style}
+                    >
+                      <Shapes className="size-3.5" /> {line.text}
+                    </p>
+                  )
+                }
+                const selected = virtual.index === current
+                const choose = () => setActive(choices.indexOf(virtual.index))
                 return (
                   <div
                     key={line.key}
-                    role="presentation"
-                    className={cn(place, "flex items-end px-2 pb-1.5 text-xs font-medium text-muted-foreground")}
+                    id={optionId(virtual.index)}
+                    role="option"
+                    aria-selected={selected}
+                    // Only the lines in view are drawn, so each says where it is in the whole list.
+                    aria-setsize={choices.length}
+                    aria-posinset={choices.indexOf(virtual.index) + 1}
+                    data-selected={selected || undefined}
+                    // The pointer picks what it's over, as the arrows do; the input keeps the keys.
+                    onMouseMove={selected ? undefined : choose}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => pick(line)}
+                    className={cn(
+                      place,
+                      "flex cursor-default items-center gap-2 rounded-lg px-2 text-sm select-none data-selected:bg-muted data-selected:text-foreground"
+                    )}
                     style={style}
                   >
-                    {line.label}
+                    {line.type === "icon" ? (
+                      <>
+                        <GuestIcon loaded={session.loaded} item={line.entry.item} />
+                        <span className="truncate">{line.entry.label}</span>
+                      </>
+                    ) : (
+                      <RowContent
+                        session={session}
+                        row={line.row}
+                        component={componentOf(offer, line.row)}
+                        searching={!!search}
+                        onPick={(key) => run(key)}
+                      />
+                    )}
                   </div>
                 )
-              }
-              if (line.type === "hint") {
-                return (
-                  <p
-                    key={line.key}
-                    role="presentation"
-                    className={cn(place, "flex items-center gap-1.5 px-2 text-xs text-muted-foreground")}
-                    style={style}
-                  >
-                    <Shapes className="size-3.5" /> {line.text}
-                  </p>
-                )
-              }
-              const selected = virtual.index === current
-              const choose = () => setActive(choices.indexOf(virtual.index))
-              return (
-                <div
-                  key={line.key}
-                  id={optionId(virtual.index)}
-                  role="option"
-                  aria-selected={selected}
-                  // Only the lines in view are drawn, so each says where it is in the whole list.
-                  aria-setsize={choices.length}
-                  aria-posinset={choices.indexOf(virtual.index) + 1}
-                  data-selected={selected || undefined}
-                  // The pointer picks what it's over, as the arrows do; the input keeps the keys.
-                  onMouseMove={selected ? undefined : choose}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => pick(line)}
-                  className={cn(
-                    place,
-                    "flex cursor-default items-center gap-2 rounded-lg px-2 text-sm select-none data-selected:bg-muted data-selected:text-foreground"
-                  )}
-                  style={style}
-                >
-                  {line.type === "icon" ? (
-                    <>
-                      <GuestIcon loaded={session.loaded} item={line.entry.item} />
-                      <span className="truncate">{line.entry.label}</span>
-                    </>
-                  ) : (
-                    <RowContent row={line.row} searching={!!search} onPick={(key) => run(key)} />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+              })}
+            </div>
+          )}
+        </div>
       </div>
+      {component && <PickerCard session={session} component={component} uses={uses.get(component) ?? 0} />}
     </div>
+  )
+}
+
+/** The component a row inserts first, when it's one of the project's or a library's components. */
+function componentOf(offer: Offer, row: InsertRow): string | undefined {
+  const action = offer.actions.get(row.options[0]!.key)
+  return action?.kind === "item" && action.item.kind === "component" ? action.item.component : undefined
+}
+
+/**
+ * The highlighted component's card, beside the list, following the keyboard (PAR-208): its picture, its variants and
+ * where it's from. Enter inserts it, so the card has no Insert of its own. It's left out of a narrow window.
+ */
+function PickerCard({ session, component, uses }: { session: ProjectSession; component: string; uses: number }) {
+  const { about } = useComponentCard(session, component, true)
+  const close = (open: (() => void) | undefined) =>
+    open &&
+    (() => {
+      setOpen(false)
+      open()
+    })
+  return (
+    <aside
+      aria-label="Highlighted component"
+      className="hidden w-80 shrink-0 overflow-y-auto border-l bg-popover text-sm md:block"
+      style={{ maxHeight: listHeight + 44 }}
+    >
+      <ComponentCard
+        // A new component's card starts afresh, without the last one's variant pointed at.
+        key={component}
+        name={component}
+        {...about}
+        uses={uses}
+        onOpenFile={close(about.onOpenFile)}
+        onOpenStorybook={close(about.onOpenStorybook)}
+      />
+    </aside>
+  )
+}
+
+/** A component row's picture, made before the rest while the row is in view (PAR-207). */
+function RowPicture({ session, component }: { session: ProjectSession; component: string }) {
+  const { pictured } = useComponentCard(session, component, false)
+  const onScreen = usePreviewOnScreen(session.id, component)
+  return (
+    <span ref={onScreen} className="flex shrink-0">
+      <PreviewThumb status={pictured} width={44} height={28} />
+    </span>
   )
 }
 
@@ -440,7 +513,19 @@ function originIcon(origin: InsertOrigin, key: string): ReactNode {
  * that has one of its name; searching, it's each source, the first being what Enter inserts, and a click on another
  * inserts that one.
  */
-function RowContent({ row, searching, onPick }: { row: InsertRow; searching: boolean; onPick: (key: string) => void }) {
+function RowContent({
+  session,
+  row,
+  component,
+  searching,
+  onPick
+}: {
+  session: ProjectSession
+  row: InsertRow
+  component: string | undefined
+  searching: boolean
+  onPick: (key: string) => void
+}) {
   const [first, ...others] = row.options
   const described = first!.description && first!.description.toLowerCase() !== row.name.toLowerCase()
   let detail: ReactNode = null
@@ -478,7 +563,12 @@ function RowContent({ row, searching, onPick }: { row: InsertRow; searching: boo
   }
   return (
     <>
-      {originIcon(first!.origin, first!.key)}
+      {component ? (
+        <RowPicture session={session} component={component} />
+      ) : (
+        // As wide as a picture, so every row's name starts in one place.
+        <span className="grid w-11 shrink-0 place-items-center">{originIcon(first!.origin, first!.key)}</span>
+      )}
       <span className="truncate">{row.name}</span>
       {detail}
     </>

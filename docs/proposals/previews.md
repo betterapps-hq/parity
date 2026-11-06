@@ -1,8 +1,9 @@
 # Proposal: token and component previews
 
 Status: designed as Storybook explorations on 2026-10-29. Component previews are made and kept on disk since PAR-207
-(see editor.md, Component previews, made offscreen and kept on disk); the rest is PAR-141 to PAR-143, PAR-208 and
-PAR-209 in Linear.
+(see editor.md, Component previews, made offscreen and kept on disk), and shown in the Components panel and the insert
+picker since PAR-208 (editor.md, Previews in the Components panel and the insert picker); the rest is PAR-141 to PAR-143
+and PAR-209 in Linear.
 
 ## In one line
 
