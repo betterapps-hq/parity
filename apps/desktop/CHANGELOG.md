@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 07:13:55 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 08:51:09 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.19.0
+
+Fri, 06 Nov 2026 08:51:09 GMT
+
+### Minor changes
+
+- Home's first time offers the example where Parity has it, empty lists and For you say what will show up, and projects
+  whose folders are gone are flagged (PAR-188) (ajcraswell@gmail.com)
 
 ## 0.18.0
 
