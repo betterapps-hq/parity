@@ -5,7 +5,7 @@ import { tailwindStyles } from "@parity-app/styles-tailwind"
 import type { MessagePortMain } from "electron"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import type { ConnectMessage } from "../shared/service.ts"
-import { checkAccessibility, exportDesigns, startAgentServer } from "./agent.ts"
+import { checkAccessibility, exportDesigns, exportLayers, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings, startBuilder } from "./builders.ts"
 import { readProjectFile } from "./code.ts"
@@ -83,6 +83,7 @@ const handlers: Handlers<ServiceMethods> = {
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
   "storybook.open": (params) => openStorybook(projects.get(params.projectId), params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
+  "layers.export": (params) => exportLayers(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
     const { frame, png } = await renderOffscreen(job, true)
     if (frame.error || !png) return {}

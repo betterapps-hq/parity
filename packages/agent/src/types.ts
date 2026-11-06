@@ -356,6 +356,8 @@ export interface Screenshot {
   width: number
   height: number
   png: string
+  /** Each layer's box in the frame, in its CSS pixels, to cut a layer from the picture (PAR-185). */
+  nodes?: MeasuredNode[]
 }
 
 export interface ExecResult {

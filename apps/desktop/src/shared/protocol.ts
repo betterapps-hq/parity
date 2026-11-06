@@ -21,7 +21,7 @@ import type {
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
-import type { EditStatus } from "@parity-app/editor"
+import type { EditStatus, ExportSize } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
@@ -95,6 +95,20 @@ export interface ServiceMethods {
    */
   "designs.export": {
     params: { projectId: string; folder: string; designs: string[]; scale: number }
+    result: { files: string[]; warnings: string[] }
+  }
+  /**
+   * Draws layers and designs offscreen as the canvas has them and writes each file asked for to `folder` (PAR-185): a
+   * PNG or JPG of the layer's box at its scale, a JPG's see-through parts filled with white. `layers` are by design key, and a layer's id when it isn't the
+   * design; each file names the layer it's of by its index there.
+   */
+  "layers.export": {
+    params: {
+      projectId: string
+      folder: string
+      layers: { design: string; node?: string }[]
+      files: { layer: number; name: string; size: ExportSize }[]
+    }
     result: { files: string[]; warnings: string[] }
   }
   /**
