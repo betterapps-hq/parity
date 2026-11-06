@@ -16,21 +16,22 @@ Values in classes, below.
   `{ value: "#2563eb", alpha?: … }` (a color value keeps its alpha apart, in the same forms as a token's, only when code
   wrote it as a modifier, `bg-[#2563eb]/50`; otherwise the alpha is in the value, `#2563eb80`), `{ step: 2 }`,
   `{ keyword: "auto" }` or `{ expr: "clamp(…)" }`, width and height also take `{ size: "hug" }` or
-  `{ size: "fill", share?: 2 }`, and a grid track `{ fr: 1 }`, so whether a value is a token is never guessed from its
-  text. Today Hug and Fill are strings among `Length` (`document.ts`), where a token named `fill` would be read as Fill.
-  An exception keeps its reason on the value (`{ value: "#18181b", allow: "Photo backdrop" }`), and a preset its
-  settings (`{ spring: { duration: 400, bounce: 0.2 } }`). The new forms are a new `.par` version. The repository's
+  `{ size: "fill", share?: 2 }`, and a grid track `{ fr: 1 }`, a Fill track, written and read back as `minmax(0,1fr)` (a
+  plain `1fr`, Fill, grow with content, is the value `{ value: "1fr" }`), so whether a value is a token is never guessed
+  from its text. Today Hug and Fill are strings among `Length` (`document.ts`), where a token named `fill` would be read
+  as Fill. An exception keeps its reason on the value (`{ value: "#18181b", allow: "Photo backdrop" }`), and a preset
+  its settings (`{ spring: { duration: 400, bounce: 0.2 } }`). The new forms are a new `.par` version. The repository's
   examples and fixtures are rewritten in it, and a file in today's form is rejected, as conventions.md's Fix forward
   rule says (one current format, no old readers).
 - **Steps where Tailwind takes a bare number.** A value is kept as a step wherever its utility takes it without brackets
   ([design-options-tokens.md](design-options-tokens.md), Framework steps, gives each field's scale). That covers, among
   others, spacing steps for padding, margin, gap, width and height with their limits, insets, translate, text indent,
-  scroll padding and margin, and a line height in px (`leading-6`); whole px for border and outline width, outline
-  offset and underline offset (`border-3`); and the steps of opacity, z-index, order, scale, rotation, duration and
-  delay. Radius, blur, font size, letter spacing, a shadow's offsets, blur and spread and a grid's fixed tracks have no
-  bare-number utility (`rounded-3`, `blur-3` and `text-13` compile to nothing), so they're kept as a token's name, or as
-  a value (`rounded-[6px]`), never as steps. px and rem stay ways of typing and showing a value, as `FieldUnit` has them
-  today.
+  scroll padding and margin, and a line height in px (`leading-6`); whole px for border, outline and ring width, outline
+  offset and underline offset (`border-3`); and the steps of opacity, z-index, order, scale, rotation, and a
+  transition's duration and delay. Radius, blur, font size, letter spacing, a shadow's offsets, blur and spread (a
+  Ring's width aside) and a grid's fixed tracks have no bare-number utility (`rounded-3`, `blur-3` and `text-13` compile
+  to nothing), so they're kept as a token's name, or as a value (`rounded-[6px]`), never as steps. px and rem stay ways
+  of typing and showing a value, as `FieldUnit` has them today.
 - **Units that can't become pixels are kept as written.** A percentage, em, ch, vw, vh, dvh or container unit comes to a
   size that depends on the parent, the font or the screen, so it's stored with its unit rather than worked out when it's
   typed. Frames already turn vw and vh into the mode's screen. `fr` belongs to grid tracks (`{ fr: 1 }`, beside a

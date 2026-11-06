@@ -121,9 +121,9 @@ field shows what its value comes to on this layer, and every field has the same 
 ([design-options-fields.md](design-options-fields.md)).
 
 Each field offers the tokens whose kind fits it, marks a value that isn't a token with the nearest token one click away,
-and treats Tailwind's documented steps as on the system while the project has no tokens of their kind. Semantic and
-Primitive, kinds and overrides are in [design-options-tokens.md](design-options-tokens.md); whether values off the
-system are allowed is call 1.
+and treats Tailwind's documented steps as on the system, though steps of opacity, z-index, border width and duration
+only while the project has no tokens of their kind. Semantic and Primitive, kinds and overrides are in
+[design-options-tokens.md](design-options-tokens.md); whether values off the system are allowed is call 1.
 
 **What the design model needs.** `NodeStyle` stores each value with its form (`{ token }`, `{ step }`, `{ value }`,
 `{ keyword }`, `{ expr }`, `{ size }` for width and height, and `{ fr }` for grid tracks), so whether a value is a token
@@ -156,10 +156,10 @@ These need Andrew's answer before the work they hold up starts. Each has a recom
    Spacing, Appearance, then the content section the layer has (Text, Image or Icon), then Fill, Stroke, Effects,
    Selection colors, Transform, Text inside for layouts, components and instances, Interaction, Motion, CSS. Size comes
    before Layout as Figma's W and H come before auto layout, and Spacing follows Layout so padding sits next to gap.
-6. **What is a text style?** Recommended: in Tailwind projects, a `--text-*` size that pairs a weight or letter spacing
-   as well as a line height (Tailwind v4's own), or a project utility that sets only type when the style names a font or
-   sets what a size can't pair (OpenType features, case); a DTCG typography token compiles to the same. Overriding one
-   row keeps the style and marks the override, and a style can differ per breakpoint. PAR-135 waits on this.
+6. **What is a text style?** Recommended: in Tailwind projects, a `--text-*` size that pairs a weight or letter spacing,
+   usually with a line height (Tailwind v4's own), or a project utility that sets only type when the style names a font
+   or sets what a size can't pair (OpenType features, case); a DTCG typography token compiles to the same. Overriding
+   one row keeps the style and marks the override, and a style can differ per breakpoint. PAR-135 waits on this.
    [design-options-tokens.md](design-options-tokens.md), What a text style is, has the detail.
 7. **What a state writes.** Each state names its trigger: a pseudo-class (`:hover`), an attribute (`[data-state=open]`)
    or a prop. Recommended: pseudo-classes and attributes by default, as Webflow's and Plasmic's states are, with a prop

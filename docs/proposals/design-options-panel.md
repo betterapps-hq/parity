@@ -362,11 +362,11 @@ then Background (the highlight behind the text). With no fill, the empty title s
 layer brought from Figma has its fill read as Text's Color ([design-options-research.md](design-options-research.md),
 Bringing a design from Figma).
 
-| Row       | Control                                                                                                | Writes                                                                   | Figma                                                                                      |
-| --------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Each fill | A swatch, the fill's type and value, the color's alpha (for a gradient, all its stops'), the eye and − | `background-color` for the bottom solid, `background-image` for the rest | Fills: solid, linear, radial, angular and diamond gradients, image, video, pattern, shader |
+| Row       | Control                                                                                                 | Writes                                                                   | Figma                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Each fill | A preview, the fill's type and value, the color's alpha (for a gradient, all its stops'), the eye and − | `background-color` for the bottom solid, `background-image` for the rest | Fills: solid, linear, radial, angular and diamond gradients, image, video, pattern, shader |
 
-The swatch opens the paint editor, with a tab for each type: Solid (the color popover); Linear, Radial and Angular:
+The preview opens the paint editor, with a tab for each type: Solid (the color popover); Linear, Radial and Angular:
 stops on a bar and handles on the canvas ([design-options-values.md](design-options-values.md), Paint stack); and Image.
 A solid fill's opacity is its color's alpha (design-options-values.md, Percentage and opacity); an image fill has none
 per layer, so the layer's Opacity is offered instead. Fill writes longhands, never the `background` shorthand, so it
@@ -509,12 +509,12 @@ Shows for every layer, as a title with + until something in it is set. An animat
 and a transition token a transition's. Easing fields are the curve and spring editor (Easing and spring in
 [design-options-values.md](design-options-values.md)).
 
-| Row             | Control                                                                                                                   | Writes                                                                               |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Transitions     | A list: what changes (All, Colors, Opacity, Transform, Shadow, or a property), duration, easing, delay                    | `transition` ([design-options-values.md](design-options-values.md), Transition list) |
-| Animation       | The project's `@keyframes` and animation tokens; duration, easing, delay, repeat, direction, fill; a Trigger menu (below) | `animation`, and a trigger or timeline (below)                                       |
-| Appear          | Fade, Slide, Scale and Blur presets with duration, easing and delay; played when first drawn, or on scrolling into view   | `@starting-style` with a `transition` (`starting:`, `transition-discrete`)           |
-| Hover and press | Shortcuts that add a Hover or Pressed state with scale, move, rotate or opacity, and a transition                         | the state's patch and `transition`                                                   |
+| Row             | Control                                                                                                                            | Writes                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Transitions     | A list: what changes (All, Colors, Opacity, Transform, Shadow, or a property), duration, easing, delay                             | `transition` ([design-options-values.md](design-options-values.md), Transition list) |
+| Animation       | The project's `@keyframes` and animation tokens; duration, easing, delay, iterations, direction, fill mode; a Trigger menu (below) | `animation`, and a trigger or timeline (below)                                       |
+| Appear          | Fade, Slide, Scale and Blur presets with duration, easing and delay; played when first drawn, or on scrolling into view            | `@starting-style` with a `transition` (`starting:`, `transition-discrete`)           |
+| Hover and press | Shortcuts that add a Hover or Pressed state with scale, move, rotate or opacity, and a transition                                  | the state's patch and `transition`                                                   |
 
 Transform in Transitions covers `translate`, `scale` and `rotate` too (`transition-transform`), and Colors what
 `transition-colors` does. Animation's Trigger is On load, In view (playing once, Chromium only, marked †) or While
@@ -529,7 +529,7 @@ section's menu sets what shows instead (nothing, or a fade) as `motion-reduce:`,
 rendering emulation can.
 
 **More:** Animate to auto sizes (`interpolate-size`), Named timelines (so one layer's scrolling drives another layer's
-animation) and View transition name.
+animation) and View transitions (name, class, group and scope).
 
 ## CSS
 

@@ -80,7 +80,7 @@ expression that comes to a step or one token is stored as that: `calc(var(--spac
 `{ token: "primary", alpha: { step: 50 } }`.
 
 Width and height also take a size mode (Size in [design-options-values.md](design-options-values.md)), and a grid track
-a share in fr (`{ fr: 1 }`, Grid tracks there).
+a share in fr (`{ fr: 1 }`, written `minmax(0,1fr)`, Grid tracks there).
 
 ## States
 
@@ -113,16 +113,16 @@ drawn once in Storybook.
 
 ## Typing
 
-| Type                     | Accepts                                                                                                                                                                                                           |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Length                   | A number in the unit shown; a number with a unit (switches the unit); a token's name, with `spacing-4` or `4` from the step list; a keyword; `+ - * /` maths (mixed units become `calc()`); `=` for an expression |
-| Four sides, four corners | CSS shorthand of one to four values (`8 16`, `8 8 0 0`)                                                                                                                                                           |
-| Color                    | As Color in [design-options-values.md](design-options-values.md)                                                                                                                                                  |
-| Font                     | A name searches the list; a comma-separated stack (`Inter, system-ui, sans-serif`) is kept as typed, with the first family shown                                                                                  |
-| Angle                    | `45`, `45deg`, `0.25turn`, `1rad`, converted to degrees unless in an expression                                                                                                                                   |
-| Time                     | `200`, `200ms`, `0.2s`, kept and shown in ms                                                                                                                                                                      |
-| Aspect ratio             | `16:9`, `16/9`, `16x9` or `1.78`                                                                                                                                                                                  |
-| Count                    | Whole numbers; Iterations also takes `infinite`, shown as ∞                                                                                                                                                       |
+| Type                     | Accepts                                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Length                   | A number in the unit shown; a number with a unit (switches the unit); a token's name, or `spacing-4` for step 4 (a bare `4` is 4 in the unit shown); a keyword; `+ - * /` maths (mixed units become `calc()`); `=` for an expression |
+| Four sides, four corners | CSS shorthand of one to four values (`8 16`, `8 8 0 0`)                                                                                                                                                                              |
+| Color                    | As Color in [design-options-values.md](design-options-values.md)                                                                                                                                                                     |
+| Font                     | A name searches the list; a comma-separated stack (`Inter, system-ui, sans-serif`) is kept as typed, with the first family shown                                                                                                     |
+| Angle                    | `45`, `45deg`, `0.25turn`, `1rad`, converted to degrees unless in an expression                                                                                                                                                      |
+| Time                     | `200`, `200ms`, `0.2s`, kept and shown in ms                                                                                                                                                                                         |
+| Aspect ratio             | `16:9`, `16/9`, `16x9` or `1.78`                                                                                                                                                                                                     |
+| Count                    | Whole numbers; Iterations also takes `infinite`, shown as ∞                                                                                                                                                                          |
 
 Only what's typed in the panel is converted. A value read from code keeps the unit it was written in (`0.25turn`,
 `0.2s`, written back as `rotate-[0.25turn]` and `duration-[0.2s]`) until it's edited, and is shown converted, so

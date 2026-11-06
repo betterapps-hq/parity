@@ -25,7 +25,8 @@ with no Editing, the type has only typing, keys and the token button; with no To
 - **States:** the hint names what the % is of: the containing block's inline size for padding and margin on every side,
   its height for Height, Top and Bottom, the layer's own size for Move, the font size for em. A % height needs a
   definite height to resolve against; otherwise it acts as auto, and the row shows Does nothing.
-- **Tokens:** spacing, and container for sizes, as a spacing bar at true size.
+- **Tokens:** spacing, and container for sizes, as a spacing bar at true size; font-size for Font size, border-width for
+  widths and offsets, and blur for blurs ([design-options-tokens.md](design-options-tokens.md), Fields and token kinds).
 - **Writes:** `p-4`, `p-[13.3px]`, `w-1/2`, `w-full`, `h-dvh`, `w-(--sidebar-width)`, `w-[clamp(16rem,30vw,24rem)]`,
   `-mt-4`, `-top-2`.
 - **Compared:** Figma takes px only; Webflow takes every unit and shows an unset field's inherited value, but no token
@@ -84,7 +85,7 @@ Padding, margin, border width and scroll padding.
 
 ## Number and count
 
-Grow and shrink, Order, Layer order, Iterations, Max lines, Columns and Rows, Span.
+Grow and shrink, Order, Layer order, Iterations, Max lines, Columns and Rows, Text columns' count, Span.
 
 - **At rest:** the number, with no suffix; Iterations' `infinite` as ∞. Counts are whole.
 - **Tokens:** z-index for Layer order; none for Span; elsewhere number tokens whose value is a plain number.
@@ -148,9 +149,9 @@ Grow and shrink, Order, Layer order, Iterations, Max lines, Columns and Rows, Sp
 
 Fill's list of solids, gradients and images.
 
-- **At rest:** each entry is a thumbnail (swatch, gradient strip or image), its type or token chip, its alpha %, the eye
+- **At rest:** each entry is a preview (swatch, gradient strip or image), its type or token chip, its alpha %, the eye
   and −, top first, as CSS paints.
-- **Editing:** the thumbnail opens the paint editor, a tab per type. Solid is the color popover. Linear, Radial and
+- **Editing:** the preview opens the paint editor, a tab per type. Solid is the color popover. Linear, Radial and
   Angular have a bar of stops (click to add, drag off to remove, each a color and a position) and handles on the canvas.
   Under the bar, Stops lists each stop as a row, as Figma's gradient editor does: a position field in %, the color field
   (a token chip or a value, with its alpha), and −, with + to add a stop. Clicking a row selects that stop on the bar
@@ -182,12 +183,12 @@ Fill's list of solids, gradients and images.
   and isn't dragged among them. On a text layer, Drop shadow writes `text-shadow` (`text-shadow-*`), not a box-shadow
   slot, unless its Shadow of toggle is set to Box ([design-options-panel.md](design-options-panel.md), Effects). Inside
   and outside shadows never overlap, so the order between the groups changes nothing.
-- **Forms:** offsets, blur and spread are px values, never spacing steps, since Tailwind has no scale for them. Offsets
-  and spread take negatives; blur doesn't.
+- **Forms:** offsets, blur and spread are px values, never steps, since Tailwind has no scale for them; a Ring's width
+  is a whole-px step (`ring-3`). Offsets and spread take negatives; blur doesn't.
 - **Editing:** a popover with X, Y, blur, spread, a color field, Follow shape, and a square offset pad for X and Y,
   dragged as DevTools' shadow editor's is. A shadow token's layers show under a disclosure, each with the same fields.
-- **Tokens:** shadow, inset-shadow, drop-shadow with Follow shape (stored in the Filter list), text-shadow on text; none
-  for the numbers.
+- **Tokens:** shadow, inset-shadow, drop-shadow with Follow shape (stored in the Filter list), text-shadow on text;
+  border-width for a Ring's width; none for the other numbers.
 - **Writes:** four of the five slots Tailwind composes `box-shadow` from, `shadow-*`, `inset-shadow-*`, `ring-*` and
   `inset-ring-*` (Parity doesn't write `ring-offset-*`, which sits between inset ring and ring), painted top to bottom
   as inset shadow, inset ring, ring, drop shadow: `shadow-md`, `shadow-black/20`, `ring-1 ring-border`. Anything that
@@ -273,7 +274,7 @@ Motion's Transitions.
   default faintly (150ms), from `--default-transition-duration` and `--default-transition-timing-function`; + adds
   Colors at those defaults.
 - **Forms:** what changes is a keyword set or a property; duration and delay are Time; easing is Easing and spring. A
-  transition token fills a whole entry, and its parts can be overridden.
+  transition token fills a whole entry, and its parts can be overridden where the framework can (Composite token).
 - **Tokens:** transition for a whole entry, which has no kind ([design-options-tokens.md](design-options-tokens.md),
   Fields and token kinds); duration and easing for its parts.
 - **Writes:** Tailwind allows one transition property, duration, easing and delay per element. One entry is utilities
@@ -290,8 +291,8 @@ Motion's Transitions.
 - **At rest:** the first family's name in its own face, with `+2` when the stack has fallbacks and the stack in the
   hover. Choosing another font keeps the fallbacks.
 - **Editing:** a searchable list set in each font, the project's fonts first.
-- **States:** a font the frame can't load (not in the project, or a weight it has no face for) is Missing font, drawn in
-  the fallback with its name struck through, with Replace font and Add font, as Figma's missing fonts are.
+- **States:** a font the frame can't load (not in the project) is Missing font, drawn in the fallback with its name
+  struck through, with Replace font and Add font, as Figma's missing fonts are.
 - **Tokens:** font, as "Ag" in the font.
 - **Writes:** `font-sans`, `font-(family-name:--brand)` or `font-[Inter]` (marked). A family name with spaces is quoted,
   with underscores for the spaces: `font-['Open_Sans',sans-serif]`.
@@ -351,7 +352,8 @@ hover where it shows (blend modes, cursors) and its hover naming the CSS keyword
   (`justify-content: safe center`), shows as a text chip with Custom, edited as text, never dropped or snapped.
 - **Forms:** `inherit`, `initial`, `unset` and `revert` are keywords every field takes, shown in words. Inherit is in
   the menu wherever the property inherits or Tailwind has an `-inherit` utility (`text-inherit`); the others are typed.
-- **Tokens:** cursor for Cursor; none for the other sets.
+- **Tokens:** cursor for Cursor; stroke style tokens for Stroke's Style, which have no kind
+  ([design-options-tokens.md](design-options-tokens.md), Fields and token kinds); none for the other sets.
 - **Writes:** Tailwind's utility, or an arbitrary property (`[text-align:inherit]`).
 - **Compared:** Webflow's label colors and DevTools show what's inherited; Figma's toggles can't.
 

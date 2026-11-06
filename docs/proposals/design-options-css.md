@@ -36,7 +36,7 @@ Marks after a name say how widely browsers other than Chromium draw it, from the
   property it covers.
 
 Six have no Baseline entry yet: `background-repeat-x`, `background-repeat-y`, `caret-animation`, `flex-line-count`,
-`text-decoration-inset` and `view-transition-group`. These have no Baseline mark; each is missing from at least one
+`text-decoration-inset` and `view-transition-group`. These have no Baseline status; each is missing from at least one
 other major browser (only Chromium draws `caret-animation`, `flex-line-count` and `view-transition-group`), so each is
 marked † by principle 7.
 
@@ -85,7 +85,7 @@ marked † by principle 7.
 | Grid areas                                                                                                     | `grid-template-areas`                                                                                     | More    |                                     |
 | Grid flow and implicit tracks                                                                                  | `grid-auto-flow`, `grid-auto-columns`, `grid-auto-rows`                                                   | More    |                                     |
 | Dividers between items (On the items writes the children's borders through `divide-*`, set by another control) | `rule*†`, `row-rule*†`, `column-rule*` (42; all † but `column-rule` and its color, style and width)       | More    | color, border-width, border         |
-| Text columns (the rule between them is Dividers' `column-rule`)                                                | `columns`, `column-count`, `column-width`, `column-fill`, `column-span`, `column-height†`, `column-wrap†` | More    | spacing, container                  |
+| Text columns (the rule between them is Dividers' `column-rule`)                                                | `columns`, `column-count`, `column-width`, `column-fill`, `column-span`, `column-height†`, `column-wrap†` | More    | spacing, container, number (count)  |
 | Size container                                                                                                 | `container`, `container-name`, `container-type`                                                           | More    | container                           |
 | Reading order                                                                                                  | `reading-flow†`, `reading-order†`                                                                         | CSS row |                                     |
 | Trimming children's margins                                                                                    | `margin-trim†`                                                                                            | CSS row |                                     |
