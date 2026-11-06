@@ -15,6 +15,7 @@ import {
   Baseline,
   Grid3x3,
   Plus,
+  Repeat,
   SquareDashed,
   SquareRoundCorner,
   X
@@ -27,12 +28,15 @@ import { ColorInput } from "./color-picker.tsx"
 import {
   blurPx,
   blurTokens,
+  type Columns,
   type Draft,
   hexOf,
   radiusPx,
   radiusTokens,
   type Track,
   trackCss,
+  placementCss,
+  type Span,
   trackLabel
 } from "./data.ts"
 
@@ -148,7 +152,7 @@ function LayoutSection({ draft, set }: SectionProps) {
         </Field>
         {grid ? (
           <>
-            <TracksField label="Columns" tracks={draft.columns ?? []} onChange={(columns) => set({ columns })} />
+            <ColumnsField columns={draft.columns} onChange={(columns) => set({ columns })} />
             <TracksField label="Rows" tracks={draft.rows ?? []} onChange={(rows) => set({ rows })} />
           </>
         ) : (
@@ -188,41 +192,89 @@ function LayoutSection({ draft, set }: SectionProps) {
 
 const fr = (value: number): Track => ({ kind: "fr", value })
 
+/**
+ * A grid's columns: a list of tracks, or with Repeat to fit, as many as fit the width, each at least the width given,
+ * the responsive grid Webflow calls auto-fit.
+ */
+function ColumnsField({ columns, onChange }: { columns: Columns | undefined; onChange: (columns: Columns) => void }) {
+  const fit = columns !== undefined && !Array.isArray(columns)
+  const toggle = (
+    <Hint
+      label="Repeat to fit"
+      detail="As many columns as fit the width, each at least a minimum, so the grid reflows on smaller screens"
+    >
+      <Toggle
+        size="sm"
+        className="size-7 min-w-7 shrink-0 p-0"
+        aria-label="Repeat to fit"
+        pressed={fit}
+        onPressedChange={(on) => onChange(on ? { fit: 160 } : [fr(1), fr(1), fr(1)])}
+      >
+        <Repeat />
+      </Toggle>
+    </Hint>
+  )
+  if (!fit) return <TracksField label="Columns" tracks={columns ?? []} onChange={onChange} after={toggle} />
+  return (
+    <Field label="Columns" hint="As many as fit, each at least this wide">
+      <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <Num
+            label="Least column width"
+            inner="Min"
+            pixels
+            value={columns.fit}
+            min={1}
+            onChange={(least) => onChange({ fit: least ?? 160 })}
+          />
+        </div>
+        {toggle}
+      </div>
+    </Field>
+  )
+}
+
 /** A grid's tracks as chips: each opens to its size, and the last button adds one. */
 function TracksField({
   label,
   tracks,
+  after,
   onChange
 }: {
   label: string
   tracks: Track[]
+  /** A control at the row's end, such as Repeat to fit. */
+  after?: ReactNode
   onChange: (tracks: Track[]) => void
 }) {
   const one = label === "Columns" ? "column" : "row"
   return (
     <Field label={label} hint={tracks.length === 0 ? "Rows are added as children need them" : undefined}>
-      <div className="flex flex-wrap items-center gap-1">
-        {tracks.length === 0 && <span className="px-1 text-xs text-muted-foreground">Auto</span>}
-        {tracks.map((track, index) => (
-          <TrackChip
-            key={index}
-            name={`${one} ${index + 1}`}
-            track={track}
-            onChange={(next) => onChange(tracks.map((other, at) => (at === index ? next : other)))}
-            onRemove={() => onChange(tracks.filter((_, at) => at !== index))}
-          />
-        ))}
-        <Hint label={`Add a ${one}`}>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="size-7"
-            aria-label={`Add a ${one}`}
-            onClick={() => onChange([...tracks, fr(1)])}
-          >
-            <Plus />
-          </Button>
-        </Hint>
+      <div className="flex items-start gap-1">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+          {tracks.length === 0 && <span className="px-1 text-xs text-muted-foreground">Auto</span>}
+          {tracks.map((track, index) => (
+            <TrackChip
+              key={index}
+              name={`${one} ${index + 1}`}
+              track={track}
+              onChange={(next) => onChange(tracks.map((other, at) => (at === index ? next : other)))}
+              onRemove={() => onChange(tracks.filter((_, at) => at !== index))}
+            />
+          ))}
+          <Hint label={`Add a ${one}`}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-7"
+              aria-label={`Add a ${one}`}
+              onClick={() => onChange([...tracks, fr(1)])}
+            >
+              <Plus />
+            </Button>
+          </Hint>
+        </div>
+        {after}
       </div>
     </Field>
   )
@@ -243,8 +295,9 @@ function TrackChip({
   const kinds = [
     { value: "fr", label: "Fill", detail: "A share of the space left" },
     { value: "px", label: "Fixed", detail: "A fixed length, typed in px or rem" },
-    { value: "auto", label: "Hug", detail: "As big as its content" },
-    { value: "min", label: "Min", detail: "As small as its content goes" }
+    { value: "auto", label: "Hug", detail: "As big as its content, sharing any space left" },
+    { value: "min", label: "Min", detail: "As narrow as its content goes, min-content" },
+    { value: "max", label: "Max", detail: "As wide as its content without wrapping, max-content" }
   ] as const
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -260,7 +313,7 @@ function TrackChip({
           </Button>
         }
       />
-      <PopoverContent className="w-56 gap-2 p-2" align="start">
+      <PopoverContent className="w-64 gap-2 p-2" align="start">
         <p className="text-xs font-medium capitalize">{name}</p>
         <ToggleGroup
           variant="outline"
@@ -271,7 +324,7 @@ function TrackChip({
           onValueChange={([kind]) => {
             if (kind === "fr") onChange(fr(1))
             else if (kind === "px") onChange({ kind: "px", value: 200 })
-            else if (kind === "auto" || kind === "min") onChange({ kind })
+            else if (kind === "auto" || kind === "min" || kind === "max") onChange({ kind })
           }}
         >
           {kinds.map((kind) => (
@@ -310,48 +363,83 @@ function PlacementSection({ draft, set }: SectionProps) {
   return (
     <PanelSection title="Grid placement" description="Where Pro plan sits in Plans' grid. Auto follows the order.">
       <div className="flex flex-col gap-1">
-        <Field label="Column">
-          <div className="grid grid-cols-2 gap-1">
-            <Num
-              label="Start"
-              inner="Start"
-              value={draft.colStart}
-              placeholder="Auto"
-              min={1}
-              onChange={(colStart) => set({ colStart })}
-            />
-            <Num
-              label="Column span"
-              inner="Span"
-              value={draft.colSpan}
-              placeholder="1"
-              min={1}
-              onChange={(colSpan) => set({ colSpan })}
-            />
-          </div>
-        </Field>
-        <Field label="Row">
-          <div className="grid grid-cols-2 gap-1">
-            <Num
-              label="Row start"
-              inner="Start"
-              value={draft.rowStart}
-              placeholder="Auto"
-              min={1}
-              onChange={(rowStart) => set({ rowStart })}
-            />
-            <Num
-              label="Row span"
-              inner="Span"
-              value={draft.rowSpan}
-              placeholder="1"
-              min={1}
-              onChange={(rowSpan) => set({ rowSpan })}
-            />
-          </div>
-        </Field>
+        <AxisPlacement
+          axis="Column"
+          start={draft.colStart}
+          span={draft.colSpan}
+          onChange={(colStart, colSpan) => set({ colStart, colSpan })}
+        />
+        <AxisPlacement
+          axis="Row"
+          start={draft.rowStart}
+          span={draft.rowSpan}
+          onChange={(rowStart, rowSpan) => set({ rowStart, rowSpan })}
+        />
       </div>
     </PanelSection>
+  )
+}
+
+/**
+ * One axis of a grid child's place: Start (a line from 1, or from the end when negative, -1 being the last) and Span,
+ * or All for every track, as a header across the whole grid wants.
+ */
+function AxisPlacement({
+  axis,
+  start,
+  span,
+  onChange
+}: {
+  axis: "Column" | "Row"
+  start: number | undefined
+  span: Span | undefined
+  onChange: (start: number | undefined, span: Span | undefined) => void
+}) {
+  const all = span === "all"
+  const tracks = axis === "Column" ? "columns" : "rows"
+  return (
+    <Field label={axis} hint={`A negative start counts from the end: -1 is after the last of the ${tracks}`}>
+      <div className="flex items-center gap-1">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1">
+          {all ? (
+            <span className="col-span-2 flex h-7 items-center px-1.5 text-xs text-muted-foreground">
+              Across all {tracks}
+            </span>
+          ) : (
+            <>
+              <Num
+                label={`${axis} start`}
+                inner="Start"
+                value={start}
+                placeholder="Auto"
+                min={-99}
+                // Line 0 doesn't exist; it counts as unset.
+                onChange={(next) => onChange(next === 0 ? undefined : next, span)}
+              />
+              <Num
+                label={`${axis} span`}
+                inner="Span"
+                value={span as number | undefined}
+                placeholder="1"
+                min={1}
+                onChange={(next) => onChange(start, next)}
+              />
+            </>
+          )}
+        </div>
+        <Hint label={`Span all ${tracks}`}>
+          <Toggle
+            size="sm"
+            className="h-7 shrink-0 px-2 text-xs"
+            aria-label={`Span all ${tracks}`}
+            pressed={all}
+            onPressedChange={(on) => onChange(on ? undefined : start, on ? "all" : undefined)}
+          >
+            All
+          </Toggle>
+        </Hint>
+      </div>
+    </Field>
   )
 }
 
@@ -765,7 +853,7 @@ function Num({
         }}
         onBlur={() => {
           if (typed === undefined) return
-          const match = /^\s*(\d*\.?\d+)\s*(px|rem)?\s*$/i.exec(typed)
+          const match = /^\s*(-?\d*\.?\d+)\s*(px|rem)?\s*$/i.exec(typed)
           const number = match
             ? Number(match[1]) * ((match[2]?.toLowerCase() ?? unit) === "rem" && pixels ? remPixels : 1)
             : NaN
@@ -806,6 +894,13 @@ const rgba = (hex: string | undefined, alpha: number | undefined): string | unde
   return `color-mix(in srgb, ${hex} ${alpha}%, transparent)`
 }
 
+/** CSS's grid-template-columns for the columns: the tracks, or as many as fit, each at least the width given. */
+function columnsCss(columns: Columns | undefined): string | undefined {
+  if (columns === undefined) return undefined
+  if (Array.isArray(columns)) return columns.map(trackCss).join(" ")
+  return `repeat(auto-fit, minmax(${columns.fit}px, 1fr))`
+}
+
 function LayerPreview({
   draft,
   childSelected,
@@ -824,7 +919,7 @@ function LayerPreview({
     display: grid ? "grid" : "flex",
     flexDirection: grid ? undefined : direction,
     alignItems: grid ? undefined : (draft.align ?? "stretch"),
-    gridTemplateColumns: draft.columns?.map(trackCss).join(" "),
+    gridTemplateColumns: columnsCss(draft.columns),
     gridTemplateRows: draft.rows?.length ? draft.rows.map(trackCss).join(" ") : undefined,
     gap: 12,
     padding: 20,
@@ -868,8 +963,8 @@ function LayerPreview({
               style={
                 grid && pro
                   ? {
-                      gridColumn: `${draft.colStart ?? "auto"} / span ${draft.colSpan ?? 1}`,
-                      gridRow: `${draft.rowStart ?? "auto"} / span ${draft.rowSpan ?? 1}`
+                      gridColumn: placementCss(draft.colStart, draft.colSpan),
+                      gridRow: placementCss(draft.rowStart, draft.rowSpan)
                     }
                   : { fontSize: pro ? 20 : 14 }
               }

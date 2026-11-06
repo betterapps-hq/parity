@@ -92,8 +92,20 @@ export const GridTracks: Story = {
 }
 
 /**
+ * Plans as a responsive grid: Repeat to fit, beside Columns, lays out as many columns as fit, each at least 160px, so
+ * the grid reflows as the frame narrows (CSS's `repeat(auto-fit, minmax(160px, 1fr))`, Webflow's auto-fit). Figma has
+ * no such grid. Turn it off to go back to a list of tracks.
+ */
+export const RepeatToFit: Story = {
+  render: () => (
+    <StylingPrototype start={{ draft: { background: "muted", radius: "radius-lg", columns: { fit: 160 } } }} />
+  )
+}
+
+/**
  * Pro plan selected inside Plans' grid: the column and row it starts at and how many it spans, in place of Align self.
- * Click Hobby or Team on the canvas to go back to Plans.
+ * A negative start counts from the end, and All spans every column, as a header across the grid does. Click Hobby or
+ * Team on the canvas to go back to Plans.
  */
 export const GridPlacement: Story = {
   render: () => (

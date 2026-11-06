@@ -52,18 +52,41 @@ export const blurTokens = [
 ]
 
 /** A grid track: a share of what's left (`fr`), a fixed length in pixels, or sized by its content. */
-export type Track = { kind: "fr"; value: number } | { kind: "px"; value: number } | { kind: "auto" } | { kind: "min" }
+export type Track =
+  | { kind: "fr"; value: number }
+  | { kind: "px"; value: number }
+  | { kind: "auto" }
+  | { kind: "min" }
+  | { kind: "max" }
+
+const contentTracks = {
+  auto: { label: "Hug", css: "auto" },
+  min: { label: "Min", css: "min-content" },
+  max: { label: "Max", css: "max-content" }
+} as const
 
 export const trackLabel = (track: Track): string => {
   if (track.kind === "fr") return `${track.value}fr`
   if (track.kind === "px") return `${track.value}px`
-  return track.kind === "auto" ? "Auto" : "Min"
+  return contentTracks[track.kind].label
 }
 
 export const trackCss = (track: Track): string => {
   if (track.kind === "fr") return `${track.value}fr`
   if (track.kind === "px") return `${track.value}px`
-  return track.kind === "auto" ? "auto" : "min-content"
+  return contentTracks[track.kind].css
+}
+
+/** A grid's columns: a list of tracks, or as many as fit, each at least `fit` pixels wide (CSS's auto-fit). */
+export type Columns = Track[] | { fit: number }
+
+/** How many tracks a grid child spans, or all of them (`1 / -1`). */
+export type Span = number | "all"
+
+/** A grid child's place on one axis, as CSS writes it: `start / span n`, or across every track. */
+export function placementCss(start: number | undefined, span: Span | undefined): string {
+  if (span === "all") return "1 / -1"
+  return `${start ?? "auto"} / span ${span ?? 1}`
 }
 
 /** What the exploration's layer has: the proposed style fields, each beside the one it extends. */
@@ -83,13 +106,13 @@ export interface Draft {
   direction?: "row" | "column"
   reverse?: boolean
   align?: "start" | "center" | "end" | "stretch" | "baseline"
-  columns?: Track[]
+  columns?: Columns
   rows?: Track[]
-  /** The selected child's place in the grid, from line 1. */
+  /** The selected child's place in the grid: the line it starts at, from 1, or from the end when negative. */
   colStart?: number
-  colSpan?: number
+  colSpan?: Span
   rowStart?: number
-  rowSpan?: number
+  rowSpan?: Span
 }
 
 export const radiusPx = (name: string | undefined): number => radiusTokens.find((token) => token.name === name)?.px ?? 0
