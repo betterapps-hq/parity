@@ -515,6 +515,34 @@ still need your call.
 - **Resize handles sit outside a layer along an axis where it's under 24 screen pixels** (PAR-193), so a press on a
   small layer drags it. My call: per axis, so a wide, short button keeps its side strips on its ends, as every wide
   layer does, and only its corners, top and bottom move out. Where handles go is `handleBoxes` in `@parity-app/editor`.
+- **A selected layout's padding and gaps are handles on the canvas** (PAR-169), approved in Storybook (Parity/Canvas/
+  Spacing handles) on 2026-11-05. My calls, several of them Andrew's in that review:
+  - The bars show whenever a single layout is selected, over its hatching, rather than only on hover as in Figma, so
+    padding of 0 can be dragged out of nothing. A side's press target starts 4px inside its edge, clear of the resize
+    strip there.
+  - Dragging a padding bar away from the content makes that padding bigger on every side, as an edge dragged out makes a
+    layer bigger. A gap grows as its bar goes right or down. Both go in whole steps of the spacing scale.
+  - Alt gives the opposite side the dragged side's value, and Alt+Shift every side, re-read at each move, so letting go
+    mid-drag puts the other sides back. A layout has one gap, so dragging any gap's bar changes every gap, and all of
+    them are shaded.
+  - Unlike Figma, a value bound to a length token stays bound while the drag lands on a length token's value: its own
+    token first, then the first listed with that value. Between tokens it's steps. A number stays a number, even on a
+    token's value. The label names the token, or the value's step of the scale (`20 spacing-5`).
+  - A click opens a box that reads what the inspector's fields read, through `readFieldInput`, with a switch between px
+    and rem (16 to the rem) and the inspector's list of tokens and the spacing scale, its bars drawn as the token
+    previews draw them. Figma's number fields take pixels only. No other unit: `%` is a share of the value there, not a
+    length to switch to.
+  - The modifiers are gestures in the keymap (`gestures` in `chrome/keymap.ts`), which the Keyboard shortcuts dialog
+    lists, the hints show with `Kbd`, and the handles read through `holds`, so what's shown is what works. The rules in
+    `@parity-app/editor` take what they mean (`{ opposite, every }`, `centre`, `fill`), not keys.
+- **A double-click on a layer's resize handle hugs, and Alt+double-click fills** (PAR-169), as in Figma. It used to take
+  the size away, which drew as hug for most layers but left the layout to decide. A size along the layout's direction
+  takes `grow` away, as a drag does. A frame's handles still go back to the viewport's width or the content's height.
+- **Several selected layers resize together, in proportion** (PAR-169): handles on the box around them, each layer
+  taking its share of the movement by its size across that box, so the box's edge follows the pointer. My call: each
+  keeps where its layout puts it, and they don't snap, as a single layer in a layout doesn't. Alt resizes a layer, or
+  several, from the middle: the opposite edge moves as far, an absolutely placed layer's inset moves back by half of
+  what it grows, and it neither fills nor snaps.
 - **Escape cancels a resize and a title drag** (PAR-193), as it already did a layer drag and a box. My call: a resize
   writes as it goes, one undo step since PAR-441, so Escape goes back to a checkpoint the store takes when the drag
   begins, restoring the design's file and taking the drag's own steps out of undo, rather than undoing however many

@@ -124,7 +124,8 @@ export function resizeInsets(
   delta: number,
   size: number,
   unit: number,
-  exact = false
+  exact = false,
+  centre = false
 ): { size?: number; insets: NodeStyle } {
   // Both to the half pixel, or insets to half steps and sizes to whole ones.
   const fine = (steps: number) => halfPixels(steps, unit)
@@ -139,6 +140,14 @@ export function resizeInsets(
     const from = typeof value === "number" ? value : drawn[side]
     const to = inset(from + by)
     return to === from ? {} : { [side]: to }
+  }
+  if (centre) {
+    // Both edges move, each by the handle's movement, so the middle stays where it was.
+    const grows = end ? delta : -delta
+    if (hasNear && hasFar && !sized) return { insets: { ...shift(near, -grows / unit), ...shift(far, -grows / unit) } }
+    const next = Math.max(0, length((size + 2 * grows) / unit))
+    const half = (next - size / unit) / 2
+    return { size: next, insets: hasFar && !hasNear ? shift(far, -half) : shift(near, -half) }
   }
   if (hasNear && hasFar && !sized) {
     return { insets: end ? shift(far, -delta / unit) : shift(near, delta / unit) }
@@ -239,6 +248,8 @@ export interface ResizeStart {
   unit: number
   /** For an absolutely placed layer: its style as written, and where its sides are drawn, in steps. */
   absolute?: { style: NodeStyle; drawn: DrawnSteps }
+  /** How far the pointer goes along the handle's axes before anything changes: `dragThreshold` unless given. */
+  threshold?: number
 }
 
 export interface ResizeMove {
@@ -247,6 +258,8 @@ export interface ResizeMove {
   dy: number
   /** Keeps a corner's proportions, and turns off filling. */
   shift: boolean
+  /** Resizes from the middle, as Alt does: the opposite edges move too, and it doesn't fill. */
+  centre?: boolean
   /**
    * For an absolutely placed layer, how far each edge that snapped to a line moves, in layout pixels, in place of the
    * pointer's movement along that axis. It goes exactly there, rather than in steps.
@@ -281,7 +294,7 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
   const armed = { width: away.width >= fillDistance, height: away.height >= fillDistance }
   let started = false
 
-  return ({ dx: pointerX, dy: pointerY, shift, snapped }) => {
+  return ({ dx: pointerX, dy: pointerY, shift, centre = false, snapped }) => {
     const dx = axes.width ? pointerX : 0
     let dy = axes.height ? pointerY : 0
     // Shift on a corner keeps the proportions, following the horizontal movement.
@@ -291,7 +304,7 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
       dy = ((signX * dx) / ratio) * signY
     }
     // Measured along the handle's axes, so a pointer moving across them changes nothing.
-    if (!started && Math.hypot(dx, dy) < dragThreshold) return undefined
+    if (!started && Math.hypot(dx, dy) < (start.threshold ?? dragThreshold)) return undefined
     started = true
     const style: NodeStyle = {}
     if (absolute) {
@@ -304,7 +317,17 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
         const exact = snapped?.[axis]
         const moved = exact ?? (axis === "x" ? dx : dy) / scale
         const length = (axis === "x" ? rect.right - rect.left : rect.bottom - rect.top) / scale
-        const result = resizeInsets(absolute.style, absolute.drawn, axis, end, moved, length, unit, exact !== undefined)
+        const result = resizeInsets(
+          absolute.style,
+          absolute.drawn,
+          axis,
+          end,
+          moved,
+          length,
+          unit,
+          exact !== undefined,
+          centre
+        )
         if (result.size !== undefined) style[size] = result.size
         Object.assign(style, result.insets)
       }
@@ -314,12 +337,12 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
     for (const size of ["width", "height"] as const) {
       if (!axes[size]) continue
       if (gap[size] >= fillDistance) armed[size] = true
-      const [from, to] =
-        size === "width"
-          ? [edge.includes("w") ? rect.left + dx : rect.left, edge.includes("e") ? rect.right + dx : rect.right]
-          : [edge.includes("n") ? rect.top + dy : rect.top, edge.includes("s") ? rect.bottom + dy : rect.bottom]
-      style[size] =
-        armed[size] && gap[size] < fillDistance && !shift ? "fill" : Math.max(0, Math.round((to - from) / scale / unit))
+      // How much the size grows from the dragged edge; from the middle, the opposite edge moves as far.
+      const flipped = size === "width" ? edge.includes("w") : edge.includes("n")
+      const by = (size === "width" ? dx : dy) * (flipped ? -1 : 1)
+      const drawnSize = size === "width" ? rect.right - rect.left : rect.bottom - rect.top
+      const fills = armed[size] && gap[size] < fillDistance && !shift && !centre
+      style[size] = fills ? "fill" : Math.max(0, Math.round((drawnSize + (centre ? 2 : 1) * by) / scale / unit))
     }
     return style
   }
@@ -337,6 +360,8 @@ export interface LayerResizeStart extends Omit<ResizeStart, "absolute"> {
 export interface LayerResizeMove extends DragMove {
   /** Keeps a corner's proportions, and turns off filling and snapping. */
   shift: boolean
+  /** Resizes from the middle, as Alt does, without filling or snapping. */
+  centre?: boolean
 }
 
 /**
@@ -356,23 +381,71 @@ export function layerResize(
   // `grow` was the older way to fill along the parent's direction.
   const takesGrow = layer.style.grow === true && (layer.parentDirection === "column" ? axes.height : axes.width)
 
-  return ({ dx, dy, shift, snaps }) => {
+  return ({ dx, dy, shift, centre = false, snaps }) => {
     const proportional = shift && axes.width && axes.height
     const from = snapping?.box
     const snapped =
-      from && snaps && !proportional
+      from && snaps && !proportional && !centre
         ? snapLayer(resizedBox(from, edges, { x: dx / scale, y: dy / scale }), snapping.scene, scale, edges)
         : undefined
-    const change = gesture({ dx, dy, shift, snapped: from && snapped ? lockedEdgeMoves(from, snapped, edges) : {} })
+    const change = gesture({
+      dx,
+      dy,
+      shift,
+      centre,
+      snapped: from && snapped ? lockedEdgeMoves(from, snapped, edges) : {}
+    })
     const style: StyleChange | undefined = change && takesGrow ? { ...change, grow: undefined } : change
     return { ...(style ? { style } : {}), ...(snapped ? { snapped } : {}) }
   }
 }
 
-/** What a double-click on a layer's handle changes: its size on the handle's axes goes back to the default. */
-export function layerSizeReset(edge: Edge): StyleChange {
+/**
+ * What a double-click on a layer's handle changes: its size on the handle's axes hugs its content, or with Alt fills its
+ * parent. A size along the direction of the layout it's in takes `grow` away, as a resize does.
+ */
+export function layerSizeReset(
+  edge: Edge,
+  fill = false,
+  layer?: { style: NodeStyle; parentDirection?: "row" | "column" }
+): StyleChange {
   const axes = edgeAxes(edge)
-  return { ...(axes.width ? { width: undefined } : {}), ...(axes.height ? { height: undefined } : {}) }
+  const size = fill ? "fill" : "hug"
+  const takesGrow = layer?.style.grow === true && (layer.parentDirection === "column" ? axes.height : axes.width)
+  return {
+    ...(axes.width ? { width: size } : {}),
+    ...(axes.height ? { height: size } : {}),
+    ...(takesGrow ? { grow: undefined } : {})
+  }
+}
+
+/**
+ * Follows one drag of a handle on several selected layers together, each from its own box, giving each layer's style
+ * for each pointer position. The handle sits on the box around them all; each layer takes its share of the movement,
+ * its size across that box's, so the layers grow in proportion and the box's edge follows the pointer. They don't snap.
+ */
+export function layersResize(
+  starts: readonly LayerResizeStart[],
+  union: Rect
+): (move: LayerResizeMove) => (StyleChange | undefined)[] {
+  const width = Math.max(1, union.right - union.left)
+  const height = Math.max(1, union.bottom - union.top)
+  const axes = edgeAxes(starts[0]?.edge ?? "se")
+  // Each layer moves only its share, so the drag starts for them all once the pointer has gone the threshold.
+  const follow = starts.map((start) => ({
+    resize: layerResize({ ...start, snapping: undefined, threshold: 0 }),
+    shareX: (start.rect.right - start.rect.left) / width,
+    shareY: (start.rect.bottom - start.rect.top) / height
+  }))
+  let started = false
+  return (move) => {
+    const along = Math.hypot(axes.width ? move.dx : 0, axes.height ? move.dy : 0)
+    if (!started && along < dragThreshold) return follow.map(() => undefined)
+    started = true
+    return follow.map(
+      ({ resize, shareX, shareY }) => resize({ ...move, dx: move.dx * shareX, dy: move.dy * shareY }).style
+    )
+  }
 }
 
 // Resizing a frame by its handles.

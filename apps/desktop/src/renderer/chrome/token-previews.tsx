@@ -917,11 +917,21 @@ export function barLength(length: number, room: number): { solid: number; squeez
 /**
  * A length as a bar between two ticks, at its true size while it fits. A longer one is drawn true to the knee, then
  * hatched where it's squeezed, so a squeezed bar never passes for its true size, and still reads longer than a shorter
- * one.
+ * one. `color` is the bar's, the layer color unless given.
  */
-export function SpacingBar({ length, room, dim = false }: { length: number; room: number; dim?: boolean }) {
+export function SpacingBar({
+  length,
+  room,
+  dim = false,
+  color: shown = "var(--canvas-layer)"
+}: {
+  length: number
+  room: number
+  dim?: boolean
+  color?: string
+}) {
   const { solid, squeezed } = barLength(length, room)
-  const color = dim ? "currentColor" : "var(--canvas-layer)"
+  const color = dim ? "currentColor" : shown
   const opacity = dim ? 0.35 : 0.85
   return (
     <span className="relative block h-2.5 shrink-0 text-muted-foreground" style={{ width: solid + squeezed }}>
