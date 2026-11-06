@@ -2,6 +2,47 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 18:37:59 GMT",
+      "version": "0.22.0",
+      "tag": "@parity-app/desktop_v0.22.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "672bcdd6694d13498ba96a32ad9497a5ea92a2a6",
+            "comment": "Stay signed in to several accounts and switch between them: your accounts are in a panel from your picture in the title bar, each with its own Sign out, and Home's top left is a workspace menu for the account you're in"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "24b061d92559fa54345c9bc2be8ceb4d41abb568",
+            "comment": "Name every build as a Sentry release and upload its source maps, so stack traces resolve to source"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4956bc93980688acec3083ded29bda6a49c3e3f8",
+            "comment": "Home's account menu becomes a workspace menu, and your accounts move to a panel in the title bar where each has its own Sign out (exploration); on a phone, Home's search spans its row and Show more follows the cards"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "635de1c960596c297f5a61df97e03f3ee55e4c46",
+            "comment": "Send events as Sentry logs, breadcrumbs and spans through main, and keep a local copy in rotating log files"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6868f1966e1dcb1542ba7ebae86b9f9273d69da8",
+            "comment": "Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 10:42:47 GMT",
       "version": "0.21.0",
       "tag": "@parity-app/desktop_v0.21.0",

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Stay signed in to several accounts and switch between them: your accounts are in a panel from your picture in the title bar, each with its own Sign out, and Home's top left is a workspace menu for the account you're in",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
