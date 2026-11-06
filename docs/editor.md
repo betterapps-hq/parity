@@ -1955,6 +1955,10 @@ picker.
 - **Leaving keeps the edit.** Escape keeps what's typed, as notes do, and so do Enter and clicking away. Shift+Enter
   types a new line. The layer stays selected. An edit is one undo step, Edit text, written to the state and variant the
   editor opened on (PAR-164, below); leaving without a change writes nothing.
+- **It reads and writes the same state** (PAR-585). The text it opens on and the place the edit goes are worked out by
+  one rule, `editingState`: the state the layer was picked in, else the state the board shows, else the base state. A
+  picked state that's gone, as when an agent deletes it while the editor is open, used to show the board's text but
+  write to the missing state, which threw and lost the edit. Now the edit goes to the state whose text was shown.
 - **Input methods.** While an input method is composing (Japanese, Chinese, Korean), Enter and Escape are left to it, to
   take or drop what's composed, and don't close the editor. The editor tracks composition by its `compositionstart` and
   `compositionend` events, and by the key event's own `isComposing`.
@@ -1985,17 +1989,22 @@ separate setting that could disagree with them, and the resize handles change it
   it. Resetting Resizing there takes back all three of width, height and `grow`, so no `grow: false` stays behind
   (PAR-582).
 
-Code: what the editor selects, the modes and switching between them are `packages/editor/src/text-editing.ts` (`wordAt`,
-`openingSelection`, `textSizing`, `withTextSizing`, and `textSizingKeys`, the properties a switch writes and a reset
-clears). Drawing hug text as `max-content` is `textCss` in `packages/core/src/render.ts`. The editor is
-`apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character under the double-click from the text's own
-ranges, measures the text each frame, and handles the keys. The double-click passes its point through
+Code: what the editor edits, what it selects, the modes and switching between them are
+`packages/editor/src/text-editing.ts` (`editableText`, `textToEdit` and `withEditedText`, which read and write the text
+in one state, `wordAt`, `openingSelection`, `textSizing`, `withTextSizing`, and `textSizingKeys`, the properties a
+switch writes and a reset clears). Drawing hug text as `max-content` is `textCss` in `packages/core/src/render.ts`. The
+editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character under the double-click from the
+text's own ranges, measures the text each frame, and handles the keys. The double-click passes its point through
 `SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing control is `TextResizing` in
 `chrome/StyleSections.tsx`, whose edit is `textSizingEdit` in `packages/editor/src/style-editing.ts`, rounding each
 layer's measure up with `stepUp`. The agent's skill says how text sizes in `packages/cli/skills/document.md`.
 
 Tests:
 
+- `packages/editor/src/text-editing.test.ts`, "the text editor's state" (5, PAR-585): the text read and written in the
+  state picked; a picked state that's gone reading and writing the board's state; a board state that's gone reading and
+  writing the base state; a component's string child inside an instance, edited in that copy only; and nothing to edit
+  on a layer that isn't text or is gone.
 - `packages/editor/src/text-editing.test.ts` (13): the word holding a character, from any of its letters; a space or
   punctuation on its own; the end of the text and an empty one; apostrophes and digits kept in a word; the whole text
   without a point on it; the mode read from widths and heights; each switch, keeping fill and a fixed height; the height

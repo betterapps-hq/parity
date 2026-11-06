@@ -1,9 +1,64 @@
-import type { Length, NodeStyle, Size } from "@parity-app/core"
+import {
+  boardTarget,
+  type ComponentLibrary,
+  type ContainerSpec,
+  type DesignNode,
+  editInner,
+  editNode,
+  isInnerPath,
+  layerOnBoard,
+  type Length,
+  type NodeStyle,
+  type Size
+} from "@parity-app/core"
+import { editingState } from "./edit-frame.ts"
 
 /**
  * Editing text in place and sizing text layers, as Figma does. The app measures and draws; these take what it measured
  * and return what to select or set.
  */
+
+/** The text a layer shows, when it's editable in place: a text layer, or a component whose child is a string. */
+export function editableText(node: DesignNode): string | undefined {
+  if (node.type === "text") return node.text
+  if (node.type === "component" && typeof node.props?.children === "string") return node.props.children
+  return undefined
+}
+
+/**
+ * What the text editor opens on: the layer `id`, one of the design's own or one inside an instance, as the board shows
+ * it in the state edits go to (`editingState` of `picked`), and its text. Undefined when it isn't editable text.
+ */
+export function textToEdit(
+  container: ContainerSpec,
+  picked: string | undefined,
+  id: string,
+  library: ComponentLibrary
+): { node: DesignNode; text: string } | undefined {
+  const node = layerOnBoard(container, id, library, editingState(container, picked))
+  const text = node && editableText(node)
+  return node && text !== undefined ? { node, text } : undefined
+}
+
+/**
+ * The design with layer `id`'s text set to `text`, written to the state `textToEdit` read it from, by the same rule,
+ * so a picked state that's gone writes to the one the editor showed (PAR-585). In a state other than the base, or
+ * with a variant shown, it's that state's or variant's change; inside an instance, only that copy's. Unchanged when
+ * the layer is gone or isn't editable text.
+ */
+export function withEditedText(
+  container: ContainerSpec,
+  picked: string | undefined,
+  id: string,
+  text: string,
+  library: ComponentLibrary
+): ContainerSpec {
+  const shown = textToEdit(container, picked, id, library)
+  if (!shown) return container
+  const target = boardTarget(container, editingState(container, picked).id)
+  const change = shown.node.type === "text" ? { text } : { props: { children: text } }
+  return isInnerPath(id) ? editInner(container, target, id, change, library) : editNode(container, target, id, change)
+}
 
 /** Where a selection starts and ends in a text, as a textarea counts them. */
 export interface TextRange {

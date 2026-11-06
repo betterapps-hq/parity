@@ -1,5 +1,12 @@
-import { type DesignNode, isInnerPath } from "@parity-app/core"
-import { designsSelection, layersSelection, selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
+import { isInnerPath } from "@parity-app/core"
+import {
+  designsSelection,
+  editableText,
+  layersSelection,
+  selectedDesigns,
+  selectedNodes,
+  type Selection
+} from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
 import { childLayers, findLayer } from "./layers.ts"
 
@@ -170,11 +177,4 @@ export function enterTarget(store: DesignStore, current: Selection): Enter | und
   const parents = nodes.length > 0 ? nodes : [entry.container.root.id]
   const children = parents.flatMap((id) => childLayers(store, entry.container, id))
   return children.length > 0 ? { select: layersSelection(entry.key, children, frame) } : undefined
-}
-
-/** The text a layer shows, when it's editable in place: a text layer, or a component whose child is a string. */
-export function editableText(node: DesignNode): string | undefined {
-  if (node.type === "text") return node.text
-  if (node.type === "component" && typeof node.props?.children === "string") return node.props.children
-  return undefined
 }
