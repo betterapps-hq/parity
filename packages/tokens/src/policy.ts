@@ -1,4 +1,10 @@
-import type { CustomPropertyDeclaration, EnclosingAtRule, TokenCategory } from "@parity-app/core"
+import {
+  colorSchemeAttribute,
+  colorSchemeQuery,
+  type CustomPropertyDeclaration,
+  type EnclosingAtRule,
+  type TokenCategory
+} from "@parity-app/core"
 
 /**
  * The rules for which theme a custom property's value belongs to and which category a token goes in. Libgen reads a
@@ -6,14 +12,8 @@ import type { CustomPropertyDeclaration, EnclosingAtRule, TokenCategory } from "
  * theme and category either way. See docs/decisions.md, "Token policies live in `@parity-app/tokens`".
  */
 
-/** Where libgen, reading a library's source CSS, deliberately reads more than the app does. */
+/** Where libgen, reading a library's source CSS, deliberately reads more than the app does: Tailwind's `@theme`. */
 export interface ThemeOptions {
-  /**
-   * Read a `@media (prefers-color-scheme: dark)` block around the root as the `dark` theme, and a `light` one as the
-   * default. Libgen does, because a library's themes reach a frame as the class blocks `describedTokenCss` writes; the
-   * app doesn't, because a frame gets a theme from a class or attribute the Modes panel sets, never a media query.
-   */
-  colorScheme?: boolean
   /**
    * Read declarations directly in Tailwind's `@theme` as the default theme. Only source CSS has `@theme`; the app reads
    * the theme Tailwind itself resolves instead (`StylesAdapter.loadTheme`), which also knows the aliases it inlines.
@@ -23,7 +23,8 @@ export interface ThemeOptions {
 
 /**
  * At-rules that don't pick a theme: a cascade layer only orders rules, and a feature check holds whatever the theme.
- * Any other (`@media`, `@container`, `@scope`…) makes a value conditional, so it's no theme's value.
+ * A `prefers-color-scheme` query picks one (see `themeOfSelector`); any other (`@media`, `@container`, `@scope`…)
+ * makes a value conditional, so it's no theme's value.
  */
 const unconditionalAtRules = new Set(["layer", "supports"])
 
@@ -32,12 +33,14 @@ export function isUnconditional(atRules: readonly EnclosingAtRule[]): boolean {
   return atRules.every((atRule) => unconditionalAtRules.has(atRule.name))
 }
 
-/** The theme a `prefers-color-scheme` query picks, when it's the whole query. */
+/**
+ * The theme a `prefers-color-scheme` query picks, when it's the whole query: `dark`, or the default for `light`, as
+ * Parity's own Light mode is the frame without a theme.
+ */
 function colorSchemeOf(atRule: EnclosingAtRule): string | undefined {
   if (atRule.name !== "media") return undefined
-  const scheme = /^\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)$/i.exec(atRule.prelude)?.[1]?.toLowerCase()
-  if (scheme === "light") return "default"
-  return scheme
+  const scheme = colorSchemeQuery(atRule.prelude)
+  return scheme === "light" ? "default" : scheme
 }
 
 /** Whether a value comes from a `prefers-color-scheme` block, which a theme's own selector overrides. */
@@ -54,10 +57,13 @@ function fromColorScheme(atRules: readonly EnclosingAtRule[]): boolean {
  *   as Parity's own Light mode is the frame without a theme.
  * - `:not(…)` doesn't change the theme, so `:root:not(.dark)` is the root.
  * - In a selector list, a part that's the root makes the rule the root's; otherwise every part must name one theme.
+ * - A `@media (prefers-color-scheme: dark)` block makes the root `dark`, and a `light` one the default. A theme's own
+ *   selector inside one must agree with it, so `.dark` stays `dark` and `.ocean` names none.
  *
  * Left unsupported, so naming no theme: a selector with a combinator (`.dark .card` styles a component), two names at
  * once (`.dark.contrast`), attribute operators other than `=`, other pseudo-classes, a `:where()` or `:is()` holding a
- * list, and any at-rule besides `@layer` and `@supports` (and the ones the options allow).
+ * list, a colour-scheme query with anything else in it (`screen and (prefers-color-scheme: dark)`), and any other
+ * at-rule besides `@layer` and `@supports` (and `@theme` with `tailwindTheme`).
  */
 export function themeOfSelector(
   selector: string,
@@ -67,7 +73,7 @@ export function themeOfSelector(
   let scheme: string | undefined
   for (const atRule of atRules) {
     if (unconditionalAtRules.has(atRule.name) || (options.tailwindTheme && atRule.name === "theme")) continue
-    const picked = options.colorScheme ? colorSchemeOf(atRule) : undefined
+    const picked = colorSchemeOf(atRule)
     if (picked === undefined || (scheme !== undefined && scheme !== picked)) return undefined
     scheme = picked
   }
@@ -168,17 +174,17 @@ export function themeAttributes(
 }
 
 /**
- * A frame body's attributes in a mode: those that switch on the themes its classes name (see `themeAttributes`), then
- * the mode's own, which win.
+ * A frame body's attributes in a mode: its colour scheme, `dark` when its classes name the `dark` theme and `light`
+ * otherwise, which the project's `prefers-color-scheme` blocks are drawn against (core's `colorSchemeAttribute`); those
+ * that switch on the themes its classes name (see `themeAttributes`); then the mode's own, which win.
  */
 export function frameAttributes(
   mode: { classNames: readonly string[]; attributes: Readonly<Record<string, string>> },
   themes: Readonly<Record<string, Record<string, string>>>
 ): Record<string, string> {
-  return Object.assign({}, ...mode.classNames.map((className) => themes[className] ?? {}), mode.attributes) as Record<
-    string,
-    string
-  >
+  const scheme = { [colorSchemeAttribute]: mode.classNames.includes("dark") ? "dark" : "light" }
+  const switches = mode.classNames.map((className) => themes[className] ?? {})
+  return Object.assign(scheme, ...switches, mode.attributes) as Record<string, string>
 }
 
 function matchingParen(text: string, open: number): number {

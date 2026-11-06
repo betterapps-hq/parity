@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url"
+import { prepareCanvasCss } from "@parity-app/core"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
@@ -171,6 +172,27 @@ describe("previewToken", () => {
     expect((await previewed(css, "header", "dark", "10vh")).at(-1)).toBe(
       ".dark { --header: calc(10 * var(--canvas-vh, 1vh)); }"
     )
+  })
+
+  it("edits a prefers-color-scheme block as frames draw it, by its theme (PAR-138)", async () => {
+    const source = [
+      ":root { --c: #fff; }",
+      "@media (prefers-color-scheme: dark) { :root { --c: #000; } }",
+      "@media (prefers-color-scheme: light) { :root { --c: #eee; } }"
+    ].join(" ")
+    const css = prepareCanvasCss(source, { baseUrl: "http://parity.test" }).scoped
+    const dark = ':where([data-canvas-body][data-canvas-color-scheme="dark"])'
+    const light = ':where([data-canvas-body][data-canvas-color-scheme="light"])'
+    expect(await previewed(css, "c", "dark", "red")).toEqual([
+      ":host { --c: #fff; }",
+      `${dark} { --c: red; }`,
+      `${light} { --c: #eee; }`
+    ])
+    expect(await previewed(css, "c", "default", "blue")).toEqual([
+      ":host { --c: blue; }",
+      `${dark} { --c: #000; }`,
+      `${light} { --c: blue; }`
+    ])
   })
 
   it("leaves a prefers-color-scheme block alone when previewing the default", async () => {

@@ -117,7 +117,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | Tailwind keywords (`rounded-full`)         | ◐      | `radius-full` in the radius field is `rounded-full`, unless the project declares `--radius-full`. `GetTokens` lists it as `source: "keyword"`; the inspector's picker doesn't offer it yet. No other keyword.            |
 | Themes as one class (`.dark`)              | ✅     | Also on the root (`html.dark`, `:root.dark`). `.light` is the default.                                                                                                                                                   |
 | Themes as attributes (`[data-theme]`)      | ◐      | Read, written in place and shown: `[data-theme="dark"]` is the `dark` theme, and a frame in the Dark mode gets `data-theme="dark"` with its `dark` class. On the root (`:root[data-theme]`) it never applies in a frame. |
-| `prefers-color-scheme` blocks              | ◐      | Not read as a theme in a project; the defaults keep the light values. `parity lib` reads them as a library's `dark`, below its `.dark` or `[data-theme]` values.                                                         |
+| `prefers-color-scheme` blocks              | ✅     | Read, written in place and shown: `(prefers-color-scheme: dark)` around the root is `dark`, below a `.dark` or `[data-theme]` value, and `light` the default. Frames draw it for their mode, not Parity's window.        |
 | Selectors that only scope a theme          | ❌     | `.dark .card`, `.dark.contrast` and `:where(:root, :host)` name no theme.                                                                                                                                                |
 | Breakpoints (`--breakpoint-*`, `.lib.par`) | ✅     | Plus device presets.                                                                                                                                                                                                     |
 | DTCG token files and resolvers             | ✅     | Read from a `.lib.par`'s `tokens`, filed by the category `$extensions.parity` gives, each theme as a mode. A malformed token is left out, and the project's notes say why.                                               |
@@ -266,8 +266,7 @@ In each column, ● means the feature needs it, and ◐ means the feature is bet
 
 Not requirements, just work not done yet:
 
-- `prefers-color-scheme` blocks aren't read as a project's themes, and a theme set by attribute on the root
-  (`:root[data-theme="dark"]`) never shows in a frame.
+- A theme set by attribute on the root (`:root[data-theme="dark"]`) never shows in a frame.
 - Per-component styles (CSS modules, CSS-in-JS) don't reach frames.
 - Library installs are limited to the built-in catalog.
 
@@ -462,8 +461,8 @@ What the detection snapshots record on 2026-10-29, gaps included:
   breakpoints, four components with `App`, and Storybook 9 stories for two of them. React Aria Components is listed as a
   library, and Hugeicons as an icon set.
 - **`mantine`:** Vite 8.3.5 with `vite.config.cts` and bun. Mantine is listed as a library, and its stylesheet, imported
-  from `main.tsx`, is read from the package. The `prefers-color-scheme` block isn't read as a theme, so its dark values
-  are left out and the light ones stay the defaults.
+  from `main.tsx`, is read from the package. Its `prefers-color-scheme` block is the `dark` theme, and the light values
+  stay the defaults (PAR-138).
 - **`too-old`:** the project opens, with one quiet notice that React 18, Vite 5, Tailwind 3 and Storybook 8 are
   untested. The Tailwind v3 theme doesn't load: Tailwind v4's reader stops at the project's first v3 `@apply`.
 - **`chakra`:** Chakra UI is listed as a library with its five breakpoints, and Phosphor and Tabler as icon sets.

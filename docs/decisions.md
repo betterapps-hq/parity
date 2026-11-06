@@ -2864,7 +2864,7 @@ My calls in the run-time reading (`extractTokens`):
 - A `prefers-color-scheme: dark` block isn't read as the dark theme. A theme reaches a frame by a class the Modes panel
   adds, and `previewToken` and `writeTokenChanges` write a theme's values to that class's block, so a "dark" read from a
   media query couldn't be shown in a frame or edited where it lives. Reading it as a theme is the gap `docs/support.md`
-  already lists; the facts it needs are now in the collected declarations.
+  already lists; the facts it needs are now in the collected declarations. PAR-138, at the end, closed it.
 - `themeFallbackCss` still counts a property declared anywhere as defined, conditional or not, as before.
 - Libgen's own token collecting (`libgen/src/tokens.ts`), which reads `prefers-color-scheme: dark` blocks as dark, is
   unchanged. Sharing one policy between the two is PAR-468.
@@ -2896,9 +2896,10 @@ cycle), and libgen reads CSS with core's `collectCustomProperties` instead of it
 The differences that stay are explicit options, both for libgen: `tailwindTheme` reads `@theme` as the default, which
 only source CSS has (the app takes Tailwind's resolved theme from its styles adapter), and `colorScheme` reads a
 `prefers-color-scheme` block as its theme, because a library's themes reach frames as the class blocks
-`describedTokenCss` writes, where the app's would never show (PAR-485). With it, a theme's own selector beats the media
-query wherever it sits, so a library with both `.dark` and a dark media query no longer has whichever comes last. The
-app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only what the CSS declares.
+`describedTokenCss` writes, where the app's would never show (PAR-485; PAR-138, at the end, made it the app's too). With
+it, a theme's own selector beats the media query wherever it sits, so a library with both `.dark` and a dark media query
+no longer has whichever comes last. The app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only
+what the CSS declares.
 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
@@ -4992,3 +4993,38 @@ own Code tab, before Accessibility, and asked for real syntax highlighting. My c
   component is written in, and `Measure`, the layout snapshot, gives each node's `source`, the element it draws
   outermost. Listing every element inside every instance would make `Measure` much longer for little more: the node's
   line leads to its file, which has the rest.
+
+## `prefers-color-scheme` blocks are themes, drawn for each frame's mode (PAR-138)
+
+My call: the app reads `@media (prefers-color-scheme: dark)` around the root as the `dark` theme, and a `light` one as
+the default, as `parity lib` already did, and frames draw such a block for their own mode instead of Parity's window.
+PAR-485 kept the block out because a frame gets its theme from a class the Modes panel adds, never a media query, so a
+dark read from one couldn't be shown or edited. mantine's dark values were left out, and since frames are shadow roots
+in Parity's window, a mantine frame in the Light mode turned dark whenever Parity's window did.
+
+- **One policy.** `ThemeOptions.colorScheme` is gone: `themeOfSelector` always reads a whole
+  `(prefers-color-scheme: dark)` query as `dark` and `light` as the default, with a theme's own selector still beating
+  the block, so libgen and the app read the same CSS alike. The query is read by core's `colorSchemeQuery`, which
+  `prepareCanvasCss` uses too. A query that asks for more (`screen and (prefers-color-scheme: dark)`, or a width as
+  well) stays conditional and no theme's, as before.
+- **Frames draw the block as an attribute theme on their body.** `prepareCanvasCss` rewrites the block's root rules to
+  `:where([data-canvas-body][data-canvas-color-scheme="dark"])`, `body` rules to the body with that attribute, and any
+  other rule to elements inside that body. A block nested in a rule, as Tailwind's `dark:` variant writes, becomes
+  `:where(…) & { … }`, and one nested in the root's own rule is moved after it, where it can reach the body.
+  `frameAttributes` gives every frame body `data-canvas-color-scheme`: `dark` when its mode's classes include `dark`, as
+  the default Dark option's do, and `light` otherwise; an attribute the mode sets itself still wins. The alternatives
+  were a container style query, which can't reach the frame's root, where the block's values live, or an iframe per
+  frame, which the canvas doesn't use.
+- **No specificity is added**, as a media query adds none. The root's values move to the body, so the body's own rules
+  and a theme's class on it (`.dark`) win over them, matching the policy's "a theme's own selector beats the block".
+- **Previews and saves find the block by its theme.** The drawn rule reads as an attribute theme, `dark` or (for
+  `light`) the default, so `previewToken` edits it with no change of its own. `writeTokenChanges` now edits blocks under
+  a colour-scheme query when the query picks the block's theme, adds a value the dark theme lacks to the block, and
+  never adds a new default value to a colour-scheme block's `:root`.
+- **Tokens are read from the blocks as written.** `prepareCanvasCss` takes `colorSchemes: false` where tokens are read
+  (the guest, detection, libgen's comparison test), so the policy sees the media query, and `themeAttributes` reads the
+  same CSS.
+
+Gaps: a frame's root (its shadow host) never gets the colour scheme, so a custom property the root defines from another
+(`--alias: var(--surface)`) keeps its light value in a dark frame, as with a `.dark` class theme. A custom property a
+`body` rule declares inside the block reads as a dark value in the preview but not in the Tokens tab.

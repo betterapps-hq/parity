@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 import {
   collectCustomProperties,
+  colorSchemeQuery,
   prepareCanvasCss,
   resetCustomProperties,
   rewriteMedia,
@@ -34,6 +35,69 @@ describe("rewriteMedia", () => {
     "@media (min-height: 600px)"
   ])("leaves %s alone", (input) => {
     expect(rewriteMedia(input)).toBe(input)
+  })
+})
+
+describe("colorSchemeQuery", () => {
+  it.each([
+    ["(prefers-color-scheme: dark)", "dark"],
+    ["( prefers-color-scheme : LIGHT )", "light"],
+    ["screen and (prefers-color-scheme: dark)", undefined],
+    ["(prefers-color-scheme: dark) and (width >= 40rem)", undefined],
+    ["(prefers-contrast: more)", undefined]
+  ])("reads %s as %s", (query, scheme) => {
+    expect(colorSchemeQuery(query)).toBe(scheme)
+  })
+})
+
+describe("prepareCanvasCss with prefers-color-scheme", () => {
+  const dark = ':where([data-canvas-body][data-canvas-color-scheme="dark"])'
+  const light = ':where([data-canvas-body][data-canvas-color-scheme="light"])'
+  const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+  it("draws a block's root as the frame's body in that scheme, whatever Parity's window prefers", () => {
+    expect(scoped("@media (prefers-color-scheme: dark) { :root { --surface: #1a1b1e; } }")).toBe(
+      ` ${dark} { --surface: #1a1b1e; } `
+    )
+    expect(scoped("@media (prefers-color-scheme: light) { html { color: #213547; } }")).toBe(
+      ` ${light} { color: #213547; } `
+    )
+    expect(scoped("@media (prefers-color-scheme: dark) { :root:not(.light) { --c: #000; } }")).toBe(
+      ` ${dark}:not(.light) { --c: #000; } `
+    )
+  })
+
+  it("keeps the body's own specificity and looks for anything else inside the body", () => {
+    expect(
+      scoped("@media (prefers-color-scheme: dark) { body { margin: 0; } .card, :root .x { color: white; } }")
+    ).toBe(
+      ` [data-canvas-body]:where([data-canvas-color-scheme="dark"]) { margin: 0; } ${dark} .card, ${dark} .x { color: white; } `
+    )
+  })
+
+  it("draws a block nested in a rule, as Tailwind's dark variant writes, for the rule's elements in that scheme", () => {
+    expect(scoped(".dark\\:bg-black { @media (prefers-color-scheme: dark) { background-color: black; } }")).toBe(
+      `.dark\\:bg-black { ${dark} & { background-color: black; } }`
+    )
+  })
+
+  it("moves a block nested in the root's own rule after it, where it can reach the body", () => {
+    expect(scoped(":root { --c: #fff; @media (prefers-color-scheme: dark) { --c: #000; } }")).toBe(
+      `:host { --c: #fff; } ${dark} { --c: #000; }`
+    )
+  })
+
+  it("keeps a block under a layer in its layer, and leaves a query that asks for more alone", () => {
+    expect(scoped("@layer base { @media (prefers-color-scheme: dark) { :root { --c: #000; } } }")).toBe(
+      `@layer base {  ${dark} { --c: #000; }  }`
+    )
+    const both = "@media screen and (prefers-color-scheme: dark) { :host { --c: #000; } }"
+    expect(scoped(both)).toBe(both)
+  })
+
+  it("leaves the blocks as written when asked to, for reading tokens", () => {
+    const css = "@media (prefers-color-scheme: dark) { :host { --c: #000; } }"
+    expect(prepareCanvasCss(css, { ...options, units: false, colorSchemes: false }).scoped).toBe(css)
   })
 })
 

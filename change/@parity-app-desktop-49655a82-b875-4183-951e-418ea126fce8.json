@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Read prefers-color-scheme blocks as a theme: a project's dark block is its dark theme, the light values stay the defaults, and each frame draws the block for its own mode",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

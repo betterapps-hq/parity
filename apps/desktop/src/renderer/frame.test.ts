@@ -157,9 +157,9 @@ afterAll(async () => {
 })
 
 /** Prepares the frame at `#host` with a project's stylesheet, a 390 by 844 window, and HTML in place of a design. */
-function frameWith(projectCss: string, html = "", hostStyle = "") {
+function frameWith(projectCss: string, html = "", hostStyle = "", attributes: Record<string, string> = {}) {
   return page.evaluate(
-    ({ projectCss, html, hostStyle }) => {
+    ({ projectCss, html, hostStyle, attributes }) => {
       const host = document.createElement("div")
       document.querySelector("#host")!.replaceWith(host)
       host.id = "host"
@@ -170,12 +170,12 @@ function frameWith(projectCss: string, html = "", hostStyle = "") {
       // @ts-expect-error The bundle's global.
       const target = frame.prepareFrame(host, sheet, {
         classNames: [],
-        attributes: {},
+        attributes,
         viewport: { width: 390, height: 844 }
       }) as HTMLElement
       target.innerHTML = html
     },
-    { projectCss, html, hostStyle }
+    { projectCss, html, hostStyle, attributes }
   )
 }
 
@@ -302,6 +302,36 @@ describe("a frame's body", () => {
   it("keeps its margin inside a frame with a fixed height", async () => {
     expect((await heading("", "height: 300px")).height).toBe(284)
     expect((await heading("body { margin: 0 }", "height: 300px")).height).toBe(300)
+  })
+})
+
+describe("a frame's colour scheme (PAR-138)", () => {
+  const css = [
+    ":root { --surface: #fff; }",
+    "@media (prefers-color-scheme: dark) { :root { --surface: #000; } }",
+    "body { background: var(--surface); }",
+    ".note { @media (prefers-color-scheme: dark) { color: white; } }"
+  ].join("\n")
+
+  async function drawn(scheme: string) {
+    await frameWith(css, '<p class="note">Note</p>', "", { "data-canvas-color-scheme": scheme })
+    return page.evaluate(() => {
+      const body = document.querySelector("#host")!.shadowRoot!.firstElementChild!
+      return {
+        background: getComputedStyle(body).backgroundColor,
+        color: getComputedStyle(body.querySelector(".note")!).color
+      }
+    })
+  }
+
+  it("draws the project's prefers-color-scheme blocks for the frame's scheme, not Parity's window's", async () => {
+    await page.emulateMedia({ colorScheme: "dark" })
+    try {
+      expect(await drawn("light")).toEqual({ background: "rgb(255, 255, 255)", color: "rgb(0, 0, 0)" })
+    } finally {
+      await page.emulateMedia({ colorScheme: "light" })
+    }
+    expect(await drawn("dark")).toEqual({ background: "rgb(0, 0, 0)", color: "rgb(255, 255, 255)" })
   })
 })
 

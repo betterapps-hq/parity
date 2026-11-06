@@ -2191,8 +2191,18 @@ decisions.md's "Saving is explicit" sets out.
   the rules the Tokens tab read it with (`themeOfSelector` in `packages/tokens/src/policy.ts`), so `dark` is `.dark`,
   `[data-theme="dark"]` or `html.dark` alike. Every block that declares the token gets the new value, so a later
   `[data-theme="dark"]` can't win back over an edited `.dark` after a save; a value the theme lacks goes into its first
-  block, else a new `.dark`. A `:root` inside `@media`, such as a `prefers-color-scheme` block, isn't the default, so
-  editing the default never changes it.
+  block, else a new `.dark`. A `:root` inside a `prefers-color-scheme` block is that scheme's theme and one inside any
+  other `@media` is no theme's, so editing the default never changes either.
+- **A `prefers-color-scheme` block is a theme** (PAR-138): `@media (prefers-color-scheme: dark)` around the root is the
+  `dark` theme, and a `light` one the default, in the Tokens tab as in `parity lib`. mantine's dark values are its
+  `dark` theme and its light ones stay the defaults. A theme's own selector beats the block, so a `.dark` value wins
+  over it. A dark value is previewed and saved in the block, and one the theme lacks is added to it. Every frame shares
+  Parity's window, and with it one colour scheme, so frames draw the block as rules for their body's
+  `data-canvas-color-scheme` (`prepareCanvasCss` in `packages/core/src/css.ts`). A frame gets `dark` when its mode's
+  classes include `dark`, as the default Dark option's do, and `light` otherwise (`frameAttributes`), so a Light frame
+  stays light when Parity's window is dark. A block nested in a rule, as Tailwind's `dark:` variant writes, is drawn the
+  same way. A query that asks for more, such as `screen and (prefers-color-scheme: dark)`, is no theme and still follows
+  Parity's window.
 - **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
   body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
@@ -2251,13 +2261,20 @@ Tests:
   to the `@theme` block that declares it, else a new one; a token the stylesheet doesn't declare added to the root; a
   theme written to its `[data-theme="dark"]` block ("by attribute as much as by class"); a `:root` inside a media query
   left alone; and both `.dark` and `[data-theme="dark"]` written, read back as the new value ("writes every block").
-- `apps/desktop/src/renderer/guest.test.ts` (3 of its 6), in Chrome: `previewToken` editing a theme by class and by
-  attribute, adding a value a theme lacks with the selector it already uses, and leaving a `prefers-color-scheme` block
-  alone when previewing the default.
-- `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, and the
-  same CSS read alike by libgen and the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests:
-  vite7-js's `[data-theme='dark']`, an attribute beside a class, none for a class theme, the light theme, the root, a
-  conditional rule or a component's own attribute, and a mode's own attribute winning).
+- `apps/desktop/src/renderer/guest.test.ts` (4 of its 7), in Chrome: `previewToken` editing a theme by class and by
+  attribute, adding a value a theme lacks with the selector it already uses, editing a `prefers-color-scheme` block as
+  frames draw it by its theme (PAR-138), and leaving one alone when previewing the default.
+- `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, a
+  `prefers-color-scheme` block's included, as written and as frames draw it, and the same CSS read alike by libgen and
+  the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests: vite7-js's `[data-theme='dark']`, an
+  attribute beside a class, none for a class theme, the light theme, the root, a conditional rule, a colour-scheme block
+  or a component's own attribute, and a mode's own attribute winning) and its colour scheme (PAR-138).
+- `prefers-color-scheme` blocks (PAR-138): `packages/tokens/src/tokens.test.ts`, mantine's stylesheet read as a dark
+  theme with its light defaults, and a `.dark` value beating the block; `packages/tokens/src/stylesheet.test.ts`, a dark
+  value written into the block, added to it and taken out again, and a new default value going to the root outside it;
+  `packages/core/src/css.test.ts`, how frames draw the block, at the top level, nested in a rule or in the root's own
+  rule, under a layer, and left as written for reading tokens; `apps/desktop/src/renderer/frame.test.ts`, in Chrome, a
+  frame drawing the block for its own scheme while the window prefers dark; and `fixtures/mantine/expected.json`.
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).
