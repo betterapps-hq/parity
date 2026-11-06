@@ -39,7 +39,7 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
 
 | Build                      | Release                 | Source maps                                                         |
 | -------------------------- | ----------------------- | ------------------------------------------------------------------- |
-| Installed (`tester`)       | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Upload source maps, once it's public |
+| Published (`tester`)       | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Upload source maps, once it's public |
 | CI (`ci`)                  | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build   |
 | `pnpm dev` (`development`) | The commit's full hash  | Read locally: stacks are resolved before they're sent               |
 
@@ -47,11 +47,13 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
   gives each bundle a debug ID with `sentry-cli sourcemaps inject`, and moves the maps, with a copy of their bundles, to
   `apps/desktop/sourcemaps/`. The installer ships no maps. `out/package.json` and `sourcemaps/build.json` record the
   commit.
-- **`node apps/desktop/scripts/upload-sourcemaps.ts --environment ci|tester [--link-commits]`** creates the release,
-  uploads `sourcemaps/` and finalizes it. `--link-commits` ties the release to its commit in `betterapps-hq/parity`,
-  which suspect commits and "resolved in the next release" use.
+- **`node apps/desktop/scripts/upload-sourcemaps.ts [--published] [--link-commits]`** creates the release, uploads
+  `sourcemaps/` and finalizes it. `--link-commits` ties the release to its commit in `betterapps-hq/parity`, which
+  suspect commits and "resolved in the next release" use.
 - **Electron's native crashes** are symbolicated by Sentry's built-in Electron, Apple and Microsoft symbol servers,
   which `parity-desktop`'s Settings > Debug Files had on from the start, as Sentry does for an Electron project.
+- **Other installed builds,** such as pull requests' preview installers, are named by their commit, so they stay out of
+  a published version's release. Their maps aren't uploaded yet.
 - **Each event's `dist`** is the platform and architecture, such as `win32-x64`, and an installed build's events carry
   `update_channel`, `stable` or `beta`.
 

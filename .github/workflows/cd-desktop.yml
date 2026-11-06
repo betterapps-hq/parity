@@ -75,7 +75,7 @@ jobs:
       - name: Upload to Sentry
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: node apps/desktop/scripts/upload-sourcemaps.ts --environment tester --link-commits
+        run: node apps/desktop/scripts/upload-sourcemaps.ts --published --link-commits
 
   beta:
     name: Beta available

@@ -115,7 +115,7 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           LINK_COMMITS: ${{ github.event_name == 'push' && '--link-commits' || '' }}
-        run: node apps/desktop/scripts/upload-sourcemaps.ts --environment ci $LINK_COMMITS
+        run: node apps/desktop/scripts/upload-sourcemaps.ts $LINK_COMMITS
 
   # The one check the main branch's ruleset requires, so it needn't change when jobs or systems do.
   ci-passes:

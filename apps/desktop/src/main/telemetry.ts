@@ -32,11 +32,14 @@ export function startTelemetry(
   env: NodeJS.ProcessEnv,
   {
     installed,
+    published,
     commit,
     rendererName
   }: {
     installed: boolean
-    /** The commit the build was made from, which names a development or CI build's release (PAR-625). */
+    /** Whether the release workflow published this build, which names its release by version (PAR-625). */
+    published: boolean
+    /** The commit the build was made from, which names any other build's release. */
     commit: string | undefined
     rendererName: (contents: WebContents) => string | undefined
   }
@@ -48,7 +51,7 @@ export function startTelemetry(
   Sentry.init({
     dsn,
     environment,
-    release: telemetryRelease({ project: "parity-desktop", version: app.getVersion(), environment, commit }),
+    release: telemetryRelease({ project: "parity-desktop", version: app.getVersion(), published, commit }),
     // Each platform's installer is its own build of the release.
     dist: `${process.platform}-${process.arch}`,
     enabled: level !== "off",

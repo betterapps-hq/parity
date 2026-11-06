@@ -4678,11 +4678,13 @@ PAR-661 and PAR-665), along with a real one it hit (PAR-662).
 
 How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
 
-- **Installed builds are named by version, as `parity-desktop@0.21.0`, and development and CI builds by their full
-  commit hash,** as the plan says. `telemetryRelease` in `@parity-app/telemetry` decides, so the CLI can share it. A
-  build whose commit isn't known is `parity-desktop@<version>+<environment>`, so it never joins a published version's
-  release. `dist` is the platform and architecture, such as `win32-x64`, and an installed build tags its events with
-  `update_channel`, stable or beta, the update preference, which changes as the person changes it.
+- **Published builds are named by version, as `parity-desktop@0.21.0`, and every other build by its full commit hash,**
+  as the plan says for installed, development and CI builds. My call: "published" means the release workflow built it,
+  which marks it beta, so a pull request's preview installer, which also runs as `tester`, doesn't join a version's
+  release with code that isn't in it. `telemetryRelease` in `@parity-app/telemetry` decides, so the CLI can share it. A
+  build whose commit isn't known is `parity-desktop@<version>+unreleased`. `dist` is the platform and architecture, such
+  as `win32-x64`, and an installed build tags its events with `update_channel`, stable or beta, the update preference,
+  which changes as the person changes it.
 - **Maps are matched by debug ID, not by file name and release.** `sentry-cli sourcemaps inject` gives each bundle an ID
   from its contents, so the same code gets the same ID on every system and every run. One upload then covers all three
   installers, and a renamed or moved file still resolves.

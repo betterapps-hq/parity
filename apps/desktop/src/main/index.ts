@@ -54,7 +54,7 @@ import type {
   ServiceProcessMethods
 } from "../shared/service.ts"
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
-import { builtCommit, InstalledBuild } from "./build-info.ts"
+import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
@@ -74,10 +74,13 @@ import { createUpdates } from "./updates.ts"
 const environment = readEnvironment(process.env)
 /** The app's own package.json: the build's, or the checkout's when run from source. */
 const appManifest = () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")) as unknown
+const built = builtRelease(appManifest)
+const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
 // Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
 startTelemetry(process.env, {
-  installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
-  commit: builtCommit(appManifest) ?? environment.PARITY_COMMIT,
+  installed,
+  published: installed && built.published,
+  commit: built.commit ?? environment.PARITY_COMMIT,
   rendererName: (contents) => {
     const window = BrowserWindow.fromWebContents(contents)
     if (!window) return undefined

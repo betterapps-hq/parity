@@ -14,13 +14,17 @@ const appManifest = z.looseObject({
   commit: z.string().optional().catch(undefined)
 })
 
-/** The commit a built app was made from, which names its Sentry release (PAR-625); nothing for one run from source. */
-export function builtCommit(metadata: () => unknown): string | undefined {
+/**
+ * What names a built app's Sentry release (PAR-625): whether the release workflow published it, which marks it beta,
+ * and the commit it was made from. Neither for one run from source.
+ */
+export function builtRelease(metadata: () => unknown): { published: boolean; commit?: string } {
   try {
-    return appManifest.safeParse(metadata()).data?.commit
+    const manifest = appManifest.safeParse(metadata()).data
+    return { published: manifest?.releaseChannel === "beta", commit: manifest?.commit }
   } catch {
-    // A missing or unreadable package.json only leaves the release named by version.
-    return undefined
+    // A missing or unreadable package.json leaves the release named by the dev runner's commit, if any.
+    return { published: false }
   }
 }
 
