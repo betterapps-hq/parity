@@ -23,6 +23,8 @@ export interface ResizeHandlesProps {
     box: { x: number; y: number; w: number; h: number }
     color: string
     edges: Edge[]
+    /** What its handles say they do, when it isn't a layer's or a preview's. */
+    label?: string
   }
   onStart: (edge: Edge, event: ReactPointerEvent) => void
   /** A double-click: `fill` when the keys for filling rather than hugging are held, for a layer. */
@@ -46,7 +48,7 @@ export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps)
     return (
       <Hint
         key={edge}
-        label={handles.kind === "frame" ? "Drag to resize this preview" : "Drag to resize"}
+        label={handles.label ?? (handles.kind === "frame" ? "Drag to resize this preview" : "Drag to resize")}
         detail={
           handles.kind === "frame" ? (
             "Double-click to reset."

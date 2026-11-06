@@ -1,7 +1,7 @@
 import type { ContainerKind } from "@parity-app/core"
 
 /**
- * What a screen or component is called in a sentence: its kind, "screen" or "component". A container with no kind is a
+ * What a design is called in a sentence: its kind, "screen", "component" or "frame". A container with no kind is a
  * screen. Labels and messages use it rather than "design", which names the inspector's tab, not a thing.
  */
 export function kindName(kind: ContainerKind | undefined): string {
@@ -15,7 +15,7 @@ export function kindTitle(kind: ContainerKind | undefined): string {
 }
 
 /** The order kinds are named in a mix, as the canvas's menus and Layers list them. */
-const kindOrder: readonly string[] = ["screen", "component"]
+const kindOrder: readonly string[] = ["screen", "component", "frame"]
 
 /**
  * Screens and components counted by kind, for a label that names what it acts on: "screen" for one, "2 components" for

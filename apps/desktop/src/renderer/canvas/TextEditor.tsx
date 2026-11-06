@@ -1,4 +1,11 @@
-import { openingSelection, type TextRange, textSizing, textToEdit, withEditedText } from "@parity-app/editor"
+import {
+  openingSelection,
+  type TextRange,
+  textFrameRenamed,
+  textSizing,
+  textToEdit,
+  withEditedText
+} from "@parity-app/editor"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import { useProject } from "./context.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
@@ -95,8 +102,14 @@ export function TextEditor() {
     if (original === undefined || text === original) return
     // Written to the state it was read from, by the same rule (see `textToEdit`).
     if (!store.getEntry(editing.design)) return
+    // A text frame named after its text follows it (see `textFrameRenamed`), in the same step.
     store.updateContainer(editing.design, "Edit text", (container) =>
-      withEditedText(container, editing.state, editing.node, text, store.getLibrary(editing.design))
+      textFrameRenamed(
+        withEditedText(container, editing.state, editing.node, text, store.getLibrary(editing.design)),
+        editing.node,
+        original,
+        text
+      )
     )
   }
 
