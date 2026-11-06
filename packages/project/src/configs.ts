@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises"
 import { dirname, relative, resolve } from "node:path"
-import { parseJsonc } from "@parity-app/core"
+import { packageManifest, parseData, parseJsonc } from "@parity-app/core"
 import { createConfigLoader, type LoadConfigSource } from "unconfig"
+import { z } from "zod"
 
 /**
  * Where a tool keeps its config, as data: the names it looks for, in its order. `unconfig` does the searching, so every
@@ -33,18 +34,19 @@ export interface FoundConfig<T = unknown> {
 export async function findConfig(root: string, folder: string, source: ConfigSource): Promise<string | undefined> {
   const [found] = await loader(folder, { ...source, packageKey: undefined }).findConfigs()
   if (found !== undefined) return toPosix(relative(root, found))
-  return source.packageKey ? (await loadConfig(root, folder, source))?.path : undefined
+  return source.packageKey ? (await loadConfig(root, folder, source, z.unknown()))?.path : undefined
 }
 
 /**
- * A config's value. A JavaScript or TypeScript config runs, as the tool itself would run it, through `jiti`. A config
- * that fails to load throws, with its path in the message.
+ * A config's value, as `schema` reads it. A JavaScript or TypeScript config runs, as the tool itself would run it,
+ * through `jiti`. A config that fails to load, or that `schema` refuses, throws, with its path in the message.
  */
-export async function loadConfig<T>(
+export async function loadConfig<T extends z.ZodType>(
   root: string,
   folder: string,
-  source: ConfigSource
-): Promise<FoundConfig<T> | undefined> {
+  source: ConfigSource,
+  schema: T
+): Promise<FoundConfig<z.output<T>> | undefined> {
   let result: { config: unknown; sources: string[] }
   try {
     result = await loader(folder, source).load()
@@ -52,8 +54,14 @@ export async function loadConfig<T>(
     const reason = error instanceof Error ? error.message : String(error)
     throw new Error(`Couldn't load ${source.files.join(" or ")}: ${reason}`, { cause: error })
   }
-  const [path] = result.sources
-  return path === undefined ? undefined : { path: toPosix(relative(root, path)), value: result.config as T }
+  const [found] = result.sources
+  if (found === undefined) return undefined
+  const path = toPosix(relative(root, found))
+  try {
+    return { path, value: parseData(schema, result.config) }
+  } catch (error) {
+    throw new TypeError(`${path}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+  }
 }
 
 function loader(folder: string, source: ConfigSource) {
@@ -76,7 +84,8 @@ function loader(folder: string, source: ConfigSource) {
       files: ["package"],
       extensions: ["json"],
       // Only a package.json that has the key counts; the search goes on past one that doesn't.
-      rewrite: (value) => (value as Record<string, unknown>)?.[key]
+      // A package.json the schema refuses has no config in it either.
+      rewrite: (value) => packageManifest.safeParse(value).data?.[key]
     })
   }
   // unconfig stops before `stopAt`, so the folder's parent keeps the search in the folder.

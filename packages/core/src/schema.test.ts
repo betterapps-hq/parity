@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
-import { packageManifest } from "./adapters.ts"
+import { packageManifest, parseManifest } from "./adapters.ts"
 import { CodedError, errorDetails } from "./errors.ts"
 import {
   checkData,
@@ -133,5 +133,26 @@ describe("packageManifest", () => {
     expect(parseData(packageManifest, { exports }).exports).toEqual(exports)
     expect(parseData(packageManifest, { exports: "./index.js" }).exports).toBe("./index.js")
     expect(() => parseData(packageManifest, { exports: { ".": { import: 1 } } })).toThrow("/exports")
+  })
+
+  it("reads bin, repository and packageManager in either form a package writes them", () => {
+    const tool = { bin: "./cli.js", repository: "github:acme/ui", packageManager: "pnpm@10.4.0" }
+    expect(parseData(packageManifest, tool)).toEqual(tool)
+    const multi = { bin: { acme: "./cli.js" }, repository: { type: "git", url: "https://github.com/acme/ui.git" } }
+    expect(parseData(packageManifest, multi)).toEqual(multi)
+  })
+
+  it("names the file and the field of the wrong type", () => {
+    expect(parseManifest('{"name":"app","version":"1.0.0"}', "/app/package.json")).toEqual({
+      name: "app",
+      version: "1.0.0"
+    })
+    expect(() => parseManifest('{"bin":["./cli.js"]}', "/app/package.json")).toThrow(
+      "/app/package.json: /bin: expected a string or an object"
+    )
+    expect(() => parseManifest('{"repository":{"url":1}}', "/app/package.json")).toThrow(
+      "/app/package.json: /repository/url: expected a string"
+    )
+    expect(() => parseManifest("{", "/app/package.json")).toThrow("/app/package.json: /: expected JSON")
   })
 })
