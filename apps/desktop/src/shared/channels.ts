@@ -23,6 +23,14 @@ export const ipc = {
   toggleDevTools: "canvas:toggle-dev-tools",
   setTheme: "canvas:set-theme",
   metrics: "canvas:metrics",
+  /** Who's signed in and how far a sign-in has got, from main (PAR-612). */
+  accountState: "canvas:account-state",
+  /** Main tells windows the account changed. */
+  accountChanged: "canvas:account-changed",
+  accountSignIn: "canvas:account-sign-in",
+  accountReopen: "canvas:account-reopen",
+  accountCancel: "canvas:account-cancel",
+  accountSignOut: "canvas:account-sign-out",
   /** Main asks a window whether it may close. */
   closing: "canvas:closing",
   /** The window answers at once that it's deciding, then that it's ready to close or wants to stay open. */

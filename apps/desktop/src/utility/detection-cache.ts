@@ -2,24 +2,49 @@ import { createHash } from "node:crypto"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import type { ComponentInfo, ComponentSource, LeftOutExport } from "@parity-app/core"
+import { type ComponentInfo, type ComponentSource, jsonText } from "@parity-app/core"
 import { detectionFingerprint, readTsconfig } from "@parity-app/project"
+import { z } from "zod"
+import { environment } from "./environment.ts"
 import { checkerVersion } from "./props.ts"
+
+/**
+ * A saved component's or its props' outer shape, which is all that's checked: the file outlives app updates, but the
+ * props records inside are large, and they're the checker's own output from a version with the same fingerprint.
+ */
+const sourceShape = z.looseObject({ path: z.string(), export: z.string() })
+const infoShape = z.looseObject({ name: z.string(), path: z.string(), props: z.array(z.unknown()) })
+const savedSource = z.custom<ComponentSource>((value) => sourceShape.safeParse(value).success)
+const savedInfo = z.custom<ComponentInfo>((value) => infoShape.safeParse(value).success)
 
 /**
  * What the type checker and props found in a project, saved outside it under a fingerprint of what they read, so
  * reopening it unchanged doesn't start over: copacker's took 10 seconds and over a gigabyte.
  */
-export interface SavedDetection {
-  fingerprint: string
+const savedDetectionFile = z.object({
+  fingerprint: z.string(),
   /** The components once the checker had read them. */
-  sources: Record<string, ComponentSource>
-  props: Record<string, ComponentInfo>
+  sources: z.record(z.string(), savedSource),
+  props: z.record(z.string(), savedInfo),
   /** The exports the checker left out, with why. */
-  leftOut?: LeftOutExport[]
-}
+  leftOut: z
+    .array(
+      z.object({
+        name: z.string(),
+        path: z.string(),
+        export: z.string(),
+        reason: z.string(),
+        undecided: z.literal(true).optional()
+      })
+    )
+    .optional()
+})
 
-const cacheDir = process.env.PARITY_CACHE_DIR ?? join(homedir(), ".parity", "cache", "detection")
+export type SavedDetection = z.infer<typeof savedDetectionFile>
+
+const savedText = jsonText(savedDetectionFile)
+
+const cacheDir = environment().PARITY_CACHE_DIR ?? join(homedir(), ".parity", "cache", "detection")
 
 function cacheFile(root: string): string {
   return join(cacheDir, `${createHash("sha256").update(root).digest("hex").slice(0, 24)}.json`)
@@ -35,12 +60,10 @@ export async function savedDetection(
   discovered: Record<string, ComponentSource>
 ): Promise<{ fingerprint: string; saved?: SavedDetection }> {
   const fingerprint = await fingerprintOf(root, files, discovered)
-  try {
-    const saved = JSON.parse(await readFile(cacheFile(root), "utf8")) as SavedDetection
-    return saved.fingerprint === fingerprint ? { fingerprint, saved } : { fingerprint }
-  } catch {
-    return { fingerprint }
-  }
+  // None yet, one cut short, or one this version can't read: the checker reads the project again.
+  const text = await readFile(cacheFile(root), "utf8").catch(() => undefined)
+  const saved = text === undefined ? undefined : savedText.safeParse(text).data
+  return saved?.fingerprint === fingerprint ? { fingerprint, saved } : { fingerprint }
 }
 
 /**

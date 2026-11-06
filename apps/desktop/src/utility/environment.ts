@@ -9,31 +9,65 @@ const positive = z
   .pipe(z.int().min(1, "expected a whole number"))
 
 /**
- * Which copy of the app this service belongs to (PAR-598), as the main process tells it when it starts the service: its
- * process id and when it started, which name the copy's agent registry entry. A service started some other way, as by
- * a test, has neither.
+ * The project service's environment, as main sets it when it starts the service, or as a developer sets it to try
+ * something. Every variable is optional: a service started some other way, as by a test, has none.
  */
-const copyEnvironment = z.object({
+const serviceEnvironment = z.object({
+  /** Origins besides the canvas's own that may load a project's guest, separated by commas. */
+  PARITY_ALLOWED_ORIGINS: z
+    .string()
+    .transform((origins) => origins.split(",").filter(Boolean))
+    .optional(),
+  /** The project Parity was started with, when the window doesn't name one. */
+  PARITY_PROJECT: z.string().optional(),
+  /** Set when the service runs from source, so the guest module comes from the renderer package, not the bundle. */
+  PARITY_DEV_RUNNER: z.string().optional(),
+  /** How long the type checker keeps its programs with nothing asked of it (see `checkerIdleMs`). */
+  PARITY_CHECKER_IDLE_MS: positive.optional(),
+  /** Where what the type checker found is saved (see detection-cache.ts). */
+  PARITY_CACHE_DIR: z.string().optional(),
+  /** Where frame bitmaps and component previews are kept (see bitmap-store.ts). */
+  PARITY_BITMAP_DIR: z.string().optional(),
+  /** Where projects' pictures for the start page are kept (see pictures.ts). */
+  PARITY_PICTURE_DIR: z.string().optional(),
+  /** The list of projects open when the service last ran (see reopening.ts). */
+  PARITY_REOPEN_FILE: z.string().optional(),
+  /** Portless's state folder, when it isn't `~/.portless` (see portless.ts). */
+  PORTLESS_STATE_DIR: z.string().optional(),
+  /**
+   * Which copy of the app this service belongs to (PAR-598): its process id and when it started, which name the copy's
+   * agent registry entry.
+   */
   PARITY_APP_PID: positive.optional(),
   PARITY_APP_STARTED: positive.optional()
 })
 
-export type CopyEnvironment = z.infer<typeof copyEnvironment>
+export type ServiceEnvironment = z.infer<typeof serviceEnvironment>
 
 /**
- * Reads the copy's variables from `env`, or throws `TypeError` naming the one at fault. An empty variable counts as
+ * Reads the service's variables from `env`, or throws `TypeError` naming the one at fault. An empty variable counts as
  * unset, as a shell's `NAME=` means.
  */
-export function readCopyEnvironment(env: NodeJS.ProcessEnv): CopyEnvironment {
-  const { PARITY_APP_PID, PARITY_APP_STARTED } = env
+export function readServiceEnvironment(env: NodeJS.ProcessEnv): ServiceEnvironment {
   const set = Object.fromEntries(
-    Object.entries({ PARITY_APP_PID, PARITY_APP_STARTED }).filter(([, value]) => value !== undefined && value !== "")
+    Object.keys(serviceEnvironment.shape).flatMap((name) => {
+      const value = env[name]
+      return value === undefined || value === "" ? [] : [[name, value]]
+    })
   )
   try {
-    return parseData(copyEnvironment, set)
+    return parseData(serviceEnvironment, set)
   } catch (error) {
     throw new TypeError(
-      `The agent server can't start with this environment variable: ${(error as Error).message.slice(1)}`
+      `The project service can't start with this environment variable: ${(error as Error).message.slice(1)}`
     )
   }
+}
+
+let read: ServiceEnvironment | undefined
+
+/** The service's environment, read from `process.env` the first time it's asked for. */
+export function environment(): ServiceEnvironment {
+  read ??= readServiceEnvironment(process.env)
+  return read
 }

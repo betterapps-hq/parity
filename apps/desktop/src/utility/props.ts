@@ -5,6 +5,7 @@ import { Worker } from "node:worker_threads"
 import type { CheckResult } from "@parity-app/code"
 import type { ComponentInfo, ComponentSource } from "@parity-app/core"
 import { findLockfiles } from "@parity-app/project"
+import { environment } from "./environment.ts"
 import type { CheckerMethods } from "./props-worker.ts"
 import { type WorkerClient, workerClient } from "./worker-client.ts"
 
@@ -25,7 +26,7 @@ export const checkerVersion = (() => {
  * MB, and Copacker's is 1.26 GB), and the next request builds its project's program again, about a second more on the
  * example. `PARITY_CHECKER_IDLE_MS` changes it, for measuring.
  */
-export const checkerIdleMs = Number(process.env.PARITY_CHECKER_IDLE_MS) || 5 * 60_000
+export const checkerIdleMs = environment().PARITY_CHECKER_IDLE_MS ?? 5 * 60_000
 
 /** Props and the component check, read by TypeScript's checker in a worker thread, one request at a time. */
 export interface TypeChecker {
