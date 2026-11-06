@@ -1,16 +1,16 @@
 /* oxlint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-tabindex -- the canvas takes keys and the boxes stand in for the canvas's layers, which take the pointer; the keyboard reaches them through Layers and the canvas's keys, as in the app */
 import { Kbd, KbdGroup } from "@buildkitgg/shadcn-baseui-kit"
 import { childNodes, type DesignNode, type Length, type NodeStyle } from "@parity-app/core"
+import { selectedNodes, type Selection, sidesOf } from "@parity-app/editor"
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../../canvas/kinds.tsx"
 import { containerModes } from "../../canvas/view.ts"
 import { selectChildren, selectParent, stepBack } from "../../chrome/commands.ts"
 import { formatKeys } from "../../chrome/keys.ts"
-import { sidesOf } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { type ContainerEntry, useContainerEntries, useContainerEntry, useModeSettings } from "../../design-store.ts"
-import { selectedNodes, type Selection, useHover, useSelection } from "../../selection.ts"
+import { useHover, useSelection } from "../../selection.ts"
 import { spacingUnit, useTokenList } from "../../tokens-store.ts"
 
 /*

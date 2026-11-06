@@ -1,8 +1,43 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 05 Nov 2026 23:43:49 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 01:01:44 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.12.5
+
+Fri, 06 Nov 2026 01:01:44 GMT
+
+### Patches
+
+- Work out which design, state and viewport an edit lands on in one place, and place the text tool's text where a drop
+  would land (ajcraswell@gmail.com)
+
+## 0.12.4
+
+Fri, 06 Nov 2026 00:40:08 GMT
+
+### Patches
+
+- The agent server answers through @parity-app/agent's dispatch; the app keeps only the HTTP server and its host
+  (ajcraswell@gmail.com)
+- Style rows reset everything their edits write, and read a layer's parent inside instances as the copy shows it
+  (PAR-567) (ajcraswell@gmail.com)
+
+## 0.12.3
+
+Fri, 06 Nov 2026 00:18:31 GMT
+
+### Patches
+
+- A coded error from the project service reaches the window with its code, field and alternatives (ajcraswell@gmail.com)
+- The window answers the project service's agent.supports requests again (ajcraswell@gmail.com)
+- Absolutely placed layers preview while dragged and save once on drop; dropping from the panel and layer snapping
+  measure less per move; a field scrub commits without a gesture of its own. (ajcraswell@gmail.com)
+- Requests between the window, the project service, main and the type checker go through one channel, and the service
+  checks each request the window sends it (ajcraswell@gmail.com)
+- Refuse SetTokens values the token detail refuses: brackets, missing tokens, loops, and values not of the token's kind
+  (ajcraswell@gmail.com)
 
 ## 0.12.2
 

@@ -2401,7 +2401,7 @@ How Parity's code is split, so the parts that change most are easy to find, repl
     records no step. The app keeps the undo labels, the messages, the selection, the system clipboard, saving images and
     the designs' boxes on the canvas, which it measures with tldraw and passes in.
   - The state being edited is passed in as a `StateSpec`. `editingState`, which picks it, stays in the app's
-    `LayerPanel.tsx` until a package needs to choose it.
+    `LayerPanel.tsx` until a package needs to choose it. PAR-570 moved it into the package (below).
   - The rules have names of their own (`removeLayers`, `copyLayersInPlace`, `wrapInLayout`, `styleOf`, `applyStyle` and
     so on), so the app's commands keep theirs and nothing is imported under another name.
   - `paste-over.ts` moved with the clipboard, with its tests, since it was already pure and is where pasted layers go.
@@ -3801,7 +3801,21 @@ below. My calls on how they move:
   - A few messages say more than before. A length that's neither a number nor a string says
     `expected a number or a string`, padding names its three forms, and a problem in a file's modes points inside
     `/modes`.
-  - `validate.ts` is left only for `library.ts`, until PAR-594.
+- **`.lib.par` files and edits are zod schemas (PAR-594).** `parseLibraryManifest` and `parseLibraryEdits` check with
+  them, and the library types come from `z.infer`. Core's `validate.ts` is gone. My calls:
+  - `canvas` is PAR-589's document schema, so a problem in it points inside `/canvas`.
+  - A decorator's one effect and an icon pattern that compiles are refinements. Breakpoints are sorted by a transform.
+  - Decorator values are checked when the file loads. An object with `$import`, `$call`, `$global`, `$frame` or
+    `$function` must be that form, and any other object is plain JSON. Each form is checked only when its key is there,
+    so a broken one reports its own mistake rather than the closest other form. The value types stay `unknown` until
+    PAR-572 builds the one evaluator on this grammar.
+  - Samples' props aren't checked against the value grammar yet; PAR-572 brings samples' made values under it.
+  - Unions put a type check before a literal (`"export"` for an icon set's renderer, `false` for a dropped component),
+    so a malformed renderer or edit reports its own mistake rather than `expected "export"`.
+  - The registry's schema is the manifest's shape with `package` required. A file without one is skipped with
+    `/package: a registry file names the package it describes`, as before.
+  - Booleans in a component entry keep `expected a boolean`. A problem in a decorator of a manifest's own `edits` now
+    points at `/edits/decorators/…`, not `/decorators/…`.
 - **Everything that crosses into Parity is checked:**
   - project and library files
   - the clipboard, drag payloads and saved preferences
@@ -3857,6 +3871,17 @@ below. My calls on how they move:
   - A stroke style's dash pattern is written as `dashed`, since a CSS border can't draw one.
   - `parseData` passes over a union's options for another type of value, so a malformed shadow reports its bad part
     rather than `expected a string`.
+- **The clipboard, drag payloads and saved values are zod schemas (PAR-595).** My calls:
+  - The clipboard's envelope is a plain object, so a field a newer copy adds to the envelope is ignored, but what it
+    holds isn't: the payload is a discriminated union on `kind` of core's `nodeTree`, `containerSpec` and `noteSpec`,
+    which core now exports, each list at least one long. A copy that doesn't match pastes nothing, as before.
+  - Drags read through `readInsertItem` and `readLayersDrag` in `@parity-app/editor`. A drop whose data doesn't read
+    does nothing.
+  - Preferences, the panel layout and the saved tabs put `.catch` on each field. Text that isn't JSON or isn't an object
+    reads as the defaults. A panel width outside `panelLimits` falls back to its default, and a saved tab or recent
+    project that isn't a root is left out.
+  - axe-core's `check.data` for color contrast is a schema that turns into `ContrastDetail`. Data that doesn't match
+    gives no contrast detail, and axe-core's own message shows instead.
 - **New code adds no hand-written parsers.**
 
 The issues, in order. PAR-588 comes first, since it adds zod.
@@ -4285,6 +4310,30 @@ see changes. My calls:
   presses on the real stores. Resizing a frame, the double-click resets, `grow`, a resize's snapped edges and the drag
   have tests from boxes now.
 
+## Style editing for a selection is one editor module (PAR-567)
+
+The inspector's style rows were wired three times, in the layer panel, the several-layers panel and the stories, each
+working out where edits go, what differs and the parent's layout by hand, and each row named its keys three times apart
+from what its edit wrote. Now `style-editing.ts` in `@parity-app/editor` holds the rules, and the app keeps the views,
+measuring, previewing and the store (see editor.md, Typing, stepping and scrubbing). My calls:
+
+- **A row's keys are what its edit writes.** `styleRows` lists each row's keys once, and a row's edit is typed to write
+  only those. Where an edit wrote more than the row reset, the row took the extra keys: Placement resets the insets it
+  sets, Width and Height reset the `grow` they replace (only along the parent's direction, where `grow` fills), Type
+  resets the columns a new grid gets, and Resizing resets `grow` (PAR-582). So resetting one of these in a state takes
+  back everything its edit wrote, and the row shows as changed or mixed by any of them.
+- **One wiring for every panel.** `chrome/style-editor.ts`'s `useStyleEditor` is how the layer panel, the several-layers
+  panel, the screen-container exploration and the stories edit style. The stories used to edit the state alone and read
+  changes from it; now they edit the variant shown too.
+- **Edits work from each layer's own style.** Switching to a grid, placing absolutely and changing a size used the
+  shared style; now each layer keeps its own columns, insets and `grow`, as a field's edit already did.
+- **The parent is read as the board shows it, inside instances too.** A layer inside an instance read its parent as the
+  component has it, without the copy's or the variant's changes; it's read as that copy shows it now.
+- **Several layers can include layers inside instances.** The several-layers panel skipped them; they're edited as each
+  copy's changes now, as one such layer is.
+- **It works out the state itself,** from the one the layers were picked in, with `editingState` from `editing-state.ts`
+  (PAR-551), so a panel passes the picked state rather than a `StateSpec`.
+
 ## Installed packages are read one way (PAR-573)
 
 The architecture review of 2026-11-04 found that finding an installed package and the file it points to was written
@@ -4554,3 +4603,72 @@ gutter. My calls:
   label can be short of space. Closer in, the line between rows alone is 73 pixels on screen.
 - **Left for later:** captions still truncate and fade by 25% (PAR-151), where the exploration's drop their chips
   instead, never truncate, and stay until 10%; and a title doesn't yet drop its menus before its name.
+
+## The app's half of an agent call is in `@parity-app/agent` (PAR-564)
+
+The app's side of every agent call was `utility/agent.ts`, which only ran in Electron and had no tests, and each
+method's shapes were declared four times. My calls:
+
+- **`dispatch` answers by `AgentMethods`,** the map in `contracts.ts` that pairs each method's checked input with its
+  answer, from PAR-590's schemas. The CLI client's `call` asks by the same map, so the request and answer types are one
+  declaration. The answer schemas' objects stay open, so `dispatch` checks its answers against them with the index
+  signatures taken out, which lets the agent's own interfaces stand in without a cast.
+- **The seam is an `AgentHost`,** beside `AgentHooks`. `dispatch` builds each call's `AgentHooks` from it: presence,
+  rendering, icon names and applying changes. It also reads tabs, snapshots, status and the console, and keeps
+  screenshots. The desktop and the tests' fixture tab are its two hosts.
+- **The window's snapshot is the agent's `TabSnapshot`,** declared in the agent package, as are `TabSummary`,
+  `PresenceEvent` and `ConsoleEntry`, which `shared/protocol.ts` now re-exports. The workspace takes the snapshot as it
+  is, with `tab` set to the tab's id, so `toAgentSnapshot`'s copy of 13 fields is gone.
+- **An unknown method fails with `invalid_input` on `method`,** naming the methods there are, rather than a plain error
+  the CLI reports as `app_error`.
+- **Params still arrive unchecked.** `dispatch` takes them as the CLI sends them, after its own check. Checking them in
+  the app with the same schemas is PAR-598.
+- **Export and the window's accessibility check go through the package too:** `exportPictures` names each picture and
+  `accessibility` checks a design, and the app writes the files.
+
+## The edit target and placing at a point are `@parity-app/editor`'s (PAR-570)
+
+You reopened PAR-7's call that `editingState` stays in `LayerPanel.tsx` "until a package needs to choose it" on
+2026-11-04: there were four copies of the rule, the text editor read by one and wrote by another, and PAR-170 needs the
+design and state together on the write side. My calls in moving it:
+
+- **The selection model moved, the store stayed.** `Selection` and the functions that read and build one
+  (`selectedNodes`, `layersSelection`, `toggleLayer`, `selectionKey` and the rest) are
+  `packages/editor/src/selection.ts`. `SelectionStore`, hover, the tool and the React hooks stay in the app's
+  `selection.ts`, since they hold state for a tab rather than rules.
+- **The edit target is `editFrame`,** since core's `EditTarget` already names a state and variant. It takes what was
+  picked (`Picked`: a design, and the frame's mode and state), so a selection, a hit, resize handles and the text being
+  edited all go through it, and gives the design's key, its container, the state and the viewport. `editingState` and
+  `activeState`, which PAR-551 had moved into `editing-state.ts`, joined it there with their tests, and the mode's
+  viewport moved too. The viewport function is `modeViewport`, since core's `frameViewport` already means a frame's
+  viewport from its width. `DesignStore.editFrame` looks the design up, so callers write `store.editFrame(selection)`.
+- **Several designs edit the one picked last,** as the canvas menu and the inspector already read them, and a note or
+  nothing has no edit target.
+- **Placing at a point is one step in the app, `placeAtPoint`,** which hits, measures the layout in the frame and asks
+  `slotHere`. Measuring needs the DOM, so it stays in the app; the rules (`slotHere`, `pasteHere`) were already the
+  package's. Insert, image drops, Paste here and the text tool all use it. The text tool adds its layer through
+  `pasteHere`, so it lands where a drop does, in the slot under the pointer, rather than after the layer under it.
+- **The text editor reads and writes through `editFrame`.** That makes PAR-585's two rules one. PAR-585 stays open for
+  its reproduction and test, as it asks.
+
+## Lint, board geometry and frame reading are modules of the agent package (PAR-574)
+
+The agent workspace had grown to 2,004 lines, and three of its parts only took data. PAR-574 split them out. My calls in
+doing it:
+
+- **Three modules, each tested on its own.** `lint.ts` takes a document and what it's checked against (components,
+  tokens, icon sets, the component designs instances place, props, and the nodes the call inserted) and returns
+  warnings. `boards.ts` takes boards and returns overlaps, overlap warnings and empty space. `frames.ts` takes a design,
+  a state, a mode and a drawn frame and returns its problems, its accessibility findings and their contrast fixes.
+- **Lint takes the inserted nodes too.** Props and unnamed layouts are only checked on what the call inserted, so that
+  set is part of its input rather than state it reaches for.
+- **`propWarnings` is shared.** `Update` checks a component's props as it changes them, and lint checks them on what was
+  inserted, so both use the one function.
+- **Accessibility's per-frame reading moved with Problems.** Both read one drawn frame, so both are frame reading; the
+  workspace keeps the loop over states and modes, which draws the frames.
+- **`api()` is typed by inference.** `AgentApi` is `ReturnType<AgentWorkspace["api"]>`, so it can't drift from the
+  functions. PAR-564 had moved the casts from the app into `dispatch.ts`, so they're gone from there, with the
+  hand-written `CheckApi` and `ReadApi`. `accessibility` now takes the workspace's `MatrixOptions` rather than `unknown`
+  options.
+- **The rest stays together.** The working copy, lookup, reads, edits and presence share the working copy, lookup and
+  `emit`, so they stay in `workspace.ts`, now about 1,640 lines.

@@ -2,6 +2,81 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 06 Nov 2026 01:01:44 GMT",
+      "version": "0.12.5",
+      "tag": "@parity-app/desktop_v0.12.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0a9ad70f93fddb613ef0dcb12c54794e5ad5dbd0",
+            "comment": "Work out which design, state and viewport an edit lands on in one place, and place the text tool's text where a drop would land"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 00:40:08 GMT",
+      "version": "0.12.4",
+      "tag": "@parity-app/desktop_v0.12.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a24c9dd1a9212f57c3cf8d0d7e67020f5dc655e1",
+            "comment": "The agent server answers through @parity-app/agent's dispatch; the app keeps only the HTTP server and its host"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c706564b4fd41596c99db71d73cf0d4854f1349f",
+            "comment": "Style rows reset everything their edits write, and read a layer's parent inside instances as the copy shows it (PAR-567)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 00:18:31 GMT",
+      "version": "0.12.3",
+      "tag": "@parity-app/desktop_v0.12.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "19c2fcaaa90090cc03a95c66173cef1ba67b03d4",
+            "comment": "A coded error from the project service reaches the window with its code, field and alternatives"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "59aaecab3f888ce6764f7833077c9da6fbea3eb4",
+            "comment": "The window answers the project service's agent.supports requests again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b9420530fb6f2f527d57d01dd0ea5b83f960f4dc",
+            "comment": "Absolutely placed layers preview while dragged and save once on drop; dropping from the panel and layer snapping measure less per move; a field scrub commits without a gesture of its own."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "46913a177375f7686a70954a3d181065cbb630bb",
+            "comment": "Requests between the window, the project service, main and the type checker go through one channel, and the service checks each request the window sends it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "36d7ad9a587b7873cba2a5841e0dab19baa134e7",
+            "comment": "Refuse SetTokens values the token detail refuses: brackets, missing tokens, loops, and values not of the token's kind"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 05 Nov 2026 23:43:49 GMT",
       "version": "0.12.2",
       "tag": "@parity-app/desktop_v0.12.2",

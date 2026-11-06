@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { realpathSync } from "node:fs"
 import { homedir } from "node:os"
-import { replies, rpcReply } from "@parity-app/agent/contracts"
+import { type AgentMethod, type AgentMethods, replies, rpcReply } from "@parity-app/agent/contracts"
 import { agentRegistry, isRunning, readEntries, removeStaleEntry } from "@parity-app/agent/registry"
 import {
   type Copy,
@@ -76,14 +76,14 @@ export type Routing = "tab" | "open" | "copies"
  * in `@parity-app/agent/routing`, and returns its answer once `reply` has checked it. Fails with a clear message, and a
  * code, when no copy is running, none has the project, or the call fails: the app's own code when it gives one.
  */
-export async function call<Reply extends z.ZodType>(
-  method: string,
-  params: Record<string, unknown>,
-  routing: Routing,
-  reply: Reply
-): Promise<z.output<Reply>> {
+export async function call<M extends AgentMethod>(
+  method: M,
+  given: AgentMethods[M]["params"],
+  routing: Routing
+): Promise<AgentMethods[M]["result"]> {
+  const params: Record<string, unknown> = given
   const copies = await runningCopies()
-  if (routing === "copies") return answer(reply, openTabs(copies), "tabs")
+  if (routing === "copies") return answer(replies[method], openTabs(copies), "tabs") as AgentMethods[M]["result"]
   const request: Request =
     routing === "open"
       ? { kind: "open", root: String(params.root) }
@@ -94,7 +94,7 @@ export async function call<Reply extends z.ZodType>(
     const ids = target.open.map((tab) => tab.id)
     throw unknownReference("unknown_tab", target.message, typeof params.tab === "string" ? params.tab : "", ids, "tab")
   }
-  return send(target.copy.entry, method, target.tab ? { ...params, tab: target.tab.id } : params, reply)
+  return send(target.copy.entry, method, target.tab ? { ...params, tab: target.tab.id } : params)
 }
 
 /** A folder's real path, through any link, or the folder as named when it can't be read. */
@@ -143,24 +143,24 @@ async function runningCopies(): Promise<Copy<TabSummary>[]> {
 /** What a copy has open and when it was last used; just its tabs from an app too old to say more. */
 async function reportOf(entry: CopyEntry): Promise<CopyReport<TabSummary> | undefined> {
   try {
-    return await send(entry, "copy", {}, replies.copy, 5000)
+    return await send(entry, "copy", {}, 5000)
   } catch (error) {
     if (!(error instanceof CodedError) || error.details.code !== "app_error") return undefined
     try {
-      return { tabs: await send(entry, "tabs", {}, replies.tabs, 5000) }
+      return { tabs: await send(entry, "tabs", {}, 5000) }
     } catch {
       return undefined
     }
   }
 }
 
-async function send<Reply extends z.ZodType>(
+/** Asks one copy, and returns its answer once the method's schema in `contracts.ts` has checked it. */
+async function send<M extends AgentMethod>(
   entry: CopyEntry,
-  method: string,
+  method: M,
   params: Record<string, unknown>,
-  reply: Reply,
   timeout?: number
-): Promise<z.output<Reply>> {
+): Promise<AgentMethods[M]["result"]> {
   let response: Response
   try {
     response = await fetch(`${entry.url}/rpc`, {
@@ -179,7 +179,7 @@ async function send<Reply extends z.ZodType>(
   if (body.error !== undefined) {
     throw new CodedError(body.error, readErrorDetails(body.details) ?? { code: "app_error" })
   }
-  return answer(reply, body.result, method)
+  return answer(replies[method], body.result, method) as AgentMethods[M]["result"]
 }
 
 /** The app's answer to `method` once `schema` has checked it, or `app_error` saying what this CLI couldn't read. */

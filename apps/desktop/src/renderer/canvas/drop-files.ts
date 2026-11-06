@@ -4,22 +4,19 @@ import {
   dropLabel,
   fileBaseName,
   type HereLayout,
+  layersSelection,
   pasteHere,
+  type Point,
   type Slot,
   skippedMessage,
-  slotHere,
-  sortDrop,
-  editingState
+  sortDrop
 } from "@parity-app/editor"
 import { toast } from "sonner"
-import { layersSelection } from "../selection.ts"
-import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { importImage } from "./clipboard.ts"
-import { type Hit, hitTest, type Point } from "./hit.ts"
+import { type Hit, pickedIn } from "./hit.ts"
 import { emptyCanvasAt } from "./new-screen.ts"
-import { measureHere } from "./paste-here.ts"
-import { frameViewport } from "./view.ts"
+import { placeAtPoint } from "./paste-here.ts"
 
 /**
  * Image files dragged onto the canvas from Explorer or Finder (PAR-24). Over a layout inside a design they go into the
@@ -50,14 +47,9 @@ export type FileDrop =
  * board around the frames.
  */
 export function fileDropAt(session: ProjectSession, area: ParentNode, point: Point): FileDrop {
-  const { store, editor } = session
-  const hit = hitTest(area, store, point, editor)
-  if (hit) {
-    const here = measureHere(hit, point, spacingUnit(session.tokens.get()))
-    const state = editingState(hit.entry.container, hit.state)
-    const slot = here && slotHere(hit.entry.container, here, state, frameViewport(store.getModes(), hit.mode))
-    return here && slot ? { kind: "layout", hit, here, line: slot.line } : { kind: "none" }
-  }
+  const place = placeAtPoint(session, area, point)
+  if (place.kind === "layout") return { kind: "layout", hit: place.hit, here: place.here, line: place.slot.line }
+  if (place.kind === "none") return { kind: "none" }
   const at = emptyCanvasAt(session, area, point)
   return at ? { kind: "canvas", at } : { kind: "none" }
 }
@@ -114,13 +106,16 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
     return
   }
   const { hit, here } = target
-  const viewport = frameViewport(store.getModes(), hit.mode)
+  // In the frame they were dropped on, as the design is now that the files are saved.
+  const frame = store.editFrame(pickedIn(hit))
   let copies: string[] = []
-  store.updateContainer(hit.entry.key, label, (container) => {
-    const placed = pasteHere(container, nodes, here, editingState(container, hit.state), viewport)
-    copies = placed.copies
-    return placed.container
-  })
+  if (frame) {
+    store.updateContainer(frame.design, label, (container) => {
+      const placed = pasteHere(container, nodes, here, frame.state, frame.viewport)
+      copies = placed.copies
+      return placed.container
+    })
+  }
   // The layout went while the files were saved, by an undo or an agent.
   if (copies.length === 0) {
     toast.info("The layout they were dropped on is gone, so the images weren't placed")

@@ -3,12 +3,14 @@ import {
   deleteNode,
   findNode,
   insertNode,
+  jsonText,
   moveNodes,
   nodeIds,
   type StateSpec,
   topmostNodes,
   withFreshIds
 } from "@parity-app/core"
+import { z } from "zod"
 import { asShown, fitBindings } from "./clipboard.ts"
 import type { MoveTarget } from "./drop-target.ts"
 
@@ -17,6 +19,16 @@ import type { MoveTarget } from "./drop-target.ts"
  * state's changes to them; into another design they go as they're shown, with fresh ids. Each returns the designs
  * changed, the same ones back when nothing changed, for the app to apply as one undo step.
  */
+
+/** Layers dragged in the Layers panel: the key of the design they're in and their ids. */
+const layersDrag = z.object({ design: z.string(), ids: z.array(z.string()).min(1) })
+
+export type LayersDrag = z.infer<typeof layersDrag>
+
+/** The layers dragged in the Layers panel, read back from the drag's text, or undefined when it doesn't parse. */
+export function readLayersDrag(text: string): LayersDrag | undefined {
+  return jsonText(layersDrag).safeParse(text).data
+}
 
 /** Where in a design the layers go: the layout, their place among its children before the move, and the slot. */
 export type MovePlace = Pick<MoveTarget, "parent" | "index" | "slot">

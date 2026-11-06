@@ -1,8 +1,8 @@
+import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { setPicking } from "../canvas/inspect.ts"
-import { layersSelection } from "../selection.ts"
 import { design, example, layerElement, node, onCanvas } from "../stories/fixtures.tsx"
 import { setLayout } from "./layout.ts"
 

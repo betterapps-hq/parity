@@ -1,6 +1,7 @@
+import { layersSelection } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
 import { allFrames, findFrames, findNodeElements, nodeOfElement } from "../frame.ts"
-import { layersSelection, useSelection } from "../selection.ts"
+import { useSelection } from "../selection.ts"
 import { useProject } from "./context.ts"
 import { elementsWrittenAt, frameAt, type SourcedElement, shortSource, sourcedElementAt } from "./element-sources.ts"
 import { getInspecting, pickElement, setPicking, useInspecting } from "./inspect.ts"

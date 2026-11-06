@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "A coded error from the project service reaches the window with its code, field and alternatives",
+  "comment": "Split lint, board geometry and frame reading out of the agent workspace, and type its api()",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "The window answers the project service's agent.supports requests again",
+  "comment": "The text editor writes an edit to the state whose text it showed, even when the state it was picked in is gone",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

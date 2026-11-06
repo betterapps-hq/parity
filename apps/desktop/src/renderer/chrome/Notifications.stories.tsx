@@ -1,8 +1,8 @@
 import { SonnerToaster } from "@buildkitgg/shadcn-baseui-kit"
+import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
-import { layersSelection } from "../selection.ts"
 import {
   clearNotifications,
   design,

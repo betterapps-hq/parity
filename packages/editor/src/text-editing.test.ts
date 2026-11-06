@@ -1,5 +1,102 @@
+import { type ComponentLibrary, type ContainerSpec, findNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { openingSelection, textSizing, textSizingKeys, withTextSizing, wordAt } from "./text-editing.ts"
+import {
+  editableText,
+  openingSelection,
+  textSizing,
+  textSizingKeys,
+  textToEdit,
+  withEditedText,
+  withTextSizing,
+  wordAt
+} from "./text-editing.ts"
+
+/**
+ * A sign-in screen whose board shows its Error state, which changes the title, with a Loading state that changes it
+ * too. Its button is an instance of a component whose label is a component with a string child.
+ */
+function signIn(): ContainerSpec {
+  return {
+    id: "sign-in",
+    name: "Sign in",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "root",
+      children: [
+        { type: "text", id: "title", text: "Sign in" },
+        { type: "instance", id: "submit", design: "button" }
+      ]
+    },
+    states: [
+      { id: "default", name: "Default" },
+      { id: "error", name: "Error", overrides: { title: { text: "Try again" } } },
+      { id: "loading", name: "Loading", overrides: { title: { text: "Signing in" } } }
+    ],
+    view: { state: "error" }
+  }
+}
+
+const library: ComponentLibrary = new Map([
+  [
+    "button",
+    {
+      id: "button",
+      name: "Button",
+      kind: "component",
+      position: { x: 0, y: 0 },
+      root: { type: "component", id: "label", component: "Button", props: { children: "Continue" } },
+      states: [{ id: "default", name: "Default" }]
+    }
+  ]
+])
+
+const shownText = (design: ContainerSpec, picked: string | undefined, id = "title") =>
+  textToEdit(design, picked, id, library)?.text
+const baseTitle = (design: ContainerSpec) => {
+  const title = findNode(design.root, "title")
+  return title && editableText(title)
+}
+
+describe("the text editor's state", () => {
+  it("reads and writes the text in the state the layer was picked in", () => {
+    expect(shownText(signIn(), "loading")).toBe("Signing in")
+    const edited = withEditedText(signIn(), "loading", "title", "Hold on", library)
+    expect(shownText(edited, "loading")).toBe("Hold on")
+    expect(shownText(edited, "error")).toBe("Try again")
+    expect(baseTitle(edited)).toBe("Sign in")
+  })
+
+  it("reads and writes the state the board shows when the one picked is gone", () => {
+    // The text it opens on is the Error state's, so that's where the edit goes, not the design or a missing state.
+    expect(shownText(signIn(), "deleted")).toBe("Try again")
+    const edited = withEditedText(signIn(), "deleted", "title", "Check your email", library)
+    expect(shownText(edited, "error")).toBe("Check your email")
+    expect(baseTitle(edited)).toBe("Sign in")
+  })
+
+  it("reads and writes the base state when the board shows a state that's gone", () => {
+    const stale = { ...signIn(), view: { state: "deleted" } }
+    expect(shownText(stale, undefined)).toBe("Sign in")
+    const edited = withEditedText(stale, undefined, "title", "Log in", library)
+    expect(baseTitle(edited)).toBe("Log in")
+    expect(shownText(edited, "error")).toBe("Try again")
+  })
+
+  it("edits a component's string child inside an instance, in that copy only", () => {
+    expect(shownText(signIn(), "default", "submit/label")).toBe("Continue")
+    const edited = withEditedText(signIn(), "default", "submit/label", "Sign in", library)
+    expect(shownText(edited, "default", "submit/label")).toBe("Sign in")
+    expect(library.get("button")?.root).toMatchObject({ props: { children: "Continue" } })
+  })
+
+  it("has nothing to edit, and changes nothing, for a layer that isn't text or is gone", () => {
+    expect(textToEdit(signIn(), undefined, "root", library)).toBeUndefined()
+    expect(textToEdit(signIn(), undefined, "gone", library)).toBeUndefined()
+    const design = signIn()
+    expect(withEditedText(design, undefined, "gone", "Hello", library)).toBe(design)
+  })
+})
 
 const text = "Start free, then upgrade when you need more seats."
 const word = (range: { start: number; end: number }) => text.slice(range.start, range.end)

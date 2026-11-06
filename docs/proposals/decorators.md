@@ -80,6 +80,18 @@ reads from the project add to it.
    `createTheme`, and can point at the frame's root or body (`$frame`), which Emotion's and Griffel's style containers
    need. Parity turns each entry into a Storybook decorator that reads `context.globals`.
 
+   A value is JSON or one of five forms, each marked by its key:
+   - `{ "$import": "pkg", "export": "name" }`: something the package exports. `export` defaults to `default`.
+   - `{ "$call": { "import": "pkg", "export": "name" }, "args": [...], "methods": [...] }`: what calling it returns.
+   - `{ "$global": "theme", "values": { "dark": ... }, "default": ... }`: the value for the frame's option.
+   - `{ "$frame": "root" }`: part of the frame. Also `host`, `body`, `document`, `dir`, `lang` and `selector`.
+   - `{ "$function": ... }`: a function returning the value it holds.
+
+   Any other object is plain JSON, and its values can be forms too. The forms are checked when the library file loads
+   (PAR-594). An object with a form's key must be that form, so a `$frame` Parity doesn't know, or a `$call` without an
+   `import`, fails the file with its path, such as `/decorators/0/wrap/props/container/$frame`. The guest works the
+   values out for each frame without checking them again.
+
 4. **What Parity can read from the project:**
    - Tailwind's dark variant in the stylesheet, so dark mode adds the right class or attribute. Copacker's is
      `@custom-variant dark (&:is(.dark *):not(:is(.light, .light *)))`.

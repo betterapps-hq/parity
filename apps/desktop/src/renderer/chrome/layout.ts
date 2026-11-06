@@ -1,29 +1,46 @@
+import { finiteNumber, jsonText } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
-
-/** Which side panels are open and how wide they are. Shared by every tab, and remembered between runs. */
-export interface PanelLayout {
-  left: boolean
-  right: boolean
-  leftWidth: number
-  rightWidth: number
-  /** The tab each panel has open. */
-  leftTab?: string
-  rightTab?: string
-}
+import { z } from "zod"
 
 const storageKey = "parity.layout"
-const defaults: PanelLayout = { left: true, right: true, leftWidth: 256, rightWidth: 320 }
 export const panelLimits = { left: [232, 480], right: [260, 520] } as const
+
+/** A panel's saved width, kept to its limits. */
+const width = (side: keyof typeof panelLimits, fallback: number) =>
+  finiteNumber.min(panelLimits[side][0]).max(panelLimits[side][1]).catch(fallback)
+
+/**
+ * Which side panels are open and how wide they are. Shared by every tab, and remembered between runs. A saved value
+ * that doesn't read falls back to its default without resetting the rest.
+ */
+const savedLayout = z.object({
+  left: z.boolean().catch(true),
+  right: z.boolean().catch(true),
+  leftWidth: width("left", 256),
+  rightWidth: width("right", 320),
+  /** The tab each panel has open. */
+  leftTab: z.string().optional().catch(undefined),
+  rightTab: z.string().optional().catch(undefined)
+})
+
+export type PanelLayout = z.infer<typeof savedLayout>
+
+/** The panel layout saved as `text`, each value that's missing or doesn't read at its default. */
+export function readLayout(text: string | null): PanelLayout {
+  return jsonText(savedLayout)
+    .catch(() => savedLayout.parse({}))
+    .parse(text ?? "{}")
+}
 
 let layout = load()
 const listeners = new Set<() => void>()
 
 function load(): PanelLayout {
   try {
-    const saved = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as Partial<PanelLayout>
-    return { ...defaults, ...saved }
+    return readLayout(localStorage.getItem(storageKey))
   } catch {
-    return defaults
+    // Storage can be unavailable; the defaults then apply.
+    return readLayout(null)
   }
 }
 

@@ -4,14 +4,18 @@ import { createRequire } from "node:module"
 import { dirname, join, resolve } from "node:path"
 import {
   applyLibraryEdits,
+  fileObject,
   type LibraryEdits,
   type LibraryManifest,
   libraryManifestExtension,
   parseJsonc,
-  parseLibraryEdits,
-  parseLibraryManifest
+  libraryManifest,
+  libraryPackage,
+  parseData,
+  parseLibraryEdits
 } from "@parity-app/core"
 import semver from "semver"
+import { z } from "zod"
 
 /**
  * A `.lib.par` Parity keeps for a package that doesn't ship one, the way DefinitelyTyped keeps types. Each file names
@@ -31,6 +35,15 @@ export interface RegistryEntry {
 }
 
 const require = createRequire(import.meta.url)
+
+/** A library file in the registry, which names the package it describes, since that's how it's found. */
+const registryManifest = fileObject({
+  ...libraryManifest.shape,
+  package: z
+    .unknown()
+    .refine((value) => value !== undefined, "a registry file names the package it describes")
+    .pipe(libraryPackage)
+})
 
 /**
  * The folder the registry's files are in. The published CLI bundles this module and ships the files beside it, where
@@ -60,8 +73,7 @@ async function readEntries(dir: string): Promise<RegistryEntry[]> {
   for (const file of files) {
     const path = join(dir, file)
     try {
-      const manifest = parseLibraryManifest(JSON.parse(await readFile(path, "utf8")))
-      if (!manifest.package) throw new TypeError("/package: a registry file names the package it describes")
+      const { $schema: _schema, ...manifest } = parseData(registryManifest, JSON.parse(await readFile(path, "utf8")))
       entries.push({ file, path, manifest })
     } catch (error) {
       console.warn(`Skipping registry file ${file}: ${errorText(error)}`)

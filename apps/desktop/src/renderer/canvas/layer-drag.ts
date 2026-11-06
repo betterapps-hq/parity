@@ -13,11 +13,11 @@ import {
   moveLayersAcross,
   moveLayersWithin,
   type MoveTarget,
-  editingState
+  layersSelection,
+  selectedNodes
 } from "@parity-app/editor"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
-import { layersSelection, selectedNodes } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
@@ -27,7 +27,6 @@ import { kindColors } from "./kinds.tsx"
 import { LayerSnapping } from "./layer-snap.ts"
 import { frameDrawn } from "./nudge.ts"
 import { StylePreview } from "./style-preview.ts"
-import { frameViewport } from "./view.ts"
 
 /**
  * Moving layers by dragging them, on the canvas or in the Layers panel. In a layout they go wherever they're dropped,
@@ -85,8 +84,9 @@ export function pressLayers(
     right: Math.max(...rects.map((rect) => rect.right)),
     bottom: Math.max(...rects.map((rect) => rect.bottom))
   }
-  const state = editingState(entry.container, current.state)
-  const viewport = frameViewport(session.store.getModes(), current.mode)
+  const edited = session.store.editFrame(current)
+  if (!edited) return
+  const { state, viewport } = edited
   const primary = findNode(entry.container.root, ids.at(-1)!)
   const absolute =
     ids.length === 1 &&
@@ -245,8 +245,9 @@ export function moveLayers(
   }
   const destination = store.getEntry(target.design)
   if (!destination) return
-  const state = editingState(source.container, frame.state)
-  const viewport = frameViewport(store.getModes(), frame.mode)
+  const edited = store.editFrame({ design: source.key, ...frame })
+  if (!edited) return
+  const { state, viewport } = edited
   let copies: string[] = []
   store.updateContainers(
     [source.key, destination.key],
@@ -281,10 +282,10 @@ function followAbsolute(
   const { store, editor } = session
   const current = session.selection.get()
   const unit = spacingUnit(session.tokens.get())
-  const state = editingState(entry.container, current.state)
+  const edited = store.editFrame(current)
   const location = locateNode(entry.container.root, id)
-  if (!location) return undefined
-  const viewport = frameViewport(store.getModes(), current.mode)
+  if (!location || !edited) return undefined
+  const { state, viewport } = edited
   // Screen pixels per pixel of the design.
   const scale = frameScale(host) * (editor?.getZoomLevel() ?? 1)
   const snapping = LayerSnapping.measure(editor, host, entry.container, id, scale)

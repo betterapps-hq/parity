@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Checks the clipboard, drag payloads and saved preferences with zod: a copy or drop that doesn't parse is refused, and a saved value that doesn't read falls back to its default without resetting the rest",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

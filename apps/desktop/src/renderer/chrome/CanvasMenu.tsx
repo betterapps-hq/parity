@@ -10,6 +10,7 @@ import {
   ContextMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type ElementSource, isInnerPath } from "@parity-app/core"
+import { type Selection } from "@parity-app/editor"
 import { CheckIcon } from "lucide-react"
 import { type ComponentProps, type ReactElement, useEffect, useRef, useState } from "react"
 import { pasteAtPointer } from "../canvas/clipboard.ts"
@@ -21,7 +22,7 @@ import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../can
 import { pickLayer } from "../canvas/pick.ts"
 import { useContainerEntries, useNotes } from "../design-store.ts"
 import { allFrames } from "../frame.ts"
-import { type Selection, useInteracting, useSelection } from "../selection.ts"
+import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"

@@ -15,6 +15,7 @@ import {
   insertIntoDesign,
   insertLabel,
   nodeForItem,
+  readInsertItem,
   whereToInsert
 } from "./insert.ts"
 
@@ -269,5 +270,21 @@ describe("where a click inserts", () => {
     expect(whereToInsert(card)).toBeUndefined()
     expect(whereToInsert(card, "card")).toBeUndefined()
     expect(whereToInsert(root, "gone")).toBeUndefined()
+  })
+})
+
+describe("an item dragged from the Assets panel", () => {
+  it("reads back as it was dragged", () => {
+    const image = { kind: "image", src: "https://images.example/a.jpg", alt: "A desk", width: 1200, height: 800 }
+    expect(readInsertItem(JSON.stringify(image))).toEqual(image)
+    const icon = { kind: "component", component: "phosphor/Bell", props: { weight: "bold" } }
+    expect(readInsertItem(JSON.stringify(icon))).toEqual(icon)
+  })
+
+  it("reads as nothing when it isn't an item, so the drop does nothing", () => {
+    expect(readInsertItem("Button")).toBeUndefined()
+    expect(readInsertItem(JSON.stringify({ kind: "video", src: "intro.mp4" }))).toBeUndefined()
+    expect(readInsertItem(JSON.stringify({ kind: "component" }))).toBeUndefined()
+    expect(readInsertItem(JSON.stringify({ kind: "image", src: "a.jpg", width: "wide", height: 800 }))).toBeUndefined()
   })
 })

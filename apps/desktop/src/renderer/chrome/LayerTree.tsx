@@ -7,22 +7,22 @@ import {
   ContextMenuShortcut
 } from "@buildkitgg/shadcn-baseui-kit"
 import { childNodes, type DesignNode, locateNode, nodeOnBoard } from "@parity-app/core"
-import { activeState, kindName } from "@parity-app/editor"
+import {
+  activeState,
+  kindName,
+  designsSelection,
+  layersSelection,
+  readLayersDrag,
+  selectedDesigns,
+  selectedNodes
+} from "@parity-app/editor"
 import { ChevronRight, EyeOff, FileWarning, Plus, MonitorSmartphone, PenLine, StickyNote } from "lucide-react"
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
-import {
-  designsSelection,
-  layersSelection,
-  selectedDesigns,
-  selectedNodes,
-  useHover,
-  useRenameRequest,
-  useSelection
-} from "../selection.ts"
+import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
 import { createDesign } from "./create.ts"
 import { Hint } from "./Hint.tsx"
@@ -234,7 +234,9 @@ export function LayerTree() {
     setDropAt(undefined)
     if (!position) return
     event.preventDefault()
-    const { design, ids } = JSON.parse(event.dataTransfer.getData(layersMime)) as { design: string; ids: string[] }
+    const dragged = readLayersDrag(event.dataTransfer.getData(layersMime))
+    if (!dragged) return
+    const { design, ids } = dragged
     const source = store.getEntry(design)
     const target = dropTargetFor(row, position)
     if (source && target) moveLayers(session, source, ids, target)

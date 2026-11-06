@@ -31,7 +31,7 @@ import { fileName, type SourcedElement, shortSource, sourcedElements } from "../
 import { hoverElement, pickElement, setPicking, useInspecting } from "../canvas/inspect.ts"
 import { kindColors, layerLabel, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { projectLibrary } from "../canvas/layers.ts"
-import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
+import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../design-store.ts"
 import { findFrames, findNodeElements, subscribeFrames } from "../frame.ts"
 import { useSelection } from "../selection.ts"
 import { request } from "../service.ts"
@@ -57,6 +57,8 @@ export function CodePanel() {
   const { store, selection } = session
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
+  const entries = useContainerEntries(store)
+  const label = (node: DesignNode) => layerLabel(node, entries, store.getComponentLibrary())
   const several = (selected.nodes?.length ?? 0) > 1 || (selected.designs?.length ?? 0) > 1
   const node = entry && selected.node && !several ? selectedLayer(session, entry, selected.node) : undefined
   if (several) return <Nothing title="Select one layer">Each layer shows its own code.</Nothing>
@@ -69,13 +71,13 @@ export function CodePanel() {
   }
   if (node.type !== "component") {
     return (
-      <Nothing title={`${layerLabel(node)} is Parity's own layer`}>
+      <Nothing title={`${label(node)} is Parity's own layer`}>
         Text, images and layouts are drawn from the design file, so they have no line in the project. Pick an element
         inside a component instead.
       </Nothing>
     )
   }
-  return <ComponentCode entry={entry} nodeId={selected.node} node={node} />
+  return <ComponentCode entry={entry} nodeId={selected.node} node={node} name={label(node)} />
 }
 
 /** The selected layer as the board shows it, whether it's the design's own or inside an instance. */
@@ -117,7 +119,18 @@ function InspectToggle({ pressed }: { pressed: boolean }) {
   )
 }
 
-function ComponentCode({ entry, nodeId, node }: { entry: ContainerEntry; nodeId: string; node: ComponentLayer }) {
+function ComponentCode({
+  entry,
+  nodeId,
+  node,
+  name: layerName
+}: {
+  entry: ContainerEntry
+  nodeId: string
+  node: ComponentLayer
+  /** The layer's name, as the Layers panel names it. */
+  name: string
+}) {
   const session = useProject()
   const source = session.info.sources[node.component]
   const inspecting = useInspecting()
@@ -130,7 +143,7 @@ function ComponentCode({ entry, nodeId, node }: { entry: ContainerEntry; nodeId:
     <>
       <div className="flex shrink-0 items-center gap-2 border-b py-2 pr-2 pl-4">
         <NodeIcon node={node} className="size-4 shrink-0" style={{ color: nodeColor(node) }} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{layerLabel(node)}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{layerName}</span>
         <InspectToggle pressed={inspecting.picking} />
       </div>
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
