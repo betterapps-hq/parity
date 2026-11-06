@@ -21,7 +21,27 @@ Telemetry lens, which reads OpenTelemetry from the app a person builds, shares n
 - **Replays** of the editor window, unmasked.
 
 The app sends to the `parity-desktop` project and the CLI to `parity-cli`; [sentry.md](sentry.md) says how Sentry is set
-up. Main also writes every event to rotating log files, a local copy that's kept even with telemetry off.
+up.
+
+## How events get there
+
+Each process records events with `createTelemetry` and the app's Sentry sink (`apps/desktop/src/shared/sentry-sink.ts`):
+
+- **In the process that records it,** an event or span becomes a breadcrumb, so an error there carries the events before
+  it (Sentry keeps the last 100). An `error.*` event, or one at the `error` or `fatal` level, becomes a Sentry error,
+  linked to its trace.
+- **Then it goes to main:** a window's over IPC from its preload, a render window's from a preload that gives the page
+  only that, the service's over its channel to main, and the props worker's through the service, which adds them to its
+  own breadcrumbs and errors.
+- **Main sends it to Sentry** as a structured log, its message the event's name and its attributes searchable as they
+  are, with the envelope's fields beside them under `parity.`. A span goes as a Sentry span with Parity's own trace and
+  span IDs, so spans from every process join one trace. Main's hooks decide what leaves, by the level below.
+- **Main also writes it to the local copy,** `<userData>/logs/parity-<date>.jsonl`, one envelope per line, at every
+  level, Off included. A file continues in `parity-<date>.2.jsonl` and on once it reaches 5 MB, and the newest 10 are
+  kept. Lines are written each second, and at once for a `fatal` event.
+
+Why it works this way is in [decisions.md](decisions.md), "Events go to Sentry through main, and to a local copy at
+every level".
 
 Every event carries the same envelope besides its own attributes: its `name`, `time` and `level`; the `process` it came
 from (`main`, `renderer`, `render`, `service`, `worker`, `builder` or `cli`); the `installId`, the `sessionId` of this
@@ -65,15 +85,15 @@ What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbe
 ## Levels and sampling
 
 Each event has a level, lowest first: `debug`, `info`, `warn`, `error` and `fatal`. `error` and `fatal` events also
-become Sentry errors. **Kept** is the share of an event that's recorded: all of them unless the event says otherwise.
-Sampling is decided when an event is tracked or a span starts.
+become Sentry errors, as every `error.*` event does. **Kept** is the share of an event that's recorded: all of them
+unless the event says otherwise. Sampling is decided when an event is tracked or a span starts.
 
 ## Adding an event
 
 1. Define it with `defineEvent` in `@parity-app/telemetry`. Give it a dotted name, area first (`project.opened`), and a
    `z.object` schema with a `.describe()` on every attribute saying what it means. Say its `level`, which processes send
    it (`sentBy`) and when (`when`, a sentence). Add `sample` to keep only a share.
-2. Add it to `registeredEvents` in `packages/telemetry/src/registry.ts`, and to the events the sending process passes to
+2. Add it to `registeredEvents` in `packages/telemetry/src/registry.ts`, which every process passes to
    `createTelemetry`.
 3. Run `pnpm exec vp test run packages/telemetry -u` to rewrite [Events](#events), then review the diff and commit it
    with the event.

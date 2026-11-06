@@ -5416,3 +5416,43 @@ Sentry's server-side scrubbing stays on as a second net. My calls:
 - **Only attributes are scrubbed in `createTelemetry`.** The envelope's own fields are Parity's IDs, names and paths. An
   `Error` is copied as its own class with its message, stack, fields and cause scrubbed; dates, byte arrays and other
   objects that aren't plain go as they are.
+
+## Events go to Sentry through main, and to a local copy at every level (PAR-627)
+
+Every process records its events with `createTelemetry` and the app's Sentry sink, `shared/sentry-sink.ts`, which maps
+envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My calls:
+
+- **Each process keeps its own breadcrumbs and errors; main sends logs and spans.** In a window, a render window and the
+  service, each event and span becomes a breadcrumb in that process's Sentry scope, and a failure becomes a Sentry error
+  there, so an error carries the events before it in the process it happened in. Every event then goes to main, which
+  writes the local copy and sends it as a structured log, and each span as a Sentry span. Main needs every event for the
+  local copy anyway, and this leaves it the one place that decides what leaves, as PAR-620 has it.
+- **A failure is any `error.*` event, or any event at the `error` or `fatal` level** (`isErrorEvent`). The issue named
+  the first and docs/telemetry.md the second, so both count.
+- **The last 100 events are Sentry's breadcrumbs,** which it keeps 100 of by default, not a copy of the ring buffer laid
+  on each error. That way an uncaught exception or a native crash carries them too, not only an `error.*` event.
+  Sentry's own breadcrumbs (console, clicks, requests) share those 100.
+- **A span is sent as a transaction of its own, with Parity's trace, span and parent IDs,** built by hand and sent with
+  `captureEvent`. Sentry's span API makes its own IDs, which would break the trace the CLI and other processes continue.
+  Sentry joins the transactions into one trace by their parents. A log in a trace is captured in a scope that continues
+  it, so Sentry links the two.
+- **A log's message is the event's name, and its attributes are the event's own, as they are,** so they're searchable by
+  the names in docs/telemetry.md. The envelope's fields go beside them under `parity.` (`parity.process`,
+  `parity.session_id`, `parity.duration_ms`).
+- **The level gate is in main's `beforeSend`, `beforeSendTransaction` and `beforeSendLog`,** through `sendsToSentry` in
+  the package: All sends everything, Errors only errors (with their breadcrumbs), Off nothing. Reading the level there,
+  rather than only at `Sentry.init`, lets PAR-626 change it without a restart.
+- **The local copy is `<userData>/logs/parity-<date>.jsonl`,** one envelope per line, written at every level. A file
+  that would pass 5 MB continues in `parity-<date>.2.jsonl` and on, a new day starts a new file, and only the newest 10
+  are kept. Lines are written together once a second, synchronously; a `fatal` event writes at once, with what's
+  waiting, and so does quitting. A write that fails loses the local copy, never the app.
+- **Other processes reach main by the routes they already have.** A window sends over IPC (`canvas:telemetry`) from its
+  preload. Render windows got a preload of their own that gives the page only that, since a project's components run in
+  them. The service asks main's channel (`record`), and the props worker posts to the service beside its channel's
+  messages; the service adds its events to its own Sentry scope, since the worker has none. Main checks each envelope
+  with `envelopeSchema`, and names a window's events by the window that sent them.
+- **Main makes the install ID and the session ID, and passes them on** with whether to check events against their
+  schemas (outside installed builds): to windows as a command-line argument, to the service and its worker in an
+  environment variable. The install ID is kept in `<userData>/install-id`; PAR-626 adds resetting it and showing it.
+- **No process exports its telemetry yet.** `startTelemetry` and `startEvents` return it; the issues that record the
+  first events (PAR-629 onwards) decide how code reaches it.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { telemetryEnvironment, telemetryLevel } from "./settings.ts"
+import { sendsToSentry, telemetryEnvironment, telemetryLevel } from "./settings.ts"
 
 describe("telemetryLevel", () => {
   it("sends everything unless asked otherwise", () => {
@@ -39,5 +39,14 @@ describe("telemetryEnvironment", () => {
   it("doesn't count CI set to false", () => {
     expect(telemetryEnvironment({ CI: "false" }, false)).toBe("development")
     expect(telemetryEnvironment({ CI: "" }, true)).toBe("tester")
+  })
+})
+
+describe("sendsToSentry", () => {
+  it("sends everything at All, only errors at Errors, and nothing at Off", () => {
+    const kinds = ["error", "log", "span"] as const
+    expect(kinds.map((kind) => sendsToSentry("all", kind))).toEqual([true, true, true])
+    expect(kinds.map((kind) => sendsToSentry("errors", kind))).toEqual([true, false, false])
+    expect(kinds.map((kind) => sendsToSentry("off", kind))).toEqual([false, false, false])
   })
 })

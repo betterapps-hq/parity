@@ -43,7 +43,10 @@ await build({
 })
 await build({
   ...node,
-  entryPoints: { preload: join(appDir, "src/preload/index.ts") },
+  entryPoints: {
+    preload: join(appDir, "src/preload/index.ts"),
+    "render-preload": join(appDir, "src/preload/render.ts")
+  },
   format: "cjs",
   banner: {},
   outExtension: { ".js": ".cjs" }
