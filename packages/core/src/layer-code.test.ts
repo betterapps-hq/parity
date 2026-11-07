@@ -242,7 +242,7 @@ describe("iconComponent", () => {
       importName: "@heroicons/react",
       icons: {
         import: "@heroicons/react/24/outline",
-        component: "",
+        render: "export",
         variants: { modules: { outline: "@heroicons/react/24/outline", solid: "@heroicons/react/16/solid" } }
       } as LibraryInfo["icons"]
     }),
