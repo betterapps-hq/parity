@@ -149,6 +149,10 @@ function appEnvironment(): NodeJS.ProcessEnv {
     if (name.startsWith("VITEST") || name === "TEST") delete env[name]
   }
   if (env.NODE_ENV === "test") delete env.NODE_ENV
+  // Every event from one CI run of the suite groups under its run in Sentry (PAR-630).
+  if (!env.PARITY_TEST_RUN && env.GITHUB_RUN_ID) {
+    env.PARITY_TEST_RUN = `github-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT ?? "1"}`
+  }
   return env
 }
 

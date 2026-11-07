@@ -38,6 +38,10 @@ const mainEnvironment = z.object({
     .optional(),
   /** The dev runner's process id, which it sets on the copy it runs. */
   PARITY_DEV_RUNNER: wholeNumber.pipe(z.int().min(1)).optional(),
+  /** Names a test pass, so its events, errors and replays group together in Sentry (PAR-630). */
+  PARITY_TEST_RUN: nonBlankString.optional(),
+  /** The tester's name, shown as Sentry's user (PAR-630). */
+  PARITY_TESTER: nonBlankString.optional(),
   /** Where an AppImage is, which its runtime sets; Linux updates only work from one. */
   APPIMAGE: z.string().optional()
 })
