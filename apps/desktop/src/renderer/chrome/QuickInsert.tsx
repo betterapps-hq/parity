@@ -63,6 +63,11 @@ function setOpen(next: boolean): void {
   for (const listener of listeners) listener()
 }
 
+/** Closes the insert picker, as when it failed and was closed (PAR-667). */
+export function closeQuickInsert(): void {
+  setOpen(false)
+}
+
 /** Opens the insert picker for the active tab: `/` or Shift+I on the canvas. */
 export function openQuickInsert(): void {
   if (activeSession()) setOpen(true)

@@ -33,6 +33,11 @@ export function askAboutUnsaved(names: string[], action: Question["action"]): Pr
   })
 }
 
+/** Answers the open question with cancel, as when its dialog failed and was closed (PAR-667). */
+export function cancelUnsaved(): void {
+  question?.answer("cancel")
+}
+
 export function useUnsavedQuestion(): Question | undefined {
   return useSyncExternalStore(
     (listener) => {

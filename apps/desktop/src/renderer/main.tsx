@@ -2,6 +2,8 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { App } from "./App.tsx"
 import { keepFilesFromOpening } from "./canvas/drop-files.ts"
+import { setBoundaryReporter } from "./chrome/ErrorBoundary.tsx"
+import { openReport } from "./chrome/ReportProblemDialog.tsx"
 import { receiveTelemetry } from "./chrome/telemetry-setting.ts"
 import { setInterfaceTelemetry, watchTabs } from "./interface-events.ts"
 import { watchLongTasks } from "./long-tasks.ts"
@@ -24,6 +26,8 @@ watchLongTasks(telemetry)
 // Tabs, panels, dialogs, modes, settings and the start page record what's done with them (PAR-634).
 setInterfaceTelemetry(telemetry)
 setWindowTelemetry(telemetry)
+// A part of the window that fails offers Report a problem (PAR-667).
+setBoundaryReporter(() => void openReport())
 watchTabs({
   subscribe: workspace.subscribe,
   view: () => ({ tabs: workspace.getTabs(), active: workspace.isHomeActive() ? undefined : workspace.getActiveId() })

@@ -4488,6 +4488,32 @@ the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The C
 zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, sending,
 sent and failed, with Send moving from one to the next.
 
+### A part that fails keeps the rest working (PAR-667)
+
+When part of the window throws while it draws, it says so in its own place and the rest of the window carries on. Edits
+live in the project's store, not in what draws them, so nothing is lost. Each place has a design of its own:
+
+- **A panel's tab, a whole panel or the canvas** shows what stopped and Try again, as the Inspector's empty state is
+  laid out, with Report a problem and Copy details under it. The panel's tabs and its edge still work.
+- **The console** keeps its header, edge and close button, with the error's details to copy in the header, and says so
+  where "Nothing logged" would be.
+- **A whole tab**, such as a project or Home, is laid out as the page for a project that couldn't open, with the error
+  in full.
+- **The whole window**, the last resort, shows Parity's mark and Try again, with a strip to move the window by.
+- **The tab bar and the status bar** say so in a line, **each dialog** says so in a dialog of its own, closing which
+  closes the dialog that failed, and **what's drawn over the canvas**, its outlines, toolbar and controls, fails without
+  a word.
+
+Try again draws the part afresh. If it fails again, the way on becomes Reopen project, or Reload window for the whole
+window, which saves the changes first. Report a problem opens Help > Report a problem; a dialog that failed closes
+first. Nothing in a fallback opens or grows, so it doesn't move once shown. Each boundary's catch reaches Sentry through
+the root's `onCaughtError`, tagged `boundary` with its name, such as `inspector.design`.
+
+`telemetry.test.ts` covers the `boundary` tag on a caught error and its absence on an uncaught one.
+`chrome/ErrorBoundary.stories.tsx` breaks each part of the real window in turn with `tripBoundary`, and its play
+functions check that Try again draws a part afresh, that a second failure offers Reopen project, and that closing a
+failed dialog closes it and Settings opens again afterwards.
+
 ### The page never scrolls (PAR-424)
 
 The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.

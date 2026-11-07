@@ -1,6 +1,6 @@
 import { createTelemetry, registeredEvents, type Sink, type Telemetry } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
-import type { ErrorInfo } from "react"
+import type { Component, ErrorInfo } from "react"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { createSentrySink } from "../shared/sentry-sink.ts"
@@ -73,15 +73,28 @@ function reportFailedRender(error: unknown, drawn: { key: string; state?: string
  * itself only when a root has none, so they're logged here too.
  */
 export const reactErrorHandlers = {
-  onUncaughtError: (error: unknown, info: ErrorInfo) => report(error, info, false),
-  onCaughtError: (error: unknown, info: ErrorInfo) => report(error, info, true)
+  onUncaughtError: (error: unknown, info: CaughtInfo) => report(error, info, false),
+  onCaughtError: (error: unknown, info: CaughtInfo) => report(error, info, true)
 }
 
-function report(error: unknown, { componentStack }: ErrorInfo, caught: boolean): void {
+/** What React says about an error, with the boundary that caught it, if one did. */
+type CaughtInfo = ErrorInfo & { errorBoundary?: Component<unknown> }
+
+/** The name of the error boundary that caught an error (`chrome/ErrorBoundary.tsx`, PAR-667), for its Sentry tag. */
+function boundaryName(info: CaughtInfo): string | undefined {
+  const props = info.errorBoundary?.props as { name?: unknown } | undefined
+  return typeof props?.name === "string" ? props.name : undefined
+}
+
+function report(error: unknown, info: CaughtInfo, caught: boolean): void {
   console.error(error)
+  const boundary = boundaryName(info)
   Sentry.captureException(error, {
     mechanism: { type: "react", handled: caught },
-    captureContext: { contexts: { react: { componentStack } } }
+    captureContext: {
+      contexts: { react: { componentStack: info.componentStack } },
+      ...(boundary ? { tags: { boundary } } : {})
+    }
   })
 }
 
