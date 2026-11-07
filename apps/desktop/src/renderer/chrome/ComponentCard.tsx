@@ -41,6 +41,8 @@ export interface ComponentCardProps {
   name: string
   /** Its file in the project, when it's the project's own or a kit's. */
   path?: string
+  /** How the project's code imports it, as `import { Button } from "@/components/ui/button"`. */
+  importLine?: string
   /** An instance of a library's component rather than the project's own. */
   instance?: boolean
   /** Something about how it's listed, as "listed by hand". */
@@ -76,6 +78,7 @@ export interface ComponentCardProps {
 export function ComponentCard({
   name,
   path,
+  importLine,
   instance,
   note,
   preview,
@@ -146,6 +149,7 @@ export function ComponentCard({
           {from && <span className="shrink-0 text-xs text-muted-foreground">{from}</span>}
         </div>
         {path && <span className="truncate font-mono text-[11px] text-muted-foreground">{path}</span>}
+        {importLine && <span className="font-mono text-[11px] break-words text-muted-foreground">{importLine}</span>}
         {note && (
           <span className="text-[11px] text-muted-foreground">{note.charAt(0).toUpperCase() + note.slice(1)}</span>
         )}

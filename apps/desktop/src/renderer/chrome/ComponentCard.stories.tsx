@@ -58,6 +58,7 @@ const cards: (ComponentCardProps & { label: string })[] = [
     label: "Small",
     name: "nova/InputGroupText",
     path: "src/components/nova/input-group.tsx",
+    importLine: 'import { InputGroupText } from "@/components/nova/input-group"',
     preview: made(pictures.inputGroupText)
   },
   {
@@ -82,6 +83,7 @@ const cards: (ComponentCardProps & { label: string })[] = [
     label: "The project's own",
     name: "Button",
     path: "src/components/ui/button.tsx",
+    importLine: 'import { Button } from "@/components/ui/button"',
     preview: made(pictures.button)
   },
   {

@@ -20,6 +20,7 @@ import {
   componentRole,
   describeRenderStatus,
   groupComponents,
+  importLine,
   includeComponent,
   type LeftOutExport,
   type LibraryInfo
@@ -721,7 +722,7 @@ export function useComponentCard(
   pictured: PreviewStatus
   about: Pick<
     ComponentCardProps,
-    "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "onOpenStorybook"
+    "path" | "importLine" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "onOpenStorybook"
   >
 } {
   const preview = useComponentPreview(session.id, component ?? "")
@@ -740,10 +741,14 @@ export function useComponentCard(
   const variantPreviews = useVariantPreviews(session.id, component ?? "", options, shown)
   if (!component) return { pictured: previewStatus(undefined), about: { preview: undefined } }
   const stories = session.info.storybook?.stories[component]?.length ?? 0
+  const source = session.info.sources[component]
+  const from = info?.import ?? (source?.library ? source.path : undefined)
+  const imported = source && importLine(component, { export: source.export, ...(from ? { import: from } : {}) })
   return {
     pictured: previewStatus(preview, missing),
     about: {
-      path: session.info.sources[component]?.path,
+      path: source?.path,
+      ...(imported ? { importLine: imported } : {}),
       preview,
       missing,
       ...(variants

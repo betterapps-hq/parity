@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Deferred PAR-166 work: layer code in the Code tab, not released",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

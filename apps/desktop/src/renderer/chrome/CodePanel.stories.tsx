@@ -7,10 +7,11 @@ import { design, example, layerElement, node, onCanvas } from "../stories/fixtur
 import { setLayout } from "./layout.ts"
 
 /**
- * The inspector's Code tab (PAR-167): the selected component layer's component and file, the elements it draws that
- * the project's files wrote, each with its file and line, and the picked one's lines. Inspect picks an element on the
- * canvas instead, outlined with its file and line, and a right-click on one opens it in the editor. The lines come
- * from the project's dev server, which tags each element its files write.
+ * The inspector's Code tab (PAR-167, PAR-166): the JSX and Tailwind classes Parity would write for the selected layer,
+ * the tokens it uses with their values in the frame, and for a component layer its component and file, the elements it
+ * draws that the project's files wrote, each with its file and line, and the picked one's lines. Inspect picks an
+ * element on the canvas instead, outlined with its file and line, and a right-click on one opens it in the editor. The
+ * lines come from the project's dev server, which tags each element its files write.
  */
 const meta = {
   title: "Parity/Inspector/Code",
@@ -47,12 +48,15 @@ async function codeTab(): Promise<HTMLElement> {
 }
 
 /**
- * The sign in card, selected: its component and file, the elements it draws with the file and line each is written
- * on, as the code nests them, and the first one's lines, its own highlighted.
+ * The sign in card, selected: its component and file, the instance as JSX with its import and what's inside it, the
+ * elements it draws with the file and line each is written on, as the code nests them, and the first one's lines, its
+ * own highlighted.
  */
 export const ComponentLayer: Story = selecting("Sign in card", async () => {
   const section = within(await codeTab())
   await expect(await section.findByText("src/components/ui/card.tsx", undefined, { timeout: 10_000 })).toBeVisible()
+  await expect(section.getByRole("button", { name: "Copy as JSX" })).toBeVisible()
+  await section.findByText(/"@\/components\/ui\/card"/, undefined, { timeout: 10_000 })
   await section.findAllByText(/^card\.tsx:\d+$/, undefined, { timeout: 10_000 })
   await section.findAllByText(/^input\.tsx:\d+$/)
 })
@@ -109,7 +113,7 @@ export const OpenFromCanvasMenu: Story = onCanvas(["Sign in"], undefined, async 
 
 /** Nothing selected: the tab says what to select, and Inspect picks an element on the canvas instead. */
 export const NothingSelected: Story = selecting(undefined, async () => {
-  await within(await codeTab()).findByText("Select a component")
+  await within(await codeTab()).findByText("Select a layer")
 })
 
 /**
@@ -129,7 +133,28 @@ export const PickedOnCanvas: Story = selecting(undefined, async () => {
   await tab.findByText(/^input\.tsx:\d+$/, { selector: "[data-slot=code-block-header] *" }, { timeout: 5000 })
 })
 
-/** A text layer, the terms under the card: Parity's own layer, drawn from the design file, has no line to show. */
-export const ParityLayer: Story = selecting("Terms", async () => {
-  await within(await codeTab()).findByText(/is Parity's own layer/)
+/**
+ * A layout, the brand mark: the `div` Parity would write, with the icon inside it and its import, its classes on their
+ * own with Copy classes, and the tokens it uses with their values in the frame, colors with a swatch.
+ */
+export const LayoutLayer: Story = selecting("Brand mark", async () => {
+  const tab = within(await codeTab())
+  await expect(await tab.findByRole("button", { name: "Copy classes" }, { timeout: 10_000 })).toBeVisible()
+  await expect(tab.getAllByText(/bg-primary/).length).toBeGreaterThan(0)
+  const tokens = within(tab.getByRole("list", { name: "Tokens it uses" }))
+  await expect(tokens.getByText("--primary")).toBeVisible()
+  await expect(tokens.getByText("--radius-md")).toBeVisible()
+  await waitFor(() => expect(tokens.queryAllByText("Not set in this frame")).toHaveLength(0))
+})
+
+/** A text layer, the terms under the card: the paragraph Parity would write, with its classes and its type's tokens. */
+export const TextLayer: Story = selecting("Terms", async () => {
+  const tab = within(await codeTab())
+  await expect(await tab.findByRole("button", { name: "Copy as JSX" }, { timeout: 10_000 })).toBeVisible()
+  const classes = "max-w-80 text-muted-foreground text-xs text-center"
+  await tab.findByText(
+    (_text, line) => line?.getAttribute("data-slot") === "code-block-line" && line.textContent === classes
+  )
+  const tokens = within(tab.getByRole("list", { name: "Tokens it uses" }))
+  await expect(await tokens.findByText("12px")).toBeVisible()
 })
