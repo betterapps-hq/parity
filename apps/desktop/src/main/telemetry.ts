@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto"
 import { join } from "node:path"
 import {
   createDriverTracker,
-  createScrubber,
   driverTags,
   createTelemetry,
   type Envelope,
@@ -21,6 +20,7 @@ import {
 } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
+import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { createSentrySink, type SentryTarget } from "../shared/sentry-sink.ts"
 import type { TelemetryRun } from "../shared/telemetry-run.ts"
 import { createLogFileSink, createLogFiles } from "./log-files.ts"
@@ -38,6 +38,12 @@ export interface TelemetryStart {
   level: TelemetryLevel
   environment: TelemetryEnvironment
 }
+
+/**
+ * Secrets are scrubbed from everything Sentry sends, the windows' and the service's events included (PAR-621), with the
+ * open projects' `.env` values the service reads (PAR-672).
+ */
+export const scrubber = secretScrubbing()
 
 /** Whether this run sends, which Settings can change while it runs (PAR-626). */
 let level: TelemetryLevel = "off"
@@ -104,8 +110,6 @@ export function startTelemetry(
 ): TelemetryStart {
   const environment = telemetryEnvironment(env, installed)
   runVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
-  // Secrets are scrubbed from everything Sentry sends, the windows' and the service's events included (PAR-621).
-  const scrubber = createScrubber()
   Sentry.init({
     dsn,
     environment,
@@ -198,6 +202,7 @@ export function startEvents({
     check: run.check,
     onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
   })
+  scrubber.follow(telemetry)
   return { run, telemetry }
 }
 
