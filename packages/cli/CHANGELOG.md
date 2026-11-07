@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 07 Nov 2026 03:34:11 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 03:48:34 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.16.0
+
+Sat, 07 Nov 2026 03:48:34 GMT
+
+### Minor changes
+
+- Add Help > Report a problem, which sends what happened with a screenshot, logs, versions and projects, and offers
+  itself after a crash; add parity diagnostics, which writes the same as a zip (PAR-635) (ajcraswell@gmail.com)
 
 ## 0.15.0
 
