@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { randomBytes, randomUUID } from "node:crypto"
 import { realpathSync } from "node:fs"
 import { homedir } from "node:os"
 import { type AgentMethod, type AgentMethods, replies, rpcReply } from "@parity-app/agent/contracts"
@@ -55,13 +55,16 @@ let caller = cliCallerName(process.env)
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
 const explicitCallerId = process.env.PARITY_AGENT_ID?.trim() || undefined
 let callerId = explicitCallerId
+/** The program calling through MCP, such as `claude-code`, which the app's telemetry tags (PAR-630). */
+let callerClient: string | undefined
 
 /**
  * Names who's calling in later calls, so the canvas can say who's at work. The MCP server learns the name from its
  * client, and is one session: its calls share an id, apart from any other session of the same agent.
  */
-export function setCaller(name: string | undefined, session = false): void {
+export function setCaller(name: string | undefined, session = false, client?: string): void {
   caller = name ?? caller
+  callerClient = client
   callerId = session ? sessionCallerId(caller, randomUUID()) : explicitCallerId
 }
 
@@ -165,8 +168,8 @@ async function send<M extends AgentMethod>(
   try {
     response = await fetch(`${entry.url}/rpc`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}` },
-      body: JSON.stringify({ method, params, agent: caller, agentId: callerId }),
+      headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}`, ...traceHeaders() },
+      body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient }),
       ...(timeout === undefined ? {} : { signal: AbortSignal.timeout(timeout) })
     })
   } catch {
@@ -180,6 +183,18 @@ async function send<M extends AgentMethod>(
     throw new CodedError(body.error, readErrorDetails(body.details) ?? { code: "app_error" })
   }
   return answer(replies[method], body.result, method) as AgentMethods[M]["result"]
+}
+
+/**
+ * Starts a trace for one call, which the app continues, so the call and everything the app does for it, to the frame
+ * it draws, are one trace in Sentry (PAR-629). Sampled, as the app's spans are.
+ */
+function traceHeaders(): { "sentry-trace": string; baggage: string } {
+  const traceId = randomBytes(16).toString("hex")
+  return {
+    "sentry-trace": `${traceId}-${randomBytes(8).toString("hex")}-1`,
+    baggage: `sentry-trace_id=${traceId},sentry-sampled=true`
+  }
 }
 
 /** The app's answer to `method` once `schema` has checked it, or `app_error` saying what this CLI couldn't read. */

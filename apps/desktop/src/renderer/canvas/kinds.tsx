@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   type LucideProps,
   Rows3,
+  SquareDashed,
   Type
 } from "lucide-react"
 import type { ContainerEntry } from "../design-store.ts"
@@ -58,6 +59,8 @@ export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode })
   if (node.type === "image") return <ImageIcon {...props} />
   if (node.type === "component") return <Box {...props} />
   if (node.type === "instance") return <Diamond {...props} />
+  // A slot is a hole each instance fills.
+  if (node.slot !== undefined) return <SquareDashed {...props} />
   return node.style?.direction === "row" ? <Columns3 {...props} /> : <Rows3 {...props} />
 }
 

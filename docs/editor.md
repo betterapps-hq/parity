@@ -2476,6 +2476,120 @@ isolated copy of the app on that project, the same day, a Button with a text lay
 label and its Props section said `icon` was set in layers, and an Input's `contentBefore` took `$` as text and drew it
 in the field, with `contentAfter` offering "Text, or layers in its slot".
 
+### Slots in a component design (PAR-83)
+
+A layout of a component design can be a slot: a place each instance fills with layers of its own. Until one does, the
+layout's own layers show, as placeholder content. A slot is a kind of prop with a name; the designer doesn't choose
+which one code nests between the tags.
+
+- **Make slot** sits beside Make component in a layout's header, the other thing a layer can become. It makes the layout
+  a slot named after it. Once it's a slot, the button is the slot's name, which goes to it in the component's Props with
+  the name focused, and × makes it a plain layout again. A layout inside a slot, or around one, can't be one: the button
+  stays focusable and its hint says why.
+- **Props** lists a component's slots after its params, each with its type's tile. Where a param has its default, a slot
+  has the layout it fills, which selects that layout. Its name is renamed in place, camelCased (`Side actions` is
+  `sideActions`), and refused, with why under the row, when it isn't usable, is reserved (`children` among them), or is
+  one of the component's params or another slot's. An × inside the layout's field, on hover or focus, removes it.
+  **Add** offers "Slot from a layout" with the layouts that can be one, outlining each on the canvas as it's pointed at;
+  the new slot's name is selected to rename. With none left, Add stays focusable and says why rather than opening an
+  empty menu.
+- **In code**, below Modes, shows how an instance reads: each param with its default, and each slot. Code nests the slot
+  holding the most layers between the tags, as React's `children` and Vue's default slot, the first in layer order on a
+  tie (`childrenSlot`), and passes the others as props that take layers.
+- **On the canvas** a selected component outlines each slot in dashes with its name, and hovering a slot's row or its
+  line of code outlines its layout. Layers shows a slot's dashed icon and its name at the end of its row.
+
+The file keeps a slot as `slot` on the layout. Its rules are in `@parity-app/core`: `designSlots`, `childrenSlot`,
+`setSlot`, `slotProblem`, `slotPlaceProblem` and `freeSlotName` in `slots.ts`, and `slotName` and `slotNameProblem` in
+`slot-names.ts`. Filling a slot from an instance is PAR-84.
+
+Code: `chrome/slot-props.tsx` (a slot's row, Add, In code and Make slot), `chrome/slot-focus.ts` (the slot to focus and
+a refused name), `ParamsSection` and `InCodeSection` in `chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`,
+`chrome/LayerPanel.tsx`, the slot outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
+
+Tests:
+
+- `packages/core/src/slots.test.ts` (16): naming a slot and unmarking it; a screen's layouts and a component's text
+  refused; a name that isn't usable, is reserved, is a param's or another slot's; a slot inside another, or around one;
+  the free name a new slot takes; the slot code nests, by layers and on a tie; `designSlots` skipping screens and nested
+  slots; the file refusing a bad or repeated name; and copies and detached instances losing the mark.
+- Stories: Parity/Inspector/Layer/Slots (Layout In A Component, which makes a slot, Second Slot, Slot Layout and Layout
+  Inside A Slot), Parity/Inspector/Design (Component With Slots, Component With Several Slots, Adding A Slot, which adds
+  one from Add, and Slot Name Taken, which renames one to a param's name), Parity/Left panel/Layers › Slots, and
+  Parity/Canvas/Selection › Component Slots.
+
+Gaps: the slot outlines and the hover from Props have no automated DOM test. They were checked in those stories on
+2026-11-06, with a param's name typed into a slot's name and refused, and the slot chip focusing the name in Props.
+
+### Adding a prop, and a layer using one
+
+A component design's props can be made by hand as well as by Extract component. **Add** in Props offers Text, Number and
+Toggle, then a row to type the prop's name in, with its kind's tile: Enter adds it, camelCased, with a default for its
+kind (`Text`, `0`, off) to change in the row it becomes; Escape, or leaving it empty, doesn't. A name that isn't usable,
+is reserved, or is another prop's or slot's stays typed, with why under the row. Slots come after, as "Slot from a
+layout", while a layout can be one.
+
+A layer of the component design can use a prop for its text, if it's text, and for whether it shows:
+
+- **Unbound,** the field has a button beside it, Use a prop for this text (or whether it shows), offering the
+  component's props of the right kind, text props or toggles, and New prop from this text, which adds one named after
+  the layer, with what the field shows as its default, so nothing changes until an instance sets it.
+- **Bound,** the field is the prop's name in the component color, which goes to the component's Props, with an × inside
+  to stop using it, keeping what it showed as the layer's own value.
+
+A copy's layers, inside an instance, don't offer it: they belong to their component.
+
+Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `bindableProps`,
+`bindField` and `propFromField`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
+row being typed and a refused name), and `chrome/field-prop.tsx` with `LayerSections` in `chrome/LayerPanel.tsx`.
+
+Tests:
+
+- `packages/core/src/prop-binding.test.ts` (6): adding each kind with its default; names refused as unusable, another
+  prop's or a slot's, and a free one numbered; the props a field can use; using one and going back to its value; a prop
+  of the wrong kind, and text on a layer that isn't text; and a prop made from a field.
+- Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop, Visibility
+  Using A Prop, and Making A Prop From Text, which makes `period` from Plan card's period).
+
+Gaps: a prop can't be renamed or removed from Props yet, and a component's label (a code component's `children`) can't
+use one from its field.
+
+### Filling a slot from an instance (PAR-84)
+
+An instance fills its component's slots with layers of the design it sits in, shown in place of each slot's placeholder.
+A slot it leaves empty shows the placeholder.
+
+- **The instance's panel** lists each slot after its params: a solid tile and how many layers fill it, or a dashed tile
+  and Empty. Resting on one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by
+  itself so a large component's slot is as easy to see as a small one's; an empty one's placeholder is faded inside a
+  dashed edge. Clicking one selects the slot. An × inside a filled one's field clears it, deleting its layers.
+- **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
+  Clear. A click in Components adds into it, at its end.
+- **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
+  selecting them works as for any other. Layers doesn't list them under the instance.
+- **Detach** bakes the fill in where the placeholder was, keeping its layers' ids.
+
+The file keeps a fill as `slots` on the instance, by slot name, as a code component keeps its slots. Its rules are in
+`@parity-app/core`: `instanceSlots`, `slotAtPath` and `clearSlot` in `slots.ts`, the fill drawn by `resolveDesign` in
+`render.ts`, and Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the
+picture's tree `slotPreviewTree`.
+
+Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `InstanceSection` and `LayerPanel` in
+`chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in
+`canvas/insert.ts`.
+
+Tests:
+
+- `packages/core/src/slots.test.ts`, filling an instance's slots (6): a fill kept in its slot and listed, a fill drawn
+  with its own ids in place of the placeholder, the path that points at a slot, clearing, Detach, and the file refusing
+  a fill that reuses an id.
+- `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
+- Stories: Parity/Inspector/Layer/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
+
+Gaps: the card's picture is drawn by the offscreen renderer, which Storybook hasn't got, so the stories show it being
+drawn. Dropping onto a slot on the canvas isn't built yet, and renaming a slot leaves instances' fills under its old
+name, where they no longer show.
+
 ### A library's own props beside the attributes it passes on (PAR-457)
 
 A library component often takes an element's attributes and adds props of its own: Nova's `SidebarMenuButton` is a
@@ -2918,12 +3032,12 @@ Tests:
 - `apps/desktop/src/renderer/chrome/edit-scope.test.ts` (3): no note in the base state, the state's name, the variant's.
 - `apps/desktop/src/renderer/chrome/prop-values.test.ts` (4): fields by declared type before there's a value, by the
   value's own type, JSON refused rather than kept as text, and any value read as JSON or text.
-- `chrome/LayerPanel.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
+- `chrome/LayerInstances.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
   Yearly.
 - `packages/core/src/edit.test.ts`, "clearing a prop, as the inspector does" (2, PAR-421): a prop the design turns on,
   cleared in one state, off there and still on in the design, and Reset taking it back; and clearing in the base state
   removing it, with a value set as before.
-- `chrome/LayerPanel.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
+- `chrome/LayerStates.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
   `disabled` switch turned off in Wrong password, then Reset, which turns it back on and leaves nothing to reset.
 
 Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, the notes in the inspector, the

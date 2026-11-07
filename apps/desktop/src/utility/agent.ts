@@ -17,9 +17,11 @@ import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry
 import { registryVersion } from "@parity-app/agent/routing"
 import { errorDetails } from "@parity-app/core"
 import { copyScale, planExport, planPicture } from "@parity-app/editor"
+import { readTraceHeaders } from "@parity-app/telemetry"
 import { passedLink } from "../shared/account.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
+import { inSpan } from "../shared/tracing.ts"
 import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
@@ -77,12 +79,31 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
   try {
     const chunks: Buffer[] = []
     for await (const chunk of request) chunks.push(chunk as Buffer)
-    // Any local process with the token can send anything, so the body and its params are checked first (PAR-598).
-    reply(200, { result: await answerRequest(Buffer.concat(chunks).toString("utf8"), desktopHost(window())) })
+    const body = Buffer.concat(chunks).toString("utf8")
+    // Any local process with the token can send anything, so the body and its params are checked first (PAR-598). The
+    // call continues the trace the CLI sent in its headers, so it's one trace from the command line on (PAR-629).
+    const answer = () =>
+      answerRequest(body, desktopHost(window()), (caller) => {
+        // Only tags telemetry, so a main that's gone is no matter.
+        mainProcess.request("agentCalled", caller).catch(() => undefined)
+      })
+    reply(200, { result: await inSpan("agent.called", calledBy(body), answer, readTraceHeaders(request.headers)) })
   } catch (error) {
     const details = errorDetails(error)
     reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })
   }
+}
+
+/** The method and caller a call's body names, for its span, before `answerRequest` checks it. */
+export function calledBy(body: string): { method: string; agent?: string } {
+  let sent: unknown
+  try {
+    sent = JSON.parse(body)
+  } catch {
+    return { method: "unreadable" }
+  }
+  const { method, agent } = typeof sent === "object" && sent !== null ? (sent as Record<string, unknown>) : {}
+  return { method: typeof method === "string" ? method : "unreadable", ...(typeof agent === "string" ? { agent } : {}) }
 }
 
 /**

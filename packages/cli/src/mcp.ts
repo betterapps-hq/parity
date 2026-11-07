@@ -2,7 +2,7 @@ import { createInterface } from "node:readline"
 import { requestJsonSchema } from "@parity-app/agent/contracts"
 import { checkData, jsonText, plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
-import { mcpCallerName } from "./caller.ts"
+import { mcpCallerName, mcpClientName } from "./caller.ts"
 import {
   call,
   describeAccessibility,
@@ -242,7 +242,7 @@ async function respond(method: string, params: Record<string, unknown> = {}) {
   switch (method) {
     case "initialize": {
       const { clientInfo, protocolVersion } = initializeParams.parse(params)
-      setCaller(mcpCallerName(clientInfo), true)
+      setCaller(mcpCallerName(clientInfo), true, mcpClientName(clientInfo))
       return {
         result: {
           protocolVersion: protocolVersion ?? "2025-06-18",

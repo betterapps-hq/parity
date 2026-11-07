@@ -23,6 +23,25 @@ Telemetry lens, which reads OpenTelemetry from the app a person builds, shares n
 The app sends to the `parity-desktop` project and the CLI to `parity-cli`; [sentry.md](sentry.md) says how Sentry is set
 up.
 
+## Who's driving
+
+Every error, span, log and replay is tagged so a test pass can be found and filtered in Sentry:
+
+- **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `tester` for installed
+  builds.
+- **`release`:** the published version, or the commit any other build was made from.
+- **`test_run`:** from `PARITY_TEST_RUN`, when it's set. The end-to-end suite sets it to `github-<run>-<attempt>` in
+  GitHub Actions, and `pnpm perf` to `perf-<time>` unless it's already set. An agent that starts a copy to drive with
+  `drive.ts` sets it on that copy.
+- **`driver`:** `person`, or `agent` from an agent's call until the person presses a key in the window or no call has
+  come for 10 seconds. An agent's events add `agent`, its caller name, and `agent_client`, the MCP client's name (such
+  as `claude-code`), when it calls through MCP.
+- **Sentry's user:** the install ID, named by `PARITY_TESTER` when it's set, or else by the agent's session while one is
+  driving.
+
+Main holds these on its Sentry scope, which the windows' and the service's events join. The rules are `runTags`,
+`driverTags`, `telemetryUser` and `createDriverTracker` in `@parity-app/telemetry`.
+
 ## How events get there
 
 Each process records events with `createTelemetry` and the app's Sentry sink (`apps/desktop/src/shared/sentry-sink.ts`):
@@ -47,6 +66,21 @@ Every event carries the same envelope besides its own attributes: its `name`, `t
 from (`main`, `renderer`, `render`, `service`, `worker`, `builder` or `cli`); the `installId`, the `sessionId` of this
 run and, where there is one, the `windowId` and `project`. An event inside a trace adds its `traceId` and `spanId`, and
 a span adds its `parentSpanId`, `durationMs` and `outcome` (`ok`, `error` or `cancelled`).
+
+## Traces
+
+One action is one trace in Sentry, across every process that works on it (PAR-629):
+
+- **The window starts a trace** for each action, as `action.ran` with its ID from `chrome/actions.ts`, and each canvas
+  drag, as `gesture.ran` with its kind from `canvas/gesture.ts`. The service's requests made while it runs carry it.
+- **Requests carry the trace** as `sentry-trace` and `baggage`, in the channel message's `trace` field. The service and
+  main answer each in a `request.handled` span, with the error code when it fails.
+- **Queued work keeps its trace:** an offscreen frame or preview is a `frame.drawn` span with how long it waited for a
+  window, and a builder's start is `builder.started`.
+- **An agent's call starts its trace in the CLI,** which sends the headers with each request; the agent server's
+  `agent.called` span continues it, so the call and the frame it drew are one trace.
+
+To find one, open a span's trace in Sentry, or search spans by `trace` from an error.
 
 ## Turning it off
 
@@ -106,6 +140,11 @@ in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`
 - long random strings, though not hex (hashes, commit SHAs, UUIDs, trace IDs), file names or `data:` URLs
 - values it's given, such as a project's `.env` values read with `envSecrets()`
 
+The values it's given are the open projects' `.env`, `.env.local` and other `.env.*` values. The service reads them with
+`envSecrets()` whenever a project opens or closes and sends them to main. Main scrubs them from every process's events
+and passes them to each window, which asks for them as its telemetry starts. Each process's telemetry gets them through
+`setSecrets()`. The CLI doesn't send to Sentry yet, so it reads none.
+
 What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
 
 ## Levels and sampling
@@ -130,6 +169,196 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-No events are registered yet.
+| Event                | Level | Kept | Sent by       | When                                                                                |
+| -------------------- | ----- | ---- | ------------- | ----------------------------------------------------------------------------------- |
+| `action.ran`         | info  | all  | renderer      | An action runs from a key, a menu or the actions search, until it's done.           |
+| `agent.called`       | info  | all  | service       | The agent server answers a call from the CLI.                                       |
+| `app.quit`           | info  | all  | main          | The app quits.                                                                      |
+| `app.started`        | info  | all  | main          | The first window has painted and the project service is running.                    |
+| `builder.started`    | info  | all  | service       | The service starts a project's builder, until it's spawned.                         |
+| `dialog.opened`      | info  | all  | renderer      | One of the app's own dialogs opens.                                                 |
+| `frame.drawn`        | debug | all  | main          | An offscreen window draws a frame or a preview, from its turn to the end.           |
+| `gesture.ran`        | info  | all  | renderer      | A press on the canvas becomes a drag, until the drag ends.                          |
+| `mode.switched`      | info  | all  | renderer      | The canvas switches between designing and Interact, where designs take the pointer. |
+| `panel.shown`        | info  | all  | renderer      | A side panel or the console opens, or a side panel shows another tab.               |
+| `process.memory`     | info  | all  | main          | Every 5 minutes, and when a window stops answering.                                 |
+| `renderer.long_task` | info  | all  | renderer      | A task in the editor window runs for over 200 ms.                                   |
+| `request.handled`    | debug | all  | service, main | The service or main answers another process's request.                              |
+| `service.lag`        | warn  | all  | service       | The project service's event loop is late by over 200 ms.                            |
+| `setting.changed`    | info  | all  | renderer      | A preference or the telemetry level is changed.                                     |
+| `start.action`       | info  | all  | renderer      | A control on Home or a new tab's start page is used.                                |
+| `tab.closed`         | info  | all  | renderer      | A tab closes.                                                                       |
+| `tab.opened`         | info  | all  | renderer      | A tab opens, for a project or as a new tab.                                         |
+| `tab.switched`       | info  | all  | renderer      | Another tab, or Home, comes to the front.                                           |
+| `update.checked`     | info  | all  | main          | A check for an update finds one or finds none.                                      |
+| `update.downloaded`  | info  | all  | main          | An update finishes downloading.                                                     |
+| `update.failed`      | warn  | all  | main          | Checking for, downloading or installing an update fails.                            |
+| `update.installed`   | info  | all  | main          | The app quits to install a downloaded update.                                       |
+
+### `action.ran`
+
+| Attribute | Type               | Meaning                                                        |
+| --------- | ------------------ | -------------------------------------------------------------- |
+| `action`  | `string`           | The action's ID in the keymap, as `chrome/actions.ts` names it |
+| `code`    | `string`, optional | The error code, when it failed                                 |
+
+### `agent.called`
+
+| Attribute | Type               | Meaning                        |
+| --------- | ------------------ | ------------------------------ |
+| `method`  | `string`           | The agent method called        |
+| `agent`   | `string`, optional | The caller's name              |
+| `code`    | `string`, optional | The error code, when it failed |
+
+### `app.quit`
+
+| Attribute   | Type                                     | Meaning                                                                                   |
+| ----------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `reason`    | `"window closed" \| "update" \| "other"` | How it quit: the last window closed, to install an update, or otherwise, as from the menu |
+| `sessionMs` | `integer`                                | How long this run lasted                                                                  |
+
+### `app.started`
+
+| Attribute        | Type      | Meaning                                                               |
+| ---------------- | --------- | --------------------------------------------------------------------- |
+| `mainReadyMs`    | `integer` | From the process starting to Electron being ready                     |
+| `windowShownMs`  | `integer` | From the process starting to the first window being created and shown |
+| `firstPaintMs`   | `integer` | From the process starting to the first window's first paint           |
+| `serviceReadyMs` | `integer` | From the process starting to the project service starting to run      |
+
+### `builder.started`
+
+| Attribute | Type     | Meaning            |
+| --------- | -------- | ------------------ |
+| `builder` | `string` | The builder's name |
+
+### `dialog.opened`
+
+| Attribute | Type     | Meaning                                             |
+| --------- | -------- | --------------------------------------------------- |
+| `dialog`  | `string` | Which dialog: settings, shortcuts, about or actions |
+
+### `frame.drawn`
+
+| Attribute  | Type      | Meaning                                                     |
+| ---------- | --------- | ----------------------------------------------------------- |
+| `priority` | `string`  | The queue it waited in: render, visible or background       |
+| `queuedMs` | `number`  | How long it waited for an offscreen window, in milliseconds |
+| `whole`    | `boolean` | Whether it was drawn whole, to capture or check it          |
+
+### `gesture.ran`
+
+| Attribute | Type               | Meaning                                             |
+| --------- | ------------------ | --------------------------------------------------- |
+| `gesture` | `string`           | The gesture's kind, as `canvas/gesture.ts` names it |
+| `how`     | `string`, optional | How it ended: release, escape or interrupted        |
+
+### `mode.switched`
+
+| Attribute | Type                     | Meaning                       |
+| --------- | ------------------------ | ----------------------------- |
+| `mode`    | `"design" \| "interact"` | The mode the canvas is in now |
+
+### `panel.shown`
+
+| Attribute | Type                             | Meaning                                                |
+| --------- | -------------------------------- | ------------------------------------------------------ |
+| `panel`   | `"left" \| "right" \| "console"` | The side panel, or the console under the canvas        |
+| `tab`     | `string`, optional               | The tab the side panel shows, such as layers or design |
+
+### `process.memory`
+
+| Attribute   | Type                   | Meaning                                                                            |
+| ----------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| `reason`    | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                     |
+| `processes` | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it |
+
+### `renderer.long_task`
+
+| Attribute    | Type               | Meaning                                                               |
+| ------------ | ------------------ | --------------------------------------------------------------------- |
+| `durationMs` | `integer`          | How long the task ran                                                 |
+| `action`     | `string`, optional | The input that started it, such as `pointerdown` or `keydown`, if any |
+
+### `request.handled`
+
+| Attribute | Type               | Meaning                        |
+| --------- | ------------------ | ------------------------------ |
+| `method`  | `string`           | The method asked for           |
+| `code`    | `string`, optional | The error code, when it failed |
+
+### `service.lag`
+
+| Attribute | Type      | Meaning                                                                        |
+| --------- | --------- | ------------------------------------------------------------------------------ |
+| `lateMs`  | `integer` | How late the service's timer ran, which is how long its event loop was blocked |
+
+### `setting.changed`
+
+| Attribute | Type                          | Meaning                                                  |
+| --------- | ----------------------------- | -------------------------------------------------------- |
+| `setting` | `string`                      | The setting's name, such as theme, snapping or telemetry |
+| `value`   | `string \| number \| boolean` | Its new value; a list, such as the export sizes, as JSON |
+
+### `start.action`
+
+| Attribute | Type                                                                                                  | Meaning                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `page`    | `"home" \| "new"`                                                                                     | The start page it came from: Home, or a new tab                                                          |
+| `action`  | `"new-project" \| "open-folder" \| "open-file" \| "recent-project" \| "search" \| "star" \| "forget"` | What was done: start a project, open a folder or file, open a listed project, search, star or forget one |
+
+### `tab.closed`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.opened`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.switched`
+
+| Attribute | Type                           | Meaning                  |
+| --------- | ------------------------------ | ------------------------ |
+| `from`    | `"home" \| "project" \| "new"` | What was in front before |
+| `to`      | `"home" \| "project" \| "new"` | What is in front now     |
+
+### `update.checked`
+
+| Attribute   | Type                 | Meaning                                   |
+| ----------- | -------------------- | ----------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes     |
+| `version`   | `string`             | The version running now                   |
+| `available` | `string`, optional   | The newer version found, if there was one |
+
+### `update.downloaded`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version downloaded                |
+
+### `update.failed`
+
+| Attribute | Type                                 | Meaning                               |
+| --------- | ------------------------------------ | ------------------------------------- |
+| `channel` | `"stable" \| "beta"`                 | The update channel this install takes |
+| `version` | `string`                             | The version running now               |
+| `stage`   | `"check" \| "download" \| "install"` | What was under way when it failed     |
+| `message` | `string`                             | What went wrong                       |
+
+### `update.installed`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version being installed           |
 
 <!-- End of the generated events. -->

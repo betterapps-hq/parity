@@ -1,4 +1,11 @@
-import { frameViewport, nextPreview, previewMode, previewSettleMs, resolveModes } from "@parity-app/core"
+import {
+  frameViewport,
+  nextPreview,
+  previewMode,
+  previewSettleMs,
+  type RenderNode,
+  resolveModes
+} from "@parity-app/core"
 import { componentPreviewTree, previewFrameWidth } from "@parity-app/editor"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import type { ComponentPreview, PreviewImage, PreviewJob } from "../shared/protocol.ts"
@@ -44,18 +51,36 @@ export function previewJob(
   appearance: ResolvedTheme = getResolvedTheme(),
   variant?: Variant
 ): PreviewJob | undefined {
+  return treePreviewJob(
+    session,
+    variant ? variantId(component, variant) : component,
+    (viewport) =>
+      componentPreviewTree(component, {
+        ...(session.components.get()[component] ? { info: session.components.get()[component] } : {}),
+        sources: session.info.sources,
+        library: session.store.getComponentLibrary(),
+        viewport,
+        ...(variant ? { props: { [variant.prop]: variant.value } } : {})
+      }),
+    appearance
+  )
+}
+
+/**
+ * The job that draws any preview tree, kept under `id`, as a component's is drawn: in the mode matching Parity's theme,
+ * in a window the mode's width, at `previewScale`. `tree` is given the mode's viewport option.
+ */
+export function treePreviewJob(
+  session: ProjectSession,
+  id: string,
+  tree: (viewport: string) => RenderNode[],
+  appearance: ResolvedTheme = getResolvedTheme()
+): PreviewJob | undefined {
   const mode = previewMode(resolveModes(session.store.getModes()), appearance)
   if (!mode) return undefined
-  const tree = componentPreviewTree(component, {
-    ...(session.components.get()[component] ? { info: session.components.get()[component] } : {}),
-    sources: session.info.sources,
-    library: session.store.getComponentLibrary(),
-    viewport: mode.viewport,
-    ...(variant ? { props: { [variant.prop]: variant.value } } : {})
-  })
   const viewport = frameViewport({ width: mode.width }, mode)
   return {
-    component: variant ? variantId(component, variant) : component,
+    component: id,
     job: renderJob(
       {
         projectId: session.id,
@@ -63,9 +88,49 @@ export function previewJob(
         ...(session.added ? { components: session.added } : {}),
         theme: session.info.theme
       },
-      { tree, mode, frame: { width: previewFrameWidth, viewport }, scale: previewScale, inlinePortals: true }
+      {
+        tree: tree(mode.viewport),
+        mode,
+        frame: { width: previewFrameWidth, viewport },
+        scale: previewScale,
+        inlinePortals: true
+      }
     )
   }
+}
+
+/**
+ * A picture drawn on demand while `job` is given, as a slot's is while its card is open: one already made for its key is
+ * looked up, else it's made straight away. Undefined until it's there; an error says why it couldn't be.
+ */
+export function useOneOffPreview(job: PreviewJob | undefined): { image?: PreviewImage; error?: string } | undefined {
+  const [shown, setShown] = useState<{ key: string; image?: PreviewImage; error?: string }>()
+  const want = job ? JSON.stringify(job) : undefined
+  useEffect(() => {
+    if (!want) return undefined
+    const asked: PreviewJob = JSON.parse(want) as PreviewJob
+    let live = true
+    void (async () => {
+      try {
+        const { previews } = await request("previews.lookup", { previews: [asked] })
+        const found = previews[0]
+        const made = found?.image ? found : await request("previews.make", { preview: asked, priority: "visible" })
+        if (!live) return
+        setShown({
+          key: want,
+          ...(made.image ? { image: made.image } : {}),
+          ...(made.error ? { error: made.error } : {}),
+          ...(made.empty ? { error: "Nothing to see" } : {})
+        })
+      } catch (reason) {
+        if (live) setShown({ key: want, error: reason instanceof Error ? reason.message : String(reason) })
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [want])
+  return shown?.key === want ? shown : undefined
 }
 
 /** One option of a component's variant, as its card shows it (PAR-208). */

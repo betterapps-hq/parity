@@ -1,5 +1,4 @@
 import {
-  createScrubber,
   createTelemetry,
   envelopeSchema,
   isSpanEnvelope,
@@ -8,6 +7,7 @@ import {
   type Telemetry
 } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/utility"
+import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { createSentrySink } from "../shared/sentry-sink.ts"
 import { readTelemetryRun, telemetryRunVariable } from "../shared/telemetry-run.ts"
 import { mainProcess } from "./main-process.ts"
@@ -23,8 +23,6 @@ const builderLines = 50
  */
 export function startTelemetry(): Telemetry<typeof registeredEvents> {
   // Named on each event, as main and the windows do; the worker's and builders' reports below name their own.
-  // Secrets are scrubbed before an event leaves the service, and again in main (PAR-621).
-  const scrubber = createScrubber()
   Sentry.init({
     beforeSend: (event) => scrubber.value({ ...event, tags: { process: "service", ...event.tags } }),
     beforeSendTransaction: (event) => scrubber.value(event),
@@ -32,12 +30,28 @@ export function startTelemetry(): Telemetry<typeof registeredEvents> {
     beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb)
   })
   const run = readTelemetryRun(process.env[telemetryRunVariable])
-  return createTelemetry({
+  const telemetry = createTelemetry({
     events: registeredEvents,
     context: { process: "service", installId: run.installId, sessionId: run.sessionId },
     sinks: [scopeSink, toMain],
     check: run.check,
     onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
+  })
+  scrubber.follow(telemetry)
+  return telemetry
+}
+
+/**
+ * Secrets are scrubbed before an event leaves the service, and again in main (PAR-621), the open projects' `.env`
+ * values included (PAR-672).
+ */
+const scrubber = secretScrubbing()
+
+/** Scrubs the open projects' `.env` values from now on, here and in main, which passes them to every window. */
+export function useProjectSecrets(secrets: string[]): void {
+  scrubber.use(secrets)
+  mainProcess.request("secrets", secrets).catch(() => {
+    // Main went away, and its scrubber with it.
   })
 }
 

@@ -1,6 +1,7 @@
 import type { TelemetryLevel } from "@parity-app/telemetry"
 import { useEffect, useSyncExternalStore } from "react"
 import type { TelemetryState } from "../../shared/protocol.ts"
+import { recordInterface } from "../interface-events.ts"
 import { followTelemetry } from "../replay.ts"
 
 /** The Telemetry setting and install ID as main last gave them; Settings and About share it (PAR-626). */
@@ -16,6 +17,7 @@ export function receiveTelemetry(next: TelemetryState | undefined): TelemetrySta
 }
 
 export function setTelemetryLevel(level: TelemetryLevel): Promise<TelemetryState | undefined> {
+  recordInterface("setting.changed", { setting: "telemetry", value: level })
   return window.canvasHost.telemetry.setLevel(level).then(receiveTelemetry)
 }
 
