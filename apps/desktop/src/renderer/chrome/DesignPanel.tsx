@@ -17,7 +17,7 @@ import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
-import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
+import { ComponentsSection, InCodeSection, ParamsSection } from "./ComponentsSection.tsx"
 import { setDesignKind } from "./designs.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
@@ -162,7 +162,7 @@ function FrameStyles({ entry }: { entry: ContainerEntry }) {
   return editor ? <StyleSections editor={editor} node={entry.container.root} /> : null
 }
 
-/** A screen's or component's states, params or components, and the modes it shows. */
+/** A screen's or component's states, params or components, the modes it shows, and a component's code. */
 function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
   const { store, selection } = useProject()
   const settings = useModeSettings(store)
@@ -255,6 +255,7 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
           </Button>
         </div>
       </PanelSection>
+      {container.kind === "component" && <InCodeSection entry={entry} />}
     </>
   )
 }

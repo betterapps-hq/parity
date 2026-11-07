@@ -1,7 +1,8 @@
-import { createScrubber, createTelemetry, registeredEvents, type Sink, type Telemetry } from "@parity-app/telemetry"
+import { createTelemetry, registeredEvents, type Sink, type Telemetry } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
 import type { ErrorInfo } from "react"
 import { recordInvalidData } from "../shared/invalid-data.ts"
+import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { createSentrySink } from "../shared/sentry-sink.ts"
 import { readTelemetryRun } from "../shared/telemetry-run.ts"
 import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } from "./canvas/frames-on-screen.ts"
@@ -15,8 +16,10 @@ import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } fr
 export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}): Telemetry<typeof registeredEvents> {
   // Named on each event, since this window's scope is copied into main's: the editor window, or an offscreen renderer.
   const kind = location.pathname.endsWith("/render.html") ? "render" : "renderer"
-  // Secrets are scrubbed before an event leaves the window, and again in main (PAR-621).
-  const scrubber = createScrubber()
+  // Secrets are scrubbed before an event leaves the window, and again in main (PAR-621), the open projects' `.env`
+  // values included, which main passes on from the service (PAR-672).
+  const scrubber = secretScrubbing()
+  window.parityTelemetry?.onSecrets((secrets) => scrubber.use(secrets))
   Sentry.init({
     ...options,
     allowUrls: [location.origin],
@@ -37,7 +40,7 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
   const toMain: Sink[] = host
     ? [{ event: (envelope) => host.record(envelope), span: (envelope) => host.record(envelope) }]
     : []
-  return recordInvalidData(
+  const telemetry = recordInvalidData(
     createTelemetry({
       events: registeredEvents,
       context: { process: kind, installId: run.installId, sessionId: run.sessionId },
@@ -52,6 +55,8 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
       onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
     })
   )
+  scrubber.follow(telemetry)
+  return telemetry
 }
 
 /** Reports a frame that couldn't be drawn offscreen, with the bitmap it last showed. */

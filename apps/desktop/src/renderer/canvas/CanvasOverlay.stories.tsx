@@ -1,3 +1,4 @@
+import { insertNode, setSlot } from "@parity-app/core"
 import { designsSelection, layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { AppWindow } from "../App.tsx"
@@ -35,6 +36,41 @@ export const DesignSelected: Story = onCanvas(["Pricing"], () => select({ design
 export const ComponentSelected: Story = onCanvas(["Plan card", "Stat card"], () =>
   select({ design: design("Plan card") })()
 )
+
+/**
+ * A component with a slot selected (PAR-83): Plan card's features are a slot, outlined in dashes with the
+ * slot's name, so it's clear where instances put their own layers.
+ */
+export const ComponentSlots: Story = onCanvas(["Plan card"], () => {
+  const key = design("Plan card")
+  example().store.updateContainer(key, "Make slot", (container) =>
+    setSlot(container, node("Plan card", "Features"), "features")
+  )
+  select({ design: key })()
+})
+
+/**
+ * An instance filling a slot (PAR-84): Pricing's Starter plan fills Plan card's `features` with a line of its own, drawn
+ * in place of the placeholder's four, while the other plans show the placeholder. The instance is selected.
+ */
+export const FilledSlot: Story = onCanvas(["Pricing"], () => {
+  const card = design("Plan card")
+  example().store.updateContainer(card, "Make slot", (container) =>
+    setSlot(container, node("Plan card", "Features"), "features")
+  )
+  const page = design("Pricing")
+  const starter = node("Pricing", "Starter plan")
+  example().store.updateContainer(page, "Fill features", (container) => ({
+    ...container,
+    root: insertNode(
+      container.root,
+      starter,
+      { type: "text", id: "starter-extra", text: "Unlimited viewers" },
+      { slot: "features" }
+    )
+  }))
+  select(layersSelection(page, [starter]))()
+})
 
 /** Several designs selected together, to move, align or export at once. */
 export const SeveralDesigns: Story = onCanvas(["Dashboard", "Pricing"], () =>

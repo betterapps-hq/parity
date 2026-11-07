@@ -1,8 +1,21 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 18:38:16 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 02:04:23 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.14.0
+
+Sat, 07 Nov 2026 02:04:23 GMT
+
+### Minor changes
+
+- Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or
+  agent as Sentry's user (ajcraswell@gmail.com)
+- Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)
+  (ajcraswell@gmail.com)
+- Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside
+  Make component and the slots outlined on the canvas (ajcraswell@gmail.com)
 
 ## 0.13.1
 

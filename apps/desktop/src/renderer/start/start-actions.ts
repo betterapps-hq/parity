@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import type { ProjectPicture } from "../../shared/protocol.ts"
 import { openDialog } from "../chrome/app-dialogs.ts"
 import { openProjectFile, openProjectFolder } from "../chrome/commands.ts"
+import { recordInterface } from "../interface-events.ts"
 import { workspace } from "../workspace.ts"
 
 /** What the start page's controls do. In the window they act on the workspace; stories give their own. */
@@ -22,13 +23,38 @@ export interface StartActions {
   search: () => void
 }
 
+type StartAction = "new-project" | "open-folder" | "open-file" | "recent-project" | "search" | "star" | "forget"
+
+/** Records a start page control's use, with whether it was on Home or a new tab (PAR-634). */
+function recordStart(action: StartAction): void {
+  recordInterface("start.action", { page: workspace.isHomeActive() ? "home" : "new", action })
+}
+
 export const workspaceActions: StartActions = {
-  open: (root) => void workspace.open(root),
-  star: (root, starred) => workspace.star(root, starred),
-  forget: (root) => workspace.forgetRecent(root),
-  openFolder: () => void openProjectFolder(),
-  openFile: () => void openProjectFile(),
-  search: () => openDialog("actions")
+  open: (root) => {
+    recordStart("recent-project")
+    void workspace.open(root)
+  },
+  star: (root, starred) => {
+    recordStart("star")
+    workspace.star(root, starred)
+  },
+  forget: (root) => {
+    recordStart("forget")
+    workspace.forgetRecent(root)
+  },
+  openFolder: () => {
+    recordStart("open-folder")
+    void openProjectFolder()
+  },
+  openFile: () => {
+    recordStart("open-file")
+    void openProjectFile()
+  },
+  search: () => {
+    recordStart("search")
+    openDialog("actions")
+  }
 }
 
 const StartContext = createContext<StartActions>(workspaceActions)
@@ -49,6 +75,7 @@ export function notReady(title: string, description?: string, action?: { label: 
 
 /** New project waits on the Buildkit scaffolder (PAR-284); until then, a project starts from a folder. */
 export function newProjectNotReady(actions: StartActions): void {
+  if (actions === workspaceActions) recordStart("new-project")
   notReady("New project isn't ready yet", "For now, open a React app's folder.", {
     label: "Open a folder",
     onClick: actions.openFolder

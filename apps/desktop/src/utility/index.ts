@@ -11,6 +11,7 @@ import { builderReadings, startBuilder } from "./builders.ts"
 import { readProjectFile } from "./code.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
+import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
@@ -26,6 +27,7 @@ import { startReopening } from "./reopening.ts"
 import { checkStartFolders } from "./start-folders.ts"
 import { telemetry } from "./start-telemetry.ts"
 import { openStorybook } from "./storybook.ts"
+import { useProjectSecrets } from "./telemetry.ts"
 import { losslessWebp } from "./webp.ts"
 import { windowChannel, windowClosed } from "./window-channel.ts"
 
@@ -69,8 +71,17 @@ const reopening = startReopening({
   close: (root) => projects.close(root).finally(rememberOpen)
 })
 
+let secretsRead = 0
+
 function rememberOpen(): void {
-  reopening.remember(projects.roots())
+  const roots = projects.roots()
+  reopening.remember(roots)
+  // The open projects' `.env` values are scrubbed from telemetry in every process (PAR-672). A later open or close
+  // reads them again, so only the latest read is used.
+  const reading = ++secretsRead
+  void projectEnvSecrets(roots).then((secrets) => {
+    if (reading === secretsRead) useProjectSecrets(secrets)
+  })
 }
 
 const handlers: Handlers<ServiceMethods> = {
