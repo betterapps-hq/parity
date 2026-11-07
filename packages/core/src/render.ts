@@ -200,6 +200,11 @@ interface Scope extends EvalScope {
   prefix: string
   /** Component designs being expanded, to stop a component from containing itself. */
   stack: string[]
+  /**
+   * Inside an instance's component: what the instance fills a slot with, drawn as the design around it draws its own
+   * layers, so they keep their ids there. Undefined when the instance leaves the slot to its placeholder.
+   */
+  fills?: (slot: string, parent: Direction) => RenderNode[] | undefined
 }
 
 /**
@@ -438,7 +443,9 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
 
     switch (shown.type) {
       case "layout": {
-        const children = shown.children.flatMap((child) => resolve(child, style.direction ?? "column"))
+        const direction = style.direction ?? "column"
+        const filled = shown.slot === undefined ? undefined : scope.fills?.(shown.slot, direction)
+        const children = filled ?? shown.children.flatMap((child) => resolve(child, direction))
         return [
           {
             kind: "element",
@@ -490,10 +497,13 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
           return [{ kind: "component", nodeId: id(node), component: problem, props: {}, slots: {} }]
         }
         const expanded = instanceScope(shown, component, patch, scope.layers)
+        const filling = shown.slots
         const inner = resolveTree(component.root, viewportId, library, {
           ...expanded,
           prefix: id(node),
-          stack: [...scope.stack, shown.design]
+          stack: [...scope.stack, shown.design],
+          fills: (slot, direction) =>
+            filling?.[slot]?.length ? filling[slot].flatMap((child) => resolve(child, direction)) : undefined
         })
         const [first] = inner
         if (first && first.kind !== "text") {

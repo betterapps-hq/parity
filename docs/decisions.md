@@ -5405,6 +5405,41 @@ Gaps: a frame's root (its shadow host) never gets the colour scheme, so a custom
 (`--alias: var(--surface)`) keeps its light value in a dark frame, as with a `.dark` class theme. A custom property a
 `body` rule declares inside the block reads as a dark value in the preview but not in the Tokens tab.
 
+## A layout of a component design can be a slot (PAR-83)
+
+Called on 2026-11-06, with your approval in Storybook. [proposals/components.md](proposals/components.md) set out slots;
+PAR-83 marks them in a component design, and PAR-84 fills them from instances. My calls, with yours:
+
+- **A slot is `slot` on a layout node,** a prop's name, and the layout's own layers are its placeholder, as Vue's and
+  Web Components' fallback content is. The outermost layout can be one.
+- **No Children or Named to choose.** A slot is only a name; the difference between a slot and `children` is how code
+  writes it, so code decides. It nests the slot holding the most layers between the tags, as React's `children` and
+  Vue's default slot, the first in layer order on a tie, and passes the others as props that take layers. The biggest
+  part going between the tags keeps code from drilling whole layouts through props. The panel doesn't mark which one it
+  is; In code shows it. `children` is reserved as a name, so the rule's choice never clashes with a slot's.
+- **A slot is a kind of prop.** It's listed in the component's Props after the params, with the layout it fills where a
+  param has its default, and Props' Add offers a slot from a layout. A separate Slots section was tried and dropped, as
+  was editing slots in the code itself. In code sits below Modes. Make slot sits beside Make component on the layer.
+- **Props doesn't list where the component is used.** The Components panel's card already counts its uses, and a list of
+  every instance doesn't scale.
+- **An empty section says nothing,** past its description: Variants and Props drop "None yet". Variants' hint about the
+  title bar shows once there's a variant to pick.
+- **The file is strict about names, the editor about the rest.** The file refuses a name that couldn't be a prop (`key`,
+  `ref`, `style`, `className`, `children`, or not an identifier) and two layouts with one name. A slot named like a
+  param, or inside another slot, is refused by `setSlot` but tolerated in a file, and `designSlots` skips a nested one.
+- **Copies drop the mark.** Duplicate, paste, moving to another design, Make component and Detach make a plain layout,
+  keeping its layers, since a component has one slot by each name. A component turned into a screen keeps its marks,
+  which do nothing until it's a component again.
+- **Names are camelCased,** so `Side actions` is `sideActions`, and a new slot takes its layout's name.
+- **Filling a slot is the instance's (PAR-84).** It keeps what fills each slot as layers of the design it sits in, so
+  they're picked, selected and edited as the design's own, drawn in place of the placeholder and baked in by Detach.
+  Layers doesn't list them under the instance: an instance's insides are never shown inline. Its panel has each slot
+  after the params, filled with its layer count or Empty, with a picture of what shows there on hover, drawn by itself;
+  a selected slot has a panel of its own, and a click in Components adds into it.
+- **Props' Add makes value props too.** Text, Number and Toggle, each named in a row as it's added, beside slots from a
+  layout. A prop no layer uses still does nothing on the canvas, so a layer's text and visibility can use a prop, or
+  make one from what they show, with the field showing the prop's name until it stops using it.
+
 ## The first run offers the example, and gone folders are flagged (PAR-188)
 
 Called on 2026-11-06, with your approval in Storybook. PAR-188 asked for the first run to open the example with three
