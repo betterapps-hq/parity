@@ -109,9 +109,13 @@ export type LogFiles = ReturnType<typeof createLogFiles>
 
 /**
  * The local copy: every event and span, from every process, as a line of JSON. Lines are written together each second,
- * and at once for a `fatal` event, which may be the last thing a process does. `flush` writes what's waiting.
+ * and at once for a `fatal` event, which may be the last thing a process does. `flush` writes what's waiting. A
+ * `testRun` (`PARITY_TEST_RUN`) goes on every line, so `parity logs --test-run` finds a pass's events (PAR-636).
  */
-export function createLogFileSink(files: LogFiles, { delayMs = flushMs } = {}): Sink & { flush(): void } {
+export function createLogFileSink(
+  files: LogFiles,
+  { delayMs = flushMs, testRun }: { delayMs?: number; testRun?: string | undefined } = {}
+): Sink & { flush(): void } {
   let waiting = ""
   let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -129,7 +133,7 @@ export function createLogFileSink(files: LogFiles, { delayMs = flushMs } = {}): 
   }
 
   function write(envelope: Envelope): void {
-    waiting += `${JSON.stringify(envelope)}\n`
+    waiting += `${JSON.stringify(testRun ? { ...envelope, testRun } : envelope)}\n`
     if (envelope.level === "fatal") flush()
     else if (!timer) {
       timer = setTimeout(flush, delayMs)

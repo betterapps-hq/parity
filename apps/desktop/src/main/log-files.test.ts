@@ -95,4 +95,13 @@ describe("createLogFileSink", () => {
     expect(warn).toHaveBeenCalledOnce()
     warn.mockRestore()
   })
+
+  it("names the test run on every line when one is set", () => {
+    const logs = createLogFiles({ folder, now: at("2026-11-06T09:00:00Z") })
+    const sink = createLogFileSink(logs, { testRun: "ci-42" })
+    sink.event(envelope("tab.opened", "info"))
+    sink.flush()
+    const line = JSON.parse(readFileSync(join(folder, "parity-2026-11-06.jsonl"), "utf8")) as { testRun?: string }
+    expect(line.testRun).toBe("ci-42")
+  })
 })

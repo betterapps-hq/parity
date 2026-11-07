@@ -131,7 +131,9 @@ export function startEvents({
     sessionId: randomUUID(),
     check: !installed
   }
-  const logFile = createLogFileSink(createLogFiles({ folder: join(userData, "logs") }))
+  const logFile = createLogFileSink(createLogFiles({ folder: join(userData, "logs") }), {
+    testRun: process.env.PARITY_TEST_RUN?.trim() || undefined
+  })
   // The file is written as the app quits, with what's waiting.
   app.on("will-quit", () => logFile.flush())
   const upload = createSentrySink(sentryTarget, { upload: true, scope: false })

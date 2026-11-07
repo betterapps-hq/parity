@@ -5638,3 +5638,19 @@ a known conflict, and electron/electron#46323 is still open. My calls:
   update check crashed.
 - **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
   dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
+
+## `parity logs` reads the local copy (PAR-636)
+
+`parity logs` and the MCP tool `get_logs` read Parity's own events from the local copy main writes at every level
+(PAR-627), so an agent debugging Parity reads them as it reads a project's console. My calls:
+
+- **It reads the files, not the app,** so it works when the app has quit or crashed, and with diagnostics off. The
+  folder is `desktopDataFolder`'s `logs`, so `PARITY_USER_DATA` points it at another copy.
+- **Without a session, it shows the last run,** the newest event's `sessionId`. A trace or test run can span runs, so
+  `--trace` and `--test-run` search them all, as `--session all` does.
+- **`--level` is the lowest shown,** since asking for warnings means wanting errors too. `--trace` takes the start of an
+  ID, as the text form prints its first 8 digits. `--since` takes an ISO time or `30s`, `10m`, `2h` or `1d`.
+- **The newest 100, oldest first,** with `total`, `truncated` and `limit` (up to 1000), as `console` and `tokens` say
+  them. Lines a crash cut short are skipped.
+- **Main writes the test run on each line as `testRun`,** from `PARITY_TEST_RUN`, since PAR-630's `test_run` tag goes to
+  Sentry's scope and not into the envelope.
