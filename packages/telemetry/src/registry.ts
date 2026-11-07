@@ -1,3 +1,4 @@
+import { appEvents } from "./app-events.ts"
 import type { EventDefinition } from "./events.ts"
 import { actionRan, agentCalled, builderStarted, frameDrawn, gestureRan, requestHandled } from "./trace-events.ts"
 
@@ -12,5 +13,6 @@ export const registeredEvents = [
   requestHandled,
   frameDrawn,
   builderStarted,
-  agentCalled
+  agentCalled,
+  ...appEvents
 ] as const satisfies readonly EventDefinition[]

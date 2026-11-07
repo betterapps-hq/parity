@@ -59,6 +59,7 @@ import type {
 import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from "../shared/telemetry-run.ts"
 import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } from "../shared/tracing.ts"
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
+import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
@@ -151,6 +152,10 @@ const events = startEvents({
 const telemetryRun = writeTelemetryRun(events.run)
 // What main does for the service is a span in the trace the service's request came with (PAR-629).
 traceWith(events.telemetry)
+// Startup, quitting, updates and memory (PAR-631).
+const appLife = recordAppLife(events.telemetry, async () =>
+  (await processUsage()).map(({ role, memory }) => ({ role, memory }))
+)
 
 let service: UtilityProcess | undefined
 let updates: UpdateSession | undefined
@@ -256,6 +261,7 @@ function startService(): UtilityProcess {
   })
   channel.connect(nodePort(child, { closedBy: { exit: () => undefined } }))
   serviceChannels.set(child, channel)
+  child.once("spawn", () => appLife.mark("serviceReady"))
   child.on("exit", (code) => {
     channel.close(new Error("The project service stopped"))
     if (service === child) service = undefined
@@ -327,7 +333,9 @@ function createWindow(): void {
       sandbox: true
     }
   })
-  watchWindowHangs(window, "window", "renderer")
+  watchWindowHangs(window, "window", "renderer", () => appLife.windowHung())
+  appLife.mark("windowShown")
+  window.once("ready-to-show", () => appLife.mark("firstPaint"))
   // A key pressed in the window is the person's, so what follows is tagged as theirs, not an agent's (PAR-630).
   window.webContents.on("before-input-event", () => personActed())
   // A message is the design's whose frame the page said was handling an event as it was written (PAR-147).
@@ -757,7 +765,10 @@ function builderReadings(): Promise<BuilderReading[]> {
 // project service starts run outside the app, so they aren't counted, apart from each project's builder, which runs
 // in a process of its own the service starts. Memory is what each process uses on its own, as the system's monitor
 // counts it (see private-memory.ts), and its working set where the system won't say.
-ipcMain.handle(ipc.metrics, async (event): Promise<ProcessUsage[]> => {
+ipcMain.handle(ipc.metrics, (event) => processUsage(event.sender))
+
+/** Each process's CPU and memory, with `asker` named as this window. */
+async function processUsage(asker?: Electron.WebContents): Promise<ProcessUsage[]> {
   const cores = availableParallelism()
   const pages = new Map(webContents.getAllWebContents().map((contents) => [contents.getOSProcessId(), contents]))
   const metrics = app.getAppMetrics()
@@ -770,7 +781,7 @@ ipcMain.handle(ipc.metrics, async (event): Promise<ProcessUsage[]> => {
     else if (metric.type === "GPU") role = "gpu"
     else if (metric.name === serviceName) role = "service"
     else if (page && renderWindows.some((render) => render?.window.webContents === page)) role = "offscreen"
-    else if (page === event.sender) role = "this-window"
+    else if (page === asker) role = "this-window"
     else role = page ? "window" : "helper"
     const names: Record<ProcessUsage["role"], string> = {
       app: "Parity",
@@ -796,7 +807,7 @@ ipcMain.handle(ipc.metrics, async (event): Promise<ProcessUsage[]> => {
     memory: privates.get(builder.pid) ?? builder.memory
   }))
   return [...usage, ...builderUsage]
-})
+}
 
 // Agents measure and capture frames offscreen, so their work never moves the person's camera. A few windows draw at once,
 // so a project's bitmaps are taken in a fraction of the time one window took (PAR-523).
@@ -857,7 +868,7 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
         additionalArguments: [`${telemetryRunArgument}${telemetryRun}`]
       }
     })
-    watchWindowHangs(window, "offscreen renderer", "render")
+    watchWindowHangs(window, "offscreen renderer", "render", () => appLife.windowHung())
     // A message is the design's the window is drawing as it's written (PAR-147).
     recordConsole(consoleLog, window.webContents, "offscreen", new URL(rendererUrl).origin, () => drawing.get(window))
     render = { window, loaded: window.loadURL(new URL("render.html", rendererUrl).href) }
@@ -1005,6 +1016,7 @@ async function servePreview(request: Request): Promise<Response> {
 }
 
 void app.whenReady().then(() => {
+  appLife.mark("mainReady")
   if (handedLink) {
     void receiveLink(handedLink).finally(() => app.quit())
     return
@@ -1020,6 +1032,7 @@ void app.whenReady().then(() => {
   app.dock?.setIcon(join(import.meta.dirname, "resources", "dock.png"))
   Menu.setApplicationMenu(applicationMenu())
   updates = createUpdates((state) => {
+    appLife.update(state)
     for (const window of BrowserWindow.getAllWindows()) {
       if (!isRenderWindow(window)) window.webContents.send(ipc.updateChanged, state)
     }
