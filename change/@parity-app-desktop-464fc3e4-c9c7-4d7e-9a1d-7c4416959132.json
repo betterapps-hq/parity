@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Settings > Privacy > Share diagnostics turns Parity's diagnostics on or off without a restart, and About shows whether they're on and the install ID.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 00:05:43 GMT",
+      "version": "0.23.0",
+      "tag": "@parity-app/desktop_v0.23.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5fbcfa6b9799604d5e36048dbc39c3bc50fa8d7c",
+            "comment": "Settings > Privacy > Share diagnostics turns Parity's diagnostics on or off without a restart, and About shows whether they're on and the install ID."
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 18:37:59 GMT",
       "version": "0.22.0",
       "tag": "@parity-app/desktop_v0.22.0",

@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 18:37:59 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 00:05:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.23.0
+
+Sat, 07 Nov 2026 00:05:43 GMT
+
+### Minor changes
+
+- Settings > Privacy > Share diagnostics turns Parity's diagnostics on or off without a restart, and About shows whether
+  they're on and the install ID. (ajcraswell@gmail.com)
 
 ## 0.22.0
 
