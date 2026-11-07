@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Failing components draw a hatched box and show in the console with why and how to fix them, the console filters levels from a menu, and saved component code reaches the canvas live",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

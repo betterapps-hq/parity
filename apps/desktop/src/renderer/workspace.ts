@@ -1,4 +1,13 @@
-import { type CanvasDocument, finiteNumber, guestChanges, jsonText, parseData } from "@parity-app/core"
+import {
+  type CanvasDocument,
+  codeChangeVersions,
+  finiteNumber,
+  type GuestComponentSource,
+  guestChanges,
+  jsonText,
+  parseData,
+  versionedSources
+} from "@parity-app/core"
 import { openingDesigns } from "@parity-app/editor"
 import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
@@ -27,8 +36,13 @@ export interface ProjectSession {
   tokens: TokenStore
   /** Components and their props, inferred from source after the tab opens. */
   components: ComponentStore
-  /** Components the type checker found after the guest loaded, which offscreen renders add to theirs. */
-  added?: ProjectInfo["sources"]
+  /**
+   * Components the type checker found after the guest loaded, and ones whose code changed since (with a `version`),
+   * which offscreen renders add to theirs.
+   */
+  added?: Record<string, GuestComponentSource & ProjectInfo["sources"][string]>
+  /** When each component's code last changed on disk, by its builder's stamp, while the tab is open (PAR-165). */
+  versions?: Record<string, number>
   /** Design files that couldn't be read. */
   errors: { path: string; error: string }[]
   /** The tab's canvas, once mounted. */
@@ -474,7 +488,11 @@ export class Workspace {
   setSources(id: string, sources: ProjectInfo["sources"], leftOut?: ProjectInfo["leftOut"]): void {
     const tab = this.getTab(id)
     if (!tab?.session) return
-    const { add, drop } = guestChanges(tab.session.info.sources, sources)
+    const versions = tab.session.versions ?? {}
+    const { add, drop } = guestChanges(
+      versionedSources(tab.session.info.sources, versions),
+      versionedSources(sources, versions)
+    )
     const { guest } = tab.session.loaded
     guest.addComponents?.(add)
     // The guest takes back the ones it was given, as the offscreen renderer does once a job no longer carries them.
@@ -488,6 +506,23 @@ export class Workspace {
       ...(leftOut ? { leftOut } : {})
     }
     this.replace(id, { ...tab, session: { ...tab.session, info, added } })
+  }
+
+  /**
+   * Component files whose code changed on disk, or that import a file that did, at `stamp` (PAR-165). Their components
+   * load again from a new address, so frames and bitmaps draw the code as it is now, within a moment of a save.
+   */
+  codeChanged(id: string, paths: readonly string[], stamp: number): void {
+    const tab = this.getTab(id)
+    if (!tab?.session) return
+    const { sources } = tab.session.info
+    const before = tab.session.versions ?? {}
+    const versions = codeChangeVersions(sources, paths, stamp, before)
+    const { add } = guestChanges(versionedSources(sources, before), versionedSources(sources, versions))
+    if (Object.keys(add).length === 0) return
+    tab.session.loaded.guest.addComponents?.(add)
+    const added = { ...tab.session.added, ...add }
+    this.replace(id, { ...tab, session: { ...tab.session, versions, added } })
   }
 
   setEditor(id: string, editor: Editor | undefined): void {

@@ -43,6 +43,7 @@ import {
   LockOpen,
   Plus,
   MonitorSmartphone,
+  OctagonAlert,
   PenLine,
   StickyNote
 } from "lucide-react"
@@ -61,9 +62,11 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
+import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
 import { SearchField } from "./AssetsPanel.tsx"
+import { showConsole } from "./ConsolePanel.tsx"
 import { createDesign } from "./create.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
@@ -640,6 +643,9 @@ const LayerRow = memo(function LayerRow({
   const state = activeState(container)
   const color = row.node ? nodeColor(row.node) : designColor(container.kind)
   const changed = row.node && state.overrides?.[row.node.id]
+  // A layer whose component fails to draw in one of the design's frames, which its board's badge counts.
+  const failing = useLayerFailure(session.id, row.design.key, row.node?.id ?? "")
+  const failure = row.node ? failing : undefined
   const viewports = row.node ? Object.keys(row.node.responsive ?? {}) : []
   // Whether the board hides it in the state it shows, as Hide and Show read it.
   const hidden = row.node ? (nodeOnBoard(container, row.node, state).hidden ?? false) : false
@@ -753,6 +759,22 @@ const LayerRow = memo(function LayerRow({
               <span className="min-w-0 flex-1 truncate">{label}</span>
             )}
             <span className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
+              {failure && (
+                <Hint label={`${failure.component} fails to draw`} detail="Click to show why in the console">
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label={`${failure.component} fails to draw. Show why in the console`}
+                    className="grid size-4 place-items-center rounded-sm hover:bg-accent"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      showConsole(row.design.key)
+                    }}
+                  >
+                    <OctagonAlert className="size-3 text-destructive" />
+                  </button>
+                </Hint>
+              )}
               {/* A component's slot says which: children, or the prop that takes it. */}
               {row.node?.type === "layout" && row.node.slot !== undefined && container.kind === "component" && (
                 <span className="font-mono text-[11px]" style={{ color: kindColors.component }}>

@@ -1,4 +1,10 @@
-import { type ComponentSource, type FrameGeometry, modeGlobals, type ResolvedMode } from "@parity-app/core"
+import {
+  type ComponentSource,
+  type FrameGeometry,
+  type GuestComponentSource,
+  modeGlobals,
+  type ResolvedMode
+} from "@parity-app/core"
 import type { TokenChange } from "@parity-app/tokens"
 import type { RenderJob } from "./protocol.ts"
 
@@ -76,17 +82,18 @@ export function renderJobMode(mode: ResolvedMode, frame: FrameGeometry): RenderJ
 // and a preview by neither, since previews never draw unsaved tokens and each project keeps its own folder of them.
 // Checking a frame (`audit`, `colorTokens`) changes nothing drawn, so it's in no name.
 
-/** The guest a frame is drawn by on the canvas, which its memory key goes by: its id, and its code's revision. */
+/** The guest a frame is drawn by on the canvas, which its memory key goes by: its id. */
 export interface DrawingGuest {
   id: number
-  code: number
 }
 
 /** A frame's names in the canvas's memory: what it draws, and that with everything else its bitmap shows. */
 export interface FrameKeys {
   /**
-   * What the live frame draws: the guest and its code, the mode's classes, attributes and options, and the tree. The live
-   * frame draws again when it changes; its size and the tokens previewed it follows by itself.
+   * What the live frame draws: the guest, the code of the components the tree draws, the mode's classes, attributes and
+   * options, and the tree. The live frame draws again when it changes; its size and the tokens previewed it follows by
+   * itself. The code is each component the guest was given since it loaded, from the job's `components`: one that moved,
+   * was added or taken back, or whose code changed on disk (PAR-165), changes only the frames that draw it.
    */
   drawn: string
   /**
@@ -101,7 +108,7 @@ export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
   const { mode } = job
   const drawn = [
     guest.id,
-    guest.code,
+    JSON.stringify(drawnComponents(job.tree, {}, job.components)),
     job.guestUrl,
     JSON.stringify([mode.classNames, mode.attributes, mode.globals]),
     JSON.stringify(job.tree)
@@ -191,8 +198,10 @@ export function drawnComponents(
   const own = <T>(record: Readonly<Record<string, T>>, id: string) =>
     Object.hasOwn(record, id) ? record[id] : undefined
   return [...ids].sort().map((id) => {
-    const source = own(given, id) ?? own(served, id)
-    return [id, source ? `${source.path}#${source.export}` : null]
+    const source: GuestComponentSource | undefined = own(given, id) ?? own(served, id)
+    if (!source) return [id, null]
+    // A component whose code changed since its guest loaded (PAR-165) names the version, so its old bitmap isn't kept.
+    return [id, `${source.path}#${source.export}${source.version === undefined ? "" : `@${source.version}`}`]
   })
 }
 

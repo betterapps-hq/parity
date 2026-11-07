@@ -9,6 +9,7 @@ import {
   type BuilderAdapter,
   type BuilderDetection,
   type BuilderStartOptions,
+  type CodeChange,
   commandOption,
   iconStyleModules,
   type LibraryInfo,
@@ -20,6 +21,7 @@ import {
 } from "@parity-app/core"
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
+import { gatherChanges, stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { warmGuestGraph } from "./warmup.ts"
 
@@ -117,10 +119,30 @@ export const viteBuilder: BuilderAdapter = {
       )
       const origin = server.resolvedUrls?.local[0]
       if (!origin) throw new Error("Vite did not report a local URL")
+      const codeListeners = new Set<(change: CodeChange) => void>()
+      const changes = gatherChanges((change) => {
+        for (const listener of codeListeners) listener(change)
+      })
+      const root = vite.normalizePath(options.root)
+      // Vite's own watcher, which already follows every file the guest imported. The list of components changes as the
+      // type checker finds them, in place.
+      server.watcher.on("change", (file) => {
+        const components = Object.values(options.config.components)
+          .filter((component) => !component.library)
+          .map((component) => component.path)
+        changes.add(stampChange(client.moduleGraph, vite.normalizePath(file), changes.stamp(), root, components))
+      })
       return {
         guestUrl: new URL(`/@id/__x00__${guestId}`, origin).href,
         toolVersion: vite.version,
-        close: () => server.close()
+        codeChanges(listener) {
+          codeListeners.add(listener)
+          return () => codeListeners.delete(listener)
+        },
+        close: () => {
+          changes.stop()
+          return server.close()
+        }
       }
     } catch (error) {
       await server.close()

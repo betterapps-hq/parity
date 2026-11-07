@@ -2,6 +2,8 @@ import { newDesign, turnInto } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
 import { AppWindow } from "../App.tsx"
+import { showConsole } from "../chrome/ConsolePanel.tsx"
+import { setLayout } from "../chrome/layout.ts"
 import { design, example, onCanvas } from "../stories/fixtures.tsx"
 import { shapeIdFor } from "./CanvasEditor.tsx"
 
@@ -163,3 +165,39 @@ export const MissingComponents: Story = onCanvas(["Gallery"], () => {
     states: [{ id: "default", name: "Default" }]
   })
 })
+
+/**
+ * A layer whose component fails to draw (PAR-165): a tab list placed outside its tabs, which Radix refuses. It draws a
+ * striped box in its place, naming the component and its error, and the rest of the screen draws around it. Layers
+ * marks it, and the console, opened from the board's badge or that mark, lists it as an error with why it fails, how
+ * to fix it and a button that selects it.
+ */
+export const FailingLayer: Story = onCanvas(
+  ["Team settings"],
+  () => {
+    const { store } = example()
+    store.addContainer(store.mainPath, {
+      id: "story-team",
+      name: "Team settings",
+      kind: "screen",
+      position: { x: -2400, y: -800 },
+      root: {
+        id: "story-team-page",
+        type: "layout",
+        name: "Page",
+        style: { padding: 32, gap: 16 },
+        children: [
+          { id: "story-team-title", type: "text", tag: "h1", text: "Team settings" },
+          { id: "story-team-tabs", type: "component", name: "Sections", component: "TabsList" },
+          { id: "story-team-save", type: "component", component: "Button", props: { children: "Save changes" } }
+        ]
+      },
+      states: [{ id: "default", name: "Default" }]
+    })
+  },
+  () => {
+    example().selection.set({ design: design("Team settings"), node: "story-team-tabs" })
+    setLayout({ consoleHeight: 220 })
+    showConsole(design("Team settings"))
+  }
+)
