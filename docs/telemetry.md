@@ -23,6 +23,25 @@ Telemetry lens, which reads OpenTelemetry from the app a person builds, shares n
 The app sends to the `parity-desktop` project and the CLI to `parity-cli`; [sentry.md](sentry.md) says how Sentry is set
 up.
 
+## Who's driving
+
+Every error, span, log and replay is tagged so a test pass can be found and filtered in Sentry:
+
+- **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `tester` for installed
+  builds.
+- **`release`:** the published version, or the commit any other build was made from.
+- **`test_run`:** from `PARITY_TEST_RUN`, when it's set. The end-to-end suite sets it to `github-<run>-<attempt>` in
+  GitHub Actions, and `pnpm perf` to `perf-<time>` unless it's already set. An agent that starts a copy to drive with
+  `drive.ts` sets it on that copy.
+- **`driver`:** `person`, or `agent` from an agent's call until the person presses a key in the window or no call has
+  come for 10 seconds. An agent's events add `agent`, its caller name, and `agent_client`, the MCP client's name (such
+  as `claude-code`), when it calls through MCP.
+- **Sentry's user:** the install ID, named by `PARITY_TESTER` when it's set, or else by the agent's session while one is
+  driving.
+
+Main holds these on its Sentry scope, which the windows' and the service's events join. The rules are `runTags`,
+`driverTags`, `telemetryUser` and `createDriverTracker` in `@parity-app/telemetry`.
+
 ## How events get there
 
 Each process records events with `createTelemetry` and the app's Sentry sink (`apps/desktop/src/shared/sentry-sink.ts`):

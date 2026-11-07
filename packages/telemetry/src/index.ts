@@ -1,4 +1,5 @@
 export * from "./catalog.ts"
+export * from "./driver.ts"
 export * from "./envelope.ts"
 export * from "./events.ts"
 export * from "./registry.ts"

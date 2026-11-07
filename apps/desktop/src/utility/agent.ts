@@ -82,7 +82,11 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
     const body = Buffer.concat(chunks).toString("utf8")
     // Any local process with the token can send anything, so the body and its params are checked first (PAR-598). The
     // call continues the trace the CLI sent in its headers, so it's one trace from the command line on (PAR-629).
-    const answer = () => answerRequest(body, desktopHost(window()))
+    const answer = () =>
+      answerRequest(body, desktopHost(window()), (caller) => {
+        // Only tags telemetry, so a main that's gone is no matter.
+        mainProcess.request("agentCalled", caller).catch(() => undefined)
+      })
     reply(200, { result: await inSpan("agent.called", calledBy(body), answer, readTraceHeaders(request.headers)) })
   } catch (error) {
     const details = errorDetails(error)

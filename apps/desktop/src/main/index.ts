@@ -72,7 +72,9 @@ import { auditResult, canvasHeightResult, renderResult } from "./render-results.
 import { sessionStore } from "./session-store.ts"
 import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
+  agentCalled,
   applyTelemetry,
+  personActed,
   recordForwarded,
   serviceStarted,
   startEvents,
@@ -235,7 +237,8 @@ function startService(): UtilityProcess {
         if (taken) void account.takeLink(link)
         return { taken }
       },
-      record: (envelope) => recordForwarded(envelope)
+      record: (envelope) => recordForwarded(envelope),
+      agentCalled: (caller) => agentCalled(caller)
     },
     disconnected: () => new Error("The project service stopped"),
     trace: currentTraceHeaders,
@@ -315,6 +318,8 @@ function createWindow(): void {
     }
   })
   watchWindowHangs(window, "window", "renderer")
+  // A key pressed in the window is the person's, so what follows is tagged as theirs, not an agent's (PAR-630).
+  window.webContents.on("before-input-event", () => personActed())
   // A message is the design's whose frame the page said was handling an event as it was written (PAR-147).
   const contents = window.webContents.id
   recordConsole(consoleLog, window.webContents, "canvas", new URL(rendererUrl).origin, (level) =>

@@ -5639,6 +5639,23 @@ a known conflict, and electron/electron#46323 is still open. My calls:
 - **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
   dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
 
+## Every event says who was driving, and in which test pass (PAR-630)
+
+Events are tagged with `environment`, `release`, `test_run`, `driver`, `agent` and `agent_client`, and Sentry's user is
+the install. docs/telemetry.md, "Who's driving", lists them. My calls:
+
+- **Main tracks who's driving, since every agent call and every event reaches it.** The service tells main about each
+  agent call (`agentCalled`); a key pressed in the editor window (`before-input-event`) hands back to the person. Main
+  puts the tags on its scope and on each error as it's sent.
+- **An agent drives for 10 seconds after its last call** unless the person acts first. Main doesn't see a person's
+  pointer, and listening to every input event would count the clicks `drive.ts` sends over the DevTools protocol as a
+  person's.
+- **The client is MCP's `clientInfo.name`,** which the CLI now sends with each call as `client`. The CLI on its own
+  names none, since nothing declares it.
+- **CI's run is read from GitHub's own variables in the suite's launcher** (`e2e/launch.ts`), since the workflow calls a
+  shared pipeline that takes no environment.
+- **The agent's session names Sentry's user** only when no `PARITY_TESTER` is set; the install ID stays its id.
+
 ## One action is one trace across processes (PAR-629)
 
 The window starts a trace for each action and gesture, and the requests it causes carry it through the service, main,
