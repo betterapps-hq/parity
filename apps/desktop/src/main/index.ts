@@ -57,6 +57,7 @@ import type {
   ServiceProcessMethods
 } from "../shared/service.ts"
 import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from "../shared/telemetry-run.ts"
+import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } from "../shared/tracing.ts"
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
@@ -139,13 +140,14 @@ if (environment.PARITY_DEBUG_PORT !== undefined) {
 if (environment.PARITY_WINDOW_SIZE) app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion")
 app.setName("Parity")
 // Events from every process are recorded from here on, and the other processes start theirs with this run (PAR-627).
-const telemetryRun = writeTelemetryRun(
-  startEvents({
-    userData: app.getPath("userData"),
-    installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
-    installId: telemetrySetting.get().installId
-  }).run
-)
+const events = startEvents({
+  userData: app.getPath("userData"),
+  installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
+  installId: telemetrySetting.get().installId
+})
+const telemetryRun = writeTelemetryRun(events.run)
+// What main does for the service is a span in the trace the service's request came with (PAR-629).
+traceWith(events.telemetry)
 
 let service: UtilityProcess | undefined
 let updates: UpdateSession | undefined
@@ -235,7 +237,9 @@ function startService(): UtilityProcess {
       },
       record: (envelope) => recordForwarded(envelope)
     },
-    disconnected: () => new Error("The project service stopped")
+    disconnected: () => new Error("The project service stopped"),
+    trace: currentTraceHeaders,
+    around: handleInSpan
   })
   channel.connect(nodePort(child, { closedBy: { exit: () => undefined } }))
   serviceChannels.set(child, channel)
@@ -920,7 +924,17 @@ function renderOffscreen(
 ): Promise<{ frame: RenderedFrame; png?: string }> {
   // Held from the moment it's queued, so the window never closes under a job or with one waiting.
   const done = renderIdle.use()
-  const run = async (index: number) => {
+  // Drawn under the trace it was queued in, with how long it waited for a window (PAR-629).
+  const parent = currentTrace()
+  const queued = performance.now()
+  const run = (index: number) =>
+    inSpan(
+      "frame.drawn",
+      { priority, queuedMs: Math.round(performance.now() - queued), whole },
+      () => draw(index),
+      parent
+    )
+  const draw = async (index: number) => {
     const window = await ensureRenderWindow(index)
     const width = devicePixels(job.mode.width, job.scale)
     window.setContentSize(width, 800)

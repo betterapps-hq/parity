@@ -213,6 +213,52 @@ describe("createChannel", () => {
     await expect(window.request("notes.add", { text: "Late" })).rejects.toThrow("The window is closing")
     expect(window.connected).toBe(false)
   })
+
+  it("passes the trace a request was sent in to the other end's `around`, which runs its handler", async () => {
+    const seen: { method: string; trace: unknown }[] = []
+    const service = createChannel<ServiceSide, WindowSide>({
+      handlers: {
+        "notes.add": ({ text }) => ({ id: text.length }),
+        "notes.slow": () => "done",
+        "notes.fail": ({ code }) => {
+          throw new CodedFailure("That note is locked", { code })
+        }
+      },
+      errors: codedErrors,
+      around: async (request, answer) => {
+        seen.push(request)
+        return answer()
+      }
+    })
+    let current: unknown = { "sentry-trace": "action" }
+    const window = createChannel<WindowSide, ServiceSide>({ errors: codedErrors, trace: () => current })
+    const [servicePort, windowPort] = memoryPorts()
+    service.connect(servicePort)
+    window.connect(windowPort)
+    expect(await window.request("notes.add", { text: "Four" })).toEqual({ id: 4 })
+    expect(await window.request("notes.slow", undefined, { "sentry-trace": "given" })).toBe("done")
+    current = undefined
+    await expect(window.request("notes.fail", { code: "locked" })).rejects.toMatchObject({
+      details: { code: "locked" }
+    })
+    expect(seen).toEqual([
+      { method: "notes.add", trace: { "sentry-trace": "action" } },
+      { method: "notes.slow", trace: { "sentry-trace": "given" } },
+      { method: "notes.fail", trace: undefined }
+    ])
+  })
+
+  it("answers a request from an older sender that sends no trace, and sends none when it has none", async () => {
+    const { window, windowPort } = connected()
+    const sent: unknown[] = []
+    const post = windowPort.post.bind(windowPort)
+    windowPort.post = (message) => {
+      sent.push(message)
+      post(message)
+    }
+    expect(await window.request("notes.add", { text: "Old" })).toEqual({ id: 1 })
+    expect(sent).toEqual([{ type: "request", id: 1, method: "notes.add", params: { text: "Old" } }])
+  })
 })
 
 describe("nodePort", () => {

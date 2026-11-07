@@ -48,6 +48,21 @@ from (`main`, `renderer`, `render`, `service`, `worker`, `builder` or `cli`); th
 run and, where there is one, the `windowId` and `project`. An event inside a trace adds its `traceId` and `spanId`, and
 a span adds its `parentSpanId`, `durationMs` and `outcome` (`ok`, `error` or `cancelled`).
 
+## Traces
+
+One action is one trace in Sentry, across every process that works on it (PAR-629):
+
+- **The window starts a trace** for each action, as `action.ran` with its ID from `chrome/actions.ts`, and each canvas
+  drag, as `gesture.ran` with its kind from `canvas/gesture.ts`. The service's requests made while it runs carry it.
+- **Requests carry the trace** as `sentry-trace` and `baggage`, in the channel message's `trace` field. The service and
+  main answer each in a `request.handled` span, with the error code when it fails.
+- **Queued work keeps its trace:** an offscreen frame or preview is a `frame.drawn` span with how long it waited for a
+  window, and a builder's start is `builder.started`.
+- **An agent's call starts its trace in the CLI,** which sends the headers with each request; the agent server's
+  `agent.called` span continues it, so the call and the frame it drew are one trace.
+
+To find one, open a span's trace in Sentry, or search spans by `trace` from an error.
+
 ## Turning it off
 
 Telemetry is on by default everywhere Parity runs, development and CI included, each tagged with its environment. It's
@@ -130,6 +145,56 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-No events are registered yet.
+| Event             | Level | Kept | Sent by       | When                                                                      |
+| ----------------- | ----- | ---- | ------------- | ------------------------------------------------------------------------- |
+| `action.ran`      | info  | all  | renderer      | An action runs from a key, a menu or the actions search, until it's done. |
+| `agent.called`    | info  | all  | service       | The agent server answers a call from the CLI.                             |
+| `builder.started` | info  | all  | service       | The service starts a project's builder, until it's spawned.               |
+| `frame.drawn`     | debug | all  | main          | An offscreen window draws a frame or a preview, from its turn to the end. |
+| `gesture.ran`     | info  | all  | renderer      | A press on the canvas becomes a drag, until the drag ends.                |
+| `request.handled` | debug | all  | service, main | The service or main answers another process's request.                    |
+
+### `action.ran`
+
+| Attribute | Type               | Meaning                                                        |
+| --------- | ------------------ | -------------------------------------------------------------- |
+| `action`  | `string`           | The action's ID in the keymap, as `chrome/actions.ts` names it |
+| `code`    | `string`, optional | The error code, when it failed                                 |
+
+### `agent.called`
+
+| Attribute | Type               | Meaning                        |
+| --------- | ------------------ | ------------------------------ |
+| `method`  | `string`           | The agent method called        |
+| `agent`   | `string`, optional | The caller's name              |
+| `code`    | `string`, optional | The error code, when it failed |
+
+### `builder.started`
+
+| Attribute | Type     | Meaning            |
+| --------- | -------- | ------------------ |
+| `builder` | `string` | The builder's name |
+
+### `frame.drawn`
+
+| Attribute  | Type      | Meaning                                                     |
+| ---------- | --------- | ----------------------------------------------------------- |
+| `priority` | `string`  | The queue it waited in: render, visible or background       |
+| `queuedMs` | `number`  | How long it waited for an offscreen window, in milliseconds |
+| `whole`    | `boolean` | Whether it was drawn whole, to capture or check it          |
+
+### `gesture.ran`
+
+| Attribute | Type               | Meaning                                             |
+| --------- | ------------------ | --------------------------------------------------- |
+| `gesture` | `string`           | The gesture's kind, as `canvas/gesture.ts` names it |
+| `how`     | `string`, optional | How it ended: release, escape or interrupted        |
+
+### `request.handled`
+
+| Attribute | Type               | Meaning                        |
+| --------- | ------------------ | ------------------------------ |
+| `method`  | `string`           | The method asked for           |
+| `code`    | `string`, optional | The error code, when it failed |
 
 <!-- End of the generated events. -->

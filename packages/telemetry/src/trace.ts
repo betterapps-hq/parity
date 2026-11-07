@@ -1,4 +1,5 @@
 import type { TraceContext } from "./envelope.ts"
+import type { Span } from "./telemetry.ts"
 
 /** Fills a buffer of the given length with random bytes. */
 export type RandomBytes = (length: number) => Uint8Array
@@ -47,4 +48,64 @@ export function parseTraceparent(header: string): TraceContext | undefined {
   if (version === "ff" || (version === "00" && rest !== undefined)) return undefined
   if (!traceId || !spanId || !/[^0]/.test(traceId) || !/[^0]/.test(spanId)) return undefined
   return { traceId, spanId }
+}
+
+/**
+ * What a request carries so the process answering it continues the sender's trace: Sentry's `sentry-trace` header,
+ * `<trace>-<span>-1`, and its `baggage`. Channel requests carry it as their `trace` field, and the CLI as HTTP headers.
+ */
+export interface TraceHeaders {
+  "sentry-trace": string
+  baggage?: string
+}
+
+/** The headers that continue a span's trace, sampled, as every span Parity sends is. */
+export function traceHeaders({ traceId, spanId }: TraceContext): TraceHeaders {
+  return { "sentry-trace": `${traceId}-${spanId}-1`, baggage: `sentry-trace_id=${traceId},sentry-sampled=true` }
+}
+
+const sentryTrace = /^([0-9a-f]{32})-([0-9a-f]{16})(-[01])?$/
+
+/**
+ * The trace a request's headers continue: its `sentry-trace`, or a W3C `traceparent`. Headers come from another process
+ * or the CLI, so anything else, or an ID of all zeros, gives nothing and the request starts a trace of its own. Node's
+ * repeated headers, given as arrays, are read by their first.
+ */
+export function readTraceHeaders(headers: unknown): TraceContext | undefined {
+  if (typeof headers !== "object" || headers === null) return undefined
+  const first = (value: unknown) => (Array.isArray(value) ? (value as unknown[])[0] : value)
+  const sentry = first((headers as Record<string, unknown>)["sentry-trace"])
+  if (typeof sentry === "string") {
+    const match = sentryTrace.exec(sentry.trim())
+    const [, traceId, spanId] = match ?? []
+    if (traceId && spanId && /[^0]/.test(traceId) && /[^0]/.test(spanId)) return { traceId, spanId }
+    return undefined
+  }
+  const parent = first((headers as Record<string, unknown>).traceparent)
+  return typeof parent === "string" ? parseTraceparent(parent) : undefined
+}
+
+/** What a failure says its code is: a coded error's `details.code`, or an error's own `code`, such as Node's. */
+export function errorCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) return undefined
+  const { details, code } = error as { details?: { code?: unknown }; code?: unknown }
+  const coded = typeof details === "object" && details !== null ? details.code : undefined
+  if (typeof coded === "string") return coded
+  return typeof code === "string" ? code : undefined
+}
+
+/**
+ * Runs `work` and ends `span` when it settles: `ok`, or `error` with the failure's code. What `work` returns or throws
+ * passes through unchanged.
+ */
+export async function endWhenSettled<T>(span: { end: Span["end"] }, work: () => T | Promise<T>): Promise<T> {
+  try {
+    const result = await work()
+    span.end("ok")
+    return result
+  } catch (error) {
+    const code = errorCode(error)
+    span.end("error", code === undefined ? undefined : { code })
+    throw error
+  }
 }

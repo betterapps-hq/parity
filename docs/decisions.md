@@ -5638,3 +5638,27 @@ a known conflict, and electron/electron#46323 is still open. My calls:
   update check crashed.
 - **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
   dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
+
+## One action is one trace across processes (PAR-629)
+
+The window starts a trace for each action and gesture, and the requests it causes carry it through the service, main,
+the offscreen renderers and builders. An agent's call starts its trace in the CLI. My calls:
+
+- **`ChannelMessage` requests gained an optional `trace` field,** `sentry-trace` and `baggage` as `traceHeaders` in
+  `@parity-app/telemetry` writes them. The channel passes it on without reading it: `trace` reads what to send, and
+  `around` runs each handler with what came. A request without one, from an older sender, is answered as before and
+  starts a trace of its own. The window's `ask` through its preload takes it as a third argument.
+- **Handlers are wrapped by the channel, not edited.** The service's window channel and both ends of the service-main
+  channel run each handler in a `request.handled` span (`shared/tracing.ts`), timed, with the error code on failure.
+  Main's `record` isn't a span, since every span would record another.
+- **Node follows the span across `await`s with `AsyncLocalStorage`;** a page has no async context, so the window's trace
+  is the latest action or gesture that hasn't ended (`renderer/tracing.ts`). An async action stays the window's trace
+  until it settles, so a save's requests after its first `await` still carry it. Two at once give the later one.
+- **Queued work keeps the trace it was queued under.** An offscreen job takes the trace when it's queued and draws in a
+  `frame.drawn` span with how long it waited (`queuedMs`), and a builder's start is a `builder.started` span until its
+  session is up. A file write the design store schedules after an edit is sent in that edit's trace (`keepTrace`).
+- **The CLI makes the trace's IDs with `node:crypto`,** not `@parity-app/telemetry`, which it doesn't depend on yet, and
+  sends them as headers; the agent server's `agent.called` span continues them. Until the CLI records spans of its own,
+  the trace's root span isn't in Sentry, but every span in the app shares its trace ID.
+- **Code reaches its process's telemetry through `traceWith`,** which each entry calls with what `startTelemetry` or
+  `startEvents` returns. Until then, as in unit tests and stories, nothing is traced.

@@ -1,15 +1,18 @@
 import { codedErrors } from "../shared/coded-errors.ts"
 import type { Answer, ServiceMethod, ServiceMethods } from "../shared/protocol.ts"
+import { currentTraceHeaders } from "./tracing.ts"
 
 /**
  * Asks the project service. A failure throws as it was thrown there: a `CodedError` keeps its code, field and
- * alternatives, which the bridge to the preload script would otherwise drop (PAR-580).
+ * alternatives, which the bridge to the preload script would otherwise drop (PAR-580). It carries the action or
+ * gesture it's asked in, so the service's work is in that trace (PAR-629).
  */
 export async function request<M extends ServiceMethod>(
   method: M,
   params: ServiceMethods[M]["params"]
 ): Promise<ServiceMethods[M]["result"]> {
-  return settled(await window.canvasHost.ask(method, params))
+  const trace = currentTraceHeaders()
+  return settled(await (trace ? window.canvasHost.ask(method, params, trace) : window.canvasHost.ask(method, params)))
 }
 
 /** An answer's result, or its failure thrown, with checked details. */
