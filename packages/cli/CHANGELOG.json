@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 09:05:12 GMT",
+      "version": "0.18.0",
+      "tag": "@parity-app/cli_v0.18.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0428ec0e70d925eb69f246f649d9c21c0ee440c0",
+            "comment": "Failing components draw a hatched box and show in the console with why and how to fix them, the console filters levels from a menu, and saved component code reaches the canvas live"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 04:58:13 GMT",
       "version": "0.17.0",
       "tag": "@parity-app/cli_v0.17.0",
