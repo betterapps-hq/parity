@@ -8,6 +8,7 @@ import { AboutDialog } from "./chrome/AboutDialog.tsx"
 import { ActionsSearch } from "./chrome/ActionsSearch.tsx"
 import { ConvertToFrameDialog } from "./chrome/ConvertToFrameDialog.tsx"
 import { QuickInsert } from "./chrome/QuickInsert.tsx"
+import { offerLastCrashReport, ReportProblemDialog } from "./chrome/ReportProblemDialog.tsx"
 import { SettingsDialog } from "./chrome/SettingsDialog.tsx"
 import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
 import { TabBar } from "./chrome/TabBar.tsx"
@@ -34,6 +35,7 @@ export function App() {
     startUpdates()
     startConsole()
     startAccount()
+    offerLastCrashReport()
   }, [])
 
   return <AppWindow />
@@ -81,6 +83,7 @@ export function AppWindow() {
       <ConvertToFrameDialog />
       <ShortcutsDialog />
       <AboutDialog />
+      <ReportProblemDialog />
       <UnsavedPrompt />
       <SignInDialog />
       <UntilQuitDialog />

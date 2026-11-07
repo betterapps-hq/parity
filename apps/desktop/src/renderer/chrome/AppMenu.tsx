@@ -67,7 +67,8 @@ import {
   Unlink,
   X,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  MessageSquareWarning
 } from "lucide-react"
 import type { ReactNode } from "react"
 import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
@@ -78,6 +79,7 @@ import { type Command, keymap } from "./keymap.ts"
 import { formatKeys, isMac } from "./keys.ts"
 import { setLayout, useLayout } from "./layout.ts"
 import { setPreferences, usePreferences } from "./preferences.ts"
+import { openReport } from "./ReportProblemDialog.tsx"
 import { checkForUpdates } from "./updates.tsx"
 
 const mac = isMac()
@@ -367,6 +369,10 @@ function HelpItems() {
       </Item>
       <MenubarSeparator />
       <Item command="developerTools" icon={Code} />
+      <MenubarSeparator />
+      <MenubarItem onClick={() => void openReport()}>
+        <MessageSquareWarning /> Report a problem…
+      </MenubarItem>
       <MenubarSeparator />
       <MenubarItem onClick={checkForUpdates}>
         <RefreshCw /> Check for updates

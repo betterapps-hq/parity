@@ -69,6 +69,23 @@ export const consoleAnnouncement = z.strictObject({
 export const consoleOrigin = z.url()
 
 /** `handler` with its argument checked by `schema` first, so a bad one never reaches it. */
+/** A report from Help > Report a problem (PAR-635): what happened, and the IDs that tie it to the window's replay and trace. */
+export const problemReport = z.strictObject({
+  message: nonBlankString,
+  screenshot: z.boolean(),
+  afterCrash: z.boolean(),
+  replayId: z
+    .string()
+    .regex(/^[0-9a-f]{32}$/)
+    .optional(),
+  traceId: z
+    .string()
+    .regex(/^[0-9a-f]{32}$/)
+    .optional()
+})
+
+export type ProblemReport = z.infer<typeof problemReport>
+
 export function checked<Event, Schema extends z.ZodType, Result>(
   schema: Schema,
   handler: (event: Event, argument: z.output<Schema>) => Result

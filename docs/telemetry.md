@@ -195,6 +195,7 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                          |
 | `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                 |
 | `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                   |
+| `report.sent`         | info  | all  | main                                    | Help > Report a problem sends a report.                                             |
 | `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                              |
 | `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                            |
 | `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                     |
@@ -258,9 +259,9 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 ### `dialog.opened`
 
-| Attribute | Type     | Meaning                                             |
-| --------- | -------- | --------------------------------------------------- |
-| `dialog`  | `string` | Which dialog: settings, shortcuts, about or actions |
+| Attribute | Type     | Meaning                                                     |
+| --------- | -------- | ----------------------------------------------------------- |
+| `dialog`  | `string` | Which dialog: settings, shortcuts, about, actions or report |
 
 ### `document.saveFailed`
 
@@ -397,6 +398,14 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | ------------ | ------------------ | --------------------------------------------------------------------- |
 | `durationMs` | `integer`          | How long the task ran                                                 |
 | `action`     | `string`, optional | The input that started it, such as `pointerdown` or `keydown`, if any |
+
+### `report.sent`
+
+| Attribute    | Type      | Meaning                                                    |
+| ------------ | --------- | ---------------------------------------------------------- |
+| `feedbackId` | `string`  | The Sentry event ID of the user feedback the report became |
+| `screenshot` | `boolean` | Whether the person included a screenshot of the window     |
+| `afterCrash` | `boolean` | Whether it was offered on start after the last run crashed |
 
 ### `request.handled`
 

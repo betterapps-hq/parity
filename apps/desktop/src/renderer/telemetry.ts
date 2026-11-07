@@ -84,3 +84,19 @@ function report(error: unknown, { componentStack }: ErrorInfo, caught: boolean):
     captureContext: { contexts: { react: { componentStack } } }
   })
 }
+
+/**
+ * The replay and trace a report is tied to (PAR-635). The replay's buffer is sent first, so the feedback can name it.
+ * Neither is there when the window records no replay.
+ */
+export async function reportIds(): Promise<{ replayId?: string; traceId?: string }> {
+  const replay = Sentry.getReplay()
+  try {
+    await replay?.flush()
+  } catch {
+    // The report goes without its replay.
+  }
+  const replayId = replay?.getReplayId()
+  const traceId = Sentry.getCurrentScope().getPropagationContext().traceId
+  return { ...(replayId ? { replayId } : {}), ...(traceId ? { traceId } : {}) }
+}

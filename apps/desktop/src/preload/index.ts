@@ -66,6 +66,11 @@ const host: CanvasHost = {
     get: () => ipcRenderer.invoke(ipc.telemetryState),
     setLevel: (level) => ipcRenderer.invoke(ipc.telemetryLevel, level)
   },
+  report: {
+    prepare: () => ipcRenderer.invoke(ipc.reportPrepare),
+    send: (report) => ipcRenderer.invoke(ipc.reportSend, report),
+    lastCrash: () => ipcRenderer.invoke(ipc.reportLastCrash)
+  },
   updates: {
     get: () => ipcRenderer.invoke(ipc.updateState),
     check: () => ipcRenderer.invoke(ipc.updateCheck),

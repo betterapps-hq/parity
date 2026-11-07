@@ -55,5 +55,10 @@ export const ipc = {
   telemetry: "canvas:telemetry",
   /** The open projects' `.env` values to scrub from telemetry, which a window asks main for and hears of changes to. */
   telemetrySecrets: "canvas:telemetry-secrets",
-  telemetrySecretsChanged: "canvas:telemetry-secrets-changed"
+  telemetrySecretsChanged: "canvas:telemetry-secrets-changed",
+  /** Help > Report a problem: the window asks for what goes with a report, then sends it (PAR-635). */
+  reportPrepare: "canvas:report-prepare",
+  reportSend: "canvas:report-send",
+  /** The window asks once, as it starts, whether the last run crashed. */
+  reportLastCrash: "canvas:report-last-crash"
 } as const

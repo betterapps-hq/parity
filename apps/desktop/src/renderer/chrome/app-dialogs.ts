@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react"
 import { recordInterface } from "../interface-events.ts"
 
 /** The app's own dialogs, opened from the menus and their shortcuts. One shows at a time. */
-export type AppDialog = "settings" | "shortcuts" | "about" | "actions"
+export type AppDialog = "settings" | "shortcuts" | "about" | "actions" | "report"
 
 let open: AppDialog | undefined
 const listeners = new Set<() => void>()

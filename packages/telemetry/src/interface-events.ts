@@ -33,7 +33,7 @@ export const interfaceEvents = [
   ),
   defineEvent(
     "dialog.opened",
-    z.object({ dialog: z.string().describe("Which dialog: settings, shortcuts, about or actions") }),
+    z.object({ dialog: z.string().describe("Which dialog: settings, shortcuts, about, actions or report") }),
     { level: "info", sentBy, when: "One of the app's own dialogs opens." }
   ),
   defineEvent(

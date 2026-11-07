@@ -43,6 +43,7 @@ writes only that file, and a CLI given the same file reaches only that copy.
 | `parity a11y <design>`       | Checks accessibility with axe-core, per frame.                                             |
 | `parity console`             | What the project's own code wrote to the console.                                          |
 | `parity logs`                | Parity's own events from its local log, by level, process, trace, test run or time.        |
+| `parity diagnostics`         | A zip of the last hour of the local log, versions, projects and the latest crash.          |
 | `parity tokens`              | The tokens styles can name, with their values per theme.                                   |
 | `parity components`          | The components designs can use, by library.                                                |
 | `parity props <Component>`   | A component's props, read from its source.                                                 |
