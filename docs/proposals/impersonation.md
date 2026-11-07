@@ -37,7 +37,7 @@ Parity's website that opens that link (PAR-695).
 ## What the person sees
 
 - **A band above the window, on every tab,** in amber: "You're signed in as Andrew Craswell (andrew@kestrel.dev) for
-  support", Why (the reason), the minutes left, and End support session. It can't be closed or hidden.
+  support", the minutes left, and End support session. It can't be closed or hidden.
 - **An amber ring around the window,** so a screenshot that crops the band still shows it.
 - **The account menu and everything else are the user's,** as they'd see them.
 - **Five minutes before the end,** the time turns bold.

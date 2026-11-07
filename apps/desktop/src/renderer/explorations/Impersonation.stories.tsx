@@ -6,10 +6,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  SonnerToaster,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
+  SonnerToaster
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { LifeBuoy } from "lucide-react"
@@ -17,7 +14,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { useResolvedTheme } from "../theme.ts"
 import { me } from "./explore-data.ts"
-import { Avatar, type MockTab } from "./parts.tsx"
+import type { MockTab } from "./parts.tsx"
 import { HomePage, kestrelMember, StartActionsProvider, StartWindow } from "./start/page.tsx"
 
 /**
@@ -58,20 +55,9 @@ function ImpersonationBand({ minutes, onEnd }: { minutes: number; onEnd: () => v
       className="flex h-9 shrink-0 items-center gap-2.5 bg-amber-400 px-3 text-[13px] text-amber-950"
     >
       <LifeBuoy className="size-4 shrink-0" aria-hidden />
-      <Avatar person={me} size={18} />
       <span className="min-w-0 truncate">
         <span className="font-semibold">You&apos;re signed in as {person.name}</span> ({person.email}) for support
       </span>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button type="button" className="shrink-0 underline decoration-amber-950/40 underline-offset-2">
-              Why
-            </button>
-          }
-        />
-        <TooltipContent className="max-w-72">{support.reason}</TooltipContent>
-      </Tooltip>
       <span className={`ml-auto shrink-0 tabular-nums ${soon ? "font-semibold" : ""}`}>
         {minutes > 0 ? `Ends in ${minutes} min` : "Ending"}
       </span>
@@ -202,7 +188,7 @@ export const Starting: Story = { render: () => <ImpersonationPrototype start="co
 
 /**
  * Signed in as Andrew for support. The band stays above the window on every tab and can't be dismissed; a ring around
- * the window keeps it visible in a screenshot that crops the band. Why shows the reason. Everything else works as it
+ * the window keeps it visible in a screenshot that crops the band. Everything else works as it
  * does for Andrew, and Sign out in the account menu ends the session too.
  */
 export const Impersonating: Story = { render: () => <ImpersonationPrototype start="on" minutes={47} /> }
