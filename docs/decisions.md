@@ -5694,6 +5694,25 @@ a known conflict, and electron/electron#46323 is still open. My calls:
 - **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
   dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
 
+## Every error notification is recorded, with saves, exports and project edits (PAR-632)
+
+The editor window records what the proposal's "Errors" and "Files and saving" list, as [telemetry.md](telemetry.md)
+catalogs. My calls:
+
+- **One helper shows an error and records it.** `reportError(error, { operation, title, ...toast })` in
+  `renderer/report-error.ts` shows the notification as before and records `error.caught` with the `CodedError` code, the
+  operation and what it acted on. No window code calls `toast.error` itself. The field is `operation`, not `action`,
+  since a notification's `action` is its button; the event still calls it `action`.
+- **`ipc.failed` is recorded in `request`,** the one way the window asks the service, by method and code. It's a
+  warning, not an error, so a failure the window also shows isn't two Sentry issues.
+- **Events are recorded where the window asks for the work:** saves in `saveDocument`, token writes in `saveTokens`,
+  edits as `announceEdit` shows them and as Undo puts them back, exports in `commands.ts`, libraries in the Assets
+  panel. `document.saved`'s size is the document as JSON. `library.added` names the catalog ID, since the window doesn't
+  know the version installed; `styles.imported` has the package and version.
+- **A recording mistake never stops the work.** `track` logs what the development build's checks throw rather than
+  throwing it, and nothing is recorded where no telemetry was started, as in stories and tests.
+- **Event names can be camelCase,** as the proposal names them (`document.saveFailed`, `projectEdit.applied`).
+
 ## Failed data checks and unsupported projects are recorded (PAR-633)
 
 The product telemetry plan called for `data.invalid` and `project.unsupported`. My calls:
