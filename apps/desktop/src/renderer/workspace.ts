@@ -258,6 +258,9 @@ export class Workspace {
       this.settleDrops()
     }
     if (tab.session) {
+      // React keeps the tabs a component last read until it renders again, so this tab can outlive its closing. Without
+      // its editor it holds no canvas: a closed project's whole canvas stayed while frames were still awake (PAR-624).
+      tab.session.editor = undefined
       void request("project.close", { projectId: tab.session.id })
       releaseGuest(tab.session.info.guestUrl)
     }

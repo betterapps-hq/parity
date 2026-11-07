@@ -8,8 +8,20 @@ import type { SharpConstructor } from "sharp"
  */
 let encoder: Promise<SharpConstructor> | undefined
 
+/**
+ * Why sharp isn't loaded here, if it isn't. Under Electron on Linux, Electron's own glib clashes with the one sharp's
+ * libvips brings, and the service crashed the first time sharp encoded a picture (PAR-688, electron/electron#46323). So
+ * there it's never loaded, as on a system it can't load on.
+ */
+export function sharpRefusal(platform: string, electron: string | undefined): string | undefined {
+  return platform === "linux" && electron !== undefined
+    ? "Electron's glib on Linux crashes sharp's libvips (PAR-688)"
+    : undefined
+}
+
 function loadSharp(): Promise<SharpConstructor> {
-  encoder ??= import("sharp").then(
+  const refusal = sharpRefusal(process.platform, process.versions.electron)
+  encoder ??= (refusal ? Promise.reject(new Error(refusal)) : import("sharp")).then(
     ({ default: sharp }) => {
       // Each picture is encoded once, so nothing is worth keeping in sharp's cache.
       sharp.cache(false)

@@ -18,15 +18,15 @@ export function replayOptions(level: CanvasHost["telemetry"]): Parameters<typeof
     replaysSessionSampleRate: level === "all" ? replaySessionRate : 0,
     replaysOnErrorSampleRate: 1,
     integrations: [
-      // Names, values and pictures are what make a bug findable, as in every other event. A project's frames are left
-      // out, as boxes their size: the recorder kept a closed project's whole canvas when it recorded their shadow roots,
-      // and the project's page is the project's, not Parity's. Failures carry the frames instead
-      // (canvas/frames-on-screen.ts).
+      // Names, values and pictures are what make a bug findable, as in every other event. A project's frames and icons
+      // are left out, as boxes their size, and their shadow roots are attached where the recorder can't see them
+      // (shadow.ts): it kept every shadow root it saw, and with a frame's the closed project's whole canvas. The
+      // project's page is the project's, not Parity's; failures carry the frames instead (canvas/frames-on-screen.ts).
       Sentry.replayIntegration({
         maskAllText: false,
         maskAllInputs: false,
         blockAllMedia: false,
-        block: ["[data-frame]"]
+        block: ["[data-frame]", "[data-guest-icon]"]
       }),
       // The canvas's own <canvas> elements, such as the selection overlay, which Replay otherwise leaves out.
       Sentry.replayCanvasIntegration()

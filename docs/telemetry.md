@@ -74,8 +74,9 @@ other event. The offscreen render windows aren't recorded, and neither are Story
   with each error.
 - **At Off, nothing is recorded,** and the recorder isn't started.
 
-A project's frames are left out of replays, shown as boxes their size: recording them kept a closed project's canvas in
-memory. The offscreen windows that draw their bitmaps aren't recorded either, so failures carry the frames themselves:
+A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
+shadow roots: it kept every one it saw, and with a frame's the closed project's canvas. The offscreen windows that draw
+their bitmaps aren't recorded either, so failures carry the frames themselves:
 
 - **Every error from the editor window** has `frames.json` attached, listing the frames on the canvas: the project,
   design, state and mode of each, its size and whether it has a bitmap.
