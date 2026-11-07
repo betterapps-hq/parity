@@ -23,7 +23,7 @@ import type {
 } from "@parity-app/core"
 import type { EditStatus, ExportSize } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
-import type { ResolvedTelemetry, TelemetryLevel } from "@parity-app/telemetry"
+import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
@@ -398,11 +398,13 @@ export interface CanvasHost {
   initialProject?: string
   /**
    * Asks the project service, and never fails: a failure is an answer, with its details. The page asks through
-   * `request` in `renderer/service.ts`, which throws it as a `CodedError` again.
+   * `request` in `renderer/service.ts`, which throws it as a `CodedError` again. `trace` is the action or gesture it's
+   * asked in, as `sentry-trace` and `baggage` (PAR-629).
    */
   ask<M extends ServiceMethod>(
     method: M,
-    params: ServiceMethods[M]["params"]
+    params: ServiceMethods[M]["params"],
+    trace?: TraceHeaders
   ): Promise<Answer<ServiceMethods[M]["result"]>>
   /** Answers the service's requests. One handler per window. */
   serve(handler: (method: WindowMethod, params: unknown) => Promise<ServeAnswer>): void

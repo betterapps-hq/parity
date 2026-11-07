@@ -177,6 +177,12 @@ describe("track", () => {
 })
 
 describe("startSpan", () => {
+  it("adds what was learned by its end, such as a failure's code, to the attributes it started with", () => {
+    const { telemetry, sink } = setup()
+    telemetry.startSpan("file.save_failed", { path: "a.tsx" }).end("error", { path: "b.tsx" })
+    expect(sink.spans[0]).toMatchObject({ outcome: "error", attributes: { path: "b.tsx" } })
+  })
+
   it("records one event when it ends, with its start time, duration and outcome", () => {
     const { telemetry, sink, wait } = setup()
     const span = telemetry.startSpan("project.opened", { framework: "vite", components: 41 })

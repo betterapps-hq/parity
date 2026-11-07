@@ -348,8 +348,8 @@ function flatten(layers: readonly PatchLayer[]): Record<string, NodePatch> | und
 /**
  * Replaces an instance with a copy of what it shows, no longer linked to the component: its variants, state,
  * overrides and param values are baked in, and every node gets a fresh id except the root, which keeps the
- * instance's. Nested instances stay instances. Patches the design's states make inside the instance follow the nodes
- * to their new ids.
+ * instance's. A slot it fills keeps the fill's layers, with their ids, in place of the placeholder. Nested instances
+ * stay instances. Patches the design's states make inside the instance follow the nodes to their new ids.
  */
 export function detachInstance(container: ContainerSpec, instanceId: string, library: ComponentLibrary): ContainerSpec {
   const instance = findNode(container.root, instanceId)
@@ -364,14 +364,21 @@ export function detachInstance(container: ContainerSpec, instanceId: string, lib
     const id = root ? instance.id : generateId(taken)
     taken.add(id)
     ids.set(node.id, id)
-    const next = { ...applyPatch(node, layeredPatch(layers, node.id), args), id } as DesignNode & { bind?: unknown }
+    const next = { ...applyPatch(node, layeredPatch(layers, node.id), args), id } as DesignNode & {
+      bind?: unknown
+      slot?: unknown
+    }
     delete next.bind
+    // A detached copy is plain layers: what its slots showed stays, as layouts like any other.
+    delete next.slot
     if (next.type === "instance") {
       const overrides = flatten([next.overrides, ...layers.map((layer) => withinInstance(layer, node.id))])
       if (overrides) next.overrides = overrides
       else delete next.overrides
     }
-    if (next.type === "layout") next.children = next.children.map((child) => bake(child, false))
+    // A slot the instance fills takes its fill, which is already the design's own layers, ids and all.
+    const fill = node.type === "layout" && node.slot !== undefined ? instance.slots?.[node.slot] : undefined
+    if (next.type === "layout") next.children = fill?.length ? fill : next.children.map((child) => bake(child, false))
     if (next.type === "component" && next.slots) {
       next.slots = Object.fromEntries(
         childEntries(next).map((entry) => [entry.slot!, entry.nodes.map((child) => bake(child, false))])

@@ -18,15 +18,19 @@ export interface NodeLocation {
   node: DesignNode
   /** Ancestors from the root down to the parent; empty for the root. */
   ancestors: DesignNode[]
-  /** The component slot the node is in, when its parent is a component. */
+  /** The slot the node is in, when its parent is a code component or an instance filling a component design's slot. */
   slot?: string
   index: number
 }
 
-/** The nodes directly inside a node, with the slot each is in (undefined for a layout's children). */
+/**
+ * The nodes directly inside a node, with the slot each is in (undefined for a layout's children). An instance's are the
+ * layers it fills its component's slots with.
+ */
 export function childEntries(node: DesignNode): { slot?: string; nodes: DesignNode[] }[] {
   if (node.type === "layout") return [{ nodes: node.children }]
-  if (node.type === "component") return Object.entries(node.slots ?? {}).map(([slot, nodes]) => ({ slot, nodes }))
+  if (node.type === "component" || node.type === "instance")
+    return Object.entries(node.slots ?? {}).map(([slot, nodes]) => ({ slot, nodes }))
   return []
 }
 
@@ -100,7 +104,7 @@ export function mapNode(
       const children = mapChildren(node.children, visit)
       return children === node.children ? node : { ...node, children }
     }
-    if (node.type === "component" && node.slots) {
+    if ((node.type === "component" || node.type === "instance") && node.slots) {
       let changed = false
       const slots: Record<string, DesignNode[]> = {}
       for (const [slot, nodes] of Object.entries(node.slots)) {
@@ -125,7 +129,10 @@ function mapChildren(nodes: DesignNode[], visit: (node: DesignNode) => DesignNod
   return changed ? next : nodes
 }
 
-/** Inserts `node` into a layout, or into a component's slot (`children` unless named). */
+/**
+ * Inserts `node` into a layout, into a code component's slot (`children` unless named), or into the slot an instance
+ * fills (which has to be named).
+ */
 export function insertNode(
   root: DesignNode,
   parentId: string,
@@ -148,7 +155,11 @@ export function insertNode(
       const slot = options.slot ?? "children"
       return { ...parent, slots: { ...parent.slots, [slot]: at(parent.slots?.[slot] ?? []) } }
     }
-    throw new Error(`"${parentId}" is a text node and can't contain other nodes`)
+    if (parent.type === "instance") {
+      if (!options.slot) throw new Error(`Say which of "${parentId}"'s slots to fill`)
+      return { ...parent, slots: { ...parent.slots, [options.slot]: at(parent.slots?.[options.slot] ?? []) } }
+    }
+    throw new Error(`"${parentId}" is a ${parent.type} node and can't contain other nodes`)
   })
   if (!found) throw new Error(`No node "${parentId}" in this design`)
   return next
@@ -192,8 +203,12 @@ export function generateId(taken: ReadonlySet<string>, length = 5): string {
 export function withFreshIds(node: DesignNode, taken: Set<string>): DesignNode {
   const id = generateId(taken)
   taken.add(id)
-  if (node.type === "layout") return { ...node, id, children: node.children.map((child) => withFreshIds(child, taken)) }
-  if (node.type === "component" && node.slots) {
+  if (node.type === "layout") {
+    // A copy is a plain layout, keeping the slot's placeholder content: a component has one slot by each name.
+    const { slot: _slot, ...layout } = node
+    return { ...layout, id, children: node.children.map((child) => withFreshIds(child, taken)) }
+  }
+  if ((node.type === "component" || node.type === "instance") && node.slots) {
     const slots: Record<string, DesignNode[]> = {}
     for (const [slot, nodes] of Object.entries(node.slots))
       slots[slot] = nodes.map((child) => withFreshIds(child, taken))
@@ -776,7 +791,8 @@ export function moveNodes(
   if (index !== undefined) {
     let siblings: DesignNode[] = []
     if (parent.type === "layout") siblings = parent.children
-    else if (parent.type === "component") siblings = parent.slots?.[options.slot ?? "children"] ?? []
+    else if (parent.type === "component" || parent.type === "instance")
+      siblings = parent.slots?.[options.slot ?? "children"] ?? []
     const moving = new Set(nodes.map((node) => node.id))
     index = siblings.slice(0, index).filter((node) => !moving.has(node.id)).length
   }

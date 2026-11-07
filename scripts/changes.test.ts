@@ -1,5 +1,16 @@
-import { describe, expect, it } from "vite-plus/test"
-import { bundledBy, onlyVersionChanged, releasesFor, versionedRelease, type WorkspacePackage } from "./changes.ts"
+import { execFileSync } from "node:child_process"
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import {
+  bundledBy,
+  listChangeFiles,
+  onlyVersionChanged,
+  releasesFor,
+  versionedRelease,
+  type WorkspacePackage
+} from "./changes.ts"
 
 const workspace: WorkspacePackage[] = [
   {
@@ -88,5 +99,55 @@ describe("onlyVersionChanged", () => {
 
   it("counts any other change to the manifest", () => {
     expect(onlyVersionChanged(manifest("0.1.0"), manifest("0.2.0", { semver: "^7.8.5" }))).toBe(false)
+  })
+})
+
+describe("listChangeFiles", () => {
+  let repo: string
+  const git = (...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=Test", "-c", "user.email=test@example.com", ...args], {
+      cwd: repo,
+      encoding: "utf8"
+    }).trim()
+  // Change files for one package differ only in their comment, so git finds them similar enough to pair as a rename.
+  const changeFile = (name: string, comment: string) => {
+    const body = {
+      type: "patch",
+      comment,
+      packageName: "@parity-app/desktop",
+      email: "test@example.com",
+      dependentChangeType: "patch"
+    }
+    mkdirSync(join(repo, "change"), { recursive: true })
+    writeFileSync(
+      join(repo, "change", name),
+      `${JSON.stringify(body, null, 2)}
+`
+    )
+  }
+
+  beforeEach(() => {
+    repo = mkdtempSync(join(tmpdir(), "changes-"))
+    git("init", "--quiet")
+    changeFile("@parity-app-desktop-old.json", "Copy the selection as a PNG")
+    git("add", "--all")
+    git("commit", "--quiet", "--message", "base")
+  })
+
+  afterEach(() => rmSync(repo, { recursive: true, force: true }))
+
+  it("counts a change file added where a release consumed another for the same package", () => {
+    const base = git("rev-parse", "HEAD")
+    git("rm", "--quiet", "change/@parity-app-desktop-old.json")
+    changeFile("@parity-app-desktop-new.json", "Send errors to Sentry")
+    git("add", "--all")
+    expect(git("diff", "--name-status", "--cached", base, "--", "change/")).toMatch(/^R\d+/)
+    expect(listChangeFiles(["--cached", base], repo)).toEqual(["change/@parity-app-desktop-new.json"])
+  })
+
+  it("doesn't count a change file that was only renamed", () => {
+    const base = git("rev-parse", "HEAD")
+    git("mv", "change/@parity-app-desktop-old.json", "change/@parity-app-desktop-renamed.json")
+    expect(listChangeFiles(["--cached", base], repo)).toEqual([])
   })
 })

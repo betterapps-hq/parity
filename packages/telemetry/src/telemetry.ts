@@ -18,8 +18,11 @@ function copyOf(attributes: unknown): Record<string, unknown> {
 /** A span under way: its place in the trace, for spans and events under it, and `end` to record it. */
 export interface Span extends TraceContext {
   readonly name: string
-  /** Records the span as one event with its duration. Only the first call counts. */
-  end(outcome?: Outcome): void
+  /**
+   * Records the span as one event with its duration, with `attributes` learned on the way, such as a failure's code,
+   * added to those it started with. Only the first call counts.
+   */
+  end(outcome?: Outcome, attributes?: Record<string, unknown>): void
 }
 
 export interface TelemetryOptions<Events extends readonly EventDefinition[]> {
@@ -153,12 +156,12 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
         name,
         traceId,
         spanId,
-        end(outcome = "ok") {
+        end(outcome = "ok", learned) {
           if (ended) return
           ended = true
           if (!sampled || !definition) return
           const recorded: SpanEnvelope = {
-            ...envelope(definition, start, scrubber.value(copy), startContext),
+            ...envelope(definition, start, scrubber.value({ ...copy, ...learned }), startContext),
             traceId,
             spanId,
             ...(parent ? { parentSpanId: parent.spanId } : {}),

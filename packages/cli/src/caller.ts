@@ -15,6 +15,11 @@ export function mcpCallerName(clientInfo: { name?: unknown; title?: unknown } | 
   return declaredName(clientInfo?.title) ?? declaredName(clientInfo?.name) ?? "Agent"
 }
 
+/** The MCP client's protocol name, such as `claude-code`, which says which program an agent runs in (PAR-630). */
+export function mcpClientName(clientInfo: { name?: unknown; title?: unknown } | undefined): string | undefined {
+  return declaredName(clientInfo?.name)
+}
+
 /** CLI callers opt in to attribution explicitly; ambient tool configuration is not identity. */
 export function cliCallerName(env: Record<string, string | undefined>): string {
   return declaredName(env.PARITY_AGENT_NAME) ?? "Terminal"
