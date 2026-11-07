@@ -130,6 +130,123 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-No events are registered yet.
+| Event                 | Level | Kept | Sent by  | When                                                           |
+| --------------------- | ----- | ---- | -------- | -------------------------------------------------------------- |
+| `document.saveFailed` | warn  | all  | renderer | A design file couldn't be saved.                               |
+| `document.saved`      | info  | all  | renderer | A design file is saved.                                        |
+| `error.caught`        | error | all  | renderer | A failure is shown as an error notification.                   |
+| `export.done`         | info  | all  | renderer | An export finishes.                                            |
+| `export.failed`       | warn  | all  | renderer | An export fails.                                               |
+| `ipc.failed`          | warn  | all  | renderer | A request to the project service fails.                        |
+| `library.added`       | info  | all  | renderer | A catalog library is installed into the project.               |
+| `library.failed`      | warn  | all  | renderer | A catalog library couldn't be installed.                       |
+| `projectEdit.applied` | info  | all  | renderer | Parity changes the project's files and says so, with Undo.     |
+| `projectEdit.undone`  | info  | all  | renderer | Undo puts back a project edit's files, or fails to.            |
+| `styles.imported`     | info  | all  | renderer | A library's styles are imported into the project's stylesheet. |
+| `tokens.saved`        | info  | all  | renderer | Token changes are written to the stylesheet, or fail to be.    |
+
+### `document.saveFailed`
+
+| Attribute    | Type               | Meaning                                         |
+| ------------ | ------------------ | ----------------------------------------------- |
+| `file`       | `string`           | The file written                                |
+| `durationMs` | `number`           | How long it took                                |
+| `bytes`      | `integer`          | The document's size as JSON                     |
+| `code`       | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `document.saved`
+
+| Attribute    | Type      | Meaning                     |
+| ------------ | --------- | --------------------------- |
+| `file`       | `string`  | The file written            |
+| `durationMs` | `number`  | How long it took            |
+| `bytes`      | `integer` | The document's size as JSON |
+
+### `error.caught`
+
+| Attribute | Type               | Meaning                                            |
+| --------- | ------------------ | -------------------------------------------------- |
+| `action`  | `string`           | What failed, as `document.save` or `export.layers` |
+| `title`   | `string`           | The notification's title                           |
+| `message` | `string`           | The error's message                                |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one    |
+| `context` | `object`, optional | What it was acting on                              |
+
+### `export.done`
+
+| Attribute | Type                    | Meaning                                                          |
+| --------- | ----------------------- | ---------------------------------------------------------------- |
+| `kind`    | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images |
+| `formats` | `("png" \| "jpg")[]`    | The formats written                                              |
+| `scales`  | `number[]`              | The scales written                                               |
+| `designs` | `integer`               | The designs and layers exported                                  |
+| `states`  | `integer`, optional     | The states exported, when they're counted                        |
+| `files`   | `integer`               | The files written                                                |
+
+### `export.failed`
+
+| Attribute | Type                    | Meaning                                                          |
+| --------- | ----------------------- | ---------------------------------------------------------------- |
+| `kind`    | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images |
+| `formats` | `("png" \| "jpg")[]`    | The formats written                                              |
+| `scales`  | `number[]`              | The scales written                                               |
+| `designs` | `integer`               | The designs and layers exported                                  |
+| `states`  | `integer`, optional     | The states exported, when they're counted                        |
+| `code`    | `string`, optional      | The `CodedError` code, when the failure has one                  |
+
+### `ipc.failed`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `method`  | `string`           | The service method asked                        |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `library.added`
+
+| Attribute | Type               | Meaning                                        |
+| --------- | ------------------ | ---------------------------------------------- |
+| `package` | `string`           | The library, by its catalog ID or package name |
+| `version` | `string`, optional | The version installed, when known              |
+
+### `library.failed`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `package` | `string`           | The library, by its catalog ID or package name  |
+| `version` | `string`, optional | The version installed, when known               |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `projectEdit.applied`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `files`   | `string[]`         | The files it changed, by path                   |
+| `outcome` | `"ok" \| "error"`  | Whether it worked                               |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `projectEdit.undone`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `files`   | `string[]`         | The files it changed, by path                   |
+| `outcome` | `"ok" \| "error"`  | Whether it worked                               |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `styles.imported`
+
+| Attribute | Type               | Meaning                                        |
+| --------- | ------------------ | ---------------------------------------------- |
+| `package` | `string`           | The library, by its catalog ID or package name |
+| `version` | `string`, optional | The version installed, when known              |
+| `files`   | `string[]`         | The files it changed, by path                  |
+
+### `tokens.saved`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `changes` | `integer`          | The tokens written                              |
+| `files`   | `string[]`         | The files it changed, by path                   |
+| `outcome` | `"ok" \| "error"`  | Whether it worked                               |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
 
 <!-- End of the generated events. -->

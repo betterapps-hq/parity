@@ -1,5 +1,6 @@
 import { codedErrors } from "../shared/coded-errors.ts"
 import type { Answer, ServiceMethod, ServiceMethods } from "../shared/protocol.ts"
+import { errorCode, track } from "./report-error.ts"
 
 /**
  * Asks the project service. A failure throws as it was thrown there: a `CodedError` keeps its code, field and
@@ -9,7 +10,13 @@ export async function request<M extends ServiceMethod>(
   method: M,
   params: ServiceMethods[M]["params"]
 ): Promise<ServiceMethods[M]["result"]> {
-  return settled(await window.canvasHost.ask(method, params))
+  try {
+    return settled(await window.canvasHost.ask(method, params))
+  } catch (error) {
+    const code = errorCode(error)
+    track("ipc.failed", { method, ...(code ? { code } : {}) })
+    throw error
+  }
 }
 
 /** An answer's result, or its failure thrown, with checked details. */

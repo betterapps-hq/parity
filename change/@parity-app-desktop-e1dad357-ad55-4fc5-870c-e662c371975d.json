@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Record every error notification as error.caught, failed service requests, and saves, exports, project edits and libraries",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

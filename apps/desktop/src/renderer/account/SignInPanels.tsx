@@ -29,6 +29,7 @@ import type {
   SignInProvider,
   SignInRequest
 } from "../../shared/account.ts"
+import { reportError } from "../report-error.ts"
 import { GitHubMark } from "../start/marks.tsx"
 import { GoogleMark, MicrosoftMark } from "./marks.tsx"
 import { OrganizationBadge } from "./OrganizationBadge.tsx"
@@ -202,7 +203,7 @@ function MarkRing({ turning, badge }: { turning?: boolean; badge?: { icon: React
 function copy(text: string, said: string, id: string): void {
   void navigator.clipboard.writeText(text).then(
     () => toast.success(said, { id, duration: 2000 }),
-    () => toast.error("Parity couldn't copy that", { id })
+    (error: unknown) => reportError(error, { operation: "clipboard.write", title: "Parity couldn't copy that", id })
   )
 }
 

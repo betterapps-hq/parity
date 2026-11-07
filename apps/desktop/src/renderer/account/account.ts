@@ -9,6 +9,7 @@ import {
   signedOut
 } from "../../shared/account.ts"
 import { openProjectFolder } from "../chrome/commands.ts"
+import { reportError } from "../report-error.ts"
 import { workspace } from "../workspace.ts"
 import { currentOrganization } from "./OrganizationBadge.tsx"
 
@@ -137,7 +138,7 @@ export function useAccount(): AccountView {
 
 const failed = (title: string) => (error: unknown) => {
   console.error(title, error)
-  toast.error(title, { description: "Try again in a moment." })
+  reportError(error, { operation: "account", title, description: "Try again in a moment." })
 }
 
 /** What the sign-in screens, the account menu and Home do. */
