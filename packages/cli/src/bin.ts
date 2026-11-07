@@ -18,6 +18,7 @@ import {
 import { invalidInput, operationError } from "./errors.ts"
 import { executeOperation } from "./execute.ts"
 import { runLib } from "./lib.ts"
+import { describeLogs, logsFields, readLogs } from "./logs.ts"
 import { serveMcp } from "./mcp.ts"
 import { type Operation, operations, skillOperation } from "./operations.ts"
 import { readSkill } from "./skills.ts"
@@ -80,6 +81,10 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             inside; exits with 1 below the library's floor in the registry's
                                             in-app.json. --record keeps why parts failed in the registry's app-errors,
                                             where parity lib --registry reads the parents they name
+  parity logs [--level warn] [--process main] [--trace id] [--test-run r] [--since 10m] [--session id|all]
+       [--limit 100]                        Parity's own events from its local log, newest last: the last run's
+                                            unless --session, --trace or --test-run says, the newest 100 unless
+                                            --limit says. Runs without the app, with diagnostics on or off
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -119,6 +124,12 @@ const { positionals, values } = parseArgs({
     only: { type: "string" },
     "no-examples": { type: "boolean" },
     "no-tags": { type: "boolean" },
+    level: { type: "string" },
+    process: { type: "string" },
+    trace: { type: "string" },
+    "test-run": { type: "string" },
+    since: { type: "string" },
+    session: { type: "string" },
     help: { type: "boolean", short: "h" }
   }
 })
@@ -236,6 +247,21 @@ async function main(): Promise<void> {
       return show(operations.components, { tab: values.tab }, describeComponents)
     case "props":
       return show(operations.props, { tab: values.tab, component: rest[0], all: values.all }, describeProps)
+    case "logs": {
+      fields = logsFields
+      const result = readLogs({
+        level: values.level,
+        process: values.process,
+        trace: values.trace,
+        testRun: values["test-run"],
+        since: values.since,
+        session: values.session,
+        limit
+      })
+      if (values.json) print(result)
+      else console.log(describeLogs(result))
+      return
+    }
     case "console":
       return show(operations.console, { tab: values.tab, clear: values.clear, limit }, describeConsole)
     default:

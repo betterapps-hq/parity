@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time (PAR-636)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

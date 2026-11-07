@@ -5,6 +5,6 @@ import { startTelemetry } from "./telemetry.ts"
 
 // Requests the service answers and sends are spans in the traces they came with (PAR-629), and its event loop is
 // watched for lag (PAR-631).
-const telemetry = startTelemetry()
+export const telemetry = startTelemetry()
 traceWith(telemetry)
 watchServiceLag(telemetry)

@@ -49,6 +49,9 @@ they show on screen. `clear: true` empties it, so the next read shows only what'
 
 React's warnings keep their `%s` placeholders, with the values that fill them listed after the message.
 
+When Parity itself misbehaves (a render that never finishes, a save that fails), `get_logs` reads its own events, with
+their traces, from the app's local log: `parity logs --level warn --since 10m`.
+
 ## Trying it
 
 Checks can't click. The person can: the Interact tool (I, or the pointing hand in the toolbar) hands their mouse and

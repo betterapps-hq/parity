@@ -57,6 +57,7 @@
     "@parity-app/agent": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/libgen": "workspace:*",
-    "@parity-app/registry": "workspace:*"
+    "@parity-app/registry": "workspace:*",
+    "@parity-app/telemetry": "workspace:*"
   }
 }

@@ -5713,6 +5713,26 @@ catalogs. My calls:
   throwing it, and nothing is recorded where no telemetry was started, as in stories and tests.
 - **Event names can be camelCase,** as the proposal names them (`document.saveFailed`, `projectEdit.applied`).
 
+## Failed data checks and unsupported projects are recorded (PAR-633)
+
+The product telemetry plan called for `data.invalid` and `project.unsupported`. My calls:
+
+- **Core's checks tell one listener.** `checkData`, `parseData` and `parseInput` call `onInvalidData`'s listener with
+  each failure: the schema's name, every zod issue and the data. Core doesn't import telemetry; each process's telemetry
+  (main, the windows, the service and the props worker) sets the listener as it starts, through `recordInvalidData` in
+  `shared/invalid-data.ts`. A listener that throws doesn't change what the check returns.
+- **A schema is named by its `.meta({ id })`, its description, or the function that ran the check,** read from the stack
+  only when a check fails. Most schemas have neither, so the function names most failures; a bundle that renames it
+  gives "unnamed".
+- **Only those three helpers are watched.** Direct `safeParse(value).data` reads, as caches and saved preferences do,
+  fall back to a default by design, so they aren't recorded.
+- **The event carries the first 20 issues and up to 2,000 characters of the data as JSON,** scrubbed like every event's
+  attributes (PAR-621). It's at the `warn` level, so it's a Sentry log and breadcrumb, not an error.
+- **`project.unsupported` is the service refusing to open a project**: no package.json (`no_package`), no renderer for
+  its framework (`no_renderer`), or no builder for its bundler (`no_builder`), with the message the person sees.
+  `openProjects` takes an `unsupported` callback rather than the telemetry, so its tests record through a test sink
+  without Sentry.
+
 ## Every event says who was driving, and in which test pass (PAR-630)
 
 Events are tagged with `environment`, `release`, `test_run`, `driver`, `agent` and `agent_client`, and Sentry's user is
@@ -5783,3 +5803,19 @@ preferences, dialog and selection stores and the start page's actions record the
 `recordInterface`. A tab is sent as what it shows (Home, a project or a new tab), never by its folder, and a tab that
 takes a new id as its project opens isn't an open, a close or a switch. Mode means designing or Interact, the canvas's
 one switch between editing and using the designs.
+
+## `parity logs` reads the local copy (PAR-636)
+
+`parity logs` and the MCP tool `get_logs` read Parity's own events from the local copy main writes at every level
+(PAR-627), so an agent debugging Parity reads them as it reads a project's console. My calls:
+
+- **It reads the files, not the app,** so it works when the app has quit or crashed, and with diagnostics off. The
+  folder is `desktopDataFolder`'s `logs`, so `PARITY_USER_DATA` points it at another copy.
+- **Without a session, it shows the last run,** the newest event's `sessionId`. A trace or test run can span runs, so
+  `--trace` and `--test-run` search them all, as `--session all` does.
+- **`--level` is the lowest shown,** since asking for warnings means wanting errors too. `--trace` takes the start of an
+  ID, as the text form prints its first 8 digits. `--since` takes an ISO time or `30s`, `10m`, `2h` or `1d`.
+- **The newest 100, oldest first,** with `total`, `truncated` and `limit` (up to 1000), as `console` and `tokens` say
+  them. Lines a crash cut short are skipped.
+- **Main writes the test run on each line as `testRun`,** from `PARITY_TEST_RUN`, since PAR-630's `test_run` tag goes to
+  Sentry's scope and not into the envelope.

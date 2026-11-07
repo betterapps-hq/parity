@@ -1,4 +1,5 @@
 import { appEvents } from "./app-events.ts"
+import { dataInvalid, projectUnsupported } from "./check-events.ts"
 import type { EventDefinition } from "./events.ts"
 import { filesEvents } from "./files-events.ts"
 import { interfaceEvents } from "./interface-events.ts"
@@ -18,5 +19,7 @@ export const registeredEvents = [
   agentCalled,
   ...appEvents,
   ...interfaceEvents,
-  ...filesEvents
+  ...filesEvents,
+  dataInvalid,
+  projectUnsupported
 ] as const satisfies readonly EventDefinition[]
