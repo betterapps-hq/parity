@@ -226,7 +226,8 @@ export const rpcRequest = jsonText(
       method: z.string("method must be a string"),
       params: z.unknown().optional(),
       agent: z.unknown().optional(),
-      agentId: z.unknown().optional()
+      agentId: z.unknown().optional(),
+      client: z.unknown().optional()
     },
     "The request must be a JSON object"
   )

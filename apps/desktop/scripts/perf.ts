@@ -38,6 +38,7 @@ const outDir = join(repoDir, ".inspect/perf")
 // Others can be given, for a second run alongside, such as another session's.
 const uiPort = Number(process.env.PARITY_PERF_UI_PORT ?? 5320)
 const debugPort = Number(process.env.PARITY_PERF_DEBUG_PORT ?? 9340)
+const testRun = `perf-${new Date().toISOString()}`
 
 const args = process.argv.slice(2)
 const option = (name: string) => {
@@ -206,6 +207,8 @@ function launch(): ChildProcess {
     cwd: appDir,
     env: {
       ...process.env,
+      // One measuring pass's events group together in Sentry, unless the agent running it named its own (PAR-630).
+      PARITY_TEST_RUN: process.env.PARITY_TEST_RUN || testRun,
       PARITY_UI_PORT: String(uiPort),
       PARITY_UI_FROZEN: "1",
       PARITY_DEBUG_PORT: String(debugPort),
