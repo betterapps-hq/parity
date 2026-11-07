@@ -20,6 +20,7 @@ import {
 } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
+import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { createSentrySink, type SentryTarget } from "../shared/sentry-sink.ts"
 import type { TelemetryRun } from "../shared/telemetry-run.ts"
@@ -197,13 +198,15 @@ export function startEvents({
       upload.span(envelope)
     }
   }
-  const telemetry = createTelemetry({
-    events: registeredEvents,
-    context: { process: "main", installId: run.installId, sessionId: run.sessionId },
-    sinks: [createSentrySink(sentryTarget), forward],
-    check: run.check,
-    onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
-  })
+  const telemetry = recordInvalidData(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "main", installId: run.installId, sessionId: run.sessionId },
+      sinks: [createSentrySink(sentryTarget), forward],
+      check: run.check,
+      onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
+    })
+  )
   scrubber.follow(telemetry)
   return { run, telemetry }
 }

@@ -169,31 +169,33 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-| Event                | Level | Kept | Sent by       | When                                                                                |
-| -------------------- | ----- | ---- | ------------- | ----------------------------------------------------------------------------------- |
-| `action.ran`         | info  | all  | renderer      | An action runs from a key, a menu or the actions search, until it's done.           |
-| `agent.called`       | info  | all  | service       | The agent server answers a call from the CLI.                                       |
-| `app.quit`           | info  | all  | main          | The app quits.                                                                      |
-| `app.started`        | info  | all  | main          | The first window has painted and the project service is running.                    |
-| `builder.started`    | info  | all  | service       | The service starts a project's builder, until it's spawned.                         |
-| `dialog.opened`      | info  | all  | renderer      | One of the app's own dialogs opens.                                                 |
-| `frame.drawn`        | debug | all  | main          | An offscreen window draws a frame or a preview, from its turn to the end.           |
-| `gesture.ran`        | info  | all  | renderer      | A press on the canvas becomes a drag, until the drag ends.                          |
-| `mode.switched`      | info  | all  | renderer      | The canvas switches between designing and Interact, where designs take the pointer. |
-| `panel.shown`        | info  | all  | renderer      | A side panel or the console opens, or a side panel shows another tab.               |
-| `process.memory`     | info  | all  | main          | Every 5 minutes, and when a window stops answering.                                 |
-| `renderer.long_task` | info  | all  | renderer      | A task in the editor window runs for over 200 ms.                                   |
-| `request.handled`    | debug | all  | service, main | The service or main answers another process's request.                              |
-| `service.lag`        | warn  | all  | service       | The project service's event loop is late by over 200 ms.                            |
-| `setting.changed`    | info  | all  | renderer      | A preference or the telemetry level is changed.                                     |
-| `start.action`       | info  | all  | renderer      | A control on Home or a new tab's start page is used.                                |
-| `tab.closed`         | info  | all  | renderer      | A tab closes.                                                                       |
-| `tab.opened`         | info  | all  | renderer      | A tab opens, for a project or as a new tab.                                         |
-| `tab.switched`       | info  | all  | renderer      | Another tab, or Home, comes to the front.                                           |
-| `update.checked`     | info  | all  | main          | A check for an update finds one or finds none.                                      |
-| `update.downloaded`  | info  | all  | main          | An update finishes downloading.                                                     |
-| `update.failed`      | warn  | all  | main          | Checking for, downloading or installing an update fails.                            |
-| `update.installed`   | info  | all  | main          | The app quits to install a downloaded update.                                       |
+| Event                 | Level | Kept | Sent by                                 | When                                                                                |
+| --------------------- | ----- | ---- | --------------------------------------- | ----------------------------------------------------------------------------------- |
+| `action.ran`          | info  | all  | renderer                                | An action runs from a key, a menu or the actions search, until it's done.           |
+| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI.                                       |
+| `app.quit`            | info  | all  | main                                    | The app quits.                                                                      |
+| `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                    |
+| `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                         |
+| `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.             |
+| `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                 |
+| `frame.drawn`         | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end.           |
+| `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                          |
+| `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer. |
+| `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.               |
+| `process.memory`      | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                 |
+| `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                    |
+| `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                   |
+| `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                              |
+| `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                            |
+| `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                     |
+| `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                |
+| `tab.closed`          | info  | all  | renderer                                | A tab closes.                                                                       |
+| `tab.opened`          | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                         |
+| `tab.switched`        | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                           |
+| `update.checked`      | info  | all  | main                                    | A check for an update finds one or finds none.                                      |
+| `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                     |
+| `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                            |
+| `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                       |
 
 ### `action.ran`
 
@@ -231,6 +233,16 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | Attribute | Type     | Meaning            |
 | --------- | -------- | ------------------ |
 | `builder` | `string` | The builder's name |
+
+### `data.invalid`
+
+| Attribute | Type       | Meaning                                                       |
+| --------- | ---------- | ------------------------------------------------------------- |
+| `schema`  | `string`   | The schema's name, or the function that checked with it       |
+| `pointer` | `string`   | Where the first problem is, as a JSON pointer                 |
+| `message` | `string`   | What was expected there                                       |
+| `issues`  | `string[]` | Every problem zod found, as `/pointer: message`, the first 20 |
+| `data`    | `string`   | The data that failed, as JSON, cut to 2,000 characters        |
 
 ### `dialog.opened`
 
@@ -272,6 +284,13 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | ----------- | ---------------------- | ---------------------------------------------------------------------------------- |
 | `reason`    | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                     |
 | `processes` | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it |
+
+### `project.unsupported`
+
+| Attribute | Type                                            | Meaning                                                                            |
+| --------- | ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `reason`  | `"no_package" \| "no_renderer" \| "no_builder"` | Why: no package.json, no renderer for its framework, or no builder for its bundler |
+| `detail`  | `string`                                        | What Parity found, as shown to the person opening it                               |
 
 ### `renderer.long_task`
 

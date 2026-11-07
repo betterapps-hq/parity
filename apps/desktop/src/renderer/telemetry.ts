@@ -1,6 +1,7 @@
 import { createTelemetry, registeredEvents, type Sink, type Telemetry } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
 import type { ErrorInfo } from "react"
+import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { createSentrySink } from "../shared/sentry-sink.ts"
 import { readTelemetryRun } from "../shared/telemetry-run.ts"
@@ -39,19 +40,21 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
   const toMain: Sink[] = host
     ? [{ event: (envelope) => host.record(envelope), span: (envelope) => host.record(envelope) }]
     : []
-  const telemetry = createTelemetry({
-    events: registeredEvents,
-    context: { process: kind, installId: run.installId, sessionId: run.sessionId },
-    sinks: [
-      createSentrySink({
-        addBreadcrumb: (breadcrumb) => Sentry.addBreadcrumb(breadcrumb),
-        captureEvent: (event) => void Sentry.captureEvent(event)
-      }),
-      ...toMain
-    ],
-    check: run.check,
-    onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
-  })
+  const telemetry = recordInvalidData(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: kind, installId: run.installId, sessionId: run.sessionId },
+      sinks: [
+        createSentrySink({
+          addBreadcrumb: (breadcrumb) => Sentry.addBreadcrumb(breadcrumb),
+          captureEvent: (event) => void Sentry.captureEvent(event)
+        }),
+        ...toMain
+      ],
+      check: run.check,
+      onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
+    })
+  )
   scrubber.follow(telemetry)
   return telemetry
 }

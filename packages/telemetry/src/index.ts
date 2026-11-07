@@ -1,5 +1,6 @@
 export * from "./app-events.ts"
 export * from "./catalog.ts"
+export * from "./check-events.ts"
 export * from "./driver.ts"
 export * from "./envelope.ts"
 export * from "./events.ts"

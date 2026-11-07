@@ -5694,6 +5694,26 @@ a known conflict, and electron/electron#46323 is still open. My calls:
 - **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
   dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
 
+## Failed data checks and unsupported projects are recorded (PAR-633)
+
+The product telemetry plan called for `data.invalid` and `project.unsupported`. My calls:
+
+- **Core's checks tell one listener.** `checkData`, `parseData` and `parseInput` call `onInvalidData`'s listener with
+  each failure: the schema's name, every zod issue and the data. Core doesn't import telemetry; each process's telemetry
+  (main, the windows, the service and the props worker) sets the listener as it starts, through `recordInvalidData` in
+  `shared/invalid-data.ts`. A listener that throws doesn't change what the check returns.
+- **A schema is named by its `.meta({ id })`, its description, or the function that ran the check,** read from the stack
+  only when a check fails. Most schemas have neither, so the function names most failures; a bundle that renames it
+  gives "unnamed".
+- **Only those three helpers are watched.** Direct `safeParse(value).data` reads, as caches and saved preferences do,
+  fall back to a default by design, so they aren't recorded.
+- **The event carries the first 20 issues and up to 2,000 characters of the data as JSON,** scrubbed like every event's
+  attributes (PAR-621). It's at the `warn` level, so it's a Sentry log and breadcrumb, not an error.
+- **`project.unsupported` is the service refusing to open a project**: no package.json (`no_package`), no renderer for
+  its framework (`no_renderer`), or no builder for its bundler (`no_builder`), with the message the person sees.
+  `openProjects` takes an `unsupported` callback rather than the telemetry, so its tests record through a test sink
+  without Sentry.
+
 ## Every event says who was driving, and in which test pass (PAR-630)
 
 Events are tagged with `environment`, `release`, `test_run`, `driver`, `agent` and `agent_client`, and Sentry's user is
