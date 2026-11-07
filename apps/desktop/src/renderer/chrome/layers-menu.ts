@@ -1,5 +1,12 @@
-import { boardTarget, editTargetName, hiddenOnBoard } from "@parity-app/core"
-import { selectedDesigns, selectedNodes, type Selection, editingState } from "@parity-app/editor"
+import { hiddenOnBoard } from "@parity-app/core"
+import {
+  designsLocked,
+  editingState,
+  layersLocked,
+  selectedDesigns,
+  selectedNodes,
+  type Selection
+} from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
 import { item, layerCommands, type MenuEntry, ownLayers, sections } from "./canvas-menu.ts"
 
@@ -27,7 +34,7 @@ export function rowSelection(current: Selection, row: LayersRow): Selection {
 
 /**
  * The menu for a row, for the selection the right-click has made (see `rowSelection`): Rename and Duplicate; for a
- * layer, Hide or Show in where the change lands, as the canvas menu's Hide reads it; then Export, at the Export section's
+ * layer, Hide or Show, as the canvas menu's Hide reads it, and for a layer or a design Lock or Unlock, as the canvas menu's Lock reads it; then Export, at the Export section's
  * sizes (PAR-185); then Delete. Each has the keymap's
  * label and keys, and is unavailable when the menubar's would be: the design's root, and layers inside an instance,
  * can't be duplicated, hidden or deleted.
@@ -41,10 +48,15 @@ export function layersMenu(row: LayersRow, selection: Selection, entries: readon
   const own = ownLayers(selection, container.root).map((node) => node.id)
   const state = editingState(container, selection.state)
   const hidden = own.length > 0 && hiddenOnBoard(container, state.id, own)
-  const where = editTargetName(container, boardTarget(container, state.id))
+  const locked = layers
+    ? layersLocked(container, own)
+    : designsLocked(selectedDesigns(selection).flatMap((key) => entries.find((e) => e.key === key)?.container ?? []))
   return sections([
     [item("rename", true), item("duplicate", layers ? can.duplicate : true)],
-    row.node ? [item("hide", can.hide, `${hidden ? "Show" : "Hide"} in ${where}`)] : [],
+    [
+      ...(row.node ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : []),
+      item("lock", layers ? can.lock : true, locked ? "Unlock" : "Lock")
+    ],
     [item("exportSelection", true, "Export…")],
     [item("delete", layers ? own.length > 0 : true)]
   ])

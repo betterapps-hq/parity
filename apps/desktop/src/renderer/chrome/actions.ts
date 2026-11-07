@@ -18,6 +18,7 @@ import {
   goHome,
   goToMainComponent,
   hideSelection,
+  lockSelection,
   nudge,
   openNewTab,
   openProjectFile,
@@ -153,6 +154,7 @@ export const actions: Record<Command, Action> = {
   bringToFront: { run: () => orderSelection("front"), available: () => can("order") },
   sendToBack: { run: () => orderSelection("back"), available: () => can("order") },
   hide: { run: () => hideSelection(), available: () => can("hide") },
+  lock: { run: () => lockSelection(), available: () => (hasLayer() ? can("lock") : hasDesign()) },
 
   alignLeft: { run: () => alignSelection("left"), available: alignable },
   alignCenter: { run: () => alignSelection("center"), available: alignable },

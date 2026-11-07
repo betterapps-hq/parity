@@ -41,6 +41,7 @@ import {
   Images,
   Info,
   Keyboard,
+  Lock,
   LogOut,
   Magnet,
   Maximize,
@@ -325,6 +326,7 @@ function ObjectItems() {
       <Item command="sendToBack" icon={SendToBack} />
       <MenubarSeparator />
       <Item command="hide" icon={EyeOff} />
+      <Item command="lock" icon={Lock} />
       {!current.design && !current.note && (
         <SelectionHint>Select layers, a screen or a component to act on them</SelectionHint>
       )}

@@ -5,14 +5,19 @@ import {
   type Alignment,
   copyLayersInPlace,
   type DesignBox,
+  designsLocked,
   distributeBoxes,
   kindsName,
+  layersLocked,
+  lockableIds,
   type Order,
   removeDesigns,
   removeLayers,
   reorderLayer,
   repositionDesigns,
+  setDesignLocked,
   siblingsOf,
+  toggleLockedLayers,
   topLayers,
   unwrapLayout,
   wrapInLayout,
@@ -181,6 +186,33 @@ export function toggleHiddenLayers(session: ProjectSession): boolean {
   const { entry, ids, frame } = layers
   session.store.updateContainer(entry.key, "Toggle visibility", (container) =>
     toggleHidden(container, frame.state.id, ids)
+  )
+  return true
+}
+
+/**
+ * Locks the selected layers, or the selected designs, or unlocks them when they're all locked (PAR-192). Layers inside
+ * an instance and the design's root are left alone (see `lockableIds`); the selection stays, so it can be unlocked.
+ */
+export function toggleLockedSelection(session: ProjectSession): boolean {
+  const layers = selectedLayers(session)
+  if (layers) {
+    const { entry, ids } = layers
+    const own = lockableIds(entry.container, ids)
+    if (own.length === 0) return false
+    const label = `${layersLocked(entry.container, own) ? "Unlock" : "Lock"} ${own.length === 1 ? "layer" : "layers"}`
+    session.store.updateContainer(entry.key, label, (container) => toggleLockedLayers(container, own))
+    return true
+  }
+  const keys = selectedDesigns(session.selection.get())
+  const entries = keys.flatMap((key) => session.store.getEntry(key) ?? [])
+  if (entries.length === 0) return false
+  const lock = !designsLocked(entries.map((entry) => entry.container))
+  const label = `${lock ? "Lock" : "Unlock"} ${session.store.designsLabel(keys)}`
+  session.store.updateContainers(
+    entries.map((entry) => entry.key),
+    label,
+    (containers) => containers.map((container) => setDesignLocked(container, lock))
   )
   return true
 }

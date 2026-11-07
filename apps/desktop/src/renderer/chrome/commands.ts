@@ -36,6 +36,7 @@ import {
   orderLayer,
   selectAll,
   toggleHiddenLayers,
+  toggleLockedSelection,
   unwrapLayer,
   wrapLayers
 } from "./arrange.ts"
@@ -489,6 +490,10 @@ export function orderSelection(order: Order, session = activeSession()): void {
 
 export function hideSelection(session = activeSession()): void {
   if (session) toggleHiddenLayers(session)
+}
+
+export function lockSelection(session = activeSession()): void {
+  if (session) toggleLockedSelection(session)
 }
 
 /** The selected design, when it's selected on its own rather than one of its layers. */
