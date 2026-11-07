@@ -1,4 +1,4 @@
-import { boardTarget, editTargetName, hiddenOnBoard } from "@parity-app/core"
+import { boardTarget, editTargetName, hiddenOnBoard, isInnerPath } from "@parity-app/core"
 import { selectedDesigns, selectedNodes, type Selection, editingState } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
 import { item, layerCommands, type MenuEntry, ownLayers, sections } from "./canvas-menu.ts"
@@ -30,7 +30,8 @@ export function rowSelection(current: Selection, row: LayersRow): Selection {
  * layer, Hide or Show in where the change lands, as the canvas menu's Hide reads it; then Export, at the Export section's
  * sizes (PAR-185); then Delete. Each has the keymap's
  * label and keys, and is unavailable when the menubar's would be: the design's root, and layers inside an instance,
- * can't be duplicated, hidden or deleted.
+ * can't be duplicated, hidden or deleted. A layer inside an instance keeps its component's name, so it can't be renamed
+ * either (PAR-92).
  */
 export function layersMenu(row: LayersRow, selection: Selection, entries: readonly ContainerEntry[]): MenuEntry[] {
   const entry = entries.find((candidate) => candidate.key === row.design)
@@ -43,7 +44,7 @@ export function layersMenu(row: LayersRow, selection: Selection, entries: readon
   const hidden = own.length > 0 && hiddenOnBoard(container, state.id, own)
   const where = editTargetName(container, boardTarget(container, state.id))
   return sections([
-    [item("rename", true), item("duplicate", layers ? can.duplicate : true)],
+    [item("rename", !row.node || !isInnerPath(row.node)), item("duplicate", layers ? can.duplicate : true)],
     row.node ? [item("hide", can.hide, `${hidden ? "Show" : "Hide"} in ${where}`)] : [],
     [item("exportSelection", true, "Export…")],
     [item("delete", layers ? own.length > 0 : true)]

@@ -585,8 +585,8 @@ the tree longer and every later change slower.
   scrolling as they go, Right and Left open and close a row or move into and out of it, `*` opens the row's siblings,
   and Enter or F2 renames. Enter or Escape in the name field puts the keys back on the tree.
 
-Not yet: each row's lock, which waits for locking (PAR-192), and highlighting a layer selected inside an instance, which
-waits for an instance's layers in the tree (PAR-92).
+Not yet: each row's lock, which waits for locking (PAR-192). A layer selected inside an instance is highlighted since
+PAR-92, below.
 
 Measured on 2026-11-05 on the example with 100 more screens and a "Large list" screen of 6,050 layers (50 sections of 30
 rows of three texts), selecting a text in each of 30 sections in turn, then 20 edits to the design as typing in the
@@ -629,6 +629,42 @@ Tests:
 Gaps: the keyboard, the eye, dragging a design, the board's outline and Collapse all were tried in an isolated copy of
 the app on 2026-11-05 with the system's keyboard and mouse, through `scripts/drive.ts`; none has an end-to-end test of
 its own.
+
+### An instance's layers in the tree (PAR-92)
+
+An instance's row opens, as a layout's does, to the layers the canvas can select inside it: its component's layers, as
+this copy shows them, and inside a nested instance, that one's. Before this an instance was a row with nothing below it,
+and a layer selected inside one, by Ctrl-click on the canvas, had no row to highlight.
+
+- **Each layer inside an instance has a row,** under the instance, named as Layers names the component's layer, its icon
+  in the component color. Selecting it selects the layer on the canvas, as Ctrl-click does, and selecting it on the
+  canvas opens the rows above it, the instances among them, and highlights it. Ctrl and Shift add to the selection as
+  elsewhere. An instance of a missing component, or of a component it's inside, has nothing to open.
+- **They're read-only apart from the eye,** which hides or shows the layer in this copy only, in the state its board
+  shows, as one undo step ("Toggle visibility"). The rows can't be dragged or dropped on, a double-click, Enter or F2
+  doesn't rename them, and their menu's Rename is unavailable, with Duplicate, Hide and Delete, as for the canvas.
+- **A state's change shows as before,** with the pen ("Changed in Default"), by the layer's path. What the copy itself
+  changes isn't marked in the tree; the inspector shows it.
+- **Search, Alt+click and `*` go inside instances,** so a layer found inside one shows with the instance open above it.
+
+Code: `layersInside`, used by `treeRows`, `searchRows` and `branchIds`, and `revealIds`, in
+`packages/editor/src/layers-tree.ts`. Each row has the layer's `path` (`card/title`, as the selection names it) and the
+components it's inside (`within`). The rows are in `apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the menu's
+Rename in `chrome/layers-menu.ts`. The calls are in decisions.md, Main components and instances.
+
+Tests:
+
+- `packages/editor/src/layers-tree.test.ts`, an instance's layers (5): an instance opened to its component's layers by
+  their paths, into a nested instance; no layers for a missing component or one it's inside; search inside instances;
+  the instances revealed above a layer inside them, and a selected instance left closed; Alt+click through instances.
+- `chrome/layers-menu.test.ts`, the instance test: Rename, Duplicate, Hide and Delete unavailable for a layer inside an
+  instance.
+- `chrome/LayerTree.stories.tsx` (under Parity/Left panel/Layers): InsideAnInstance, a layer selected inside the Users
+  card highlighted with the instance open; HiddenInsideAnInstance, Trend hidden from its eye, not draggable, not renamed
+  by a double-click, and its menu's Rename unavailable. Their play functions passed in Storybook on 2026-11-07.
+
+Gaps: no end-to-end test. Selecting by search, the keys and the eye were tried in an isolated copy of the app on
+2026-11-07 through `scripts/drive.ts`.
 
 ## Inserting
 
