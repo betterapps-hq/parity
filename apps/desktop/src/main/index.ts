@@ -73,6 +73,7 @@ import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
   applyTelemetry,
   recordForwarded,
+  scrubber,
   serviceStarted,
   startEvents,
   startTelemetry,
@@ -233,7 +234,16 @@ function startService(): UtilityProcess {
         if (taken) void account.takeLink(link)
         return { taken }
       },
-      record: (envelope) => recordForwarded(envelope)
+      record: (envelope) => recordForwarded(envelope),
+      // The open projects' `.env` values, scrubbed here and in every window (PAR-672).
+      secrets: (secrets) => {
+        projectSecrets = secrets.filter((value) => typeof value === "string")
+        scrubber.use(projectSecrets)
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.webContents.send(ipc.telemetrySecretsChanged, projectSecrets)
+        }
+        return undefined
+      }
     },
     disconnected: () => new Error("The project service stopped")
   })
@@ -585,6 +595,10 @@ ipcMain.handle(ipc.buildInfo, (event) => {
   updateOwner(event)
   return installedBuild.get()
 })
+
+/** The open projects' `.env` values the service last sent, which a window asks for as its telemetry starts (PAR-672). */
+let projectSecrets: string[] = []
+ipcMain.handle(ipc.telemetrySecrets, () => projectSecrets)
 
 /** The setting is the person's, so only the Parity window may read or change it. */
 const telemetryRefusal = "Only the Parity window can change the Telemetry setting."

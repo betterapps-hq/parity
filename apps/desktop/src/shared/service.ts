@@ -43,6 +43,8 @@ export interface MainMethods {
    * it's sent as data.
    */
   record: { params: unknown; result: undefined }
+  /** The open projects' `.env` values, which main scrubs and passes to every window, as projects open and close. */
+  secrets: { params: string[]; result: undefined }
 }
 
 /** Requests the main process sends to the project service. */

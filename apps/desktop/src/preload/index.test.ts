@@ -1,9 +1,14 @@
 import { EventEmitter } from "node:events"
+import { mkdtemp, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { runInNewContext } from "node:vm"
 import { build } from "esbuild"
 import { beforeAll, describe, expect, it, vi } from "vite-plus/test"
 import type { CanvasHost } from "../shared/protocol.ts"
+import { secretScrubbing } from "../shared/secret-scrubbing.ts"
+import { projectEnvSecrets } from "../utility/env-secrets.ts"
 import type { TelemetryHost } from "./telemetry.ts"
 
 let code = ""
@@ -47,6 +52,34 @@ function preload() {
 }
 
 const run = { installId: "install", sessionId: "session", check: true }
+
+it("scrubs a value from the open project's .env from what a window sends", async () => {
+  const root = await mkdtemp(join(tmpdir(), "parity-env-"))
+  await writeFile(join(root, ".env"), "DATABASE_PASSWORD=hunter2-correct-horse\nPORT=5173\n")
+  await writeFile(join(root, ".env.local"), "export SHOP_NAME='quiet-meadow-shop'\n")
+  await writeFile(join(root, "notes.txt"), "NOT_READ=not-an-env-value\n")
+  const secrets = await projectEnvSecrets([root])
+  expect(secrets).toEqual(["hunter2-correct-horse", "quiet-meadow-shop"])
+
+  // Main answers the window's ask with what the service read, and tells it of changes.
+  const { ipc, invoke, telemetry } = preload()
+  invoke.mockImplementation(async (channel) => (channel === "canvas:telemetry-secrets" ? [] : undefined))
+  const scrubber = secretScrubbing()
+  const recorded = { setSecrets: vi.fn<(secrets: Iterable<string>) => void>() }
+  scrubber.follow(recorded)
+  telemetry.onSecrets((next) => scrubber.use(next))
+  await vi.waitFor(() => expect(recorded.setSecrets).toHaveBeenCalledTimes(2))
+  ipc.emit("canvas:telemetry-secrets-changed", {}, secrets)
+
+  const event = {
+    message: "Couldn't connect with hunter2-correct-horse",
+    extra: { shop: "quiet-meadow-shop", port: "5173" }
+  }
+  const sent = scrubber.value(event)
+  expect(JSON.stringify(sent)).not.toMatch(/hunter2|quiet-meadow/)
+  expect(sent.extra.port).toBe("5173")
+  expect(recorded.setSecrets).toHaveBeenLastCalledWith(secrets)
+})
 
 it("gives the page main's run and sends main what it records", () => {
   const { telemetry, send } = preload()

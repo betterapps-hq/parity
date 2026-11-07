@@ -106,6 +106,11 @@ in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`
 - long random strings, though not hex (hashes, commit SHAs, UUIDs, trace IDs), file names or `data:` URLs
 - values it's given, such as a project's `.env` values read with `envSecrets()`
 
+The values it's given are the open projects' `.env`, `.env.local` and other `.env.*` values. The service reads them with
+`envSecrets()` whenever a project opens or closes and sends them to main. Main scrubs them from every process's events
+and passes them to each window, which asks for them as its telemetry starts. Each process's telemetry gets them through
+`setSecrets()`. The CLI doesn't send to Sentry yet, so it reads none.
+
 What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
 
 ## Levels and sampling
