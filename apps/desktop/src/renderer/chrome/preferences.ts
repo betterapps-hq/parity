@@ -2,6 +2,7 @@ import { type CodeEditorChoice, jsonText } from "@parity-app/core"
 import { defaultExportSizes, type ExportSize } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
 import { z } from "zod"
+import { recordInterface } from "../interface-events.ts"
 
 const storageKey = "parity.preferences"
 
@@ -63,6 +64,11 @@ export function getPreferences(): Preferences {
 }
 
 export function setPreferences(change: Partial<Preferences>): void {
+  for (const [setting, value] of Object.entries(change)) {
+    if (value === undefined || JSON.stringify(value) === JSON.stringify(preferences[setting as keyof Preferences]))
+      continue
+    recordInterface("setting.changed", { setting, value: typeof value === "object" ? JSON.stringify(value) : value })
+  }
   preferences = { ...preferences, ...change }
   try {
     localStorage.setItem(storageKey, JSON.stringify(preferences))
