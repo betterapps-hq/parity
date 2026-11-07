@@ -2,6 +2,47 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 02:04:08 GMT",
+      "version": "0.25.0",
+      "tag": "@parity-app/desktop_v0.25.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aa0a1fea8dc6e76d7f289bcc6a15b80a031e1ac2",
+            "comment": "Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "91a41a685da273f284d9431b04712c14be35e6b2",
+            "comment": "Record startup, quitting, updates, memory, service lag and long tasks as telemetry events (PAR-631)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3c7656995f96cce19abfb78962f72dd0fa04191b",
+            "comment": "Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or agent as Sentry's user"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "755f0c4243aabbddb2bb15b213209e7738383b9e",
+            "comment": "Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside Make component and the slots outlined on the canvas"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8e9550fcca6248f46ebdb1748ffd9954bff6cd19",
+            "comment": "Scrub the open projects' .env values from telemetry in every process"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 00:54:36 GMT",
       "version": "0.24.0",
       "tag": "@parity-app/desktop_v0.24.0",

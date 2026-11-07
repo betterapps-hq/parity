@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside Make component and the slots outlined on the canvas",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
