@@ -5756,6 +5756,15 @@ valid.
 - This widens PAR-194's "colours, type, radius and shadows stay tokens"; its flag for lengths off the scale becomes this
   mark.
 
+## Interface events are recorded by the stores that own them (PAR-634)
+
+`tab.*`, `panel.shown`, `dialog.opened`, `mode.switched`, `setting.changed` and `start.action` are recorded where the
+state changes, not at each control: the workspace's tab list is watched and compared (`tabEvents`), and the layout,
+preferences, dialog and selection stores and the start page's actions record their own changes through
+`recordInterface`. A tab is sent as what it shows (Home, a project or a new tab), never by its folder, and a tab that
+takes a new id as its project opens isn't an open, a close or a switch. Mode means designing or Interact, the canvas's
+one switch between editing and using the designs.
+
 ## Support can sign in as someone's account, through WorkOS (PAR-693)
 
 The design is in [proposals/impersonation.md](proposals/impersonation.md), and the work is PAR-695 to PAR-697. Your

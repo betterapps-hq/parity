@@ -169,23 +169,31 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-| Event                | Level | Kept | Sent by       | When                                                                      |
-| -------------------- | ----- | ---- | ------------- | ------------------------------------------------------------------------- |
-| `action.ran`         | info  | all  | renderer      | An action runs from a key, a menu or the actions search, until it's done. |
-| `agent.called`       | info  | all  | service       | The agent server answers a call from the CLI.                             |
-| `app.quit`           | info  | all  | main          | The app quits.                                                            |
-| `app.started`        | info  | all  | main          | The first window has painted and the project service is running.          |
-| `builder.started`    | info  | all  | service       | The service starts a project's builder, until it's spawned.               |
-| `frame.drawn`        | debug | all  | main          | An offscreen window draws a frame or a preview, from its turn to the end. |
-| `gesture.ran`        | info  | all  | renderer      | A press on the canvas becomes a drag, until the drag ends.                |
-| `process.memory`     | info  | all  | main          | Every 5 minutes, and when a window stops answering.                       |
-| `renderer.long_task` | info  | all  | renderer      | A task in the editor window runs for over 200 ms.                         |
-| `request.handled`    | debug | all  | service, main | The service or main answers another process's request.                    |
-| `service.lag`        | warn  | all  | service       | The project service's event loop is late by over 200 ms.                  |
-| `update.checked`     | info  | all  | main          | A check for an update finds one or finds none.                            |
-| `update.downloaded`  | info  | all  | main          | An update finishes downloading.                                           |
-| `update.failed`      | warn  | all  | main          | Checking for, downloading or installing an update fails.                  |
-| `update.installed`   | info  | all  | main          | The app quits to install a downloaded update.                             |
+| Event                | Level | Kept | Sent by       | When                                                                                |
+| -------------------- | ----- | ---- | ------------- | ----------------------------------------------------------------------------------- |
+| `action.ran`         | info  | all  | renderer      | An action runs from a key, a menu or the actions search, until it's done.           |
+| `agent.called`       | info  | all  | service       | The agent server answers a call from the CLI.                                       |
+| `app.quit`           | info  | all  | main          | The app quits.                                                                      |
+| `app.started`        | info  | all  | main          | The first window has painted and the project service is running.                    |
+| `builder.started`    | info  | all  | service       | The service starts a project's builder, until it's spawned.                         |
+| `dialog.opened`      | info  | all  | renderer      | One of the app's own dialogs opens.                                                 |
+| `frame.drawn`        | debug | all  | main          | An offscreen window draws a frame or a preview, from its turn to the end.           |
+| `gesture.ran`        | info  | all  | renderer      | A press on the canvas becomes a drag, until the drag ends.                          |
+| `mode.switched`      | info  | all  | renderer      | The canvas switches between designing and Interact, where designs take the pointer. |
+| `panel.shown`        | info  | all  | renderer      | A side panel or the console opens, or a side panel shows another tab.               |
+| `process.memory`     | info  | all  | main          | Every 5 minutes, and when a window stops answering.                                 |
+| `renderer.long_task` | info  | all  | renderer      | A task in the editor window runs for over 200 ms.                                   |
+| `request.handled`    | debug | all  | service, main | The service or main answers another process's request.                              |
+| `service.lag`        | warn  | all  | service       | The project service's event loop is late by over 200 ms.                            |
+| `setting.changed`    | info  | all  | renderer      | A preference or the telemetry level is changed.                                     |
+| `start.action`       | info  | all  | renderer      | A control on Home or a new tab's start page is used.                                |
+| `tab.closed`         | info  | all  | renderer      | A tab closes.                                                                       |
+| `tab.opened`         | info  | all  | renderer      | A tab opens, for a project or as a new tab.                                         |
+| `tab.switched`       | info  | all  | renderer      | Another tab, or Home, comes to the front.                                           |
+| `update.checked`     | info  | all  | main          | A check for an update finds one or finds none.                                      |
+| `update.downloaded`  | info  | all  | main          | An update finishes downloading.                                                     |
+| `update.failed`      | warn  | all  | main          | Checking for, downloading or installing an update fails.                            |
+| `update.installed`   | info  | all  | main          | The app quits to install a downloaded update.                                       |
 
 ### `action.ran`
 
@@ -224,6 +232,12 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | --------- | -------- | ------------------ |
 | `builder` | `string` | The builder's name |
 
+### `dialog.opened`
+
+| Attribute | Type     | Meaning                                             |
+| --------- | -------- | --------------------------------------------------- |
+| `dialog`  | `string` | Which dialog: settings, shortcuts, about or actions |
+
 ### `frame.drawn`
 
 | Attribute  | Type      | Meaning                                                     |
@@ -238,6 +252,19 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | --------- | ------------------ | --------------------------------------------------- |
 | `gesture` | `string`           | The gesture's kind, as `canvas/gesture.ts` names it |
 | `how`     | `string`, optional | How it ended: release, escape or interrupted        |
+
+### `mode.switched`
+
+| Attribute | Type                     | Meaning                       |
+| --------- | ------------------------ | ----------------------------- |
+| `mode`    | `"design" \| "interact"` | The mode the canvas is in now |
+
+### `panel.shown`
+
+| Attribute | Type                             | Meaning                                                |
+| --------- | -------------------------------- | ------------------------------------------------------ |
+| `panel`   | `"left" \| "right" \| "console"` | The side panel, or the console under the canvas        |
+| `tab`     | `string`, optional               | The tab the side panel shows, such as layers or design |
 
 ### `process.memory`
 
@@ -265,6 +292,41 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | Attribute | Type      | Meaning                                                                        |
 | --------- | --------- | ------------------------------------------------------------------------------ |
 | `lateMs`  | `integer` | How late the service's timer ran, which is how long its event loop was blocked |
+
+### `setting.changed`
+
+| Attribute | Type                          | Meaning                                                  |
+| --------- | ----------------------------- | -------------------------------------------------------- |
+| `setting` | `string`                      | The setting's name, such as theme, snapping or telemetry |
+| `value`   | `string \| number \| boolean` | Its new value; a list, such as the export sizes, as JSON |
+
+### `start.action`
+
+| Attribute | Type                                                                                                  | Meaning                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `page`    | `"home" \| "new"`                                                                                     | The start page it came from: Home, or a new tab                                                          |
+| `action`  | `"new-project" \| "open-folder" \| "open-file" \| "recent-project" \| "search" \| "star" \| "forget"` | What was done: start a project, open a folder or file, open a listed project, search, star or forget one |
+
+### `tab.closed`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.opened`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.switched`
+
+| Attribute | Type                           | Meaning                  |
+| --------- | ------------------------------ | ------------------------ |
+| `from`    | `"home" \| "project" \| "new"` | What was in front before |
+| `to`      | `"home" \| "project" \| "new"` | What is in front now     |
 
 ### `update.checked`
 
