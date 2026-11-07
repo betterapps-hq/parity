@@ -152,10 +152,6 @@ function ImpersonationPrototype({ start }: { start: Phase }) {
           </div>
         </div>
       </StartWindow>
-      {/* A ring around the window, over everything, so a screenshot that crops the band still shows it. */}
-      {phase === "on" && (
-        <div aria-hidden className="pointer-events-none fixed inset-0 z-40 ring-2 ring-amber-400 ring-inset" />
-      )}
       {phase === "confirm" && <StartDialog onStart={() => setPhase("on")} onCancel={() => setPhase("own")} />}
       <PrototypePanel phase={phase} onImpersonate={() => setPhase("confirm")} onRunOut={() => end("expired")} />
       <SonnerToaster theme={theme} position="bottom-right" />
@@ -170,8 +166,7 @@ function ImpersonationPrototype({ start }: { start: Phase }) {
 export const Starting: Story = { render: () => <ImpersonationPrototype start="confirm" /> }
 
 /**
- * Impersonating Andrew. The band sits under the tabs on every tab and can't be dismissed; a ring around the
- * window keeps it visible in a screenshot that crops the band. Everything else works as it does for Andrew, and Sign
+ * Impersonating Andrew. The band sits under the tabs on every tab and can't be dismissed. Everything else works as it does for Andrew, and Sign
  * out in the account menu ends the session too.
  */
 export const Impersonating: Story = { render: () => <ImpersonationPrototype start="on" /> }

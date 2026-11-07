@@ -41,7 +41,6 @@ Parity's website that opens that link (PAR-695).
   bar, and the system draws its window buttons over it.
 - **No countdown** (your call). WorkOS documents that impersonation sessions expire after 60 minutes, but neither its
   answer nor the token says when, so Parity ends the session itself 60 minutes after it started.
-- **An amber ring around the window,** so a screenshot that crops the band still shows it.
 - **The account menu and everything else are the user's,** as they'd see them.
 
 ## What's blocked
@@ -75,8 +74,8 @@ leak.
 
 - **`@parity-app/account`** (PAR-696): read `impersonator` from the authenticate answer and `act` from the token, and
   report a refusal of an impersonated session's refresh as its end.
-- **The app** (PAR-697): the confirmation, the band and ring, keeping the token in memory only, ending it, and the
-  telemetry tags.
+- **The app** (PAR-697): the confirmation, the band, keeping the token in memory only, ending it, and the telemetry
+  tags.
 - **WorkOS, by hand** (PAR-695): turn impersonation on in the sandbox and production, and set the Initiate login URI.
 
 ## Still to check

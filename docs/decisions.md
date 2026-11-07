@@ -5911,9 +5911,9 @@ My calls:
 
 - **Parity asks before switching,** naming the account, who started it and why, since a link from the browser shouldn't
   swap accounts by itself.
-- **An amber band under the tabs, on every tab, with a ring around the window,** that can't be hidden, shows whose
-  account it is and a small End session button. Above the menus isn't possible: the system draws its window buttons over
-  that row. There's no countdown (your call), since WorkOS doesn't say when the session ends.
+- **An amber band under the tabs, on every tab,** with no border around the window (your call), that can't be hidden,
+  shows whose account it is and a small End session button. Above the menus isn't possible: the system draws its window
+  buttons over that row. There's no countdown (your call), since WorkOS doesn't say when the session ends.
 - **It ends signed out,** whether ended from the band, by Sign out, by WorkOS's 60 minutes or by quitting. The
   impersonated refresh token never goes to `safeStorage`, and the support person's own session isn't kept aside.
 - **Telemetry tags every event in it** with `impersonated: true` and the support person's email.
