@@ -540,6 +540,9 @@ importers:
       '@parity-app/registry':
         specifier: workspace:*
         version: link:../registry
+      '@parity-app/telemetry':
+        specifier: workspace:*
+        version: link:../telemetry
 
   packages/code:
     dependencies:
