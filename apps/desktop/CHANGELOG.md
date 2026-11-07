@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 07 Nov 2026 00:05:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 00:54:36 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.24.0
+
+Sat, 07 Nov 2026 00:54:36 GMT
+
+### Minor changes
+
+- Record the editor window with Session Replay, and send the frames on the canvas with errors and a frame's last bitmap
+  with a failed render (PAR-624) (ajcraswell@gmail.com)
 
 ## 0.23.0
 

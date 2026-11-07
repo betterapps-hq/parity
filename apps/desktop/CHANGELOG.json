@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 00:54:36 GMT",
+      "version": "0.24.0",
+      "tag": "@parity-app/desktop_v0.24.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8656b8708f872c49ba2b33d7008f2e9888a561e9",
+            "comment": "Record the editor window with Session Replay, and send the frames on the canvas with errors and a frame's last bitmap with a failed render (PAR-624)"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e4ceebe121fb1480e1ae1f862129fb652d78bf9b",
+            "comment": "Wait in the e2e tests for the zoom to settle, so boards have their size at it"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 00:05:43 GMT",
       "version": "0.23.0",
       "tag": "@parity-app/desktop_v0.23.0",
