@@ -111,6 +111,7 @@ export const Layer: Story = onCanvas(["Pricing"], undefined, async () => {
     "Make component",
     "---",
     "Hide",
+    "Lock",
     "---",
     "Export…"
   ])
@@ -167,6 +168,8 @@ export const Design: Story = onCanvas(
       "Duplicate",
       "---",
       "Convert to component",
+      "---",
+      "Lock",
       "---",
       "Export…"
     ])

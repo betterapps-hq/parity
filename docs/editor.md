@@ -573,10 +573,9 @@ the tree longer and every later change slower.
   says nothing.
 - **Each layer has an eye** that hides it in the state its board shows, or shows it again, as one undo step, without
   selecting it. It shows while the layer is hovered, in the panel or on the canvas, and stays on a hidden layer, crossed
-  out. It's named Hide or Show, without the state, which the row menu's Hide still names ("Hide in Default"). The page
-  can't be hidden, so it has none. A layer that changes at some screen sizes shows a monitor and phone icon, whose
-  tooltip says so ("Changes at some screen sizes"). Like the row's arrow, it isn't in the tab order: Ctrl+Shift+H hides
-  the selection from the keyboard.
+  out. It's named Hide or Show, without the state, as the row menu's Hide is. The page can't be hidden, so it has none.
+  A layer that changes at some screen sizes shows a monitor and phone icon, whose tooltip says so ("Changes at some
+  screen sizes"). Like the row's arrow, it isn't in the tab order: Ctrl+Shift+H hides the selection from the keyboard.
 - **Designs are dragged to reorder them** among the designs of their group, components, screens or frames, in their own
   file, which is the order the panel lists them in. A line under or over the row shows where it would go, and the move
   is one undo step ("Reorder screen").
@@ -585,8 +584,8 @@ the tree longer and every later change slower.
   scrolling as they go, Right and Left open and close a row or move into and out of it, `*` opens the row's siblings,
   and Enter or F2 renames. Enter or Escape in the name field puts the keys back on the tree.
 
-Not yet: each row's lock, which waits for locking (PAR-192), and highlighting a layer selected inside an instance, which
-waits for an instance's layers in the tree (PAR-92).
+Each row's lock is in Locking layers and designs (PAR-192). Not yet: highlighting a layer selected inside an instance,
+which waits for an instance's layers in the tree (PAR-92).
 
 Measured on 2026-11-05 on the example with 100 more screens and a "Large list" screen of 6,050 layers (50 sections of 30
 rows of three texts), selecting a text in each of 30 sections in turn, then 20 edits to the design as typing in the
@@ -1534,6 +1533,53 @@ a slot; aligning designs by edges and centers, with a box offset from its positi
 whatever the selection's order; and moving designs in whole pixels.
 
 Gaps: the commands, menus and messages have no automated test. They didn't change when the rules moved into the package.
+
+### Locking layers and designs (PAR-192)
+
+Ctrl+Shift+L locks the selected layers, or the selected designs, and unlocks them once they're all locked, as one undo
+step ("Lock layer", "Unlock screen"). Lock is also in the Object menu ("Lock or unlock"), the canvas menu under Hide,
+and a Layers row's menu beside Hide, each reading Unlock when everything selected is locked.
+
+- **A locked layer can't be selected or moved on the canvas,** nor can anything inside it. A click, a double-click or
+  hovering goes to the layer around it, as if it weren't there, and a box drawn from the frame's background doesn't
+  touch it.
+- **A locked design is left to the canvas,** as tldraw leaves a locked shape: a click on it selects nothing, a press
+  draws tldraw's box over it, its title doesn't drag it, nothing is dropped into it, and it gets the empty canvas's
+  menu. Its layers are locked with it.
+- **Layers still selects them.** Selected there, a locked layer or design is outlined on the canvas without resize or
+  spacing handles, and changes from the inspector and the keys, nudging included; only the canvas's pointer leaves it
+  alone.
+- **Each row has a lock,** left of the eye, that locks or unlocks the layer or design without selecting it. It shows
+  while the row is hovered and stays on a locked one. A layer locked by a layer or design around it shows a faded lock
+  while hovered, which isn't a button, and its tooltip says what locks it ("Locked with Features"). The page has none,
+  since locking it is locking the design, and neither do layers inside an instance, which are the component's. Like the
+  eye, the lock isn't in the tab order.
+- **It's saved in the .par** as `locked: true` on the layer or the design, the same in every state and screen size;
+  unlocking takes it away.
+
+Code: the rules are in `packages/editor/src/locking.ts` (`lockSource`, `unlockedPath`, `toggleLockedLayers`,
+`setDesignLocked`), and `locked` is in core's schema (`document.ts`). The canvas leaves locked layers out of what's
+under the pointer in `canvas/hit.ts` (`underPoint`), out of a box in `canvas/select-box.ts`, and handles off them in
+`CanvasOverlay.tsx`; a locked design's board is a locked tldraw shape (`CanvasEditor.tsx`), and its title doesn't drag
+it (`ContainerShapeUtil.tsx`). The command is `toggleLockedSelection` in `chrome/arrange.ts`, the row's lock is in
+`chrome/LayerTree.tsx`, and the menus are `canvas-menu.ts` and `layers-menu.ts`.
+
+Tests:
+
+- `packages/editor/src/locking.test.ts` (9): locking and unlocking, all locked when only some were, the root, a layer
+  inside an instance and a missing layer left alone, the lock kept through parsing a project; what locks a layer
+  (itself, a layer around it, its design, its instance); what's under the pointer cut at a locked layer, the design's
+  lock left to the canvas; and Unlock read only when every design is locked.
+- `chrome/canvas-menu.test.ts` and `chrome/layers-menu.test.ts`: Lock in each menu, unavailable inside an instance and
+  on the root, and in a design's menu.
+- `chrome/LayerTree.stories.tsx`: LockedFromItsLock (a row's lock, and a layer inside reading "Locked with Features")
+  and LockedDesign (the design's lock, its layers, and Unlock in its menu). Their play functions passed in Storybook on
+  2026-11-06.
+- `e2e/menus.e2e.ts`: the canvas menu lists Lock with Ctrl+Shift+L.
+
+Gaps: clicking through a locked layer, a locked design ignoring clicks and its title, and Ctrl+Shift+L were tried on the
+example in Storybook's app window on 2026-11-06, with the mouse and keyboard; the handles a locked layer doesn't get
+were not seen there. None has an end-to-end test of its own.
 
 ### Inserting, Make component and new designs (PAR-32)
 
@@ -2942,14 +2988,14 @@ as that state's or variant's changes ("changes only this state", "changes only t
 - **Edits start from what the board shows.** The inspector, the text editor and Hide read a layer as the board draws it
   in the state being edited: with the variant shown, the state's changes, and the params it binds. The text editor opens
   on the state's text: in Pricing's Yearly state, the Pro plan's price opens as $19, not Monthly's $24. Hide or show
-  (Ctrl+Shift+H, or Hide in and Show in on a row in Layers, which runs the same command, PAR-586) hides what the state
-  shows and shows what it hides, so a layer the state, the variant or a param hides counts as hidden, and Layers marks
-  it so. The canvas menu's Hide says Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a
-  layer the variant already hides.
-- **Hide in and Show in name where the change lands** (PAR-497). In the base state, with a variant option other than the
-  default shown, the change goes to that option, so the row's menu names it: Show in Compact, not Show in Default. In
-  any other state the state takes it, and the menu names the state. Core's `editTargetName` gives the name, which the
-  note above edits that always change the design uses too.
+  (Ctrl+Shift+H, or Hide and Show on a row in Layers, which runs the same command, PAR-586) hides what the state shows
+  and shows what it hides, so a layer the state, the variant or a param hides counts as hidden, and Layers marks it so.
+  The canvas menu's Hide says Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer
+  the variant already hides.
+- **Hide and Show land where the board's edits land** (PAR-497). In the base state, with a variant option other than the
+  default shown, the change goes to that option; in any other state the state takes it. The row's menu used to name it
+  (Show in Compact) and now says just Hide or Show (PAR-192). Core's `editTargetName` still names where an edit lands
+  for the note above edits that always change the design.
 - **Operations read what the frame shows** (PAR-464). Align, Wrap, resizing, nudging, dragging, Copy, Copy style, Paste
   style, Paste over, Paste to replace, Paste here and Select matching read a layer through core's evaluation, as
   `@parity-app/editor`'s `shownNode` and `boardReader` give it: the state being edited, the variant options the board
@@ -3017,7 +3063,7 @@ Tests:
 - `packages/core/src/instances.test.ts`, "names where Show and Hide land" (PAR-497): the variant option shown in the
   base state, another state over the variant, and the base state with the default option shown.
 - `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Plan card's Compact option hides Feature 4, and its row's
-  menu offers Show in Compact.
+  menu offers Show.
 - `packages/editor/src/style-editing.test.ts` (PAR-567): an edit in a variant option the board shows landing in the
   option, a state's edit leaving the design alone, resets across layers, and the parent's layout read with a variant's
   direction and inside an instance (see Fields, Typing, stepping and scrubbing).

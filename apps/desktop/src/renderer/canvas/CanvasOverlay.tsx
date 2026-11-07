@@ -10,6 +10,7 @@ import {
   layerSizeReset,
   layersResize,
   type SpacingEdit,
+  isLocked,
   measuresNext,
   movesOnlyTheView,
   overlayDesigns,
@@ -180,8 +181,9 @@ export function CanvasOverlay() {
         return
       }
       // Outside a design's frames, and on a free text note over one, the press is tldraw's: it selects and moves
-      // boards and notes. A board is selected by its title or its background around the frames.
-      if (!hit || overNote(session, point)) return
+      // boards and notes. A board is selected by its title or its background around the frames. A locked design's
+      // frames are tldraw's too, which leaves its locked board alone and draws a box over it (PAR-192).
+      if (!hit || hit.entry.container.locked || overNote(session, point)) return
       // Inside a frame a press selects what's under the pointer, as in Figma's top-level frames: the top-level layer,
       // or with a layer of this design selected, its sibling; Ctrl goes to the deepest layer (see pick.ts).
       const current = selection.get()
@@ -212,7 +214,7 @@ export function CanvasOverlay() {
       if (interactive(event.target) || selection.getTool() !== "select") return
       const point = { x: event.clientX, y: event.clientY }
       const hit = hitTest(area, store, point, session.editor)
-      if (!hit || overNote(session, point)) return
+      if (!hit || hit.entry.container.locked || overNote(session, point)) return
       const selected = selectedIn(hit, selection.get())
       event.stopPropagation()
       // Its first click selected what's under the pointer; the double-click goes one level deeper, as in Figma. It
@@ -248,7 +250,7 @@ export function CanvasOverlay() {
       // Hovering outlines what a click would select, in the frame under the pointer, in any design. Over a frame's
       // background, or around the frames, nothing is, and tldraw outlines the board.
       const frame = frameAt(area, store, pointer.current.point!, session.editor)
-      if (!frame) {
+      if (!frame || frame.entry.container.locked) {
         selection.setHover(undefined)
         return
       }
@@ -659,6 +661,8 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   // While layers are dragged they are hidden where they were, so they have no outline there. An absolutely placed layer
   // moves itself, so its outline follows it.
   const layers = entry && !getDragView()?.ghost ? selectedNodes(current) : []
+  // Locked layers keep their outline but take no handles, so they're changed only from the panels (PAR-192).
+  const locked = layers.some((id) => isLocked(entry!.container, id))
   const pickedRects: DOMRect[] = []
   for (const id of layers) {
     const node = findLayer(store, entry!.container, id)
@@ -686,7 +690,8 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         size: `${formatPx(rect.width / scale)} × ${formatPx(rect.height / scale)}`,
         color
       }
-      if (selection.getTool() === "select" && !getDragView() && !isInnerPath(id)) {
+      // A locked layer, selected from Layers, isn't resized on the canvas (PAR-192).
+      if (selection.getTool() === "select" && !getDragView() && !isInnerPath(id) && !locked) {
         model.handles.push({
           kind: "node",
           key: "node",
@@ -711,7 +716,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const scale = editor.getZoomLevel() * frameScale(picked)
     model.outlines.push({ key: "union", box, color: kindColors.layer, dashed: false, thick: false })
     // Resized together by handles on that box, unless one is inside an instance, which keeps the component's size.
-    if (selection.getTool() === "select" && !getDragView() && !layers.some(isInnerPath)) {
+    if (selection.getTool() === "select" && !getDragView() && !layers.some(isInnerPath) && !locked) {
       model.handles.push({
         kind: "node",
         key: "union",
@@ -755,7 +760,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     if (slots.length > 0) model.slots = slots
   }
 
-  if (entry && !current.node && selection.getTool() === "select") {
+  if (entry && !current.node && selection.getTool() === "select" && !entry.container.locked) {
     for (const host of findFrames(area, entry.key)) {
       model.handles.push({
         kind: "frame",
@@ -836,7 +841,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const children = layout.children.map((child) => findNodeElement(picked, `${prefix}${child.id}`))
     if (element) model.spacing = layoutSpacing(element, children, toBox)
     // Its padding and gaps take handles, except inside an instance, where they're the component's (PAR-169).
-    if (element && selection.getTool() === "select" && !isInnerPath(single)) {
+    if (element && selection.getTool() === "select" && !isInnerPath(single) && !locked) {
       model.spacingHandles = {
         target: {
           design: entry!.key,

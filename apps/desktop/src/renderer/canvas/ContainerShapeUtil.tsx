@@ -207,11 +207,15 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
    * puts the designs back where they were and saves nothing (see `gestures.titleDrag`).
    */
   const dragByTitle = (event: ReactPointerEvent) => {
+    // A locked design's title is left to the canvas, as its board is: it's selected and moved only from Layers.
+    if (session.store.getEntry(shape.props.key)?.container.locked) return
     event.stopPropagation()
     if (event.button !== 0) return
     const key = shape.props.key
     const current = selection.get()
-    const group = selectedDesigns(current)
+    const group = selectedDesigns(current).filter(
+      (candidate) => candidate === key || !session.store.getEntry(candidate)?.container.locked
+    )
     if (event.shiftKey) {
       const next = group.includes(key) ? group.filter((candidate) => candidate !== key) : [...group, key]
       selection.set(designsSelection(next))

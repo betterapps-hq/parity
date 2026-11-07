@@ -185,7 +185,8 @@ still need your call.
     (Ctrl+Alt+A) selects, within the design, layers that are the same component, the same main component, or text with
     the same tag, and styled the same apart from place and size. Content doesn't count. With designs selected, it
     selects designs of the same kind (CAN-39).
-  - Figma keys for things Parity doesn't do yet are Copy as PNG, find and lock (PAR-190 to PAR-192).
+  - Figma keys for things Parity doesn't do yet are Copy as PNG and find (PAR-190, PAR-191). Lock (Ctrl+Shift+L) came
+    with PAR-192.
 - **Enter, Tab and the arrows on a focused control are the control's** (found by the editor audit, 2026-10-29): a
   button, tab, Layers row or toggle presses, moves focus or moves within itself, so Tab moves through the inspector's
   fields instead of selecting the next layer. They act on the canvas when it, or nothing, has focus. A key the canvas
@@ -205,9 +206,9 @@ still need your call.
 - **Recent projects:** the last 10 that opened successfully.
 - **The canvas's right-click menu follows Figma's order** (PAR-168): Select layer, then copying and pasting, ordering,
   Wrap, Make component and Go to the main component, then Hide. Items that don't apply to what's selected are left out;
-  items that apply but can't act right now are greyed. Lock joins it with PAR-192, and Open in editor and Copy as JSX
-  with PAR-166. The empty canvas gets Paste here, Select all and Zoom to fit, a text note over a board gets the empty
-  canvas's menu, and Interact gets none.
+  items that apply but can't act right now are greyed. Lock joined it, under Hide, with PAR-192, and Open in editor and
+  Copy as JSX with PAR-166. The empty canvas gets Paste here, Select all and Zoom to fit, a text note over a board gets
+  the empty canvas's menu, and Interact gets none.
 - **A right-click selects what a click would** (PAR-168), unless it lands inside the selection or on a selected layer's
   resize handle. The menu reads the selection and its target when the right button goes down, because tldraw selects the
   board on release.
@@ -235,8 +236,9 @@ still need your call.
   right-click on a row selects it first unless it's in the selection. My calls: Rename still renames the row in place
   rather than going through Edit > Rename, which renames a design on its title on the canvas, out of sight from Layers;
   a design's row gains Duplicate, since the command duplicates designs; the root's row keeps only Rename, as the
-  commands can't duplicate, hide or delete a design's root, where the old menu could hide it; and Hide keeps naming
-  where the change lands (Hide in Default, PAR-497), read from the state the selection was picked in.
+  commands can't duplicate, hide or delete a design's root, where the old menu could hide it; and Hide is read from the
+  state the selection was picked in. It named where the change lands (Hide in Default, PAR-497) until you asked on
+  2026-11-06 for the menu to say just Hide and Lock (PAR-192).
 
 ## Canvas
 
@@ -255,6 +257,16 @@ still need your call.
   their state, time, address and Portless name, and stops, restarts or dismisses each. My calls: stopping asks first,
   and each kind has an icon and a hue at least 25° from the others, using the canvas's own colours for the build server
   and formatting.
+- **Locking is Figma's** (PAR-192). Ctrl+Shift+L locks the selection, which can't then be selected or moved on the
+  canvas, with everything inside it, and is still selected from Layers. It's saved as `locked` on the layer or design,
+  the same in every state and screen size, since it's about editing rather than what the design shows. My calls:
+  - **A click on a locked layer goes to the layer around it,** and a locked design is left to tldraw, as a locked shape,
+    so a press on it draws a box rather than selecting its board.
+  - **Selected from Layers, a locked layer still changes from the inspector and the keys,** nudging included, but takes
+    no resize or spacing handles on the canvas. You approved the controls on 2026-11-06 with nudging left in.
+  - **The page has no lock,** since locking it is locking the design, and layers inside an instance have none, as they
+    have no eye. A layer locked by one around it shows a faded lock while hovered, saying what locks it, rather than a
+    lock of its own to press.
 - **Snapping is on by default.** Designs lock to each other's edges and centres within 8 screen pixels, and absolutely
   placed layers to their siblings' and their parent's, and to even spacing among their siblings (PAR-174). Hold Ctrl to
   move or resize freely, or turn it off under View.
