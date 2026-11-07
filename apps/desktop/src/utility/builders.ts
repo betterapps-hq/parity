@@ -9,6 +9,7 @@ import {
   connectBuilderProcess
 } from "@parity-app/core"
 import type { BuilderReading } from "../shared/service.ts"
+import { inSpan } from "../shared/tracing.ts"
 import { killTree } from "./processes.ts"
 import { reportBuilderCrash } from "./telemetry.ts"
 
@@ -77,6 +78,10 @@ export function startBuilder(
       cores: availableParallelism()
     }
   )
+  // A builder's start is a span in the trace that asked for it, until its session is up (PAR-629).
+  void inSpan("builder.started", { builder }, () => client.session).catch(() => {
+    // Its crash or exit is reported on its own.
+  })
   const item: Running = { child, name: `${builder} for ${project}`, client }
   running.add(item)
   let ended = false

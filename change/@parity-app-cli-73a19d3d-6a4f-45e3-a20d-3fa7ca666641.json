@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
