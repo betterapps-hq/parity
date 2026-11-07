@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 02:36:08 GMT",
+      "version": "0.26.0",
+      "tag": "@parity-app/desktop_v0.26.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "baa0b3872bbcd81b2c5096ce7f3563cbbf974bcb",
+            "comment": "Record tabs, panels, dialogs, modes, settings and start page actions as telemetry events"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 02:04:08 GMT",
       "version": "0.25.0",
       "tag": "@parity-app/desktop_v0.25.0",

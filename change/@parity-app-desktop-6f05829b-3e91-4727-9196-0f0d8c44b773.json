@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Record tabs, panels, dialogs, modes, settings and start page actions as telemetry events",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

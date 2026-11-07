@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 07 Nov 2026 02:04:08 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 02:36:08 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.26.0
+
+Sat, 07 Nov 2026 02:36:08 GMT
+
+### Minor changes
+
+- Record tabs, panels, dialogs, modes, settings and start page actions as telemetry events (ajcraswell@gmail.com)
 
 ## 0.25.0
 
