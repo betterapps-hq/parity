@@ -19,7 +19,7 @@ import { HomePage, kestrelMember, StartActionsProvider, StartWindow } from "./st
 
 /**
  * Account impersonation: someone at Better Apps signs in as a customer's account, from WorkOS's dashboard, to see and
- * reproduce what they see. Parity asks before switching, shows a band above the window for the whole session, and
+ * reproduce what they see. Parity asks before switching, shows a band under the tabs for the whole session, and
  * signs out when it ends: from the band, after WorkOS's 60 minutes, or when Parity quits.
  *
  * The stories are one prototype, each starting at a different point. A panel marked Prototype stands in for WorkOS's
@@ -46,9 +46,8 @@ const tabs: MockTab[] = [
   { id: "website", title: "Kestrel website" }
 ]
 
-/** The band above the window while impersonating. It can't be closed or hidden, and it's the same on every tab. */
-function ImpersonationBand({ minutes, onEnd }: { minutes: number; onEnd: () => void }) {
-  const soon = minutes <= 5
+/** The band under the tabs while impersonating. It can't be closed or hidden, and it's the same on every tab. */
+function ImpersonationBand({ onEnd }: { onEnd: () => void }) {
   return (
     <section
       aria-label="Support session"
@@ -58,13 +57,10 @@ function ImpersonationBand({ minutes, onEnd }: { minutes: number; onEnd: () => v
       <span className="min-w-0 truncate">
         <span className="font-semibold">You&apos;re signed in as {person.name}</span> ({person.email}) for support
       </span>
-      <span className={`ml-auto shrink-0 tabular-nums ${soon ? "font-semibold" : ""}`}>
-        {minutes > 0 ? `Ends in ${minutes} min` : "Ending"}
-      </span>
       <Button
         size="xs"
         variant="ghost"
-        className="shrink-0 text-amber-950 hover:bg-amber-950/10 hover:text-amber-950"
+        className="ml-auto shrink-0 text-amber-950 hover:bg-amber-950/10 hover:text-amber-950"
         onClick={onEnd}
       >
         End session
@@ -102,15 +98,15 @@ function StartDialog({ onStart, onCancel }: { onStart: () => void; onCancel: () 
   )
 }
 
-/** Stands in for WorkOS: starts a session from its dashboard, and moves the clock on. */
+/** Stands in for WorkOS: starts a session from its dashboard, and lets one run out. */
 function PrototypePanel({
   phase,
   onImpersonate,
-  onWait
+  onRunOut
 }: {
   phase: Phase
   onImpersonate: () => void
-  onWait: () => void
+  onRunOut: () => void
 }) {
   return (
     <div className="fixed bottom-4 left-4 z-50 flex w-64 flex-col gap-2 rounded-lg border border-dashed bg-background/95 p-3 text-xs shadow-lg">
@@ -118,17 +114,16 @@ function PrototypePanel({
       <Button size="sm" variant="outline" disabled={phase === "on" || phase === "confirm"} onClick={onImpersonate}>
         Impersonate from WorkOS
       </Button>
-      <Button size="sm" variant="outline" disabled={phase !== "on"} onClick={onWait}>
-        Skip ahead 15 minutes
+      <Button size="sm" variant="outline" disabled={phase !== "on"} onClick={onRunOut}>
+        Let the 60 minutes run out
       </Button>
     </div>
   )
 }
 
-function ImpersonationPrototype({ start, minutes: startMinutes = 60 }: { start: Phase; minutes?: number }) {
+function ImpersonationPrototype({ start }: { start: Phase }) {
   const theme = useResolvedTheme()
   const [phase, setPhase] = useState<Phase>(start)
-  const [minutes, setMinutes] = useState(startMinutes)
   const [active, setActive] = useState("home")
 
   const end = (why: "ended" | "expired") => {
@@ -149,32 +144,20 @@ function ImpersonationPrototype({ start, minutes: startMinutes = 60 }: { start: 
         signIn: () => setPhase("own")
       }}
     >
-      <div className={`flex h-screen flex-col ${phase === "on" ? "ring-2 ring-amber-400 ring-inset" : ""}`}>
-        {phase === "on" && <ImpersonationBand minutes={minutes} onEnd={() => end("ended")} />}
-        <div className="min-h-0 flex-1 [&>div]:h-full [&>div]:min-h-0">
-          <StartWindow tabs={tabs} active={active} onSelect={setActive}>
+      <StartWindow tabs={tabs} active={active} onSelect={setActive}>
+        <div className="flex h-full flex-col">
+          {phase === "on" && <ImpersonationBand onEnd={() => end("ended")} />}
+          <div className="min-h-0 flex-1">
             <HomePage />
-          </StartWindow>
+          </div>
         </div>
-      </div>
-      {phase === "confirm" && (
-        <StartDialog
-          onStart={() => {
-            setMinutes(60)
-            setPhase("on")
-          }}
-          onCancel={() => setPhase("own")}
-        />
+      </StartWindow>
+      {/* A ring around the window, over everything, so a screenshot that crops the band still shows it. */}
+      {phase === "on" && (
+        <div aria-hidden className="pointer-events-none fixed inset-0 z-40 ring-2 ring-amber-400 ring-inset" />
       )}
-      <PrototypePanel
-        phase={phase}
-        onImpersonate={() => setPhase("confirm")}
-        onWait={() => {
-          const left = Math.max(0, minutes - 15)
-          setMinutes(left)
-          if (left === 0) end("expired")
-        }}
-      />
+      {phase === "confirm" && <StartDialog onStart={() => setPhase("on")} onCancel={() => setPhase("own")} />}
+      <PrototypePanel phase={phase} onImpersonate={() => setPhase("confirm")} onRunOut={() => end("expired")} />
       <SonnerToaster theme={theme} position="bottom-right" />
     </StartActionsProvider>
   )
@@ -187,14 +170,11 @@ function ImpersonationPrototype({ start, minutes: startMinutes = 60 }: { start: 
 export const Starting: Story = { render: () => <ImpersonationPrototype start="confirm" /> }
 
 /**
- * Signed in as Andrew for support. The band stays above the window on every tab and can't be dismissed; a ring around
- * the window keeps it visible in a screenshot that crops the band. Everything else works as it
- * does for Andrew, and Sign out in the account menu ends the session too.
+ * Signed in as Andrew for support. The band sits under the tabs on every tab and can't be dismissed; a ring around the
+ * window keeps it visible in a screenshot that crops the band. Everything else works as it does for Andrew, and Sign
+ * out in the account menu ends the session too.
  */
-export const Impersonating: Story = { render: () => <ImpersonationPrototype start="on" minutes={47} /> }
-
-/** Five minutes or less left: the time turns bold. At zero WorkOS refuses the refresh and Parity signs out. */
-export const EndingSoon: Story = { render: () => <ImpersonationPrototype start="on" minutes={5} /> }
+export const Impersonating: Story = { render: () => <ImpersonationPrototype start="on" /> }
 
 /** After the session ends, Parity is signed out, and a toast says so. Sign in goes back to your own account. */
 export const Ended: Story = { render: () => <ImpersonationPrototype start="ended" /> }

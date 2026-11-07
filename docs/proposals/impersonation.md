@@ -7,7 +7,7 @@ Status: draft, 2026-11-06 (PAR-693). The screens are the stories under Parity/Ex
 ## In one line
 
 Someone at Better Apps starts a session as a customer's account from WorkOS's dashboard, with a reason. Parity asks
-before it switches, shows a band above the window for as long as the session lasts, and signs out when it ends.
+before it switches, shows a band under the tabs for as long as the session lasts, and signs out when it ends.
 
 ## Who may impersonate
 
@@ -36,14 +36,13 @@ Parity's website that opens that link (PAR-695).
 
 ## What the person sees
 
-- **A band above the window, on every tab,** in amber: "You're signed in as Andrew Craswell (andrew@kestrel.dev) for
-  support", the minutes left, and a small End session button. It can't be closed or hidden.
-- **The minutes left are Parity's own count** from when WorkOS handed the session back. WorkOS documents that
-  impersonation sessions expire after 60 minutes, but neither its answer nor the token says when, so Parity counts down
-  from 60 and ends the session itself at zero.
+- **A band under the tabs, on every tab,** in amber: "You're signed in as Andrew Craswell (andrew@kestrel.dev) for
+  support", and a small End session button. It can't be closed or hidden. It can't go above the menus: that row is the
+  window's title bar, and the system draws its window buttons over it.
+- **No countdown** (your call). WorkOS documents that impersonation sessions expire after 60 minutes, but neither its
+  answer nor the token says when, so Parity ends the session itself 60 minutes after it started.
 - **An amber ring around the window,** so a screenshot that crops the band still shows it.
 - **The account menu and everything else are the user's,** as they'd see them.
-- **Five minutes before the end,** the time turns bold.
 
 ## What's blocked
 
