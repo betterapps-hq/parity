@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Telemetry event names may be camelCase, and the app's error, save and export events are registered",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
