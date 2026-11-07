@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

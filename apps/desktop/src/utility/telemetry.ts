@@ -8,6 +8,7 @@ import {
   type Telemetry
 } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/utility"
+import { recordInvalidData } from "../shared/invalid-data.ts"
 import { createSentrySink } from "../shared/sentry-sink.ts"
 import { readTelemetryRun, telemetryRunVariable } from "../shared/telemetry-run.ts"
 import { mainProcess } from "./main-process.ts"
@@ -32,13 +33,15 @@ export function startTelemetry(): Telemetry<typeof registeredEvents> {
     beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb)
   })
   const run = readTelemetryRun(process.env[telemetryRunVariable])
-  return createTelemetry({
-    events: registeredEvents,
-    context: { process: "service", installId: run.installId, sessionId: run.sessionId },
-    sinks: [scopeSink, toMain],
-    check: run.check,
-    onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
-  })
+  return recordInvalidData(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "service", installId: run.installId, sessionId: run.sessionId },
+      sinks: [scopeSink, toMain],
+      check: run.check,
+      onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
+    })
+  )
 }
 
 /** The service's Sentry scope: events are its breadcrumbs, and `error.*` events its errors. */

@@ -130,6 +130,26 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-No events are registered yet.
+| Event                 | Level | Kept | Sent by                                 | When                                                                    |
+| --------------------- | ----- | ---- | --------------------------------------- | ----------------------------------------------------------------------- |
+| `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails. |
+| `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                        |
+
+### `data.invalid`
+
+| Attribute | Type       | Meaning                                                       |
+| --------- | ---------- | ------------------------------------------------------------- |
+| `schema`  | `string`   | The schema's name, or the function that checked with it       |
+| `pointer` | `string`   | Where the first problem is, as a JSON pointer                 |
+| `message` | `string`   | What was expected there                                       |
+| `issues`  | `string[]` | Every problem zod found, as `/pointer: message`, the first 20 |
+| `data`    | `string`   | The data that failed, as JSON, cut to 2,000 characters        |
+
+### `project.unsupported`
+
+| Attribute | Type                                            | Meaning                                                                            |
+| --------- | ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `reason`  | `"no_package" \| "no_renderer" \| "no_builder"` | Why: no package.json, no renderer for its framework, or no builder for its bundler |
+| `detail`  | `string`                                        | What Parity found, as shown to the person opening it                               |
 
 <!-- End of the generated events. -->

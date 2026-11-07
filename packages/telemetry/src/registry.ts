@@ -1,3 +1,4 @@
+import { dataInvalid, projectUnsupported } from "./check-events.ts"
 import type { EventDefinition } from "./events.ts"
 
 /**
@@ -5,4 +6,4 @@ import type { EventDefinition } from "./events.ts"
  * docs/telemetry.md lists them all. To add one, define it with `defineEvent`, add it here, and regenerate the page with
  * `pnpm exec vp test run packages/telemetry -u`.
  */
-export const registeredEvents = [] as const satisfies readonly EventDefinition[]
+export const registeredEvents = [dataInvalid, projectUnsupported] as const satisfies readonly EventDefinition[]

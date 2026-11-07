@@ -1,6 +1,7 @@
 import { createScrubber, createTelemetry, registeredEvents, type Sink, type Telemetry } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
 import type { ErrorInfo } from "react"
+import { recordInvalidData } from "../shared/invalid-data.ts"
 import { createSentrySink } from "../shared/sentry-sink.ts"
 import { readTelemetryRun } from "../shared/telemetry-run.ts"
 import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } from "./canvas/frames-on-screen.ts"
@@ -36,19 +37,21 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
   const toMain: Sink[] = host
     ? [{ event: (envelope) => host.record(envelope), span: (envelope) => host.record(envelope) }]
     : []
-  return createTelemetry({
-    events: registeredEvents,
-    context: { process: kind, installId: run.installId, sessionId: run.sessionId },
-    sinks: [
-      createSentrySink({
-        addBreadcrumb: (breadcrumb) => Sentry.addBreadcrumb(breadcrumb),
-        captureEvent: (event) => void Sentry.captureEvent(event)
-      }),
-      ...toMain
-    ],
-    check: run.check,
-    onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
-  })
+  return recordInvalidData(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: kind, installId: run.installId, sessionId: run.sessionId },
+      sinks: [
+        createSentrySink({
+          addBreadcrumb: (breadcrumb) => Sentry.addBreadcrumb(breadcrumb),
+          captureEvent: (event) => void Sentry.captureEvent(event)
+        }),
+        ...toMain
+      ],
+      check: run.check,
+      onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
+    })
+  )
 }
 
 /** Reports a frame that couldn't be drawn offscreen, with the bitmap it last showed. */
