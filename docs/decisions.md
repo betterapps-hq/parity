@@ -692,7 +692,9 @@ section has the details. The user asked for "variants, instance overrides and th
   the component's. The menu's Hide stays unavailable, as the menubar's is (PAR-419), so the eye is the tree's one way to
   hide them (my call: making Hide work inside instances would change the canvas and the menubar too). What the copy
   changes isn't marked in the tree: you chose that on 2026-11-07 ("Remove the purple pen"), leaving it to the inspector.
-  Search goes inside instances (my call), unlike Select same.
+  Search goes inside instances (my call), unlike Select same. A slot the instance fills shows its fills in place of the
+  placeholder, as the canvas draws them (my call, replacing PAR-83's rule that nothing shows under an instance, which
+  came before instances had rows under them).
 - **Swap keeps args, state and overrides that still match** by id or layer name. **Detach bakes everything into plain
   layers** with fresh ids, the root keeping the instance's id.
 
