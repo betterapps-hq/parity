@@ -55,12 +55,12 @@ function ImpersonationBand({ onEnd }: { onEnd: () => void }) {
     >
       <LifeBuoy className="size-4 shrink-0" aria-hidden />
       <span className="min-w-0 truncate">
-        <span className="font-semibold">You&apos;re signed in as {person.name}</span> ({person.email}) for support
+        <span className="font-semibold">Impersonating {person.name}</span> ({person.email})
       </span>
       <Button
         size="xs"
-        variant="ghost"
-        className="ml-auto shrink-0 text-amber-950 hover:bg-amber-950/10 hover:text-amber-950"
+        variant="outline"
+        className="ml-auto shrink-0 border-amber-950/25 bg-amber-50 text-amber-950 hover:bg-amber-100 hover:text-amber-950 dark:border-amber-950/25 dark:bg-amber-50 dark:hover:bg-amber-100"
         onClick={onEnd}
       >
         End session
@@ -75,7 +75,7 @@ function StartDialog({ onStart, onCancel }: { onStart: () => void; onCancel: () 
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Sign in as {person.name}?</DialogTitle>
+          <DialogTitle>Impersonate {person.name}?</DialogTitle>
           <DialogDescription>
             You&apos;ll see Parity as {person.email} does, in {person.where.split(",")[0]}, until you end the session or
             it runs out in 60 minutes. You&apos;re signed out of your own account until then.
@@ -91,7 +91,7 @@ function StartDialog({ onStart, onCancel }: { onStart: () => void; onCancel: () 
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={onStart}>Sign in as {person.name.split(" ")[0]}</Button>
+          <Button onClick={onStart}>Impersonate</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -165,12 +165,12 @@ function ImpersonationPrototype({ start }: { start: Phase }) {
 
 /**
  * WorkOS has handed back a session for someone else's account. Parity names the account, who started it and why, and
- * switches only on Sign in as. Cancel keeps you in your own account.
+ * switches only on Impersonate. Cancel keeps you in your own account.
  */
 export const Starting: Story = { render: () => <ImpersonationPrototype start="confirm" /> }
 
 /**
- * Signed in as Andrew for support. The band sits under the tabs on every tab and can't be dismissed; a ring around the
+ * Impersonating Andrew. The band sits under the tabs on every tab and can't be dismissed; a ring around the
  * window keeps it visible in a screenshot that crops the band. Everything else works as it does for Andrew, and Sign
  * out in the account menu ends the session too.
  */
