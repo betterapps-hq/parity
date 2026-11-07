@@ -10,6 +10,9 @@ export const ipc = {
   updateCheck: "canvas:update-check",
   updateBeta: "canvas:update-beta",
   updateAct: "canvas:update-act",
+  /** The Telemetry setting and install ID, which main keeps (PAR-626). */
+  telemetryState: "canvas:telemetry-state",
+  telemetryLevel: "canvas:telemetry-level",
   /** Main tells windows the update state changed. */
   updateChanged: "canvas:update-changed",
   /** Main asks a window to show the updates dialog, from the macOS menu. */
@@ -36,11 +39,26 @@ export const ipc = {
   accountSignIn: "canvas:account-sign-in",
   accountReopen: "canvas:account-reopen",
   accountCancel: "canvas:account-cancel",
+  /** The window asks main to sign out of one account, by its email, or forget one whose session ended. */
   accountSignOut: "canvas:account-sign-out",
+  /** The window asks main to move the session to another organization, with a refresh. */
+  accountSwitch: "canvas:account-switch",
+  /** The window asks main to switch to another account signed in, by its email (PAR-669). */
+  accountUse: "canvas:account-use",
   /** Main asks a window whether it may close. */
   closing: "canvas:closing",
   /** The window answers at once that it's deciding, then that it's ready to close or wants to stay open. */
   closePending: "canvas:close-pending",
   closeReady: "canvas:close-ready",
-  closeCancel: "canvas:close-cancel"
+  closeCancel: "canvas:close-cancel",
+  /** A window or render window sends main an event or span it recorded, for the local copy and Sentry (PAR-627). */
+  telemetry: "canvas:telemetry",
+  /** The open projects' `.env` values to scrub from telemetry, which a window asks main for and hears of changes to. */
+  telemetrySecrets: "canvas:telemetry-secrets",
+  telemetrySecretsChanged: "canvas:telemetry-secrets-changed",
+  /** Help > Report a problem: the window asks for what goes with a report, then sends it (PAR-635). */
+  reportPrepare: "canvas:report-prepare",
+  reportSend: "canvas:report-send",
+  /** The window asks once, as it starts, whether the last run crashed. */
+  reportLastCrash: "canvas:report-last-crash"
 } as const

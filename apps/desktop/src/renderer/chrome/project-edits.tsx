@@ -1,5 +1,6 @@
 import { toast } from "sonner"
 import type { ProjectEditResult } from "../../shared/protocol.ts"
+import { errorCode, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
 
 /**
@@ -14,6 +15,7 @@ export function announceEdit(
 ): void {
   if (edit.files.length === 0) return
   const id = options.id ?? edit.id
+  track("projectEdit.applied", { files: paths(edit), outcome: "ok" })
   showEdit(`Changed ${files(edit)}`, edit, id, () => void undo(projectId, edit, id, options.afterUndo))
 }
 
@@ -41,16 +43,28 @@ async function undo(
   try {
     undone = await request("project.undoEdit", { projectId, id: edit.id })
   } catch (error) {
-    toast.error("Couldn't undo it", { id, description: message(error) })
+    const code = errorCode(error)
+    track("projectEdit.undone", { files: paths(edit), outcome: "error", ...(code ? { code } : {}) })
+    reportError(error, { operation: "project.undoEdit", title: "Couldn't undo it", id, description: message(error) })
     return
   }
+  track("projectEdit.undone", { files: paths(undone), outcome: "ok" })
   // The files are back by now, so a failure from here on isn't a failed undo.
   try {
     await afterUndo?.()
     showEdit(`Put back ${files(undone)}`, undone, id)
   } catch (error) {
-    toast.error(`Put back ${files(undone)}, but couldn't reload the project`, { id, description: message(error) })
+    reportError(error, {
+      operation: "project.reload",
+      title: `Put back ${files(undone)}, but couldn't reload the project`,
+      id,
+      description: message(error)
+    })
   }
+}
+
+function paths(edit: ProjectEditResult): string[] {
+  return edit.files.map((file) => file.path)
 }
 
 function files(edit: ProjectEditResult): string {

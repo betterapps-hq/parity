@@ -57,6 +57,7 @@ import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
+import { useFrameOnScreen } from "./frames-on-screen.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { useCanvasLabel } from "./labels.ts"
@@ -821,6 +822,20 @@ const FrameTile = memo(function FrameTile({
     () => holding.current
   )
   const bitmap = kept.src
+  // Listed with Parity's errors, and its bitmap sent with a render of it that fails (PAR-624).
+  useFrameOnScreen({
+    project: session.info.name,
+    design: container.name,
+    designKey: entry.key,
+    state: state.name,
+    stateId: state.id,
+    mode: mode.name,
+    modeId: mode.id,
+    width: frame.width,
+    ...(frame.height === undefined ? {} : { height: frame.height }),
+    key,
+    ...(bitmap === undefined ? {} : { bitmap })
+  })
   // The bitmap shows once it's decoded, so the frame doesn't go blank in between: until then, the last one decoded, or
   // its skeleton, which then leaves the page.
   const [decoded, setDecoded] = useState<string>()

@@ -1,5 +1,5 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity-app/core"
-import type { Picked, Selection } from "@parity-app/editor"
+import { type Picked, type Selection, unlockedPath } from "@parity-app/editor"
 import type { Editor } from "tldraw"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, nodeParent, nodesAt } from "../frame.ts"
@@ -80,9 +80,19 @@ export function hitInFrame(entry: ContainerEntry, host: HTMLElement, point: Poin
   return { entry, host, mode: host.dataset.mode ?? "", state: host.dataset.state ?? "", chain, path }
 }
 
-/** What's under the point, by id, for the rules in pick.ts. */
+/**
+ * What's under the point, by id, for the rules in pick.ts. A locked layer and what's inside it are left out, so a
+ * click there picks the layer around it (PAR-192).
+ */
 export function underPoint(hit: Hit): Under {
-  return { chain: hit.chain.map((node) => node.id), path: hit.path }
+  const { container } = hit.entry
+  return {
+    chain: unlockedPath(
+      container,
+      hit.chain.map((node) => node.id)
+    ),
+    path: unlockedPath(container, hit.path)
+  }
 }
 
 /**

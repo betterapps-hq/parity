@@ -2,31 +2,45 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-  Kbd
+  Kbd,
+  Spinner
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ChevronDown, ChevronsUpDown, FileInput, FolderOpen, Plus, Search, UserPlus } from "lucide-react"
-import { useAccount } from "../account/account.ts"
+import { ChevronDown, ChevronsUpDown, FileInput, FolderOpen, Plus, Search } from "lucide-react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
+import { accountActions, useAccount } from "../account/account.ts"
+import { currentOrganization, knownOrganizations, OrganizationBadge } from "../account/OrganizationBadge.tsx"
+import { NobodyAvatar } from "../account/PersonAvatar.tsx"
 import { formatKeys } from "../chrome/keys.ts"
 import { AzureDevOpsMark, GitHubMark } from "./marks.tsx"
 import { newProjectNotReady, notReady, useStartActions } from "./start-actions.ts"
 
-/** Looks like a field and opens search, which finds your projects and every action. */
-export function SearchButton({ large }: { large?: boolean }) {
+/**
+ * Looks like a field and opens search, which finds your projects and every action. `takeFocus` gives it the keyboard
+ * when it shows, as a new tab does, so Enter or Space searches at once.
+ */
+export function SearchButton({ large, takeFocus = false }: { large?: boolean; takeFocus?: boolean }) {
   const actions = useStartActions()
+  const button = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (takeFocus) button.current?.focus({ preventScroll: true })
+  }, [takeFocus])
   return (
     <button
+      ref={button}
       type="button"
       onClick={actions.search}
       className={`flex items-center gap-2.5 border bg-card/60 text-left text-muted-foreground outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring ${
         large
           ? "h-12 w-full rounded-xl px-4 text-[15px] shadow-[0_8px_30px_-12px_rgb(0_0_0/0.35)]"
-          : "h-9 w-[280px] max-w-full min-w-0 shrink rounded-lg px-3 text-sm"
+          : "h-8 w-[280px] max-w-full min-w-0 shrink rounded-lg px-3 text-sm max-sm:w-full"
       }`}
     >
       <Search className={large ? "size-[18px]" : "size-4"} />
@@ -77,79 +91,106 @@ export function NewProjectButton() {
   )
 }
 
-/** The organization signed in to, by the name Parity can give it until its service can look one up (PAR-616). */
-const sessionOrganization = "Your organization"
-
-/**
- * Whose projects the page shows: the organization you're signed in to, or Personal in no organization yet. Every
- * project on this computer shows either way, since Parity can't tell which organization a folder belongs to. Signed
- * out there's none, so it doesn't look like you're signed in (your call, 2026-11-05); the account menu and For you offer
- * Sign in. The menu offers inviting people and making an organization, which aren't ready.
- */
-export function OrgSwitcher() {
-  const { state } = useAccount()
-  const { account } = state
-  const organization = account?.organizationId ? sessionOrganization : undefined
-  const notYet = () =>
-    notReady("Organizations aren't ready yet", "For now, your projects are the ones on this computer.")
-  if (!account) return null
+/** A leading slot as wide as an organization's badge, so every label in the menu starts at the same place. */
+function Lead({ children }: { children: ReactNode }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            className="-ml-1.5 flex w-fit items-center gap-2 rounded-lg px-1.5 py-1 text-sm outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-muted/50"
-          >
-            <OrgBadge name={organization ?? "Personal"} />
-            <span className="font-medium">{organization ?? "Personal"}</span>
-            <ChevronsUpDown className="size-3.5 text-muted-foreground" />
-          </button>
-        }
-      />
-      <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuRadioGroup value={organization ? "organization" : "personal"} onValueChange={notYet}>
-          {organization && (
-            <DropdownMenuRadioItem value="organization">
-              <OrgBadge name={organization} size={18} /> {organization}
-            </DropdownMenuRadioItem>
-          )}
-          <DropdownMenuRadioItem value="personal">
-            <OrgBadge name="Personal" size={18} /> Personal
-            <span className="ml-auto text-xs text-muted-foreground">Just you</span>
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        {/* Inviting needs an organization to invite people to. */}
-        {organization && (
-          <DropdownMenuItem onClick={notYet}>
-            <UserPlus /> Invite people
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem onClick={notYet}>
-          <Plus /> New organization
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <span aria-hidden className="grid size-5 shrink-0 place-items-center">
+      {children}
+    </span>
   )
 }
 
-/** An organization's first letter in its color: Personal's green, and an organization's violet. */
-function OrgBadge({ name, size = 20 }: { name: string; size?: number }) {
-  const hue = name === "Personal" ? 162 : 275
+/**
+ * Where you're working, at the top left of Home (PAR-669): the organization you're in, or Personal in none, in the
+ * account you're in. Its menu switches between the organizations Parity knows you're in, which main does with a refresh
+ * in the background, and with several accounts it says whose they are. Every project on this computer shows either
+ * way, since Parity can't tell which organization a folder belongs to. Personal is always listed: it's where you are in
+ * no organization, and later an organization of your own. Making that one and New organization wait for Parity's
+ * service (PAR-616). Your accounts, and signing out, are at the end of the title bar; Settings stay in the app's menu.
+ * Signed out it's Sign in, so nothing looks signed in.
+ */
+export function WorkspaceMenu() {
+  const { loaded, state } = useAccount()
+  const { account, accounts } = state
+  // The organization a switch is moving to, while main refreshes.
+  const [switching, setSwitching] = useState<string>()
+  const [said, setSaid] = useState("")
+  if (!loaded) return <span className="h-10" />
+  if (!account) {
+    return (
+      <Button variant="ghost" className="-ml-2.5 gap-2" onClick={accountActions.open}>
+        <NobodyAvatar size={22} /> Sign in
+      </Button>
+    )
+  }
+  const current = currentOrganization(account)
+  const organizations = knownOrganizations(account)
+  const switchTo = (id: string) => {
+    if (id === (current?.id ?? "personal")) return
+    // Personal is one more organization, just yours, which Parity's service makes (PAR-616). A session can't leave an
+    // organization, so until then there's no Personal to switch to.
+    if (id === "personal") {
+      notReady("Personal isn't ready yet", "It needs an organization of your own, which Parity can't make yet.")
+      return
+    }
+    const name = organizations.find((organization) => organization.id === id)?.name ?? "your organization"
+    setSwitching(name)
+    setSaid(`Switching to ${name}`)
+    void accountActions.switchOrganization(id).finally(() => {
+      setSwitching(undefined)
+      setSaid("")
+    })
+  }
   return (
-    <span
-      aria-hidden
-      className="grid shrink-0 place-items-center rounded-md font-semibold"
-      style={{
-        width: size,
-        height: size,
-        fontSize: size * 0.55,
-        background: `oklch(0.45 0.1 ${hue})`,
-        color: `oklch(0.95 0.04 ${hue})`
-      }}
-    >
-      {name.charAt(0)}
-    </span>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              className="-ml-2 flex max-w-80 min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-muted/50"
+            >
+              <OrganizationBadge {...(current ? { organization: current } : {})} size={28} />
+              <span className="truncate text-sm font-medium">
+                {switching ? `Switching to ${switching}` : (current?.name ?? "Personal")}
+              </span>
+              {switching ? (
+                <Spinner aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+              )}
+            </button>
+          }
+        />
+        <DropdownMenuContent align="start" className="w-max max-w-[min(24rem,calc(100vw-2rem))] min-w-64">
+          <DropdownMenuGroup>
+            {/* Whose workspaces these are, once there's more than one account to tell apart. */}
+            {accounts.length > 1 && (
+              <DropdownMenuLabel className="truncate text-xs text-muted-foreground">{account.email}</DropdownMenuLabel>
+            )}
+            <DropdownMenuRadioGroup value={current?.id ?? "personal"} onValueChange={switchTo}>
+              <DropdownMenuRadioItem value="personal" closeOnClick>
+                <OrganizationBadge size={20} /> Personal
+              </DropdownMenuRadioItem>
+              {organizations.map((organization) => (
+                <DropdownMenuRadioItem key={organization.id} value={organization.id} closeOnClick>
+                  <OrganizationBadge organization={organization} size={20} />
+                  <span className="min-w-0 truncate">{organization.name}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuItem
+              onClick={() => notReady("Organizations aren't ready yet", "Parity can't make one or invite people yet.")}
+            >
+              <Lead>
+                <Plus />
+              </Lead>
+              New organization
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <output className="sr-only">{said}</output>
+    </>
   )
 }

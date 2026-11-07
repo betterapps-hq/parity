@@ -46,6 +46,7 @@ describe("right-click menus", () => {
       "Wrap in layout Ctrl+G",
       "Make component Ctrl+Alt+K",
       "Hide Ctrl+Shift+H",
+      "Lock Ctrl+Shift+L",
       "Export… Ctrl+Shift+E",
       // The row's own elements are written in the project's member-row.tsx (PAR-167).
       expect.stringMatching(/^Open in editor member-row\.tsx:\d+$/)

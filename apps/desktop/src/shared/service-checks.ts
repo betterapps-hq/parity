@@ -83,6 +83,16 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
       })
     )
   }),
+  "layers.picture": project.extend({
+    layers: z.array(
+      z.object({
+        design: z.string(),
+        node: z.string().optional(),
+        name: z.string(),
+        at: z.object({ x: finiteNumber, y: finiteNumber })
+      })
+    )
+  }),
   "frames.capture": z.object({ job: renderJob, height: finiteNumber.optional() }),
   "frames.stored": z.object({ job: renderJob }),
   "frames.clearStored": z.undefined(),

@@ -6,7 +6,7 @@ import {
   ContextMenuTrigger,
   ContextMenuShortcut
 } from "@buildkitgg/shadcn-baseui-kit"
-import { type ContainerKind, type DesignNode, locateNode, nodeOnBoard, toggleHidden } from "@parity-app/core"
+import { type ContainerKind, type DesignNode, locateNode, nodeLabel, nodeOnBoard, toggleHidden } from "@parity-app/core"
 import {
   activeState,
   branchIds,
@@ -25,6 +25,10 @@ import {
   siblingIds,
   toggleRow,
   toggleRows,
+  type LockSource,
+  lockSource,
+  setDesignLocked,
+  toggleLockedLayers,
   type TreeRow,
   treeRows
 } from "@parity-app/editor"
@@ -35,6 +39,8 @@ import {
   Eye,
   EyeOff,
   FileWarning,
+  Lock,
+  LockOpen,
   Plus,
   MonitorSmartphone,
   OctagonAlert,
@@ -646,6 +652,9 @@ const LayerRow = memo(function LayerRow({
   // The page itself can't be hidden; any layer inside it can, from its eye, in the state its board shows.
   const hideable = !!row.node && row.depth > 1
   const draggable = !renaming && (row.depth === 0 ? !searching : hideable)
+  // A design locks from its own row and a layer from its own, as Hide does; the page is locked with its design.
+  const lockable = row.depth === 0 || hideable
+  const lock = row.node ? lockSource(container, row.node.id) : designLock(container)
   let background = "hover:bg-accent/40"
   if (selected) background = "bg-accent text-accent-foreground"
   else if (hovered) background = "bg-accent/40"
@@ -766,6 +775,12 @@ const LayerRow = memo(function LayerRow({
                   </button>
                 </Hint>
               )}
+              {/* A component's slot says which: children, or the prop that takes it. */}
+              {row.node?.type === "layout" && row.node.slot !== undefined && container.kind === "component" && (
+                <span className="font-mono text-[11px]" style={{ color: kindColors.component }}>
+                  {row.node.slot}
+                </span>
+              )}
               {changed && (
                 <PenLine
                   className="size-3"
@@ -779,6 +794,30 @@ const LayerRow = memo(function LayerRow({
                     <MonitorSmartphone className="size-3" aria-label="Changes at some screen sizes" />
                   </span>
                 </Hint>
+              )}
+              {lock && lock.by !== "itself" && hovered && (
+                <Hint label={`Locked with ${lock.by === "design" ? container.name : nodeLabel(lock.layer)}`}>
+                  <span className="flex opacity-60">
+                    <Lock className="size-3" aria-label="Locked" />
+                  </span>
+                </Hint>
+              )}
+              {lockable && (lock?.by === "itself" || (!lock && hovered)) && (
+                <LockToggle
+                  locked={lock?.by === "itself"}
+                  onToggle={() => {
+                    if (row.node) {
+                      const id = row.node.id
+                      const label = lock ? "Unlock layer" : "Lock layer"
+                      session.store.updateContainer(row.design.key, label, (current) =>
+                        toggleLockedLayers(current, [id])
+                      )
+                    } else {
+                      const label = `${lock ? "Unlock" : "Lock"} ${kindName(container.kind)}`
+                      session.store.updateContainer(row.design.key, label, (current) => setDesignLocked(current, !lock))
+                    }
+                  }}
+                />
               )}
               {hideable && (hidden || hovered) && (
                 <VisibilityToggle
@@ -828,6 +867,37 @@ function VisibilityToggle({ hidden, onToggle }: { hidden: boolean; onToggle: () 
         className="grid size-4 place-items-center rounded-sm hover:text-foreground"
       >
         {hidden ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
+      </button>
+    </Hint>
+  )
+}
+
+/** A design's own lock, read as `lockSource` reads a layer's. */
+function designLock(container: Row["design"]["container"]): LockSource | undefined {
+  return container.locked ? { by: "itself" } : undefined
+}
+
+/**
+ * A layer's or design's lock (PAR-192): locked, it can't be selected or moved on the canvas, only here. Like the eye, a
+ * locked one's always shows and an unlocked one's appears while the row is hovered, and it stays out of the tab order:
+ * Ctrl+Shift+L locks the selection from the keyboard.
+ */
+function LockToggle({ locked, onToggle }: { locked: boolean; onToggle: () => void }) {
+  const label = locked ? "Unlock" : "Lock"
+  return (
+    <Hint label={label}>
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={label}
+        onClick={(event) => {
+          event.stopPropagation()
+          onToggle()
+        }}
+        onDoubleClick={(event) => event.stopPropagation()}
+        className="grid size-4 place-items-center rounded-sm hover:text-foreground"
+      >
+        {locked ? <Lock className="size-3" /> : <LockOpen className="size-3" />}
       </button>
     </Hint>
   )

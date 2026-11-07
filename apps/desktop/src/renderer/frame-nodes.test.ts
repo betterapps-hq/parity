@@ -529,7 +529,7 @@ describe("props a component hands to its slot", () => {
     const shown = await page.evaluate(() => {
       const root = document.querySelector("#host")!.shadowRoot!
       return {
-        error: root.textContent!.includes("Broken: Broken on purpose"),
+        error: root.querySelector("[data-failed-component=Broken]")?.getAttribute("data-error") === "Broken on purpose",
         links: root.querySelectorAll("a").length
       }
     })

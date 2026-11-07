@@ -43,6 +43,24 @@ describe("authorizeUrl", () => {
     expect(url.searchParams.get("provider")).toBe("authkit")
     expect(url.searchParams.get("login_hint")).toBe("ana@acme.test")
   })
+
+  it("names the organization to sign in to", () => {
+    const url = new URL(
+      authorizeUrl({ ...options, provider: "authkit", organizationId: "org_01ACME", state: "s", codeChallenge: "c" })
+    )
+    expect(url.searchParams.get("organization_id")).toBe("org_01ACME")
+  })
+
+  it("passes parameters on to the provider, as WorkOS's SDK writes them", () => {
+    const url = authorizeUrl({
+      ...options,
+      provider: "GoogleOAuth",
+      providerQueryParams: { prompt: "select_account" },
+      state: "s",
+      codeChallenge: "c"
+    })
+    expect(url).toContain("&provider_query_params%5Bprompt%5D=select_account")
+  })
 })
 
 describe("startSignIn", () => {

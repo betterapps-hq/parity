@@ -2,6 +2,7 @@ import { defaultModeSettings } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ProjectInfo } from "../shared/protocol.ts"
 import { preloadAnswers } from "./service.ts"
+import type { ProjectSession } from "./workspace.ts"
 
 // docs/editor.md, Opening and closing projects: a tab closed while its project opens, as tabs restored at launch can
 // be, closes the project once the service has it, so its builder doesn't run on with no tab (PAR-427).
@@ -159,6 +160,23 @@ describe("checking the start page's folders (PAR-188)", () => {
     workspace.activate(homeTab)
     await settle()
     expect(workspace.getProjects()[0]?.missing).toBeUndefined()
+  })
+})
+
+describe("a closed tab", () => {
+  it("lets go of its editor, so tabs React still holds keep no canvas", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    const editor = {} as NonNullable<ProjectSession["editor"]>
+    workspace.setEditor(info.id, editor)
+    const held = workspace.getTabs()
+    expect(held[0]?.session?.editor).toBe(editor)
+    await workspace.close(info.id)
+    expect(held[0]?.session?.editor).toBeUndefined()
   })
 })
 

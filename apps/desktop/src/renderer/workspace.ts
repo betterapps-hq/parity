@@ -1,4 +1,5 @@
 import {
+  type CanvasDocument,
   codeChangeVersions,
   finiteNumber,
   type GuestComponentSource,
@@ -8,16 +9,18 @@ import {
   versionedSources
 } from "@parity-app/core"
 import { openingDesigns } from "@parity-app/editor"
+import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { z } from "zod"
-import type { ProjectInfo, TabSummary } from "../shared/protocol.ts"
+import type { ProjectEditResult, ProjectInfo, TabSummary } from "../shared/protocol.ts"
 import { getPreferences } from "./chrome/preferences.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
+import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
 import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
@@ -271,6 +274,9 @@ export class Workspace {
       this.settleDrops()
     }
     if (tab.session) {
+      // React keeps the tabs a component last read until it renders again, so this tab can outlive its closing. Without
+      // its editor it holds no canvas: a closed project's whole canvas stayed while frames were still awake (PAR-624).
+      tab.session.editor = undefined
       void request("project.close", { projectId: tab.session.id })
       releaseGuest(tab.session.info.guestUrl)
     }
@@ -353,8 +359,10 @@ export class Workspace {
           current.session.tokens.dispose()
           if (before !== info.guestUrl) releaseGuest(before)
         } catch (error) {
-          toast.error(`Couldn't reopen ${session.info.name}`, {
-            description: error instanceof Error ? error.message : String(error)
+          reportError(error, {
+            operation: "project.reopen",
+            title: `Couldn't reopen ${session.info.name}`,
+            description: errorMessage(error)
           })
         }
       })
@@ -403,8 +411,10 @@ export class Workspace {
       return true
     } catch (error) {
       if (!latest()) return false
-      toast.error(`Couldn't load ${tab.session.info.name} from its restarted builder`, {
-        description: error instanceof Error ? error.message : String(error)
+      reportError(error, {
+        operation: "project.reload",
+        title: `Couldn't load ${tab.session.info.name} from its restarted builder`,
+        description: errorMessage(error)
       })
       return false
     }
@@ -707,9 +717,11 @@ async function saveOrSay(session: ProjectSession): Promise<boolean> {
     await session.store.flush()
     return true
   } catch (error) {
-    toast.error(`Couldn't save ${session.info.name}`, {
+    reportError(error, {
+      operation: "project.save",
+      title: `Couldn't save ${session.info.name}`,
       id: saveFailureToast(session.id),
-      description: error instanceof Error ? error.message : String(error)
+      description: errorMessage(error)
     })
     return false
   }
@@ -736,7 +748,9 @@ function sayWhenSavesFail(session: ProjectSession): void {
     }
     if (state.status !== "failed" || said) return
     said = true
-    toast.error(`Couldn't save ${session.info.name}`, {
+    reportError(state.error, {
+      operation: "project.autosave",
+      title: `Couldn't save ${session.info.name}`,
       id,
       description: state.error,
       duration: Infinity,
@@ -752,7 +766,7 @@ async function createSession(info: ProjectInfo): Promise<ProjectSession> {
     info.modes.settings,
     info.mainDocument,
     {
-      saveDocument: (path, document) => request("document.save", { projectId: info.id, path, document }),
+      saveDocument: (path, document) => saveDocument(info.id, path, document),
       autosave: () => getPreferences().autosave
     },
     info.libraries.flatMap((library) => library.designs ?? [])
@@ -799,12 +813,40 @@ function inferComponents(info: ProjectInfo, components: ComponentStore): void {
     .catch((error: unknown) => console.warn("Component props couldn't be inferred", error))
 }
 
+/** Writes a design file, recording how long it took and how big it was. */
+async function saveDocument(projectId: string, path: string, document: CanvasDocument): Promise<void> {
+  const start = performance.now()
+  const bytes = JSON.stringify(document).length
+  const measured = () => ({ file: path, durationMs: Math.round(performance.now() - start), bytes })
+  try {
+    await request("document.save", { projectId, path, document })
+    track("document.saved", measured())
+  } catch (error) {
+    const code = errorCode(error)
+    track("document.saveFailed", { ...measured(), ...(code ? { code } : {}) })
+    throw error
+  }
+}
+
+/** Writes token changes to the project's stylesheet, recording what it changed. */
+async function saveTokens(projectId: string, changes: TokenWrite[]): Promise<ProjectEditResult> {
+  try {
+    const edit = await request("tokens.save", { projectId, changes })
+    track("tokens.saved", { changes: changes.length, files: edit.files.map((file) => file.path), outcome: "ok" })
+    return edit
+  } catch (error) {
+    const code = errorCode(error)
+    track("tokens.saved", { changes: changes.length, files: [], outcome: "error", ...(code ? { code } : {}) })
+    throw error
+  }
+}
+
 /** A project's tokens, edited through its design store's history and written to its stylesheet when it's saved. */
 function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore): TokenStore {
   return new TokenStore(
     loaded.tokens,
     loaded.sheet,
-    (changes) => request("tokens.save", { projectId: info.id, changes }),
+    (changes) => saveTokens(info.id, changes),
     store,
     info.styles?.stylesheet,
     info.describedTokens

@@ -95,6 +95,14 @@ describe("shortcutFor", () => {
     expect(shortcutFor(press("n", "KeyN", { ctrl: true }), commands)).toBeUndefined()
   })
 
+  it("copies as a PNG with Ctrl+Shift+C, apart from Copy and Copy style", () => {
+    const commands = Object.keys(keymap) as Command[]
+    expect(shortcutFor(press("C", "KeyC", { ctrl: true, shift: true }), commands)).toBe("copyAsPng")
+    expect(shortcutFor(press("C", "KeyC", { meta: true, shift: true }), commands)).toBe("copyAsPng")
+    expect(shortcutFor(press("c", "KeyC", { ctrl: true }), commands)).toBe("copy")
+    expect(shortcutFor(press("c", "KeyC", { ctrl: true, alt: true }), commands)).toBe("copyStyle")
+  })
+
   it("never gives two commands the same keys", () => {
     const seen = new Map<string, string>()
     for (const [command, binding] of Object.entries(keymap)) {

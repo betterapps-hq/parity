@@ -42,6 +42,8 @@ writes only that file, and a CLI given the same file reaches only that copy.
 | `parity problems <design>`   | Render errors, overflow, clipping and unknown components, per frame.                       |
 | `parity a11y <design>`       | Checks accessibility with axe-core, per frame.                                             |
 | `parity console`             | What the project's own code wrote to the console.                                          |
+| `parity logs`                | Parity's own events from its local log, by level, process, trace, test run or time.        |
+| `parity diagnostics`         | A zip of the last hour of the local log, versions, projects and the latest crash.          |
 | `parity tokens`              | The tokens styles can name, with their values per theme.                                   |
 | `parity components`          | The components designs can use, by library.                                                |
 | `parity props <Component>`   | A component's props, read from its source.                                                 |
@@ -95,6 +97,7 @@ All desktop commands use the same operation contracts as their MCP counterparts:
 | `problems`               | `find_problems`       |
 | `a11y` / `accessibility` | `check_accessibility` |
 | `console`                | `get_console`         |
+| `logs`                   | `get_logs`            |
 | `open`                   | `open_project`        |
 | `tokens`                 | `get_tokens`          |
 | `components`             | `get_components`      |
@@ -133,8 +136,13 @@ $ parity props Buton --json
   "retryable": false, "path": "/component", "alternatives": ["Avatar", "Badge", "Button", "Card", …] } }
 ```
 
-`tokens` returns the first 100 unless `--limit` (up to 1000) says otherwise, and `console` the newest 50; both say
-`total` and `truncated`. `tabs` is `{ "tabs": [...] }`.
+`tokens` returns the first 100 unless `--limit` (up to 1000) says otherwise, `console` the newest 50 and `logs` the
+newest 100; each says `total` and `truncated`.
+
+`logs` reads the file the app writes every event to, `<userData>/logs/parity-<date>.jsonl`, so it needs no running app
+and works with diagnostics off. It shows the last run unless `--session` names one (or `all`); `--trace` and
+`--test-run` search every run. `--level` is the lowest shown, and `--since` takes an ISO time or `30s`, `10m`, `2h` or
+`1d`. `PARITY_USER_DATA` points it at another copy's folder. `tabs` is `{ "tabs": [...] }`.
 
 ## Licence
 
