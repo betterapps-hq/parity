@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Lock layers and designs with Ctrl+Shift+L, a lock on each Layers row, and Lock in the canvas and row menus: a locked one can't be selected or moved on the canvas, only from Layers, and stays locked in the .par",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
