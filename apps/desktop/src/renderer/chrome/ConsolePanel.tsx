@@ -4,6 +4,10 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -11,22 +15,26 @@ import {
   EmptyTitle,
   InputGroup,
   InputGroupAddon,
-  InputGroupInput,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  ToggleGroup,
-  ToggleGroupItem
+  InputGroupInput
 } from "@buildkitgg/shadcn-baseui-kit"
 import { resolveModes } from "@parity-app/core"
-import { Ban, ChevronRight, CircleX, FolderCode, Info, Search, SquareTerminal, TriangleAlert, X } from "lucide-react"
-import { type ReactNode, useState, useSyncExternalStore } from "react"
+import {
+  Ban,
+  ChevronDown,
+  ChevronRight,
+  CircleX,
+  FolderCode,
+  Info,
+  Search,
+  SquareTerminal,
+  TriangleAlert,
+  X
+} from "lucide-react"
+import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { clearConsole } from "../console-feed.ts"
-import { byDesign, type ConsoleMessage, type Level, tally, useConsole } from "../console-store.ts"
+import { byDesign, type ConsoleMessage, type Level, type Tally, tally, useConsole } from "../console-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { openSource } from "./code-editor.ts"
@@ -36,15 +44,24 @@ import { keymap } from "./keymap.ts"
 import { panelLimits, setLayout, useLayout } from "./layout.ts"
 import { revealSelection } from "./reveal.ts"
 
-/** What the console shows: one level or all, one design's messages or every design's, and the words searched for. */
+/** The levels the console filters by; debug messages go with info. */
+type Shown = "error" | "warning" | "info"
+
+const allLevels: readonly Shown[] = ["error", "warning", "info"]
+
+/**
+ * What the console shows: the levels turned on, any mix of them, and the words searched for. `focus` is the design a
+ * board's badge or a Layers mark opened it on, whose group opens and comes into view with the others closed; `at` tells
+ * one opening from the next.
+ */
 interface Filter {
-  level: Level | "all"
-  /** A design's key, or `project` for messages no design wrote; every message when unset. */
-  design?: string
+  levels: readonly Shown[]
+  focus?: { design: string; at: number } | undefined
   query: string
 }
 
-let filter: Filter = { level: "all", query: "" }
+let filter: Filter = { levels: allLevels, query: "" }
+let focusCount = 0
 const listeners = new Set<() => void>()
 
 function setFilter(change: Partial<Filter>): void {
@@ -62,17 +79,25 @@ function useFilter(): Filter {
   )
 }
 
-/** Opens the console, showing one design's messages when given, as its badge on the canvas does, or every one. */
+/**
+ * Opens the console. Given a design, as its badge on the canvas and a failing layer's mark in Layers do, it opens that
+ * design's messages and brings them into view, closing the other designs', and shows every level.
+ */
 export function showConsole(design?: string): void {
-  setFilter({ design, level: "all" })
+  setFilter(design ? { focus: { design, at: ++focusCount }, levels: allLevels } : { focus: undefined })
   setLayout({ console: true })
+}
+
+/** Whether a message is at one of the levels shown. */
+function levelShown(level: Level, levels: readonly Shown[]): boolean {
+  return levels.includes(level === "debug" ? "info" : level)
 }
 
 /**
  * The console, docked under the canvas (PAR-147): what the project's designs wrote, grouped by design, worst first
- * within each, from the same log `parity console` gives agents. It filters by level, by design and by words, and Clear
- * empties it for agents too. Each message says how often it came, the frames it came from, where in the project's
- * files it was written, and when; an error opens to its stack.
+ * within each, from the same log `parity console` gives agents, and the layers failing to draw (PAR-165). It filters by
+ * level, any mix of them, and by words, and Clear empties the log for agents too. Each message says how often it came, the frames it came from, where in the project's
+ * files it was written; an error opens to its stack.
  */
 export function ConsolePanel() {
   const layout = useLayout()
@@ -83,13 +108,10 @@ export function ConsolePanel() {
   const designs = byDesign(messages)
   const wanted = shown.query.trim().toLowerCase()
   const groups = designs
-    .filter(({ design }) => !shown.design || (design ?? "project") === shown.design)
     .map((group) => ({
       ...group,
       shown: group.messages.filter(
-        (message) =>
-          (shown.level === "all" || message.level === shown.level) &&
-          (!wanted || message.text.toLowerCase().includes(wanted))
+        (message) => levelShown(message.level, shown.levels) && (!wanted || message.text.toLowerCase().includes(wanted))
       )
     }))
     .filter((group) => group.shown.length > 0)
@@ -100,14 +122,20 @@ export function ConsolePanel() {
       style={{ height: layout.consoleHeight }}
     >
       <ResizeTop height={layout.consoleHeight} />
-      <ConsoleHeader session={session} messages={messages} designs={designs.map((group) => group.design)} />
+      <ConsoleHeader session={session} messages={messages} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {messages.length === 0 && <NothingLogged />}
         {messages.length > 0 && groups.length === 0 && (
           <p className="px-4 py-6 text-center text-xs text-muted-foreground">No messages match.</p>
         )}
         {groups.map((group) => (
-          <DesignGroup key={group.design ?? "project"} session={session} design={group.design} {...group} />
+          <DesignGroup
+            key={`${group.design ?? "project"}:${shown.focus?.at ?? 0}`}
+            session={session}
+            design={group.design}
+            focus={shown.focus?.design}
+            {...group}
+          />
         ))}
       </div>
     </section>
@@ -123,71 +151,20 @@ function NothingLogged() {
         </EmptyMedia>
         <EmptyTitle className="text-sm">Nothing logged</EmptyTitle>
         <EmptyDescription className="text-xs">
-          Messages your designs log show here. Agents read the same log with{" "}
-          <code className="font-mono">parity console</code>.
+          Messages your designs log, and layers that fail to draw, show here.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>
   )
 }
 
-function ConsoleHeader({
-  session,
-  messages,
-  designs
-}: {
-  session: ProjectSession
-  messages: readonly ConsoleMessage[]
-  designs: (string | undefined)[]
-}) {
+function ConsoleHeader({ session, messages }: { session: ProjectSession; messages: readonly ConsoleMessage[] }) {
   const shown = useFilter()
-  const entries = useContainerEntries(session.store)
   const counts = tally(messages)
-  const name = (design: string | undefined) => designName(entries, design)
   return (
     <div className="flex h-10 shrink-0 items-center gap-2 border-b px-2">
       <h2 className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Console</h2>
-      <ToggleGroup
-        variant="outline"
-        size="sm"
-        spacing={0}
-        value={[shown.level]}
-        onValueChange={([level]) => level && setFilter({ level: level as Filter["level"] })}
-        aria-label="Show"
-      >
-        <ToggleGroupItem value="all" className="h-7 px-2.5 text-xs">
-          All
-        </ToggleGroupItem>
-        <ToggleGroupItem value="error" aria-label={`Errors, ${counts.errors}`} className="h-7 gap-1 px-2 text-xs">
-          <CircleX className="text-destructive" /> {counts.errors}
-        </ToggleGroupItem>
-        <ToggleGroupItem value="warning" aria-label={`Warnings, ${counts.warnings}`} className="h-7 gap-1 px-2 text-xs">
-          <TriangleAlert className="text-amber-500" /> {counts.warnings}
-        </ToggleGroupItem>
-        <ToggleGroupItem value="info" aria-label={`Other messages, ${counts.info}`} className="h-7 gap-1 px-2 text-xs">
-          <Info className="text-muted-foreground" /> {counts.info}
-        </ToggleGroupItem>
-      </ToggleGroup>
-      <Select<string>
-        value={shown.design ?? "all"}
-        onValueChange={(design) => setFilter({ design: !design || design === "all" ? undefined : design })}
-      >
-        <SelectTrigger size="sm" className="h-7 w-44 text-xs" aria-label="Designs shown">
-          <SelectValue>
-            {(value: string) =>
-              value === "all" ? "Every design" : (name(value === "project" ? undefined : value) ?? value)
-            }
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Every design</SelectItem>
-          {designs.map((design) => (
-            <SelectItem key={design ?? "project"} value={design ?? "project"}>
-              {name(design)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <LevelsMenu counts={counts} levels={shown.levels} />
       <InputGroup className="h-7 w-56">
         <InputGroupAddon>
           <Search />
@@ -201,6 +178,7 @@ function ConsoleHeader({
         />
       </InputGroup>
       <span className="flex-1" />
+      <Counts errors={counts.errors} warnings={counts.warnings} />
       <IconButton label="Clear the console" onClick={() => clearConsole(session)}>
         <Ban />
       </IconButton>
@@ -215,24 +193,85 @@ function ConsoleHeader({
   )
 }
 
-/** A design's messages under its name, which selects it, with its counts; the project's own last, named so. */
+const levelNames: Record<Shown, string> = { error: "Errors", warning: "Warnings", info: "Info" }
+
+/** What the levels menu says it shows: every level, one, none or a mix, as Chrome's DevTools do. */
+function levelsLabel(levels: readonly Shown[]): string {
+  if (levels.length === allLevels.length) return "All levels"
+  if (levels.length === 0) return "No levels"
+  if (levels.length === 1) return `${levelNames[levels[0]!]} only`
+  return "Custom levels"
+}
+
+/**
+ * The levels shown, as a menu with a checkbox for each and its count, saying in its button what it shows. Any mix of
+ * levels can show; a menu takes the space of one button where a toggle for each took three.
+ */
+function LevelsMenu({ counts, levels }: { counts: Tally; levels: readonly Shown[] }) {
+  const icons: Record<Shown, ReactNode> = {
+    error: <CircleX className="text-destructive" />,
+    warning: <TriangleAlert className="text-amber-500" />,
+    info: <Info className="text-muted-foreground" />
+  }
+  const count: Record<Shown, number> = { error: counts.errors, warning: counts.warnings, info: counts.info }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" aria-label="Levels shown" />}
+      >
+        {levelsLabel(levels)}
+        <ChevronDown className="size-3.5 opacity-60" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-44">
+        {allLevels.map((level) => (
+          <DropdownMenuCheckboxItem
+            key={level}
+            checked={levels.includes(level)}
+            closeOnClick={false}
+            onCheckedChange={(on) =>
+              setFilter({ levels: allLevels.filter((each) => (each === level ? on : levels.includes(each))) })
+            }
+          >
+            {icons[level]}
+            {levelNames[level]}
+            <span className="ml-auto text-muted-foreground tabular-nums">{count[level]}</span>
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** A design's messages under its name, with its counts; the project's own last, named so. */
 function DesignGroup({
   session,
   design,
+  focus,
   messages,
   shown
 }: {
   session: ProjectSession
   design: string | undefined
+  /** The design the console was opened on: its group opens and comes into view, and the others start closed. */
+  focus: string | undefined
   messages: ConsoleMessage[]
   shown: ConsoleMessage[]
 }) {
   const entries = useContainerEntries(session.store)
   const entry = entries.find((candidate) => candidate.key === design)
-  const [open, setOpen] = useState(true)
+  const focused = focus !== undefined && focus === design
+  const [open, setOpen] = useState(focus === undefined || focused)
+  const section = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (focused) section.current?.scrollIntoView({ block: "start" })
+  }, [focused])
   const counts = tally(messages)
   return (
-    <Collapsible open={open} onOpenChange={setOpen} render={<section aria-label={designName(entries, design)} />}>
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      render={<section ref={section} aria-label={designName(entries, design)} />}
+    >
       <div className="sticky top-0 z-10 flex h-8 items-center gap-2 border-b bg-muted/80 pr-2 pl-1 backdrop-blur">
         <CollapsibleTrigger
           render={
@@ -257,21 +296,7 @@ function DesignGroup({
         </CollapsibleTrigger>
         <Counts errors={counts.errors} warnings={counts.warnings} />
         <span className="flex-1" />
-        {entry ? (
-          <Button
-            variant="ghost"
-            size="xs"
-            className="text-xs"
-            onClick={() => {
-              session.selection.set({ design: entry.key })
-              revealSelection(session)
-            }}
-          >
-            Select
-          </Button>
-        ) : (
-          <span className="text-[11px] text-muted-foreground">Written outside any design</span>
-        )}
+        {!entry && <span className="text-[11px] text-muted-foreground">Written outside any design</span>}
       </div>
       <CollapsibleContent>
         <ul>
@@ -307,8 +332,8 @@ const levelLook: Record<Level, { icon: ReactNode; row: string; text: string; lab
 }
 
 /**
- * One message: its level, its text, how often it came, the frames it came from, where it was written, and when. One
- * with a stack opens to show it, each call in the project's files a link to its line.
+ * One message: its level, its text, how often it came, the frames it came from and where it was written. One with a
+ * stack opens to show it, each call in the project's files a link to its line.
  */
 function MessageRow({
   session,
@@ -351,14 +376,39 @@ function MessageRow({
             {look.icon}
             <span className="sr-only">{look.label}</span>
           </span>
-          <p
-            className={`min-w-0 flex-1 font-mono text-xs leading-5 break-words whitespace-pre-wrap ${look.text} ${
-              open ? "" : "line-clamp-2"
-            }`}
-          >
-            {message.text}
-          </p>
+          {message.failure ? (
+            <div className="min-w-0 flex-1 text-xs leading-5">
+              <p className={look.text}>
+                <span className="font-medium">{message.failure.component} fails to draw.</span> {message.failure.reason}{" "}
+                {message.failure.fix}
+              </p>
+              <p className="font-mono break-words whitespace-pre-wrap text-muted-foreground select-text">
+                {message.text}
+              </p>
+            </div>
+          ) : (
+            <p
+              className={`min-w-0 flex-1 font-mono text-xs leading-5 break-words whitespace-pre-wrap ${look.text} ${
+                open ? "" : "line-clamp-2"
+              }`}
+            >
+              {message.text}
+            </p>
+          )}
           <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+            {message.failure && entry && (
+              <Button
+                variant="outline"
+                size="xs"
+                className="h-5 text-[11px]"
+                onClick={() => {
+                  session.selection.set({ design: entry.key, node: message.failure!.nodeId })
+                  revealSelection(session)
+                }}
+              >
+                Select layer
+              </Button>
+            )}
             {message.count > 1 && (
               <Hint label={`Logged ${message.count} times`} wait>
                 <Badge variant="secondary" className="h-4 min-w-5 px-1.5 text-[10px] tabular-nums">
@@ -392,14 +442,6 @@ function MessageRow({
                 </button>
               </Hint>
             )}
-            <Hint label={new Date(message.last).toLocaleTimeString()} wait>
-              <time
-                dateTime={new Date(message.last).toISOString()}
-                className="w-7 text-right text-[11px] text-muted-foreground tabular-nums"
-              >
-                {ago(message.last)}
-              </time>
-            </Hint>
           </div>
         </div>
         <CollapsibleContent>
@@ -479,14 +521,4 @@ export function ResizeTop({ height }: { height: number }) {
 function designName(entries: readonly ContainerEntry[], design: string | undefined): string {
   if (!design) return "Project"
   return entries.find((entry) => entry.key === design)?.container.name ?? "A deleted design"
-}
-
-/** How long ago, short: now, 40s, 5m, 2h, 3d. */
-function ago(time: number): string {
-  const seconds = Math.max(0, Math.round((Date.now() - time) / 1000))
-  if (seconds < 10) return "now"
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
-  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h`
-  return `${Math.floor(seconds / 86_400)}d`
 }

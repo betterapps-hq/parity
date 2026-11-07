@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Add Help > Report a problem, which sends what happened with a screenshot, logs, versions and projects, and offers itself after a crash; add parity diagnostics, which writes the same as a zip (PAR-635)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

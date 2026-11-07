@@ -10,7 +10,7 @@ import {
   ContextMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type ElementSource, isInnerPath } from "@parity-app/core"
-import { type Selection } from "@parity-app/editor"
+import { selectedDesigns, type Selection } from "@parity-app/editor"
 import { CheckIcon } from "lucide-react"
 import { type ComponentProps, type ReactElement, useEffect, useRef, useState } from "react"
 import { pasteAtPointer } from "../canvas/clipboard.ts"
@@ -291,6 +291,8 @@ function designUnder(
   const page = editor.screenToPage(point)
   if (editor.getShapeAtPoint(page, { hitInside: true })?.type === "canvas-note") return undefined
   const hit = hitTest(area, store, point, editor)
+  // A locked design gets the empty canvas's menu, unless it's selected, from Layers (PAR-192).
+  if (hit && hit.entry.container.locked && !selected(before, hit.entry.key)) return undefined
   if (hit) {
     return {
       target: { design: hit.entry.key, path: hit.path, mode: hit.mode, state: hit.state },
@@ -298,6 +300,15 @@ function designUnder(
       root: hit.entry.container.root.id
     }
   }
-  const board = editor.getShapeAtPoint(page, { hitInside: true, filter: (shape) => shape.type === "canvas-container" })
+  const board = editor.getShapeAtPoint(page, {
+    hitInside: true,
+    hitLocked: true,
+    filter: (shape) => shape.type === "canvas-container" && (!shape.isLocked || selected(before, shape.props.key))
+  })
   return board?.type === "canvas-container" ? { target: { design: board.props.key, path: [] } } : undefined
+}
+
+/** Whether a design, or a layer in it, is selected. */
+function selected(current: Selection, design: string): boolean {
+  return current.design === design || selectedDesigns(current).includes(design)
 }

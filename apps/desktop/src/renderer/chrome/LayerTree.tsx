@@ -6,7 +6,18 @@ import {
   ContextMenuTrigger,
   ContextMenuShortcut
 } from "@buildkitgg/shadcn-baseui-kit"
-import { type ContainerKind, type DesignNode, locateNode, nodeOnBoard, toggleHidden } from "@parity-app/core"
+import {
+  boardTarget,
+  type ComponentLibrary,
+  type ContainerKind,
+  type DesignNode,
+  editInner,
+  layerOnBoard,
+  locateNode,
+  nodeLabel,
+  nodeOnBoard,
+  toggleHidden
+} from "@parity-app/core"
 import {
   activeState,
   branchIds,
@@ -25,6 +36,10 @@ import {
   siblingIds,
   toggleRow,
   toggleRows,
+  type LockSource,
+  lockSource,
+  setDesignLocked,
+  toggleLockedLayers,
   type TreeRow,
   treeRows
 } from "@parity-app/editor"
@@ -35,8 +50,11 @@ import {
   Eye,
   EyeOff,
   FileWarning,
+  Lock,
+  LockOpen,
   Plus,
   MonitorSmartphone,
+  OctagonAlert,
   PenLine,
   StickyNote
 } from "lucide-react"
@@ -55,9 +73,11 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
+import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
 import { SearchField } from "./AssetsPanel.tsx"
+import { showConsole } from "./ConsolePanel.tsx"
 import { createDesign } from "./create.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
@@ -136,7 +156,8 @@ export function LayerTree() {
     setPickedHere(undefined)
     const entry = selected.design ? store.getEntry(selected.design) : undefined
     if (entry) {
-      const next = revealRows(expansion, revealIds(entry, selectedNodes(selected)), pickedHere === selectionKey)
+      const ids = revealIds(entry, selectedNodes(selected), store.getComponentLibrary())
+      const next = revealRows(expansion, ids, pickedHere === selectionKey)
       if (next !== expansion) setExpansion(next)
     }
   }
@@ -167,7 +188,9 @@ export function LayerTree() {
     const all: Row[] = []
     const list: Line[] = []
     for (const group of groups) {
-      const found = search ? searchRows(group.entries, search, label) : treeRows(group.entries, expanded)
+      const found = search
+        ? searchRows(group.entries, search, label, library)
+        : treeRows(group.entries, expanded, library)
       if (search && found.length === 0) continue
       list.push({ type: "heading", key: `heading:${group.kind}`, group })
       if (group.entries.length === 0) list.push({ type: "empty", key: `empty:${group.kind}`, group })
@@ -199,7 +222,7 @@ export function LayerTree() {
   const toggle = (id: string, open?: boolean) => setExpansion((current) => toggleRow(current, id, open))
   // Alt+click on an arrow opens or closes the row with everything inside it, as Finder does.
   const toggleBranch = (row: Row) =>
-    setExpansion((current) => toggleRows(current, branchIds(row.design, row.node), !row.expanded))
+    setExpansion((current) => toggleRows(current, branchIds(row, store.getComponentLibrary()), !row.expanded))
 
   /**
    * A click selects the row. Ctrl or Cmd adds it to the selection or takes it out; Shift selects every row between it
@@ -213,20 +236,20 @@ export function LayerTree() {
   const pick = (row: Row, event?: MouseEvent | KeyboardEvent) => {
     const toggle = !!event && (event.ctrlKey || event.metaKey)
     const range = !!event && event.shiftKey
-    const layer = row.node && row.node.id !== row.design.container.root.id ? row.node : undefined
+    const layer = row.path !== undefined && row.path !== row.design.container.root.id ? row.path : undefined
     if ((toggle || range) && layer && selected.design === row.design.key && selected.node) {
       const ids = selectedNodes(selected)
       if (toggle) {
-        const next = ids.includes(layer.id) ? ids.filter((id) => id !== layer.id) : [...ids, layer.id]
+        const next = ids.includes(layer) ? ids.filter((id) => id !== layer) : [...ids, layer]
         selection.set(layersSelection(row.design.key, next, selected))
       } else {
         const from = rows.findIndex((candidate) => candidate.id === layerRowId(row.design.key, selected.node!))
         const to = rows.indexOf(row)
         const between = rows
           .slice(Math.min(from, to), Math.max(from, to) + 1)
-          .filter((candidate) => candidate.design === row.design && candidate.node && candidate.depth > 1)
-          .map((candidate) => candidate.node!.id)
-        selection.set(layersSelection(row.design.key, [...between.filter((id) => id !== layer.id), layer.id], selected))
+          .filter((candidate) => candidate.design === row.design && candidate.path && candidate.depth > 1)
+          .map((candidate) => candidate.path!)
+        selection.set(layersSelection(row.design.key, [...between.filter((id) => id !== layer), layer], selected))
       }
       return
     }
@@ -246,7 +269,7 @@ export function LayerTree() {
       }
       return
     }
-    selection.set(row.node ? { design: row.design.key, node: row.node.id } : { design: row.design.key })
+    selection.set(row.path ? { design: row.design.key, node: row.path } : { design: row.design.key })
     revealSelection(session)
   }
 
@@ -277,7 +300,7 @@ export function LayerTree() {
       event.dataTransfer.setData(designMime, row.design.key)
       return
     }
-    if (!row.node || row.depth < 2) {
+    if (!row.node || row.depth < 2 || row.within.length > 0) {
       event.preventDefault()
       return
     }
@@ -297,7 +320,7 @@ export function LayerTree() {
       if (group(dragged) !== group(row.design)) return undefined
       return y < 0.5 ? "before" : "after"
     }
-    if (!event.dataTransfer.types.includes(layersMime)) return undefined
+    if (!event.dataTransfer.types.includes(layersMime) || row.within.length > 0) return undefined
     const container = !row.node || row.node.type === "layout"
     if (row.depth <= 1) return container ? "inside" : undefined
     if (container && y > 0.25 && y < 0.75) return "inside"
@@ -341,7 +364,7 @@ export function LayerTree() {
 
   // Hovering a design's row outlines its board on the canvas, as hovering the board itself does (`CanvasEditor.tsx`).
   const hoverRow = (row: Row, on: boolean) =>
-    selection.setHover(on ? { design: row.design.key, node: row.node?.id } : undefined)
+    selection.setHover(on ? { design: row.design.key, node: row.path } : undefined)
 
   const onKeyDown = (event: KeyboardEvent) => {
     // A heading's + and an empty group's row keep their keys, so Enter makes a new one rather than renaming.
@@ -375,7 +398,7 @@ export function LayerTree() {
       if (!search) setExpansion((current) => toggleRows(current, siblingIds(among, among.indexOf(row)), true))
     } else if (event.key === "F2" || event.key === "Enter") {
       event.preventDefault()
-      setRenaming(row.id)
+      if (row.within.length === 0) setRenaming(row.id)
     }
   }
 
@@ -401,7 +424,8 @@ export function LayerTree() {
       toggle: (row, branch) => (branch ? toggleBranch(row) : toggle(row.id)),
       select,
       hover: hoverRow,
-      rename: (row) => setRenaming(row.id),
+      // A layer inside an instance keeps its component's name.
+      rename: (row) => row.within.length === 0 && setRenaming(row.id),
       renamed: (row, name) => {
         setRenaming(undefined)
         if (name !== undefined) rename(session, row, name)
@@ -476,8 +500,9 @@ export function LayerTree() {
                       searching={!!search}
                       selected={selectedRows.has(line.row.id)}
                       dropPosition={dropAt?.row === line.row.id ? dropAt.position : undefined}
-                      hovered={hover?.design === line.row.design.key && hover.node === line.row.node?.id}
+                      hovered={hover?.design === line.row.design.key && hover.node === line.row.path}
                       renaming={renaming === line.row.id}
+                      library={library}
                       handlers={rowActions}
                     />
                   )}
@@ -594,6 +619,8 @@ interface LayerRowProps {
   hovered: boolean
   renaming: boolean
   dropPosition?: DropPosition
+  /** The project's components, which a layer inside an instance is drawn from. */
+  library: ComponentLibrary
   /** The same object for every row on every render, so a row that shows the same draws nothing again. */
   handlers: RowActions
 }
@@ -615,7 +642,8 @@ function sameRow(before: LayerRowProps, after: LayerRowProps): boolean {
     before.selected === after.selected &&
     before.hovered === after.hovered &&
     before.renaming === after.renaming &&
-    before.dropPosition === after.dropPosition
+    before.dropPosition === after.dropPosition &&
+    (a.within.length === 0 || before.library === after.library)
   )
 }
 
@@ -627,19 +655,34 @@ const LayerRow = memo(function LayerRow({
   hovered,
   renaming,
   dropPosition,
+  library,
   handlers
 }: LayerRowProps) {
   const session = useProject()
   const { container } = row.design
   const state = activeState(container)
-  const color = row.node ? nodeColor(row.node) : designColor(container.kind)
-  const changed = row.node && state.overrides?.[row.node.id]
+  // Inside an instance a layer is its component's, and drawn in the component's color, as the instance is.
+  const inside = row.within.length > 0
+  let color = designColor(container.kind)
+  if (row.node) color = inside ? kindColors.component : nodeColor(row.node)
+  const changed = row.path && state.overrides?.[row.path]
+  // A layer whose component fails to draw in one of the design's frames, which its board's badge counts. Inside an
+  // instance the canvas names it by its path.
+  const failing = useLayerFailure(session.id, row.design.key, row.path ?? "")
+  const failure = row.node ? failing : undefined
   const viewports = row.node ? Object.keys(row.node.responsive ?? {}) : []
-  // Whether the board hides it in the state it shows, as Hide and Show read it.
-  const hidden = row.node ? (nodeOnBoard(container, row.node, state).hidden ?? false) : false
+  // Whether the board hides it in the state it shows, as Hide and Show read it: inside an instance, as this copy shows
+  // it there.
+  let hidden = false
+  if (row.node && inside) hidden = layerOnBoard(container, row.path!, library, state)?.hidden ?? false
+  else if (row.node) hidden = nodeOnBoard(container, row.node, state).hidden ?? false
   // The page itself can't be hidden; any layer inside it can, from its eye, in the state its board shows.
   const hideable = !!row.node && row.depth > 1
-  const draggable = !renaming && (row.depth === 0 ? !searching : hideable)
+  // Layers inside an instance only show or hide; the rest of them is the component's, and the instance locks them.
+  const draggable = !renaming && (row.depth === 0 ? !searching : hideable && !inside)
+  // A design locks from its own row and a layer from its own, as Hide does; the page is locked with its design.
+  const lockable = row.depth === 0 || (hideable && !inside)
+  const lock = row.path ? lockSource(container, row.path) : designLock(container)
   let background = "hover:bg-accent/40"
   if (selected) background = "bg-accent text-accent-foreground"
   else if (hovered) background = "bg-accent/40"
@@ -744,6 +787,22 @@ const LayerRow = memo(function LayerRow({
               <span className="min-w-0 flex-1 truncate">{label}</span>
             )}
             <span className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
+              {failure && (
+                <Hint label={`${failure.component} fails to draw`} detail="Click to show why in the console">
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label={`${failure.component} fails to draw. Show why in the console`}
+                    className="grid size-4 place-items-center rounded-sm hover:bg-accent"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      showConsole(row.design.key)
+                    }}
+                  >
+                    <OctagonAlert className="size-3 text-destructive" />
+                  </button>
+                </Hint>
+              )}
               {/* A component's slot says which: children, or the prop that takes it. */}
               {row.node?.type === "layout" && row.node.slot !== undefined && container.kind === "component" && (
                 <span className="font-mono text-[11px]" style={{ color: kindColors.component }}>
@@ -764,13 +823,41 @@ const LayerRow = memo(function LayerRow({
                   </span>
                 </Hint>
               )}
+              {lock && lock.by !== "itself" && hovered && (
+                <Hint label={`Locked with ${lock.by === "design" ? container.name : nodeLabel(lock.layer)}`}>
+                  <span className="flex opacity-60">
+                    <Lock className="size-3" aria-label="Locked" />
+                  </span>
+                </Hint>
+              )}
+              {lockable && (lock?.by === "itself" || (!lock && hovered)) && (
+                <LockToggle
+                  locked={lock?.by === "itself"}
+                  onToggle={() => {
+                    if (row.node) {
+                      const id = row.node.id
+                      const label = lock ? "Unlock layer" : "Lock layer"
+                      session.store.updateContainer(row.design.key, label, (current) =>
+                        toggleLockedLayers(current, [id])
+                      )
+                    } else {
+                      const label = `${lock ? "Unlock" : "Lock"} ${kindName(container.kind)}`
+                      session.store.updateContainer(row.design.key, label, (current) => setDesignLocked(current, !lock))
+                    }
+                  }}
+                />
+              )}
               {hideable && (hidden || hovered) && (
                 <VisibilityToggle
                   hidden={hidden}
                   onToggle={() =>
-                    session.store.updateContainer(row.design.key, "Toggle visibility", (current) =>
-                      toggleHidden(current, activeState(current).id, [row.node!.id])
-                    )
+                    session.store.updateContainer(row.design.key, "Toggle visibility", (current) => {
+                      const stateId = activeState(current).id
+                      if (!inside) return toggleHidden(current, stateId, [row.node!.id])
+                      // Only this copy changes, in the state its board shows.
+                      const change = { hidden: !hidden }
+                      return editInner(current, boardTarget(current, stateId), row.path!, change, library)
+                    })
                   }
                 />
               )}
@@ -817,6 +904,37 @@ function VisibilityToggle({ hidden, onToggle }: { hidden: boolean; onToggle: () 
   )
 }
 
+/** A design's own lock, read as `lockSource` reads a layer's. */
+function designLock(container: Row["design"]["container"]): LockSource | undefined {
+  return container.locked ? { by: "itself" } : undefined
+}
+
+/**
+ * A layer's or design's lock (PAR-192): locked, it can't be selected or moved on the canvas, only here. Like the eye, a
+ * locked one's always shows and an unlocked one's appears while the row is hovered, and it stays out of the tab order:
+ * Ctrl+Shift+L locks the selection from the keyboard.
+ */
+function LockToggle({ locked, onToggle }: { locked: boolean; onToggle: () => void }) {
+  const label = locked ? "Unlock" : "Lock"
+  return (
+    <Hint label={label}>
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={label}
+        onClick={(event) => {
+          event.stopPropagation()
+          onToggle()
+        }}
+        onDoubleClick={(event) => event.stopPropagation()}
+        className="grid size-4 place-items-center rounded-sm hover:text-foreground"
+      >
+        {locked ? <Lock className="size-3" /> : <LockOpen className="size-3" />}
+      </button>
+    </Hint>
+  )
+}
+
 type Session = ReturnType<typeof useProject>
 
 function rename(session: Session, row: Row, name: string): void {
@@ -833,7 +951,7 @@ function rename(session: Session, row: Row, name: string): void {
 
 /** The row as the row menu reads it: its design, and its layer unless it's the design's own row. */
 function rowTarget(row: Row): LayersRow {
-  return row.node ? { design: row.design.key, node: row.node.id } : { design: row.design.key }
+  return row.path ? { design: row.design.key, node: row.path } : { design: row.design.key }
 }
 
 /**

@@ -185,7 +185,8 @@ still need your call.
     (Ctrl+Alt+A) selects, within the design, layers that are the same component, the same main component, or text with
     the same tag, and styled the same apart from place and size. Content doesn't count. With designs selected, it
     selects designs of the same kind (CAN-39).
-  - Figma keys for things Parity doesn't do yet are Copy as PNG, find and lock (PAR-190 to PAR-192).
+  - Figma keys for things Parity doesn't do yet are Copy as PNG and find (PAR-190, PAR-191). Lock (Ctrl+Shift+L) came
+    with PAR-192.
 - **Enter, Tab and the arrows on a focused control are the control's** (found by the editor audit, 2026-10-29): a
   button, tab, Layers row or toggle presses, moves focus or moves within itself, so Tab moves through the inspector's
   fields instead of selecting the next layer. They act on the canvas when it, or nothing, has focus. A key the canvas
@@ -205,9 +206,9 @@ still need your call.
 - **Recent projects:** the last 10 that opened successfully.
 - **The canvas's right-click menu follows Figma's order** (PAR-168): Select layer, then copying and pasting, ordering,
   Wrap, Make component and Go to the main component, then Hide. Items that don't apply to what's selected are left out;
-  items that apply but can't act right now are greyed. Lock joins it with PAR-192, and Open in editor and Copy as JSX
-  with PAR-166. The empty canvas gets Paste here, Select all and Zoom to fit, a text note over a board gets the empty
-  canvas's menu, and Interact gets none.
+  items that apply but can't act right now are greyed. Lock joined it, under Hide, with PAR-192, and Open in editor and
+  Copy as JSX with PAR-166. The empty canvas gets Paste here, Select all and Zoom to fit, a text note over a board gets
+  the empty canvas's menu, and Interact gets none.
 - **A right-click selects what a click would** (PAR-168), unless it lands inside the selection or on a selected layer's
   resize handle. The menu reads the selection and its target when the right button goes down, because tldraw selects the
   board on release.
@@ -235,8 +236,9 @@ still need your call.
   right-click on a row selects it first unless it's in the selection. My calls: Rename still renames the row in place
   rather than going through Edit > Rename, which renames a design on its title on the canvas, out of sight from Layers;
   a design's row gains Duplicate, since the command duplicates designs; the root's row keeps only Rename, as the
-  commands can't duplicate, hide or delete a design's root, where the old menu could hide it; and Hide keeps naming
-  where the change lands (Hide in Default, PAR-497), read from the state the selection was picked in.
+  commands can't duplicate, hide or delete a design's root, where the old menu could hide it; and Hide is read from the
+  state the selection was picked in. It named where the change lands (Hide in Default, PAR-497) until you asked on
+  2026-11-06 for the menu to say just Hide and Lock (PAR-192).
 
 ## Canvas
 
@@ -255,6 +257,16 @@ still need your call.
   their state, time, address and Portless name, and stops, restarts or dismisses each. My calls: stopping asks first,
   and each kind has an icon and a hue at least 25° from the others, using the canvas's own colours for the build server
   and formatting.
+- **Locking is Figma's** (PAR-192). Ctrl+Shift+L locks the selection, which can't then be selected or moved on the
+  canvas, with everything inside it, and is still selected from Layers. It's saved as `locked` on the layer or design,
+  the same in every state and screen size, since it's about editing rather than what the design shows. My calls:
+  - **A click on a locked layer goes to the layer around it,** and a locked design is left to tldraw, as a locked shape,
+    so a press on it draws a box rather than selecting its board.
+  - **Selected from Layers, a locked layer still changes from the inspector and the keys,** nudging included, but takes
+    no resize or spacing handles on the canvas. You approved the controls on 2026-11-06 with nudging left in.
+  - **The page has no lock,** since locking it is locking the design, and layers inside an instance have none, as they
+    have no eye. A layer locked by one around it shows a faded lock while hovered, saying what locks it, rather than a
+    lock of its own to press.
 - **Snapping is on by default.** Designs lock to each other's edges and centres within 8 screen pixels, and absolutely
   placed layers to their siblings' and their parent's, and to even spacing among their siblings (PAR-174). Hold Ctrl to
   move or resize freely, or turn it off under View.
@@ -675,6 +687,14 @@ section has the details. The user asked for "variants, instance overrides and th
     undoable design edit, so the override works in code. You asked: "Why not just do? This is part of the design
     process."
 - **Layers inside an instance can't be moved, resized on the canvas or deleted.**
+- **Layers lists an instance's layers below it, read-only apart from the eye** (PAR-92). The eye hides or shows the
+  layer in that copy. Rename joins Duplicate, Hide, Lock and Delete as unavailable in the row's menu, since the name is
+  the component's. The menu's Hide stays unavailable, as the menubar's is (PAR-419), so the eye is the tree's one way to
+  hide them (my call: making Hide work inside instances would change the canvas and the menubar too). What the copy
+  changes isn't marked in the tree: you chose that on 2026-11-07 ("Remove the purple pen"), leaving it to the inspector.
+  Search goes inside instances (my call), unlike Select same. A slot the instance fills shows its fills in place of the
+  placeholder, as the canvas draws them (my call, replacing PAR-83's rule that nothing shows under an instance, which
+  came before instances had rows under them).
 - **Swap keeps args, state and overrides that still match** by id or layer name. **Detach bakes everything into plain
   layers** with fresh ids, the root keeping the instance's id.
 
@@ -5626,8 +5646,9 @@ know we're using Sentry," then "Either send or don't, that's all." My calls with
   those, and `sendsToSentry` is gone. Main turns Sentry's client on or off (`applyTelemetry` in `main/telemetry.ts`),
   which every send checks, so the switch works without a restart. Sentry starts enabled and is turned off at once when
   it should be, since a client started disabled never sets up its integrations.
-- **Settings > Privacy > Share diagnostics,** a switch. Its line says what's shared, the window recording included,
-  since that's what a person needs to know, not which service takes it.
+- **Settings > Privacy > Share diagnostics,** a switch. Its line says what's shared and who it's for, not which service
+  takes it, and reads the same on and off, so turning the switch doesn't move the dialog. It leaves out the window
+  recording, which won't ship (PAR-703).
 - **A variable decides the run and disables the switch:** `PARITY_TELEMETRY` over the setting, `DO_NOT_TRACK` and Vitest
   over both. The switch shows what's sent, and its line names the variable.
 - **The setting and the install ID are one file, `<userData>/telemetry.json`,** which the CLI can read through
@@ -5835,3 +5856,51 @@ the zip hold the same things. My calls:
   was killed. It's offered only in installed builds, since agents and CI stop development copies all the time.
 - **`parity diagnostics` takes the latest run that didn't quit,** which is the one open now if Parity is running, and
   says so. It writes the zip with Node's own zlib, with no dependency.
+
+## Failing components show in the console, and saved code reaches the canvas live (PAR-165)
+
+Called on 2026-11-07. PAR-165 asked for a failing component's error box and a badge on its frame without covering what
+drew, failing layers marked in Layers and the inspector with the reason and the fix, and the canvas updating within a
+second of a component file being edited or broken, without reopening the project. You approved the design in Storybook
+(`Parity/Canvas/Boards` FailingLayer, `Parity/Chrome/Console`) after reworking it. Your calls:
+
+- **The reason goes in the console, not the inspector.** A failing layer is an error in the console for as long as it
+  fails, with why, the fix and a button selecting the layer, so the board's console badge and the status bar count it,
+  rather than a badge of its own and a notice above the layer's fields. The Layers mark opens the console on the design.
+- **The box reads as broken, without text.** A thin dashed red outline over fine red hatching with an icon, as light as
+  a missing component's, since the text inside was unreadable at the zooms people work at.
+- **The console filters levels as DevTools do:** a menu whose button says what shows, with a checkbox and count for each
+  level, in place of a segmented All and three levels, with the errors and warnings counted on the header's right. The
+  design filter, the group's Select button, each message's time and the empty console's line about agents are gone; a
+  badge opens its design's group, in view, with the others closed.
+
+My calls:
+
+- **The frame keeps what it drew.** A component's boundary already drew its error in its place. The sheet laid over the
+  whole frame for any error now shows only for an error that stopped the frame drawing, and across its top, so whatever
+  drew stays in view.
+- **Failures are counted per frame, by its boundaries.** Each frame's root gives its boundaries a context they report
+  failing and drawing again to, so the canvas knows which layer fails in which frame, beside the guest-wide status the
+  Components panel reads. The console lists a layer once, however many of its frames it fails in, with each frame.
+- **Failures stay through Clear.** They're how the canvas is now, not a record, so Clear empties what was logged and
+  leaves them, and they go when the component draws again. Agents read failing components from `parity components` and
+  Problems, so they aren't added to `parity console`.
+- **The fix is read from the error.** A missing provider names the provider a decorator should add, taken from the error
+  when it names one, or from what routers, query clients, Redux, React Intl and Apollo are known to say. An error naming
+  a parent it must be used within, as Radix's parts do, asks for a parent layer, not a decorator. Nothing is guessed for
+  the rest; the error shows as thrown.
+- **Live edits go through the builder, not an HMR client.** The guest has no HMR client and React Fast Refresh needs
+  React's development build, which frames don't run (PAR-198). Instead the builder stamps the changed modules and their
+  importers as Vite's HMR would, and the window imports the affected components again at `?t=` addresses, which Vite
+  rewrites the imports beneath them for. The page never reloads, components that didn't change keep their state, and a
+  component that failed starts over. Reopening still takes a new port (PAR-422).
+- **Frames are keyed by the components they draw.** One revision for the guest's code redrew every frame and retook
+  every bitmap whenever any component moved, which PAR-439 accepted as rare; with a save doing it, a widely used
+  component's edit would retake most of a project's bitmaps. A frame's key now names the source and version of each
+  component its tree draws that the guest was given since it loaded.
+- **A board keeps its last picture while the new one comes.** Before, a frame whose key changed showed nothing until its
+  new bitmap was taken, which after a save blanked every board drawing the component for seconds. It now shows its last
+  bitmap, drawing live behind it, and only sleeps on a bitmap of what it shows now.
+- **Left for later:** a board drawn only from a bitmap kept from an earlier session has no console error until its
+  frames draw, since offscreen captures don't report failures; and a class new to the project has no CSS until the
+  project opens again, since the guest's stylesheet isn't reloaded.

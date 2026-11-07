@@ -19,7 +19,9 @@ const stringRecord = z.record(z.string(), z.string())
 const renderJob = z.object({
   projectId: z.string(),
   guestUrl: z.string(),
-  components: z.record(z.string(), z.object({ path: z.string(), export: z.string() })).optional(),
+  components: z
+    .record(z.string(), z.object({ path: z.string(), export: z.string(), version: z.number().optional() }))
+    .optional(),
   theme: z.array(themeVariable),
   // The node tree is drawn by the offscreen window's guest, which reads it as the canvas does.
   tree: z.unknown(),

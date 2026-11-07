@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type GuestChanges, guestChanges } from "./guest-changes.ts"
+import { codeChangeVersions, type GuestChanges, guestChanges, versionedSources } from "./guest-changes.ts"
 import type { ComponentSource } from "./project.ts"
 
 type Sources = Record<string, ComponentSource>
@@ -48,5 +48,30 @@ describe("guestChanges", () => {
     const listed = { ...card, lazy: true }
     const confirmed = { ...card, lazy: true, as: "function" as const }
     expect(guestChanges({ Card: listed }, { Card: confirmed })).toEqual({ add: {}, drop: [] })
+  })
+})
+
+describe("code changes (PAR-165)", () => {
+  const sources = {
+    Badge: { path: "src/badge.tsx", export: "Badge" },
+    Card: { path: "./src/card.tsx", export: "Card" },
+    CardTitle: { path: "src/card.tsx", export: "CardTitle" }
+  }
+
+  it("gives a component again when its code's version changes, and not while it stays", () => {
+    const before = versionedSources(sources, { Card: 1 })
+    expect(guestChanges(before, versionedSources(sources, { Card: 1 }))).toEqual({ add: {}, drop: [] })
+    expect(guestChanges(before, versionedSources(sources, { Card: 2 })).add).toEqual({
+      Card: { path: "./src/card.tsx", export: "Card", version: 2 }
+    })
+  })
+
+  it("stamps every component in the files that changed, keeping the others' versions", () => {
+    expect(codeChangeVersions(sources, ["src/card.tsx"], 5, { Badge: 3 })).toEqual({ Badge: 3, Card: 5, CardTitle: 5 })
+    expect(codeChangeVersions(sources, ["src/other.tsx"], 6)).toEqual({})
+  })
+
+  it("leaves a component whose code hasn't changed without a version", () => {
+    expect(versionedSources(sources, { Card: 5 }).Badge).toEqual({ path: "src/badge.tsx", export: "Badge" })
   })
 })

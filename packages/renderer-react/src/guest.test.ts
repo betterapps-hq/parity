@@ -47,11 +47,18 @@ describe("the guest's code revision", () => {
     guest.addComponents!({})
     expect(guest.revision!.get()).toBe(start + 2)
     expect(heard).toBe(2)
+    // Its code changed in the same file (PAR-165), once, then again.
+    guest.addComponents!({ Card: { path: "src/ui/card.tsx", export: "Card", version: 1 } })
+    guest.addComponents!({ Card: { path: "src/ui/card.tsx", export: "Card", version: 1 } })
+    expect(guest.revision!.get()).toBe(start + 3)
+    guest.addComponents!({ Card: { path: "src/ui/card.tsx", export: "Card", version: 2 } })
+    expect(guest.revision!.get()).toBe(start + 4)
+    expect(heard).toBe(4)
 
     stop()
     guest.addComponents!({ Badge: { path: "src/badge.tsx", export: "default" } })
-    expect(guest.revision!.get()).toBe(start + 3)
-    expect(heard).toBe(2)
+    expect(guest.revision!.get()).toBe(start + 5)
+    expect(heard).toBe(4)
   })
 })
 

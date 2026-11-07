@@ -573,10 +573,9 @@ the tree longer and every later change slower.
   says nothing.
 - **Each layer has an eye** that hides it in the state its board shows, or shows it again, as one undo step, without
   selecting it. It shows while the layer is hovered, in the panel or on the canvas, and stays on a hidden layer, crossed
-  out. It's named Hide or Show, without the state, which the row menu's Hide still names ("Hide in Default"). The page
-  can't be hidden, so it has none. A layer that changes at some screen sizes shows a monitor and phone icon, whose
-  tooltip says so ("Changes at some screen sizes"). Like the row's arrow, it isn't in the tab order: Ctrl+Shift+H hides
-  the selection from the keyboard.
+  out. It's named Hide or Show, without the state, as the row menu's Hide is. The page can't be hidden, so it has none.
+  A layer that changes at some screen sizes shows a monitor and phone icon, whose tooltip says so ("Changes at some
+  screen sizes"). Like the row's arrow, it isn't in the tab order: Ctrl+Shift+H hides the selection from the keyboard.
 - **Designs are dragged to reorder them** among the designs of their group, components, screens or frames, in their own
   file, which is the order the panel lists them in. A line under or over the row shows where it would go, and the move
   is one undo step ("Reorder screen").
@@ -585,8 +584,8 @@ the tree longer and every later change slower.
   scrolling as they go, Right and Left open and close a row or move into and out of it, `*` opens the row's siblings,
   and Enter or F2 renames. Enter or Escape in the name field puts the keys back on the tree.
 
-Not yet: each row's lock, which waits for locking (PAR-192), and highlighting a layer selected inside an instance, which
-waits for an instance's layers in the tree (PAR-92).
+Each row's lock is in Locking layers and designs (PAR-192). A layer selected inside an instance is highlighted since
+PAR-92, below.
 
 Measured on 2026-11-05 on the example with 100 more screens and a "Large list" screen of 6,050 layers (50 sections of 30
 rows of three texts), selecting a text in each of 30 sections in turn, then 20 edits to the design as typing in the
@@ -629,6 +628,45 @@ Tests:
 Gaps: the keyboard, the eye, dragging a design, the board's outline and Collapse all were tried in an isolated copy of
 the app on 2026-11-05 with the system's keyboard and mouse, through `scripts/drive.ts`; none has an end-to-end test of
 its own.
+
+### An instance's layers in the tree (PAR-92)
+
+An instance's row opens, as a layout's does, to the layers the canvas can select inside it: its component's layers, as
+this copy shows them, and inside a nested instance, that one's. Before this an instance was a row with nothing below it,
+and a layer selected inside one, by Ctrl-click on the canvas, had no row to highlight.
+
+- **Each layer inside an instance has a row,** under the instance, named as Layers names the component's layer, its icon
+  in the component color. Selecting it selects the layer on the canvas, as Ctrl-click does, and selecting it on the
+  canvas opens the rows above it, the instances among them, and highlights it. Ctrl and Shift add to the selection as
+  elsewhere. An instance of a missing component, or of a component it's inside, has nothing to open.
+- **They're read-only apart from the eye,** which hides or shows the layer in this copy only, in the state its board
+  shows, as one undo step ("Toggle visibility"). The rows can't be dragged or dropped on, a double-click, Enter or F2
+  doesn't rename them, and their menu's Rename is unavailable, with Duplicate, Hide, Lock and Delete, as for the canvas.
+- **A state's change shows as before,** with the pen ("Changed in Default"), by the layer's path. What the copy itself
+  changes isn't marked in the tree; the inspector shows it.
+- **A slot the instance fills shows what it's filled with,** in place of the component's placeholder, as the canvas
+  draws it (PAR-83). Those are the design's own layers, so they're moved, renamed and deleted as any other.
+- **Search, Alt+click and `*` go inside instances,** so a layer found inside one shows with the instance open above it.
+
+Code: `layersInside`, used by `treeRows`, `searchRows` and `branchIds`, and `revealIds`, in
+`packages/editor/src/layers-tree.ts`. Each row has the layer's `path` (`card/title`, as the selection names it) and the
+components it's inside (`within`). The rows are in `apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the menu's
+Rename in `chrome/layers-menu.ts`. The calls are in decisions.md, Main components and instances.
+
+Tests:
+
+- `packages/editor/src/layers-tree.test.ts`, an instance's layers (6): an instance opened to its component's layers by
+  their paths, into a nested instance; no layers for a missing component or one it's inside; search inside instances;
+  the instances revealed above a layer inside them, and a selected instance left closed; Alt+click through instances;
+  and a filled slot showing its fills, revealed and opened by Alt+click, beside an empty one's placeholder.
+- `chrome/layers-menu.test.ts`, the instance test: Rename, Duplicate, Hide, Lock and Delete unavailable for a layer
+  inside an instance.
+- `chrome/LayerTree.stories.tsx` (under Parity/Left panel/Layers): InsideAnInstance, a layer selected inside the Users
+  card highlighted with the instance open; HiddenInsideAnInstance, Trend hidden from its eye, not draggable, not renamed
+  by a double-click, and its menu's Rename unavailable. Their play functions passed in Storybook on 2026-11-07.
+
+Gaps: no end-to-end test. Selecting by search, the keys and the eye were tried in an isolated copy of the app on
+2026-11-07 through `scripts/drive.ts`.
 
 ## Inserting
 
@@ -834,15 +872,19 @@ stories.
 What the project's code writes to the console shows in the editor as it's written, from the same log `parity console`
 gives agents. The status bar counts the errors and warnings, and clicking the count opens the Console panel under the
 canvas, as View > Console and Ctrl+` do. A board whose design wrote errors or warnings shows its own count beside its
-name, and clicking that opens the console on the design's messages alone.
+name, and clicking that opens the console with the design's messages open and in view, and the other designs' closed
+(PAR-165). Layers failing to draw are errors there too, for as long as they fail (see Failing components, below).
 
 The panel groups messages by the design that wrote them, in the order each design first wrote one, with the messages no
-design is known for last, under Project. Each group's name selects the design. A message shows its level, its text cut
-to two lines, how often it came, the frames it came from (a state in a mode, the first two and how many more), the file
-and line in the project it was written at, which opens in the person's editor, and how long ago. An error with a stack
-opens to show it, with the project's files from the root and a library's by its file's name. The header filters by
-level, each with its count, by design and by words, and Clear empties the log for agents too. The panel's height is
-dragged at its top edge and kept with the layout.
+design is known for last, under Project. Each group's name opens and closes it. A message shows its level, its text cut
+to two lines, how often it came, the frames it came from (a state in a mode, the first two and how many more), and the
+file and line in the project it was written at, which opens in the person's editor. An error with a stack opens to show
+it, with the project's files from the root and a library's by its file's name. The header filters by level and by words,
+and Clear empties the log for agents too. Since PAR-165 the levels are a menu, as Chrome's DevTools have them: its
+button says what shows ("All levels", "Errors only", "Custom levels") and it opens to a checkbox for each level with its
+count, any mix of them; the errors and warnings are counted on the header's right. There's no design filter, no time on
+a message and no button selecting a group's design. The panel's height is dragged at its top edge and kept with the
+layout.
 
 - **One log:** main keeps the last 500 messages from every window, as it did for `parity console`, now with an id each.
   It sends what's new or counted again to the editor windows in batches, 100 ms after the first, so a component logging
@@ -1534,6 +1576,53 @@ a slot; aligning designs by edges and centers, with a box offset from its positi
 whatever the selection's order; and moving designs in whole pixels.
 
 Gaps: the commands, menus and messages have no automated test. They didn't change when the rules moved into the package.
+
+### Locking layers and designs (PAR-192)
+
+Ctrl+Shift+L locks the selected layers, or the selected designs, and unlocks them once they're all locked, as one undo
+step ("Lock layer", "Unlock screen"). Lock is also in the Object menu ("Lock or unlock"), the canvas menu under Hide,
+and a Layers row's menu beside Hide, each reading Unlock when everything selected is locked.
+
+- **A locked layer can't be selected or moved on the canvas,** nor can anything inside it. A click, a double-click or
+  hovering goes to the layer around it, as if it weren't there, and a box drawn from the frame's background doesn't
+  touch it.
+- **A locked design is left to the canvas,** as tldraw leaves a locked shape: a click on it selects nothing, a press
+  draws tldraw's box over it, its title doesn't drag it, nothing is dropped into it, and it gets the empty canvas's
+  menu. Its layers are locked with it.
+- **Layers still selects them.** Selected there, a locked layer or design is outlined on the canvas without resize or
+  spacing handles, and changes from the inspector and the keys, nudging included; only the canvas's pointer leaves it
+  alone.
+- **Each row has a lock,** left of the eye, that locks or unlocks the layer or design without selecting it. It shows
+  while the row is hovered and stays on a locked one. A layer locked by a layer or design around it shows a faded lock
+  while hovered, which isn't a button, and its tooltip says what locks it ("Locked with Features"). The page has none,
+  since locking it is locking the design, and neither do layers inside an instance, which are the component's. Like the
+  eye, the lock isn't in the tab order.
+- **It's saved in the .par** as `locked: true` on the layer or the design, the same in every state and screen size;
+  unlocking takes it away.
+
+Code: the rules are in `packages/editor/src/locking.ts` (`lockSource`, `unlockedPath`, `toggleLockedLayers`,
+`setDesignLocked`), and `locked` is in core's schema (`document.ts`). The canvas leaves locked layers out of what's
+under the pointer in `canvas/hit.ts` (`underPoint`), out of a box in `canvas/select-box.ts`, and handles off them in
+`CanvasOverlay.tsx`; a locked design's board is a locked tldraw shape (`CanvasEditor.tsx`), and its title doesn't drag
+it (`ContainerShapeUtil.tsx`). The command is `toggleLockedSelection` in `chrome/arrange.ts`, the row's lock is in
+`chrome/LayerTree.tsx`, and the menus are `canvas-menu.ts` and `layers-menu.ts`.
+
+Tests:
+
+- `packages/editor/src/locking.test.ts` (9): locking and unlocking, all locked when only some were, the root, a layer
+  inside an instance and a missing layer left alone, the lock kept through parsing a project; what locks a layer
+  (itself, a layer around it, its design, its instance); what's under the pointer cut at a locked layer, the design's
+  lock left to the canvas; and Unlock read only when every design is locked.
+- `chrome/canvas-menu.test.ts` and `chrome/layers-menu.test.ts`: Lock in each menu, unavailable inside an instance and
+  on the root, and in a design's menu.
+- `chrome/LayerTree.stories.tsx`: LockedFromItsLock (a row's lock, and a layer inside reading "Locked with Features")
+  and LockedDesign (the design's lock, its layers, and Unlock in its menu). Their play functions passed in Storybook on
+  2026-11-06.
+- `e2e/menus.e2e.ts`: the canvas menu lists Lock with Ctrl+Shift+L.
+
+Gaps: clicking through a locked layer, a locked design ignoring clicks and its title, and Ctrl+Shift+L were tried on the
+example in Storybook's app window on 2026-11-06, with the mouse and keyboard; the handles a locked layer doesn't get
+were not seen there. None has an end-to-end test of its own.
 
 ### Inserting, Make component and new designs (PAR-32)
 
@@ -2942,14 +3031,14 @@ as that state's or variant's changes ("changes only this state", "changes only t
 - **Edits start from what the board shows.** The inspector, the text editor and Hide read a layer as the board draws it
   in the state being edited: with the variant shown, the state's changes, and the params it binds. The text editor opens
   on the state's text: in Pricing's Yearly state, the Pro plan's price opens as $19, not Monthly's $24. Hide or show
-  (Ctrl+Shift+H, or Hide in and Show in on a row in Layers, which runs the same command, PAR-586) hides what the state
-  shows and shows what it hides, so a layer the state, the variant or a param hides counts as hidden, and Layers marks
-  it so. The canvas menu's Hide says Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a
-  layer the variant already hides.
-- **Hide in and Show in name where the change lands** (PAR-497). In the base state, with a variant option other than the
-  default shown, the change goes to that option, so the row's menu names it: Show in Compact, not Show in Default. In
-  any other state the state takes it, and the menu names the state. Core's `editTargetName` gives the name, which the
-  note above edits that always change the design uses too.
+  (Ctrl+Shift+H, or Hide and Show on a row in Layers, which runs the same command, PAR-586) hides what the state shows
+  and shows what it hides, so a layer the state, the variant or a param hides counts as hidden, and Layers marks it so.
+  The canvas menu's Hide says Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer
+  the variant already hides.
+- **Hide and Show land where the board's edits land** (PAR-497). In the base state, with a variant option other than the
+  default shown, the change goes to that option; in any other state the state takes it. The row's menu used to name it
+  (Show in Compact) and now says just Hide or Show (PAR-192). Core's `editTargetName` still names where an edit lands
+  for the note above edits that always change the design.
 - **Operations read what the frame shows** (PAR-464). Align, Wrap, resizing, nudging, dragging, Copy, Copy style, Paste
   style, Paste over, Paste to replace, Paste here and Select matching read a layer through core's evaluation, as
   `@parity-app/editor`'s `shownNode` and `boardReader` give it: the state being edited, the variant options the board
@@ -3017,7 +3106,7 @@ Tests:
 - `packages/core/src/instances.test.ts`, "names where Show and Hide land" (PAR-497): the variant option shown in the
   base state, another state over the variant, and the base state with the default option shown.
 - `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Plan card's Compact option hides Feature 4, and its row's
-  menu offers Show in Compact.
+  menu offers Show.
 - `packages/editor/src/style-editing.test.ts` (PAR-567): an edit in a variant option the board shows landing in the
   option, a state's edit leaving the design alone, resets across layers, and the parent's layout read with a variant's
   direction and inside an instance (see Fields, Typing, stepping and scrubbing).
@@ -3522,17 +3611,17 @@ change to what it shows, and sleeps again once its new bitmap is taken. Before, 
 and nothing else, so frames and bitmaps kept what they had drawn until their design next changed.
 
 - **One place says what a frame shows.** `useFrameShows` builds, for each frame, the job that draws it offscreen
-  (`renderJob`), and names it with `frameKeys` (PAR-575): `drawn` (the guest, the revision of its code, the mode and the
-  design's tree) and `key` (that, with the tokens previewed, the size, its window and the scale). The live frame draws
-  again when `drawn` changes; its bitmap, its skeleton and its sleep go by `key`. The live frame follows size and
-  previewed tokens by itself, so a token preview doesn't draw every frame's React tree again. `frameKeys` sits in
-  `shared/render-job.ts` beside the two names kept on disk, a bitmap's and a preview's, so what each leaves out shows.
+  (`renderJob`), and names it with `frameKeys` (PAR-575): `drawn` (the guest, the code of the components its tree draws,
+  the mode and the design's tree) and `key` (that, with the tokens previewed, the size, its window and the scale). The
+  live frame draws again when `drawn` changes; its bitmap, its skeleton and its sleep go by `key`. The live frame
+  follows size and previewed tokens by itself, so a token preview doesn't draw every frame's React tree again.
+  `frameKeys` sits in `shared/render-job.ts` beside the two names kept on disk, a bitmap's and a preview's, so what each
+  leaves out shows.
 - **The guest's code revision** goes up only when `addComponents` changes where a component comes from: a component
-  given again from the same file changes nothing, and its module isn't loaded again. One revision covers the project, so
-  a component that moves redraws every frame and retakes every bitmap, one at a time in the background; frames whose
-  design doesn't use it draw the same as before. That's rare next to saves, which don't change it. A component's own
-  boundary also counts its moves, so one that failed starts over when it comes from a new file rather than keeping its
-  error.
+  given again from the same file changes nothing, and its module isn't loaded again. Frames don't go by it: since
+  PAR-165 a frame's key names where each component its tree draws came from, when the guest was given it since it
+  loaded, so a component that moves redraws and retakes only the frames drawing it. A component's own boundary also
+  counts its moves, so one that failed starts over when it comes from a new file rather than keeping its error.
 - **The offscreen renderer gets the components too.** The bitmap job carries the components the guest was given since it
   loaded, as agents' renders already did, so a frame using one isn't drawn offscreen without it.
 - **A component whose source went away is taken back, on both sides** (PAR-487). When the type checker no longer finds a
@@ -3544,7 +3633,8 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
   last had, the offscreen renderer's from what each guest's last job carried, so it gives only what changed since. Edits
   to a component's code or CSS don't need a new bitmap key: the guest's dev server runs without HMR, so neither the
   canvas nor the offscreen window picks them up until the project's guest loads again at a new address, which changes
-  every key (see decisions.md on PAR-422 and PAR-165).
+  every key (see decisions.md on PAR-422). Since PAR-165 a save gives the components it touches again with a new version
+  instead, which changes the keys of the frames drawing them (see Failing components, below).
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
@@ -3561,13 +3651,88 @@ nothing when only what else the list says about one changes). `apps/desktop/src/
 component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
 and one that failed draws from its new file instead of its error). `apps/desktop/src/shared/render-job.test.ts` (for
 `renderJob`, 2: what a frame doesn't have left out, the added components and the rest kept when it does, and a job built
-with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest, its
-code and its address, `key` new with the tree, the mode, the size, the window and the scale, and with the tokens
-previewed while `drawn` stays, and neither new for a field the job gains or for a check). Gaps: that `FrameTile`'s keys
-follow the revision has no test of its own; it was checked by reading `useFrameShows`. That `setSources` and `render.ts`
-give and take back what `guestChanges` says, and that a job carrying no components changes nothing, was checked by
-reading them. A component moving in the running app wasn't tried, since it means changing the example's files, which
-other sessions share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
+with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest and
+its address, and since PAR-165 with the components it draws, `key` new with the tree, the mode, the size, the window and
+the scale, and with the tokens previewed while `drawn` stays, and neither new for a field the job gains or for a check).
+Gaps: that `FrameTile`'s keys follow the revision has no test of its own; it was checked by reading `useFrameShows`.
+That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying no components
+changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it means
+changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
+`addComponents` on.
+
+### Failing components, in the console, and code edits picked up live (PAR-165)
+
+A component that fails to draw draws a box in its place, and the rest of its frame draws around it. The box is a thin
+dashed red outline over fine red hatching with a small warning icon, as a missing component's thin dashed outline is,
+and no text, so it reads as a broken layer at any zoom without crowding the design; its styles are inline, so the
+project's CSS and a dark frame leave it alone. The frame no longer lays a red sheet over everything it drew; only an
+error that stopped the frame drawing, as a decorator's can, shows across its top. Why it fails is told where you look:
+
+- **In the console,** each failing layer is an error, with the frames it fails in, for as long as it fails: Clear leaves
+  it, and it goes once the component draws again. It says the component fails to draw, why and how to fix it, with the
+  error as thrown below, and a Select layer button. It counts in the status bar and on the board's console badge, which
+  opens the console on the design. A missing provider names the provider a decorator should wrap designs in, in
+  `.parity/preview.tsx` or `.storybook/preview.tsx`, from the error or from what routers, query clients, Redux, React
+  Intl and Apollo are known to say; a part that must sit inside another (Radix's "`TabsList` must be used within
+  `Tabs`") is to be placed inside that parent's layer; server-only imports and async server components each say what to
+  change; anything else shows its error.
+- **In Layers,** the layer's row has a red mark, which opens the console on the design. A component design's instance is
+  marked when something inside it fails.
+
+Saving a component's file, or a file it imports, updates the canvas without reopening the project, broken or fixed:
+measured in the app on 2026-11-06, breaking and fixing the example's `button.tsx` showed on the canvas in 0.48 to 0.8 s
+warm, and 1.1 s the first time after the window loaded.
+
+- **The builder says what changed.** Vite already watches every file the guest imported. On a change, the builder marks
+  the file's modules, and every module importing them however deep, as Vite's HMR does, so Vite writes each import of
+  them with `?t=<stamp>` from then on, and gives the component files among them (`stampChange`), gathering a burst of
+  saves into one change 40 ms after the last. The guest still has no HMR client, so the page never reloads.
+- **The window loads only those components again.** The change reaches the tab (`project.codeChanged`), whose guest is
+  given each of those components again with the stamp as its `version` (`codeChangeVersions`, `versionedSources`). The
+  guest imports a component with a new version from `path?t=<version>`, which brings in what changed beneath it too, and
+  starts its boundaries over, so one that failed draws again. The job for offscreen frames carries the versions too.
+- **Only the frames drawing it draw again.** A frame's key names the source of each component its tree draws that the
+  guest was given since it loaded, version included, rather than one number for all the guest's code (`frameKeys`), so a
+  save redraws and retakes only those frames' bitmaps, and a kept bitmap's name has the version.
+- **The board keeps its picture meanwhile.** Zoomed out, a frame whose key changed shows its last bitmap until the new
+  one is decoded, drawing live behind it, and doesn't sleep on the old one. A frame that draws with an error gets no
+  bitmap, as before, so it stays live and shows its error boxes, and its board its badge. Before, every board drawing
+  the component went blank for the 2 to 4 seconds its bitmaps took.
+
+Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerFailure`, `CodeChange` and
+`BuilderSession.codeChanges` in `packages/core/src/adapters.ts`; `frameFailures` and `FrameFailuresContext` in
+`packages/renderer-react/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
+`designFailures` and `layerFailure` in `packages/editor/src/render-failures.ts`; `failedBox` in the guest;
+`renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
+failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
+For edits: `stampChange` and `gatherChanges` in `packages/builder-vite/src/code-changes.ts`, wired in its `start`; the
+`codeChanged` reply in `packages/core/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
+`packages/core/src/guest-changes.ts`; `onCodeChange` in `utility/builders.ts` and `utility/projects.ts`;
+`project.codeChanged` in `shared/protocol.ts` and `renderer/agent/handlers.ts`; `codeChanged` in
+`renderer/workspace.ts`; `frameKeys` and `drawnComponents` in `shared/render-job.ts`; `stale` in `useFrameBitmap` and
+the decoded bitmap in `canvas/ContainerView.tsx`.
+
+Tests: `packages/editor/src/render-failures.test.ts` (7: the provider named from the error and from known messages, one
+the error doesn't name, a parent layer for a part, server, async and plain errors, a known provider over a parent, a
+parent quoted in backticks, one failure per node across frames, an instance's failure found inside it).
+`apps/desktop/src/renderer/ModeView.test.ts` (1, in Chrome: a failing component's box drawn with the rest of the frame
+and no sheet over it, its layer reported, then the same file at a new version drawn and the mark cleared).
+`apps/desktop/src/renderer/failures-store.test.ts` (1: one console error per layer across frames, with each frame, why
+and the fix, kept through Clear, and gone frame by frame as the layer draws).
+`packages/builder-vite/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component files
+among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
+`packages/core/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
+`packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
+changed files stamped, none without a change). `packages/renderer-react/src/guest.test.ts` (the revision moving once per
+new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new
+with the components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the
+console's row are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`;
+`chrome/ConsolePanel.stories.tsx` OneDesign and WarningsOnly have the console's design focus and levels menu. Checked in
+the app on 2026-11-06 with `scripts/drive.ts`: breaking `button.tsx` drew error boxes in 48 frames, counted on 20 boards
+with no sheet over any frame, and kept every board's picture; fixing it cleared them, with every bitmap back 2.4 s
+later. Gaps: a board drawn only from a bitmap kept from an earlier session has no console error until its frames draw; a
+class used nowhere in the project before an edit has no CSS until the project opens again, since the guest's stylesheet
+isn't reloaded; the workspace's `codeChanged` is checked by reading and in the app.
 
 ### Bitmaps kept between sessions (PAR-158)
 
@@ -4461,15 +4626,16 @@ unsaved-work cancellation, Save, installation and relaunch as the newer version.
 
 Settings > Privacy > Share diagnostics is on by default. Off, nothing Parity records leaves the computer; on, errors,
 crashes, traces and a recording of the window go to the Parity team. It takes effect at once, without a restart, and is
-remembered between runs. When `PARITY_TELEMETRY` or `DO_NOT_TRACK` is set, the switch shows what that run does, is
-disabled, and names the variable. Turning it off also starts a new install ID. About lists Diagnostics and the Install
-ID with the versions, and Copy details includes them. Settings scrolls when it's taller than the window.
+remembered between runs. Its description stays the same on and off, so the row keeps its height (PAR-703). When
+`PARITY_TELEMETRY` or `DO_NOT_TRACK` is set, the switch shows what that run does, is disabled, and names the variable.
+Turning it off also starts a new install ID. About lists Diagnostics and the Install ID with the versions, and Copy
+details includes them. Settings scrolls when it's taller than the window.
 
 `@parity-app/telemetry`'s `settings.test.ts` covers how the variables and the saved setting decide a run, reading
 `telemetry.json` and finding the app's data folder on each system. `main/telemetry-setting.test.ts` covers the first
 run's install ID, saving the switch, a variable deciding the run, and a new ID on turning off.
 `chrome/TelemetrySetting.stories.tsx` shows the switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and
-turns it off with the pointer.
+turns it off with the pointer, checking its description stays put.
 
 ### Report a problem (PAR-635)
 

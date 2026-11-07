@@ -1,8 +1,52 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 07 Nov 2026 03:33:55 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 09:34:17 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.31.0
+
+Sat, 07 Nov 2026 09:34:17 GMT
+
+### Minor changes
+
+- Layers opens an instance's row to the layers inside it, read-only apart from each layer's eye (ajcraswell@gmail.com)
+
+## 0.30.0
+
+Sat, 07 Nov 2026 09:04:55 GMT
+
+### Minor changes
+
+- Failing components draw a hatched box and show in the console with why and how to fix them, the console filters levels
+  from a menu, and saved component code reaches the canvas live (ajcraswell@gmail.com)
+
+## 0.29.0
+
+Sat, 07 Nov 2026 04:57:51 GMT
+
+### Minor changes
+
+- Lock layers and designs with Ctrl+Shift+L, a lock on each Layers row, and Lock in the canvas and row menus: a locked
+  one can't be selected or moved on the canvas, only from Layers, and stays locked in the .par (ajcraswell@gmail.com)
+
+## 0.28.1
+
+Sat, 07 Nov 2026 04:09:47 GMT
+
+### Patches
+
+- Share diagnostics keeps one short description, on or off, so Settings doesn't shift when it's turned
+  (ajcraswell@gmail.com)
+
+## 0.28.0
+
+Sat, 07 Nov 2026 03:48:15 GMT
+
+### Minor changes
+
+- Add Help > Report a problem, which sends what happened with a screenshot, logs, versions and projects, and offers
+  itself after a crash; add parity diagnostics, which writes the same as a zip (PAR-635) (ajcraswell@gmail.com)
 
 ## 0.27.0
 
