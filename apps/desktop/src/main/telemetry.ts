@@ -176,6 +176,8 @@ export function startEvents({
 }): {
   run: TelemetryRun
   telemetry: Telemetry<typeof registeredEvents>
+  /** Writes the local copy's waiting lines now, as a report reads it (PAR-635). */
+  flushLogs: () => void
 } {
   const run: TelemetryRun = {
     installId,
@@ -208,7 +210,7 @@ export function startEvents({
     })
   )
   scrubber.follow(telemetry)
-  return { run, telemetry }
+  return { run, telemetry, flushLogs: () => logFile.flush() }
 }
 
 /**

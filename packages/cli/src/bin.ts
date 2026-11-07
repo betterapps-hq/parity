@@ -15,6 +15,7 @@ import {
   describeStatus,
   describeTokens
 } from "./client.ts"
+import { describeDiagnostics, writeDiagnostics } from "./diagnostics.ts"
 import { invalidInput, operationError } from "./errors.ts"
 import { executeOperation } from "./execute.ts"
 import { runLib } from "./lib.ts"
@@ -85,6 +86,9 @@ const usage = `parity: drive the Parity app from a terminal or an agent
        [--limit 100]                        Parity's own events from its local log, newest last: the last run's
                                             unless --session, --trace or --test-run says, the newest 100 unless
                                             --limit says. Runs without the app, with diagnostics on or off
+  parity diagnostics [--out file]           write a zip of what Help > Report a problem sends: the last hour of the
+                                            local log, versions, projects and the latest crash, for a bug filed by
+                                            hand. Runs without the app
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -260,6 +264,13 @@ async function main(): Promise<void> {
       })
       if (values.json) print(result)
       else console.log(describeLogs(result))
+      return
+    }
+    case "diagnostics": {
+      fields = ["out"]
+      const result = writeDiagnostics(values.out ? { out: values.out } : {})
+      if (values.json) print(result)
+      else console.log(describeDiagnostics(result))
       return
     }
     case "console":

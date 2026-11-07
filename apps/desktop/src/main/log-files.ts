@@ -1,6 +1,6 @@
-import { appendFileSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs"
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs"
 import { join } from "node:path"
-import type { Envelope, Sink } from "@parity-app/telemetry"
+import { type Envelope, type LoggedEvent, parseLogLines, type Sink } from "@parity-app/telemetry"
 
 /** How large a log file grows before the next one starts. */
 export const logFileBytes = 5 * 2 ** 20
@@ -142,4 +142,17 @@ export function createLogFileSink(
   }
 
   return { event: write, span: write, flush }
+}
+
+/** Every event in the folder's log files, oldest first, for a report (PAR-635). A file that can't be read is skipped. */
+export function readLogEvents(folder: string): LoggedEvent[] {
+  const events: LoggedEvent[] = []
+  for (const file of logFiles(folder)) {
+    try {
+      events.push(...parseLogLines(readFileSync(join(folder, file.name), "utf8")))
+    } catch {
+      // Deleted as the oldest while it was being read.
+    }
+  }
+  return events.sort((a, b) => a.time.localeCompare(b.time))
 }

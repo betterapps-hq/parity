@@ -1,5 +1,6 @@
 import { appEvents } from "./app-events.ts"
 import { dataInvalid, projectUnsupported } from "./check-events.ts"
+import { reportSent } from "./diagnostics.ts"
 import type { EventDefinition } from "./events.ts"
 import { filesEvents } from "./files-events.ts"
 import { interfaceEvents } from "./interface-events.ts"
@@ -21,5 +22,6 @@ export const registeredEvents = [
   ...interfaceEvents,
   ...filesEvents,
   dataInvalid,
-  projectUnsupported
+  projectUnsupported,
+  reportSent
 ] as const satisfies readonly EventDefinition[]

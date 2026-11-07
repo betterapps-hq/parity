@@ -186,6 +186,12 @@ export function installHost(): void {
     appVersion: desktop.version,
     getBuildInfo: async () => ({ version: desktop.version, channel: "development" }),
     telemetry: storyTelemetry,
+    // Stories never send a report.
+    report: {
+      prepare: () => Promise.resolve({}),
+      send: () => delay(600).then(() => "00000000000000000000000000000000"),
+      lastCrash: () => Promise.resolve(undefined)
+    },
     updates: {
       get: () => Promise.resolve({ phase: "disabled", beta: false }),
       check: () => Promise.resolve(),

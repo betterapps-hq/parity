@@ -5819,3 +5819,19 @@ one switch between editing and using the designs.
   them. Lines a crash cut short are skipped.
 - **Main writes the test run on each line as `testRun`,** from `PARITY_TEST_RUN`, since PAR-630's `test_run` tag goes to
   Sentry's scope and not into the envelope.
+
+## Report a problem sends from main, built from the local copy (PAR-635)
+
+Help > Report a problem and `parity diagnostics` share `@parity-app/telemetry`'s `diagnosticFiles`, so the report and
+the zip hold the same things. My calls:
+
+- **Main sends the feedback,** with the screenshot it took and the files it reads from the local copy, scrubbed. The
+  window flushes its replay first and passes the replay and trace IDs, so Sentry shows the replay beside it.
+- **It's sent even with Share diagnostics off.** The person asked, and the dialog lists what goes. Sentry is switched on
+  only while it's sent.
+- **The person never sees Sentry:** no link, no Sentry wording, and a failure says to check the connection. The
+  feedback's ID goes into the local log as `report.sent`, for the team.
+- **A crash is a run that didn't quit:** main records `app.quit` as it quits, so a run of main's with none crashed or
+  was killed. It's offered only in installed builds, since agents and CI stop development copies all the time.
+- **`parity diagnostics` takes the latest run that didn't quit,** which is the one open now if Parity is running, and
+  says so. It writes the zip with Node's own zlib, with no dependency.
