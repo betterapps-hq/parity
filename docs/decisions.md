@@ -2158,6 +2158,10 @@ the Repository, CI and releases stream in Linear.
     working tree, so in the folder sessions share it blocked commits on other sessions' unfinished edits. The commit
     hook runs `scripts/changes.ts check` on what's staged, the push hook `--committed` on the branch's commits, and CI
     both that and `beachball check` on its clean checkout.
+  - **A change file added where a release consumed another counts, and a renamed one doesn't (PAR-671).** Git paired a
+    consumed change file with a new one for the same package as a rename, so a branch that merged `main` was told its
+    package needed one. The check reads change files with `--no-renames`, and skips an added file whose content matches
+    one the diff deletes.
   - **npm gets the packages whose package.json has a `publishConfig`,** which the CLI gets with its npm name,
     `@parity-app/cli` (PAR-13).
 - **The CLI is packed for npm with `vp pack` (PAR-13).** My calls:
