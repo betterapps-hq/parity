@@ -140,6 +140,11 @@ in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`
 - long random strings, though not hex (hashes, commit SHAs, UUIDs, trace IDs), file names or `data:` URLs
 - values it's given, such as a project's `.env` values read with `envSecrets()`
 
+The values it's given are the open projects' `.env`, `.env.local` and other `.env.*` values. The service reads them with
+`envSecrets()` whenever a project opens or closes and sends them to main. Main scrubs them from every process's events
+and passes them to each window, which asks for them as its telemetry starts. Each process's telemetry gets them through
+`setSecrets()`. The CLI doesn't send to Sentry yet, so it reads none.
+
 What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
 
 ## Levels and sampling
@@ -164,14 +169,23 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-| Event             | Level | Kept | Sent by       | When                                                                      |
-| ----------------- | ----- | ---- | ------------- | ------------------------------------------------------------------------- |
-| `action.ran`      | info  | all  | renderer      | An action runs from a key, a menu or the actions search, until it's done. |
-| `agent.called`    | info  | all  | service       | The agent server answers a call from the CLI.                             |
-| `builder.started` | info  | all  | service       | The service starts a project's builder, until it's spawned.               |
-| `frame.drawn`     | debug | all  | main          | An offscreen window draws a frame or a preview, from its turn to the end. |
-| `gesture.ran`     | info  | all  | renderer      | A press on the canvas becomes a drag, until the drag ends.                |
-| `request.handled` | debug | all  | service, main | The service or main answers another process's request.                    |
+| Event                | Level | Kept | Sent by       | When                                                                      |
+| -------------------- | ----- | ---- | ------------- | ------------------------------------------------------------------------- |
+| `action.ran`         | info  | all  | renderer      | An action runs from a key, a menu or the actions search, until it's done. |
+| `agent.called`       | info  | all  | service       | The agent server answers a call from the CLI.                             |
+| `app.quit`           | info  | all  | main          | The app quits.                                                            |
+| `app.started`        | info  | all  | main          | The first window has painted and the project service is running.          |
+| `builder.started`    | info  | all  | service       | The service starts a project's builder, until it's spawned.               |
+| `frame.drawn`        | debug | all  | main          | An offscreen window draws a frame or a preview, from its turn to the end. |
+| `gesture.ran`        | info  | all  | renderer      | A press on the canvas becomes a drag, until the drag ends.                |
+| `process.memory`     | info  | all  | main          | Every 5 minutes, and when a window stops answering.                       |
+| `renderer.long_task` | info  | all  | renderer      | A task in the editor window runs for over 200 ms.                         |
+| `request.handled`    | debug | all  | service, main | The service or main answers another process's request.                    |
+| `service.lag`        | warn  | all  | service       | The project service's event loop is late by over 200 ms.                  |
+| `update.checked`     | info  | all  | main          | A check for an update finds one or finds none.                            |
+| `update.downloaded`  | info  | all  | main          | An update finishes downloading.                                           |
+| `update.failed`      | warn  | all  | main          | Checking for, downloading or installing an update fails.                  |
+| `update.installed`   | info  | all  | main          | The app quits to install a downloaded update.                             |
 
 ### `action.ran`
 
@@ -187,6 +201,22 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `method`  | `string`           | The agent method called        |
 | `agent`   | `string`, optional | The caller's name              |
 | `code`    | `string`, optional | The error code, when it failed |
+
+### `app.quit`
+
+| Attribute   | Type                                     | Meaning                                                                                   |
+| ----------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `reason`    | `"window closed" \| "update" \| "other"` | How it quit: the last window closed, to install an update, or otherwise, as from the menu |
+| `sessionMs` | `integer`                                | How long this run lasted                                                                  |
+
+### `app.started`
+
+| Attribute        | Type      | Meaning                                                               |
+| ---------------- | --------- | --------------------------------------------------------------------- |
+| `mainReadyMs`    | `integer` | From the process starting to Electron being ready                     |
+| `windowShownMs`  | `integer` | From the process starting to the first window being created and shown |
+| `firstPaintMs`   | `integer` | From the process starting to the first window's first paint           |
+| `serviceReadyMs` | `integer` | From the process starting to the project service starting to run      |
 
 ### `builder.started`
 
@@ -209,11 +239,64 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `gesture` | `string`           | The gesture's kind, as `canvas/gesture.ts` names it |
 | `how`     | `string`, optional | How it ended: release, escape or interrupted        |
 
+### `process.memory`
+
+| Attribute   | Type                   | Meaning                                                                            |
+| ----------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| `reason`    | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                     |
+| `processes` | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it |
+
+### `renderer.long_task`
+
+| Attribute    | Type               | Meaning                                                               |
+| ------------ | ------------------ | --------------------------------------------------------------------- |
+| `durationMs` | `integer`          | How long the task ran                                                 |
+| `action`     | `string`, optional | The input that started it, such as `pointerdown` or `keydown`, if any |
+
 ### `request.handled`
 
 | Attribute | Type               | Meaning                        |
 | --------- | ------------------ | ------------------------------ |
 | `method`  | `string`           | The method asked for           |
 | `code`    | `string`, optional | The error code, when it failed |
+
+### `service.lag`
+
+| Attribute | Type      | Meaning                                                                        |
+| --------- | --------- | ------------------------------------------------------------------------------ |
+| `lateMs`  | `integer` | How late the service's timer ran, which is how long its event loop was blocked |
+
+### `update.checked`
+
+| Attribute   | Type                 | Meaning                                   |
+| ----------- | -------------------- | ----------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes     |
+| `version`   | `string`             | The version running now                   |
+| `available` | `string`, optional   | The newer version found, if there was one |
+
+### `update.downloaded`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version downloaded                |
+
+### `update.failed`
+
+| Attribute | Type                                 | Meaning                               |
+| --------- | ------------------------------------ | ------------------------------------- |
+| `channel` | `"stable" \| "beta"`                 | The update channel this install takes |
+| `version` | `string`                             | The version running now               |
+| `stage`   | `"check" \| "download" \| "install"` | What was under way when it failed     |
+| `message` | `string`                             | What went wrong                       |
+
+### `update.installed`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version being installed           |
 
 <!-- End of the generated events. -->

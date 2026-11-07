@@ -52,5 +52,8 @@ export const ipc = {
   closeReady: "canvas:close-ready",
   closeCancel: "canvas:close-cancel",
   /** A window or render window sends main an event or span it recorded, for the local copy and Sentry (PAR-627). */
-  telemetry: "canvas:telemetry"
+  telemetry: "canvas:telemetry",
+  /** The open projects' `.env` values to scrub from telemetry, which a window asks main for and hears of changes to. */
+  telemetrySecrets: "canvas:telemetry-secrets",
+  telemetrySecretsChanged: "canvas:telemetry-secrets-changed"
 } as const

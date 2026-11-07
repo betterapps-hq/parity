@@ -4687,6 +4687,22 @@ held the event's two errors. The trace had no spans and there were no replays ye
 PAR-624's. Both Claude Code (`claude mcp get sentry`) and Codex (`codex mcp get sentry`) load the server from a fresh
 worktree.
 
+## The app records its own startup, quitting, updates, memory and slow work (PAR-631)
+
+The events are in [telemetry.md](telemetry.md#events), from `app-events.ts` in `@parity-app/telemetry`, which also holds
+the rules for when each is sent. My calls:
+
+- **`app.started` waits for the first paint and the service,** and leaves out the first project shown: nothing records a
+  project opening yet. That time joins it once `project.opened` exists.
+- **`app.quit` says `window closed`, `update` or `other`.** Parity doesn't restart itself after a crash, so the
+  proposal's "crash restart" has nothing to report.
+- **`update.installed` is recorded as the app quits to install,** since the new version can't tell it was just
+  installed.
+- **The long-task event is `renderer.long_task`,** not the proposal's `renderer.longTask`, since event names are
+  lowercase. Its `action` is the input in the 100 ms before or during the task, from `PerformanceObserver`'s `longtask`
+  entries.
+- **Main's own hangs still come from the late-timer check** (PAR-620); `service.lag` uses the same check at 200 ms.
+
 ## Errors, crashes and hangs go to Sentry from every process (PAR-620)
 
 `@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to
@@ -5405,6 +5421,41 @@ Gaps: a frame's root (its shadow host) never gets the colour scheme, so a custom
 (`--alias: var(--surface)`) keeps its light value in a dark frame, as with a `.dark` class theme. A custom property a
 `body` rule declares inside the block reads as a dark value in the preview but not in the Tokens tab.
 
+## A layout of a component design can be a slot (PAR-83)
+
+Called on 2026-11-06, with your approval in Storybook. [proposals/components.md](proposals/components.md) set out slots;
+PAR-83 marks them in a component design, and PAR-84 fills them from instances. My calls, with yours:
+
+- **A slot is `slot` on a layout node,** a prop's name, and the layout's own layers are its placeholder, as Vue's and
+  Web Components' fallback content is. The outermost layout can be one.
+- **No Children or Named to choose.** A slot is only a name; the difference between a slot and `children` is how code
+  writes it, so code decides. It nests the slot holding the most layers between the tags, as React's `children` and
+  Vue's default slot, the first in layer order on a tie, and passes the others as props that take layers. The biggest
+  part going between the tags keeps code from drilling whole layouts through props. The panel doesn't mark which one it
+  is; In code shows it. `children` is reserved as a name, so the rule's choice never clashes with a slot's.
+- **A slot is a kind of prop.** It's listed in the component's Props after the params, with the layout it fills where a
+  param has its default, and Props' Add offers a slot from a layout. A separate Slots section was tried and dropped, as
+  was editing slots in the code itself. In code sits below Modes. Make slot sits beside Make component on the layer.
+- **Props doesn't list where the component is used.** The Components panel's card already counts its uses, and a list of
+  every instance doesn't scale.
+- **An empty section says nothing,** past its description: Variants and Props drop "None yet". Variants' hint about the
+  title bar shows once there's a variant to pick.
+- **The file is strict about names, the editor about the rest.** The file refuses a name that couldn't be a prop (`key`,
+  `ref`, `style`, `className`, `children`, or not an identifier) and two layouts with one name. A slot named like a
+  param, or inside another slot, is refused by `setSlot` but tolerated in a file, and `designSlots` skips a nested one.
+- **Copies drop the mark.** Duplicate, paste, moving to another design, Make component and Detach make a plain layout,
+  keeping its layers, since a component has one slot by each name. A component turned into a screen keeps its marks,
+  which do nothing until it's a component again.
+- **Names are camelCased,** so `Side actions` is `sideActions`, and a new slot takes its layout's name.
+- **Filling a slot is the instance's (PAR-84).** It keeps what fills each slot as layers of the design it sits in, so
+  they're picked, selected and edited as the design's own, drawn in place of the placeholder and baked in by Detach.
+  Layers doesn't list them under the instance: an instance's insides are never shown inline. Its panel has each slot
+  after the params, filled with its layer count or Empty, with a picture of what shows there on hover, drawn by itself;
+  a selected slot has a panel of its own, and a click in Components adds into it.
+- **Props' Add makes value props too.** Text, Number and Toggle, each named in a row as it's added, beside slots from a
+  layout. A prop no layer uses still does nothing on the canvas, so a layer's text and visibility can use a prop, or
+  make one from what they show, with the field showing the prop's name until it stops using it.
+
 ## The first run offers the example, and gone folders are flagged (PAR-188)
 
 Called on 2026-11-06, with your approval in Storybook. PAR-188 asked for the first run to open the example with three
@@ -5683,6 +5734,27 @@ the offscreen renderers and builders. An agent's call starts its trace in the CL
   the trace's root span isn't in Sentry, but every span in the app shares its trace ID.
 - **Code reaches its process's telemetry through `traceWith`,** which each entry calls with what `startTelemetry` or
   `startEvents` returns. Until then, as in unit tests and stories, nothing is traced.
+
+## A layer can use its own values, not only tokens, if they're valid (PAR-652)
+
+Call 1 of the Design panel proposal ([design-options.md](proposals/design-options.md)) asked whether a layer can use a
+value that isn't a token. PAR-194 let lengths leave the spacing scale but kept colours, type, radius and shadows as
+tokens, and PAR-186's colour picker edited tokens rather than layers. Andrew's answer: you should be able to add custom
+values, not just be locked to the design tokens, and the value should be checked against its type and verified to be
+valid.
+
+- **Every field takes a value of its own** as well as a token: a colour, a gradient, a shadow, a font size or a radius,
+  not just a length. It's marked as off the system, with the nearest token one click away.
+- **A value is checked before it's stored.** A typed value must parse as the field's value type (a length, a colour, an
+  angle and so on) and be one `CSS.supports` accepts for the property. One that isn't stays in the field, outlined in
+  the error colour with the reason under it, and nothing is stored (Invalid as typed in
+  [design-options-fields.md](proposals/design-options-fields.md)). Values read from code or a file are checked the same
+  way and marked if invalid.
+- **How strict a project is stays its own setting,** per kind, in its `.lib.par`: Any value, Marked (the default),
+  Tokens only, and Semantic only for colours, with Allow here for an exception
+  ([design-options-tokens.md](proposals/design-options-tokens.md), Levels).
+- This widens PAR-194's "colours, type, radius and shadows stay tokens"; its flag for lengths off the scale becomes this
+  mark.
 
 ## Support can sign in as someone's account, through WorkOS (PAR-693)
 

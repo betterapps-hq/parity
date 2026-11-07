@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
 import { fileObject, finiteNumber, parseData, plainObject } from "./schema.ts"
+import { slotNameProblem } from "./slot-names.ts"
 
 // A project file is checked by the schemas below, leaves first. Rules that span fields are refinements on the object
 // that holds those fields, each reported at the field at fault.
@@ -288,6 +289,11 @@ const nodeBase = fileObject({
 
 const layoutNode = nodeBase.extend({
   type: z.literal("layout"),
+  /**
+   * In a component design: the slot this layout is, `children` for the default one or a name such as `actions`. Each
+   * instance can fill it with layers of its own; until one does, its children show as placeholder content.
+   */
+  slot: z.string().optional(),
   get children(): z.ZodArray<typeof designNode> {
     return z.array(designNode)
   }
@@ -331,7 +337,14 @@ const instanceNode = nodeBase.extend({
    * What this copy changes inside the component, keyed by the inner node's id, or `nested/inner` for a node inside a
    * nested instance. The copy stays linked: everything it doesn't change follows the component.
    */
-  overrides: nodePatches.optional()
+  overrides: nodePatches.optional(),
+  /**
+   * What this copy fills the component's slots with, by slot name: layers of the design it sits in, shown in place of
+   * the slot's placeholder. A slot it doesn't fill, or fills with nothing, shows the placeholder.
+   */
+  get slots(): z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodArray<typeof designNode>>> {
+    return z.record(z.string(), z.array(designNode)).optional()
+  }
 })
 
 /** A placed copy of one of the project's component designs, with values for its params. */
@@ -375,7 +388,7 @@ export const nodeTree = designNode.superRefine((root, context) => {
     ids.add(node.id)
     if (node.type === "layout") {
       for (const [index, child] of node.children.entries()) visit(child, [...path, "children", index])
-    } else if (node.type === "component") {
+    } else if (node.type === "component" || node.type === "instance") {
       for (const [slot, children] of Object.entries(node.slots ?? {})) {
         for (const [index, child] of children.entries()) visit(child, [...path, "slots", slot, index])
       }
@@ -389,7 +402,7 @@ export function walkNodes(node: DesignNode, visit: (node: DesignNode, depth: num
   visit(node, depth)
   let children: DesignNode[] = []
   if (node.type === "layout") children = node.children
-  else if (node.type === "component") children = Object.values(node.slots ?? {}).flat()
+  else if (node.type === "component" || node.type === "instance") children = Object.values(node.slots ?? {}).flat()
   for (const child of children) walkNodes(child, visit, depth + 1)
 }
 
@@ -499,7 +512,15 @@ export const containerSpec = fileObject({
   size: frameSize.optional()
 }).superRefine((container, context) => {
   const ids = new Set<string>()
-  walkNodes(container.root, (node) => ids.add(node.id))
+  const slots = new Set<string>()
+  walkNodes(container.root, (node) => {
+    ids.add(node.id)
+    if (node.type !== "layout" || node.slot === undefined) return
+    const unusable = slotNameProblem(node.slot)
+    if (unusable) problem(context, ["root"], `layer "${node.id}" is a slot whose name ${unusable}`)
+    else if (slots.has(node.slot)) problem(context, ["root"], `two layers are the slot "${node.slot}"`)
+    slots.add(node.slot)
+  })
   for (const [index, state] of container.states.entries()) {
     checkPatchKeys(state.overrides, ids, context, ["states", index, "overrides"])
   }

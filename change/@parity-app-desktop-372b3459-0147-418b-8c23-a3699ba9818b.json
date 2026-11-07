@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Scrub the open projects' .env values from telemetry in every process",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
