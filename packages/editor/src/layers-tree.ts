@@ -1,5 +1,13 @@
 import { childNodes, type ContainerSpec, type DesignNode, locateNode } from "@parity-app/core"
 
+/**
+ * The rows a layer has below it in Layers. An instance has none: what it fills its slots with is shown on the canvas
+ * and in its own panel, never inline under it.
+ */
+function rowChildren(node: DesignNode): DesignNode[] {
+  return node.type === "instance" ? [] : childNodes(node)
+}
+
 // The Layers panel's tree as rows: which rows show, which are open, and what opens as the selection moves (PAR-187).
 // The panel draws only the rows in view, so everything it needs to know about the rest is worked out here.
 
@@ -39,7 +47,7 @@ export function treeRows<D extends TreeDesign>(designs: readonly D[], expanded: 
     if (!open) return
     const visit = (node: DesignNode, depth: number, position: number, siblings: number) => {
       const id = layerRowId(design.key, node.id)
-      const children = childNodes(node)
+      const children = rowChildren(node)
       const shown = children.length > 0 && expanded.has(id)
       rows.push({ id, depth, design, node, hasChildren: children.length > 0, expanded: shown, position, siblings })
       if (shown) children.forEach((child, at) => visit(child, depth + 1, at + 1, children.length))
@@ -62,7 +70,7 @@ export function searchRows<D extends TreeDesign>(
   const matches = (design: D, node?: DesignNode) => label(design, node).toLocaleLowerCase().includes(needle)
   // Each found subtree, built bottom up so a row knows whether anything inside it matched before it's kept.
   const found = (design: D, node: DesignNode, depth: number): TreeRow<D>[] => {
-    const children = childNodes(node)
+    const children = rowChildren(node)
     const inside = children.map((child) => found(design, child, depth + 1)).filter((rows) => rows.length > 0)
     if (inside.length === 0 && !matches(design, node)) return []
     inside.forEach((rows, index) => Object.assign(rows[0]!, { position: index + 1, siblings: inside.length }))
@@ -127,7 +135,7 @@ export function toggleRows(expansion: Expansion, ids: readonly string[], open: b
 export function branchIds(design: TreeDesign, node?: DesignNode): string[] {
   const ids = node ? [] : [design.key]
   const visit = (layer: DesignNode) => {
-    const children = childNodes(layer)
+    const children = rowChildren(layer)
     if (children.length === 0) return
     ids.push(layerRowId(design.key, layer.id))
     children.forEach(visit)

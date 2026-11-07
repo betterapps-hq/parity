@@ -2,6 +2,33 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 02:04:23 GMT",
+      "version": "0.14.0",
+      "tag": "@parity-app/cli_v0.14.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3c7656995f96cce19abfb78962f72dd0fa04191b",
+            "comment": "Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or agent as Sentry's user"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aa0a1fea8dc6e76d7f289bcc6a15b80a031e1ac2",
+            "comment": "Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "755f0c4243aabbddb2bb15b213209e7738383b9e",
+            "comment": "Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside Make component and the slots outlined on the canvas"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 18:38:16 GMT",
       "version": "0.13.1",
       "tag": "@parity-app/cli_v0.13.1",

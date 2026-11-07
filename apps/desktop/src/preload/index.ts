@@ -110,8 +110,8 @@ const host: CanvasHost = {
     ?.split("=")
     .slice(1)
     .join("="),
-  ask: (method, params) =>
-    service.request(method, params).then(
+  ask: (method, params, trace) =>
+    service.request(method, params, trace).then(
       (result) => ({ result }),
       (error: unknown) => plainErrors.encode(error)
     ),

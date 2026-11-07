@@ -1,5 +1,6 @@
 import { type Selection, sameSelection } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
+import { recordInterface } from "./interface-events.ts"
 
 export interface Hover {
   design: string
@@ -77,6 +78,9 @@ export class SelectionStore {
   setTool(tool: Tool): void {
     if (tool === this.tool) return
     if (this.tool === "interact") this.interactions++
+    if ((tool === "interact") !== (this.tool === "interact")) {
+      recordInterface("mode.switched", { mode: tool === "interact" ? "interact" : "design" })
+    }
     this.tool = tool
     this.notify()
   }

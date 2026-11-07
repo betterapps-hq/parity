@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { randomBytes, randomUUID } from "node:crypto"
 import { realpathSync } from "node:fs"
 import { homedir } from "node:os"
 import { type AgentMethod, type AgentMethods, replies, rpcReply } from "@parity-app/agent/contracts"
@@ -168,7 +168,7 @@ async function send<M extends AgentMethod>(
   try {
     response = await fetch(`${entry.url}/rpc`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}` },
+      headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}`, ...traceHeaders() },
       body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient }),
       ...(timeout === undefined ? {} : { signal: AbortSignal.timeout(timeout) })
     })
@@ -183,6 +183,18 @@ async function send<M extends AgentMethod>(
     throw new CodedError(body.error, readErrorDetails(body.details) ?? { code: "app_error" })
   }
   return answer(replies[method], body.result, method) as AgentMethods[M]["result"]
+}
+
+/**
+ * Starts a trace for one call, which the app continues, so the call and everything the app does for it, to the frame
+ * it draws, are one trace in Sentry (PAR-629). Sampled, as the app's spans are.
+ */
+function traceHeaders(): { "sentry-trace": string; baggage: string } {
+  const traceId = randomBytes(16).toString("hex")
+  return {
+    "sentry-trace": `${traceId}-${randomBytes(8).toString("hex")}-1`,
+    baggage: `sentry-trace_id=${traceId},sentry-sampled=true`
+  }
 }
 
 /** The app's answer to `method` once `schema` has checked it, or `app_error` saying what this CLI couldn't read. */

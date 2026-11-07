@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or agent as Sentry's user",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

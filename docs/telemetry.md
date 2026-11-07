@@ -67,6 +67,21 @@ from (`main`, `renderer`, `render`, `service`, `worker`, `builder` or `cli`); th
 run and, where there is one, the `windowId` and `project`. An event inside a trace adds its `traceId` and `spanId`, and
 a span adds its `parentSpanId`, `durationMs` and `outcome` (`ok`, `error` or `cancelled`).
 
+## Traces
+
+One action is one trace in Sentry, across every process that works on it (PAR-629):
+
+- **The window starts a trace** for each action, as `action.ran` with its ID from `chrome/actions.ts`, and each canvas
+  drag, as `gesture.ran` with its kind from `canvas/gesture.ts`. The service's requests made while it runs carry it.
+- **Requests carry the trace** as `sentry-trace` and `baggage`, in the channel message's `trace` field. The service and
+  main answer each in a `request.handled` span, with the error code when it fails.
+- **Queued work keeps its trace:** an offscreen frame or preview is a `frame.drawn` span with how long it waited for a
+  window, and a builder's start is `builder.started`.
+- **An agent's call starts its trace in the CLI,** which sends the headers with each request; the agent server's
+  `agent.called` span continues it, so the call and the frame it drew are one trace.
+
+To find one, open a span's trace in Sentry, or search spans by `trace` from an error.
+
 ## Turning it off
 
 Telemetry is on by default everywhere Parity runs, development and CI included, each tagged with its environment. It's
@@ -125,6 +140,11 @@ in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`
 - long random strings, though not hex (hashes, commit SHAs, UUIDs, trace IDs), file names or `data:` URLs
 - values it's given, such as a project's `.env` values read with `envSecrets()`
 
+The values it's given are the open projects' `.env`, `.env.local` and other `.env.*` values. The service reads them with
+`envSecrets()` whenever a project opens or closes and sends them to main. Main scrubs them from every process's events
+and passes them to each window, which asks for them as its telemetry starts. Each process's telemetry gets them through
+`setSecrets()`. The CLI doesn't send to Sentry yet, so it reads none.
+
 What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
 
 ## Levels and sampling
@@ -149,20 +169,86 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-| Event                 | Level | Kept | Sent by  | When                                                           |
-| --------------------- | ----- | ---- | -------- | -------------------------------------------------------------- |
-| `document.saveFailed` | warn  | all  | renderer | A design file couldn't be saved.                               |
-| `document.saved`      | info  | all  | renderer | A design file is saved.                                        |
-| `error.caught`        | error | all  | renderer | A failure is shown as an error notification.                   |
-| `export.done`         | info  | all  | renderer | An export finishes.                                            |
-| `export.failed`       | warn  | all  | renderer | An export fails.                                               |
-| `ipc.failed`          | warn  | all  | renderer | A request to the project service fails.                        |
-| `library.added`       | info  | all  | renderer | A catalog library is installed into the project.               |
-| `library.failed`      | warn  | all  | renderer | A catalog library couldn't be installed.                       |
-| `projectEdit.applied` | info  | all  | renderer | Parity changes the project's files and says so, with Undo.     |
-| `projectEdit.undone`  | info  | all  | renderer | Undo puts back a project edit's files, or fails to.            |
-| `styles.imported`     | info  | all  | renderer | A library's styles are imported into the project's stylesheet. |
-| `tokens.saved`        | info  | all  | renderer | Token changes are written to the stylesheet, or fail to be.    |
+| Event                 | Level | Kept | Sent by       | When                                                                                |
+| --------------------- | ----- | ---- | ------------- | ----------------------------------------------------------------------------------- |
+| `action.ran`          | info  | all  | renderer      | An action runs from a key, a menu or the actions search, until it's done.           |
+| `agent.called`        | info  | all  | service       | The agent server answers a call from the CLI.                                       |
+| `app.quit`            | info  | all  | main          | The app quits.                                                                      |
+| `app.started`         | info  | all  | main          | The first window has painted and the project service is running.                    |
+| `builder.started`     | info  | all  | service       | The service starts a project's builder, until it's spawned.                         |
+| `dialog.opened`       | info  | all  | renderer      | One of the app's own dialogs opens.                                                 |
+| `document.saveFailed` | warn  | all  | renderer      | A design file couldn't be saved.                                                    |
+| `document.saved`      | info  | all  | renderer      | A design file is saved.                                                             |
+| `error.caught`        | error | all  | renderer      | A failure is shown as an error notification.                                        |
+| `export.done`         | info  | all  | renderer      | An export finishes.                                                                 |
+| `export.failed`       | warn  | all  | renderer      | An export fails.                                                                    |
+| `frame.drawn`         | debug | all  | main          | An offscreen window draws a frame or a preview, from its turn to the end.           |
+| `gesture.ran`         | info  | all  | renderer      | A press on the canvas becomes a drag, until the drag ends.                          |
+| `ipc.failed`          | warn  | all  | renderer      | A request to the project service fails.                                             |
+| `library.added`       | info  | all  | renderer      | A catalog library is installed into the project.                                    |
+| `library.failed`      | warn  | all  | renderer      | A catalog library couldn't be installed.                                            |
+| `mode.switched`       | info  | all  | renderer      | The canvas switches between designing and Interact, where designs take the pointer. |
+| `panel.shown`         | info  | all  | renderer      | A side panel or the console opens, or a side panel shows another tab.               |
+| `process.memory`      | info  | all  | main          | Every 5 minutes, and when a window stops answering.                                 |
+| `projectEdit.applied` | info  | all  | renderer      | Parity changes the project's files and says so, with Undo.                          |
+| `projectEdit.undone`  | info  | all  | renderer      | Undo puts back a project edit's files, or fails to.                                 |
+| `renderer.long_task`  | info  | all  | renderer      | A task in the editor window runs for over 200 ms.                                   |
+| `request.handled`     | debug | all  | service, main | The service or main answers another process's request.                              |
+| `service.lag`         | warn  | all  | service       | The project service's event loop is late by over 200 ms.                            |
+| `setting.changed`     | info  | all  | renderer      | A preference or the telemetry level is changed.                                     |
+| `start.action`        | info  | all  | renderer      | A control on Home or a new tab's start page is used.                                |
+| `styles.imported`     | info  | all  | renderer      | A library's styles are imported into the project's stylesheet.                      |
+| `tab.closed`          | info  | all  | renderer      | A tab closes.                                                                       |
+| `tab.opened`          | info  | all  | renderer      | A tab opens, for a project or as a new tab.                                         |
+| `tab.switched`        | info  | all  | renderer      | Another tab, or Home, comes to the front.                                           |
+| `tokens.saved`        | info  | all  | renderer      | Token changes are written to the stylesheet, or fail to be.                         |
+| `update.checked`      | info  | all  | main          | A check for an update finds one or finds none.                                      |
+| `update.downloaded`   | info  | all  | main          | An update finishes downloading.                                                     |
+| `update.failed`       | warn  | all  | main          | Checking for, downloading or installing an update fails.                            |
+| `update.installed`    | info  | all  | main          | The app quits to install a downloaded update.                                       |
+
+### `action.ran`
+
+| Attribute | Type               | Meaning                                                        |
+| --------- | ------------------ | -------------------------------------------------------------- |
+| `action`  | `string`           | The action's ID in the keymap, as `chrome/actions.ts` names it |
+| `code`    | `string`, optional | The error code, when it failed                                 |
+
+### `agent.called`
+
+| Attribute | Type               | Meaning                        |
+| --------- | ------------------ | ------------------------------ |
+| `method`  | `string`           | The agent method called        |
+| `agent`   | `string`, optional | The caller's name              |
+| `code`    | `string`, optional | The error code, when it failed |
+
+### `app.quit`
+
+| Attribute   | Type                                     | Meaning                                                                                   |
+| ----------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `reason`    | `"window closed" \| "update" \| "other"` | How it quit: the last window closed, to install an update, or otherwise, as from the menu |
+| `sessionMs` | `integer`                                | How long this run lasted                                                                  |
+
+### `app.started`
+
+| Attribute        | Type      | Meaning                                                               |
+| ---------------- | --------- | --------------------------------------------------------------------- |
+| `mainReadyMs`    | `integer` | From the process starting to Electron being ready                     |
+| `windowShownMs`  | `integer` | From the process starting to the first window being created and shown |
+| `firstPaintMs`   | `integer` | From the process starting to the first window's first paint           |
+| `serviceReadyMs` | `integer` | From the process starting to the project service starting to run      |
+
+### `builder.started`
+
+| Attribute | Type     | Meaning            |
+| --------- | -------- | ------------------ |
+| `builder` | `string` | The builder's name |
+
+### `dialog.opened`
+
+| Attribute | Type     | Meaning                                             |
+| --------- | -------- | --------------------------------------------------- |
+| `dialog`  | `string` | Which dialog: settings, shortcuts, about or actions |
 
 ### `document.saveFailed`
 
@@ -213,6 +299,21 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `states`  | `integer`, optional     | The states exported, when they're counted                        |
 | `code`    | `string`, optional      | The `CodedError` code, when the failure has one                  |
 
+### `frame.drawn`
+
+| Attribute  | Type      | Meaning                                                     |
+| ---------- | --------- | ----------------------------------------------------------- |
+| `priority` | `string`  | The queue it waited in: render, visible or background       |
+| `queuedMs` | `number`  | How long it waited for an offscreen window, in milliseconds |
+| `whole`    | `boolean` | Whether it was drawn whole, to capture or check it          |
+
+### `gesture.ran`
+
+| Attribute | Type               | Meaning                                             |
+| --------- | ------------------ | --------------------------------------------------- |
+| `gesture` | `string`           | The gesture's kind, as `canvas/gesture.ts` names it |
+| `how`     | `string`, optional | How it ended: release, escape or interrupted        |
+
 ### `ipc.failed`
 
 | Attribute | Type               | Meaning                                         |
@@ -235,6 +336,26 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `version` | `string`, optional | The version installed, when known               |
 | `code`    | `string`, optional | The `CodedError` code, when the failure has one |
 
+### `mode.switched`
+
+| Attribute | Type                     | Meaning                       |
+| --------- | ------------------------ | ----------------------------- |
+| `mode`    | `"design" \| "interact"` | The mode the canvas is in now |
+
+### `panel.shown`
+
+| Attribute | Type                             | Meaning                                                |
+| --------- | -------------------------------- | ------------------------------------------------------ |
+| `panel`   | `"left" \| "right" \| "console"` | The side panel, or the console under the canvas        |
+| `tab`     | `string`, optional               | The tab the side panel shows, such as layers or design |
+
+### `process.memory`
+
+| Attribute   | Type                   | Meaning                                                                            |
+| ----------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| `reason`    | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                     |
+| `processes` | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it |
+
 ### `projectEdit.applied`
 
 | Attribute | Type               | Meaning                                         |
@@ -251,6 +372,40 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `outcome` | `"ok" \| "error"`  | Whether it worked                               |
 | `code`    | `string`, optional | The `CodedError` code, when the failure has one |
 
+### `renderer.long_task`
+
+| Attribute    | Type               | Meaning                                                               |
+| ------------ | ------------------ | --------------------------------------------------------------------- |
+| `durationMs` | `integer`          | How long the task ran                                                 |
+| `action`     | `string`, optional | The input that started it, such as `pointerdown` or `keydown`, if any |
+
+### `request.handled`
+
+| Attribute | Type               | Meaning                        |
+| --------- | ------------------ | ------------------------------ |
+| `method`  | `string`           | The method asked for           |
+| `code`    | `string`, optional | The error code, when it failed |
+
+### `service.lag`
+
+| Attribute | Type      | Meaning                                                                        |
+| --------- | --------- | ------------------------------------------------------------------------------ |
+| `lateMs`  | `integer` | How late the service's timer ran, which is how long its event loop was blocked |
+
+### `setting.changed`
+
+| Attribute | Type                          | Meaning                                                  |
+| --------- | ----------------------------- | -------------------------------------------------------- |
+| `setting` | `string`                      | The setting's name, such as theme, snapping or telemetry |
+| `value`   | `string \| number \| boolean` | Its new value; a list, such as the export sizes, as JSON |
+
+### `start.action`
+
+| Attribute | Type                                                                                                  | Meaning                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `page`    | `"home" \| "new"`                                                                                     | The start page it came from: Home, or a new tab                                                          |
+| `action`  | `"new-project" \| "open-folder" \| "open-file" \| "recent-project" \| "search" \| "star" \| "forget"` | What was done: start a project, open a folder or file, open a listed project, search, star or forget one |
+
 ### `styles.imported`
 
 | Attribute | Type               | Meaning                                        |
@@ -258,6 +413,27 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `package` | `string`           | The library, by its catalog ID or package name |
 | `version` | `string`, optional | The version installed, when known              |
 | `files`   | `string[]`         | The files it changed, by path                  |
+
+### `tab.closed`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.opened`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.switched`
+
+| Attribute | Type                           | Meaning                  |
+| --------- | ------------------------------ | ------------------------ |
+| `from`    | `"home" \| "project" \| "new"` | What was in front before |
+| `to`      | `"home" \| "project" \| "new"` | What is in front now     |
 
 ### `tokens.saved`
 
@@ -267,5 +443,38 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `files`   | `string[]`         | The files it changed, by path                   |
 | `outcome` | `"ok" \| "error"`  | Whether it worked                               |
 | `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `update.checked`
+
+| Attribute   | Type                 | Meaning                                   |
+| ----------- | -------------------- | ----------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes     |
+| `version`   | `string`             | The version running now                   |
+| `available` | `string`, optional   | The newer version found, if there was one |
+
+### `update.downloaded`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version downloaded                |
+
+### `update.failed`
+
+| Attribute | Type                                 | Meaning                               |
+| --------- | ------------------------------------ | ------------------------------------- |
+| `channel` | `"stable" \| "beta"`                 | The update channel this install takes |
+| `version` | `string`                             | The version running now               |
+| `stage`   | `"check" \| "download" \| "install"` | What was under way when it failed     |
+| `message` | `string`                             | What went wrong                       |
+
+### `update.installed`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version being installed           |
 
 <!-- End of the generated events. -->
