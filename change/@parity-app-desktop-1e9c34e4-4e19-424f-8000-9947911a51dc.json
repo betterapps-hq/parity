@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Record the editor window with Session Replay, and send the frames on the canvas with errors and a frame's last bitmap with a failed render (PAR-624)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

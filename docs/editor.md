@@ -3477,7 +3477,8 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
   in about 10 ms each, off main's thread. The canvas is given the WebP too, so it reads and decodes the smaller file.
   Component previews are kept the same way. Chromium's own encoder was tried first, being lossless at full quality, but
-  wrote files 5% larger than the PNGs. A system where sharp can't load keeps nothing, and captures each session.
+  wrote files 5% larger than the PNGs. A system where sharp can't load keeps nothing, and captures each session. Nor
+  does Linux, where sharp isn't loaded in the app, since it crashed the project service there (PAR-688).
 - **Each bitmap carries its frame's height** as the canvas drew it, in a `parity:height` text chunk after the image, so
   a frame that hasn't drawn yet can show its kept bitmap at its size (see Opening in seconds). WebP decoders skip it, as
   the format asks them to of a chunk they don't know. The offscreen window lays a frame out at the bitmap's quarter
@@ -4156,6 +4157,13 @@ opened again.
   address. A reopen waits for the closing builder's process to end, so a project never has two.
 - **Tabs and their views are given a tab's id,** not the tab: React keeps the props a list's parent drew last, so a
   closed tab passed whole would keep its session, canvas included, until the window drew again.
+- **A closed tab's session lets go of its editor** (PAR-624). React also keeps the tabs a component last read, through
+  `useSyncExternalStore`, until it renders again, and through the editor that kept the canvas: the tldraw one the test
+  allowed for, and all of it when frames were still awake as the project closed. The example now ends about 170 nodes
+  after closing, where it was about 3,300.
+- **Frames' and project icons' shadow roots are attached unseen by Session Replay** (`renderer/shadow.ts`, PAR-624). The
+  recorder keeps every shadow root it watches until it starts over, so a frame mounted while it recorded kept the closed
+  project's whole canvas, about 13,000 nodes, in some runs.
 - **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
   still open. When it isn't, it takes a port no guest has had, and the open tabs are told (`project.guestMoved`): each
   loads the guest from the new address, swaps in its tokens and lets go of the old guest. A tab whose new guest won't
@@ -4168,8 +4176,9 @@ opened again.
 Code: `serveBuilder` and `restartBuilder` in `openProjects`, `apps/desktop/src/utility/projects.ts`, with
 `newGuestPort`, `restartPort`, `guestMove` and `followGuest` in `guest-ports.ts`; `moveGuest` in
 `apps/desktop/src/renderer/workspace.ts`; `releaseGuest` in `apps/desktop/src/renderer/guest.ts`, called from
-`workspace.ts` and `render.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened
-guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
+`workspace.ts` and `render.ts`; `closeNow` in `workspace.ts`, which takes a closed tab's editor; `unrecordedShadow` in
+`apps/desktop/src/renderer/shadow.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a
+reopened guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window ends
 within 5,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over after two. The

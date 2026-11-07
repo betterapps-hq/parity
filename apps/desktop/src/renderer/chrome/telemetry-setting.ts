@@ -1,14 +1,16 @@
 import type { TelemetryLevel } from "@parity-app/telemetry"
 import { useEffect, useSyncExternalStore } from "react"
 import type { TelemetryState } from "../../shared/protocol.ts"
+import { followTelemetry } from "../replay.ts"
 
 /** The Telemetry setting and install ID as main last gave them; Settings and About share it (PAR-626). */
 let state: TelemetryState | undefined
 const listeners = new Set<() => void>()
 
-/** Keeps what main says, and tells Settings and About. */
+/** Keeps what main says, tells Settings and About, and starts or stops Session Replay with it (PAR-624). */
 export function receiveTelemetry(next: TelemetryState | undefined): TelemetryState | undefined {
   state = next
+  if (next) followTelemetry(next.level)
   for (const listener of listeners) listener()
   return next
 }
