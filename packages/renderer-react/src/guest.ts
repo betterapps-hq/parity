@@ -54,6 +54,50 @@ const missingStyle = {
   font: "12px ui-monospace, monospace"
 }
 
+/**
+ * A failed component's box (PAR-165): a thin dashed red outline, as a missing component's, over fine red hatching, with
+ * a small warning icon and no text, so it reads as a broken layer at any zoom without crowding the design. Why it failed
+ * is in the console and on its row in Layers. Its styles are its own, inline, so the project's CSS and the frame's
+ * theme leave it as it is.
+ */
+const failedStyle = {
+  boxSizing: "border-box",
+  display: "flex",
+  alignItems: "center",
+  minWidth: "32px",
+  minHeight: "32px",
+  padding: "0 8px",
+  border: "1px dashed #e11d48",
+  borderRadius: "6px",
+  background: "repeating-linear-gradient(-45deg, rgba(225, 29, 72, 0.45) 0 1px, transparent 1px 7px)"
+} as const
+
+/** What a failed component draws in its place: `failedStyle` with a warning icon, named for scripts that look. */
+function failedBox(name: string, message: string) {
+  return createElement(
+    "div",
+    { style: failedStyle, "data-failed-component": name, "data-error": message },
+    createElement(
+      "svg",
+      {
+        width: 14,
+        height: 14,
+        viewBox: "0 0 24 24",
+        fill: "#fff1f2",
+        stroke: "#e11d48",
+        strokeWidth: 2,
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        "aria-hidden": true
+      },
+      createElement("path", {
+        d: "M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z"
+      }),
+      createElement("path", { d: "M12 8v4M12 16h.01" })
+    )
+  )
+}
+
 /** Function components, and the objects `forwardRef`, `memo` and `lazy` return. */
 function isComponent(value: unknown): value is ComponentType<Props> {
   return typeof value === "function" || (typeof value === "object" && value !== null && "$$typeof" in value)
@@ -168,7 +212,7 @@ class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
   }
   override render() {
     if (!this.state.error) return this.props.children
-    return createElement("div", { style: missingStyle }, `${this.props.name}: ${this.state.error.message}`)
+    return failedBox(this.props.name, this.state.error.message)
   }
 }
 

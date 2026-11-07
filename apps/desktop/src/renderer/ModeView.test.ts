@@ -46,7 +46,7 @@ let root
 
 /** The design's failing layers, as its board's badge reads them. */
 function Failures({ design }) {
-  return createElement("output", { id: "failures" }, JSON.stringify(useDesignFailures(loaded, design)))
+  return createElement("output", { id: "failures" }, JSON.stringify(useDesignFailures("project", design)))
 }
 
 /** Gives the guest components from other files, as the type checker does once it finds them. */
@@ -60,7 +60,7 @@ export function show(container, { interactive = false, scale = 1, asleep = false
   const tree = resolveDesign(container.root, container.states[0], mode.viewport, new Map())
   flushSync(() =>
     root.render([
-      createElement(ModeView, { key: "frame", loaded, tree, mode, frame: { width: 390, viewport: frameViewport({ width: 390 }, mode) }, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows }),
+      createElement(ModeView, { key: "frame", project: "project", loaded, tree, mode, frame: { width: 390, viewport: frameViewport({ width: 390 }, mode) }, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows }),
       createElement(Failures, { key: "failures", design: container.id })
     ])
   )
@@ -133,6 +133,17 @@ const form = {
   position: { x: 0, y: 0 },
   root: { type: "layout", id: "root", children: [{ type: "component", id: "field", component: "Field" }] },
   states: [{ id: "default", name: "Default" }]
+}
+
+/** The error a failed component's box in the frame keeps, or none. */
+function failedBox() {
+  return page.evaluate(
+    () =>
+      document
+        .querySelector("[data-frame]")!
+        .shadowRoot!.querySelector("[data-failed-component]")
+        ?.getAttribute("data-error") ?? null
+  )
 }
 
 /** Shows a design and lets its effects run. */
@@ -343,7 +354,7 @@ describe("a component that failed, moved to another file", () => {
     }
     const drawn = () => page.evaluate(() => document.querySelector("[data-frame]")!.shadowRoot!.textContent)
     await show(broken, { shows: "failing" })
-    await expect.poll(drawn).toContain("Broken: Not built yet")
+    await expect.poll(failedBox).toBe("Not built yet")
     // @ts-expect-error The bundle's global.
     await page.evaluate(() => app.addComponents({ Broken: { path: "src/fixed.js", export: "Broken" } }))
     await show(broken, { shows: "fixed" })
@@ -374,7 +385,7 @@ describe("a component that fails to draw (PAR-165)", () => {
     // @ts-expect-error The bundle's global.
     await page.evaluate(() => app.addComponents({ Broken: { path: "src/live.js", export: "Broken", version: 1 } }))
     await show(broken, { shows: "version 1" })
-    await expect.poll(drawn).toContain("Broken: Still broken")
+    await expect.poll(failedBox).toBe("Still broken")
     expect(await drawn()).toContain("Still drawn")
     expect(await page.evaluate(() => document.querySelector(".mode-error"))).toBeNull()
     await expect.poll(failures).toBe(JSON.stringify([{ nodeId: "broken", component: "Broken", error: "Still broken" }]))

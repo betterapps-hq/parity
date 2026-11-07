@@ -54,7 +54,6 @@ import { useDesignSelection, useInteracting, useInteractions, useRenameRequest }
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
 import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
-import { FailureBadge } from "./FailureBadge.tsx"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
@@ -254,7 +253,6 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
         color={isSelected ? color : undefined}
         onPointerDown={onTitlePointerDown}
       />
-      <FailureBadge design={key} name={container.name} />
       <ConsoleBadge design={key} name={container.name} />
       <TitleControls>
         {Object.values(container.params ?? {}).some((param) => param.type === "variant") && (
@@ -901,6 +899,7 @@ const FrameTile = memo(function FrameTile({
         data-asleep={awake && !waiting ? undefined : ""}
       >
         <ModeView
+          project={session.id}
           loaded={loaded}
           tree={tree}
           mode={mode}

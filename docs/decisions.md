@@ -5264,19 +5264,34 @@ real apps and engineers already write `w-[280px]`. This loosens the tokens-only 
 - **Nudging moves 1px, or 10px with Shift,** as Figma's does, which CAN-39 waited on. The field's Up and Down still move
   a step, so they're the way back onto the scale; a length off it goes to the step beside it.
 
-## Failing components are marked where you look, and saved code reaches the canvas live (PAR-165)
+## Failing components show in the console, and saved code reaches the canvas live (PAR-165)
 
-Called on 2026-11-06. PAR-165 asked for a failing component's error box and a badge on its frame without covering what
+Called on 2026-11-07. PAR-165 asked for a failing component's error box and a badge on its frame without covering what
 drew, failing layers marked in Layers and the inspector with the reason and the fix, and the canvas updating within a
-second of a component file being edited or broken, without reopening the project. The design is in Storybook as
-`Parity/Canvas/Boards` FailingLayer. My calls:
+second of a component file being edited or broken, without reopening the project. You approved the design in Storybook
+(`Parity/Canvas/Boards` FailingLayer, `Parity/Chrome/Console`) after reworking it. Your calls:
+
+- **The reason goes in the console, not the inspector.** A failing layer is an error in the console for as long as it
+  fails, with why, the fix and a button selecting the layer, so the board's console badge and the status bar count it,
+  rather than a badge of its own and a notice above the layer's fields. The Layers mark opens the console on the design.
+- **The box reads as broken, without text.** A thin dashed red outline over fine red hatching with an icon, as light as
+  a missing component's, since the text inside was unreadable at the zooms people work at.
+- **The console filters levels as DevTools do:** a menu whose button says what shows, with a checkbox and count for each
+  level, in place of a segmented All and three levels, with the errors and warnings counted on the header's right. The
+  design filter, the group's Select button, each message's time and the empty console's line about agents are gone; a
+  badge opens its design's group, in view, with the others closed.
+
+My calls:
 
 - **The frame keeps what it drew.** A component's boundary already drew its error in its place. The sheet laid over the
   whole frame for any error now shows only for an error that stopped the frame drawing, and across its top, so whatever
   drew stays in view.
 - **Failures are counted per frame, by its boundaries.** Each frame's root gives its boundaries a context they report
   failing and drawing again to, so the canvas knows which layer fails in which frame, beside the guest-wide status the
-  Components panel reads. A board's badge counts a layer once, however many of its frames it fails in.
+  Components panel reads. The console lists a layer once, however many of its frames it fails in, with each frame.
+- **Failures stay through Clear.** They're how the canvas is now, not a record, so Clear empties what was logged and
+  leaves them, and they go when the component draws again. Agents read failing components from `parity components` and
+  Problems, so they aren't added to `parity console`.
 - **The fix is read from the error.** A missing provider names the provider a decorator should add, taken from the error
   when it names one, or from what routers, query clients, Redux, React Intl and Apollo are known to say. An error naming
   a parent it must be used within, as Radix's parts do, asks for a parent layer, not a decorator. Nothing is guessed for
@@ -5293,6 +5308,6 @@ second of a component file being edited or broken, without reopening the project
 - **A board keeps its last picture while the new one comes.** Before, a frame whose key changed showed nothing until its
   new bitmap was taken, which after a save blanked every board drawing the component for seconds. It now shows its last
   bitmap, drawing live behind it, and only sleeps on a bitmap of what it shows now.
-- **Left for later:** a board drawn only from a bitmap kept from an earlier session has no badge until its frames draw,
-  since offscreen captures don't report failures; and a class new to the project has no CSS until the project opens
-  again, since the guest's stylesheet isn't reloaded.
+- **Left for later:** a board drawn only from a bitmap kept from an earlier session has no console error until its
+  frames draw, since offscreen captures don't report failures; and a class new to the project has no CSS until the
+  project opens again, since the guest's stylesheet isn't reloaded.

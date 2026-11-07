@@ -6,6 +6,8 @@ import { prepareFrame, registerFrame, setDrawnNodes, setFrameViewport } from "./
 import type { LoadedGuest } from "./guest.ts"
 
 interface ModeViewProps {
+  /** The project, by id, whose console lists the frame's failing layers. */
+  project: string
   loaded: LoadedGuest
   tree: RenderNode[]
   mode: ResolvedMode
@@ -59,6 +61,7 @@ const designEvents = [
  * `zoom`, which shrinks the drawing without changing the width the content lays out in.
  */
 export function ModeView({
+  project,
   loaded,
   tree,
   mode,
@@ -88,14 +91,17 @@ export function ModeView({
 
   const currentKey = useRef(renderKey)
 
-  // The frame's failing layers mark its board, Layers and the inspector. Asleep, it keeps the ones it last drew with;
-  // gone, it takes them back.
+  // The frame's failing layers show in the console and mark Layers. Asleep, it keeps the ones it last drew with; gone, it
+  // takes them back.
   const [failuresKey] = useState(() => ({}))
-  const designRef = useRef(design)
+  const placeRef = useRef({ project, design, state, mode: mode.id })
   useLayoutEffect(() => {
-    designRef.current = design
-  }, [design])
-  useEffect(() => () => reportFrameFailures(loaded, design, failuresKey, []), [loaded, design, failuresKey])
+    placeRef.current = { project, design, state, mode: mode.id }
+  }, [project, design, state, mode.id])
+  useEffect(
+    () => () => reportFrameFailures(project, design, failuresKey, { state, mode: mode.id }, []),
+    [project, design, state, mode.id, failuresKey]
+  )
 
   // Selecting, outlining and agents find a design's frames from an index, not by searching the canvas. It's a layout
   // effect, so the frame is in it as soon as it's on the page.
@@ -163,7 +169,16 @@ export function ModeView({
         if (layer) return
         setError({ key: currentKey.current, message: reason instanceof Error ? reason.message : String(reason) })
       },
-      onFailures: (failures) => reportFrameFailures(loaded, designRef.current, failuresKey, failures)
+      onFailures: (failures) => {
+        const place = placeRef.current
+        reportFrameFailures(
+          place.project,
+          place.design,
+          failuresKey,
+          { state: place.state, mode: place.mode },
+          failures
+        )
+      }
     })
     handleRef.current = handle
     // Selecting, outlining and measuring find the design's nodes through the guest, which reads them from React's tree.

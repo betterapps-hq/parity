@@ -58,7 +58,6 @@ import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields
 import { Hint } from "./Hint.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
-import { LayerFailureNotice } from "./LayerFailureNotice.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
@@ -73,15 +72,10 @@ import { StyleSections } from "./StyleSections.tsx"
  * component's board takes edits the same way. Inside an instance, edits change only that copy.
  */
 export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
-  return (
-    <>
-      <LayerFailureNotice design={entry.key} nodeId={nodeId} />
-      {isInnerPath(nodeId) ? (
-        <InnerLayerPanel entry={entry} path={nodeId} />
-      ) : (
-        <DesignLayerPanel entry={entry} nodeId={nodeId} />
-      )}
-    </>
+  return isInnerPath(nodeId) ? (
+    <InnerLayerPanel entry={entry} path={nodeId} />
+  ) : (
+    <DesignLayerPanel entry={entry} nodeId={nodeId} />
   )
 }
 

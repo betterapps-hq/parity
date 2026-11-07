@@ -2,6 +2,8 @@ import { newDesign, turnInto } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
 import { AppWindow } from "../App.tsx"
+import { showConsole } from "../chrome/ConsolePanel.tsx"
+import { setLayout } from "../chrome/layout.ts"
 import { design, example, onCanvas } from "../stories/fixtures.tsx"
 import { shapeIdFor } from "./CanvasEditor.tsx"
 
@@ -165,9 +167,10 @@ export const MissingComponents: Story = onCanvas(["Gallery"], () => {
 })
 
 /**
- * A layer whose component fails to draw (PAR-165): a tab list placed outside its tabs, which Radix refuses. It draws its
- * error box in its place and the rest of the screen draws around it. The board's badge counts it, Layers marks it, and
- * selected, the inspector says why it fails and how to fix it.
+ * A layer whose component fails to draw (PAR-165): a tab list placed outside its tabs, which Radix refuses. It draws a
+ * striped box in its place, naming the component and its error, and the rest of the screen draws around it. Layers
+ * marks it, and the console, opened from the board's badge or that mark, lists it as an error with why it fails, how
+ * to fix it and a button that selects it.
  */
 export const FailingLayer: Story = onCanvas(
   ["Team settings"],
@@ -192,5 +195,9 @@ export const FailingLayer: Story = onCanvas(
       states: [{ id: "default", name: "Default" }]
     })
   },
-  () => example().selection.set({ design: design("Team settings"), node: "story-team-tabs" })
+  () => {
+    example().selection.set({ design: design("Team settings"), node: "story-team-tabs" })
+    setLayout({ consoleHeight: 220 })
+    showConsole(design("Team settings"))
+  }
 )
