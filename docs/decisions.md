@@ -687,6 +687,14 @@ section has the details. The user asked for "variants, instance overrides and th
     undoable design edit, so the override works in code. You asked: "Why not just do? This is part of the design
     process."
 - **Layers inside an instance can't be moved, resized on the canvas or deleted.**
+- **Layers lists an instance's layers below it, read-only apart from the eye** (PAR-92). The eye hides or shows the
+  layer in that copy. Rename joins Duplicate, Hide, Lock and Delete as unavailable in the row's menu, since the name is
+  the component's. The menu's Hide stays unavailable, as the menubar's is (PAR-419), so the eye is the tree's one way to
+  hide them (my call: making Hide work inside instances would change the canvas and the menubar too). What the copy
+  changes isn't marked in the tree: you chose that on 2026-11-07 ("Remove the purple pen"), leaving it to the inspector.
+  Search goes inside instances (my call), unlike Select same. A slot the instance fills shows its fills in place of the
+  placeholder, as the canvas draws them (my call, replacing PAR-83's rule that nothing shows under an instance, which
+  came before instances had rows under them).
 - **Swap keeps args, state and overrides that still match** by id or layer name. **Detach bakes everything into plain
   layers** with fresh ids, the root keeping the instance's id.
 

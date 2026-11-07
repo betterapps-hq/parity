@@ -1,4 +1,4 @@
-import { hiddenOnBoard } from "@parity-app/core"
+import { hiddenOnBoard, isInnerPath } from "@parity-app/core"
 import {
   designsLocked,
   editingState,
@@ -37,7 +37,8 @@ export function rowSelection(current: Selection, row: LayersRow): Selection {
  * layer, Hide or Show, as the canvas menu's Hide reads it, and for a layer or a design Lock or Unlock, as the canvas menu's Lock reads it; then Export, at the Export section's
  * sizes (PAR-185); then Delete. Each has the keymap's
  * label and keys, and is unavailable when the menubar's would be: the design's root, and layers inside an instance,
- * can't be duplicated, hidden or deleted.
+ * can't be duplicated, hidden or deleted. A layer inside an instance keeps its component's name, so it can't be renamed
+ * either (PAR-92).
  */
 export function layersMenu(row: LayersRow, selection: Selection, entries: readonly ContainerEntry[]): MenuEntry[] {
   const entry = entries.find((candidate) => candidate.key === row.design)
@@ -52,7 +53,7 @@ export function layersMenu(row: LayersRow, selection: Selection, entries: readon
     ? layersLocked(container, own)
     : designsLocked(selectedDesigns(selection).flatMap((key) => entries.find((e) => e.key === key)?.container ?? []))
   return sections([
-    [item("rename", true), item("duplicate", layers ? can.duplicate : true)],
+    [item("rename", !row.node || !isInnerPath(row.node)), item("duplicate", layers ? can.duplicate : true)],
     [
       ...(row.node ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : []),
       item("lock", layers ? can.lock : true, locked ? "Unlock" : "Lock")

@@ -42,6 +42,43 @@ function row(designName: string, layerName?: string): HTMLElement {
   return element
 }
 
+/** The Layers panel's row for a layer inside an instance: the instance's id, then the layer's in its component. */
+function innerRow(designName: string, instanceName: string, componentName: string, layerName: string): HTMLElement {
+  const path = `${node(designName, instanceName)}/${node(componentName, layerName)}`
+  const element = document.getElementById(`layer-${design(designName)}/${path}`)
+  if (!element) throw new Error(`The Layers panel shows no row for ${layerName} in ${instanceName}`)
+  return element
+}
+
+/**
+ * Scrolls the panel down until a row is drawn, since it draws only the rows in view, then centers it. From the bottom
+ * it starts again at the top, in case the row wasn't open yet.
+ */
+async function scrollUntil(find: () => HTMLElement): Promise<HTMLElement> {
+  const scroller = (await waitFor(() => within(document.body).getByRole("tree", { name: "Layers" }))).parentElement!
+  scroller.scrollTop = 0
+  for (let step = 0; step < 200; step++) {
+    try {
+      const found = find()
+      found.scrollIntoView({ block: "center" })
+      return found
+    } catch {
+      const before = scroller.scrollTop
+      scroller.scrollTop += 200
+      if (scroller.scrollTop === before) scroller.scrollTop = 0
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+  }
+  return find()
+}
+
+/** Selects Value inside the Dashboard's Users card, as Ctrl-clicking it on the canvas would. */
+async function selectUsersValue(): Promise<void> {
+  await openProjects("example")
+  const path = `${node("Dashboard", "Users card")}/${node("Stat card", "Value")}`
+  example().selection.set({ design: design("Dashboard"), node: path })
+}
+
 /** Waits for a row to show, then scrolls the panel to it, as someone would scroll to what they selected. */
 async function scrollTo(designName: string, layerName?: string): Promise<HTMLElement> {
   const found = await waitFor(() => row(designName, layerName))
@@ -527,6 +564,41 @@ export const HiddenFromItsEye: Story = {
     await userEvent.unhover(row("Plan card", "Feature 2"))
     await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Show" })
     await expect(example().selection.get()).toEqual({ design: design("Plan card") })
+  }
+}
+
+/**
+ * A layer selected inside an instance, as Ctrl-click selects it on the canvas: the Users card opens below its row to
+ * the Stat card's layers, drawn in the component's color, with Value highlighted (PAR-92).
+ */
+export const InsideAnInstance: Story = {
+  loaders: [selectUsersValue],
+  play: async () => {
+    const value = await scrollUntil(() => innerRow("Dashboard", "Users card", "Stat card", "Value"))
+    await expect(value).toHaveAttribute("aria-selected", "true")
+    await expect(row("Dashboard", "Users card")).toHaveAttribute("aria-expanded", "true")
+  }
+}
+
+/**
+ * A layer inside an instance hidden from its eye: only this copy hides it. It can't be dragged, renamed with a
+ * double-click, or renamed, duplicated or deleted from its menu (PAR-92).
+ */
+export const HiddenInsideAnInstance: Story = {
+  loaders: [selectUsersValue],
+  play: async () => {
+    const trend = await scrollUntil(() => innerRow("Dashboard", "Users card", "Stat card", "Trend"))
+    await expect(trend).toHaveAttribute("draggable", "false")
+    await userEvent.hover(trend)
+    await userEvent.click(await within(trend).findByRole("button", { name: "Hide" }))
+    await userEvent.unhover(trend)
+    await within(trend).findByRole("button", { name: "Show" })
+    await userEvent.dblClick(trend)
+    await expect(within(trend).queryByRole("textbox")).toBeNull()
+    await rightClick(trend)
+    const menu = await within(document.body).findByRole("menu")
+    const rename = within(menu).getByRole("menuitem", { name: /Rename/ })
+    await expect(rename).toHaveAttribute("aria-disabled", "true")
   }
 }
 

@@ -98,6 +98,20 @@ describe("the Layers row menu", () => {
     ])
   })
 
+  it("can't rename, duplicate, hide, lock or delete a layer inside an instance (PAR-92)", () => {
+    expect(outline(rightClick({ design, node: "users/value" }))).toEqual([
+      "rename (unavailable)",
+      "duplicate (unavailable)",
+      "---",
+      "hide (unavailable)",
+      "lock (unavailable)",
+      "---",
+      "exportSelection",
+      "---",
+      "delete (unavailable)"
+    ])
+  })
+
   it("acts on every selected layer when the row is one of them", () => {
     const both = layersSelection(design, ["title", "subtitle"], { state: "default" })
     // The title shows in Default, so the two aren't all hidden.
