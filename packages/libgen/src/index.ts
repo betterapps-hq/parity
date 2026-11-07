@@ -655,7 +655,7 @@ function defaultRange(version: string): string {
 /** A DTCG token file or resolver: a JSON object, with a resolver's `resolutionOrder` a list. */
 const tokenFile = jsonText(plainObject.pipe(z.looseObject({ resolutionOrder: z.array(z.unknown()).optional() })))
 
-/** A DTCG token file the package ships, if it has one in the format; Buildkit's `tokens.json` isn't yet. */
+/** A DTCG token file or resolver the package ships, such as each Buildkit style's `dist/tokens.json`. */
 async function dtcgIn(dir: string): Promise<{ path: string; tokens: Record<string, unknown> } | undefined> {
   for (const candidate of ["tokens.json", "dist/tokens.json", "tokens.resolver.json", "dist/tokens.resolver.json"]) {
     const text = await readFile(join(dir, candidate), "utf8").catch(() => undefined)

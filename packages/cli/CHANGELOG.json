@@ -2,6 +2,121 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 03:48:34 GMT",
+      "version": "0.16.0",
+      "tag": "@parity-app/cli_v0.16.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b2fe13882236d18154cf5c76172556dd2c92b121",
+            "comment": "Add Help > Report a problem, which sends what happened with a screenshot, logs, versions and projects, and offers itself after a crash; add parity diagnostics, which writes the same as a zip (PAR-635)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 03:34:11 GMT",
+      "version": "0.15.0",
+      "tag": "@parity-app/cli_v0.15.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ee3447c7d941c2ca646c7a3cd5a6d219434ddcf0",
+            "comment": "parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time (PAR-636)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d7703064df693435234a09a7daf1ae232fcffd05",
+            "comment": "Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d2ede6f4e8a7c3262f4434aa8cb61a05a8a0c508",
+            "comment": "Telemetry event names may be camelCase, and the app's error, save and export events are registered"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 02:04:23 GMT",
+      "version": "0.14.0",
+      "tag": "@parity-app/cli_v0.14.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3c7656995f96cce19abfb78962f72dd0fa04191b",
+            "comment": "Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or agent as Sentry's user"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aa0a1fea8dc6e76d7f289bcc6a15b80a031e1ac2",
+            "comment": "Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "755f0c4243aabbddb2bb15b213209e7738383b9e",
+            "comment": "Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside Make component and the slots outlined on the canvas"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 18:38:16 GMT",
+      "version": "0.13.1",
+      "tag": "@parity-app/cli_v0.13.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6868f1966e1dcb1542ba7ebae86b9f9273d69da8",
+            "comment": "Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 10:43:10 GMT",
+      "version": "0.13.0",
+      "tag": "@parity-app/cli_v0.13.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c9accc1a3a8e550d6d872e8d90fdc66b292adbf8",
+            "comment": "Keep a size or inset off the spacing scale, flagged with the nearest step one click away, and nudge layers by 1px"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1a1bae91b9a37a7ed12a90cb87c0153062f328dc",
+            "comment": "Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aeaacd836cb13d0765b3c25a84289a3fe338edb5",
+            "comment": "Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom when frames run slow"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 07:14:05 GMT",
       "version": "0.12.0",
       "tag": "@parity-app/cli_v0.12.0",

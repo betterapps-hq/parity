@@ -32,14 +32,69 @@ Only `parity-desktop` and `parity-cli` have code in this repository. The other t
 Every event is tagged `development`, `ci` or `tester`. Sentry creates an environment the first time an event names it,
 so there's nothing to set up ahead of the SDKs.
 
+## Releases and source maps
+
+Each build names its release, so an event points at the code that had the bug, and its stack trace resolves to Parity's
+source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-release-with-its-source-maps-par-625).
+
+| Build                      | Release                 | Source maps                                                         |
+| -------------------------- | ----------------------- | ------------------------------------------------------------------- |
+| Published (`tester`)       | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Upload source maps, once it's public |
+| CI (`ci`)                  | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build   |
+| `pnpm dev` (`development`) | The commit's full hash  | Read locally: stacks are resolved before they're sent               |
+
+- **`pnpm build`** writes hidden source maps for main, the preload script, the service, its workers and the windows,
+  gives each bundle a debug ID with `sentry-cli sourcemaps inject`, and moves the maps, with a copy of their bundles, to
+  `apps/desktop/sourcemaps/`. The installer ships no maps. `out/package.json` and `sourcemaps/build.json` record the
+  commit.
+- **`node apps/desktop/scripts/upload-sourcemaps.ts [--published] [--link-commits]`** creates the release, uploads
+  `sourcemaps/` and finalizes it. `--link-commits` ties the release to its commit in `betterapps-hq/parity`, which
+  suspect commits and "resolved in the next release" use.
+- **Electron's native crashes** are symbolicated by Sentry's built-in Electron, Apple and Microsoft symbol servers,
+  which `parity-desktop`'s Settings > Debug Files had on from the start, as Sentry does for an Electron project.
+- **Other installed builds,** such as pull requests' preview installers, are named by their commit, so they stay out of
+  a published version's release. Their maps aren't uploaded yet.
+- **Each event's `dist`** is the platform and architecture, such as `win32-x64`, and an installed build's events carry
+  `update_channel`, `stable` or `beta`.
+
 ## Integrations
 
 - **Linear** is installed for the Better Apps workspace, so alert rules can file issues in PAR and resolving one side
   resolves the other.
 - **GitHub** is installed for `betterapps-hq`, limited to `parity`, for commits in releases, suspect commits and stack
   trace links.
-- **Sentry's MCP server** is how agents read an issue's events, trace and replay. It signs in with OAuth, as
-  `admin@betterapps.io`.
+- **Sentry's MCP server** is how agents read an issue's events, trace and replay. `.mcp.json` and `.codex/config.toml`
+  give it to every session in this repository, scoped to `better-apps`, and it signs in with OAuth, as
+  `admin@betterapps.io`. Picking up a bug with it is in [work.md](work.md#bugs-from-sentry).
+
+## Alerts
+
+Two alerts file Linear bugs from `parity-desktop` and `parity-cli`, in every environment. Each has one action, Linear's
+"Create a Linear issue": team Parity, project Parity, status Todo, label Bug, no priority. The calls behind them are in
+[decisions.md](decisions.md#sentry-files-linear-bugs-par-622).
+
+| Alert                                                                                               | Fires on                                   | For                           | At most        |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------- | -------------- |
+| [File new issues and regressions in Linear](https://better-apps.sentry.io/monitors/alerts/6301645/) | A new issue, or a resolved one coming back | Every issue but user feedback | Once in 30 min |
+| [File user feedback in Linear](https://better-apps.sentry.io/monitors/alerts/6301647/)              | A new issue                                | User feedback                 | Every time     |
+
+What a filed issue carries:
+
+- **The title is the Sentry issue's.** For user feedback, Sentry writes a short summary of the message.
+- **The description is empty.** The Sentry link is attached to the Linear issue, and the release, environment and
+  `test_run` are in the Sentry issue it points to. Linear's action can't add them, and PAR-668 will.
+- **The two are linked both ways.** The Sentry issue lists the Linear one under its linked issues. Resolving the Sentry
+  issue closes the Linear one, and closing the Linear issue resolves the Sentry one in the next release.
+- **There's one Linear issue per Sentry issue.** A regression reopens the linked Linear issue, in Backlog, rather than
+  filing another, even when the alert fires on it.
+- **Linear's "in the next release" is literal.** Events from the release the bug was closed in, and from the next
+  release Sentry sees, count as fixed and don't reopen it.
+
+Errors thrown on purpose, such as a check that Sentry receives them, file bugs too, since they're new issues. Close each
+one when the check is done, and say in it that it was a test.
+
+Sentry's own defaults stay as they are: each project's "Send a notification for high priority issues" and the
+organisation's "Send a notification when pull requests are ready" email `admin@betterapps.io`.
 
 ## Secrets
 
@@ -57,3 +112,6 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
 4. Installed the Linear integration from Settings > Integrations > Linear, approved in Linear.
 5. Installed the GitHub integration from Settings > Integrations > GitHub, approved in GitHub for `betterapps-hq`.
 6. Created the `parity-ci` organisation token and stored it with `gh secret set SENTRY_AUTH_TOKEN`.
+7. Created the two alerts above with Sentry's MCP server, signed in as `admin@betterapps.io`. Linear's action takes
+   Linear's ids: team `ffa6e3c4-91d5-4501-868e-a7a7a797e256`, project `84f1963b-e7c0-4ee8-9f3b-0a23cddd3714`, Todo
+   `141b0d67-7506-4a2a-91b9-c77117d7204f` and Bug `a6475d27-8132-4225-88de-b7f0c2d09177`.

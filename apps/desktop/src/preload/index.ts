@@ -12,6 +12,7 @@ import {
   type WindowMethods,
   windowMethods
 } from "../shared/protocol.ts"
+import { exposeTelemetry } from "./telemetry.ts"
 
 /**
  * The window's channel to the project service. Requests wait until main gives the page its port, and a second port
@@ -61,6 +62,15 @@ const host: CanvasHost = {
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
   getBuildInfo: () => ipcRenderer.invoke(ipc.buildInfo),
+  telemetry: {
+    get: () => ipcRenderer.invoke(ipc.telemetryState),
+    setLevel: (level) => ipcRenderer.invoke(ipc.telemetryLevel, level)
+  },
+  report: {
+    prepare: () => ipcRenderer.invoke(ipc.reportPrepare),
+    send: (report) => ipcRenderer.invoke(ipc.reportSend, report),
+    lastCrash: () => ipcRenderer.invoke(ipc.reportLastCrash)
+  },
   updates: {
     get: () => ipcRenderer.invoke(ipc.updateState),
     check: () => ipcRenderer.invoke(ipc.updateCheck),
@@ -96,15 +106,17 @@ const host: CanvasHost = {
     signIn: (request) => ipcRenderer.invoke(ipc.accountSignIn, request) as Promise<void>,
     reopen: () => ipcRenderer.invoke(ipc.accountReopen) as Promise<void>,
     cancel: () => ipcRenderer.invoke(ipc.accountCancel) as Promise<void>,
-    signOut: () => ipcRenderer.invoke(ipc.accountSignOut) as Promise<void>
+    signOut: (email) => ipcRenderer.invoke(ipc.accountSignOut, email) as Promise<void>,
+    switchOrganization: (organizationId) => ipcRenderer.invoke(ipc.accountSwitch, organizationId) as Promise<void>,
+    use: (email) => ipcRenderer.invoke(ipc.accountUse, email) as Promise<void>
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
     ?.split("=")
     .slice(1)
     .join("="),
-  ask: (method, params) =>
-    service.request(method, params).then(
+  ask: (method, params, trace) =>
+    service.request(method, params, trace).then(
       (result) => ({ result }),
       (error: unknown) => plainErrors.encode(error)
     ),
@@ -147,3 +159,4 @@ const host: CanvasHost = {
 }
 
 contextBridge.exposeInMainWorld("canvasHost", host)
+exposeTelemetry()

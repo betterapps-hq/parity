@@ -8,6 +8,8 @@ allowBuilds:
   # NSIS is used on Windows; electron-builder's optional Squirrel backend does not need its setup script.
   electron-winstaller: false
   msw: false
+  # sentry-cli's binary comes from its platform package; its install script only downloads one when that is missing.
+  "@sentry/cli": false
 minimumReleaseAgeExclude:
   - electron@45.1.0
   - "@tldraw/driver@5.5.4"
@@ -21,12 +23,14 @@ minimumReleaseAgeExclude:
   - tldraw@5.5.4
   - rulesync@43.5.0
   - skills@1.7.6
-  - "@buildkitgg/shadcn-baseui-nova@0.4.6"
+  - "@buildkitgg/shadcn-baseui-nova@0.5.0"
 verifyDepsBeforeRun: error
 catalogMode: prefer
 # Versions set once for the workspace. Reference them with "catalog:".
 catalog:
-  "@buildkitgg/shadcn-baseui-kit": npm:@buildkitgg/shadcn-baseui-nova@0.4.6
+  "@buildkitgg/shadcn-baseui-kit": npm:@buildkitgg/shadcn-baseui-nova@0.5.0
+  "@sentry/cli": 3.8.2
+  "@sentry/electron": 8.3.0
   beachball: 2.66.0
   electron-builder: 26.18.0
   electron-updater: 6.8.11

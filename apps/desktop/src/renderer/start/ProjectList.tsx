@@ -68,41 +68,41 @@ export function ProjectList({
   const [more, setMore] = useState(false)
   const listed = inScope(projects, scope, skip)
   const shown = more ? listed : listed.slice(0, limit)
+  const toggle = listed.length > limit && (
+    <button
+      type="button"
+      onClick={() => setMore(!more)}
+      className="rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {more ? "Show less" : `Show ${listed.length - shown.length} more`}
+    </button>
+  )
   return (
-    <section aria-labelledby={heading} className="flex flex-col gap-4">
+    <section aria-labelledby={heading} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-4">
       <h2 id={heading} className="sr-only">
         Projects
       </h2>
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <fieldset className="m-0 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 border-0 p-0 text-sm">
-          <legend className="sr-only">Projects to show</legend>
-          {scopes.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={option.id === scope}
-              onClick={() => {
-                setScope(option.id)
-                setMore(false)
-              }}
-              className="rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:font-medium aria-pressed:text-foreground"
-            >
-              {option.label}
-            </button>
-          ))}
-        </fieldset>
-        {listed.length > limit && (
+      <fieldset className="m-0 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 border-0 p-0 text-sm">
+        <legend className="sr-only">Projects to show</legend>
+        {scopes.map((option) => (
           <button
+            key={option.id}
             type="button"
-            onClick={() => setMore(!more)}
-            className="rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            aria-pressed={option.id === scope}
+            onClick={() => {
+              setScope(option.id)
+              setMore(false)
+            }}
+            className="rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:font-medium aria-pressed:text-foreground"
           >
-            {more ? "Show less" : `Show ${listed.length - shown.length} more`}
+            {option.label}
           </button>
-        )}
-      </div>
+        ))}
+      </fieldset>
+      {/* Beside the filters, except on a phone, where it follows the cards in reading order too, not only on screen. */}
+      {toggle && <div className="justify-self-end max-sm:hidden">{toggle}</div>}
       {shown.length > 0 ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))] gap-x-5 gap-y-7">
+        <div className="col-span-2 grid grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))] gap-x-5 gap-y-7">
           {shown.map((project) => (
             <ProjectCard
               key={project.root}
@@ -113,8 +113,11 @@ export function ProjectList({
           ))}
         </div>
       ) : (
-        <EmptyList scope={scope} />
+        <div className="col-span-2">
+          <EmptyList scope={scope} />
+        </div>
       )}
+      {toggle && <div className="col-span-2 sm:hidden">{toggle}</div>}
     </section>
   )
 }

@@ -753,6 +753,12 @@ const LayerRow = memo(function LayerRow({
               <span className="min-w-0 flex-1 truncate">{label}</span>
             )}
             <span className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
+              {/* A component's slot says which: children, or the prop that takes it. */}
+              {row.node?.type === "layout" && row.node.slot !== undefined && container.kind === "component" && (
+                <span className="font-mono text-[11px]" style={{ color: kindColors.component }}>
+                  {row.node.slot}
+                </span>
+              )}
               {changed && (
                 <PenLine
                   className="size-3"

@@ -2233,7 +2233,7 @@ export the selection at the same sizes. The sizes are remembered for every expor
   first.
 - **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05 (decisions.md); the icon set's dialog
   is kept as an exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state
-  and mode it shows, at Settings' export scale. Copy as PNG is CAN-39.
+  and mode it shows, at Settings' export scale. Copy as PNG is below.
 
 Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
 section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
@@ -2250,6 +2250,37 @@ PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-me
 `chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
 `chrome/CanvasMenu.stories.tsx` check the menu's item and its keys. Gaps: drawing offscreen and writing the files run in
 the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
+
+### Copy as PNG (PAR-190)
+
+**Ctrl+Shift+C** (Edit > Copy as PNG in the keyboard shortcuts and Search actions) copies the selected layers, or else
+the selected designs, to the clipboard as one PNG at 2x, to paste into a chat, a document or another app. A toast says
+"Copied as PNG". With no layer or design selected, the keys do nothing.
+
+- **What's drawn:** the same as an export's, from the same offscreen frames and cuts: each design drawn once at 2x in
+  the state the canvas shows and its main mode, saved or not. One layer or design copies exactly the PNG exporting it at
+  2x writes.
+- **Several layers of one design** copy as the box around them all, with what's between them, as the canvas shows it.
+- **Several designs** copy as one picture, each where it sits on the canvas, see-through between them.
+- **What can't be drawn** is left out with a warning toast, as in an export; when nothing could be drawn, nothing is
+  copied and a toast says so.
+- **Too big to copy:** a picture over 16,384 pixels wide or tall at 2x, such as every design in a project spread over
+  the canvas, isn't copied, and a toast says to select less or export it. That's only known once the designs are drawn,
+  which for 61 designs took about 13 seconds.
+- **Not here:** no menu item yet, and no other scale or format; copying uses neither the Export section's sizes nor
+  Settings' export scale.
+
+Code: `planPicture`, `copyScale` and `largestPicture` in `packages/editor/src/export-files.ts`; `copySelectedAsPng` in
+`chrome/commands.ts`, sharing `selectedTargets` with `exportSelected`, which writes the clipboard; `copyAsPng` in
+`chrome/keymap.ts` and `chrome/actions.ts`; `layersPicture` in `utility/agent.ts`, through `framePictures`, with
+`composePicture` in `utility/webp.ts`, behind the service's `layers.picture`.
+
+Tests: `packages/editor/src/export-files.test.ts` (6 more: one layer planned exactly as its 2x PNG export, the box
+around a design's layers, designs placed as on the canvas, what can't be drawn left out with why, a picture too big to
+copy, and nothing with a size). `apps/desktop/src/utility/webp.test.ts` (2 more: one piece is byte for byte the export's
+PNG, and pieces placed with see-through between). `chrome/keymap.test.ts` runs Copy as PNG from Ctrl+Shift+C and
+Cmd+Shift+C, apart from Copy and Copy style. Gaps: drawing and writing the clipboard run in the desktop app, which no
+unit test opens, and the e2e suite doesn't copy as PNG.
 
 ## Fields
 
@@ -2490,6 +2521,120 @@ Gaps: the section's wiring has no automated DOM test. The reader was run against
 isolated copy of the app on that project, the same day, a Button with a text layer in its `icon` slot drew it before its
 label and its Props section said `icon` was set in layers, and an Input's `contentBefore` took `$` as text and drew it
 in the field, with `contentAfter` offering "Text, or layers in its slot".
+
+### Slots in a component design (PAR-83)
+
+A layout of a component design can be a slot: a place each instance fills with layers of its own. Until one does, the
+layout's own layers show, as placeholder content. A slot is a kind of prop with a name; the designer doesn't choose
+which one code nests between the tags.
+
+- **Make slot** sits beside Make component in a layout's header, the other thing a layer can become. It makes the layout
+  a slot named after it. Once it's a slot, the button is the slot's name, which goes to it in the component's Props with
+  the name focused, and × makes it a plain layout again. A layout inside a slot, or around one, can't be one: the button
+  stays focusable and its hint says why.
+- **Props** lists a component's slots after its params, each with its type's tile. Where a param has its default, a slot
+  has the layout it fills, which selects that layout. Its name is renamed in place, camelCased (`Side actions` is
+  `sideActions`), and refused, with why under the row, when it isn't usable, is reserved (`children` among them), or is
+  one of the component's params or another slot's. An × inside the layout's field, on hover or focus, removes it.
+  **Add** offers "Slot from a layout" with the layouts that can be one, outlining each on the canvas as it's pointed at;
+  the new slot's name is selected to rename. With none left, Add stays focusable and says why rather than opening an
+  empty menu.
+- **In code**, below Modes, shows how an instance reads: each param with its default, and each slot. Code nests the slot
+  holding the most layers between the tags, as React's `children` and Vue's default slot, the first in layer order on a
+  tie (`childrenSlot`), and passes the others as props that take layers.
+- **On the canvas** a selected component outlines each slot in dashes with its name, and hovering a slot's row or its
+  line of code outlines its layout. Layers shows a slot's dashed icon and its name at the end of its row.
+
+The file keeps a slot as `slot` on the layout. Its rules are in `@parity-app/core`: `designSlots`, `childrenSlot`,
+`setSlot`, `slotProblem`, `slotPlaceProblem` and `freeSlotName` in `slots.ts`, and `slotName` and `slotNameProblem` in
+`slot-names.ts`. Filling a slot from an instance is PAR-84.
+
+Code: `chrome/slot-props.tsx` (a slot's row, Add, In code and Make slot), `chrome/slot-focus.ts` (the slot to focus and
+a refused name), `ParamsSection` and `InCodeSection` in `chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`,
+`chrome/LayerPanel.tsx`, the slot outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
+
+Tests:
+
+- `packages/core/src/slots.test.ts` (16): naming a slot and unmarking it; a screen's layouts and a component's text
+  refused; a name that isn't usable, is reserved, is a param's or another slot's; a slot inside another, or around one;
+  the free name a new slot takes; the slot code nests, by layers and on a tie; `designSlots` skipping screens and nested
+  slots; the file refusing a bad or repeated name; and copies and detached instances losing the mark.
+- Stories: Parity/Inspector/Layer/Slots (Layout In A Component, which makes a slot, Second Slot, Slot Layout and Layout
+  Inside A Slot), Parity/Inspector/Design (Component With Slots, Component With Several Slots, Adding A Slot, which adds
+  one from Add, and Slot Name Taken, which renames one to a param's name), Parity/Left panel/Layers › Slots, and
+  Parity/Canvas/Selection › Component Slots.
+
+Gaps: the slot outlines and the hover from Props have no automated DOM test. They were checked in those stories on
+2026-11-06, with a param's name typed into a slot's name and refused, and the slot chip focusing the name in Props.
+
+### Adding a prop, and a layer using one
+
+A component design's props can be made by hand as well as by Extract component. **Add** in Props offers Text, Number and
+Toggle, then a row to type the prop's name in, with its kind's tile: Enter adds it, camelCased, with a default for its
+kind (`Text`, `0`, off) to change in the row it becomes; Escape, or leaving it empty, doesn't. A name that isn't usable,
+is reserved, or is another prop's or slot's stays typed, with why under the row. Slots come after, as "Slot from a
+layout", while a layout can be one.
+
+A layer of the component design can use a prop for its text, if it's text, and for whether it shows:
+
+- **Unbound,** the field has a button beside it, Use a prop for this text (or whether it shows), offering the
+  component's props of the right kind, text props or toggles, and New prop from this text, which adds one named after
+  the layer, with what the field shows as its default, so nothing changes until an instance sets it.
+- **Bound,** the field is the prop's name in the component color, which goes to the component's Props, with an × inside
+  to stop using it, keeping what it showed as the layer's own value.
+
+A copy's layers, inside an instance, don't offer it: they belong to their component.
+
+Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `bindableProps`,
+`bindField` and `propFromField`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
+row being typed and a refused name), and `chrome/field-prop.tsx` with `LayerSections` in `chrome/LayerPanel.tsx`.
+
+Tests:
+
+- `packages/core/src/prop-binding.test.ts` (6): adding each kind with its default; names refused as unusable, another
+  prop's or a slot's, and a free one numbered; the props a field can use; using one and going back to its value; a prop
+  of the wrong kind, and text on a layer that isn't text; and a prop made from a field.
+- Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop, Visibility
+  Using A Prop, and Making A Prop From Text, which makes `period` from Plan card's period).
+
+Gaps: a prop can't be renamed or removed from Props yet, and a component's label (a code component's `children`) can't
+use one from its field.
+
+### Filling a slot from an instance (PAR-84)
+
+An instance fills its component's slots with layers of the design it sits in, shown in place of each slot's placeholder.
+A slot it leaves empty shows the placeholder.
+
+- **The instance's panel** lists each slot after its params: a solid tile and how many layers fill it, or a dashed tile
+  and Empty. Resting on one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by
+  itself so a large component's slot is as easy to see as a small one's; an empty one's placeholder is faded inside a
+  dashed edge. Clicking one selects the slot. An × inside a filled one's field clears it, deleting its layers.
+- **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
+  Clear. A click in Components adds into it, at its end.
+- **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
+  selecting them works as for any other. Layers doesn't list them under the instance.
+- **Detach** bakes the fill in where the placeholder was, keeping its layers' ids.
+
+The file keeps a fill as `slots` on the instance, by slot name, as a code component keeps its slots. Its rules are in
+`@parity-app/core`: `instanceSlots`, `slotAtPath` and `clearSlot` in `slots.ts`, the fill drawn by `resolveDesign` in
+`render.ts`, and Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the
+picture's tree `slotPreviewTree`.
+
+Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `InstanceSection` and `LayerPanel` in
+`chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in
+`canvas/insert.ts`.
+
+Tests:
+
+- `packages/core/src/slots.test.ts`, filling an instance's slots (6): a fill kept in its slot and listed, a fill drawn
+  with its own ids in place of the placeholder, the path that points at a slot, clearing, Detach, and the file refusing
+  a fill that reuses an id.
+- `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
+- Stories: Parity/Inspector/Layer/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
+
+Gaps: the card's picture is drawn by the offscreen renderer, which Storybook hasn't got, so the stories show it being
+drawn. Dropping onto a slot on the canvas isn't built yet, and renaming a slot leaves instances' fills under its old
+name, where they no longer show.
 
 ### A library's own props beside the attributes it passes on (PAR-457)
 
@@ -2933,12 +3078,12 @@ Tests:
 - `apps/desktop/src/renderer/chrome/edit-scope.test.ts` (3): no note in the base state, the state's name, the variant's.
 - `apps/desktop/src/renderer/chrome/prop-values.test.ts` (4): fields by declared type before there's a value, by the
   value's own type, JSON refused rather than kept as text, and any value read as JSON or text.
-- `chrome/LayerPanel.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
+- `chrome/LayerInstances.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
   Yearly.
 - `packages/core/src/edit.test.ts`, "clearing a prop, as the inspector does" (2, PAR-421): a prop the design turns on,
   cleared in one state, off there and still on in the design, and Reset taking it back; and clearing in the base state
   removing it, with a value set as before.
-- `chrome/LayerPanel.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
+- `chrome/LayerStates.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
   `disabled` switch turned off in Wrong password, then Reset, which turns it back on and leaves nothing to reset.
 
 Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, the notes in the inspector, the
@@ -3492,7 +3637,8 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
   in about 10 ms each, off main's thread. The canvas is given the WebP too, so it reads and decodes the smaller file.
   Component previews are kept the same way. Chromium's own encoder was tried first, being lossless at full quality, but
-  wrote files 5% larger than the PNGs. A system where sharp can't load keeps nothing, and captures each session.
+  wrote files 5% larger than the PNGs. A system where sharp can't load keeps nothing, and captures each session. Nor
+  does Linux, where sharp isn't loaded in the app, since it crashed the project service there (PAR-688).
 - **Each bitmap carries its frame's height** as the canvas drew it, in a `parity:height` text chunk after the image, so
   a frame that hasn't drawn yet can show its kept bitmap at its size (see Opening in seconds). WebP decoders skip it, as
   the format asks them to of a chunk they don't know. The offscreen window lays a frame out at the bitmap's quarter
@@ -3809,7 +3955,10 @@ Frames exploration draws it, rather than thick zoomed in and gone zoomed out.
   outline of the board rounds with them.
 - **A board grows and shrinks from its top left corner,** where the design's position is, so its frames move a little on
   the canvas as the zoom changes the gutter. The canvas takes the board's new size, for its outline, snapping and hit
-  testing, once the camera stops, rather than on every frame of a zoom.
+  testing, once the zoom settles, rather than on every frame of a zoom: once it has held for 3 frames and 150 ms, the
+  same moment tldraw's `--tl-zoom` changes. tldraw's own camera state isn't used, since on a busy machine frames slower
+  than its timeout had the camera stop on almost every frame, and every board measured itself each time (PAR-655).
+  Panning doesn't hold a board's size back.
 - **The agent's estimate of a board it hasn't drawn takes the gutter at 40%,** where it's widest on the canvas, so it's
   never smaller than the board will be drawn. A drawn board's size is as the canvas has it at its zoom.
 
@@ -3824,10 +3973,14 @@ and gaps, rows of states, a frame's own size, and never being smaller than the b
 `apps/desktop/src/renderer/canvas/board-gutter.test.ts` (7: each part's spacing on screen up close, the same on the
 canvas past 40%, the divider's and the row line's split gaps, dashed lines and the edge a screen pixel wide, each place
 clearing what another set, and a board laid out from the parts matching the estimate at 40% and 5% and smaller at 100%);
-`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%). Gaps:
-applying the parts to the DOM, and the shape waiting for the camera, have no automated test. They were checked in
-Storybook on the example's Pricing board and Sign in showing every state, measured on screen at 400%, 100%, 40%, 25% and
-5%. The cost of laying boards out again on each frame of a zoom wasn't timed.
+`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%);
+`packages/editor/src/zoom-settle.test.ts` (4: settling after 3 frames and 150 ms, starting again when the zoom changes,
+not settling between slow frames that each zoom, nor between a mouse wheel's notches at 60 frames a second). The
+`zoom at 100%` run of `pnpm perf --profile` shows whether boards measure themselves mid-zoom, as
+`getClientRects ← measure /canvas/ContainerShapeUtil.tsx`. Gaps: applying the parts to the DOM, and the shape waiting
+for the zoom to settle, have no automated test. They were checked in Storybook on the example's Pricing board and Sign
+in showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of laying boards out again on each
+frame of a zoom wasn't timed.
 
 ## What the editor itself loads
 
@@ -3918,20 +4071,22 @@ Home is pinned first in the tab strip, an icon that can't be closed, and shows w
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
 at the end of the strip. Both are the start page from the explorations (decisions.md, "The start page is built"):
 
-- **Home** has the organization switcher, once you're signed in, then Search, Open and New project along the top. Below
-  them, the Continue where you left off section offers the project opened last, which its picture, Resume or Enter
-  opens, with For you beside it once you're signed in; signed out there's no For you. For you says nothing needs you,
-  and what will show up there, until something can.
+- **Home** has the account menu (see Signing in), then Search, Open and New project along the top. Below them, the
+  Continue where you left off section offers the project opened last, which its picture, Resume or Enter opens, with For
+  you beside it once you're signed in; signed out there's no For you. For you says nothing needs you, and what will show
+  up there, until something can.
 - **The first time (PAR-188),** before any project has opened, Home keeps that layout. Where this copy of Parity has the
   example, as it does run from the repository, Acme takes Continue's place: its picture, shipped with Parity until its
   own is kept, a line on what to try there, and Open Acme. Bring your own app sits beside it, with Open a folder and
   Open a project file. Without the example, the place shows what Parity does with your app, with the same two buttons.
-- **A new tab** has a large Search field, then New project and Open.
+- **A new tab** has a large Search field, which has the keyboard when the tab shows so Enter or Space searches, then
+  Open and New project in Home's order.
 - **Both list your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
-  more. A card has the project's picture, its folder's name and when it was last opened; its tooltip is the folder's
-  path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent. Home's Recent leaves out the
-  project it offers to continue. A list with nothing in it says what will show up there, in a dashed box a row of cards
-  tall.
+  more, which sits beside the filters, or after the cards in a window as narrow as a phone. There Home's Search spans
+  the row under the account menu. A card has the project's picture, its folder's name and when it was last opened; its
+  tooltip is the folder's path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent.
+  Home's Recent leaves out the project it offers to continue. A list with nothing in it says what will show up there, in
+  a dashed box a row of cards tall.
 - **A project whose folder is gone (PAR-188)** — moved, renamed, deleted, or on a drive that isn't plugged in — is
   greyed, with Folder not found on its picture and under its name. Continue offers the next one instead, and opening it
   says where the folder was and offers Remove. It stays listed until removed, since a drive comes back. The service
@@ -3944,7 +4099,8 @@ at the end of the strip. Both are the start page from the explorations (decision
   Continue picture names the frames above them, as the canvas does. Up to five screens are pictured: those with a phone
   frame beside them first, then the rest, each in Layers' order; components and frames aren't. A project not opened
   since shows a placeholder, a board and a phone in a color of its own with its initial. Each frame has a mid-grey edge,
-  so a phone over a desktop frame shows against it whether their screens are light or dark.
+  so a phone over a desktop frame shows against it whether their screens are light or dark, and the phone frame has a
+  shadow of its own, so it stands off the main frame it overlaps.
   - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
     and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
     Edits not saved yet are never pictured: a picture that would show them waits for the next save.
@@ -4161,6 +4317,13 @@ opened again.
   address. A reopen waits for the closing builder's process to end, so a project never has two.
 - **Tabs and their views are given a tab's id,** not the tab: React keeps the props a list's parent drew last, so a
   closed tab passed whole would keep its session, canvas included, until the window drew again.
+- **A closed tab's session lets go of its editor** (PAR-624). React also keeps the tabs a component last read, through
+  `useSyncExternalStore`, until it renders again, and through the editor that kept the canvas: the tldraw one the test
+  allowed for, and all of it when frames were still awake as the project closed. The example now ends about 170 nodes
+  after closing, where it was about 3,300.
+- **Frames' and project icons' shadow roots are attached unseen by Session Replay** (`renderer/shadow.ts`, PAR-624). The
+  recorder keeps every shadow root it watches until it starts over, so a frame mounted while it recorded kept the closed
+  project's whole canvas, about 13,000 nodes, in some runs.
 - **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
   still open. When it isn't, it takes a port no guest has had, and the open tabs are told (`project.guestMoved`): each
   loads the guest from the new address, swaps in its tokens and lets go of the old guest. A tab whose new guest won't
@@ -4173,8 +4336,9 @@ opened again.
 Code: `serveBuilder` and `restartBuilder` in `openProjects`, `apps/desktop/src/utility/projects.ts`, with
 `newGuestPort`, `restartPort`, `guestMove` and `followGuest` in `guest-ports.ts`; `moveGuest` in
 `apps/desktop/src/renderer/workspace.ts`; `releaseGuest` in `apps/desktop/src/renderer/guest.ts`, called from
-`workspace.ts` and `render.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened
-guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
+`workspace.ts` and `render.ts`; `closeNow` in `workspace.ts`, which takes a closed tab's editor; `unrecordedShadow` in
+`apps/desktop/src/renderer/shadow.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a
+reopened guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window ends
 within 5,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over after two. The
@@ -4339,6 +4503,38 @@ manual checks without a dialog, quiet startup results, repeated checks, retry an
 notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,
 unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
+### Sharing diagnostics (PAR-626)
+
+Settings > Privacy > Share diagnostics is on by default. Off, nothing Parity records leaves the computer; on, errors,
+crashes, traces and a recording of the window go to the Parity team. It takes effect at once, without a restart, and is
+remembered between runs. Its description stays the same on and off, so the row keeps its height (PAR-703). When
+`PARITY_TELEMETRY` or `DO_NOT_TRACK` is set, the switch shows what that run does, is disabled, and names the variable.
+Turning it off also starts a new install ID. About lists Diagnostics and the Install ID with the versions, and Copy
+details includes them. Settings scrolls when it's taller than the window.
+
+`@parity-app/telemetry`'s `settings.test.ts` covers how the variables and the saved setting decide a run, reading
+`telemetry.json` and finding the app's data folder on each system. `main/telemetry-setting.test.ts` covers the first
+run's install ID, saving the switch, a variable deciding the run, and a new ID on turning off.
+`chrome/TelemetrySetting.stories.tsx` shows the switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and
+turns it off with the pointer, checking its description stays put.
+
+### Report a problem (PAR-635)
+
+Help > Report a problem asks what happened and sends it to the Parity team with a screenshot of the window (on by
+default, shown in the dialog, taken once the menu has closed), and lists what else goes: the last minute of the window
+as a replay, the last hour of the local log, the versions of Parity and the system, and the open projects. Send stays
+off until something is written. It's sent even with Share diagnostics off, since the person asked; nothing else is. A
+sent report says thanks and nothing more: no link, since only the team can open it. A report that can't be sent says to
+check the connection, and keeps what was written. When the last run of an installed build ended without quitting, Parity
+offers the same dialog as it starts, titled "Parity closed unexpectedly", with the crash in the list and Not now in
+place of Cancel. `parity diagnostics` writes a zip of the same files, for a bug filed by hand.
+
+`@parity-app/telemetry`'s `diagnostics.test.ts` covers finding a run that didn't quit (ignoring runs only the CLI
+recorded), reading the local log's lines, and the files a report takes: the last hour of events, versions, projects and
+the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The CLI's `diagnostics.test.ts` covers the
+zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, sending,
+sent and failed, with Send moving from one to the next.
+
 ### The page never scrolls (PAR-424)
 
 The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.
@@ -4426,47 +4622,71 @@ one light, breathing.
 
 Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
 
-## Signing in (PAR-612)
+## Signing in (PAR-612, PAR-669)
 
 You sign in with Google, GitHub, Microsoft or a work email, in your browser, through WorkOS AuthKit, as
-[proposals/sign-in.md](proposals/sign-in.md) designs it. Signing in is optional: nothing that works on local folders
-asks for it. Parity carries WorkOS's client ID and never its API key, and the window never sees a token.
+[proposals/sign-in.md](proposals/sign-in.md) designs it, and can stay signed in to several accounts, such as your own
+and your company's. Signing in is optional: nothing that works on local folders asks for it. Parity carries WorkOS's
+client ID and never its API key, and the window never sees a token.
 
 - **The first launch shows the sign-in screen** in Home's place: Continue with Google, GitHub or Microsoft, or a work
   email, and "Open a folder on this computer without signing in", which opens the folder picker over Home. Signing in or
   going on without is remembered (`parity.signIn` in local storage), and so is opening a project another way while it
   shows. It doesn't show when Parity already knows a project, or was started with one, as `pnpm dev` and the end-to-end
   tests start it.
-- **Signing in later** is from the account spot at the end of the title bar, or Sign in in Home's For you. It opens the
+- **Signing in later** is from the account spot at the end of the title bar, or Sign in at the top of Home. It opens the
   same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
+  Signed in already, it's Add another account, which says the accounts you're in stay signed in.
 - **A button opens the browser** at WorkOS's authorize URL with that provider chosen; the work email opens AuthKit with
-  it filled in. Parity shows Continue in your browser, with Open it again, Copy the link and Cancel; after 30 seconds it
-  says what to do if the page didn't open, and Open it again becomes the main button. It never stops waiting on its own.
-  Cancel goes back to the ways in on the screen, or closes the dialog, and stops listening for that sign-in.
+  it filled in. Parity shows Continue in your browser, naming the work email it signs in, with one button, Cancel, and
+  under it "Page didn't open? Open it again or copy the link." After 30 seconds it says Still waiting for your browser,
+  Open it again becomes the main button above Cancel, and the line offers copying the link. It never stops waiting on
+  its own. Cancel goes back to the ways in on the screen, or closes the dialog, and stops listening for that sign-in.
 - **What went wrong says what to do next:** canceled in the browser (`access_denied`), Parity couldn't sign you in (any
   other error, or trading the code failed), this account can't sign in (WorkOS answered 403), or sign in through your
   organization (`sso_required` or `organization_authentication_methods_required`), whose Continue with single sign-on
   opens AuthKit with the account's email. Details hold what WorkOS said, to copy.
+- **Someone in more than one organization chooses one** when WorkOS answers `organization_selection_required`: Choose an
+  organization lists the organizations it names, and choosing one opens AuthKit in the browser with that
+  `organization_id` and the account's email, which signs in to it. Invitations and creating an organization wait for
+  Parity's service (PAR-616).
 - **The browser hands back to the copy that asked.** An installed app uses `parity://auth/callback`: the installer
   registers it on macOS (`protocols` in `electron-builder.yml`) and the app registers itself on Windows and Linux as it
   starts. macOS gives the running app the link as `open-url`; Windows and Linux start a second Parity process with it,
   which passes it on and quits without opening a window. A copy that gets a link it isn't waiting for asks each other
   copy in the agent registry, at `POST /auth/link` on its local service with its token, and the one whose `state` it is
   takes it. A `pnpm dev` copy listens on a free loopback port for each sign-in, `http://127.0.0.1:<port>/auth/callback`,
-  and answers the browser once the code is traded: "You're signed in to Parity" or "Parity couldn't sign you in".
-- **Main keeps the session.** The refresh token is kept encrypted with `safeStorage` in the app data's `account` file,
-  with who it signs in and how; the access token stays in main's memory. Main refreshes a minute before the access token
-  expires, every 4 minutes, using the newest token in the file, since other copies share it; a refresh with no answer is
-  tried again after 5 seconds, doubling to 5 minutes. On Linux without a keyring nothing is kept: a toast says "You're
-  signed in until you quit Parity", the account menu keeps saying so, and both explain why.
-- **A refresh WorkOS refuses shows Session ended** over whatever's open: Sign in again to keep working, with who it was
-  and Continue with the way they signed in. Open projects and unsaved changes stay as they are.
-- **The account menu** shows your picture or initials, your name, and your organization and role, or your email in no
-  organization yet, then Settings and Sign out. Signed out it's an outline of an avatar, with Sign in and Settings. Sign
-  out forgets both tokens and says "You're signed out"; open tabs stay.
-- **Home's organization switcher** shows only once you're signed in: the session's organization, as Your organization
-  until Parity's service can name it (PAR-616), and Personal. Switching, Invite people and New organization say they
-  aren't ready yet.
+  and answers the browser once the code is traded: "You're signed in to Parity" with a green check on the mark,
+  "Continue in Parity" with a purple arrow when choosing an organization or single sign-on is next, or "Parity couldn't
+  sign you in" with an amber warning.
+- **Main keeps each account's session.** Its refresh token is kept encrypted with `safeStorage` in the app data's
+  `account` file, with who it signs in and how, and the file says which account Parity was last in, to start in it; the
+  access tokens stay in main's memory. Main refreshes each account a minute before its access token expires, every 4
+  minutes, using the newest token in the file, since other copies share it; a refresh with no answer is tried again
+  after 5 seconds, doubling to 5 minutes. A file from a build that kept one account isn't read, so you sign in once
+  more. On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit Parity", the accounts
+  panel keeps saying so, and both explain why.
+- **Adding another account asks which one.** Google, GitHub and Microsoft get `prompt=select_account` through WorkOS's
+  `provider_query_params`, so a browser signed in to one of your accounts still offers the others. The account it signs
+  in joins the list and you're in it, with a toast, "Added" and its email; the same account again takes its own place.
+- **A refresh WorkOS refuses ends that account's session.** It stays in the panel, dimmed, until you sign in again or
+  remove it. If you were in it, Session ended shows over whatever's open: Sign in again to keep working, with who it was
+  and Continue with the way they signed in, which names the account to the provider. With another account signed in,
+  you're in that one meanwhile, and it says so. Open projects and unsaved changes stay as they are.
+- **Your accounts are in a panel** from your picture at the end of the title bar. With one account it's your name and
+  email; with several, each row is an email and where it opens, the organization or Personal, and the one you're in is
+  shaded. Choosing another switches at once, with a toast, "Switched to" and its email, since each account keeps its own
+  session. Each row has its own Sign out, or Remove for an account whose session ended, whose row signs in again. Add
+  another account is last. Signing out of the account you're in moves you to the one you used last, and the toast says
+  where you are now; signing out of the last says "You're signed out". Open tabs stay. Signed out, the picture's an
+  outline and the panel offers Sign in. Settings stay in the app's menu.
+- **Home's workspace menu** takes the organization switcher's place, at the top left: the organization you're in, or
+  Personal in none, in the account you're in. Signed out it's Sign in. Its menu lists Personal, then the organizations
+  WorkOS named when you chose one, which main keeps with the session; with several accounts, the email above them says
+  whose they are. Choosing one switches with a refresh naming it, in the background, so nothing open closes, and the
+  menu says Switching to it with a spinner meanwhile; if WorkOS won't, a toast says Parity couldn't switch organizations
+  and you stay where you were. A session can't leave an organization, so Personal and New organization say they aren't
+  ready yet, until Personal is an organization of your own (PAR-616).
 
 Code: main's side is `apps/desktop/src/main/account.ts` (`createAccount`: signing in, reading the link, trading the
 code, refreshing, the problems), `session-store.ts`, `loopback.ts` and `pass-link.ts`, wired up in `main/index.ts` (the
@@ -4474,22 +4694,36 @@ scheme, `open-url`, the second process, IPC). `@parity-app/account` builds the U
 WorkOS. `shared/account.ts` holds the IPC's zod schemas, which main checks requests against and the window checks the
 state against; `shared/hand-back-page.ts` is the loopback's page; `utility/agent.ts` answers `/auth/link`. The window's
 side is `renderer/account/`: `account.ts` (the store, first launch), `SignIn.tsx` (the screen, the dialog, until quit),
-`SignInPanels.tsx` and `AccountMenu.tsx`, with `start/StartControls.tsx` and `start/HomePage.tsx`.
+`SignInPanels.tsx`, `AccountMenu.tsx` (the accounts panel) and `OrganizationBadge.tsx`, with `start/StartControls.tsx`
+(`WorkspaceMenu`) and `start/HomePage.tsx`. Switching organizations is `switchOrganization` in `createAccount`, over the
+`accountSwitch` channel, and switching accounts is `use`, over `accountUse`; `session-store.ts`'s `withAccount` and
+`withoutAccount` change what's kept.
 
-Tests: `main/account.test.ts` (13: the provider and the work email in the URL, the code traded with the client ID and no
+Tests: `main/account.test.ts` (28: the provider and the work email in the URL, the code traded with the client ID and no
 secret, a link that's another copy's, canceled and failed with WorkOS's words, single sign-on and a refused account with
-their email, canceled while trading, kept until quit, refreshing a minute early with the new token kept, trying again
-when WorkOS doesn't answer, Session ended, another copy's newer token, signed out in another copy, signing back in as
-Parity starts, signing out), `main/session-store.test.ts` (4: kept encrypted and forgotten, nothing kept without a
-keyring or encryption, an unreadable file forgotten), `main/pass-link.test.ts` (3: the link in a launch's arguments,
-each other copy asked with its token until one takes it, none taking it) and `main/loopback.test.ts` (1: the link with
-its port, the page once traded, 404 for another sign-in's). `packages/account` covers the URL, PKCE, the link and
-WorkOS's answers. Stories: Parity/Sign in (the first launch, waiting, each problem, the dialog, Session ended, and the
-account menu signed in, in no organization, until quit and signed out). Gaps: no end-to-end test signs in, since that
-needs a real account in a browser. It was tried in `pnpm dev` against WorkOS Staging on 2026-11-05: signing in with
-Google, the loopback's page, the account menu in no organization, a refresh 4 minutes later with the client ID alone,
-the session moved into an organization and kept across a restart, and Session ended after WorkOS revoked the session.
-The `parity://` scheme and passing links between copies need an installed build, which hasn't been tried yet.
+their email, the organizations to choose from and AuthKit opened with the one chosen, canceled while trading, kept until
+quit, the organizations WorkOS named kept through refreshes and in the kept session, switching with a refresh naming the
+organization, staying put when WorkOS won't switch, forgetting them on signing out, refreshing a minute early with the
+new token kept, trying again when WorkOS doesn't answer, Session ended, another copy's newer token, signed out in
+another copy, signing back in as Parity starts, signing out; and with several accounts: adding one with the provider
+asked which, the same account again in its place, switching without asking WorkOS, signing out of another and staying,
+moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
+account you're in ends, restoring every account in the one Parity was last in), `main/session-store.test.ts` (7: kept
+encrypted and forgotten, the file removed with the last account, nothing kept without a keyring or encryption, an
+unreadable or one-account file forgotten, an account replaced in place or added, which account you're in forgotten only
+with it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one
+takes it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
+sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
+and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
+and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
+another account, the accounts panel with one account, two, one whose session ended, in no organization, until quit and
+signed out, and the workspace menu in two organizations, with two accounts, in one, Personal and signed out). Gaps: no
+end-to-end test signs in, since that needs a real account in a browser; switching between two organizations, and adding
+a second account with the provider asked which, haven't been tried against WorkOS yet. It was tried in `pnpm dev`
+against WorkOS Staging on 2026-11-05: signing in with Google, the loopback's page, the account menu in no organization,
+a refresh 4 minutes later with the client ID alone, the session moved into an organization and kept across a restart,
+and Session ended after WorkOS revoked the session. The `parity://` scheme and passing links between copies need an
+installed build, which hasn't been tried yet.
 
 ## Rendering frames
 

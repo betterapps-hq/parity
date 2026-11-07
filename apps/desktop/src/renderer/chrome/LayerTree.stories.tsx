@@ -1,4 +1,4 @@
-import { addVariant, type ContainerSpec, type DesignNode, editNode } from "@parity-app/core"
+import { addVariant, type ContainerSpec, type DesignNode, editNode, setSlot } from "@parity-app/core"
 import { designsSelection, layersSelection, newDesign } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
@@ -168,6 +168,23 @@ export const LayerSelected: Story = {
     async () => {
       await openProjects("example")
       example().selection.set({ design: design("Plan card"), node: node("Plan card", "Feature 3 text") })
+    }
+  ]
+}
+
+/**
+ * A component design's slots (PAR-83): Plan card's features are a slot, so the row has the slot's dashed icon and
+ * says features at its end.
+ */
+export const Slots: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const key = design("Plan card")
+      example().store.updateContainer(key, "Make slot", (container) =>
+        setSlot(container, node("Plan card", "Features"), "features")
+      )
+      example().selection.set({ design: key, node: node("Plan card", "Feature 1") })
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { type Checkpoint, dragThreshold } from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
+import { startTrace, type Trace } from "../tracing.ts"
 
 /**
  * One lifecycle for every gesture on the canvas, so a fix to how one starts or ends reaches them all. A pointer gesture
@@ -133,6 +134,7 @@ export function followPress(
   let drag: Drag | undefined
   let checkpoint: Checkpoint | undefined
   let releaseCursor: (() => void) | undefined
+  let trace: Trace | undefined
   // Only once the design has changed, since a revert writes its file again.
   const revert = () => {
     if (!checkpoint || press.design === undefined) return
@@ -143,6 +145,8 @@ export function followPress(
     if (!isPointer(event)) return
     if (!drag) {
       if (Math.hypot(event.clientX - start.clientX, event.clientY - start.clientY) < dragThreshold) return
+      // Each drag is a trace of its own, by the gesture's kind (PAR-629).
+      trace = startTrace("gesture.ran", { gesture: gestureKind(policy) })
       const gesture = store.beginGesture()
       checkpoint = press.design === undefined ? undefined : store.checkpoint(press.design, gesture)
       releaseCursor = press.cursor === undefined ? undefined : at.holdCursor(press.cursor)
@@ -166,7 +170,13 @@ export function followPress(
     releaseCursor?.()
     press.end?.(outcome === "keep", drag)
     store.endGesture(drag.gesture)
+    trace?.end(outcome === "cancel" ? "cancelled" : "ok", { how })
   })
+}
+
+/** A policy's name in `gestures`, which names its traces. */
+function gestureKind(policy: GesturePolicy): string {
+  return Object.entries(gestures).find(([, each]) => each === policy)?.[0] ?? "other"
 }
 
 function isPointer(event: Event): event is PointerEvent {

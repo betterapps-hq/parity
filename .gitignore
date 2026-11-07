@@ -13,3 +13,6 @@ storybook-static/
 
 # Local skills CLI links; restore with pnpm skills:sync.
 /.claude/skills/
+
+# Parity's bundles and source maps for Sentry, which apps/desktop/scripts/build.ts writes (PAR-625).
+apps/desktop/sourcemaps/

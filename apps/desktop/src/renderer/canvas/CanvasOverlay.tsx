@@ -1,4 +1,4 @@
-import { boardTarget, editNode, isInnerPath, locateNode, resolveModes } from "@parity-app/core"
+import { boardTarget, designSlots, editNode, isInnerPath, locateNode, resolveModes } from "@parity-app/core"
 import {
   distancesBetween,
   drawsOver,
@@ -23,6 +23,7 @@ import {
   toggleLayer,
   withFrame
 } from "@parity-app/editor"
+import { SquareDashed } from "lucide-react"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { react, type TLRecord } from "tldraw"
@@ -117,6 +118,8 @@ interface Model {
   columns?: { key: string; box: Box }[]
   /** A selected frame's size, under it, as a layer's is: a frame's name is its title above it. */
   frameSize?: { box: Box; size: string }
+  /** A selected component design's slots (PAR-83), each outlined and named, so it's clear where instances put layers. */
+  slots?: { key: string; box: Box; name: string }[]
 }
 
 const empty: Model = { outlines: [], redlines: [], handles: [] }
@@ -476,6 +479,31 @@ export function CanvasOverlay() {
           {model.frameSize.size}
         </div>
       )}
+      {model.slots?.map((slot) => (
+        <div
+          key={slot.key}
+          className="absolute rounded-[2px]"
+          style={{
+            left: slot.box.x,
+            top: slot.box.y,
+            width: slot.box.w,
+            height: slot.box.h,
+            outline: `1px dashed ${kindColors.component}`,
+            outlineOffset: 2
+          }}
+        >
+          <span
+            className="absolute -top-[3px] -left-[3px] flex -translate-y-full items-center gap-1 rounded-[3px] px-1 font-mono text-[10px] whitespace-nowrap"
+            style={{
+              background: `color-mix(in oklch, ${kindColors.component} 16%, var(--background))`,
+              color: kindColors.component
+            }}
+          >
+            <SquareDashed className="size-2.5" />
+            {slot.name}
+          </span>
+        </div>
+      ))}
       {model.columns?.map((column) => (
         <div
           key={column.key}
@@ -721,6 +749,15 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         size: `${formatPx(rect.width / scale)} × ${formatPx(rect.height / scale)}`
       }
     }
+  }
+
+  if (entry && picked && !drag) {
+    const slots = designSlots(entry.container).flatMap(({ name, node }) =>
+      nodeInFrames(area, entry.key, node.id, picked)
+        .filter((item) => item.picked)
+        .map(({ rect }) => ({ key: `slot:${node.id}`, box: toBox(rect), name }))
+    )
+    if (slots.length > 0) model.slots = slots
   }
 
   if (entry && !current.node && selection.getTool() === "select" && !entry.container.locked) {

@@ -5,12 +5,13 @@ import { tailwindStyles } from "@parity-app/styles-tailwind"
 import type { MessagePortMain } from "electron"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import type { ConnectMessage } from "../shared/service.ts"
-import { checkAccessibility, exportDesigns, exportLayers, startAgentServer } from "./agent.ts"
+import { checkAccessibility, exportDesigns, exportLayers, layersPicture, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings, startBuilder } from "./builders.ts"
 import { readProjectFile } from "./code.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
+import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
@@ -24,7 +25,9 @@ import { checker } from "./props.ts"
 import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { checkStartFolders } from "./start-folders.ts"
+import { telemetry } from "./start-telemetry.ts"
 import { openStorybook } from "./storybook.ts"
+import { useProjectSecrets } from "./telemetry.ts"
 import { losslessWebp } from "./webp.ts"
 import { windowChannel, windowClosed } from "./window-channel.ts"
 
@@ -42,6 +45,7 @@ const projects = openProjects({
   checker,
   detections: { saved: savedDetection, save: saveDetection },
   ports: { free: freePort, isFree: portFree },
+  unsupported: (reason, detail) => telemetry.track("project.unsupported", { reason, detail }),
   listeners: {
     fileChanged: (change) => {
       editor?.request("project.fileChanged", change).catch(() => undefined)
@@ -67,8 +71,17 @@ const reopening = startReopening({
   close: (root) => projects.close(root).finally(rememberOpen)
 })
 
+let secretsRead = 0
+
 function rememberOpen(): void {
-  reopening.remember(projects.roots())
+  const roots = projects.roots()
+  reopening.remember(roots)
+  // The open projects' `.env` values are scrubbed from telemetry in every process (PAR-672). A later open or close
+  // reads them again, so only the latest read is used.
+  const reading = ++secretsRead
+  void projectEnvSecrets(roots).then((secrets) => {
+    if (reading === secretsRead) useProjectSecrets(secrets)
+  })
 }
 
 const handlers: Handlers<ServiceMethods> = {
@@ -85,6 +98,7 @@ const handlers: Handlers<ServiceMethods> = {
   "storybook.open": (params) => openStorybook(projects.get(params.projectId), params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "layers.export": (params) => exportLayers(editorWindow(), params),
+  "layers.picture": (params) => layersPicture(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
     const { frame, png } = await renderOffscreen(job, true)
     if (frame.error || !png) return {}

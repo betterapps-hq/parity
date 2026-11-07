@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vite-plus/test"
-import { formatTraceparent, newSpanId, newTraceId, parseTraceparent } from "./index.ts"
+import {
+  endWhenSettled,
+  errorCode,
+  formatTraceparent,
+  newSpanId,
+  newTraceId,
+  parseTraceparent,
+  readTraceHeaders,
+  traceHeaders
+} from "./index.ts"
 
 describe("trace and span IDs", () => {
   it("are 32 and 16 lowercase hex digits", () => {
@@ -41,5 +50,62 @@ describe("traceparent", () => {
     expect(Object.fromEntries(invalid.map((header) => [header, parseTraceparent(header)]))).toEqual(
       Object.fromEntries(invalid.map((header) => [header, undefined]))
     )
+  })
+})
+
+describe("trace headers", () => {
+  const context = { traceId: "4bf92f3577b34da6a3ce929d0e0e4736", spanId: "00f067aa0ba902b7" }
+
+  it("write a span's sentry-trace and baggage, which read back as the span", () => {
+    const headers = traceHeaders(context)
+    expect(headers).toEqual({
+      "sentry-trace": "4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-1",
+      baggage: "sentry-trace_id=4bf92f3577b34da6a3ce929d0e0e4736,sentry-sampled=true"
+    })
+    expect(readTraceHeaders(headers)).toEqual(context)
+  })
+
+  it("read a traceparent, and Node's repeated headers by their first", () => {
+    expect(readTraceHeaders({ traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" })).toEqual(
+      context
+    )
+    expect(readTraceHeaders({ "sentry-trace": ["4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7", "x"] })).toEqual(
+      context
+    )
+  })
+
+  it("give nothing for what an older sender or a stranger sends", () => {
+    for (const sent of [
+      undefined,
+      "4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-1",
+      {},
+      { "sentry-trace": "nonsense" },
+      { "sentry-trace": "00000000000000000000000000000000-00f067aa0ba902b7-1" },
+      { "sentry-trace": 12 }
+    ]) {
+      expect(readTraceHeaders(sent)).toBeUndefined()
+    }
+  })
+})
+
+describe("endWhenSettled", () => {
+  it("ends the span ok with what the work returns, or with the error and its code, passing the failure on", async () => {
+    const ended: unknown[] = []
+    const span = { end: (...args: unknown[]) => void ended.push(args) }
+    expect(await endWhenSettled(span, () => 4)).toBe(4)
+    const coded = Object.assign(new Error("Locked"), { details: { code: "locked" } })
+    await expect(
+      endWhenSettled(span, async () => {
+        throw coded
+      })
+    ).rejects.toBe(coded)
+    await expect(endWhenSettled(span, () => Promise.reject(new Error("Plain")))).rejects.toThrow("Plain")
+    expect(ended).toEqual([["ok"], ["error", { code: "locked" }], ["error", undefined]])
+  })
+
+  it("reads a coded error's code, or a Node error's own", () => {
+    expect(errorCode(Object.assign(new Error(), { details: { code: "not_found" } }))).toBe("not_found")
+    expect(errorCode(Object.assign(new Error(), { code: "ENOENT" }))).toBe("ENOENT")
+    expect(errorCode("nope")).toBeUndefined()
   })
 })

@@ -1,6 +1,7 @@
 import type { ContainerKind } from "@parity-app/core"
 import { selectedDesigns, selectedNodes } from "@parity-app/editor"
 import type { Tool } from "../selection.ts"
+import { tracedAction } from "../tracing.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {
@@ -8,6 +9,7 @@ import {
   alignSelection,
   closeTab,
   copy,
+  copySelectedAsPng,
   copySelectionStyle,
   cut,
   deleteSelection,
@@ -110,7 +112,7 @@ const tool = (name: Tool): Action => ({
   available: hasSession
 })
 
-export const actions: Record<Command, Action> = {
+const keymapActions: Record<Command, Action> = {
   select: tool("select"),
   hand: tool("hand"),
   frame: tool("frame"),
@@ -137,6 +139,7 @@ export const actions: Record<Command, Action> = {
   pasteReplace: { run: () => pasteReplace(), available: hasLayer },
   duplicate: { run: () => duplicateSelection(), available: () => (hasLayer() ? can("duplicate") : hasDesign()) },
   delete: { run: () => deleteSelection(), available: hasSomething },
+  copyAsPng: { run: () => copySelectedAsPng(), available: () => hasLayer() || designs() > 0 },
   copyStyle: { run: () => copySelectionStyle(), available: hasLayer },
   pasteStyle: { run: () => pasteSelectionStyle(), available: hasLayer },
   rename: { run: () => renameSelection(), available: hasDesign },
@@ -195,3 +198,14 @@ export const actions: Record<Command, Action> = {
   shortcuts: { run: () => openDialog("shortcuts"), scope: "app" },
   developerTools: { run: toggleDeveloperTools, scope: "app" }
 }
+
+/**
+ * Each action, run in a trace of its own named by its ID, which the work it causes in the service and main joins
+ * (PAR-629), whether a key, a menu or the actions search ran it.
+ */
+export const actions = Object.fromEntries(
+  Object.entries<Action>(keymapActions).map(([id, action]) => [
+    id,
+    { ...action, run: (event?: KeyboardEvent) => tracedAction(id, () => action.run(event)) }
+  ])
+) as Record<Command, Action>

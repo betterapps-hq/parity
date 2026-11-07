@@ -7,7 +7,18 @@ import {
   DialogTitle,
   Input
 } from "@buildkitgg/shadcn-baseui-kit"
-import { Ban, ChevronRight, Copy, ExternalLink, KeyRound, Lock, ShieldCheck, TriangleAlert, X } from "lucide-react"
+import {
+  ArrowRight,
+  Ban,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  KeyRound,
+  Lock,
+  ShieldCheck,
+  TriangleAlert,
+  X
+} from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { toast } from "sonner"
 import icon from "../../../../../brand/parity-icon.svg?url"
@@ -18,8 +29,10 @@ import type {
   SignInProvider,
   SignInRequest
 } from "../../shared/account.ts"
+import { reportError } from "../report-error.ts"
 import { GitHubMark } from "../start/marks.tsx"
 import { GoogleMark, MicrosoftMark } from "./marks.tsx"
+import { OrganizationBadge } from "./OrganizationBadge.tsx"
 import { PersonAvatar } from "./PersonAvatar.tsx"
 
 /**
@@ -132,17 +145,30 @@ function Legal() {
   )
 }
 
-/** The sign-in screen: the mark, one line on what Parity is, and the ways in. */
-export function SignInPanel({ dialog, onSignIn }: { dialog?: boolean; onSignIn: (request: SignInRequest) => void }) {
+/**
+ * The sign-in screen: the mark, one line on what Parity is, and the ways in. Adding another account, from inside
+ * Parity, gives its own heading and line and leaves the mark out.
+ */
+export function SignInPanel({
+  dialog,
+  title,
+  description = "Design with your real components, your team and your agents.",
+  onSignIn
+}: {
+  dialog?: boolean
+  title?: string
+  description?: string
+  onSignIn: (request: SignInRequest) => void
+}) {
   return (
     <div className="flex w-full flex-col gap-7">
       <div className="flex flex-col items-center gap-4 text-center">
-        <Mark size={dialog ? 40 : 48} />
+        {!title && <Mark size={dialog ? 40 : 48} />}
         <div className="flex flex-col gap-1.5">
           <Heading dialog={dialog} className="text-2xl leading-tight font-semibold tracking-tight">
-            Sign in to Parity
+            {title ?? "Sign in to Parity"}
           </Heading>
-          <Description dialog={dialog}>Design with your real components, your team and your agents.</Description>
+          <Description dialog={dialog}>{description}</Description>
         </div>
       </div>
       <SignInForm onSignIn={onSignIn} />
@@ -177,7 +203,7 @@ function MarkRing({ turning, badge }: { turning?: boolean; badge?: { icon: React
 function copy(text: string, said: string, id: string): void {
   void navigator.clipboard.writeText(text).then(
     () => toast.success(said, { id, duration: 2000 }),
-    () => toast.error("Parity couldn't copy that", { id })
+    (error: unknown) => reportError(error, { operation: "clipboard.write", title: "Parity couldn't copy that", id })
   )
 }
 
@@ -199,10 +225,12 @@ export function WaitingPanel({
   onReopen: () => void
   onCancel: () => void
 }) {
+  const as = attempt.email ? ` as ${attempt.email}` : ""
   const opened =
     attempt.provider === "authkit"
-      ? "We opened your browser to sign you in."
-      : `We opened ${providerName(attempt.provider)} in your browser to sign you in.`
+      ? `We opened your browser to sign you in${as}.`
+      : `We opened ${providerName(attempt.provider)} in your browser to sign you in${as}.`
+  const copyLink = () => copy(attempt.url, "Copied the link", "copied-link")
   return (
     <div className="flex flex-col items-center gap-8">
       <MarkRing turning />
@@ -212,26 +240,53 @@ export function WaitingPanel({
         </Heading>
         <Description dialog={dialog}>
           {slow
-            ? "If the page didn't open, or opened in a browser you don't use, open it again or copy the link."
+            ? "If the page didn't open, or opened in a browser you don't use, open it again."
             : `${opened} When you're done there, you'll come straight back here.`}
         </Description>
       </div>
-      <div className="flex flex-wrap justify-center gap-2">
-        <Button variant={slow ? "default" : "outline"} className="gap-1.5" onClick={onReopen}>
-          <ExternalLink /> Open it again
-        </Button>
-        <Button
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => copy(attempt.url, "Copied the link", "copied-link")}
-        >
-          <Copy /> Copy the link
-        </Button>
-        <Button variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
+      {/* One button at a time, and the ways round a page that didn't show as a line under it (your call). */}
+      <div className="flex w-full max-w-xs flex-col items-center gap-4">
+        {slow ? (
+          <div className="flex w-full flex-col gap-2">
+            <Button className="w-full gap-1.5" onClick={onReopen}>
+              <ExternalLink /> Open it again
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={onCancel}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button variant="outline" className="w-full" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <p className="text-center text-xs text-pretty text-muted-foreground">
+          {slow ? (
+            <>
+              Or <InlineAction onClick={copyLink}>copy the link</InlineAction> and paste it into the browser you use.
+            </>
+          ) : (
+            <>
+              Page didn&apos;t open? <InlineAction onClick={onReopen}>Open it again</InlineAction> or{" "}
+              <InlineAction onClick={copyLink}>copy the link</InlineAction>.
+            </>
+          )}
+        </p>
       </div>
     </div>
+  )
+}
+
+/** A button that reads as part of a sentence. */
+function InlineAction({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {children}
+    </button>
   )
 }
 
@@ -261,7 +316,12 @@ function Details({ text }: { text: string }) {
   )
 }
 
-const badges: Record<SignInProblem, { icon: ReactNode; color: string }> = {
+type ProblemAttempt = Extract<SignInAttempt, { at: "problem" }>
+
+/** The problems this panel shows; choosing an organization has its own. */
+type ShownProblem = Exclude<SignInProblem, "choose-organization">
+
+const badges: Record<ShownProblem, { icon: ReactNode; color: string }> = {
   canceled: { icon: <X />, color: "oklch(0.55 0 0)" },
   failed: { icon: <TriangleAlert />, color: "oklch(0.7 0.16 65)" },
   refused: { icon: <Ban />, color: "oklch(0.62 0.2 25)" },
@@ -278,7 +338,7 @@ export function ProblemPanel({
   onSignIn,
   onOther
 }: {
-  attempt: Extract<SignInAttempt, { at: "problem" }>
+  attempt: ProblemAttempt & { problem: ShownProblem }
   dialog?: boolean
   onSignIn: (request: SignInRequest) => void
   /** Back to the ways in. */
@@ -292,7 +352,7 @@ export function ProblemPanel({
     </Button>
   )
   const account = email ? <span className="text-foreground">{email}</span> : "This account"
-  const content: Record<SignInProblem, { title: string; text: ReactNode; actions: ReactNode }> = {
+  const content: Record<ShownProblem, { title: string; text: ReactNode; actions: ReactNode }> = {
     canceled: {
       title: "Canceled in your browser",
       text: "Nothing changed, and you're not signed in. Try again, or choose another way to sign in.",
@@ -363,16 +423,81 @@ export function ProblemPanel({
 }
 
 /**
+ * Someone in more than one organization signed in, and WorkOS asks which to use. They choose here, from the
+ * organizations WorkOS named, and AuthKit, in the browser, signs them in to that one. Finishing with WorkOS's pending
+ * token instead needs the client secret. Invitations and Create an organization wait for Parity's service (PAR-616).
+ */
+export function ChooseOrganizationPanel({
+  attempt,
+  dialog,
+  onSignIn,
+  onOther
+}: {
+  attempt: ProblemAttempt
+  dialog?: boolean
+  onSignIn: (request: SignInRequest) => void
+  onOther: () => void
+}) {
+  const { email, organizations = [] } = attempt
+  return (
+    <div className="flex w-full flex-col gap-6">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <Mark size={dialog ? 40 : 48} />
+        <div className="flex flex-col gap-1.5">
+          <Heading dialog={dialog} className="text-2xl font-semibold tracking-tight">
+            Choose an organization
+          </Heading>
+          <Description dialog={dialog}>
+            {email ? <span className="text-foreground">{email}</span> : "Your account"} is in more than one
+            organization. Choose the one to sign in to.
+          </Description>
+        </div>
+      </div>
+      <ul className="flex flex-col overflow-hidden rounded-xl border bg-card">
+        {organizations.map((organization, index) => (
+          <li key={organization.id} className={index ? "border-t" : ""}>
+            <button
+              type="button"
+              // Through AuthKit: on WorkOS's authorize URL `organization_id` names an organization's single sign-on,
+              // which a Google, GitHub or Microsoft sign-in has none of, while AuthKit signs in to that organization.
+              onClick={() =>
+                onSignIn({
+                  provider: "authkit",
+                  organizationId: organization.id,
+                  ...(email !== undefined && { email })
+                })
+              }
+              className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            >
+              <OrganizationBadge organization={organization} />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">{organization.name}</span>
+              <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <Button variant="ghost" className="self-center text-muted-foreground" onClick={onOther}>
+        Choose another way
+      </Button>
+    </div>
+  )
+}
+
+/**
  * WorkOS ended the session on refresh, as after an organization's session limit or an admin removing the person.
- * Parity knows who it was and how they signed in, so it's one button, and nothing open is lost.
+ * Parity knows who it was and how they signed in, so it's one button, and nothing open is lost. With another account
+ * signed in, you're in that one meanwhile.
  */
 export function SessionEndedPanel({
   ended,
+  stillIn,
   dialog,
   onSignIn,
   onOther
 }: {
   ended: { person: AccountPerson; provider: SignInProvider }
+  /** The account you're in now, when you're signed in to another. */
+  stillIn?: string | undefined
   dialog?: boolean
   onSignIn: (request: SignInRequest) => void
   onOther: () => void
@@ -387,7 +512,10 @@ export function SessionEndedPanel({
             Sign in again to keep working
           </Heading>
           <Description dialog={dialog}>
-            Your session ended, so you&apos;re signed out. Your open projects stay as they are, unsaved changes too.
+            {stillIn
+              ? `Your session ended, so you're in ${stillIn} for now.`
+              : "Your session ended, so you're signed out."}{" "}
+            Your open projects stay as they are, unsaved changes too.
           </Description>
         </div>
       </div>
@@ -400,11 +528,7 @@ export function SessionEndedPanel({
         <Lock className="size-4 text-muted-foreground" aria-hidden />
       </div>
       <div className="flex flex-col gap-3">
-        <Button
-          size="lg"
-          className="h-10 gap-2"
-          onClick={() => onSignIn(provider === "authkit" ? { provider, email: person.email } : { provider })}
-        >
+        <Button size="lg" className="h-10 gap-2" onClick={() => onSignIn({ provider, email: person.email })}>
           {providers.find((candidate) => candidate.provider === provider)?.mark ?? <KeyRound />}
           Continue with {providerName(provider)}
         </Button>

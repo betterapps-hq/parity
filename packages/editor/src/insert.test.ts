@@ -265,6 +265,25 @@ describe("where a click inserts", () => {
     expect(whereToInsert(root)).toEqual({ parent: "root" })
   })
 
+  it("goes into a selected slot of one of the design's instances, filling it (PAR-84)", () => {
+    const panel: ContainerSpec = {
+      id: "panel",
+      name: "Panel",
+      kind: "component",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "frame", children: [{ type: "layout", id: "body", slot: "body", children: [] }] },
+      states: [{ id: "default", name: "Default" }]
+    }
+    const placed: DesignNode = {
+      type: "layout",
+      id: "page",
+      children: [{ type: "instance", id: "p", design: "panel" }]
+    }
+    const library = componentLibrary([panel])
+    expect(whereToInsert(placed, "p/body", library)).toEqual({ parent: "p", slot: "body" })
+    expect(whereToInsert(placed, "p/frame", library)).toBeUndefined()
+  })
+
   it("has nowhere to go when the root isn't a layout or the layer isn't there", () => {
     const card: DesignNode = { type: "component", id: "card", component: "Card" }
     expect(whereToInsert(card)).toBeUndefined()

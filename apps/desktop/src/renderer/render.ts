@@ -25,6 +25,9 @@ import {
 } from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
 import { inlinePortalSheet, inlinePortals } from "./inline-portals.ts"
+import { startTelemetry } from "./telemetry.ts"
+
+startTelemetry()
 
 declare global {
   interface Window {

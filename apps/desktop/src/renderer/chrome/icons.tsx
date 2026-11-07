@@ -10,6 +10,7 @@ import {
 } from "@parity-app/icons"
 import { type CSSProperties, useEffect, useMemo, useRef } from "react"
 import type { LoadedGuest } from "../guest.ts"
+import { unrecordedShadow } from "../shadow.ts"
 
 /** One icon as the panel lists it: its name, and what inserting it adds. */
 export interface IconEntry {
@@ -104,7 +105,7 @@ export function GuestIcon({
   )
   useEffect(() => {
     const host = hostRef.current!
-    const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" })
+    const shadow = unrecordedShadow(host)
     shadow.adoptedStyleSheets = [iconSheet]
     const target = document.createElement("span")
     shadow.replaceChildren(target)
@@ -115,6 +116,8 @@ export function GuestIcon({
     <span
       ref={hostRef}
       aria-hidden
+      // Left out of replays, as frames are: the project's own drawing (PAR-624).
+      data-guest-icon=""
       className="inline-grid place-items-center"
       style={{ width: size, height: size, "--icon-size": `${size}px` } as CSSProperties}
     />

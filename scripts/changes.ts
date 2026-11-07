@@ -117,6 +117,28 @@ function lines(text: string): string[] {
   return text.split("\n").filter(Boolean)
 }
 
+/**
+ * The change files a diff adds or edits in `change/`, run in `cwd`. Without `--no-renames`, git pairs a change file a
+ * release consumed with a new one for the same package as a rename, and the new one would go uncounted. A file with
+ * the same content as one the diff deletes is that file renamed, which covers nothing new, so it doesn't count.
+ */
+export function listChangeFiles(range: string[], cwd = root): string[] {
+  const raw = execFileSync("git", ["diff", "--raw", "--no-abbrev", "--no-renames", ...range, "--", "change/"], {
+    cwd,
+    encoding: "utf8"
+  })
+  // Each line reads `:<old mode> <new mode> <old blob> <new blob> <status>\t<path>`.
+  const entries = lines(raw).map((line) => {
+    const [meta = "", path = ""] = line.split("\t")
+    const [, , before = "", after = "", status = ""] = meta.split(" ")
+    return { path, before, after, status }
+  })
+  const deleted = new Set(entries.filter((entry) => entry.status === "D").map((entry) => entry.before))
+  return entries
+    .filter((entry) => entry.status === "M" || (entry.status === "A" && !deleted.has(entry.after)))
+    .map((entry) => entry.path)
+}
+
 function readWorkspace(): WorkspacePackage[] {
   const found: { dir: string; json: Record<string, unknown> }[] = []
   for (const parent of ["apps", "packages"]) {
@@ -161,7 +183,7 @@ function changes(branch: string, committed: boolean): { files: string[]; covered
     onlyVersionChanged(git("show", `${base}:${file}`), now(file))
   )
   const files = lines(git("diff", "--name-only", "--no-renames", ...range)).filter((file) => !bumped.includes(file))
-  const changeFiles = lines(git("diff", "--name-only", "--diff-filter=AM", ...range, "--", "change/"))
+  const changeFiles = listChangeFiles(range)
   const covered = new Set(changeFiles.map((file) => (JSON.parse(now(file)) as { packageName: string }).packageName))
   const released = new Set<string>()
   for (const file of bumped) {

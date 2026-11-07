@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { cliCallerName, mcpCallerName, sessionCallerId } from "./caller.ts"
+import { cliCallerName, mcpCallerName, mcpClientName, sessionCallerId } from "./caller.ts"
 
 describe("sessionCallerId", () => {
   it("keeps same-named MCP sessions distinct after the desktop truncates ids to 80 characters", () => {
@@ -52,5 +52,13 @@ describe("cliCallerName", () => {
     expect(cliCallerName({ PATH: "/usr/bin" })).toBe("Terminal")
     expect(cliCallerName({ PARITY_AGENT_NAME: "" })).toBe("Terminal")
     expect(cliCallerName({ PARITY_AGENT_NAME: "  " })).toBe("Terminal")
+  })
+})
+
+describe("mcpClientName", () => {
+  it("is the client's protocol name, not its title", () => {
+    expect(mcpClientName({ name: " claude-code ", title: "Claude Code" })).toBe("claude-code")
+    expect(mcpClientName({ title: "Claude Code" })).toBeUndefined()
+    expect(mcpClientName(undefined)).toBeUndefined()
   })
 })
