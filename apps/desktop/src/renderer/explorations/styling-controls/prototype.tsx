@@ -1366,7 +1366,8 @@ function RadiusChoice({
   const shape = (
     <span
       aria-hidden
-      className="size-3 shrink-0 border-muted-foreground"
+      // A block, so it keeps its size outside the chip too, where an inline span would draw only its border's edge.
+      className="block size-3 shrink-0 border-muted-foreground"
       style={
         corner === undefined
           ? { borderWidth: 1.5, borderRadius: 3 }
@@ -1426,7 +1427,8 @@ const lengthDetail = (px: number) => (px === 9999 ? "Full" : `${px}px`)
 
 /**
  * A length field that takes a token or a value of its own, as every field does (call 1). A token shows as a chip, then
- * what it comes to, faintly (`lg 10px`); clicking the chip opens the kind's tokens, and typing over it replaces it. A
+ * what it comes to, faintly (`lg 10px`); clicking the chip opens the kind's tokens. The field types like a text field
+ * with the chip in it: click beside the chip to type, which replaces it, and Backspace or the chip's × removes it. A
  * value shows as typed, with its unit and a hollow mark whose menu has the nearest token, Create token and Allow here;
  * Tokens only refuses it. The token button after a value opens the tokens too, on hover or focus. Typing a token's name
  * (`lg`, `radius-lg`) takes the token. What's typed is checked as CSS checks the property (`CSS.supports`) before it's
@@ -1463,7 +1465,7 @@ function LengthField({
   const [typed, setTyped] = useState<string>()
   const [focused, setFocused] = useState(false)
   const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
-  const focusInput = useRef(false)
+  const input = useRef<HTMLInputElement>(null)
   const token = typeof value === "string" ? tokens.find((other) => other.name === value) : undefined
   const own = typeof value === "object" ? value : undefined
   const prefix = `${kind}-`
@@ -1561,79 +1563,86 @@ function LengthField({
             className={`group/length flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent pl-1 text-xs focus-within:ring-2 dark:bg-input/30 ${error || refused ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
           >
             {showChip ? (
-              <>
+              // The chip: clicking it opens the tokens, and its × takes the token off.
+              <span className="flex min-w-0 shrink items-center rounded-sm bg-accent">
                 <PopoverTrigger
                   aria-label={`${label}: ${token.name}`}
                   onKeyDown={(event) => {
-                    // Typing over a chip replaces the token with what's typed; Backspace unsets the field.
-                    if (event.key === "Backspace" || event.key === "Delete") {
+                    // Typing on a focused chip replaces the token, as typing in the field after it does.
+                    if (event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey) {
+                      event.preventDefault()
+                      setTyped(event.key)
+                      input.current?.focus()
+                    } else if (event.key === "Backspace" || event.key === "Delete") {
                       event.preventDefault()
                       onChange(undefined)
-                      focusInput.current = true
-                    } else if (event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey) {
-                      event.preventDefault()
-                      focusInput.current = true
-                      setTyped(event.key)
+                      input.current?.focus()
                     } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
                       event.preventDefault()
                       step(event.key === "ArrowUp", event.shiftKey)
                     }
                   }}
-                  className="flex min-w-0 items-center gap-1.5 rounded-sm bg-accent px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex min-w-0 items-center gap-1.5 rounded-sm px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {icon}
                   <span className="truncate font-mono">{token.name.replace(prefix, "")}</span>
                 </PopoverTrigger>
-                {!narrow && (
-                  <span className="truncate text-muted-foreground/70 tabular-nums">{lengthDetail(token.px)}</span>
-                )}
-                <span className="flex-1" />
-              </>
+                <button
+                  type="button"
+                  aria-label={`Remove ${token.name} from ${label}`}
+                  onClick={() => {
+                    onChange(undefined)
+                    input.current?.focus()
+                  }}
+                  className="mr-0.5 hidden size-4 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none group-hover/length:grid hover:bg-background/60 hover:text-foreground focus-visible:grid focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
             ) : (
-              <>
-                {icon && <span className="shrink-0 pl-0.5">{icon}</span>}
-                <input
-                  ref={(input) => {
-                    if (input && focusInput.current) {
-                      focusInput.current = false
-                      input.focus()
-                    }
-                  }}
-                  aria-label={label}
-                  aria-invalid={error || refused || undefined}
-                  inputMode="decimal"
-                  placeholder={placeholder}
-                  value={typed ?? (own ? String(own.px) : "")}
-                  onFocus={() => {
-                    setFocused(true)
-                    if (message?.tone === "note") setMessage(undefined)
-                  }}
-                  onChange={(event) => setTyped(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
-                    if (event.key === "Escape" && typed !== undefined) {
-                      setTyped(undefined)
-                      setMessage(error ? { tone: "note", text: `${label} is back to ${current}.` } : undefined)
-                    }
-                    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                      event.preventDefault()
-                      step(event.key === "ArrowUp", event.shiftKey)
-                    }
-                  }}
-                  onBlur={() => {
-                    setFocused(false)
-                    commit(true)
-                  }}
-                  className={`w-0 min-w-6 flex-1 bg-transparent tabular-nums outline-none placeholder:text-muted-foreground ${refused ? "text-destructive" : ""}`}
-                />
-                {own && !focused && (
-                  <span
-                    className={`shrink-0 text-muted-foreground ${narrow ? "hidden group-hover/length:inline" : ""}`}
-                  >
-                    px
-                  </span>
-                )}
-              </>
+              icon && <span className="shrink-0 pl-0.5">{icon}</span>
+            )}
+            {showChip && !narrow && !focused && (
+              <span className="truncate text-muted-foreground/70 tabular-nums">{lengthDetail(token.px)}</span>
+            )}
+            {/* Always there, after the chip, as in a text field: click beside the chip to type, and Backspace removes it. */}
+            <input
+              ref={input}
+              aria-label={label}
+              aria-invalid={error || refused || undefined}
+              inputMode="decimal"
+              placeholder={showChip ? "" : placeholder}
+              value={typed ?? (own ? String(own.px) : "")}
+              onFocus={() => {
+                setFocused(true)
+                if (message?.tone === "note") setMessage(undefined)
+              }}
+              onChange={(event) => setTyped(event.target.value)}
+              onKeyDown={(event) => {
+                if (showChip && event.currentTarget.value === "" && ["Backspace", "Delete"].includes(event.key)) {
+                  event.preventDefault()
+                  onChange(undefined)
+                }
+                if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
+                if (event.key === "Escape" && typed !== undefined) {
+                  setTyped(undefined)
+                  setMessage(error ? { tone: "note", text: `${label} is back to ${current}.` } : undefined)
+                }
+                if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                  event.preventDefault()
+                  step(event.key === "ArrowUp", event.shiftKey)
+                }
+              }}
+              onBlur={() => {
+                setFocused(false)
+                commit(true)
+              }}
+              className={`w-0 flex-1 bg-transparent tabular-nums outline-none placeholder:text-muted-foreground ${showChip ? "min-w-1" : "min-w-6"} ${refused ? "text-destructive" : ""}`}
+            />
+            {own && !focused && (
+              <span className={`shrink-0 text-muted-foreground ${narrow ? "hidden group-hover/length:inline" : ""}`}>
+                px
+              </span>
             )}
             {error && <CircleAlert aria-hidden className="size-3.5 shrink-0 text-destructive" />}
             {!error && own && nearest && !focused && (

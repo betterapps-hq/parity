@@ -32,8 +32,8 @@ import {
   rgbaToRgb255,
   sameColorDistance
 } from "@parity-app/tokens"
-import { Check, ChevronsUpDown, Circle, CircleCheck, Pipette } from "lucide-react"
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from "react"
+import { Check, Circle, CircleAlert, CircleCheck, Pipette, X } from "lucide-react"
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { type ColorToken, colorTokens } from "./data.ts"
 
@@ -545,7 +545,9 @@ function Strip({
 
 /**
  * A style's color: a token as a chip, or a plain color in short form with its status mark; then its alpha as its own %
- * field. The picker opens on Tokens for a token and Custom for a value. Custom edits the layer's color live, as a plain
+ * field. The field types like a text field with the chip in it: click beside the chip to type a hex or a token's name,
+ * which replaces it, and Backspace or the chip's × removes it. The chip or swatch opens the picker, on Tokens for a
+ * token and Custom for a value. Custom edits the layer's color live, as a plain
  * value, and offers the nearest token in one click. A project that takes tokens only refuses plain colors: Custom only
  * offers the nearest token, and a plain color already there shows in the error color with the nearest token under it,
  * until it's allowed here.
@@ -601,6 +603,49 @@ export function ColorInput({
   // Tokens only refuses a plain color unless it's allowed here as an exception.
   const refused = plain && tokensOnly && allowed === undefined
   const swatch = plain ? value : current?.hex
+  // The field types like a text field with the chip in it: typing replaces the token, and Backspace removes it.
+  const [typed, setTyped] = useState<string>()
+  const [focused, setFocused] = useState(false)
+  const [message, setMessage] = useState<FieldMessage>()
+  const input = useRef<HTMLInputElement>(null)
+  const showChip = current !== undefined && typed === undefined
+  const error = message?.tone === "error"
+  const shown = plain ? shortForm(value) : ""
+  let currentText = "none"
+  if (current) currentText = current.name
+  else if (plain) currentText = shown
+  /** What's typed, checked before it's stored: a token's name, or a color CSS takes (`CSS.supports`) as hex or OKLCH. */
+  const read = (text: string): { value: string | undefined; alpha: number | undefined } | { reason: string } => {
+    const trimmed = text.trim()
+    if (trimmed === "") return { value: current ? value : undefined, alpha }
+    const token = colorTokens.find((other) => other.name === trimmed.toLowerCase())
+    if (token) return { value: token.name, alpha }
+    const candidate = /^[\da-f]+$/i.test(trimmed) ? `#${trimmed}` : trimmed
+    const color = CSS.supports("color", candidate) ? parseColor(candidate) : undefined
+    if (!color) return { reason: "Type a color, such as 2F6FED, or a token's name" }
+    if (tokensOnly) return { reason: `Not a token. Nearest: ${nearestToken(candidate)?.token.name}` }
+    const opaque = { ...color, a: 1 }
+    return {
+      value: candidate.startsWith("oklch") ? formatOklch(opaque) : formatHex(opaque),
+      alpha: color.a < 1 ? Math.round(color.a * 100) : alpha
+    }
+  }
+  const commit = (leaving: boolean): boolean => {
+    if (typed === undefined) return true
+    const outcome = read(typed)
+    if ("reason" in outcome && !leaving) {
+      setMessage({ tone: "error", text: outcome.reason })
+      return false
+    }
+    if ("reason" in outcome) {
+      setMessage({ tone: "note", text: `${label} is back to ${currentText}. ${outcome.reason}.` })
+    } else {
+      if (outcome.value !== value || outcome.alpha !== alpha) onChange(outcome.value, outcome.alpha)
+      setMessage(undefined)
+    }
+    setTyped(undefined)
+    return true
+  }
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1">
@@ -611,35 +656,89 @@ export function ColorInput({
             if (next) setTab(plain ? "custom" : "tokens")
           }}
         >
-          <PopoverTrigger
-            render={
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={`${label}: ${value ?? "none"}${plain ? ", not a token" : ""}`}
-                aria-invalid={refused}
-                className="h-7 min-w-0 flex-1 justify-between gap-1.5 px-1 text-xs font-normal aria-invalid:border-destructive"
+          <div
+            className={`group/color flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md border bg-transparent pl-1 text-xs focus-within:ring-2 dark:bg-input/30 ${error || refused ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
+          >
+            {showChip ? (
+              // A token is a chip on a tinted background, as Figma UI3's variable pill is: clicking it opens the
+              // picker, and its × takes the token off.
+              <span className="flex min-w-0 shrink items-center rounded-sm bg-accent">
+                <PopoverTrigger
+                  aria-label={`${label}: ${current.name}`}
+                  onKeyDown={(event) => {
+                    if (event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey) {
+                      event.preventDefault()
+                      setTyped(event.key)
+                      input.current?.focus()
+                    } else if (event.key === "Backspace" || event.key === "Delete") {
+                      event.preventDefault()
+                      onChange(undefined, alpha)
+                      input.current?.focus()
+                    }
+                  }}
+                  className="flex min-w-0 items-center gap-1.5 rounded-sm px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Checker hex={current.hex} alpha={alpha} />
+                  <span className="truncate font-mono">{current.name}</span>
+                </PopoverTrigger>
+                <button
+                  type="button"
+                  aria-label={`Remove ${current.name} from ${label}`}
+                  onClick={() => {
+                    onChange(undefined, alpha)
+                    input.current?.focus()
+                  }}
+                  className="mr-0.5 hidden size-4 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none group-hover/color:grid hover:bg-background/60 hover:text-foreground focus-visible:grid focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            ) : (
+              <PopoverTrigger
+                aria-label={`${label} picker`}
+                className="grid size-5 shrink-0 place-items-center rounded-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {current ? (
-                  // A token is a chip on a tinted background, as Figma UI3's variable pill is.
-                  <span className="flex min-w-0 items-center gap-1.5 rounded-sm bg-accent px-1 py-0.5">
-                    <Checker hex={current.hex} alpha={alpha} />
-                    <span className="truncate font-mono">{current.name}</span>
-                  </span>
+                {swatch ? (
+                  <Checker hex={swatch} alpha={alpha} />
                 ) : (
-                  <span className="flex min-w-0 items-center gap-1.5 px-1">
-                    {swatch && <Checker hex={swatch} alpha={alpha} />}
-                    <span
-                      className={`truncate font-mono ${value ? "" : "text-muted-foreground"} ${refused ? "text-destructive" : ""}`}
-                    >
-                      {plain ? shortForm(value) : "None"}
-                    </span>
-                  </span>
+                  <span className="block size-3.5 rounded-sm border border-dashed border-muted-foreground/60" />
                 )}
-                <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
-              </Button>
-            }
-          />
+              </PopoverTrigger>
+            )}
+            {/* Always there, after the chip or swatch: click beside the chip to type, and Backspace removes it. */}
+            <input
+              ref={input}
+              aria-label={label}
+              aria-invalid={error || refused || undefined}
+              spellCheck={false}
+              placeholder={showChip ? "" : "None"}
+              value={typed ?? shown}
+              onFocus={() => {
+                setFocused(true)
+                if (message?.tone === "note") setMessage(undefined)
+                // An OKLCH color shows short at rest; typing works on the whole of it.
+                if (plain && value.startsWith("oklch")) setTyped(value)
+              }}
+              onChange={(event) => setTyped(event.target.value)}
+              onKeyDown={(event) => {
+                if (showChip && event.currentTarget.value === "" && ["Backspace", "Delete"].includes(event.key)) {
+                  event.preventDefault()
+                  onChange(undefined, alpha)
+                }
+                if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
+                if (event.key === "Escape" && typed !== undefined) {
+                  setTyped(undefined)
+                  setMessage(error ? { tone: "note", text: `${label} is back to ${currentText}.` } : undefined)
+                }
+              }}
+              onBlur={() => {
+                setFocused(false)
+                commit(true)
+              }}
+              className={`w-0 flex-1 bg-transparent font-mono outline-none placeholder:font-sans placeholder:text-muted-foreground ${showChip ? "min-w-1" : "min-w-8"} ${refused ? "text-destructive" : ""} ${focused ? "" : "truncate"}`}
+            />
+            {error && <CircleAlert aria-hidden className="mr-1 size-3.5 shrink-0 text-destructive" />}
+          </div>
           <PopoverContent className="w-64 gap-0 p-0" align="start">
             <Tabs value={tab} onValueChange={(next) => setTab(next as "tokens" | "custom")}>
               <TabsList className="m-2 mb-0 w-[calc(100%-1rem)]">
@@ -760,7 +859,15 @@ export function ColorInput({
           </div>
         </Hint>
       </div>
-      {refused && nearestToValue && (
+      {message && (
+        <p
+          role={error ? "alert" : "status"}
+          className={`text-[11px] leading-snug ${error ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          {message.text}
+        </p>
+      )}
+      {!message && refused && nearestToValue && (
         <p role="alert" className="flex flex-wrap items-center gap-x-1 text-[11px] leading-snug text-destructive">
           Not a token. Nearest:
           <button
