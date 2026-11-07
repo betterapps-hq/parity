@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 04:58:13 GMT",
+      "version": "0.17.0",
+      "tag": "@parity-app/cli_v0.17.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ac8ae641c27a2750fd3c27d692a75247f6e72433",
+            "comment": "Lock layers and designs with Ctrl+Shift+L, a lock on each Layers row, and Lock in the canvas and row menus: a locked one can't be selected or moved on the canvas, only from Layers, and stays locked in the .par"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 03:48:34 GMT",
       "version": "0.16.0",
       "tag": "@parity-app/cli_v0.16.0",
