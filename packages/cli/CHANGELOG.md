@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 07 Nov 2026 04:58:13 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 09:05:12 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.18.0
+
+Sat, 07 Nov 2026 09:05:12 GMT
+
+### Minor changes
+
+- Failing components draw a hatched box and show in the console with why and how to fix them, the console filters levels
+  from a menu, and saved component code reaches the canvas live (ajcraswell@gmail.com)
 
 ## 0.17.0
 

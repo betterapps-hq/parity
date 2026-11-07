@@ -150,7 +150,7 @@ export const Counted: Story = logged(false, async () => {
 
 /**
  * The console open under the canvas: each design's messages under its name, with how often each came, the frames it
- * came from, the file and line it was written at, and when; then what the project wrote outside any design.
+ * came from and the file and line it was written at; then what the project wrote outside any design.
  */
 export const Open: Story = logged(true, async () => {
   const panel = within(await page().findByRole("region", { name: "Console" }))
@@ -167,23 +167,35 @@ export const ErrorStack: Story = logged(true, async () => {
   await row.findByText("at renderWithHooks (react-dom_client.js:15486:18)")
 })
 
-/** Pricing's badge on the canvas, clicked: the console opens on Pricing's messages alone. */
+/**
+ * Pricing's badge on the canvas, clicked: the console opens with Pricing's messages open and in view, and the other
+ * designs' closed under their names.
+ */
 export const OneDesign: Story = logged(false, async () => {
   await userEvent.click(await page().findByRole("button", { name: "2 errors from Pricing in the console" }))
   const panel = within(await page().findByRole("region", { name: "Console" }))
-  await expect(panel.queryByRole("region", { name: "Dashboard" })).toBeNull()
-  await panel.findByRole("region", { name: "Pricing" })
+  const pricing = within(await panel.findByRole("region", { name: "Pricing" }))
+  await pricing.findByText(/Cannot read properties of undefined/)
+  const dashboard = within(panel.getByRole("region", { name: "Dashboard" }))
+  await expect(dashboard.queryByText(/Received NaN/)).toBeNull()
 })
 
-/** Warnings only, by the level filter. */
+/**
+ * Warnings only, from the levels menu: a checkbox for each level, with its count, here errors and info turned off. The
+ * menu's button then says "Warnings only", as Chrome's DevTools say what their levels show.
+ */
 export const WarningsOnly: Story = logged(true, async () => {
   const panel = within(await page().findByRole("region", { name: "Console" }))
-  await userEvent.click(await panel.findByRole("button", { name: "Warnings, 1" }))
+  await userEvent.click(await panel.findByRole("button", { name: "Levels shown" }))
+  await userEvent.click(await page().findByRole("menuitemcheckbox", { name: /^Errors/ }))
+  await userEvent.click(await page().findByRole("menuitemcheckbox", { name: /^Info/ }))
+  await userEvent.keyboard("{Escape}")
+  await panel.findByText("Warnings only")
   await panel.findByText(/Received NaN/)
   await expect(panel.queryByText(/Cannot read properties/)).toBeNull()
 })
 
-/** Nothing logged: the console says what it shows, and that agents read the same log. */
+/** Nothing logged: the console says what it shows. */
 export const NothingLogged: Story = onCanvas(["Pricing"], () => {
   setLayout({ console: true, consoleHeight: 240 })
   consoleLog(example().id).clear()
