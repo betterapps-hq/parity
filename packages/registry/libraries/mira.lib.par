@@ -5,1068 +5,509 @@
   "description": "Every shadcn component on Base UI, in the mira style, kept in step with upstream.",
   "package": {
     "name": "@buildkitgg/shadcn-baseui-mira",
-    "version": "0.4.1",
-    "range": "^0.4.0"
+    "version": "0.5.0",
+    "range": "^0.4.0 || ^0.5.0"
   },
   "styles": "tailwind.css",
   "tokens": {
+    "resolutionOrder": [
+      {
+        "$ref": "#/sets/shadcn"
+      },
+      {
+        "$ref": "#/modifiers/theme"
+      }
+    ],
+    "name": "shadcn mira",
     "version": "2025.10",
+    "description": "The default tokens of the shadcn mira style, in light and dark themes.",
     "sets": {
-      "tokens": {
+      "shadcn": {
         "sources": [
           {
-            "color": {
-              "background": {
-                "$value": "oklch(1 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "background"
-                  }
-                }
+            "background": {
+              "$type": "color",
+              "$value": {
+                "colorSpace": "oklch",
+                "components": [
+                  1,
+                  0,
+                  0
+                ]
+              },
+              "$description": "Page background."
+            },
+            "foreground": {
+              "$type": "color",
+              "$value": {
+                "colorSpace": "oklch",
+                "components": [
+                  0.145,
+                  0,
+                  0
+                ]
+              },
+              "$description": "Text on the page background."
+            },
+            "card": {
+              "$root": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    1,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Background of cards."
               },
               "foreground": {
-                "$value": "oklch(0.145 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "foreground"
-                  }
-                }
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.145,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Text on cards."
+              }
+            },
+            "popover": {
+              "$root": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    1,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Background of popovers, menus, and other floating surfaces."
               },
-              "card": {
-                "$value": "oklch(1 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "card"
-                  }
+              "foreground": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.145,
+                    0,
+                    0
+                  ]
                 },
-                "foreground": {
-                  "$value": "oklch(0.145 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "card-foreground"
-                    }
-                  }
-                }
+                "$description": "Text in popovers and menus."
+              }
+            },
+            "primary": {
+              "$root": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.205,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Fill for primary buttons and other main actions."
               },
-              "popover": {
-                "$value": "oklch(1 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "popover"
-                  }
+              "foreground": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.985,
+                    0,
+                    0
+                  ]
                 },
-                "foreground": {
-                  "$value": "oklch(0.145 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "popover-foreground"
-                    }
-                  }
-                }
+                "$description": "Text and icons on primary fills."
+              }
+            },
+            "secondary": {
+              "$root": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.97,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Fill for secondary buttons."
               },
-              "primary": {
-                "$value": "oklch(0.205 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "primary"
-                  }
+              "foreground": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.205,
+                    0,
+                    0
+                  ]
                 },
-                "foreground": {
-                  "$value": "oklch(0.985 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "primary-foreground"
-                    }
-                  }
-                }
+                "$description": "Text and icons on secondary fills."
+              }
+            },
+            "muted": {
+              "$root": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.97,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Subdued backgrounds, such as tab lists and skeletons."
               },
-              "secondary": {
-                "$value": "oklch(0.97 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "secondary"
-                  }
+              "foreground": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.556,
+                    0,
+                    0
+                  ]
                 },
-                "foreground": {
-                  "$value": "oklch(0.205 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "secondary-foreground"
-                    }
-                  }
-                }
+                "$description": "Secondary text, such as descriptions and placeholders."
+              }
+            },
+            "accent": {
+              "$root": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.97,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Hover and focus backgrounds, such as the menu item under the pointer."
               },
-              "muted": {
-                "$value": "oklch(0.97 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "muted"
-                  }
+              "foreground": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.205,
+                    0,
+                    0
+                  ]
                 },
-                "foreground": {
-                  "$value": "oklch(0.556 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "muted-foreground"
-                    }
-                  }
-                }
+                "$description": "Text on accent backgrounds."
+              }
+            },
+            "destructive": {
+              "$type": "color",
+              "$value": {
+                "colorSpace": "oklch",
+                "components": [
+                  0.577,
+                  0.245,
+                  27.325
+                ]
               },
-              "accent": {
-                "$value": "oklch(0.97 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "accent"
-                  }
-                },
-                "foreground": {
-                  "$value": "oklch(0.205 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "accent-foreground"
-                    }
-                  }
-                }
+              "$description": "Fill and text for destructive actions and errors."
+            },
+            "border": {
+              "$type": "color",
+              "$value": {
+                "colorSpace": "oklch",
+                "components": [
+                  0.922,
+                  0,
+                  0
+                ]
               },
-              "destructive": {
-                "$value": "oklch(0.577 0.245 27.325)",
-                "$extensions": {
-                  "parity": {
-                    "var": "destructive"
-                  }
-                }
+              "$description": "Borders and dividers."
+            },
+            "input": {
+              "$type": "color",
+              "$value": {
+                "colorSpace": "oklch",
+                "components": [
+                  0.922,
+                  0,
+                  0
+                ]
               },
-              "border": {
-                "$value": "oklch(0.922 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "border"
-                  }
-                }
+              "$description": "Borders of inputs, selects, and other form fields."
+            },
+            "ring": {
+              "$type": "color",
+              "$value": {
+                "colorSpace": "oklch",
+                "components": [
+                  0.708,
+                  0,
+                  0
+                ]
               },
-              "input": {
-                "$value": "oklch(0.922 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "input"
-                  }
-                }
+              "$description": "Focus rings."
+            },
+            "chart": {
+              "1": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.87,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Chart color for series 1."
               },
-              "ring": {
-                "$value": "oklch(0.708 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "ring"
-                  }
-                }
+              "2": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.556,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Chart color for series 2."
               },
-              "chart": {
-                "1": {
-                  "$value": "oklch(0.87 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "chart-1"
-                    }
-                  }
+              "3": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.439,
+                    0,
+                    0
+                  ]
                 },
-                "2": {
-                  "$value": "oklch(0.556 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "chart-2"
-                    }
-                  }
-                },
-                "3": {
-                  "$value": "oklch(0.439 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "chart-3"
-                    }
-                  }
-                },
-                "4": {
-                  "$value": "oklch(0.371 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "chart-4"
-                    }
-                  }
-                },
-                "5": {
-                  "$value": "oklch(0.269 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "chart-5"
-                    }
-                  }
-                }
+                "$description": "Chart color for series 3."
               },
-              "sidebar": {
-                "$value": "oklch(0.985 0 0)",
-                "$extensions": {
-                  "parity": {
-                    "var": "sidebar"
-                  }
+              "4": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.371,
+                    0,
+                    0
+                  ]
                 },
-                "foreground": {
-                  "$value": "oklch(0.145 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "sidebar-foreground"
-                    }
-                  }
-                },
-                "primary": {
-                  "$value": "oklch(0.205 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "sidebar-primary"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "oklch(0.985 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "sidebar-primary-foreground"
-                      }
-                    }
-                  }
-                },
-                "accent": {
-                  "$value": "oklch(0.97 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "sidebar-accent"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "oklch(0.205 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "sidebar-accent-foreground"
-                      }
-                    }
-                  }
-                },
-                "border": {
-                  "$value": "oklch(0.922 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "sidebar-border"
-                    }
-                  }
-                },
-                "ring": {
-                  "$value": "oklch(0.708 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "sidebar-ring"
-                    }
-                  }
-                }
+                "$description": "Chart color for series 4."
               },
-              "color": {
-                "background": {
-                  "$value": "{color.background}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-background"
-                    }
-                  }
+              "5": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.269,
+                    0,
+                    0
+                  ]
                 },
-                "foreground": {
-                  "$value": "{color.foreground}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-foreground"
-                    }
-                  }
-                },
-                "card": {
-                  "$value": "{color.card}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-card"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "{color.card.foreground}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-card-foreground"
-                      }
-                    }
-                  }
-                },
-                "popover": {
-                  "$value": "{color.popover}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-popover"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "{color.popover.foreground}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-popover-foreground"
-                      }
-                    }
-                  }
-                },
-                "primary": {
-                  "$value": "{color.primary}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-primary"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "{color.primary.foreground}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-primary-foreground"
-                      }
-                    }
-                  }
-                },
-                "secondary": {
-                  "$value": "{color.secondary}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-secondary"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "{color.secondary.foreground}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-secondary-foreground"
-                      }
-                    }
-                  }
-                },
-                "muted": {
-                  "$value": "{color.muted}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-muted"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "{color.muted.foreground}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-muted-foreground"
-                      }
-                    }
-                  }
-                },
-                "accent": {
-                  "$value": "{color.accent}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-accent"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "{color.accent.foreground}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-accent-foreground"
-                      }
-                    }
-                  }
-                },
-                "destructive": {
-                  "$value": "{color.destructive}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-destructive"
-                    }
-                  }
-                },
-                "border": {
-                  "$value": "{color.border}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-border"
-                    }
-                  }
-                },
-                "input": {
-                  "$value": "{color.input}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-input"
-                    }
-                  }
-                },
-                "ring": {
-                  "$value": "{color.ring}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-ring"
-                    }
-                  }
-                },
-                "chart": {
-                  "1": {
-                    "$value": "{color.chart.1}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-chart-1"
-                      }
-                    }
-                  },
-                  "2": {
-                    "$value": "{color.chart.2}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-chart-2"
-                      }
-                    }
-                  },
-                  "3": {
-                    "$value": "{color.chart.3}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-chart-3"
-                      }
-                    }
-                  },
-                  "4": {
-                    "$value": "{color.chart.4}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-chart-4"
-                      }
-                    }
-                  },
-                  "5": {
-                    "$value": "{color.chart.5}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-chart-5"
-                      }
-                    }
-                  }
-                },
-                "sidebar": {
-                  "$value": "{color.sidebar}",
-                  "$extensions": {
-                    "parity": {
-                      "var": "color-sidebar"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "{color.sidebar.foreground}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-sidebar-foreground"
-                      }
-                    }
-                  },
-                  "primary": {
-                    "$value": "{color.sidebar.primary}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-sidebar-primary"
-                      }
-                    },
-                    "foreground": {
-                      "$value": "{color.sidebar.primary.foreground}",
-                      "$extensions": {
-                        "parity": {
-                          "var": "color-sidebar-primary-foreground"
-                        }
-                      }
-                    }
-                  },
-                  "accent": {
-                    "$value": "{color.sidebar.accent}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-sidebar-accent"
-                      }
-                    },
-                    "foreground": {
-                      "$value": "{color.sidebar.accent.foreground}",
-                      "$extensions": {
-                        "parity": {
-                          "var": "color-sidebar-accent-foreground"
-                        }
-                      }
-                    }
-                  },
-                  "border": {
-                    "$value": "{color.sidebar.border}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-sidebar-border"
-                      }
-                    }
-                  },
-                  "ring": {
-                    "$value": "{color.sidebar.ring}",
-                    "$extensions": {
-                      "parity": {
-                        "var": "color-sidebar-ring"
-                      }
-                    }
-                  }
-                }
+                "$description": "Chart color for series 5."
               }
             },
             "radius": {
-              "radius": {
+              "$root": {
                 "$type": "dimension",
                 "$value": {
                   "value": 0.625,
                   "unit": "rem"
                 },
-                "$extensions": {
-                  "parity": {
-                    "var": "radius"
-                  }
-                }
+                "$description": "Base corner radius. The other radius sizes are derived from it."
               },
               "sm": {
-                "$value": "calc(var(--radius) * 0.6)",
+                "$type": "dimension",
+                "$value": {
+                  "value": 0.375,
+                  "unit": "rem"
+                },
+                "$description": "Corner radius at the sm size, derived from the base radius.",
                 "$extensions": {
-                  "parity": {
-                    "var": "radius-sm"
+                  "gg.buildkit": {
+                    "css": "calc(var(--radius) * 0.6)"
                   }
                 }
               },
               "md": {
-                "$value": "calc(var(--radius) * 0.8)",
+                "$type": "dimension",
+                "$value": {
+                  "value": 0.5,
+                  "unit": "rem"
+                },
+                "$description": "Corner radius at the md size, derived from the base radius.",
                 "$extensions": {
-                  "parity": {
-                    "var": "radius-md"
+                  "gg.buildkit": {
+                    "css": "calc(var(--radius) * 0.8)"
                   }
                 }
               },
               "lg": {
-                "$value": "{radius.radius}",
-                "$extensions": {
-                  "parity": {
-                    "var": "radius-lg"
-                  }
-                }
+                "$type": "dimension",
+                "$value": "{radius.$root}",
+                "$description": "Corner radius at the lg size, derived from the base radius."
               },
               "xl": {
-                "$value": "calc(var(--radius) * 1.4)",
+                "$type": "dimension",
+                "$value": {
+                  "value": 0.875,
+                  "unit": "rem"
+                },
+                "$description": "Corner radius at the xl size, derived from the base radius.",
                 "$extensions": {
-                  "parity": {
-                    "var": "radius-xl"
+                  "gg.buildkit": {
+                    "css": "calc(var(--radius) * 1.4)"
                   }
                 }
               },
               "2xl": {
-                "$value": "calc(var(--radius) * 1.8)",
+                "$type": "dimension",
+                "$value": {
+                  "value": 1.125,
+                  "unit": "rem"
+                },
+                "$description": "Corner radius at the 2xl size, derived from the base radius.",
                 "$extensions": {
-                  "parity": {
-                    "var": "radius-2xl"
+                  "gg.buildkit": {
+                    "css": "calc(var(--radius) * 1.8)"
                   }
                 }
               },
               "3xl": {
-                "$value": "calc(var(--radius) * 2.2)",
+                "$type": "dimension",
+                "$value": {
+                  "value": 1.375,
+                  "unit": "rem"
+                },
+                "$description": "Corner radius at the 3xl size, derived from the base radius.",
                 "$extensions": {
-                  "parity": {
-                    "var": "radius-3xl"
+                  "gg.buildkit": {
+                    "css": "calc(var(--radius) * 2.2)"
                   }
                 }
               },
               "4xl": {
-                "$value": "calc(var(--radius) * 2.6)",
+                "$type": "dimension",
+                "$value": {
+                  "value": 1.625,
+                  "unit": "rem"
+                },
+                "$description": "Corner radius at the 4xl size, derived from the base radius.",
                 "$extensions": {
-                  "parity": {
-                    "var": "radius-4xl"
+                  "gg.buildkit": {
+                    "css": "calc(var(--radius) * 2.6)"
                   }
                 }
               }
             },
-            "motion": {
-              "animation": {
-                "delay": {
-                  "0": {
-                    "$type": "duration",
-                    "$value": {
-                      "value": 0,
-                      "unit": "s"
-                    },
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-delay-0"
-                      }
-                    }
-                  },
-                  "75": {
-                    "$type": "duration",
-                    "$value": {
-                      "value": 75,
-                      "unit": "ms"
-                    },
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-delay-75"
-                      }
-                    }
-                  },
-                  "100": {
-                    "$type": "duration",
-                    "$value": {
-                      "value": 0.1,
-                      "unit": "s"
-                    },
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-delay-100"
-                      }
-                    }
-                  },
-                  "150": {
-                    "$type": "duration",
-                    "$value": {
-                      "value": 0.15,
-                      "unit": "s"
-                    },
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-delay-150"
-                      }
-                    }
-                  },
-                  "200": {
-                    "$type": "duration",
-                    "$value": {
-                      "value": 0.2,
-                      "unit": "s"
-                    },
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-delay-200"
-                      }
-                    }
-                  },
-                  "300": {
-                    "$type": "duration",
-                    "$value": {
-                      "value": 0.3,
-                      "unit": "s"
-                    },
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-delay-300"
-                      }
-                    }
-                  },
-                  "500": {
-                    "$type": "duration",
-                    "$value": {
-                      "value": 0.5,
-                      "unit": "s"
-                    },
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-delay-500"
-                      }
-                    }
-                  },
-                  "700": {
-                    "$type": "duration",
-                    "$value": {
-                      "value": 0.7,
-                      "unit": "s"
-                    },
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-delay-700"
-                      }
-                    }
-                  },
-                  "1000": {
-                    "$type": "duration",
-                    "$value": {
-                      "value": 1,
-                      "unit": "s"
-                    },
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-delay-1000"
-                      }
-                    }
-                  }
+            "sidebar": {
+              "$root": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.985,
+                    0,
+                    0
+                  ]
                 },
-                "repeat": {
-                  "0": {
-                    "$type": "number",
-                    "$value": 0,
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-repeat-0"
-                      }
-                    }
-                  },
-                  "1": {
-                    "$type": "number",
-                    "$value": 1,
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-repeat-1"
-                      }
-                    }
-                  },
-                  "infinite": {
-                    "$value": "infinite",
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-repeat-infinite"
-                      }
-                    }
-                  }
+                "$description": "Background of the sidebar."
+              },
+              "foreground": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.145,
+                    0,
+                    0
+                  ]
                 },
-                "direction": {
-                  "normal": {
-                    "$value": "normal",
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-direction-normal"
-                      }
-                    }
+                "$description": "Text in the sidebar."
+              },
+              "primary": {
+                "$root": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.205,
+                      0,
+                      0
+                    ]
                   },
-                  "reverse": {
-                    "$value": "reverse",
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-direction-reverse"
-                      }
-                    }
-                  },
-                  "alternate": {
-                    "$value": "alternate",
-                    "$extensions": {
-                      "parity": {
-                        "var": "animation-direction-alternate"
-                      }
-                    },
-                    "reverse": {
-                      "$value": "alternate-reverse",
-                      "$extensions": {
-                        "parity": {
-                          "var": "animation-direction-alternate-reverse"
-                        }
-                      }
-                    }
-                  }
+                  "$description": "Fill for primary actions and highlights in the sidebar."
                 },
-                "fill": {
-                  "mode": {
-                    "none": {
-                      "$value": "none",
-                      "$extensions": {
-                        "parity": {
-                          "var": "animation-fill-mode-none"
-                        }
-                      }
-                    },
-                    "forwards": {
-                      "$value": "forwards",
-                      "$extensions": {
-                        "parity": {
-                          "var": "animation-fill-mode-forwards"
-                        }
-                      }
-                    },
-                    "backwards": {
-                      "$value": "backwards",
-                      "$extensions": {
-                        "parity": {
-                          "var": "animation-fill-mode-backwards"
-                        }
-                      }
-                    },
-                    "both": {
-                      "$value": "both",
-                      "$extensions": {
-                        "parity": {
-                          "var": "animation-fill-mode-both"
-                        }
-                      }
-                    }
-                  }
+                "foreground": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.985,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Text and icons on the sidebar's primary fills."
                 }
               },
-              "animate": {
-                "in": {
-                  "$value": "enter var(--tw-animation-duration,var(--tw-duration,.15s))var(--tw-ease,ease)var(--tw-animation-delay,0s)var(--tw-animation-iteration-count,1)var(--tw-animation-direction,normal)var(--tw-animation-fill-mode,none)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "animate-in"
-                    }
-                  }
-                },
-                "out": {
-                  "$value": "exit var(--tw-animation-duration,var(--tw-duration,.15s))var(--tw-ease,ease)var(--tw-animation-delay,0s)var(--tw-animation-iteration-count,1)var(--tw-animation-direction,normal)var(--tw-animation-fill-mode,none)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "animate-out"
-                    }
-                  }
-                },
-                "accordion": {
-                  "down": {
-                    "$value": "accordion-down var(--tw-animation-duration,var(--tw-duration,.2s))var(--tw-ease,ease-out)var(--tw-animation-delay,0s)var(--tw-animation-iteration-count,1)var(--tw-animation-direction,normal)var(--tw-animation-fill-mode,none)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "animate-accordion-down"
-                      }
-                    }
+              "accent": {
+                "$root": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.97,
+                      0,
+                      0
+                    ]
                   },
-                  "up": {
-                    "$value": "accordion-up var(--tw-animation-duration,var(--tw-duration,.2s))var(--tw-ease,ease-out)var(--tw-animation-delay,0s)var(--tw-animation-iteration-count,1)var(--tw-animation-direction,normal)var(--tw-animation-fill-mode,none)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "animate-accordion-up"
-                      }
-                    }
-                  }
+                  "$description": "Hover and active backgrounds of sidebar items."
                 },
-                "collapsible": {
-                  "down": {
-                    "$value": "collapsible-down var(--tw-animation-duration,var(--tw-duration,.2s))var(--tw-ease,ease-out)var(--tw-animation-delay,0s)var(--tw-animation-iteration-count,1)var(--tw-animation-direction,normal)var(--tw-animation-fill-mode,none)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "animate-collapsible-down"
-                      }
-                    }
+                "foreground": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.205,
+                      0,
+                      0
+                    ]
                   },
-                  "up": {
-                    "$value": "collapsible-up var(--tw-animation-duration,var(--tw-duration,.2s))var(--tw-ease,ease-out)var(--tw-animation-delay,0s)var(--tw-animation-iteration-count,1)var(--tw-animation-direction,normal)var(--tw-animation-fill-mode,none)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "animate-collapsible-up"
-                      }
-                    }
-                  }
-                },
-                "caret": {
-                  "blink": {
-                    "$value": "caret-blink 1.25s ease-out infinite",
-                    "$extensions": {
-                      "parity": {
-                        "var": "animate-caret-blink"
-                      }
-                    }
-                  }
+                  "$description": "Text on the sidebar's accent backgrounds."
                 }
-              }
-            },
-            "other": {
-              "percentage": {
-                "0": {
-                  "$type": "number",
-                  "$value": 0,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-0"
-                    }
-                  }
+              },
+              "border": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.922,
+                    0,
+                    0
+                  ]
                 },
-                "5": {
-                  "$type": "number",
-                  "$value": 0.05,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-5"
-                    }
-                  }
+                "$description": "Borders and dividers in the sidebar."
+              },
+              "ring": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.708,
+                    0,
+                    0
+                  ]
                 },
-                "10": {
-                  "$type": "number",
-                  "$value": 0.1,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-10"
-                    }
-                  }
-                },
-                "15": {
-                  "$type": "number",
-                  "$value": 0.15,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-15"
-                    }
-                  }
-                },
-                "20": {
-                  "$type": "number",
-                  "$value": 0.2,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-20"
-                    }
-                  }
-                },
-                "25": {
-                  "$type": "number",
-                  "$value": 0.25,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-25"
-                    }
-                  }
-                },
-                "30": {
-                  "$type": "number",
-                  "$value": 0.3,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-30"
-                    }
-                  }
-                },
-                "35": {
-                  "$type": "number",
-                  "$value": 0.35,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-35"
-                    }
-                  }
-                },
-                "40": {
-                  "$type": "number",
-                  "$value": 0.4,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-40"
-                    }
-                  }
-                },
-                "45": {
-                  "$type": "number",
-                  "$value": 0.45,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-45"
-                    }
-                  }
-                },
-                "50": {
-                  "$type": "number",
-                  "$value": 0.5,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-50"
-                    }
-                  }
-                },
-                "55": {
-                  "$type": "number",
-                  "$value": 0.55,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-55"
-                    }
-                  }
-                },
-                "60": {
-                  "$type": "number",
-                  "$value": 0.6,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-60"
-                    }
-                  }
-                },
-                "65": {
-                  "$type": "number",
-                  "$value": 0.65,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-65"
-                    }
-                  }
-                },
-                "70": {
-                  "$type": "number",
-                  "$value": 0.7,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-70"
-                    }
-                  }
-                },
-                "75": {
-                  "$type": "number",
-                  "$value": 0.75,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-75"
-                    }
-                  }
-                },
-                "80": {
-                  "$type": "number",
-                  "$value": 0.8,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-80"
-                    }
-                  }
-                },
-                "85": {
-                  "$type": "number",
-                  "$value": 0.85,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-85"
-                    }
-                  }
-                },
-                "90": {
-                  "$type": "number",
-                  "$value": 0.9,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-90"
-                    }
-                  }
-                },
-                "95": {
-                  "$type": "number",
-                  "$value": 0.95,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-95"
-                    }
-                  }
-                },
-                "100": {
-                  "$type": "number",
-                  "$value": 1,
-                  "$extensions": {
-                    "parity": {
-                      "var": "percentage-100"
-                    }
-                  }
-                },
-                "translate": {
-                  "full": {
-                    "$type": "number",
-                    "$value": 1,
-                    "$extensions": {
-                      "parity": {
-                        "var": "percentage-translate-full"
-                      }
-                    }
-                  }
-                }
+                "$description": "Focus rings in the sidebar."
               }
             }
           }
@@ -1075,226 +516,347 @@
     },
     "modifiers": {
       "theme": {
-        "default": "default",
         "contexts": {
-          "default": [],
+          "light": [],
           "dark": [
             {
-              "color": {
-                "background": {
-                  "$value": "oklch(0.145 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "background"
-                    }
-                  }
+              "background": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.145,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Page background."
+              },
+              "foreground": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.985,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Text on the page background."
+              },
+              "card": {
+                "$root": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.205,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Background of cards."
                 },
                 "foreground": {
-                  "$value": "oklch(0.985 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "foreground"
-                    }
-                  }
-                },
-                "card": {
-                  "$value": "oklch(0.205 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "card"
-                    }
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.985,
+                      0,
+                      0
+                    ]
                   },
-                  "foreground": {
-                    "$value": "oklch(0.985 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "card-foreground"
-                      }
-                    }
-                  }
-                },
-                "popover": {
-                  "$value": "oklch(0.205 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "popover"
-                    }
+                  "$description": "Text on cards."
+                }
+              },
+              "popover": {
+                "$root": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.205,
+                      0,
+                      0
+                    ]
                   },
-                  "foreground": {
-                    "$value": "oklch(0.985 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "popover-foreground"
-                      }
-                    }
-                  }
+                  "$description": "Background of popovers, menus, and other floating surfaces."
+                },
+                "foreground": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.985,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Text in popovers and menus."
+                }
+              },
+              "primary": {
+                "$root": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.922,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Fill for primary buttons and other main actions."
+                },
+                "foreground": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.205,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Text and icons on primary fills."
+                }
+              },
+              "secondary": {
+                "$root": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.269,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Fill for secondary buttons."
+                },
+                "foreground": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.985,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Text and icons on secondary fills."
+                }
+              },
+              "muted": {
+                "$root": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.269,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Subdued backgrounds, such as tab lists and skeletons."
+                },
+                "foreground": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.708,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Secondary text, such as descriptions and placeholders."
+                }
+              },
+              "accent": {
+                "$root": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.269,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Hover and focus backgrounds, such as the menu item under the pointer."
+                },
+                "foreground": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.985,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Text on accent backgrounds."
+                }
+              },
+              "destructive": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.704,
+                    0.191,
+                    22.216
+                  ]
+                },
+                "$description": "Fill and text for destructive actions and errors."
+              },
+              "border": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    1,
+                    0,
+                    0
+                  ],
+                  "alpha": 0.1
+                },
+                "$description": "Borders and dividers."
+              },
+              "input": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    1,
+                    0,
+                    0
+                  ],
+                  "alpha": 0.15
+                },
+                "$description": "Borders of inputs, selects, and other form fields."
+              },
+              "ring": {
+                "$type": "color",
+                "$value": {
+                  "colorSpace": "oklch",
+                  "components": [
+                    0.556,
+                    0,
+                    0
+                  ]
+                },
+                "$description": "Focus rings."
+              },
+              "sidebar": {
+                "$root": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.205,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Background of the sidebar."
+                },
+                "foreground": {
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.985,
+                      0,
+                      0
+                    ]
+                  },
+                  "$description": "Text in the sidebar."
                 },
                 "primary": {
-                  "$value": "oklch(0.922 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "primary"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "oklch(0.205 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "primary-foreground"
-                      }
-                    }
-                  }
-                },
-                "secondary": {
-                  "$value": "oklch(0.269 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "secondary"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "oklch(0.985 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "secondary-foreground"
-                      }
-                    }
-                  }
-                },
-                "muted": {
-                  "$value": "oklch(0.269 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "muted"
-                    }
-                  },
-                  "foreground": {
-                    "$value": "oklch(0.708 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "muted-foreground"
-                      }
-                    }
+                  "$root": {
+                    "$type": "color",
+                    "$value": {
+                      "colorSpace": "oklch",
+                      "components": [
+                        0.488,
+                        0.243,
+                        264.376
+                      ]
+                    },
+                    "$description": "Fill for primary actions and highlights in the sidebar."
                   }
                 },
                 "accent": {
-                  "$value": "oklch(0.269 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "accent"
-                    }
+                  "$root": {
+                    "$type": "color",
+                    "$value": {
+                      "colorSpace": "oklch",
+                      "components": [
+                        0.269,
+                        0,
+                        0
+                      ]
+                    },
+                    "$description": "Hover and active backgrounds of sidebar items."
                   },
                   "foreground": {
-                    "$value": "oklch(0.985 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "accent-foreground"
-                      }
-                    }
-                  }
-                },
-                "destructive": {
-                  "$value": "oklch(0.704 0.191 22.216)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "destructive"
-                    }
+                    "$type": "color",
+                    "$value": {
+                      "colorSpace": "oklch",
+                      "components": [
+                        0.985,
+                        0,
+                        0
+                      ]
+                    },
+                    "$description": "Text on the sidebar's accent backgrounds."
                   }
                 },
                 "border": {
-                  "$value": "oklch(1 0 0 / 10%)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "border"
-                    }
-                  }
-                },
-                "input": {
-                  "$value": "oklch(1 0 0 / 15%)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "input"
-                    }
-                  }
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      1,
+                      0,
+                      0
+                    ],
+                    "alpha": 0.1
+                  },
+                  "$description": "Borders and dividers in the sidebar."
                 },
                 "ring": {
-                  "$value": "oklch(0.556 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "ring"
-                    }
-                  }
-                },
-                "sidebar": {
-                  "$value": "oklch(0.205 0 0)",
-                  "$extensions": {
-                    "parity": {
-                      "var": "sidebar"
-                    }
+                  "$type": "color",
+                  "$value": {
+                    "colorSpace": "oklch",
+                    "components": [
+                      0.556,
+                      0,
+                      0
+                    ]
                   },
-                  "foreground": {
-                    "$value": "oklch(0.985 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "sidebar-foreground"
-                      }
-                    }
-                  },
-                  "primary": {
-                    "$value": "oklch(0.488 0.243 264.376)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "sidebar-primary"
-                      }
-                    }
-                  },
-                  "accent": {
-                    "$value": "oklch(0.269 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "sidebar-accent"
-                      }
-                    },
-                    "foreground": {
-                      "$value": "oklch(0.985 0 0)",
-                      "$extensions": {
-                        "parity": {
-                          "var": "sidebar-accent-foreground"
-                        }
-                      }
-                    }
-                  },
-                  "border": {
-                    "$value": "oklch(1 0 0 / 10%)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "sidebar-border"
-                      }
-                    }
-                  },
-                  "ring": {
-                    "$value": "oklch(0.556 0 0)",
-                    "$extensions": {
-                      "parity": {
-                        "var": "sidebar-ring"
-                      }
-                    }
-                  }
+                  "$description": "Focus rings in the sidebar."
                 }
               }
             }
           ]
-        }
+        },
+        "default": "light"
       }
     },
-    "resolutionOrder": [
-      {
-        "$ref": "#/sets/tokens"
-      },
-      {
-        "$ref": "#/modifiers/theme"
+    "$extensions": {
+      "gg.buildkit": {
+        "style": "mira",
+        "palette": "neutral",
+        "upstream": {
+          "repository": "https://github.com/shadcn-ui/ui",
+          "revision": "4aaea19d9cff3e0908e12a8c1d504b8c5ec34610"
+        }
       }
-    ]
+    }
   },
   "components": {
     "list": {

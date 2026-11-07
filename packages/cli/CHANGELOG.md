@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 10:43:10 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 06 Nov 2026 18:38:16 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.13.1
+
+Fri, 06 Nov 2026 18:38:16 GMT
+
+### Patches
+
+- Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token (ajcraswell@gmail.com)
 
 ## 0.13.0
 

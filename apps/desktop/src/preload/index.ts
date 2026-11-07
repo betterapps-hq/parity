@@ -57,18 +57,15 @@ function windowHandlers(
     windowMethods.map((method) => [method, (params: unknown) => answer(method, params)])
   ) as Handlers<WindowMethods>
 }
-
-/** The telemetry level main passed the window, which only main reads from the environment. */
-function telemetryLevel(): CanvasHost["telemetry"] {
-  const level = process.argv.find((argument) => argument.startsWith("--parity-telemetry="))?.split("=")[1]
-  return level === "all" || level === "errors" ? level : "off"
-}
-
 const host: CanvasHost = {
   appVersion:
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
   getBuildInfo: () => ipcRenderer.invoke(ipc.buildInfo),
+  telemetry: {
+    get: () => ipcRenderer.invoke(ipc.telemetryState),
+    setLevel: (level) => ipcRenderer.invoke(ipc.telemetryLevel, level)
+  },
   updates: {
     get: () => ipcRenderer.invoke(ipc.updateState),
     check: () => ipcRenderer.invoke(ipc.updateCheck),
@@ -104,15 +101,15 @@ const host: CanvasHost = {
     signIn: (request) => ipcRenderer.invoke(ipc.accountSignIn, request) as Promise<void>,
     reopen: () => ipcRenderer.invoke(ipc.accountReopen) as Promise<void>,
     cancel: () => ipcRenderer.invoke(ipc.accountCancel) as Promise<void>,
-    signOut: () => ipcRenderer.invoke(ipc.accountSignOut) as Promise<void>,
-    switchOrganization: (organizationId) => ipcRenderer.invoke(ipc.accountSwitch, organizationId) as Promise<void>
+    signOut: (email) => ipcRenderer.invoke(ipc.accountSignOut, email) as Promise<void>,
+    switchOrganization: (organizationId) => ipcRenderer.invoke(ipc.accountSwitch, organizationId) as Promise<void>,
+    use: (email) => ipcRenderer.invoke(ipc.accountUse, email) as Promise<void>
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
     ?.split("=")
     .slice(1)
     .join("="),
-  telemetry: telemetryLevel(),
   ask: (method, params) =>
     service.request(method, params).then(
       (result) => ({ result }),

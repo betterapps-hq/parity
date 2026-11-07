@@ -10,7 +10,7 @@ import { accent } from "./ProjectCard.tsx"
 import { ProjectList } from "./ProjectList.tsx"
 import { type KnownProject, whenLabel } from "./projects.ts"
 import { StartActionsProvider, useStartActions, workspaceActions } from "./start-actions.ts"
-import { HomeAccountMenu, NewProjectButton, OpenMenu, SearchButton } from "./StartControls.tsx"
+import { NewProjectButton, OpenMenu, SearchButton, WorkspaceMenu } from "./StartControls.tsx"
 import { useNow } from "./use-now.ts"
 
 /** Home, pinned first in the tab strip, with the projects the window remembers and the example when there is one. */
@@ -46,8 +46,8 @@ export function Home({ projects, active = true }: { projects: readonly KnownProj
     <main hidden={!active} aria-label="Home" className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-4 pt-6 pb-14 sm:px-10">
         <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <HomeAccountMenu />
-          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
+          <WorkspaceMenu />
+          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2 max-sm:w-full">
             <SearchButton />
             <OpenMenu />
             <NewProjectButton />

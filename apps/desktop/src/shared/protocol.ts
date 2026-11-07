@@ -23,6 +23,7 @@ import type {
 } from "@parity-app/core"
 import type { EditStatus, ExportSize } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
+import type { ResolvedTelemetry, TelemetryLevel } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
@@ -349,10 +350,23 @@ export interface BuildInfo {
   channel: "beta" | "stable" | "development" | "unknown"
 }
 
+/**
+ * What Parity sends Sentry this run, the level saved in Settings, the variable overriding it if one is set, and the
+ * install ID Sentry groups this computer's reports by (PAR-626).
+ */
+export interface TelemetryState extends ResolvedTelemetry {
+  installId: string
+}
+
 /** Exposed on `window.canvasHost` by the preload script. */
 export interface CanvasHost {
   appVersion: string
   getBuildInfo: () => Promise<BuildInfo>
+  /** The Telemetry setting and install ID, which main keeps and applies (PAR-626). */
+  telemetry: {
+    get: () => Promise<TelemetryState>
+    setLevel: (level: TelemetryLevel) => Promise<TelemetryState>
+  }
   updates: {
     get: () => Promise<UpdateState>
     check: () => Promise<void>
@@ -373,14 +387,15 @@ export interface CanvasHost {
     reopen: () => Promise<void>
     /** Stops waiting, and puts away what went wrong or the session that ended. */
     cancel: () => Promise<void>
-    signOut: () => Promise<void>
-    /** Moves the session to another organization the person is in, refreshing in the background. */
+    /** Signs out of one account, by its email, or forgets one whose session ended. */
+    signOut: (email: string) => Promise<void>
+    /** Moves the account you're in to another organization the person is in, refreshing in the background. */
     switchOrganization: (organizationId: string) => Promise<void>
+    /** Switches to another account signed in, by its email, at once: each keeps its own session. */
+    use: (email: string) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
-  /** The telemetry level main started at, which says what the window records (PAR-624). None means off. */
-  telemetry?: "all" | "errors" | "off"
   /**
    * Asks the project service, and never fails: a failure is an answer, with its details. The page asks through
    * `request` in `renderer/service.ts`, which throws it as a `CodedError` again.

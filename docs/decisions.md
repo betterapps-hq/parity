@@ -92,7 +92,21 @@ still need your call.
   call: linked is the default because it's what keeps an app following the library, and a copy is Detach done at once,
   with the same rules. A linked copy can't go to its main component or push overrides to it, as the main is the
   library's. The agent's edit API doesn't see library designs yet.
-- **Open:** Buildkit's nova `tokens.json`, which isn't DTCG yet.
+- **Buildkit's styles ship their tokens as DTCG (PAR-139).** Each style's `tokens.json` is a 2025.10 resolver: one set
+  with the light values and a `theme` modifier whose `dark` context holds what changes. Every token has a type and a
+  description, written once in Buildkit's generator for all eight styles, and `parity lib` copies the file into each
+  registry `.lib.par`. A token's path is its CSS variable's name split at each hyphen (`card.foreground`), with a
+  group's own token in `$root`, so it matches its custom property by its whole path. You chose on 2026-11-06 to replace
+  the old format in place rather than ship two files, as only Buildkit's own release check read it. My call: the eight
+  registry files were regenerated from 0.5.0 with `--only new`, which changed only their tokens and version, and cover
+  `^0.4.0 || ^0.5.0`, since 0.4's components are the same and its projects would otherwise lose their file. They list
+  the 39 tokens Buildkit describes instead of the 119 libgen read from the stylesheet, which the Tokens panel still
+  shows from the project's own CSS.
+- **Parity's own reader is the one DTCG parser and validator.** You asked for one, not two, on 2026-11-06. Terrazzo
+  (`@terrazzo/parser` 2.10) was tried as the replacement and rejected: it treats the CSS strings libgen writes for
+  values DTCG has no form for as errors, keeps a malformed token with a broken value instead of leaving it out, throws
+  on a broken alias when told to carry on, and drops a plain token file's descriptions. Buildkit checks its file's shape
+  when it releases, and Parity's tests read each registry copy with this reader.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked
   to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. A file that's the same as what was
@@ -5120,6 +5134,42 @@ My calls:
 - **Signing in is checked in an installed build later.** The scheme and passing links between copies only work in an
   installed app, which wasn't tried here.
 
+## Several accounts are built (PAR-669)
+
+You asked on 2026-11-06 to stay signed in to several accounts, such as your own and your company's, and switch between
+them as Figma does. You approved the design in Parity/Explorations/Home: Home's workspace menu at the top left, and your
+accounts in a panel from your picture at the end of the title bar, each with its own Sign out. Your calls:
+
+- **Accounts and organizations are separate controls.** The title bar's panel is who you are; Home's workspace menu is
+  where you're working in the account you're in.
+- **People and Settings leave the menus.** Settings stays in the app's menu, and an organization's people wait for
+  organization settings.
+- **Any account can be signed out of**, not only the one you're in, from its own row, with no menu under Sign out.
+
+My calls:
+
+- **Main keeps a session for each account,** each with its own refresh token and refresh timer, in the one encrypted
+  `account` file, with the account Parity was last in. Switching accounts doesn't ask WorkOS, so it's instant, and
+  Parity starts in the same account next launch.
+- **An account is its email.** Signing in again as an account that's listed takes its place rather than listing it
+  twice.
+- **Signing out of the account you're in moves you to the one you used last** whose session is still going; with none
+  left, you're signed out. Signing out of another leaves you where you are.
+- **An account whose session WorkOS ends stays listed,** dimmed, with who it was and how they signed in but no token, so
+  one click signs in again as it and Remove forgets it. That's kept across launches. Session ended shows over what's
+  open only for the account you're in, and you're moved to another meanwhile; another account's ending doesn't
+  interrupt.
+- **Adding an account asks the provider which one.** Google, GitHub and Microsoft get `prompt=select_account` through
+  WorkOS's `provider_query_params`, written as WorkOS's own SDK writes it,
+  `provider_query_params[prompt]=select_account`, so a browser signed in to one Google account still offers the others.
+  Signing in again as an account names it with `login_hint` instead, and a work email goes to AuthKit with `login_hint`
+  as before. Whether WorkOS passes the prompt on hasn't been tried yet: its reference documents `provider_query_params`
+  without saying how it's written.
+- **A file from a build that kept one account isn't read,** since it's prototype data: anyone signed in then signs in
+  once more.
+- **Copies of Parity still share accounts.** Each change reads the newest file and replaces only its own account, since
+  every refresh replaces a token.
+
 ## Telemetry's event model is data in and data out in `@parity-app/telemetry` (PAR-618)
 
 The package holds the envelope, the event registry, spans, sinks and the ring buffer, as
@@ -5493,7 +5543,8 @@ envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My call
   `parity.session_id`, `parity.duration_ms`).
 - **The level gate is in main's `beforeSend`, `beforeSendTransaction` and `beforeSendLog`,** through `sendsToSentry` in
   the package: All sends everything, Errors only errors (with their breadcrumbs), Off nothing. Reading the level there,
-  rather than only at `Sentry.init`, lets PAR-626 change it without a restart.
+  rather than only at `Sentry.init`, lets PAR-626 change it without a restart. PAR-626 has since dropped the Errors
+  level and `sendsToSentry` with it; see "Diagnostics are on or off" below.
 - **The local copy is `<userData>/logs/parity-<date>.jsonl`,** one envelope per line, written at every level. A file
   that would pass 5 MB continues in `parity-<date>.2.jsonl` and on, a new day starts a new file, and only the newest 10
   are kept. Lines are written together once a second, synchronously; a `fatal` event writes at once, with what's
@@ -5505,9 +5556,34 @@ envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My call
   with `envelopeSchema`, and names a window's events by the window that sent them.
 - **Main makes the install ID and the session ID, and passes them on** with whether to check events against their
   schemas (outside installed builds): to windows as a command-line argument, to the service and its worker in an
-  environment variable. The install ID is kept in `<userData>/install-id`; PAR-626 adds resetting it and showing it.
+  environment variable. The install ID was kept in `<userData>/install-id`; PAR-626 moved it into `telemetry.json`.
 - **No process exports its telemetry yet.** `startTelemetry` and `startEvents` return it; the issues that record the
   first events (PAR-629 onwards) decide how code reaches it.
+
+## Diagnostics are on or off (PAR-626)
+
+Settings has one switch for Parity's own telemetry, and About shows whether it's on and the install ID. You chose its
+shape on 2026-11-06. After a first design with an All, Errors and Off choice, an install ID row and a Reset button, you
+said it "smacks of leaking internal implementation details. Users don't need to see some of this. Users don't need to
+know we're using Sentry," then "Either send or don't, that's all." My calls within that:
+
+- **No Errors level anywhere,** not only in Settings: `TelemetryLevel` is `all` or `off`, `PARITY_TELEMETRY` takes only
+  those, and `sendsToSentry` is gone. Main turns Sentry's client on or off (`applyTelemetry` in `main/telemetry.ts`),
+  which every send checks, so the switch works without a restart. Sentry starts enabled and is turned off at once when
+  it should be, since a client started disabled never sets up its integrations.
+- **Settings > Privacy > Share diagnostics,** a switch. Its line says what's shared, the window recording included,
+  since that's what a person needs to know, not which service takes it.
+- **A variable decides the run and disables the switch:** `PARITY_TELEMETRY` over the setting, `DO_NOT_TRACK` and Vitest
+  over both. The switch shows what's sent, and its line names the variable.
+- **The setting and the install ID are one file, `<userData>/telemetry.json`,** which the CLI can read through
+  `desktopDataFolder` (PAR-642). It replaces PAR-627's `install-id` file; an ID there isn't carried over, as stale
+  prototype data.
+- **Turning it off is the reset:** it makes a new install ID, so what's sent after turning it back on isn't linked to
+  what came before. There's no Reset button. Windows and the service keep the ID they started with until Parity
+  restarts, so their events' envelopes carry the old one until then; Sentry's user is the new one at once.
+- **About lists Diagnostics (On or Off, with the variable if one decided it) and the Install ID** with the versions, so
+  Copy details includes them.
+- **Settings scrolls** when it's taller than the window. The new section pushed it past the bottom of a short one.
 
 ## Session Replay records the editor window (PAR-624)
 
@@ -5515,13 +5591,12 @@ envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My call
 window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `replayCanvasIntegration` on, as
 "Parity's own telemetry goes to Sentry, on by default" decided. My calls:
 
-- **Every session is recorded at All** (`replaySessionRate` is 1, in `renderer/replay.ts`). **At Errors the session rate
-  is 0 and the error rate 1,** so only the buffer Sentry keeps before an error is sent. **At Off the recorder isn't
-  started,** so it costs no memory, as well as main sending nothing.
-- **Main passes the window its level** as a launch argument, which the preload gives the page as `canvasHost.telemetry`.
-  Main is still the one place that reads the environment.
-- **Only the editor window records.** `replayOptions` is called from `main.tsx` alone, so the offscreen renderers, which
-  share `startTelemetry`, neither record nor load the recorder.
+- **Every session is recorded while diagnostics are on** (`replaySessionRate` is 1, in `renderer/replay.ts`). **While
+  they're off the recorder isn't added,** so it costs no memory, as well as main sending nothing.
+- **The window asks main whether they're on** (`canvasHost.telemetry.get()`, PAR-626) as it starts, and adds the
+  recorder once they are. Turning them off in Settings stops it, and on again starts it, through `receiveTelemetry`.
+- **Only the editor window records.** `followTelemetry` is called from the editor window alone, so the offscreen
+  renderers, which share `startTelemetry`, neither record nor load the recorder.
 - **Frames are left out of replays,** as boxes their size (`block: ["[data-frame]"]`). The proposal took them for
   cross-origin iframes, but a frame on the canvas is an open shadow root in the editor page, which Sentry's recorder can
   record. Recording them, a closed project's canvas stayed in memory: about 26,000 DOM nodes against 6,000 with

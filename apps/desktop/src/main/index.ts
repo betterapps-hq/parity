@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, watch, writeFileSync } from "node:fs"
+import { randomUUID } from "node:crypto"
+import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from "node:fs"
 import { readFile, utimes } from "node:fs/promises"
 import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
@@ -12,6 +13,7 @@ import {
   type RenderPriority,
   renderQueue
 } from "@parity-app/core"
+import { telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
   BrowserWindow,
@@ -29,7 +31,7 @@ import {
   utilityProcess,
   webContents
 } from "electron"
-import { type AccountState, organizationId, signInRequest } from "../shared/account.ts"
+import { type AccountState, accountEmail, organizationId, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
 import {
@@ -41,6 +43,7 @@ import {
   openInEditorRequest,
   saveDialogOptions,
   shownItem,
+  telemetrySetting as telemetryLevelCheck,
   themeSource
 } from "../shared/ipc-checks.ts"
 import type { ConsoleContext, ProcessUsage, RenderedFrame, RenderJob } from "../shared/protocol.ts"
@@ -66,19 +69,50 @@ import { launchLink, passLink } from "./pass-link.ts"
 import { privateMemory } from "./private-memory.ts"
 import { auditResult, canvasHeightResult, renderResult } from "./render-results.ts"
 import { sessionStore } from "./session-store.ts"
-import { recordForwarded, serviceStarted, startEvents, startTelemetry, watchWindowHangs } from "./telemetry.ts"
+import { TelemetrySetting } from "./telemetry-setting.ts"
+import {
+  applyTelemetry,
+  recordForwarded,
+  serviceStarted,
+  startEvents,
+  startTelemetry,
+  watchWindowHangs
+} from "./telemetry.ts"
 import { savedTheme } from "./theme-file.ts"
 import type { UpdateSession } from "./update-session.ts"
 import { createUpdates } from "./updates.ts"
 
 /** Main's environment variables, read once, as it starts. */
 const environment = readEnvironment(process.env)
+// A second copy, such as the one `pnpm perf` starts, keeps its own tabs, storage and theme. The app's own stay where
+// its package's first name put them, under @parity/desktop, now that the app is named Parity and the package
+// @parity-app/desktop (PAR-425). Set before Sentry starts, which keeps its queue there, and before the Telemetry setting
+// is read from it.
+app.setPath("userData", environment.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
+/** The Telemetry setting and install ID, in a file the CLI reads too (PAR-626). */
+const telemetryFile = join(app.getPath("userData"), telemetryFileName)
+const telemetrySetting = new TelemetrySetting({
+  env: process.env,
+  read: () => {
+    try {
+      return readFileSync(telemetryFile, "utf8")
+    } catch {
+      return undefined
+    }
+  },
+  save: (text) => {
+    mkdirSync(app.getPath("userData"), { recursive: true })
+    writeFileSync(telemetryFile, text)
+  },
+  newId: () => randomUUID()
+})
 /** The app's own package.json: the build's, or the checkout's when run from source. */
 const appManifest = () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")) as unknown
 const built = builtRelease(appManifest)
 const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
 // Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
-const telemetry = startTelemetry(process.env, {
+startTelemetry(process.env, {
+  sending: telemetrySetting.get(),
   installed,
   published: installed && built.published,
   commit: built.commit ?? environment.PARITY_COMMIT,
@@ -103,16 +137,13 @@ if (environment.PARITY_DEBUG_PORT !== undefined) {
 }
 // A copy being measured keeps drawing while other windows cover it, which a window otherwise stops doing on Windows.
 if (environment.PARITY_WINDOW_SIZE) app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion")
-// A second copy, such as the one `pnpm perf` starts, keeps its own tabs, storage and theme. The app's own stay where
-// its package's first name put them, under @parity/desktop, now that the app is named Parity and the package
-// @parity-app/desktop (PAR-425).
-app.setPath("userData", environment.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
 app.setName("Parity")
 // Events from every process are recorded from here on, and the other processes start theirs with this run (PAR-627).
 const telemetryRun = writeTelemetryRun(
   startEvents({
     userData: app.getPath("userData"),
-    installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
+    installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
+    installId: telemetrySetting.get().installId
   }).run
 )
 
@@ -271,8 +302,6 @@ function createWindow(): void {
     webPreferences: {
       additionalArguments: [
         `--parity-version=${app.getVersion()}`,
-        // Which says whether the window records a replay (PAR-624).
-        `--parity-telemetry=${telemetry.level}`,
         `${telemetryRunArgument}${telemetryRun}`,
         ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : [])
       ],
@@ -529,10 +558,20 @@ ipcMain.handle(
     return account.switchOrganization(id)
   })
 )
-ipcMain.handle(ipc.accountSignOut, (event) => {
-  appWindowOf(event, signInRefusal)
-  account.signOut()
-})
+ipcMain.handle(
+  ipc.accountSignOut,
+  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
+    appWindowOf(event, signInRefusal)
+    return account.signOut(email)
+  })
+)
+ipcMain.handle(
+  ipc.accountUse,
+  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
+    appWindowOf(event, signInRefusal)
+    return account.use(email)
+  })
+)
 
 const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 const installedBuild = new InstalledBuild({
@@ -546,6 +585,22 @@ ipcMain.handle(ipc.buildInfo, (event) => {
   updateOwner(event)
   return installedBuild.get()
 })
+
+/** The setting is the person's, so only the Parity window may read or change it. */
+const telemetryRefusal = "Only the Parity window can change the Telemetry setting."
+ipcMain.handle(ipc.telemetryState, (event) => {
+  appWindowOf(event, telemetryRefusal)
+  return telemetrySetting.get()
+})
+ipcMain.handle(
+  ipc.telemetryLevel,
+  checked(telemetryLevelCheck, (event: Electron.IpcMainInvokeEvent, level) => {
+    appWindowOf(event, telemetryRefusal)
+    const state = telemetrySetting.setLevel(level)
+    applyTelemetry(state)
+    return state
+  })
+)
 
 ipcMain.handle(ipc.updateState, (event) => {
   updateOwner(event)
