@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Wait in the e2e tests for the zoom to settle, so boards have their size at it",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

@@ -61,6 +61,8 @@ export interface AgentHost {
 export interface Caller {
   name: string
   id: string
+  /** The program it calls through, such as `claude-code`, which MCP clients name (PAR-630). */
+  client?: string
 }
 
 /**
@@ -172,9 +174,16 @@ const paramSchemas = { ...requests, copy: requests.tabs }
  * Answers a `/rpc` request's body through `host` (PAR-598): checks it's a JSON object naming a method, then dispatches
  * it. A body that isn't fails with `invalid_input`, and a caller that doesn't say who it is gets no name on the canvas.
  */
-export async function answerRequest(body: string, host: AgentHost): Promise<unknown> {
-  const { method, params, agent, agentId } = readRequest(rpcRequest, body)
-  return dispatch(method, params, host, callerIdentity(agent, agentId))
+export async function answerRequest(
+  body: string,
+  host: AgentHost,
+  /** Told who's calling, when the caller says, so telemetry can tag what follows (PAR-630). */
+  called?: (caller: Caller) => void
+): Promise<unknown> {
+  const { method, params, agent, agentId, client } = readRequest(rpcRequest, body)
+  const caller = callerIdentity(agent, agentId, client)
+  if (caller) called?.(caller)
+  return dispatch(method, params, host, caller)
 }
 
 /**
