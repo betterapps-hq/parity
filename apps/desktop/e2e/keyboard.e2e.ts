@@ -140,7 +140,7 @@ describe("nudging", () => {
     expect(await app.undoLabel()).toBeUndefined()
   })
 
-  it("moves an absolutely placed layer a step, ten with Shift, both sides when it's stretched", async () => {
+  it("moves an absolutely placed layer 1px, 10px with Shift, both sides when it's stretched (PAR-194)", async () => {
     await app.show("Calendar", 0.5, planning)
     await app.selectLayer("Calendar", planning)
     const was = await app.style("Calendar", planning)
@@ -149,7 +149,8 @@ describe("nudging", () => {
     await app.page.keyboard.press("ArrowRight")
     await expect
       .poll(() => app.style("Calendar", planning))
-      .toMatchObject({ top: Number(was.top) + 11, left: 1, right: -1, height: was.height })
+      // 11px and 1px, in steps of the example's 4px spacing unit.
+      .toMatchObject({ top: Number(was.top) + 2.75, left: 0.25, right: -0.25, height: was.height })
     await app.page.keyboard.press("Control+z")
     await expect.poll(() => app.style("Calendar", planning)).toEqual(was)
   })

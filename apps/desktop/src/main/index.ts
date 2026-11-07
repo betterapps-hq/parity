@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, watch, writeFileSync } from "node:fs"
+import { randomUUID } from "node:crypto"
+import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from "node:fs"
 import { readFile, utimes } from "node:fs/promises"
 import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
@@ -12,6 +13,7 @@ import {
   type RenderPriority,
   renderQueue
 } from "@parity-app/core"
+import { telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
   BrowserWindow,
@@ -29,7 +31,7 @@ import {
   utilityProcess,
   webContents
 } from "electron"
-import { type AccountState, signInRequest } from "../shared/account.ts"
+import { type AccountState, accountEmail, organizationId, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
 import {
@@ -41,6 +43,7 @@ import {
   openInEditorRequest,
   saveDialogOptions,
   shownItem,
+  telemetrySetting as telemetryLevelCheck,
   themeSource
 } from "../shared/ipc-checks.ts"
 import type { ConsoleContext, ProcessUsage, RenderedFrame, RenderJob } from "../shared/protocol.ts"
@@ -53,8 +56,9 @@ import type {
   PreviewPictures,
   ServiceProcessMethods
 } from "../shared/service.ts"
+import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from "../shared/telemetry-run.ts"
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
-import { InstalledBuild } from "./build-info.ts"
+import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
@@ -65,12 +69,59 @@ import { launchLink, passLink } from "./pass-link.ts"
 import { privateMemory } from "./private-memory.ts"
 import { auditResult, canvasHeightResult, renderResult } from "./render-results.ts"
 import { sessionStore } from "./session-store.ts"
+import { TelemetrySetting } from "./telemetry-setting.ts"
+import {
+  applyTelemetry,
+  recordForwarded,
+  serviceStarted,
+  startEvents,
+  startTelemetry,
+  watchWindowHangs
+} from "./telemetry.ts"
 import { savedTheme } from "./theme-file.ts"
 import type { UpdateSession } from "./update-session.ts"
 import { createUpdates } from "./updates.ts"
 
 /** Main's environment variables, read once, as it starts. */
 const environment = readEnvironment(process.env)
+// A second copy, such as the one `pnpm perf` starts, keeps its own tabs, storage and theme. The app's own stay where
+// its package's first name put them, under @parity/desktop, now that the app is named Parity and the package
+// @parity-app/desktop (PAR-425). Set before Sentry starts, which keeps its queue there, and before the Telemetry setting
+// is read from it.
+app.setPath("userData", environment.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
+/** The Telemetry setting and install ID, in a file the CLI reads too (PAR-626). */
+const telemetryFile = join(app.getPath("userData"), telemetryFileName)
+const telemetrySetting = new TelemetrySetting({
+  env: process.env,
+  read: () => {
+    try {
+      return readFileSync(telemetryFile, "utf8")
+    } catch {
+      return undefined
+    }
+  },
+  save: (text) => {
+    mkdirSync(app.getPath("userData"), { recursive: true })
+    writeFileSync(telemetryFile, text)
+  },
+  newId: () => randomUUID()
+})
+/** The app's own package.json: the build's, or the checkout's when run from source. */
+const appManifest = () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")) as unknown
+const built = builtRelease(appManifest)
+const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
+// Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
+startTelemetry(process.env, {
+  sending: telemetrySetting.get(),
+  installed,
+  published: installed && built.published,
+  commit: built.commit ?? environment.PARITY_COMMIT,
+  rendererName: (contents) => {
+    const window = BrowserWindow.fromWebContents(contents)
+    if (!window) return undefined
+    return isRenderWindow(window) ? "render" : "window"
+  }
+})
 const rendererUrl = environment.PARITY_RENDERER_URL
 // A standard, secure origin keeps storage and project CORS working when the UI comes from the installed files.
 protocol.registerSchemesAsPrivileged([
@@ -86,11 +137,15 @@ if (environment.PARITY_DEBUG_PORT !== undefined) {
 }
 // A copy being measured keeps drawing while other windows cover it, which a window otherwise stops doing on Windows.
 if (environment.PARITY_WINDOW_SIZE) app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion")
-// A second copy, such as the one `pnpm perf` starts, keeps its own tabs, storage and theme. The app's own stay where
-// its package's first name put them, under @parity/desktop, now that the app is named Parity and the package
-// @parity-app/desktop (PAR-425).
-app.setPath("userData", environment.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
 app.setName("Parity")
+// Events from every process are recorded from here on, and the other processes start theirs with this run (PAR-627).
+const telemetryRun = writeTelemetryRun(
+  startEvents({
+    userData: app.getPath("userData"),
+    installed: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
+    installId: telemetrySetting.get().installId
+  }).run
+)
 
 let service: UtilityProcess | undefined
 let updates: UpdateSession | undefined
@@ -139,8 +194,12 @@ const serviceEntry = join(serviceDirectory, "utility.mjs")
 /** When this copy started, which its agent registry entry gives. */
 const appStarted = Date.now()
 
+/** How many services this copy has started, so a second is reported as a restart. */
+let serviceStarts = 0
+
 /** Builders, file access, agents and other heavy work run here, never in the UI process. */
 function startService(): UtilityProcess {
+  serviceStarted(serviceStarts++ > 0)
   const child = utilityProcess.fork(serviceEntry, [], {
     serviceName,
     stdio: "inherit",
@@ -157,7 +216,8 @@ function startService(): UtilityProcess {
       // Names this copy's entry in the agent registry, so a restarted service writes the same one, and says how long
       // the copy has been running: a project open in two copies goes to the older (PAR-514).
       PARITY_APP_PID: String(process.pid),
-      PARITY_APP_STARTED: String(appStarted)
+      PARITY_APP_STARTED: String(appStarted),
+      [telemetryRunVariable]: telemetryRun
     }
   })
   const channel = createChannel<MainMethods, ServiceProcessMethods>({
@@ -172,7 +232,8 @@ function startService(): UtilityProcess {
         const taken = account.owns(link)
         if (taken) void account.takeLink(link)
         return { taken }
-      }
+      },
+      record: (envelope) => recordForwarded(envelope)
     },
     disconnected: () => new Error("The project service stopped")
   })
@@ -241,6 +302,7 @@ function createWindow(): void {
     webPreferences: {
       additionalArguments: [
         `--parity-version=${app.getVersion()}`,
+        `${telemetryRunArgument}${telemetryRun}`,
         ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : [])
       ],
       preload: join(import.meta.dirname, "preload.cjs"),
@@ -248,6 +310,7 @@ function createWindow(): void {
       sandbox: true
     }
   })
+  watchWindowHangs(window, "window", "renderer")
   // A message is the design's whose frame the page said was handling an event as it was written (PAR-147).
   const contents = window.webContents.id
   recordConsole(consoleLog, window.webContents, "canvas", new URL(rendererUrl).origin, (level) =>
@@ -488,16 +551,33 @@ ipcMain.handle(ipc.accountCancel, (event) => {
   appWindowOf(event, signInRefusal)
   account.cancel()
 })
-ipcMain.handle(ipc.accountSignOut, (event) => {
-  appWindowOf(event, signInRefusal)
-  account.signOut()
-})
+ipcMain.handle(
+  ipc.accountSwitch,
+  checked(organizationId, (event: Electron.IpcMainInvokeEvent, id) => {
+    appWindowOf(event, signInRefusal)
+    return account.switchOrganization(id)
+  })
+)
+ipcMain.handle(
+  ipc.accountSignOut,
+  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
+    appWindowOf(event, signInRefusal)
+    return account.signOut(email)
+  })
+)
+ipcMain.handle(
+  ipc.accountUse,
+  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
+    appWindowOf(event, signInRefusal)
+    return account.use(email)
+  })
+)
 
 const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 const installedBuild = new InstalledBuild({
   version: app.getVersion(),
   packaged: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
-  metadata: () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")),
+  metadata: appManifest,
   read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
   save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
 })
@@ -505,6 +585,22 @@ ipcMain.handle(ipc.buildInfo, (event) => {
   updateOwner(event)
   return installedBuild.get()
 })
+
+/** The setting is the person's, so only the Parity window may read or change it. */
+const telemetryRefusal = "Only the Parity window can change the Telemetry setting."
+ipcMain.handle(ipc.telemetryState, (event) => {
+  appWindowOf(event, telemetryRefusal)
+  return telemetrySetting.get()
+})
+ipcMain.handle(
+  ipc.telemetryLevel,
+  checked(telemetryLevelCheck, (event: Electron.IpcMainInvokeEvent, level) => {
+    appWindowOf(event, telemetryRefusal)
+    const state = telemetrySetting.setLevel(level)
+    applyTelemetry(state)
+    return state
+  })
+)
 
 ipcMain.handle(ipc.updateState, (event) => {
   updateOwner(event)
@@ -573,6 +669,12 @@ ipcMain.handle(
   ipc.openInEditor,
   checked(openInEditorRequest, (_event, request) => openInEditor(request))
 )
+
+// Windows and render windows send the events they record, named by the window that sent them (PAR-627).
+ipcMain.on(ipc.telemetry, (event, envelope: unknown) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  recordForwarded(envelope, window && isRenderWindow(window) ? "render" : "renderer")
+})
 
 // The editor says which frame's event it's handling just before a console message is written there (PAR-147). Word
 // that isn't one is ignored, and the message is kept as the project's.
@@ -723,8 +825,16 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
       show: false,
       width: 1280,
       height: 800,
-      webPreferences: { offscreen: true, contextIsolation: true, sandbox: true }
+      webPreferences: {
+        offscreen: true,
+        contextIsolation: true,
+        sandbox: true,
+        // Only so the page can send main its telemetry: the project's components run in it too.
+        preload: join(import.meta.dirname, "render-preload.cjs"),
+        additionalArguments: [`${telemetryRunArgument}${telemetryRun}`]
+      }
     })
+    watchWindowHangs(window, "offscreen renderer", "render")
     // A message is the design's the window is drawing as it's written (PAR-147).
     recordConsole(consoleLog, window.webContents, "offscreen", new URL(rendererUrl).origin, () => drawing.get(window))
     render = { window, loaded: window.loadURL(new URL("render.html", rendererUrl).href) }

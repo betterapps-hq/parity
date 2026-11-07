@@ -12,6 +12,7 @@ import {
   type WindowMethods,
   windowMethods
 } from "../shared/protocol.ts"
+import { exposeTelemetry } from "./telemetry.ts"
 
 /**
  * The window's channel to the project service. Requests wait until main gives the page its port, and a second port
@@ -61,6 +62,10 @@ const host: CanvasHost = {
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
   getBuildInfo: () => ipcRenderer.invoke(ipc.buildInfo),
+  telemetry: {
+    get: () => ipcRenderer.invoke(ipc.telemetryState),
+    setLevel: (level) => ipcRenderer.invoke(ipc.telemetryLevel, level)
+  },
   updates: {
     get: () => ipcRenderer.invoke(ipc.updateState),
     check: () => ipcRenderer.invoke(ipc.updateCheck),
@@ -96,7 +101,9 @@ const host: CanvasHost = {
     signIn: (request) => ipcRenderer.invoke(ipc.accountSignIn, request) as Promise<void>,
     reopen: () => ipcRenderer.invoke(ipc.accountReopen) as Promise<void>,
     cancel: () => ipcRenderer.invoke(ipc.accountCancel) as Promise<void>,
-    signOut: () => ipcRenderer.invoke(ipc.accountSignOut) as Promise<void>
+    signOut: (email) => ipcRenderer.invoke(ipc.accountSignOut, email) as Promise<void>,
+    switchOrganization: (organizationId) => ipcRenderer.invoke(ipc.accountSwitch, organizationId) as Promise<void>,
+    use: (email) => ipcRenderer.invoke(ipc.accountUse, email) as Promise<void>
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
@@ -147,3 +154,4 @@ const host: CanvasHost = {
 }
 
 contextBridge.exposeInMainWorld("canvasHost", host)
+exposeTelemetry()

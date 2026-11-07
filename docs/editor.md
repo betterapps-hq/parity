@@ -1869,31 +1869,33 @@ actions, since each needs to know which arrow was pressed.
 - **In a component's slot,** the direction is read from the element the slot's layers are drawn in; plain blocks count
   as a column. When a layer isn't drawn, the layout's direction comes from the design (a column unless it says row, a
   grid by its columns).
-- **An absolutely placed layer** moves one step of the spacing scale, or ten with Shift, in the state being edited.
-  Along each axis it moves by the side it's placed from (the left or top, unless only the right or bottom is set), or by
-  both sides when it's stretched between them, so it keeps its size. A negative inset is kept. A side set to a length
-  token, or left unset, moves from where the frame draws it, in half steps, as dragging moves it. When the layer isn't
-  drawn, an unset side counts from 0, and an axis set by a token stays put, with a message saying so.
+- **An absolutely placed layer** moves 1px, or 10px with Shift, in the state being edited (PAR-194), as Figma's do. Its
+  insets can leave the spacing scale that way, and the Design tab flags them with the nearest step one click away (see
+  Typing, stepping and scrubbing). Along each axis it moves by the side it's placed from (the left or top, unless only
+  the right or bottom is set), or by both sides when it's stretched between them, so it keeps its size. A negative inset
+  is kept. A side set to a length token, or left unset, moves from where the frame draws it, in half steps, as dragging
+  moves it. When the layer isn't drawn, an unset side counts from 0, and an axis set by a token stays put, with a
+  message saying so. Insets are kept to the hundredth of a pixel, so a run of presses with a spacing unit 1px doesn't
+  divide, such as 6px, doesn't drift.
 - **Designs and text notes** move 1px, or 10px with Shift. A selected mode column moves its design.
 - **One undo step per run** (PAR-441). Presses on the same selection are one step (Undo nudge layer), however long the
   pauses between them, and however often the same layers are selected again meanwhile, in any order. Another edit, an
   undo or a redo, or selecting something else, also when the selection comes back, starts another; selecting something
   else ends the run as it happens. A run that comes back where it began leaves no step, and Redo as it was.
-- **Moving a layer by 1px** waits for PAR-194, since it would leave the spacing scale.
 - **Layers inside an instance don't move,** as they can't be dragged.
 - **The keys.** On the canvas, the arrows with Ctrl or Alt do nothing, so tldraw never moves a design behind the
   keymap's back. On a focused control, such as a Layers row, the arrows stay the control's. A layer that moves stays in
   view.
 
 Code: the rules are `packages/editor/src/move-resize.ts` (`@parity-app/editor`): `arrowOf`, `reorderStep` and `reorder`,
-`nudgeLayers`, which moves absolutely placed layers by `shiftInsets` as dragging does, and `nudgedPosition` for designs
-and notes. `apps/desktop/src/renderer/canvas/nudge.ts` has `nudgeSelection`, which nudges what's selected in the store,
-and `frameDrawn`, which reads a layout's flow, through `@parity-app/editor`'s `flowOf` with its children's boxes from
-`frame.ts`'s `flowingBoxes`, and a layer's drawn insets from its frame. Then `chrome/commands.ts` (`nudge`),
-`chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are
-written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event to the action and keeps the other
-arrows from tldraw. A run's gesture is `runGesture` in `nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the
-selection's `selectionKey` (`selection.ts`).
+`nudgeLayers`, which moves absolutely placed layers by `shiftInsets` as dragging does, by a pixel in steps of the `unit`
+it's given, and `nudgedPosition` for designs and notes. `apps/desktop/src/renderer/canvas/nudge.ts` has
+`nudgeSelection`, which nudges what's selected in the store, and `frameDrawn`, which reads a layout's flow, through
+`@parity-app/editor`'s `flowOf` with its children's boxes from `frame.ts`'s `flowingBoxes`, and a layer's drawn insets
+from its frame. Then `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions),
+`chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which
+passes the key event to the action and keeps the other arrows from tldraw. A run's gesture is `runGesture` in
+`nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the selection's `selectionKey` (`selection.ts`).
 
 Tests:
 
@@ -1901,18 +1903,19 @@ Tests:
   reordering a layer, a block, past absolutely placed layers and down a grid; nudging a design's layers in a state,
   following the frame's direction, and leaving instances alone; moving insets from each side, both sides, tokens and
   unset sides with and without where they're drawn (`shiftInsets`, shared with dragging); and designs and notes moving
-  1px or 10px, to the whole pixel.
-- `apps/desktop/src/renderer/canvas/nudge.test.ts`, with the real stores: a run of presses with pauses of four seconds
-  as one undo step, another edit or an undo between presses starting another, a run there and back leaving no step, a
-  new selection starting another, also back to the one before, the same layers selected again in another order keeping
-  the run, designs moving together and a mode column and a note moving.
+  1px or 10px, to the whole pixel; an absolutely placed layer moving 1px or 10px with a 4px and an 8px unit, and landing
+  on whole pixels after six presses with a 6px unit (PAR-194).
+- `apps/desktop/src/renderer/canvas/nudge.test.ts`, with the real stores, 1px a press: a run of presses with pauses of
+  four seconds as one undo step, another edit or an undo between presses starting another, a run there and back leaving
+  no step, a new selection starting another, also back to the one before, the same layers selected again in another
+  order keeping the run, designs moving together and a mode column and a note moving.
 - `apps/desktop/src/renderer/ModeView.test.ts`: `frameDrawn` reads a row, a column and a grid's columns from a design
   rendered as the canvas renders it, and an absolutely placed layer's insets in steps, at full size and at half scale.
 - `apps/desktop/src/renderer/chrome/keymap.test.ts`: the arrows match with and without Shift, and show as `⇧←` on a Mac.
 - `apps/desktop/e2e/keyboard.e2e.ts` (4), end to end (PAR-202): a link in Pricing's footer moved two places right by two
   presses, nothing across the row, and one undo; the same two presses a second and a half apart, still one undo
-  (PAR-441); Calendar's Planning slot moved down a step, then ten with Shift, and right on both of its sides; and
-  Pricing moved 1px and 10px, with Ctrl and Alt arrows moving neither the design nor tldraw's board.
+  (PAR-441); Calendar's Planning slot moved down 1px, then 10px with Shift, and right on both of its sides; and Pricing
+  moved 1px and 10px, with Ctrl and Alt arrows moving neither the design nor tldraw's board.
 
 Gaps: the key handler's wiring is the end-to-end test above, apart from keeping a moved layer in view, which was checked
 in an isolated copy of the app on the example project.
@@ -2184,7 +2187,7 @@ export the selection at the same sizes. The sizes are remembered for every expor
   first.
 - **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05 (decisions.md); the icon set's dialog
   is kept as an exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state
-  and mode it shows, at Settings' export scale. Copy as PNG is CAN-39.
+  and mode it shows, at Settings' export scale. Copy as PNG is below.
 
 Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
 section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
@@ -2201,6 +2204,37 @@ PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-me
 `chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
 `chrome/CanvasMenu.stories.tsx` check the menu's item and its keys. Gaps: drawing offscreen and writing the files run in
 the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
+
+### Copy as PNG (PAR-190)
+
+**Ctrl+Shift+C** (Edit > Copy as PNG in the keyboard shortcuts and Search actions) copies the selected layers, or else
+the selected designs, to the clipboard as one PNG at 2x, to paste into a chat, a document or another app. A toast says
+"Copied as PNG". With no layer or design selected, the keys do nothing.
+
+- **What's drawn:** the same as an export's, from the same offscreen frames and cuts: each design drawn once at 2x in
+  the state the canvas shows and its main mode, saved or not. One layer or design copies exactly the PNG exporting it at
+  2x writes.
+- **Several layers of one design** copy as the box around them all, with what's between them, as the canvas shows it.
+- **Several designs** copy as one picture, each where it sits on the canvas, see-through between them.
+- **What can't be drawn** is left out with a warning toast, as in an export; when nothing could be drawn, nothing is
+  copied and a toast says so.
+- **Too big to copy:** a picture over 16,384 pixels wide or tall at 2x, such as every design in a project spread over
+  the canvas, isn't copied, and a toast says to select less or export it. That's only known once the designs are drawn,
+  which for 61 designs took about 13 seconds.
+- **Not here:** no menu item yet, and no other scale or format; copying uses neither the Export section's sizes nor
+  Settings' export scale.
+
+Code: `planPicture`, `copyScale` and `largestPicture` in `packages/editor/src/export-files.ts`; `copySelectedAsPng` in
+`chrome/commands.ts`, sharing `selectedTargets` with `exportSelected`, which writes the clipboard; `copyAsPng` in
+`chrome/keymap.ts` and `chrome/actions.ts`; `layersPicture` in `utility/agent.ts`, through `framePictures`, with
+`composePicture` in `utility/webp.ts`, behind the service's `layers.picture`.
+
+Tests: `packages/editor/src/export-files.test.ts` (6 more: one layer planned exactly as its 2x PNG export, the box
+around a design's layers, designs placed as on the canvas, what can't be drawn left out with why, a picture too big to
+copy, and nothing with a size). `apps/desktop/src/utility/webp.test.ts` (2 more: one piece is byte for byte the export's
+PNG, and pieces placed with see-through between). `chrome/keymap.test.ts` runs Copy as PNG from Ctrl+Shift+C and
+Cmd+Shift+C, apart from Copy and Copy style. Gaps: drawing and writing the clipboard run in the desktop app, which no
+unit test opens, and the e2e suite doesn't copy as PNG.
 
 ## Fields
 
@@ -2235,22 +2269,28 @@ numbers. A component's number props take any number.
   fill or hug, as Figma's sizes are always numbers. Unset limits, rows, max lines and props have no value, so such maths
   says "There's no value here to work from". A layer whose value is a token has no number either: it keeps its value,
   and the field says how many layers did.
-- **Off the spacing scale, until PAR-194.** Before, a length field read steps and took any number, so `7.3` became
-  29.2px, which Tailwind can't write as a class, without a word. Now a typed length lands on the nearest half step (2px
-  with a 4px unit), which is what Tailwind's scale lists below 4 and what dragging already writes, and the field says so
-  under its row: "Snapped to 282px, the nearest step on the spacing scale". A value already off it shows as it is (29.2)
-  until it's edited. Keeping and flagging lengths off the scale is PAR-194.
+- **Off the spacing scale (PAR-194).** The scale is whole and half steps (2px apart with a 4px unit), which is what
+  Tailwind's scale lists below 4 and what dragging writes. A size or an inset can leave it, as a sidebar 280px wide is a
+  fact of real apps: Width, Height, Min, Max and an absolutely placed layer's insets keep what's typed, to the hundredth
+  of a pixel, so 281 stays 281px (70.25 steps). Padding, Margin and Gap still land on the nearest half step and say so
+  under the row: "Snapped to 282px, the nearest step on the spacing scale".
+- **A length off the scale is flagged** under its row, in amber, whether it was typed, nudged or came from the file:
+  "281px is off the scale", with a button at the line's end for the nearest step, "Use 280px" (named "Use 280px for
+  width"). Halfway between a whole step and a half step, it offers the whole step. The flag waits while the field is
+  typed in or scrubbed, and the field points to it (`aria-describedby`). Its hint says "Width, off the spacing scale"
+  rather than a step's name. Colours, type, radius and shadows stay tokens: only lengths leave the scale.
 - **Limits.** Sizes, padding, margin, gaps and limits can't go below 0; insets can. Opacity is a whole percentage within
   0 and 100 (PAR-203). Counts are whole numbers from 1. A value past a limit is kept at it ("Kept at 0px: it can't go
   lower"), and a count or an opacity with a fraction is rounded ("Rounded to 2: it takes whole numbers", "Rounded to
   33%: it takes whole percentages"), each said under the row. An opacity already off a whole percentage shows as it is
   until it's edited, and Up and Down go from the whole percentage nearest it.
-- **Up and Down** move a length one step of the spacing scale (4px with a 4px unit) and Shift ten steps, the same
-  distance nudging moves an absolutely placed layer; a half step goes to the whole step beside it. Opacity, counts and
-  numbers move by 1, and Shift by 10. Each press is made at once, and a run of presses is one undo step, however slow
-  (PAR-441): typing, Enter, Escape, leaving the field or scrubbing it ends the run, and so does another selection while
-  the field keeps focus, so one undo never takes back edits to two layers. With something readable typed, it steps from
-  that; with something it can't read, nothing changes and the reason shows.
+- **Up and Down** move a length one step of the spacing scale (4px with a 4px unit) and Shift ten steps; a half step, or
+  a length off the scale, goes to the whole step beside it. Nudging on the canvas moves 1px instead, as Figma's does, so
+  the field's arrows are the way back onto the scale. Opacity, counts and numbers move by 1, and Shift by 10. Each press
+  is made at once, and a run of presses is one undo step, however slow (PAR-441): typing, Enter, Escape, leaving the
+  field or scrubbing it ends the run, and so does another selection while the field keeps focus, so one undo never takes
+  back edits to two layers. With something readable typed, it steps from that; with something it can't read, nothing
+  changes and the reason shows.
 - **Scrubbing.** Dragging a field's label changes the value by one step for every 2px the pointer moves, ten with Shift,
   left to lower. The label is the row's (Width, Gap, Opacity, Max lines) when the row holds one field without a letter
   of its own, else the letter inside the field (V and H, T, R, B and L, X and Y, Cols and Rows). Such a label has a
@@ -2286,9 +2326,11 @@ numbers. A component's number props take any number.
 Code:
 
 - `packages/core/src/fields.ts`: reading what's typed (`readFieldInput`), working it out against a value
-  (`applyFieldInput`), landing on the scale and the limits, steps (`stepFieldValue`), scrubbing (`scrubSteps`), showing
-  a value (`formatFieldValue`) and what the field says (`describeFieldNote`, `summarizeFieldNotes`). It takes data and
-  returns data; it can move to `@parity-app/editor` when PAR-7 makes it.
+  (`applyFieldInput`), landing on the scale or keeping a length off it (`offScale` in `FieldRules`) and the limits, the
+  flag for a length off the scale with its nearest step (`offScaleFlag`, `nearestSpacingStep`), steps
+  (`stepFieldValue`), scrubbing (`scrubSteps`), showing a value (`formatFieldValue`) and what the field says
+  (`describeFieldNote`, `summarizeFieldNotes`). It takes data and returns data; it can move to `@parity-app/editor` when
+  PAR-7 makes it.
 - `packages/core/src/style-changes.ts`: which inline styles an edit changes between two renders of a design
   (`styleChanges`).
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
@@ -2296,8 +2338,9 @@ Code:
 - `chrome/fields.tsx`: `NumberField`, which runs those effects, handles keys and scrubbing, and begins and ends the
   gesture a run of steps or a scrub commits in, a `GestureRun` from `canvas/gesture.ts` (`runEnders` says what ends a
   run, and `FieldTarget`, which `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits),
-  `NumberInput`, and `Field`, whose label scrubs a lone field and which shows what its fields say under the row.
-  `NumberValueInput` is a prop's or param's number, which works its edits out from the value as it was before a preview.
+  `NumberInput`, and `Field`, whose label scrubs a lone field and which shows what its fields say under the row, and a
+  field's `flag` with its button (`FieldFlag`). `NumberValueInput` is a prop's or param's number, which works its edits
+  out from the value as it was before a preview.
 - `packages/editor/src/style-editing.ts` (PAR-567): the selected layers' style as rows. `styleSelection` takes the
   design, the selected ids and the state they were picked in, and gives the state and variant edits go to, the style the
   layers share, what differs, what the state changes, and the layout they sit in, read as the board shows it. Each row's
@@ -2305,22 +2348,25 @@ Code:
   keys its edit can write. A row's edit is worked out once from each layer's own style and written to every layer
   (`fieldEdit` is what `Mixed+8` goes through), and the edits that need more than a value are there too: `sidesField`,
   `sizeField` and `sizeEdit`, `layoutTypeEdit`, `placementEdit` and `textSizingEdit`.
-- `chrome/StyleSections.tsx`: each style field's rules, with `LengthInput` and `CompactNumber`, naming the row each
-  field shows. `chrome/style-editor.ts`'s `useStyleEditor` is the one way the inspector's rows are wired: it measures
-  layers, previews a row's edit and makes it or its reset through the store, for `chrome/LayerPanel.tsx`,
-  `chrome/MultiPanel.tsx` and the stories. `chrome/PropsSection.tsx` has the number props, which `chrome/LayerPanel.tsx`
-  previews through `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and taken back to its
-  checkpoint unless it's made. `chrome/MultiPanel.tsx` has the note on what differs.
+- `chrome/StyleSections.tsx`: each style field's rules, with `LengthInput`, which keeps sizes and insets off the scale
+  and flags any length off it, and `CompactNumber`, naming the row each field shows. `chrome/style-editor.ts`'s
+  `useStyleEditor` is the one way the inspector's rows are wired: it measures layers, previews a row's edit and makes it
+  or its reset through the store, for `chrome/LayerPanel.tsx`, `chrome/MultiPanel.tsx` and the stories.
+  `chrome/PropsSection.tsx` has the number props, which `chrome/LayerPanel.tsx` previews through
+  `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and taken back to its checkpoint unless it's
+  made. `chrome/MultiPanel.tsx` has the note on what differs.
 - `canvas/style-preview.ts`: `StylePreview`, which writes previews onto the frames, takes them back, and settles them
   for the change. `chrome/style-editor.ts` wires it into the inspector.
 
 Tests:
 
-- `packages/core/src/fields.test.ts` (44): 320 as pixels, `16px`, `rem` and step names, tokens, maths with units, `%` of
-  the value there, leading operators, a leading minus, Mixed per layer, landing on the scale with its note, limits,
-  another spacing unit, clearing, `50-10` in Opacity, whole percentages in Opacity with their note and stepping from a
-  fraction (PAR-203), counts and numbers, each reason for input it can't read, steps, scrubbing, and notes across
-  layers. The cases the audit found broken fail without the change.
+- `packages/core/src/fields.test.ts` (47): 320 as pixels, `16px`, `rem` and step names, tokens, maths with units, `%` of
+  the value there, leading operators, a leading minus, Mixed per layer, a size or an inset kept off the scale to the
+  hundredth of a pixel, the flag and its nearest step within the limits and with an 8px unit, a tie going to the whole
+  step (PAR-194), landing on the scale with its note, limits, another spacing unit, clearing, `50-10` in Opacity, whole
+  percentages in Opacity with their note and stepping from a fraction (PAR-203), counts and numbers, each reason for
+  input it can't read, steps, scrubbing, and notes across layers. The cases the audit found broken fail without the
+  change.
 - `packages/editor/src/style-editing.test.ts` (20, PAR-567): the variant option an edit lands in; what several layers
   share and what differs, read in the state being edited; `Mixed+8` adding to each layer's own padding; a row marked
   changed by any of its keys on any layer, and its reset taking every key back on every layer, Placement's insets with
@@ -2350,15 +2396,18 @@ Tests:
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
 - `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
   inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
-  whole. Both fail on the layout before PAR-496.
+  whole. Both fail on the layout before PAR-496. OffScaleSize, OffScaleInsets and TypingOffScale (PAR-194): a 281px
+  width flagged, with Use 280px putting it on the scale and the flag gone; insets of 3px and 281px each flagged; and 281
+  typed in Width kept and flagged.
 - `apps/desktop/e2e/fields.e2e.ts` (10), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
-  the real store and frames: 320 typed in Width drawn at each keystroke (4, 32 and 320px) while the design keeps its
-  width, and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 landing
-  on 282px with its note; `abc` kept with its reason, and Escape putting the value back; a value set underneath leaving
-  `12` in the field; Up, Shift+Up and Down, more than a second apart, as one undo step; `50-10` in Opacity; scrubbing
-  the Width label, drawn while dragging and one undo step on release; and `Mixed+8` on Brand mark and Plans, with the
-  note naming it. On App sidebar's Seats bar (PAR-203): 25 typed in its `value` drawn at each keystroke and made as one
-  undo step, and `/20` drawn as 3.5 from 70, then taken back by Escape with nothing to undo.
+  the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
+  width, and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 kept as
+  70.25 steps and flagged, and Use 280px for width putting it at 70 (PAR-194); `abc` kept with its reason, and Escape
+  putting the value back; a value set underneath leaving `12` in the field; Up, Shift+Up and Down, more than a second
+  apart, as one undo step; `50-10` in Opacity; scrubbing the Width label, drawn while dragging and one undo step on
+  release; and `Mixed+8` on Brand mark and Plans, with the note naming it. On App sidebar's Seats bar (PAR-203): 25
+  typed in its `value` drawn at each keystroke and made as one undo step, and `/20` drawn as 3.5 from 70, then taken
+  back by Escape with nothing to undo.
 
 Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
 each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play
@@ -3542,7 +3591,8 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
   in about 10 ms each, off main's thread. The canvas is given the WebP too, so it reads and decodes the smaller file.
   Component previews are kept the same way. Chromium's own encoder was tried first, being lossless at full quality, but
-  wrote files 5% larger than the PNGs. A system where sharp can't load keeps nothing, and captures each session.
+  wrote files 5% larger than the PNGs. A system where sharp can't load keeps nothing, and captures each session. Nor
+  does Linux, where sharp isn't loaded in the app, since it crashed the project service there (PAR-688).
 - **Each bitmap carries its frame's height** as the canvas drew it, in a `parity:height` text chunk after the image, so
   a frame that hasn't drawn yet can show its kept bitmap at its size (see Opening in seconds). WebP decoders skip it, as
   the format asks them to of a chunk they don't know. The offscreen window lays a frame out at the bitmap's quarter
@@ -3859,7 +3909,10 @@ Frames exploration draws it, rather than thick zoomed in and gone zoomed out.
   outline of the board rounds with them.
 - **A board grows and shrinks from its top left corner,** where the design's position is, so its frames move a little on
   the canvas as the zoom changes the gutter. The canvas takes the board's new size, for its outline, snapping and hit
-  testing, once the camera stops, rather than on every frame of a zoom.
+  testing, once the zoom settles, rather than on every frame of a zoom: once it has held for 3 frames and 150 ms, the
+  same moment tldraw's `--tl-zoom` changes. tldraw's own camera state isn't used, since on a busy machine frames slower
+  than its timeout had the camera stop on almost every frame, and every board measured itself each time (PAR-655).
+  Panning doesn't hold a board's size back.
 - **The agent's estimate of a board it hasn't drawn takes the gutter at 40%,** where it's widest on the canvas, so it's
   never smaller than the board will be drawn. A drawn board's size is as the canvas has it at its zoom.
 
@@ -3874,10 +3927,14 @@ and gaps, rows of states, a frame's own size, and never being smaller than the b
 `apps/desktop/src/renderer/canvas/board-gutter.test.ts` (7: each part's spacing on screen up close, the same on the
 canvas past 40%, the divider's and the row line's split gaps, dashed lines and the edge a screen pixel wide, each place
 clearing what another set, and a board laid out from the parts matching the estimate at 40% and 5% and smaller at 100%);
-`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%). Gaps:
-applying the parts to the DOM, and the shape waiting for the camera, have no automated test. They were checked in
-Storybook on the example's Pricing board and Sign in showing every state, measured on screen at 400%, 100%, 40%, 25% and
-5%. The cost of laying boards out again on each frame of a zoom wasn't timed.
+`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%);
+`packages/editor/src/zoom-settle.test.ts` (4: settling after 3 frames and 150 ms, starting again when the zoom changes,
+not settling between slow frames that each zoom, nor between a mouse wheel's notches at 60 frames a second). The
+`zoom at 100%` run of `pnpm perf --profile` shows whether boards measure themselves mid-zoom, as
+`getClientRects ← measure /canvas/ContainerShapeUtil.tsx`. Gaps: applying the parts to the DOM, and the shape waiting
+for the zoom to settle, have no automated test. They were checked in Storybook on the example's Pricing board and Sign
+in showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of laying boards out again on each
+frame of a zoom wasn't timed.
 
 ## What the editor itself loads
 
@@ -3968,20 +4025,22 @@ Home is pinned first in the tab strip, an icon that can't be closed, and shows w
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
 at the end of the strip. Both are the start page from the explorations (decisions.md, "The start page is built"):
 
-- **Home** has the organization switcher, once you're signed in, then Search, Open and New project along the top. Below
-  them, the Continue where you left off section offers the project opened last, which its picture, Resume or Enter
-  opens, with For you beside it once you're signed in; signed out there's no For you. For you says nothing needs you,
-  and what will show up there, until something can.
+- **Home** has the account menu (see Signing in), then Search, Open and New project along the top. Below them, the
+  Continue where you left off section offers the project opened last, which its picture, Resume or Enter opens, with For
+  you beside it once you're signed in; signed out there's no For you. For you says nothing needs you, and what will show
+  up there, until something can.
 - **The first time (PAR-188),** before any project has opened, Home keeps that layout. Where this copy of Parity has the
   example, as it does run from the repository, Acme takes Continue's place: its picture, shipped with Parity until its
   own is kept, a line on what to try there, and Open Acme. Bring your own app sits beside it, with Open a folder and
   Open a project file. Without the example, the place shows what Parity does with your app, with the same two buttons.
-- **A new tab** has a large Search field, then New project and Open.
+- **A new tab** has a large Search field, which has the keyboard when the tab shows so Enter or Space searches, then
+  Open and New project in Home's order.
 - **Both list your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
-  more. A card has the project's picture, its folder's name and when it was last opened; its tooltip is the folder's
-  path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent. Home's Recent leaves out the
-  project it offers to continue. A list with nothing in it says what will show up there, in a dashed box a row of cards
-  tall.
+  more, which sits beside the filters, or after the cards in a window as narrow as a phone. There Home's Search spans
+  the row under the account menu. A card has the project's picture, its folder's name and when it was last opened; its
+  tooltip is the folder's path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent.
+  Home's Recent leaves out the project it offers to continue. A list with nothing in it says what will show up there, in
+  a dashed box a row of cards tall.
 - **A project whose folder is gone (PAR-188)** — moved, renamed, deleted, or on a drive that isn't plugged in — is
   greyed, with Folder not found on its picture and under its name. Continue offers the next one instead, and opening it
   says where the folder was and offers Remove. It stays listed until removed, since a drive comes back. The service
@@ -3994,7 +4053,8 @@ at the end of the strip. Both are the start page from the explorations (decision
   Continue picture names the frames above them, as the canvas does. Up to five screens are pictured: those with a phone
   frame beside them first, then the rest, each in Layers' order; components and frames aren't. A project not opened
   since shows a placeholder, a board and a phone in a color of its own with its initial. Each frame has a mid-grey edge,
-  so a phone over a desktop frame shows against it whether their screens are light or dark.
+  so a phone over a desktop frame shows against it whether their screens are light or dark, and the phone frame has a
+  shadow of its own, so it stands off the main frame it overlaps.
   - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
     and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
     Edits not saved yet are never pictured: a picture that would show them waits for the next save.
@@ -4211,6 +4271,13 @@ opened again.
   address. A reopen waits for the closing builder's process to end, so a project never has two.
 - **Tabs and their views are given a tab's id,** not the tab: React keeps the props a list's parent drew last, so a
   closed tab passed whole would keep its session, canvas included, until the window drew again.
+- **A closed tab's session lets go of its editor** (PAR-624). React also keeps the tabs a component last read, through
+  `useSyncExternalStore`, until it renders again, and through the editor that kept the canvas: the tldraw one the test
+  allowed for, and all of it when frames were still awake as the project closed. The example now ends about 170 nodes
+  after closing, where it was about 3,300.
+- **Frames' and project icons' shadow roots are attached unseen by Session Replay** (`renderer/shadow.ts`, PAR-624). The
+  recorder keeps every shadow root it watches until it starts over, so a frame mounted while it recorded kept the closed
+  project's whole canvas, about 13,000 nodes, in some runs.
 - **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
   still open. When it isn't, it takes a port no guest has had, and the open tabs are told (`project.guestMoved`): each
   loads the guest from the new address, swaps in its tokens and lets go of the old guest. A tab whose new guest won't
@@ -4223,8 +4290,9 @@ opened again.
 Code: `serveBuilder` and `restartBuilder` in `openProjects`, `apps/desktop/src/utility/projects.ts`, with
 `newGuestPort`, `restartPort`, `guestMove` and `followGuest` in `guest-ports.ts`; `moveGuest` in
 `apps/desktop/src/renderer/workspace.ts`; `releaseGuest` in `apps/desktop/src/renderer/guest.ts`, called from
-`workspace.ts` and `render.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a reopened
-guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
+`workspace.ts` and `render.ts`; `closeNow` in `workspace.ts`, which takes a closed tab's editor; `unrecordedShadow` in
+`apps/desktop/src/renderer/shadow.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a
+reopened guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window ends
 within 5,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over after two. The
@@ -4389,6 +4457,20 @@ manual checks without a dialog, quiet startup results, repeated checks, retry an
 notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,
 unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
+### Sharing diagnostics (PAR-626)
+
+Settings > Privacy > Share diagnostics is on by default. Off, nothing Parity records leaves the computer; on, errors,
+crashes, traces and a recording of the window go to the Parity team. It takes effect at once, without a restart, and is
+remembered between runs. When `PARITY_TELEMETRY` or `DO_NOT_TRACK` is set, the switch shows what that run does, is
+disabled, and names the variable. Turning it off also starts a new install ID. About lists Diagnostics and the Install
+ID with the versions, and Copy details includes them. Settings scrolls when it's taller than the window.
+
+`@parity-app/telemetry`'s `settings.test.ts` covers how the variables and the saved setting decide a run, reading
+`telemetry.json` and finding the app's data folder on each system. `main/telemetry-setting.test.ts` covers the first
+run's install ID, saving the switch, a variable deciding the run, and a new ID on turning off.
+`chrome/TelemetrySetting.stories.tsx` shows the switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and
+turns it off with the pointer.
+
 ### The page never scrolls (PAR-424)
 
 The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.
@@ -4476,47 +4558,71 @@ one light, breathing.
 
 Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
 
-## Signing in (PAR-612)
+## Signing in (PAR-612, PAR-669)
 
 You sign in with Google, GitHub, Microsoft or a work email, in your browser, through WorkOS AuthKit, as
-[proposals/sign-in.md](proposals/sign-in.md) designs it. Signing in is optional: nothing that works on local folders
-asks for it. Parity carries WorkOS's client ID and never its API key, and the window never sees a token.
+[proposals/sign-in.md](proposals/sign-in.md) designs it, and can stay signed in to several accounts, such as your own
+and your company's. Signing in is optional: nothing that works on local folders asks for it. Parity carries WorkOS's
+client ID and never its API key, and the window never sees a token.
 
 - **The first launch shows the sign-in screen** in Home's place: Continue with Google, GitHub or Microsoft, or a work
   email, and "Open a folder on this computer without signing in", which opens the folder picker over Home. Signing in or
   going on without is remembered (`parity.signIn` in local storage), and so is opening a project another way while it
   shows. It doesn't show when Parity already knows a project, or was started with one, as `pnpm dev` and the end-to-end
   tests start it.
-- **Signing in later** is from the account spot at the end of the title bar, or Sign in in Home's For you. It opens the
+- **Signing in later** is from the account spot at the end of the title bar, or Sign in at the top of Home. It opens the
   same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
+  Signed in already, it's Add another account, which says the accounts you're in stay signed in.
 - **A button opens the browser** at WorkOS's authorize URL with that provider chosen; the work email opens AuthKit with
-  it filled in. Parity shows Continue in your browser, with Open it again, Copy the link and Cancel; after 30 seconds it
-  says what to do if the page didn't open, and Open it again becomes the main button. It never stops waiting on its own.
-  Cancel goes back to the ways in on the screen, or closes the dialog, and stops listening for that sign-in.
+  it filled in. Parity shows Continue in your browser, naming the work email it signs in, with one button, Cancel, and
+  under it "Page didn't open? Open it again or copy the link." After 30 seconds it says Still waiting for your browser,
+  Open it again becomes the main button above Cancel, and the line offers copying the link. It never stops waiting on
+  its own. Cancel goes back to the ways in on the screen, or closes the dialog, and stops listening for that sign-in.
 - **What went wrong says what to do next:** canceled in the browser (`access_denied`), Parity couldn't sign you in (any
   other error, or trading the code failed), this account can't sign in (WorkOS answered 403), or sign in through your
   organization (`sso_required` or `organization_authentication_methods_required`), whose Continue with single sign-on
   opens AuthKit with the account's email. Details hold what WorkOS said, to copy.
+- **Someone in more than one organization chooses one** when WorkOS answers `organization_selection_required`: Choose an
+  organization lists the organizations it names, and choosing one opens AuthKit in the browser with that
+  `organization_id` and the account's email, which signs in to it. Invitations and creating an organization wait for
+  Parity's service (PAR-616).
 - **The browser hands back to the copy that asked.** An installed app uses `parity://auth/callback`: the installer
   registers it on macOS (`protocols` in `electron-builder.yml`) and the app registers itself on Windows and Linux as it
   starts. macOS gives the running app the link as `open-url`; Windows and Linux start a second Parity process with it,
   which passes it on and quits without opening a window. A copy that gets a link it isn't waiting for asks each other
   copy in the agent registry, at `POST /auth/link` on its local service with its token, and the one whose `state` it is
   takes it. A `pnpm dev` copy listens on a free loopback port for each sign-in, `http://127.0.0.1:<port>/auth/callback`,
-  and answers the browser once the code is traded: "You're signed in to Parity" or "Parity couldn't sign you in".
-- **Main keeps the session.** The refresh token is kept encrypted with `safeStorage` in the app data's `account` file,
-  with who it signs in and how; the access token stays in main's memory. Main refreshes a minute before the access token
-  expires, every 4 minutes, using the newest token in the file, since other copies share it; a refresh with no answer is
-  tried again after 5 seconds, doubling to 5 minutes. On Linux without a keyring nothing is kept: a toast says "You're
-  signed in until you quit Parity", the account menu keeps saying so, and both explain why.
-- **A refresh WorkOS refuses shows Session ended** over whatever's open: Sign in again to keep working, with who it was
-  and Continue with the way they signed in. Open projects and unsaved changes stay as they are.
-- **The account menu** shows your picture or initials, your name, and your organization and role, or your email in no
-  organization yet, then Settings and Sign out. Signed out it's an outline of an avatar, with Sign in and Settings. Sign
-  out forgets both tokens and says "You're signed out"; open tabs stay.
-- **Home's organization switcher** shows only once you're signed in: the session's organization, as Your organization
-  until Parity's service can name it (PAR-616), and Personal. Switching, Invite people and New organization say they
-  aren't ready yet.
+  and answers the browser once the code is traded: "You're signed in to Parity" with a green check on the mark,
+  "Continue in Parity" with a purple arrow when choosing an organization or single sign-on is next, or "Parity couldn't
+  sign you in" with an amber warning.
+- **Main keeps each account's session.** Its refresh token is kept encrypted with `safeStorage` in the app data's
+  `account` file, with who it signs in and how, and the file says which account Parity was last in, to start in it; the
+  access tokens stay in main's memory. Main refreshes each account a minute before its access token expires, every 4
+  minutes, using the newest token in the file, since other copies share it; a refresh with no answer is tried again
+  after 5 seconds, doubling to 5 minutes. A file from a build that kept one account isn't read, so you sign in once
+  more. On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit Parity", the accounts
+  panel keeps saying so, and both explain why.
+- **Adding another account asks which one.** Google, GitHub and Microsoft get `prompt=select_account` through WorkOS's
+  `provider_query_params`, so a browser signed in to one of your accounts still offers the others. The account it signs
+  in joins the list and you're in it, with a toast, "Added" and its email; the same account again takes its own place.
+- **A refresh WorkOS refuses ends that account's session.** It stays in the panel, dimmed, until you sign in again or
+  remove it. If you were in it, Session ended shows over whatever's open: Sign in again to keep working, with who it was
+  and Continue with the way they signed in, which names the account to the provider. With another account signed in,
+  you're in that one meanwhile, and it says so. Open projects and unsaved changes stay as they are.
+- **Your accounts are in a panel** from your picture at the end of the title bar. With one account it's your name and
+  email; with several, each row is an email and where it opens, the organization or Personal, and the one you're in is
+  shaded. Choosing another switches at once, with a toast, "Switched to" and its email, since each account keeps its own
+  session. Each row has its own Sign out, or Remove for an account whose session ended, whose row signs in again. Add
+  another account is last. Signing out of the account you're in moves you to the one you used last, and the toast says
+  where you are now; signing out of the last says "You're signed out". Open tabs stay. Signed out, the picture's an
+  outline and the panel offers Sign in. Settings stay in the app's menu.
+- **Home's workspace menu** takes the organization switcher's place, at the top left: the organization you're in, or
+  Personal in none, in the account you're in. Signed out it's Sign in. Its menu lists Personal, then the organizations
+  WorkOS named when you chose one, which main keeps with the session; with several accounts, the email above them says
+  whose they are. Choosing one switches with a refresh naming it, in the background, so nothing open closes, and the
+  menu says Switching to it with a spinner meanwhile; if WorkOS won't, a toast says Parity couldn't switch organizations
+  and you stay where you were. A session can't leave an organization, so Personal and New organization say they aren't
+  ready yet, until Personal is an organization of your own (PAR-616).
 
 Code: main's side is `apps/desktop/src/main/account.ts` (`createAccount`: signing in, reading the link, trading the
 code, refreshing, the problems), `session-store.ts`, `loopback.ts` and `pass-link.ts`, wired up in `main/index.ts` (the
@@ -4524,22 +4630,36 @@ scheme, `open-url`, the second process, IPC). `@parity-app/account` builds the U
 WorkOS. `shared/account.ts` holds the IPC's zod schemas, which main checks requests against and the window checks the
 state against; `shared/hand-back-page.ts` is the loopback's page; `utility/agent.ts` answers `/auth/link`. The window's
 side is `renderer/account/`: `account.ts` (the store, first launch), `SignIn.tsx` (the screen, the dialog, until quit),
-`SignInPanels.tsx` and `AccountMenu.tsx`, with `start/StartControls.tsx` and `start/HomePage.tsx`.
+`SignInPanels.tsx`, `AccountMenu.tsx` (the accounts panel) and `OrganizationBadge.tsx`, with `start/StartControls.tsx`
+(`WorkspaceMenu`) and `start/HomePage.tsx`. Switching organizations is `switchOrganization` in `createAccount`, over the
+`accountSwitch` channel, and switching accounts is `use`, over `accountUse`; `session-store.ts`'s `withAccount` and
+`withoutAccount` change what's kept.
 
-Tests: `main/account.test.ts` (13: the provider and the work email in the URL, the code traded with the client ID and no
+Tests: `main/account.test.ts` (28: the provider and the work email in the URL, the code traded with the client ID and no
 secret, a link that's another copy's, canceled and failed with WorkOS's words, single sign-on and a refused account with
-their email, canceled while trading, kept until quit, refreshing a minute early with the new token kept, trying again
-when WorkOS doesn't answer, Session ended, another copy's newer token, signed out in another copy, signing back in as
-Parity starts, signing out), `main/session-store.test.ts` (4: kept encrypted and forgotten, nothing kept without a
-keyring or encryption, an unreadable file forgotten), `main/pass-link.test.ts` (3: the link in a launch's arguments,
-each other copy asked with its token until one takes it, none taking it) and `main/loopback.test.ts` (1: the link with
-its port, the page once traded, 404 for another sign-in's). `packages/account` covers the URL, PKCE, the link and
-WorkOS's answers. Stories: Parity/Sign in (the first launch, waiting, each problem, the dialog, Session ended, and the
-account menu signed in, in no organization, until quit and signed out). Gaps: no end-to-end test signs in, since that
-needs a real account in a browser. It was tried in `pnpm dev` against WorkOS Staging on 2026-11-05: signing in with
-Google, the loopback's page, the account menu in no organization, a refresh 4 minutes later with the client ID alone,
-the session moved into an organization and kept across a restart, and Session ended after WorkOS revoked the session.
-The `parity://` scheme and passing links between copies need an installed build, which hasn't been tried yet.
+their email, the organizations to choose from and AuthKit opened with the one chosen, canceled while trading, kept until
+quit, the organizations WorkOS named kept through refreshes and in the kept session, switching with a refresh naming the
+organization, staying put when WorkOS won't switch, forgetting them on signing out, refreshing a minute early with the
+new token kept, trying again when WorkOS doesn't answer, Session ended, another copy's newer token, signed out in
+another copy, signing back in as Parity starts, signing out; and with several accounts: adding one with the provider
+asked which, the same account again in its place, switching without asking WorkOS, signing out of another and staying,
+moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
+account you're in ends, restoring every account in the one Parity was last in), `main/session-store.test.ts` (7: kept
+encrypted and forgotten, the file removed with the last account, nothing kept without a keyring or encryption, an
+unreadable or one-account file forgotten, an account replaced in place or added, which account you're in forgotten only
+with it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one
+takes it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
+sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
+and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
+and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
+another account, the accounts panel with one account, two, one whose session ended, in no organization, until quit and
+signed out, and the workspace menu in two organizations, with two accounts, in one, Personal and signed out). Gaps: no
+end-to-end test signs in, since that needs a real account in a browser; switching between two organizations, and adding
+a second account with the provider asked which, haven't been tried against WorkOS yet. It was tried in `pnpm dev`
+against WorkOS Staging on 2026-11-05: signing in with Google, the loopback's page, the account menu in no organization,
+a refresh 4 minutes later with the client ID alone, the session moved into an organization and kept across a restart,
+and Session ended after WorkOS revoked the session. The `parity://` scheme and passing links between copies need an
+installed build, which hasn't been tried yet.
 
 ## Rendering frames
 

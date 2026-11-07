@@ -23,6 +23,7 @@ import type {
 } from "@parity-app/core"
 import type { EditStatus, ExportSize } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
+import type { ResolvedTelemetry, TelemetryLevel } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
@@ -110,6 +111,18 @@ export interface ServiceMethods {
       files: { layer: number; name: string; size: ExportSize }[]
     }
     result: { files: string[]; warnings: string[] }
+  }
+  /**
+   * Draws layers and designs offscreen as the canvas has them, as `layers.export` does, and makes one PNG of them all at
+   * 2x for the clipboard (PAR-190). `layers` are by design key, and a layer's id when it isn't the design; `at` is where
+   * the design sits on the canvas, and `name` names the layer in a warning. No PNG when nothing could be drawn.
+   */
+  "layers.picture": {
+    params: {
+      projectId: string
+      layers: { design: string; node?: string; name: string; at: { x: number; y: number } }[]
+    }
+    result: { png?: string; warnings: string[] }
   }
   /**
    * Draws one frame offscreen and captures it as a PNG, for the canvas to show in its place when zoomed far out, and
@@ -337,10 +350,23 @@ export interface BuildInfo {
   channel: "beta" | "stable" | "development" | "unknown"
 }
 
+/**
+ * What Parity sends Sentry this run, the level saved in Settings, the variable overriding it if one is set, and the
+ * install ID Sentry groups this computer's reports by (PAR-626).
+ */
+export interface TelemetryState extends ResolvedTelemetry {
+  installId: string
+}
+
 /** Exposed on `window.canvasHost` by the preload script. */
 export interface CanvasHost {
   appVersion: string
   getBuildInfo: () => Promise<BuildInfo>
+  /** The Telemetry setting and install ID, which main keeps and applies (PAR-626). */
+  telemetry: {
+    get: () => Promise<TelemetryState>
+    setLevel: (level: TelemetryLevel) => Promise<TelemetryState>
+  }
   updates: {
     get: () => Promise<UpdateState>
     check: () => Promise<void>
@@ -361,7 +387,12 @@ export interface CanvasHost {
     reopen: () => Promise<void>
     /** Stops waiting, and puts away what went wrong or the session that ended. */
     cancel: () => Promise<void>
-    signOut: () => Promise<void>
+    /** Signs out of one account, by its email, or forgets one whose session ended. */
+    signOut: (email: string) => Promise<void>
+    /** Moves the account you're in to another organization the person is in, refreshing in the background. */
+    switchOrganization: (organizationId: string) => Promise<void>
+    /** Switches to another account signed in, by its email, at once: each keeps its own session. */
+    use: (email: string) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string

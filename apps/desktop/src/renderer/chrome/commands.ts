@@ -123,6 +123,25 @@ export interface ExportTarget {
   name: string
 }
 
+/** What exporting or copying as a PNG acts on: the selected layers, or else the selected designs, named as Layers names them. */
+function selectedTargets(session: ProjectSession): ExportTarget[] {
+  const { store } = session
+  const selection = session.selection.get()
+  const entry = selection.design ? store.getEntry(selection.design) : undefined
+  const nodes = selectedNodes(selection)
+  const entries = store.getEntries()
+  const library = store.getComponentLibrary()
+  return entry && nodes.length > 0
+    ? nodes.flatMap((node) => {
+        const layer = findNode(entry.container.root, node)
+        return layer ? [{ design: entry.key, node, name: layerLabel(layer, entries, library) }] : []
+      })
+    : selectedDesigns(selection).flatMap((key) => {
+        const design = store.getEntry(key)
+        return design ? [{ design: key, name: design.container.name }] : []
+      })
+}
+
 /**
  * Exports designs and layers at `sizes` to a folder the person picks (PAR-185), each file named after its layer (see
  * `exportFiles`), as the canvas draws them, saved or not. A toast says how many files it wrote, with a button to show
@@ -172,27 +191,57 @@ export async function exportLayers(
  */
 export async function exportSelected(session = activeSession()): Promise<void> {
   if (!session) return
-  const { store } = session
-  const selection = session.selection.get()
-  const entry = selection.design ? store.getEntry(selection.design) : undefined
-  const nodes = selectedNodes(selection)
-  const entries = store.getEntries()
-  const library = store.getComponentLibrary()
-  const targets: ExportTarget[] =
-    entry && nodes.length > 0
-      ? nodes.flatMap((node) => {
-          const layer = findNode(entry.container.root, node)
-          return layer ? [{ design: entry.key, node, name: layerLabel(layer, entries, library) }] : []
-        })
-      : selectedDesigns(selection).flatMap((key) => {
-          const design = store.getEntry(key)
-          return design ? [{ design: key, name: design.container.name }] : []
-        })
+  const targets = selectedTargets(session)
   if (targets.length === 0) {
     toast.info("Select a screen, a component or a layer to export it")
     return
   }
   await exportLayers(session, targets, getPreferences().exportSizes)
+}
+
+/**
+ * Copies what's selected to the clipboard as one PNG at 2x (PAR-190), drawn as exporting draws it: the selected
+ * layers, or else the selected designs, where they sit on the canvas. A toast says it's copied, or warns of any it
+ * couldn't draw.
+ */
+export async function copySelectedAsPng(session = activeSession()): Promise<void> {
+  if (!session) return
+  const targets = selectedTargets(session)
+  if (targets.length === 0) {
+    toast.info("Select a screen, a component or a layer to copy it as a PNG")
+    return
+  }
+  const progress = toast.loading("Copying as PNG…")
+  try {
+    const { png, warnings } = await request("layers.picture", {
+      projectId: session.id,
+      layers: targets.map(({ design, node, name }) => ({
+        design,
+        ...(node ? { node } : {}),
+        name,
+        at: session.store.getEntry(design)?.container.position ?? { x: 0, y: 0 }
+      }))
+    })
+    if (!png) {
+      toast.error("Couldn't copy as PNG", {
+        id: progress,
+        description: warnings.join("\n") || undefined,
+        classNames: { description: "whitespace-pre-line" }
+      })
+      return
+    }
+    const blob = new Blob([Uint8Array.from(atob(png), (char) => char.charCodeAt(0))], { type: "image/png" })
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+    toast.success("Copied as PNG", { id: progress, duration: 2000 })
+    if (warnings.length > 0) {
+      toast.warning("Some layers couldn't be drawn", {
+        description: warnings.join("\n"),
+        classNames: { description: "whitespace-pre-line" }
+      })
+    }
+  } catch (error) {
+    toast.error("Couldn't copy as PNG", { id: progress, description: message(error) })
+  }
 }
 
 export async function exportImages(scope: "selection" | "all", session = activeSession()): Promise<void> {
@@ -353,6 +402,7 @@ export function nudge(event: KeyboardEvent | undefined, session = activeSession(
     {
       store: session.store,
       selection: session.selection,
+      unit,
       drawn: area ? (design) => frameDrawn(area, design, session.selection.get(), unit) : undefined
     },
     arrow,

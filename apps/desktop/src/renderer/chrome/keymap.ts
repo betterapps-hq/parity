@@ -45,6 +45,7 @@ export const keymap = {
   pasteReplace: { group: "Edit", label: "Paste to replace", keys: ["Ctrl Shift R"] },
   duplicate: { group: "Edit", label: "Duplicate", keys: ["Ctrl D"] },
   delete: { group: "Edit", label: "Delete", keys: ["Del", "Backspace"] },
+  copyAsPng: { group: "Edit", label: "Copy as PNG", keys: ["Ctrl Shift C"] },
   copyStyle: { group: "Edit", label: "Copy style", keys: ["Ctrl Alt C"] },
   pasteStyle: { group: "Edit", label: "Paste style", keys: ["Ctrl Alt V"] },
   rename: { group: "Edit", label: "Rename", keys: ["Ctrl R", "F2"] },

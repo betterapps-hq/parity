@@ -2,6 +2,141 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 00:05:43 GMT",
+      "version": "0.23.0",
+      "tag": "@parity-app/desktop_v0.23.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5fbcfa6b9799604d5e36048dbc39c3bc50fa8d7c",
+            "comment": "Settings > Privacy > Share diagnostics turns Parity's diagnostics on or off without a restart, and About shows whether they're on and the install ID."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 18:37:59 GMT",
+      "version": "0.22.0",
+      "tag": "@parity-app/desktop_v0.22.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "672bcdd6694d13498ba96a32ad9497a5ea92a2a6",
+            "comment": "Stay signed in to several accounts and switch between them: your accounts are in a panel from your picture in the title bar, each with its own Sign out, and Home's top left is a workspace menu for the account you're in"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "24b061d92559fa54345c9bc2be8ceb4d41abb568",
+            "comment": "Name every build as a Sentry release and upload its source maps, so stack traces resolve to source"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4956bc93980688acec3083ded29bda6a49c3e3f8",
+            "comment": "Home's account menu becomes a workspace menu, and your accounts move to a panel in the title bar where each has its own Sign out (exploration); on a phone, Home's search spans its row and Show more follows the cards"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "635de1c960596c297f5a61df97e03f3ee55e4c46",
+            "comment": "Send events as Sentry logs, breadcrumbs and spans through main, and keep a local copy in rotating log files"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6868f1966e1dcb1542ba7ebae86b9f9273d69da8",
+            "comment": "Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 10:42:47 GMT",
+      "version": "0.21.0",
+      "tag": "@parity-app/desktop_v0.21.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1a1bae91b9a37a7ed12a90cb87c0153062f328dc",
+            "comment": "Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2dd7d7e82b5be7b8f6ad76d1229d87bd71f0aff2",
+            "comment": "Choose your organization when WorkOS asks at sign-in, switch organizations from Home's account menu, and give project pictures' phone frame a shadow of its own."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "00f3fc2236e1663479f5bde292f639d7a23ec72d",
+            "comment": "Send errors, crashes and hangs from every process to Sentry, on by default"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aeaacd836cb13d0765b3c25a84289a3fe338edb5",
+            "comment": "Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom when frames run slow"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8a577ec84c18da4379451f28e068ec447762e61c",
+            "comment": "Scrub keys, tokens and passwords from the errors and breadcrumbs sent to Sentry"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8bd8d77143b89970aefa3d5be663b6ae77f8f191",
+            "comment": "Say what a press went to and which tooltips were open in the e2e helpers' failures"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 10:01:34 GMT",
+      "version": "0.20.0",
+      "tag": "@parity-app/desktop_v0.20.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c9accc1a3a8e550d6d872e8d90fdc66b292adbf8",
+            "comment": "Keep a size or inset off the spacing scale, flagged with the nearest step one click away, and nudge layers by 1px"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 08:51:09 GMT",
+      "version": "0.19.0",
+      "tag": "@parity-app/desktop_v0.19.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9e3d4bcf0cae8dc4abbd8022bcadeaf8e8bbd65f",
+            "comment": "Home's first time offers the example where Parity has it, empty lists and For you say what will show up, and projects whose folders are gone are flagged (PAR-188)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 07:13:55 GMT",
       "version": "0.18.0",
       "tag": "@parity-app/desktop_v0.18.0",

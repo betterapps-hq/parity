@@ -4,6 +4,8 @@ import {
   describeFieldNote,
   type FieldRules,
   formatFieldValue,
+  nearestSpacingStep,
+  offScaleFlag,
   readFieldInput,
   scrubSteps,
   stepFieldValue,
@@ -91,7 +93,42 @@ describe("lengths", () => {
     expect(readFieldInput("50%", length)).toMatchObject({ relative: true })
   })
 
-  it("lands off-scale lengths on the nearest half step and says so", () => {
+  it("keeps a size or an inset off the spacing scale as typed, to the hundredth of a pixel", () => {
+    const width: FieldRules = { ...length, offScale: "keep" }
+    expect(typed("281", width, 8)).toEqual({ ok: true, value: 70.25 })
+    expect(typed("280.333", width)).toEqual({ ok: true, value: 70.0825 })
+    expect(formatFieldValue(70.0825, width)).toBe("280.33")
+    expect(typed("-3", { ...inset, offScale: "keep" })).toEqual({ ok: true, value: -0.75 })
+    // Limits still hold.
+    expect(typed("-3", width)).toMatchObject({ value: 0, note: { kind: "clamped" } })
+  })
+
+  it("flags a length off the spacing scale with the nearest step, and nothing on it", () => {
+    expect(offScaleFlag(70.25, length)).toEqual({
+      text: "281px is off the scale",
+      nearest: 70,
+      action: "Use 280px"
+    })
+    expect(offScaleFlag(70.3, length)).toMatchObject({ nearest: 70.5, action: "Use 282px" })
+    expect(offScaleFlag(7.5, length)).toBeUndefined()
+    expect(offScaleFlag("container-sm", length)).toBeUndefined()
+    expect(offScaleFlag(undefined, length)).toBeUndefined()
+    expect(offScaleFlag(0.75, opacity)).toBeUndefined()
+    // The nearest step stays within the field's limits.
+    expect(offScaleFlag(-0.1, length)).toMatchObject({ nearest: 0, action: "Use 0px" })
+    // With MUI's 8px unit, 300px is 37.5 steps, on the scale; 301px is off it.
+    expect(offScaleFlag(301 / 8, { ...length, unit: 8 })).toMatchObject({ action: "Use 300px" })
+  })
+
+  it("takes the whole step when a length is halfway between it and a half step", () => {
+    expect(nearestSpacingStep(70.25)).toBe(70)
+    expect(nearestSpacingStep(70.75)).toBe(71)
+    expect(nearestSpacingStep(-0.25)).toBe(0)
+    expect(nearestSpacingStep(70.4)).toBe(70.5)
+    expect(nearestSpacingStep(70.1)).toBe(70)
+  })
+
+  it("lands other lengths off the scale on the nearest half step and says so", () => {
     expect(typed("281", length, 8)).toEqual({ ok: true, value: 70.5, note: { kind: "snapped", from: 281, to: 282 } })
     // Half steps are on it: 30px is 7.5 steps.
     expect(typed("30", length)).toEqual({ ok: true, value: 7.5 })

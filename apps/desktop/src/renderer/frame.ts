@@ -12,6 +12,7 @@ import {
   viewportHeightProperty,
   viewportWidthProperty
 } from "@parity-app/core"
+import { unrecordedShadow } from "./shadow.ts"
 
 export interface FrameEnvironment {
   classNames: string[]
@@ -136,7 +137,7 @@ function keepOutInherited(host: HTMLElement): void {
  */
 export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environment: FrameEnvironment): HTMLElement {
   rewriteAddedRules()
-  const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" })
+  const shadow = unrecordedShadow(host)
   watchFrameStyles(shadow)
   shadow.adoptedStyleSheets = [frameRootSheet(), sheet]
   keepOutInherited(host)

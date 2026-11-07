@@ -92,7 +92,21 @@ still need your call.
   call: linked is the default because it's what keeps an app following the library, and a copy is Detach done at once,
   with the same rules. A linked copy can't go to its main component or push overrides to it, as the main is the
   library's. The agent's edit API doesn't see library designs yet.
-- **Open:** Buildkit's nova `tokens.json`, which isn't DTCG yet.
+- **Buildkit's styles ship their tokens as DTCG (PAR-139).** Each style's `tokens.json` is a 2025.10 resolver: one set
+  with the light values and a `theme` modifier whose `dark` context holds what changes. Every token has a type and a
+  description, written once in Buildkit's generator for all eight styles, and `parity lib` copies the file into each
+  registry `.lib.par`. A token's path is its CSS variable's name split at each hyphen (`card.foreground`), with a
+  group's own token in `$root`, so it matches its custom property by its whole path. You chose on 2026-11-06 to replace
+  the old format in place rather than ship two files, as only Buildkit's own release check read it. My call: the eight
+  registry files were regenerated from 0.5.0 with `--only new`, which changed only their tokens and version, and cover
+  `^0.4.0 || ^0.5.0`, since 0.4's components are the same and its projects would otherwise lose their file. They list
+  the 39 tokens Buildkit describes instead of the 119 libgen read from the stylesheet, which the Tokens panel still
+  shows from the project's own CSS.
+- **Parity's own reader is the one DTCG parser and validator.** You asked for one, not two, on 2026-11-06. Terrazzo
+  (`@terrazzo/parser` 2.10) was tried as the replacement and rejected: it treats the CSS strings libgen writes for
+  values DTCG has no form for as errors, keeps a malformed token with a broken value instead of leaving it out, throws
+  on a broken alias when told to carry on, and drops a plain token file's descriptions. Buildkit checks its file's shape
+  when it releases, and Parity's tests read each registry copy with this reader.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked
   to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. A file that's the same as what was
@@ -2074,6 +2088,9 @@ to PAR-209 build it.
   transformer. A new install opens the welcome page; development can still request its default project. The builder
   warms the guest graph and waits for dependency optimization before exposing its URL, avoiding cold-start outdated
   dependency imports cached by the browser. CI alone starts isolated production copies against Vite 7 and Vite 8.
+- **Every build is a Sentry release, and its source maps stay out of the installer** (PAR-625). The build writes hidden
+  maps and moves them to `apps/desktop/sourcemaps/`; CI and the release workflow upload them. The calls are in
+  [Every build is a Sentry release](#every-build-is-a-sentry-release-with-its-source-maps-par-625).
 
 How Parity goes public and ships. The proposal is [proposals/repository.md](proposals/repository.md), and the work is
 the Repository, CI and releases stream in Linear.
@@ -4556,6 +4573,12 @@ My calls:
   A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
 - **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
 - **The client IDs go in the code,** since they're public. The API key never ships in the app.
+- **Better Apps checks the desktop's access token with the WorkOS SDK, not a new JWT library** (PAR-615). Its WorkOS
+  identity takes the token as a bearer, checks the signature against WorkOS's JWKS, and checks the issuer against the
+  one WorkOS publishes. A dev copy's real Staging token, decoded in main on 2026-11-06, has the published issuer,
+  `https://api.workos.com/user_management/client_01M6Q2PGV0Z2R7CXZBFRJH150R`. It names Staging's own client, not
+  Parity's (`client_01M6Q30XB58AF2CEHTE79ACMWS`), so the expected issuer comes from WorkOS's
+  `/.well-known/openid-configuration`, never from Parity's client ID.
 
 ## Signing in is data in and data out in `@parity-app/account` (PAR-613)
 
@@ -4598,6 +4621,121 @@ address issues with actual context."
 - **The CLI sends too, at the same level, read from the same setting.** My call, since agents drive Parity through it
   and their calls are half of each trace.
 - **All of this is revisited before the first public release,** in its own Backlog issue.
+
+## Sentry is set up in better-apps, by hand (PAR-617)
+
+What's there and how it was done is in [sentry.md](sentry.md). You chose on 2026-11-05 to have a project for every
+surface now, "parity-web, and parity-dashboard" beside the app and CLI, and that it all belongs to
+`admin@betterapps.io`: "I can't have it in my personal account." My calls:
+
+- **Five projects, one team:** `parity-desktop`, `parity-cli`, `parity-web`, `parity-dashboard` and `parity-api`, all
+  owned by the `parity` team. The proposal's two are the first two; the others wait for their surfaces.
+- **The DSNs are in the repository,** in [sentry.md](sentry.md) for now. PAR-620 and PAR-642 put them in the app's and
+  CLI's build config as they add the SDKs that read them.
+- **Not in Terraform yet,** although cloud services come from Terraform. The pipelines' templates can't pass a Sentry
+  token, so the module waits for that change; sentry.md lists what was done by hand so it can be imported.
+- **The organisation is on a Business trial until 2026-11-19,** which you had started so the free plan's one-member
+  limit didn't block the handover. Whether to pay for a plan is yours: the Team plan adds alerts that file Linear issues
+  and a larger replay quota, which the agent loop relies on.
+
+## Sentry files Linear bugs (PAR-622)
+
+Two alerts turn what Sentry sees in the app and the CLI into bugs in PAR's Todo, as the plan's "Agents in the loop" sets
+out. What they are and how they behave is in [sentry.md](sentry.md#alerts). My calls:
+
+- **Two alerts, each covering both projects:** one for new issues and regressions, one for user feedback. Feedback gets
+  its own so it can file every report with no interval, since each report is its own Sentry issue.
+- **Every environment files,** `development` and `ci` included, as PAR-622 asked: agents' test passes are where most
+  bugs are found now.
+- **Filed bugs have no priority.** Sentry can't tell how much a bug matters, so whoever picks it up from Todo sets it.
+- **Spikes don't file.** Every Sentry issue already has its bug from its first event, and a spike would only file a
+  second one for it. Rate alerts, such as crash-free sessions and failing agent operations, are PAR-643's.
+- **A regression keeps its bug.** Linear reopens the linked issue when Sentry marks a regression, and the alert's action
+  doesn't file a second one, so the regression trigger only matters for an issue with no bug yet. It reopens in Backlog,
+  not Todo. PAR-668 will fix that, and add the release, environment and `test_run` Linear's action leaves out.
+- **At most once in 30 minutes for errors,** Sentry's default, so an issue going in and out of resolved doesn't churn.
+- **Written down, not in Terraform,** like the rest of Sentry's setup until the pipelines can pass a Sentry token.
+- **They depend on the plan.** If the trial ends on 2026-11-19 without an upgrade, these alerts may stop filing, as
+  PAR-617 noted above.
+
+Tried on 2026-11-06 by sending an error and two reports to `parity-desktop`'s DSN: each became a bug (PAR-663, PAR-664,
+PAR-666). Closing PAR-663 resolved its Sentry issue, resolving that closed PAR-663 again, and the error from a later
+release reopened it without a second bug. PAR-620's own check in a development build filed its errors too (PAR-659 to
+PAR-661 and PAR-665), along with a real one it hit (PAR-662).
+
+## Sessions read Sentry through its MCP server (PAR-628)
+
+Agents picking up a bug Sentry filed read its events, trace and replay first, as the plan's "Agents in the loop" sets
+out and [work.md](work.md#bugs-from-sentry) says how. My calls, which you approved on 2026-11-06:
+
+- **Configured in the repository, for both tools,** so a fresh worktree has it: `.mcp.json` for Claude Code, with
+  `.claude/settings.json` turning it on without a prompt, and `.codex/config.toml` for Codex.
+- **Sentry's hosted server, scoped to `better-apps`** by its URL (`https://mcp.sentry.dev/mcp/better-apps`), so tools
+  don't ask which organisation, and nothing runs locally.
+- **Each session signs in with OAuth** as `admin@betterapps.io`, the organisation's only member. No token is kept in the
+  repository.
+- **`PARITY_TEST_RUN` and `parity report` are in the guidance before they exist,** since work.md is where a test pass
+  looks. `parity report` is PAR-646's.
+
+Tried on 2026-11-06 by picking up PAR-662 through Sentry's MCP server: its Sentry issue (PARITY-DESKTOP-3) gave the
+stack, tags, release and environment, its breadcrumbs showed the clicks and the window loads before it, and its trace
+held the event's two errors. The trace had no spans and there were no replays yet, since those are PAR-627's and
+PAR-624's. Both Claude Code (`claude mcp get sentry`) and Codex (`codex mcp get sentry`) load the server from a fresh
+worktree.
+
+## Errors, crashes and hangs go to Sentry from every process (PAR-620)
+
+`@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to
+`parity-desktop`. My calls:
+
+- **Main decides what leaves the computer.** Windows and the service always start Sentry and send through main, whose
+  client is off when `PARITY_TELEMETRY=off` or `DO_NOT_TRACK=1` is set, or under Vitest. The decision is
+  `telemetryLevel` and `telemetryEnvironment` in `@parity-app/telemetry`, so the CLI can share it (PAR-642). A
+  `PARITY_TELEMETRY` value that isn't `all`, `errors` or `off` stops the app, rather than sending what someone meant to
+  turn off. The Telemetry setting is PAR-626.
+- **Environments:** `ci` wherever `CI` is set, `tester` for an installed build, and `development` otherwise.
+- **The `process` tag uses the telemetry envelope's names** (`main`, `renderer`, `render`, `service`, `worker`,
+  `builder`), set on each event. Sentry copies a window's scope into main's, so a scope tag would have labelled main's
+  own errors as the window's.
+- **Windows report only errors thrown from Parity's own pages** (`allowUrls` is the page's origin). A project's
+  components run in the same page, and their errors are the project's to show, not Parity's bugs.
+- **React errors go through the root's `onUncaughtError` and `onCaughtError`,** with their component stack. Boundaries
+  around the canvas, panels and dialogs need a fallback UI designed first, so they're PAR-667.
+- **Main's hangs are measured by a late timer, not Sentry's native hang detection,** which needs a module built for
+  Electron's ABI that the build doesn't ship. It reports how long main was stuck, though not where; PAR-631 can bring in
+  the native module. Windows' hangs come from their `unresponsive` and `responsive` events.
+- **Exits:** a window or child process that exits abnormally, fails to launch or runs out of memory is reported, along
+  with crashes' minidumps. The service's restarts are breadcrumbs. A builder that stops by itself is reported with its
+  last 50 lines of output, and the props worker's failures from the service.
+
+## Every build is a Sentry release, with its source maps (PAR-625)
+
+How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
+
+- **Published builds are named by version, as `parity-desktop@0.21.0`, and every other build by its full commit hash,**
+  as the plan says for installed, development and CI builds. My call: "published" means the release workflow built it,
+  which marks it beta, so a pull request's preview installer, which also runs as `tester`, doesn't join a version's
+  release with code that isn't in it. `telemetryRelease` in `@parity-app/telemetry` decides, so the CLI can share it. A
+  build whose commit isn't known is `parity-desktop@<version>+unreleased`. `dist` is the platform and architecture, such
+  as `win32-x64`, and an installed build tags its events with `update_channel`, stable or beta, the update preference,
+  which changes as the person changes it.
+- **Maps are matched by debug ID, not by file name and release.** `sentry-cli sourcemaps inject` gives each bundle an ID
+  from its contents, so the same code gets the same ID on every system and every run. One upload then covers all three
+  installers, and a renamed or moved file still resolves.
+- **The release workflow builds the published version again to upload its maps.** The shared release template builds the
+  installers with one secret, the tldraw key, and changing it was out of scope, so a job after it checks out the
+  version's tag, builds it on Ubuntu with the same key and channel, and uploads. Its bundles match the installers'
+  because the build is the same on every system. Events that arrive in the minutes before the upload stay unresolved.
+- **CI uploads the Windows build's maps,** the build it installs and starts, as the commit's release. Only main's
+  commits are tied to their release, since a pull request's merge commit isn't kept. A failed upload doesn't fail CI's
+  run, which releases wait on.
+- **Development builds resolve without an upload.** `pnpm dev` starts Electron with `--enable-source-maps`, so main's
+  and the service's stacks name the source files and lines before Sentry sees them; the window's modules are already the
+  source files Vite serves. A frozen copy, which `pnpm perf` measures, leaves it off.
+- **Electron's own native symbols come from Sentry's built-in Electron symbol server,** a project setting, not an
+  upload. Parity ships no native code of its own yet; sharp's prebuilt binaries come without debug files.
+- **`@sentry/cli` 3.8.2 is a devDependency of the app** (your call, 2026-11-06), run from `scripts/build.ts` and
+  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it.
 
 ## The rest of signing in is designed (PAR-614)
 
@@ -4744,10 +4882,10 @@ gutter. My calls:
 - **A board stays where its top left corner is,** so its frames shift on the canvas as the gutter changes with the zoom,
   as they do in the exploration: from 40% to 400% the first frame moves 81 canvas pixels up, nearer the corner.
   Anchoring the frames instead would have meant moving a design's position with the zoom.
-- **The shape takes a board's new size once the camera stops.** Taking it on every frame of a zoom would draw every
-  board's title and menus again each frame. While the camera moves, the outline of a selected board is off by the change
-  in its gutter. The gutter itself follows the zoom live, as labels do, through each part's own style, not a custom
-  property that every frame's elements would inherit (PAR-556).
+- **The shape takes a board's new size once the camera stops** (once the zoom settles, since PAR-655). Taking it on
+  every frame of a zoom would draw every board's title and menus again each frame. While the camera moves, the outline
+  of a selected board is off by the change in its gutter. The gutter itself follows the zoom live, as labels do, through
+  each part's own style, not a custom property that every frame's elements would inherit (PAR-556).
 - **The agent's estimate takes the gutter at 40%,** where it's widest on the canvas, so it's never smaller than the
   board drawn at any zoom. A drawn board's bounds are still as the canvas has them at its zoom, so `Overlaps()` sees
   drawn boards as they are now: boards set close together up close grow towards each other as the canvas zooms out to
@@ -4949,6 +5087,18 @@ You asked on 2026-11-05 for the main process's side of signing in and the window
   PAR-616 can switch organizations from the app, once its service lists them.
 - **The access token names the organization by ID only.** Until Parity's service can look one up (PAR-616), the app
   calls it Your organization.
+- **Finishing with a pending token needs the client secret.** The organization-selection grant
+  (`urn:workos:oauth:grant-type:organization-selection`) and the email-verification grant
+  (`urn:workos:oauth:grant-type:email-verification:code`) both answered 400 `invalid_client`, "Invalid client secret.",
+  with the client ID alone. So Parity can't finish either itself; whatever needs the secret stays in AuthKit's pages
+  until Parity has a server.
+- **Choosing an organization happens in Parity, and AuthKit finishes it.** WorkOS's 403
+  `organization_selection_required` names the user and their organizations (ID and name), so the app lists them.
+  Choosing one opens AuthKit with `organization_id`, whose page loads and keeps it, to sign in to that organization.
+  `organization_id` with a provider such as `GoogleOAuth` fails instead, with `organization_invalid` "No Connection
+  associated with Organization", since there it names the organization's single sign-on.
+- **Email verification stays in AuthKit.** Its grant needs the secret, and AuthKit verifies on its own page, which
+  Staging never asked for while signing in with Google.
 - **The token's `iss` is the environment's client** (`client_01M6Q2PGV0Z2R7CXZBFRJH150R`), as its OpenID configuration
   says, which the PAR-615 adapter reads.
 
@@ -4959,6 +5109,11 @@ Your calls, from trying it in `pnpm dev`:
 - **The account menu keeps Settings and Sign in or Sign out,** and leaves Keyboard shortcuts and the keys to the app's
   menus. It has no agents yet, since connecting one isn't built.
 - **Under the ways in, one short line,** "Parity never sees your password", with a shield.
+- **Waiting for the browser shows one button at a time:** Cancel, then Open it again once it's slow, with the other ways
+  round a page that didn't show as a line of links under it.
+- **The browser's hand-back page badges the mark** with a green check or an amber warning, so a failure reads at a
+  glance. Choosing an organization or single sign-on isn't a failure, so it says Continue in Parity, with a purple
+  arrow.
 
 My calls:
 
@@ -4978,6 +5133,42 @@ My calls:
   and an error otherwise. `@parity-app/account` now passes on the email WorkOS's refusal names.
 - **Signing in is checked in an installed build later.** The scheme and passing links between copies only work in an
   installed app, which wasn't tried here.
+
+## Several accounts are built (PAR-669)
+
+You asked on 2026-11-06 to stay signed in to several accounts, such as your own and your company's, and switch between
+them as Figma does. You approved the design in Parity/Explorations/Home: Home's workspace menu at the top left, and your
+accounts in a panel from your picture at the end of the title bar, each with its own Sign out. Your calls:
+
+- **Accounts and organizations are separate controls.** The title bar's panel is who you are; Home's workspace menu is
+  where you're working in the account you're in.
+- **People and Settings leave the menus.** Settings stays in the app's menu, and an organization's people wait for
+  organization settings.
+- **Any account can be signed out of**, not only the one you're in, from its own row, with no menu under Sign out.
+
+My calls:
+
+- **Main keeps a session for each account,** each with its own refresh token and refresh timer, in the one encrypted
+  `account` file, with the account Parity was last in. Switching accounts doesn't ask WorkOS, so it's instant, and
+  Parity starts in the same account next launch.
+- **An account is its email.** Signing in again as an account that's listed takes its place rather than listing it
+  twice.
+- **Signing out of the account you're in moves you to the one you used last** whose session is still going; with none
+  left, you're signed out. Signing out of another leaves you where you are.
+- **An account whose session WorkOS ends stays listed,** dimmed, with who it was and how they signed in but no token, so
+  one click signs in again as it and Remove forgets it. That's kept across launches. Session ended shows over what's
+  open only for the account you're in, and you're moved to another meanwhile; another account's ending doesn't
+  interrupt.
+- **Adding an account asks the provider which one.** Google, GitHub and Microsoft get `prompt=select_account` through
+  WorkOS's `provider_query_params`, written as WorkOS's own SDK writes it,
+  `provider_query_params[prompt]=select_account`, so a browser signed in to one Google account still offers the others.
+  Signing in again as an account names it with `login_hint` instead, and a work email goes to AuthKit with `login_hint`
+  as before. Whether WorkOS passes the prompt on hasn't been tried yet: its reference documents `provider_query_params`
+  without saying how it's written.
+- **A file from a build that kept one account isn't read,** since it's prototype data: anyone signed in then signs in
+  once more.
+- **Copies of Parity still share accounts.** Each change reads the newest file and replaces only its own account, since
+  every refresh replaces a token.
 
 ## Telemetry's event model is data in and data out in `@parity-app/telemetry` (PAR-618)
 
@@ -5024,6 +5215,21 @@ project already has its icon library's icons in code, so writing them out again 
   number rather than overwriting each other.
 - **The icon set dialog is kept as an exploration,** Parity/Explorations/Icon export, in case it comes back.
 - **File > Export all stays as it was:** every design in every state and mode it shows, at Settings' export scale.
+
+## A selection copies as one PNG at 2x (PAR-190)
+
+Called on 2026-11-06. PAR-190 asked for Ctrl+Shift+C to copy the selected layers or designs as a PNG at 2x, drawn as
+they show, with PAR-185's exports drawn the same way. My calls:
+
+- **It draws through the export's own path,** the same offscreen frames and cuts, so one layer or design copies exactly
+  the PNG exporting it at 2x writes. There's no second renderer.
+- **The clipboard holds one picture, so a selection copies as one.** Several layers of one design are the box around
+  them all, with what's between them, as Figma copies them; several designs sit where they are on the canvas, with
+  see-through between them.
+- **A picture over 16,384 pixels wide or tall isn't copied,** with a toast saying to select less or export it. Selecting
+  every design spread over the canvas made one too big for sharp to make, and mostly see-through.
+- **Always 2x PNG,** whatever the Export section's sizes or Settings' export scale, as the issue asked.
+- **Through the keymap only for now,** with no menu item, since a menu item is a design change for Storybook first.
 
 ## Each element's source line, in a Code tab and for agents (PAR-167)
 
@@ -5257,3 +5463,213 @@ Thumbnails and removing came with PAR-607 and PAR-605. Your calls and mine:
   it isn't ready.
 - **A frame's edge in a project's picture is mid-grey,** not the theme's text color, so a phone over a desktop frame
   shows against it whether the screens are light or dark.
+
+## Sizes and insets can leave the spacing scale, flagged (PAR-194)
+
+Lengths were kept on the spacing scale: a typed length landed on the nearest half step, and nudging moved a step. The
+editor audit (CAN-48) asked for lengths off the scale to be kept and flagged, since a sidebar 280px wide is a fact of
+real apps and engineers already write `w-[280px]`. This loosens the tokens-only model for lengths. My calls:
+
+- **Only sizes and insets leave it.** Width, Height, Min, Max and an absolutely placed layer's insets keep what's typed.
+  Padding, Margin and Gap still land on the nearest half step with a note, since spacing inside a layout is what the
+  scale is for. Colours, type, radius and shadows stay tokens.
+- **A length off the scale is kept in steps,** 281px as 70.25 with a 4px unit, not as pixels. The file format doesn't
+  change, every place that reads a length keeps working, and a value off the scale already opened as it was. If a
+  project's spacing unit changes, such a length scales with it, as lengths on the scale do. Writing it as code is
+  PAR-265's to decide: `w-[281px]`, or `w-70.25` where Tailwind's scale takes it.
+- **It's kept to the hundredth of a pixel,** so 281 stays 281px rather than 280.99999, and a run of 1px nudges with a
+  unit 1px doesn't divide doesn't drift.
+- **The scale is whole and half steps,** as before and as the canvas's distance labels already say "off scale". A
+  quarter step with a 4px unit, 1px, is off it.
+- **The flag is under the row, in amber, with the nearest step as a button:** "281px is off the scale" and "Use 280px".
+  It shows for any length off the scale, whether typed, nudged or already in the file, padding from an older file
+  included. Amber, not the destructive colour, since the value is allowed. Halfway between a whole step and a half step
+  the button offers the whole step, so 281px offers 280px rather than 282px. The wording was checked against the writing
+  style guide, which allows px in design content where space is short.
+- **Nudging moves 1px, or 10px with Shift,** as Figma's does, which CAN-39 waited on. The field's Up and Down still move
+  a step, so they're the way back onto the scale; a length off it goes to the step beside it.
+
+## Boards take their size once the zoom settles, not when tldraw's camera stops (PAR-655)
+
+Called on 2026-11-06. Profiling PAR-653 on a busy machine, frames took 150 to 300 ms, longer than tldraw's camera
+timeout, so tldraw counted the camera as stopped between the wheel's moves. Every board then measured itself and updated
+its shape on almost every frame of a zoom: 190 to 280 ms of `getClientRects` in a 4-second zoom. My calls:
+
+- **Boards wait for the zoom to settle, the same settling `--tl-zoom` already waited for.** The zoom settles once it has
+  held for 3 animation frames and 150 ms, both: frames alone would settle between a mouse wheel's notches when frames
+  are quick, and time alone would settle between slow frames. The rule moved to `zoomSettle` in
+  `packages/editor/src/zoom-settle.ts`, with tests, and `settleZoom` and the boards both use it, so the styles and the
+  boards' sizes change at the same moment rather than by two timers that could disagree.
+- **Panning no longer holds a board's size back.** A board's size changes with the zoom, not with the camera's place, so
+  a board that resizes while the canvas pans, such as one whose frames wake as it comes into view, takes its size then
+  rather than once the pan ends.
+- **The zoom passing back through where it settled counts as settled for that frame.** A board might measure itself once
+  mid-zoom then; checking it apart from the zoom wasn't worth a second clock.
+
+## docs/telemetry.md lists the events from their schemas (PAR-623)
+
+[telemetry.md](telemetry.md) says what Parity sends Sentry and lists every event, as principle 9 of
+[proposals/product-telemetry.md](proposals/product-telemetry.md) asks. My calls:
+
+- **An event says which processes send it and when,** as `sentBy` and `when` in `defineEvent`, and each attribute says
+  what it means with zod's `.describe()`. All three are required: the catalog throws when one is missing, so an event
+  can't reach the page half described.
+- **`registeredEvents` in `packages/telemetry/src/registry.ts` is the one list,** the page's source. Each process still
+  passes `createTelemetry` only the events it sends.
+- **Only the Events section is generated,** between two comments; the prose around it is written by hand. Types are
+  written as TypeScript writes them, from zod's JSON Schema of what `track()` takes, and a nested object's fields are
+  listed by their dotted path.
+- **Regenerating is `pnpm exec vp test run packages/telemetry -u`,** through Vitest's file snapshots, as the fixtures'
+  `expected.json` files are, so no script was added. The test that fails says so.
+- **The tables are padded as `vp fmt` writes them,** so formatting the page on commit leaves the generated part alone.
+
+## Secrets are scrubbed before any event leaves a process (PAR-621)
+
+`@parity-app/telemetry`'s `createScrubber({ secrets })` replaces secrets with `[redacted]` and leaves everything else as
+written, as "Parity's own telemetry goes to Sentry, on by default" decided. `createTelemetry` runs it on every event's
+attributes before its sinks and the kept events. Main, the windows and the service run one in their Sentry `beforeSend`,
+`beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb` hooks, and the CLI will once it sends (PAR-642).
+Sentry's server-side scrubbing stays on as a second net. My calls:
+
+- **Keys and tokens with a known shape are replaced whole:** OpenAI and Anthropic `sk-…`, Stripe `sk_live_`/`rk_live_`,
+  GitHub `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and `github_pat_`, Slack `xox…-`, AWS access key IDs, Google `AIza…`,
+  npm `npm_`, Sentry `sntrys_`, JWTs and private key blocks. After `Bearer` and in a URL's `user:password@`, only the
+  secret goes: the word, scheme, user and host stay.
+- **A field whose name says it's secret loses its whole value,** in objects and in text (`.env` lines, query strings,
+  JSON, `password: …` in a message): names with password, passphrase, secret, API key, access key, private key,
+  credential, authorization or cookie in them, `auth`, environment names ending in `_TOKEN`, `_KEY`, `_SECRET` or
+  `_PASSWORD`, and tokens with a credential's prefix, as `accessToken` or `refresh_token`. **A bare `token` isn't
+  secret,** nor `designToken` or `key`: in Parity those are design tokens and design keys, which make a bug findable.
+  Their values are still read for keys and random strings.
+- **Long random strings are replaced even with no known shape:** 32 characters or more of base64 or hex characters, with
+  upper and lower case letters and digits, under 40% of it in lowercase words of 4 letters or more, and at least 3.5
+  bits per character. Paths and identifiers are half words or more, so they stay. Hex alone stays (hashes, commit SHAs,
+  UUIDs, trace IDs), as does a run in a file name before its extension or in a `data:` URL's base64. About 1 in 100
+  random 32-character keys slips past this, which the known shapes and Sentry's own scrubbing cover.
+- **`.env` values are scrubbed when the caller passes them.** `envSecrets(file)` reads a `.env` file's values, and the
+  ones 8 characters or longer that aren't a number or `true`/`false` are replaced wherever they appear. `setSecrets`
+  swaps them when another project opens. Shorter values would hide words and port numbers everywhere they appear. No
+  process passes a project's values yet: that's PAR-672.
+- **Only attributes are scrubbed in `createTelemetry`.** The envelope's own fields are Parity's IDs, names and paths. An
+  `Error` is copied as its own class with its message, stack, fields and cause scrubbed; dates, byte arrays and other
+  objects that aren't plain go as they are.
+
+## Events go to Sentry through main, and to a local copy at every level (PAR-627)
+
+Every process records its events with `createTelemetry` and the app's Sentry sink, `shared/sentry-sink.ts`, which maps
+envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My calls:
+
+- **Each process keeps its own breadcrumbs and errors; main sends logs and spans.** In a window, a render window and the
+  service, each event and span becomes a breadcrumb in that process's Sentry scope, and a failure becomes a Sentry error
+  there, so an error carries the events before it in the process it happened in. Every event then goes to main, which
+  writes the local copy and sends it as a structured log, and each span as a Sentry span. Main needs every event for the
+  local copy anyway, and this leaves it the one place that decides what leaves, as PAR-620 has it.
+- **A failure is any `error.*` event, or any event at the `error` or `fatal` level** (`isErrorEvent`). The issue named
+  the first and docs/telemetry.md the second, so both count.
+- **The last 100 events are Sentry's breadcrumbs,** which it keeps 100 of by default, not a copy of the ring buffer laid
+  on each error. That way an uncaught exception or a native crash carries them too, not only an `error.*` event.
+  Sentry's own breadcrumbs (console, clicks, requests) share those 100.
+- **A span is sent as a transaction of its own, with Parity's trace, span and parent IDs,** built by hand and sent with
+  `captureEvent`. Sentry's span API makes its own IDs, which would break the trace the CLI and other processes continue.
+  Sentry joins the transactions into one trace by their parents. A log in a trace is captured in a scope that continues
+  it, so Sentry links the two.
+- **A log's message is the event's name, and its attributes are the event's own, as they are,** so they're searchable by
+  the names in docs/telemetry.md. The envelope's fields go beside them under `parity.` (`parity.process`,
+  `parity.session_id`, `parity.duration_ms`).
+- **The level gate is in main's `beforeSend`, `beforeSendTransaction` and `beforeSendLog`,** through `sendsToSentry` in
+  the package: All sends everything, Errors only errors (with their breadcrumbs), Off nothing. Reading the level there,
+  rather than only at `Sentry.init`, lets PAR-626 change it without a restart. PAR-626 has since dropped the Errors
+  level and `sendsToSentry` with it; see "Diagnostics are on or off" below.
+- **The local copy is `<userData>/logs/parity-<date>.jsonl`,** one envelope per line, written at every level. A file
+  that would pass 5 MB continues in `parity-<date>.2.jsonl` and on, a new day starts a new file, and only the newest 10
+  are kept. Lines are written together once a second, synchronously; a `fatal` event writes at once, with what's
+  waiting, and so does quitting. A write that fails loses the local copy, never the app.
+- **Other processes reach main by the routes they already have.** A window sends over IPC (`canvas:telemetry`) from its
+  preload. Render windows got a preload of their own that gives the page only that, since a project's components run in
+  them. The service asks main's channel (`record`), and the props worker posts to the service beside its channel's
+  messages; the service adds its events to its own Sentry scope, since the worker has none. Main checks each envelope
+  with `envelopeSchema`, and names a window's events by the window that sent them.
+- **Main makes the install ID and the session ID, and passes them on** with whether to check events against their
+  schemas (outside installed builds): to windows as a command-line argument, to the service and its worker in an
+  environment variable. The install ID was kept in `<userData>/install-id`; PAR-626 moved it into `telemetry.json`.
+- **No process exports its telemetry yet.** `startTelemetry` and `startEvents` return it; the issues that record the
+  first events (PAR-629 onwards) decide how code reaches it.
+
+## Diagnostics are on or off (PAR-626)
+
+Settings has one switch for Parity's own telemetry, and About shows whether it's on and the install ID. You chose its
+shape on 2026-11-06. After a first design with an All, Errors and Off choice, an install ID row and a Reset button, you
+said it "smacks of leaking internal implementation details. Users don't need to see some of this. Users don't need to
+know we're using Sentry," then "Either send or don't, that's all." My calls within that:
+
+- **No Errors level anywhere,** not only in Settings: `TelemetryLevel` is `all` or `off`, `PARITY_TELEMETRY` takes only
+  those, and `sendsToSentry` is gone. Main turns Sentry's client on or off (`applyTelemetry` in `main/telemetry.ts`),
+  which every send checks, so the switch works without a restart. Sentry starts enabled and is turned off at once when
+  it should be, since a client started disabled never sets up its integrations.
+- **Settings > Privacy > Share diagnostics,** a switch. Its line says what's shared, the window recording included,
+  since that's what a person needs to know, not which service takes it.
+- **A variable decides the run and disables the switch:** `PARITY_TELEMETRY` over the setting, `DO_NOT_TRACK` and Vitest
+  over both. The switch shows what's sent, and its line names the variable.
+- **The setting and the install ID are one file, `<userData>/telemetry.json`,** which the CLI can read through
+  `desktopDataFolder` (PAR-642). It replaces PAR-627's `install-id` file; an ID there isn't carried over, as stale
+  prototype data.
+- **Turning it off is the reset:** it makes a new install ID, so what's sent after turning it back on isn't linked to
+  what came before. There's no Reset button. Windows and the service keep the ID they started with until Parity
+  restarts, so their events' envelopes carry the old one until then; Sentry's user is the new one at once.
+- **About lists Diagnostics (On or Off, with the variable if one decided it) and the Install ID** with the versions, so
+  Copy details includes them.
+- **Settings scrolls** when it's taller than the window. The new section pushed it past the bottom of a short one.
+
+## Session Replay records the editor window (PAR-624)
+
+`@sentry/electron`'s renderer SDK brings Session Replay and its canvas recording, so no package was added. The editor
+window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `replayCanvasIntegration` on, as
+"Parity's own telemetry goes to Sentry, on by default" decided. My calls:
+
+- **Every session is recorded while diagnostics are on** (`replaySessionRate` is 1, in `renderer/replay.ts`). **While
+  they're off the recorder isn't added,** so it costs no memory, as well as main sending nothing.
+- **The window asks main whether they're on** (`canvasHost.telemetry.get()`, PAR-626) as it starts, and adds the
+  recorder once they are. Turning them off in Settings stops it, and on again starts it, through `receiveTelemetry`.
+- **Only the editor window records.** `followTelemetry` is called from the editor window alone, so the offscreen
+  renderers, which share `startTelemetry`, neither record nor load the recorder.
+- **Frames are left out of replays,** as boxes their size (`block: ["[data-frame]"]`). The proposal took them for
+  cross-origin iframes, but a frame on the canvas is an open shadow root in the editor page, which Sentry's recorder can
+  record. Recording them, a closed project's canvas stayed in memory: about 26,000 DOM nodes against 6,000 with
+  telemetry off, and `reopening.e2e` failed in CI on 49,000 nodes where it allows 27,600.
+- **The recorder never sees frames' and project icons' shadow roots.** Blocking alone left about 13,800 nodes in some
+  runs: rrweb patches `attachShadow` and keeps every shadow root attached while it records, blocked host or not, until
+  it starts over, and a frame's host kept the closed canvas. `renderer/shadow.ts` takes the browser's own `attachShadow`
+  before recording starts, and frames and icons attach theirs with it (icons are blocked too). A closed tab's session
+  also lets go of its editor, which React kept with the tabs a component last read. Closing the example project now
+  leaves about 510 nodes with replay on and 170 with it off, steady over three reopens.
+- **Failures carry the frames instead,** since replays leave them out, the offscreen windows that draw bitmaps aren't
+  recorded, and a buffer keeps only a minute: every error from the editor window attaches `frames.json`, the frames on
+  the canvas without their bitmaps or render keys, which hold the whole design and made it 3 MB. A frame's failed
+  offscreen capture is reported once for what it shows, tagged `render: failed`, with the bitmap the frame last showed
+  as `frame.webp`.
+- **What it costs:** the editor window's bundle grows by 153 kB (49 kB gzipped); `render.js` doesn't change. On the
+  example project, a minute of selecting after opening left the JS heap within 0 to 6 MB of the 110 MB it holds with
+  telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
+  nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
+  its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
+- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. A render failure
+  thrown in the page arrives as Electron's "Script failed to execute", without the page's message; that's PAR-680.
+
+## sharp isn't loaded in the app on Linux (PAR-688)
+
+On Linux, the project service segfaulted the first time sharp encoded a picture, in a libuv worker with libvips's
+threads running (Sentry's PARITY-DESKTOP-G, in CI's installed update check). Electron's Linux binaries link the system's
+glib and leak its symbols into the process, which clashes with the glib sharp's libvips brings: sharp's docs list it as
+a known conflict, and electron/electron#46323 is still open. My calls:
+
+- **Under Electron on Linux, sharp is treated as unable to load** (`sharpRefusal` in `utility/webp.ts`), so frame
+  bitmaps and component previews show the PNG and aren't kept, as on any system sharp can't load on. Exports and copying
+  as PNG fail there with that message, where they crashed the service before.
+- **The build's check didn't catch it,** since it runs Electron as plain Node (`ELECTRON_RUN_AS_NODE`), where Chromium
+  and its glib never load.
+- **It went unseen because installed renders were failing:** the offscreen `render.html` ran the editor's `index`
+  bundle, which stopped at `setTheme` (PAR-662) before `canvasRender` was defined (PAR-670), so nothing reached sharp.
+  PAR-624 moved shared code into a chunk of its own, so `render.html` stopped loading `index`, renders worked, and the
+  update check crashed.
+- **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
+  dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.

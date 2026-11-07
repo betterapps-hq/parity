@@ -44,6 +44,8 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "../../out/renderer",
       emptyOutDir: true,
+      // Written for Sentry, without the bundles pointing at them; scripts/build.ts moves them out of what's packaged.
+      sourcemap: "hidden",
       rolldownOptions: {
         input: {
           index: resolve(import.meta.dirname, "src/renderer/index.html"),

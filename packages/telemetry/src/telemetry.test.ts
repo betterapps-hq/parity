@@ -9,11 +9,15 @@ import {
   TelemetryError
 } from "./index.ts"
 
+/** Who sends an event and when, which only the catalog reads. */
+const about = { sentBy: ["renderer"], when: "In these tests." } as const
+
 const projectOpened = defineEvent("project.opened", z.object({ framework: z.string(), components: z.number().int() }), {
-  level: "info"
+  level: "info",
+  ...about
 })
-const saveFailed = defineEvent("file.save_failed", z.object({ path: z.string() }), { level: "error" })
-const pointerMoved = defineEvent("gesture.sampled", z.object({}), { level: "debug", sample: 0.25 })
+const saveFailed = defineEvent("file.save_failed", z.object({ path: z.string() }), { level: "error", ...about })
+const pointerMoved = defineEvent("gesture.sampled", z.object({}), { level: "debug", sample: 0.25, ...about })
 const events = [projectOpened, saveFailed, pointerMoved] as const
 
 const context: EventContext = { process: "renderer", installId: "install-1", sessionId: "session-1", windowId: "w1" }
@@ -42,18 +46,18 @@ function setup(options: { check?: boolean; random?: () => number; keep?: number 
 describe("defineEvent", () => {
   it("takes dotted names, area first", () => {
     expect(projectOpened).toMatchObject({ name: "project.opened", level: "info", sample: 1 })
-    expect(() => defineEvent("projectOpened", z.object({}), { level: "info" })).toThrow(/dotted/)
-    expect(() => defineEvent("Project.opened", z.object({}), { level: "info" })).toThrow(/dotted/)
-    expect(() => defineEvent("project", z.object({}), { level: "info" })).toThrow(/dotted/)
+    expect(() => defineEvent("projectOpened", z.object({}), { level: "info", ...about })).toThrow(/dotted/)
+    expect(() => defineEvent("Project.opened", z.object({}), { level: "info", ...about })).toThrow(/dotted/)
+    expect(() => defineEvent("project", z.object({}), { level: "info", ...about })).toThrow(/dotted/)
   })
 
   it("keeps a share from 0 to 1", () => {
-    expect(() => defineEvent("a.b", z.object({}), { level: "info", sample: 1.5 })).toThrow(/0 to 1/)
-    expect(() => defineEvent("a.b", z.object({}), { level: "info", sample: Number.NaN })).toThrow(/0 to 1/)
+    expect(() => defineEvent("a.b", z.object({}), { level: "info", sample: 1.5, ...about })).toThrow(/0 to 1/)
+    expect(() => defineEvent("a.b", z.object({}), { level: "info", sample: Number.NaN, ...about })).toThrow(/0 to 1/)
   })
 
   it("registers each name once", () => {
-    const again = defineEvent("project.opened", z.object({}), { level: "warn" })
+    const again = defineEvent("project.opened", z.object({}), { level: "warn", ...about })
     expect(() => createTelemetry({ events: [projectOpened, again], context, sinks: [], check: true })).toThrow(
       "project.opened is registered twice"
     )
@@ -81,6 +85,23 @@ describe("track", () => {
     expect(other.named("file.save_failed")).toEqual(sink.named("file.save_failed"))
   })
 
+  it("scrubs secrets from attributes before any sink or the kept events see them", () => {
+    const sink = createTestSink()
+    const telemetry = createTelemetry({ events, context, sinks: [sink], check: true, secrets: ["acme-shop-secret"] })
+    const message = "POST https://api.acme.dev/upload?access_token=acme-shop-secret failed"
+    telemetry.track("file.save_failed", { path: `/Users/ada/acme/${message}` })
+    telemetry.setSecrets(["another-project-value"])
+    const span = telemetry.startSpan("file.save_failed", { path: "/Users/ada/shop/another-project-value" })
+    span.end("error")
+
+    const scrubbed = "/Users/ada/acme/POST https://api.acme.dev/upload?access_token=[redacted] failed"
+    expect(sink.events[0]?.attributes).toEqual({ path: scrubbed })
+    expect(sink.spans[0]?.attributes).toEqual({ path: "/Users/ada/shop/[redacted]" })
+    expect(telemetry.recent().map((event) => event.attributes)).toEqual([
+      { path: scrubbed },
+      { path: "/Users/ada/shop/[redacted]" }
+    ])
+  })
   it("takes only registered names and their attributes, as types", () => {
     const { telemetry } = setup({ check: false })
     expectTypeOf<Parameters<typeof telemetry.track>[0]>().toEqualTypeOf<

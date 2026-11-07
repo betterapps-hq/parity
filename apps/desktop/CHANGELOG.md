@@ -1,8 +1,74 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 07:13:55 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 00:05:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.23.0
+
+Sat, 07 Nov 2026 00:05:43 GMT
+
+### Minor changes
+
+- Settings > Privacy > Share diagnostics turns Parity's diagnostics on or off without a restart, and About shows whether
+  they're on and the install ID. (ajcraswell@gmail.com)
+
+## 0.22.0
+
+Fri, 06 Nov 2026 18:37:59 GMT
+
+### Minor changes
+
+- Stay signed in to several accounts and switch between them: your accounts are in a panel from your picture in the
+  title bar, each with its own Sign out, and Home's top left is a workspace menu for the account you're in
+  (ajcraswell@gmail.com)
+- Name every build as a Sentry release and upload its source maps, so stack traces resolve to source
+  (ajcraswell@gmail.com)
+- Home's account menu becomes a workspace menu, and your accounts move to a panel in the title bar where each has its
+  own Sign out (exploration); on a phone, Home's search spans its row and Show more follows the cards
+  (ajcraswell@gmail.com)
+- Send events as Sentry logs, breadcrumbs and spans through main, and keep a local copy in rotating log files
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token (ajcraswell@gmail.com)
+
+## 0.21.0
+
+Fri, 06 Nov 2026 10:42:47 GMT
+
+### Minor changes
+
+- Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them
+  (ajcraswell@gmail.com)
+- Choose your organization when WorkOS asks at sign-in, switch organizations from Home's account menu, and give project
+  pictures' phone frame a shadow of its own. (ajcraswell@gmail.com)
+- Send errors, crashes and hangs from every process to Sentry, on by default (ajcraswell@gmail.com)
+
+### Patches
+
+- Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom
+  when frames run slow (ajcraswell@gmail.com)
+- Scrub keys, tokens and passwords from the errors and breadcrumbs sent to Sentry (ajcraswell@gmail.com)
+
+## 0.20.0
+
+Fri, 06 Nov 2026 10:01:34 GMT
+
+### Minor changes
+
+- Keep a size or inset off the spacing scale, flagged with the nearest step one click away, and nudge layers by 1px
+  (ajcraswell@gmail.com)
+
+## 0.19.0
+
+Fri, 06 Nov 2026 08:51:09 GMT
+
+### Minor changes
+
+- Home's first time offers the example where Parity has it, empty lists and For you say what will show up, and projects
+  whose folders are gone are flagged (PAR-188) (ajcraswell@gmail.com)
 
 ## 0.18.0
 

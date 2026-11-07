@@ -4,8 +4,10 @@
  * works from it (`+8` adds 8), and so does the word Mixed (`Mixed+8` adds 8 to each selected layer's own value).
  *
  * Lengths are kept as steps of the spacing scale (`4` is `calc(var(--spacing) * 4)`) but typed and shown in pixels, so
- * typing 320 in Width gives 320px. Until lengths can leave the scale (PAR-194), a length lands on the nearest half step,
- * which is what Tailwind's scale lists below 4 and what drags already write, and the field says when it moved one.
+ * typing 320 in Width gives 320px. The scale is whole and half steps, which is what Tailwind's scale lists below 4 and
+ * what drags write. A size or an inset can leave it (PAR-194): 281px is kept as 70.25 steps, and the field flags it with
+ * the nearest step (`offScaleFlag`). Other lengths, such as padding and gaps, land on the nearest half step, and the
+ * field says when it moved one.
  */
 
 /** What a field holds: a length, a percentage (opacity), a whole number (columns, spans, lines) or any number. */
@@ -20,6 +22,11 @@ export interface FieldRules {
   max?: number
   /** What the field is called, for the reasons it gives ("Opacity takes a percentage"). */
   label?: string
+  /**
+   * For lengths, what a value off the spacing scale does: lands on the nearest half step (`snap`, the default, for
+   * padding, margin and gaps), or stays as typed, to the hundredth of a pixel (`keep`, for sizes and insets).
+   */
+  offScale?: "snap" | "keep"
 }
 
 /** A parsed sum. `current` stands for the value already in the field, each layer's own when they differ. */
@@ -158,7 +165,7 @@ export function summarizeFieldNotes(notes: readonly FieldNote[], rules: FieldRul
   return `Some layers ${line}`
 }
 
-/** Whether a length, in steps, sits on the half-step grid lengths land on until PAR-194. */
+/** Whether a length, in steps, is on the spacing scale: a whole or a half step. */
 export function onSpacingGrid(steps: number): boolean {
   return Math.abs(steps * 2 - Math.round(steps * 2)) < 1e-9
 }
@@ -166,6 +173,37 @@ export function onSpacingGrid(steps: number): boolean {
 /** A number of steps moved to the nearest half step. */
 export function snapToSpacingGrid(steps: number): number {
   return Math.round(steps * 2) / 2
+}
+
+/**
+ * The step on the spacing scale nearest a length, in steps. Halfway between a whole step and a half step, it's the whole
+ * step, so 281px with a 4px unit goes to 280px rather than 282px.
+ */
+export function nearestSpacingStep(steps: number): number {
+  const below = Math.floor(steps * 2) / 2
+  const above = below + 0.5
+  const down = steps - below
+  const up = above - steps
+  if (Math.abs(down - up) < 1e-9) return Number.isInteger(below) ? below : above
+  return down < up ? below : above
+}
+
+/** What a length field says about a value off the spacing scale, and the step it offers instead. */
+export interface OffScaleFlag {
+  /** "281px is off the scale" */
+  text: string
+  /** The nearest step, in steps. */
+  nearest: number
+  /** The button that puts it there: "Use 280px". */
+  action: string
+}
+
+/** The flag for a length field's value when it's a number off the spacing scale; otherwise nothing. */
+export function offScaleFlag(value: number | string | undefined, rules: FieldRules): OffScaleFlag | undefined {
+  if (rules.kind !== "length" || typeof value !== "number" || onSpacingGrid(value)) return undefined
+  const nearest = clamp(nearestSpacingStep(value), rules)
+  const px = (steps: number) => `${formatNumber(steps * shownPerStored(rules))}px`
+  return { text: `${px(value)} is off the scale`, nearest, action: `Use ${px(nearest)}` }
 }
 
 // What the field shows per unit it stores: pixels per step for lengths.
@@ -178,7 +216,10 @@ function settle(stored: number, rules: FieldRules): FieldOutcome {
   const scale = shownPerStored(rules)
   let value = stored
   let note: FieldNote | undefined
-  if (rules.kind === "length" && !onSpacingGrid(value)) {
+  if (rules.kind === "length" && !onSpacingGrid(value) && rules.offScale === "keep") {
+    // Kept as typed, to the hundredth of a pixel, so 281px stays 281px rather than 280.99999.
+    value = Math.round(value * scale * 100) / (scale * 100)
+  } else if (rules.kind === "length" && !onSpacingGrid(value)) {
     const snapped = snapToSpacingGrid(value)
     note = { kind: "snapped", from: value * scale, to: snapped * scale }
     value = snapped

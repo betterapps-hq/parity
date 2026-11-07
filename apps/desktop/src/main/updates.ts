@@ -7,6 +7,7 @@ import { z } from "zod"
 import type { MainEnvironment } from "./environment.ts"
 import { noStableRelease } from "./github-releases.ts"
 import { isPackaged } from "./packaged.ts"
+import { tagUpdateChannel } from "./telemetry.ts"
 import { UpdateSession } from "./update-session.ts"
 
 /** The update preference, as `updates.json` keeps it. A missing or malformed file is the stable channel. */
@@ -43,6 +44,7 @@ export function createUpdates(
     autoUpdater.autoInstallOnAppQuit = false
     autoUpdater.allowDowngrade = false
     autoUpdater.logger = console
+    tagUpdateChannel(beta)
   }
   // A disabled session never reaches its driver.
   const updater = () => {
@@ -54,7 +56,10 @@ export function createUpdates(
     manual: process.platform === "darwin",
     beta,
     changed,
-    saveBeta: (next) => writeFileSync(file, JSON.stringify({ beta: next })),
+    saveBeta: (next) => {
+      writeFileSync(file, JSON.stringify({ beta: next }))
+      if (autoUpdater) tagUpdateChannel(next)
+    },
     driver: {
       check: async (next) => {
         updater().allowPrerelease = next
