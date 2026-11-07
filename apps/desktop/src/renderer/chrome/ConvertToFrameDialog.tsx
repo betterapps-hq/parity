@@ -34,6 +34,11 @@ export function askToConvertToFrame(question: Asking): void {
   setAsking(question)
 }
 
+/** Stops asking, as Cancel does, for when the dialog failed and was closed (PAR-667). */
+export function stopAskingToConvert(): void {
+  setAsking(undefined)
+}
+
 function useAsking(): Asking | undefined {
   return useSyncExternalStore(
     (listener) => {

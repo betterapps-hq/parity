@@ -476,8 +476,11 @@ export function Counts({ errors, warnings }: { errors: number; warnings: number 
   )
 }
 
-/** The console's top edge: drag it to make the console taller or shorter, or focus it and use the arrows. */
-function ResizeTop({ height }: { height: number }) {
+/**
+ * The console's top edge: drag it to make the console taller or shorter, or focus it and use the arrows. The console's
+ * error fallback has it too (PAR-667).
+ */
+export function ResizeTop({ height }: { height: number }) {
   const [min, max] = panelLimits.console
   const resize = (next: number) => setLayout({ consoleHeight: Math.round(Math.min(max, Math.max(min, next))) })
   return (

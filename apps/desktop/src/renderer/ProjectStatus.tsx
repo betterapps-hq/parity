@@ -164,8 +164,8 @@ export function ProjectFailed({ tab }: { tab: Tab }) {
   )
 }
 
-/** The error as the service gave it, to read in full or copy into a bug report. */
-function ErrorDetails({ message }: { message: string }) {
+/** The error as the service gave it, to read in full or copy into a bug report. Error boundaries' tabs show it too. */
+export function ErrorDetails({ message }: { message: string }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return

@@ -1,6 +1,7 @@
 import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
 import { Component, ImageIcon, Layers, Palette, Smile } from "lucide-react"
 import { ComponentsPanel, IconsPanel, ImagesPanel } from "./AssetsPanel.tsx"
+import { ErrorBoundary } from "./ErrorBoundary.tsx"
 import { LayerTree } from "./LayerTree.tsx"
 import { SidePanel } from "./SidePanel.tsx"
 import { TokensPanel } from "./TokensPanel.tsx"
@@ -24,19 +25,29 @@ export function LeftPanel() {
       ]}
     >
       <TabsContent value="layers" className="flex min-h-0 flex-col">
-        <LayerTree />
+        <ErrorBoundary name="left.layers" label="Layers">
+          <LayerTree />
+        </ErrorBoundary>
       </TabsContent>
       <TabsContent value="components" className="flex min-h-0 flex-col">
-        <ComponentsPanel />
+        <ErrorBoundary name="left.components" label="Components">
+          <ComponentsPanel />
+        </ErrorBoundary>
       </TabsContent>
       <TabsContent value="icons" className="flex min-h-0 flex-col">
-        <IconsPanel />
+        <ErrorBoundary name="left.icons" label="Icons">
+          <IconsPanel />
+        </ErrorBoundary>
       </TabsContent>
       <TabsContent value="images" className="flex min-h-0 flex-col">
-        <ImagesPanel />
+        <ErrorBoundary name="left.images" label="Images">
+          <ImagesPanel />
+        </ErrorBoundary>
       </TabsContent>
       <TabsContent value="tokens" className="flex min-h-0 flex-col">
-        <TokensPanel />
+        <ErrorBoundary name="left.tokens" label="Tokens">
+          <TokensPanel />
+        </ErrorBoundary>
       </TabsContent>
     </SidePanel>
   )
