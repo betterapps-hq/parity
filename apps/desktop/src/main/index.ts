@@ -57,6 +57,7 @@ import type {
   ServiceProcessMethods
 } from "../shared/service.ts"
 import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from "../shared/telemetry-run.ts"
+import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } from "../shared/tracing.ts"
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
@@ -148,6 +149,8 @@ const events = startEvents({
   installId: telemetrySetting.get().installId
 })
 const telemetryRun = writeTelemetryRun(events.run)
+// What main does for the service is a span in the trace the service's request came with (PAR-629).
+traceWith(events.telemetry)
 // Startup, quitting, updates and memory (PAR-631).
 const appLife = recordAppLife(events.telemetry, async () =>
   (await processUsage()).map(({ role, memory }) => ({ role, memory }))
@@ -242,7 +245,9 @@ function startService(): UtilityProcess {
       record: (envelope) => recordForwarded(envelope),
       agentCalled: (caller) => agentCalled(caller)
     },
-    disconnected: () => new Error("The project service stopped")
+    disconnected: () => new Error("The project service stopped"),
+    trace: currentTraceHeaders,
+    around: handleInSpan
   })
   channel.connect(nodePort(child, { closedBy: { exit: () => undefined } }))
   serviceChannels.set(child, channel)
@@ -935,7 +940,17 @@ function renderOffscreen(
 ): Promise<{ frame: RenderedFrame; png?: string }> {
   // Held from the moment it's queued, so the window never closes under a job or with one waiting.
   const done = renderIdle.use()
-  const run = async (index: number) => {
+  // Drawn under the trace it was queued in, with how long it waited for a window (PAR-629).
+  const parent = currentTrace()
+  const queued = performance.now()
+  const run = (index: number) =>
+    inSpan(
+      "frame.drawn",
+      { priority, queuedMs: Math.round(performance.now() - queued), whole },
+      () => draw(index),
+      parent
+    )
+  const draw = async (index: number) => {
     const window = await ensureRenderWindow(index)
     const width = devicePixels(job.mode.width, job.scale)
     window.setContentSize(width, 800)
