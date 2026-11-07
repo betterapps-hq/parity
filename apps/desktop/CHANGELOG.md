@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 07 Nov 2026 09:34:17 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 11:02:22 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.32.0
+
+Sat, 07 Nov 2026 11:02:22 GMT
+
+### Minor changes
+
+- A part of the window that fails while it draws now says so in its own place, with Try again and Report a problem, and
+  the rest of the window keeps working (ajcraswell@gmail.com)
 
 ## 0.31.0
 

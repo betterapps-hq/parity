@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "A part of the window that fails while it draws now says so in its own place, with Try again and Report a problem, and the rest of the window keeps working",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

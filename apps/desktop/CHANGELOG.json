@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 11:02:22 GMT",
+      "version": "0.32.0",
+      "tag": "@parity-app/desktop_v0.32.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "04edf02db4e6b18410682b0df81c45c1ecf405fe",
+            "comment": "A part of the window that fails while it draws now says so in its own place, with Try again and Report a problem, and the rest of the window keeps working"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 09:34:17 GMT",
       "version": "0.31.0",
       "tag": "@parity-app/desktop_v0.31.0",
