@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 07 Nov 2026 03:48:15 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 04:09:47 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.28.1
+
+Sat, 07 Nov 2026 04:09:47 GMT
+
+### Patches
+
+- Share diagnostics keeps one short description, on or off, so Settings doesn't shift when it's turned
+  (ajcraswell@gmail.com)
 
 ## 0.28.0
 

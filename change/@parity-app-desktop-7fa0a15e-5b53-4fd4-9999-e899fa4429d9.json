@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Share diagnostics keeps one short description, on or off, so Settings doesn't shift when it's turned",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
