@@ -45,6 +45,8 @@ export interface MainMethods {
   record: { params: unknown; result: undefined }
   /** The open projects' `.env` values, which main scrubs and passes to every window, as projects open and close. */
   secrets: { params: string[]; result: undefined }
+  /** An agent called the app, so what follows is tagged as its driving (PAR-630). Main checks it, since it's data. */
+  agentCalled: { params: unknown; result: undefined }
 }
 
 /** Requests the main process sends to the project service. */

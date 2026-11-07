@@ -21,4 +21,9 @@ describe("callerIdentity", () => {
     expect(callerIdentity(42, "id")).toBeUndefined()
     expect(callerIdentity("Agent", 42)).toEqual({ name: "Agent", id: "Agent" })
   })
+  it("keeps the client an agent calls through, when it names one", () => {
+    expect(callerIdentity("Claude", "s", " claude-code ")).toEqual({ name: "Claude", id: "s", client: "claude-code" })
+    expect(callerIdentity("Claude", "s", " ")).toEqual({ name: "Claude", id: "s" })
+    expect(callerIdentity("Claude", "s", 42)).toEqual({ name: "Claude", id: "s" })
+  })
 })

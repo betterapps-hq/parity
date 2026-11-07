@@ -1,17 +1,22 @@
 import { randomUUID } from "node:crypto"
 import { join } from "node:path"
 import {
+  createDriverTracker,
+  driverTags,
   createTelemetry,
   type Envelope,
   envelopeSchema,
   registeredEvents,
   isSpanEnvelope,
+  type RunVariables,
+  runTags,
   type Sink,
   type Telemetry,
   type TelemetryEnvironment,
   type TelemetryLevel,
   telemetryEnvironment,
-  telemetryRelease
+  telemetryRelease,
+  telemetryUser
 } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
@@ -43,6 +48,42 @@ export const scrubber = secretScrubbing()
 /** Whether this run sends, which Settings can change while it runs (PAR-626). */
 let level: TelemetryLevel = "off"
 
+/** The install every event reports as, and the variables that name its test pass and tester (PAR-630). */
+let installId = "unknown"
+let runVariables: RunVariables = {}
+
+/** Who's driving, a person or an agent, which tags every event, span and replay from main's scope on (PAR-630). */
+const driver = createDriverTracker({ onChange: () => tagDriver() })
+
+/** Puts who's driving on main's scope, which windows' and the service's events join, and names Sentry's user by it. */
+function tagDriver(): void {
+  const now = driver.current()
+  Sentry.setTags(driverTags(now))
+  Sentry.setUser(telemetryUser(installId, runVariables, now))
+}
+
+/** The driver's tags on an event, checked as it's sent, since an agent that stopped calling hands back to the person. */
+function withDriver<T extends { tags?: Record<string, unknown> | undefined }>(event: T): T {
+  return { ...event, tags: { ...event.tags, ...definedTags(driverTags(driver.current())) } }
+}
+
+function definedTags(tags: Record<string, string | undefined>): Record<string, string> {
+  return Object.fromEntries(Object.entries(tags).filter((entry): entry is [string, string] => entry[1] !== undefined))
+}
+
+/** An agent called the app through the service, which says who it is (PAR-630). What isn't a caller is ignored. */
+export function agentCalled(sent: unknown): void {
+  if (typeof sent !== "object" || sent === null) return
+  const { name, id, client } = sent as Record<string, unknown>
+  if (typeof name !== "string" || typeof id !== "string") return
+  driver.agentCalled({ name, id, ...(typeof client === "string" ? { client } : {}) })
+}
+
+/** The person used the app's window, so what follows is theirs (PAR-630). */
+export function personActed(): void {
+  driver.personActed()
+}
+
 /**
  * Starts Sentry in main, which must happen before the app is ready, before any scheme is registered and before the
  * service is forked, so windows and the service can reach it. With telemetry off it still starts, so windows and the
@@ -68,6 +109,7 @@ export function startTelemetry(
   }
 ): TelemetryStart {
   const environment = telemetryEnvironment(env, installed)
+  runVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
   Sentry.init({
     dsn,
     environment,
@@ -78,8 +120,8 @@ export function startTelemetry(
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
     // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
-    beforeSend: (event) => scrubber.value({ ...event, tags: { process: "main", ...event.tags } }),
-    beforeSendTransaction: (event) => scrubber.value(event),
+    beforeSend: (event) => scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } })),
+    beforeSendTransaction: (event) => scrubber.value(withDriver(event)),
     beforeSendLog: (log) => scrubber.value(log),
     beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb),
     integrations: [
@@ -87,9 +129,13 @@ export function startTelemetry(
       Sentry.childProcessIntegration({ events: ["abnormal-exit", "launch-failed", "integrity-failure", "oom"] })
     ]
   })
+  // The test pass tags everything from main's scope, which windows' and the service's events join (PAR-630).
+  Sentry.setTags(runTags(runVariables))
   // Started enabled, so its integrations are set up, then turned to the level; every send checks it again.
   applyTelemetry(sending)
   watchMainLoop()
+  // An agent that stops calling hands back to the person, which spans and logs, unlike errors, don't check as they're sent.
+  setInterval(() => driver.current(), 1000).unref()
   return { level, environment }
 }
 
@@ -186,7 +232,8 @@ export function applyTelemetry(next: { level: TelemetryLevel; installId: string 
   level = next.level
   const client = Sentry.getClient()
   if (client) client.getOptions().enabled = level !== "off"
-  Sentry.setUser({ id: next.installId })
+  installId = next.installId
+  tagDriver()
 }
 
 /** Reports a window that stops answering, once it answers again, with how long it was stuck. */
