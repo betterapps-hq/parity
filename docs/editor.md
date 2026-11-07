@@ -4461,15 +4461,16 @@ unsaved-work cancellation, Save, installation and relaunch as the newer version.
 
 Settings > Privacy > Share diagnostics is on by default. Off, nothing Parity records leaves the computer; on, errors,
 crashes, traces and a recording of the window go to the Parity team. It takes effect at once, without a restart, and is
-remembered between runs. When `PARITY_TELEMETRY` or `DO_NOT_TRACK` is set, the switch shows what that run does, is
-disabled, and names the variable. Turning it off also starts a new install ID. About lists Diagnostics and the Install
-ID with the versions, and Copy details includes them. Settings scrolls when it's taller than the window.
+remembered between runs. Its description stays the same on and off, so the row keeps its height (PAR-703). When
+`PARITY_TELEMETRY` or `DO_NOT_TRACK` is set, the switch shows what that run does, is disabled, and names the variable.
+Turning it off also starts a new install ID. About lists Diagnostics and the Install ID with the versions, and Copy
+details includes them. Settings scrolls when it's taller than the window.
 
 `@parity-app/telemetry`'s `settings.test.ts` covers how the variables and the saved setting decide a run, reading
 `telemetry.json` and finding the app's data folder on each system. `main/telemetry-setting.test.ts` covers the first
 run's install ID, saving the switch, a variable deciding the run, and a new ID on turning off.
 `chrome/TelemetrySetting.stories.tsx` shows the switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and
-turns it off with the pointer.
+turns it off with the pointer, checking its description stays put.
 
 ### Report a problem (PAR-635)
 
