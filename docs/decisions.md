@@ -5638,3 +5638,23 @@ a known conflict, and electron/electron#46323 is still open. My calls:
   update check crashed.
 - **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
   dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
+
+## Support can sign in as someone's account, through WorkOS (PAR-693)
+
+The design is in [proposals/impersonation.md](proposals/impersonation.md), and the work is PAR-695 to PAR-697. Your
+calls on 2026-11-06:
+
+- **Only Better Apps' WorkOS team can impersonate,** from WorkOS's dashboard with a reason, since WorkOS has no API to
+  start it. Organization admins can't.
+- **Nothing is blocked while impersonating.** Changes are attributed to the support person as well as the user.
+- **The user isn't told.** WorkOS's `session.created` event and Parity's own records keep it.
+
+My calls:
+
+- **Parity asks before switching,** naming the account, who started it and why, since a link from the browser shouldn't
+  swap accounts by itself.
+- **An amber band above the window, on every tab, with a ring around the window,** that can't be hidden, shows whose
+  account it is, why, the minutes left, and End support session.
+- **It ends signed out,** whether ended from the band, by Sign out, by WorkOS's 60 minutes or by quitting. The
+  impersonated refresh token never goes to `safeStorage`, and the support person's own session isn't kept aside.
+- **Telemetry tags every event in it** with `impersonated: true` and the support person's email.
