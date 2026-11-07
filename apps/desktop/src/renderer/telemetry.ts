@@ -36,7 +36,7 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
   const toMain: Sink[] = host
     ? [{ event: (envelope) => host.record(envelope), span: (envelope) => host.record(envelope) }]
     : []
-  return createTelemetry({
+  const telemetry = createTelemetry({
     events: registeredEvents,
     context: { process: kind, installId: run.installId, sessionId: run.sessionId },
     sinks: [
@@ -49,6 +49,7 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
     check: run.check,
     onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
   })
+  return telemetry
 }
 
 /** Reports a frame that couldn't be drawn offscreen, with the bitmap it last showed. */

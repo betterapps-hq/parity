@@ -5638,3 +5638,12 @@ a known conflict, and electron/electron#46323 is still open. My calls:
   update check crashed.
 - **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
   dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
+
+## Interface events are recorded by the stores that own them (PAR-634)
+
+`tab.*`, `panel.shown`, `dialog.opened`, `mode.switched`, `setting.changed` and `start.action` are recorded where the
+state changes, not at each control: the workspace's tab list is watched and compared (`tabEvents`), and the layout,
+preferences, dialog and selection stores and the start page's actions record their own changes through
+`recordInterface`. A tab is sent as what it shows (Home, a project or a new tab), never by its folder, and a tab that
+takes a new id as its project opens isn't an open, a close or a switch. Mode means designing or Interact, the canvas's
+one switch between editing and using the designs.

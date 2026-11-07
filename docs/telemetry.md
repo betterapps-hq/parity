@@ -130,6 +130,69 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-No events are registered yet.
+| Event             | Level | Kept | Sent by  | When                                                                                |
+| ----------------- | ----- | ---- | -------- | ----------------------------------------------------------------------------------- |
+| `dialog.opened`   | info  | all  | renderer | One of the app's own dialogs opens.                                                 |
+| `mode.switched`   | info  | all  | renderer | The canvas switches between designing and Interact, where designs take the pointer. |
+| `panel.shown`     | info  | all  | renderer | A side panel or the console opens, or a side panel shows another tab.               |
+| `setting.changed` | info  | all  | renderer | A preference or the telemetry level is changed.                                     |
+| `start.action`    | info  | all  | renderer | A control on Home or a new tab's start page is used.                                |
+| `tab.closed`      | info  | all  | renderer | A tab closes.                                                                       |
+| `tab.opened`      | info  | all  | renderer | A tab opens, for a project or as a new tab.                                         |
+| `tab.switched`    | info  | all  | renderer | Another tab, or Home, comes to the front.                                           |
+
+### `dialog.opened`
+
+| Attribute | Type     | Meaning                                             |
+| --------- | -------- | --------------------------------------------------- |
+| `dialog`  | `string` | Which dialog: settings, shortcuts, about or actions |
+
+### `mode.switched`
+
+| Attribute | Type                     | Meaning                       |
+| --------- | ------------------------ | ----------------------------- |
+| `mode`    | `"design" \| "interact"` | The mode the canvas is in now |
+
+### `panel.shown`
+
+| Attribute | Type                             | Meaning                                                |
+| --------- | -------------------------------- | ------------------------------------------------------ |
+| `panel`   | `"left" \| "right" \| "console"` | The side panel, or the console under the canvas        |
+| `tab`     | `string`, optional               | The tab the side panel shows, such as layers or design |
+
+### `setting.changed`
+
+| Attribute | Type                          | Meaning                                                  |
+| --------- | ----------------------------- | -------------------------------------------------------- |
+| `setting` | `string`                      | The setting's name, such as theme, snapping or telemetry |
+| `value`   | `string \| number \| boolean` | Its new value; a list, such as the export sizes, as JSON |
+
+### `start.action`
+
+| Attribute | Type                                                                                                  | Meaning                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `page`    | `"home" \| "new"`                                                                                     | The start page it came from: Home, or a new tab                                                          |
+| `action`  | `"new-project" \| "open-folder" \| "open-file" \| "recent-project" \| "search" \| "star" \| "forget"` | What was done: start a project, open a folder or file, open a listed project, search, star or forget one |
+
+### `tab.closed`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.opened`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.switched`
+
+| Attribute | Type                           | Meaning                  |
+| --------- | ------------------------------ | ------------------------ |
+| `from`    | `"home" \| "project" \| "new"` | What was in front before |
+| `to`      | `"home" \| "project" \| "new"` | What is in front now     |
 
 <!-- End of the generated events. -->
