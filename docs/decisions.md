@@ -5585,6 +5585,60 @@ know we're using Sentry," then "Either send or don't, that's all." My calls with
   Copy details includes them.
 - **Settings scrolls** when it's taller than the window. The new section pushed it past the bottom of a short one.
 
+## Session Replay records the editor window (PAR-624)
+
+`@sentry/electron`'s renderer SDK brings Session Replay and its canvas recording, so no package was added. The editor
+window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `replayCanvasIntegration` on, as
+"Parity's own telemetry goes to Sentry, on by default" decided. My calls:
+
+- **Every session is recorded while diagnostics are on** (`replaySessionRate` is 1, in `renderer/replay.ts`). **While
+  they're off the recorder isn't added,** so it costs no memory, as well as main sending nothing.
+- **The window asks main whether they're on** (`canvasHost.telemetry.get()`, PAR-626) as it starts, and adds the
+  recorder once they are. Turning them off in Settings stops it, and on again starts it, through `receiveTelemetry`.
+- **Only the editor window records.** `followTelemetry` is called from the editor window alone, so the offscreen
+  renderers, which share `startTelemetry`, neither record nor load the recorder.
+- **Frames are left out of replays,** as boxes their size (`block: ["[data-frame]"]`). The proposal took them for
+  cross-origin iframes, but a frame on the canvas is an open shadow root in the editor page, which Sentry's recorder can
+  record. Recording them, a closed project's canvas stayed in memory: about 26,000 DOM nodes against 6,000 with
+  telemetry off, and `reopening.e2e` failed in CI on 49,000 nodes where it allows 27,600.
+- **The recorder never sees frames' and project icons' shadow roots.** Blocking alone left about 13,800 nodes in some
+  runs: rrweb patches `attachShadow` and keeps every shadow root attached while it records, blocked host or not, until
+  it starts over, and a frame's host kept the closed canvas. `renderer/shadow.ts` takes the browser's own `attachShadow`
+  before recording starts, and frames and icons attach theirs with it (icons are blocked too). A closed tab's session
+  also lets go of its editor, which React kept with the tabs a component last read. Closing the example project now
+  leaves about 510 nodes with replay on and 170 with it off, steady over three reopens.
+- **Failures carry the frames instead,** since replays leave them out, the offscreen windows that draw bitmaps aren't
+  recorded, and a buffer keeps only a minute: every error from the editor window attaches `frames.json`, the frames on
+  the canvas without their bitmaps or render keys, which hold the whole design and made it 3 MB. A frame's failed
+  offscreen capture is reported once for what it shows, tagged `render: failed`, with the bitmap the frame last showed
+  as `frame.webp`.
+- **What it costs:** the editor window's bundle grows by 153 kB (49 kB gzipped); `render.js` doesn't change. On the
+  example project, a minute of selecting after opening left the JS heap within 0 to 6 MB of the 110 MB it holds with
+  telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
+  nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
+  its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
+- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. A render failure
+  thrown in the page arrives as Electron's "Script failed to execute", without the page's message; that's PAR-680.
+
+## sharp isn't loaded in the app on Linux (PAR-688)
+
+On Linux, the project service segfaulted the first time sharp encoded a picture, in a libuv worker with libvips's
+threads running (Sentry's PARITY-DESKTOP-G, in CI's installed update check). Electron's Linux binaries link the system's
+glib and leak its symbols into the process, which clashes with the glib sharp's libvips brings: sharp's docs list it as
+a known conflict, and electron/electron#46323 is still open. My calls:
+
+- **Under Electron on Linux, sharp is treated as unable to load** (`sharpRefusal` in `utility/webp.ts`), so frame
+  bitmaps and component previews show the PNG and aren't kept, as on any system sharp can't load on. Exports and copying
+  as PNG fail there with that message, where they crashed the service before.
+- **The build's check didn't catch it,** since it runs Electron as plain Node (`ELECTRON_RUN_AS_NODE`), where Chromium
+  and its glib never load.
+- **It went unseen because installed renders were failing:** the offscreen `render.html` ran the editor's `index`
+  bundle, which stopped at `setTheme` (PAR-662) before `canvasRender` was defined (PAR-670), so nothing reached sharp.
+  PAR-624 moved shared code into a chunk of its own, so `render.html` stopped loading `index`, renders worked, and the
+  update check crashed.
+- **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
+  dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
+
 ## A layer can use its own values, not only tokens, if they're valid (PAR-652)
 
 Call 1 of the Design panel proposal ([design-options.md](proposals/design-options.md)) asked whether a layer can use a

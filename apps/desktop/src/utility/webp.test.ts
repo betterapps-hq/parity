@@ -1,6 +1,15 @@
 import sharp from "sharp"
 import { describe, expect, it } from "vite-plus/test"
-import { composePicture, cutPicture, losslessWebp } from "./webp.ts"
+import { composePicture, cutPicture, losslessWebp, sharpRefusal } from "./webp.ts"
+
+describe("sharpRefusal", () => {
+  it("keeps sharp out of Electron on Linux, where it crashed the service, and nowhere else", () => {
+    expect(sharpRefusal("linux", "45.2.1")).toMatch(/PAR-688/)
+    expect(sharpRefusal("linux", undefined)).toBeUndefined()
+    expect(sharpRefusal("win32", "45.2.1")).toBeUndefined()
+    expect(sharpRefusal("darwin", "45.2.1")).toBeUndefined()
+  })
+})
 
 /** Pixels with edges and soft gradients, as a frame's text and shadows have, as a PNG. */
 async function picture(): Promise<Buffer> {

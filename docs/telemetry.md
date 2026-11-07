@@ -62,6 +62,32 @@ is written either way. Unit tests leave it off.
 - **The install ID** is a random UUID made on the first run and sent as Sentry's user. Turning sharing off makes a new
   one, so what's sent after turning it on again isn't linked to what came before. About shows it beside the versions.
 
+## Replays and frame bitmaps
+
+Sentry's Session Replay records the editor window, so a bug's event links to what happened before it: the panels, the
+canvas, selections, menus and dialogs, as they looked, with what was clicked and typed. Nothing is masked, as with every
+other event. The offscreen render windows aren't recorded, and neither are Storybook or the CLI.
+
+- **While diagnostics are on, every session is recorded.** The share is `replaySessionRate` in
+  `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so.
+- **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
+  once, and turning them on starts it.
+
+A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
+shadow roots: it kept every one it saw, and with a frame's the closed project's canvas. The offscreen windows that draw
+their bitmaps aren't recorded either, so failures carry the frames themselves:
+
+- **Every error from the editor window** has `frames.json` attached, listing the frames on the canvas: the project,
+  design, state and mode of each, its size and whether it has a bitmap.
+- **A frame whose offscreen capture fails** is reported as an error tagged `render: failed`, with the WebP bitmap the
+  frame last showed attached as `frame.webp`, from before the edit whose render failed. A capture tried again until it
+  works is reported once.
+
+The frames are noted in `apps/desktop/src/renderer/canvas/frames-on-screen.ts`.
+
+The window asks main whether diagnostics are on as it starts, so the recorder starts a moment after the page. Replay
+recordings aren't scrubbed for secrets yet; Sentry's server-side scrubbing is the only net there (PAR-679).
+
 ## Secrets are scrubbed
 
 Names, paths, values and messages are sent as written, since they're what makes a bug findable. Secrets aren't: they're

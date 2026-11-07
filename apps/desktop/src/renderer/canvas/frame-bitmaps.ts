@@ -6,6 +6,7 @@ import { type FrameKeys, frameKeys, renderJob } from "../../shared/render-job.ts
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import type { BoardRest } from "./frame-sleep.ts"
+import { failedRender } from "./frames-on-screen.ts"
 
 /**
  * How much smaller than a frame its bitmap is. Zoomed out until a frame is drawn no larger than that, the canvas shows
@@ -378,8 +379,9 @@ export function capture(
     if (taken.height !== undefined) heights.set(key, taken.height)
     return taken.src
   })
-  const settled = taking.catch((): typeof failed => {
+  const settled = taking.catch((error: unknown): typeof failed => {
     if (bitmaps.get(key) === settled) bitmaps.delete(key)
+    failedRender(key, error, job.design)
     return failed
   })
   bitmaps.set(key, settled)
