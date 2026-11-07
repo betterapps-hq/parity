@@ -46,14 +46,15 @@ export const DoNotTrack: Story = {
   args: { telemetry: { ...defaultTelemetry, level: "off", overriddenBy: "DO_NOT_TRACK" } }
 }
 
-/** Turning it off saves that and says what it means. */
+/** Turning it off saves that, and the row keeps its description, so nothing moves (PAR-703). */
 export const TurningOff: Story = {
   play: async () => {
     const dialog = within(document.body)
     const share = await dialog.findByRole("switch", { name: "Share diagnostics" })
+    const description = await dialog.findByText("Errors and crashes, sent to the Parity team to help fix bugs.")
     await userEvent.click(share)
-    await expect(await dialog.findByText("Nothing leaves this computer.")).toBeVisible()
     await expect(share).not.toBeChecked()
+    await expect(description).toBeVisible()
   }
 }
 

@@ -14,7 +14,6 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type CodeEditorChoice, codeEditors } from "@parity-app/core"
-import type { TelemetryLevel } from "@parity-app/telemetry"
 import { Monitor, Moon, Sun } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { workspace } from "../workspace.ts"
@@ -35,11 +34,8 @@ const scales: Option<`${Preferences["exportScale"]}`>[] = [
   { value: "3", label: "3x" }
 ]
 
-/** What the switch means, on and off. */
-const telemetryDetails: Record<TelemetryLevel, string> = {
-  all: "Errors, crashes and a recording of this window, so the Parity team can find and fix bugs.",
-  off: "Nothing leaves this computer."
-}
+/** What the switch shares. It reads the same on and off, so turning it doesn't move the dialog (PAR-703). */
+const telemetryDetail = "Errors and crashes, sent to the Parity team to help fix bugs."
 
 /** Where View code opens a file: the first editor installed, a named one, or the system's choice. */
 const editorChoices: { value: CodeEditorChoice; label: string }[] = [
@@ -179,7 +175,7 @@ function TelemetrySection({ open }: { open: boolean }) {
   if (!telemetry) return null
   const detail = (
     <>
-      {telemetryDetails[telemetry.level]}
+      {telemetryDetail}
       {telemetry.overriddenBy && (
         <>
           {" "}

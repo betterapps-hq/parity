@@ -5626,8 +5626,9 @@ know we're using Sentry," then "Either send or don't, that's all." My calls with
   those, and `sendsToSentry` is gone. Main turns Sentry's client on or off (`applyTelemetry` in `main/telemetry.ts`),
   which every send checks, so the switch works without a restart. Sentry starts enabled and is turned off at once when
   it should be, since a client started disabled never sets up its integrations.
-- **Settings > Privacy > Share diagnostics,** a switch. Its line says what's shared, the window recording included,
-  since that's what a person needs to know, not which service takes it.
+- **Settings > Privacy > Share diagnostics,** a switch. Its line says what's shared and who it's for, not which service
+  takes it, and reads the same on and off, so turning the switch doesn't move the dialog. It leaves out the window
+  recording, which won't ship (PAR-703).
 - **A variable decides the run and disables the switch:** `PARITY_TELEMETRY` over the setting, `DO_NOT_TRACK` and Vitest
   over both. The switch shows what's sent, and its line names the variable.
 - **The setting and the install ID are one file, `<userData>/telemetry.json`,** which the CLI can read through
