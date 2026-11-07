@@ -64,6 +64,7 @@ import {
   writeSucceeded
 } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
+import { keepTrace } from "./tracing.ts"
 
 export interface ContainerEntry {
   /** Stable across the session: `<document path>#<container id>`. */
@@ -429,11 +430,13 @@ export class DesignStore {
 
   private schedule(path: string): void {
     clearTimeout(this.timers.get(path))
+    // The write is in the trace of the edit that asked for it, the latest when edits come together (PAR-629).
+    const inTrace = keepTrace()
     this.timers.set(
       path,
       setTimeout(() => {
         this.timers.delete(path)
-        this.write(path)
+        inTrace(() => this.write(path))
       }, saveDelay)
     )
   }
