@@ -62,12 +62,12 @@ function ImpersonationBand({ minutes, onEnd }: { minutes: number; onEnd: () => v
         {minutes > 0 ? `Ends in ${minutes} min` : "Ending"}
       </span>
       <Button
-        size="sm"
-        variant="outline"
-        className="h-7 shrink-0 border-amber-950/30 bg-amber-50 text-amber-950 hover:bg-amber-100"
+        size="xs"
+        variant="ghost"
+        className="shrink-0 text-amber-950 hover:bg-amber-950/10 hover:text-amber-950"
         onClick={onEnd}
       >
-        End support session
+        End session
       </Button>
     </section>
   )

@@ -37,7 +37,10 @@ Parity's website that opens that link (PAR-695).
 ## What the person sees
 
 - **A band above the window, on every tab,** in amber: "You're signed in as Andrew Craswell (andrew@kestrel.dev) for
-  support", the minutes left, and End support session. It can't be closed or hidden.
+  support", the minutes left, and a small End session button. It can't be closed or hidden.
+- **The minutes left are Parity's own count** from when WorkOS handed the session back. WorkOS documents that
+  impersonation sessions expire after 60 minutes, but neither its answer nor the token says when, so Parity counts down
+  from 60 and ends the session itself at zero.
 - **An amber ring around the window,** so a screenshot that crops the band still shows it.
 - **The account menu and everything else are the user's,** as they'd see them.
 - **Five minutes before the end,** the time turns bold.
@@ -50,7 +53,7 @@ person as well as the user (see [Audit](#audit)).
 
 ## How it ends
 
-- **End support session** in the band, or Sign out in the account menu.
+- **End session** in the band, or Sign out in the account menu.
 - **WorkOS's 60 minutes run out.** Its refresh is refused, and Parity treats that as the end rather than Session ended.
 - **Parity quits.** The impersonated refresh token stays in main's memory and never goes to `safeStorage`, so the next
   launch is signed out.
