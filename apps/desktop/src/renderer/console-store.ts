@@ -15,6 +15,11 @@ export interface ConsoleMessage extends ConsoleEntry {
   at?: { path: string; line: number; column: number }
   /** Its stack, one call to a line, for an error. */
   stack?: string[]
+  /**
+   * A layer whose component fails to draw on the canvas (PAR-165), shown for as long as it fails rather than logged:
+   * its node, its component, why it fails and how to fix it, when that's known.
+   */
+  failure?: { nodeId: string; component: string; reason: string; fix?: string }
 }
 
 export type Level = ConsoleMessage["level"]
@@ -32,6 +37,8 @@ const kept = 500
 /** One project's messages, made from the main process's entries as it sends them, and who hears of new ones. */
 class ConsoleLog {
   readonly #entries = new Map<number, LoggedEntry>()
+  #logged: readonly ConsoleMessage[] = []
+  #failures: readonly ConsoleMessage[] = []
   #messages: readonly ConsoleMessage[] = []
   readonly #listeners = new Set<() => void>()
 
@@ -53,14 +60,29 @@ class ConsoleLog {
       if (this.#entries.size <= kept) break
       this.#entries.delete(id)
     }
-    this.#messages = consoleMessages([...this.#entries.values()], guestUrl)
-    this.#tell()
+    this.#logged = consoleMessages([...this.#entries.values()], guestUrl)
+    this.#join()
   }
 
-  /** Forgets every message, as Clear in the panel does; agents reading the log afterwards don't see them either. */
+  /** The layers failing to draw now, as messages, which stand before what was logged until they draw again. */
+  setFailures(failures: readonly ConsoleMessage[]): void {
+    if (failures.length === 0 && this.#failures.length === 0) return
+    this.#failures = failures
+    this.#join()
+  }
+
+  /**
+   * Forgets every message logged, as Clear in the panel does; agents reading the log afterwards don't see them either.
+   * Layers failing to draw stay, since they're not a record but how the canvas is now.
+   */
   clear(): void {
     this.#entries.clear()
-    this.#messages = []
+    this.#logged = []
+    this.#join()
+  }
+
+  #join(): void {
+    this.#messages = this.#failures.length === 0 ? this.#logged : [...this.#failures, ...this.#logged]
     this.#tell()
   }
 

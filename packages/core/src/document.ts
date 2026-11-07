@@ -274,6 +274,11 @@ const nodeBase = fileObject({
   id: z.string(),
   name: z.string().optional(),
   hidden: z.boolean().optional(),
+  /**
+   * Kept from being selected or moved on the canvas, with everything inside it, as in Figma; it's still selected from
+   * Layers. It's the same in every state and screen size, so no patch sets it.
+   */
+  locked: z.boolean().optional(),
   style: nodeStyle.optional(),
   /**
    * Patches applied in one viewport, keyed by the viewport option id from the project's modes. Layout changes per
@@ -490,6 +495,8 @@ export const containerSpec = fileObject({
   /** Defaults to `screen`. */
   kind: z.enum(containerKinds).optional(),
   position,
+  /** Kept from being selected or moved on the canvas, with every layer in it; it's still selected from Layers. */
+  locked: z.boolean().optional(),
   root: nodeTree,
   states: z.array(stateSpec).min(1, "expected at least one state"),
   view: containerViewSettings.optional(),

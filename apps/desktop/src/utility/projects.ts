@@ -19,6 +19,7 @@ import {
   builderProcessOptions,
   type BuilderProcessSession,
   type BuilderStartOptions,
+  type CodeChange,
   type ComponentInfo,
   type ComponentSource,
   libraryManifestExtension,
@@ -81,6 +82,8 @@ export interface ProjectListeners {
   fileChanged: (change: WindowMethods["project.fileChanged"]["params"]) => void
   /** A project's component list or props changed. */
   componentsChanged: (change: WindowMethods["project.componentsChanged"]["params"]) => void
+  /** The code of some of a project's components changed on disk, by its builder's account. */
+  codeChanged: (change: WindowMethods["project.codeChanged"]["params"]) => void
   /** A builder started again on a new port; resolves whether the windows now draw the guest from there. */
   guestMoved: (change: GuestMoved) => Promise<boolean>
 }
@@ -109,7 +112,13 @@ export interface ProjectAdapters {
   /** The builder link: starts a project's builder in a process of its own (see builders.ts). */
   startBuilder: (
     options: BuilderProcessOptions,
-    about: { builder: string; project: string; onCrash: (error: string) => void }
+    about: {
+      builder: string
+      project: string
+      onCrash: (error: string) => void
+      /** The builder found project files whose code changed (PAR-165). */
+      onCodeChange?: (change: CodeChange) => void
+    }
   ) => StartedBuilder
   /** Watches the project folder, and folders outside it holding its config. `fs.watch` unless given. */
   watch?: WatchFolder
@@ -383,6 +392,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       onCrash: (error) => {
         console.warn(`[service] ${name}: ${error}`)
         tracking.set("failed", { error })
+      },
+      onCodeChange: (change) => {
+        const project = projects.get(root)
+        if (project) listeners.codeChanged({ projectId: project.info.id, ...change })
       }
     })
     if (started.pid) tracking.set("starting", { pid: started.pid })

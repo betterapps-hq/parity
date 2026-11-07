@@ -290,12 +290,14 @@ export function CanvasEditor({
       const sync = () => {
         const wanted = new Map<
           TLShapeId,
-          { type: "canvas-container" | "canvas-note"; key: string; x: number; y: number }
+          { type: "canvas-container" | "canvas-note"; key: string; x: number; y: number; locked?: boolean }
         >()
         for (const { key, container } of store.getEntries()) {
           // A board an agent moved stays where it was until the agent's cursor drags it over.
           const at = heldBoards.at(tab, key) ?? container.position
-          wanted.set(shapeIdFor(key), { type: "canvas-container", key, ...at })
+          // A locked design's board is a locked shape, which tldraw neither selects nor moves (PAR-192).
+          const locked = container.locked === true
+          wanted.set(shapeIdFor(key), { type: "canvas-container", key, ...at, locked })
         }
         for (const { key, note } of store.getNotes())
           wanted.set(shapeIdFor(key), { type: "canvas-note", key, ...note.position })
@@ -303,11 +305,11 @@ export function CanvasEditor({
           () => {
             const stale = editor.getCurrentPageShapes().filter((shape) => !wanted.has(shape.id))
             if (stale.length > 0) editor.deleteShapes(stale.map((shape) => shape.id))
-            for (const [id, { type, key, x, y }] of wanted) {
+            for (const [id, { type, key, x, y, locked = false }] of wanted) {
               const shape = editor.getShape(id)
-              if (!shape) editor.createShape({ id, type, x, y, props: { key } })
-              else if (Math.abs(shape.x - x) >= 1 || Math.abs(shape.y - y) >= 1) {
-                editor.updateShape({ id, type: shape.type, x, y })
+              if (!shape) editor.createShape({ id, type, x, y, isLocked: locked, props: { key } })
+              else if (Math.abs(shape.x - x) >= 1 || Math.abs(shape.y - y) >= 1 || shape.isLocked !== locked) {
+                editor.updateShape({ id, type: shape.type, x, y, isLocked: locked })
               }
             }
           },

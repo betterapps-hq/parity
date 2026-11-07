@@ -117,6 +117,7 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
     listeners: {
       fileChanged: (change) => fileChanged.push(change),
       componentsChanged: () => undefined,
+      codeChanged: () => undefined,
       guestMoved: () => Promise.resolve(true)
     },
     environment,
