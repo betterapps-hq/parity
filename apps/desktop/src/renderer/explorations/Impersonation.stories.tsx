@@ -55,7 +55,7 @@ function ImpersonationBand({ onEnd }: { onEnd: () => void }) {
     >
       <LifeBuoy className="size-4 shrink-0" aria-hidden />
       <span className="min-w-0 truncate">
-        <span className="font-semibold">Impersonating {person.name}</span> ({person.email})
+        You&apos;re impersonating <span className="font-semibold">{person.name}</span> ({person.email})
       </span>
       <Button
         size="xs"

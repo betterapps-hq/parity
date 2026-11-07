@@ -36,9 +36,9 @@ Parity's website that opens that link (PAR-695).
 
 ## What the person sees
 
-- **A band under the tabs, on every tab,** in amber: "Impersonating Andrew Craswell (andrew@kestrel.dev)", and a small
-  End session button. It can't be closed or hidden. It can't go above the menus: that row is the window's title bar, and
-  the system draws its window buttons over it.
+- **A band under the tabs, on every tab,** in amber: "You're impersonating Andrew Craswell (andrew@kestrel.dev)", and a
+  small End session button. It can't be closed or hidden. It can't go above the menus: that row is the window's title
+  bar, and the system draws its window buttons over it.
 - **No countdown** (your call). WorkOS documents that impersonation sessions expire after 60 minutes, but neither its
   answer nor the token says when, so Parity ends the session itself 60 minutes after it started.
 - **An amber ring around the window,** so a screenshot that crops the band still shows it.
