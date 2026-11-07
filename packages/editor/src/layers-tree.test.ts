@@ -274,4 +274,56 @@ describe("an instance's layers", () => {
     const lead = rows.find((row) => row.path === "lead")!
     expect(branchIds(lead, library)).toEqual([inTeam("lead"), inTeam("lead/badge")])
   })
+
+  it("shows what an instance fills a slot with in place of the placeholder, as the design's own layers", () => {
+    const panel = design(
+      "panel",
+      layout("panel-root", [
+        { type: "layout", id: "panel-body", name: "panel-body", slot: "body", children: [text("placeholder", "Empty")] }
+      ]),
+      { kind: "component" }
+    )
+    const screen = design(
+      "home",
+      layout("home-page", [
+        { type: "instance", id: "filled", design: "panel", slots: { body: [layout("note", [text("hi", "Hi")])] } },
+        { type: "instance", id: "empty", design: "panel" }
+      ])
+    )
+    const panels: ComponentLibrary = new Map([["panel", panel.container]])
+    const at = (path: string) => layerRowId("home", path)
+    const open = new Set([
+      "home",
+      at("home-page"),
+      at("filled"),
+      at("filled/panel-body"),
+      at("empty"),
+      at("empty/panel-body")
+    ])
+    expect(outline(treeRows([screen], open, panels))).toEqual([
+      "home (open) 1/1",
+      "  home-page (open) 1/1",
+      "    filled (open) 1/2",
+      "      panel-body (open) 1/1",
+      "        note 1/1",
+      "    empty (open) 2/2",
+      "      panel-body (open) 1/1",
+      "        Empty 1/1"
+    ])
+    const rows = treeRows([screen], open, panels)
+    expect(rows.find((row) => row.path === "note")).toMatchObject({ within: [] })
+    expect(revealIds(screen, ["hi"], panels)).toEqual([
+      "home",
+      at("home-page"),
+      at("filled"),
+      at("filled/panel-body"),
+      at("note")
+    ])
+    expect(
+      branchIds(
+        rows.find((row) => row.path === "filled")!,
+        panels
+      )
+    ).toEqual([at("filled"), at("filled/panel-body"), at("note")])
+  })
 })

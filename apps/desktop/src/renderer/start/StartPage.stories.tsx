@@ -163,6 +163,7 @@ export const HomeSignedIn: Story = {
     () =>
       setStoryAccount({
         account: { email: "andrew@kestrel.dev", name: "Andrew Craswell", untilQuit: false },
+        accounts: [{ email: "andrew@kestrel.dev", name: "Andrew Craswell", provider: "GoogleOAuth" }],
         attempt: null,
         ended: null
       })

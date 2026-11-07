@@ -1,4 +1,4 @@
-import { childNodes, type ComponentLibrary, type ContainerSpec, type DesignNode, locateNode } from "@parity-app/core"
+import { childNodes, type ComponentLibrary, type ContainerSpec, type DesignNode } from "@parity-app/core"
 
 // The Layers panel's tree as rows: which rows show, which are open, and what opens as the selection moves (PAR-187).
 // The panel draws only the rows in view, so everything it needs to know about the rest is worked out here. An
@@ -41,11 +41,15 @@ export function layerRowId(design: string, node: string): string {
   return `${design}/${node}`
 }
 
-/** A layer as the tree walks it: the node, its path, and the component designs of the instances it's inside. */
+/**
+ * A layer as the tree walks it: the node, its path, the component designs of the instances it's inside, and the
+ * innermost of those instances, whose slot fills show in its component's slots.
+ */
 interface Layer {
   node: DesignNode
   path: string
   within: readonly string[]
+  holder?: Layer
 }
 
 function rootLayer(design: TreeDesign): Layer {
@@ -55,18 +59,33 @@ function rootLayer(design: TreeDesign): Layer {
 /**
  * The layers inside a layer, in order. An instance's are its component's root's children, whose paths start with the
  * instance's, since the canvas draws that root as the instance itself. An instance of a missing component, or of one
- * it's already inside, has none, as the canvas draws it.
+ * it's already inside, has none, as the canvas draws it. A slot the instance fills holds the instance's layers instead
+ * of its placeholder, named as the design around the instance names them (PAR-83).
  */
 function layersInside(layer: Layer, library: ComponentLibrary): Layer[] {
   const { node, path, within } = layer
   if (node.type === "instance") {
     const component = library.get(node.design)
     if (!component || within.includes(component.id)) return []
-    const inside = [...within, component.id]
-    return childNodes(component.root).map((child) => ({ node: child, path: `${path}/${child.id}`, within: inside }))
+    const root = { node: component.root, path: `${path}/${component.root.id}`, within: [...within, component.id] }
+    return layersInside({ ...root, holder: layer }, library)
+  }
+  const holder = layer.holder
+  const fills =
+    node.type === "layout" && node.slot !== undefined && holder?.node.type === "instance"
+      ? (holder.node.slots?.[node.slot] ?? [])
+      : []
+  if (holder && fills.length > 0) {
+    const prefix = holder.path.slice(0, holder.path.length - holder.node.id.length)
+    return fills.map((fill) => ({
+      node: fill,
+      path: `${prefix}${fill.id}`,
+      within: holder.within,
+      holder: holder.holder
+    }))
   }
   const prefix = path.slice(0, path.length - node.id.length)
-  return childNodes(node).map((child) => ({ node: child, path: `${prefix}${child.id}`, within }))
+  return childNodes(node).map((child) => ({ node: child, path: `${prefix}${child.id}`, within, holder: layer.holder }))
 }
 
 function layerRow<D extends TreeDesign>(
@@ -178,19 +197,41 @@ export function toggleRows(expansion: Expansion, ids: readonly string[], open: b
 }
 
 /**
+ * Finds the layers at these paths as the tree walks them, each with the layers above it, outermost first. It goes into
+ * an instance only where one of them can be: under the instance's path, or in a slot it fills.
+ */
+function findLayers(
+  design: TreeDesign,
+  paths: readonly string[],
+  library: ComponentLibrary
+): { layer: Layer; above: Layer[] }[] {
+  const wanted = new Set(paths)
+  const found: { layer: Layer; above: Layer[] }[] = []
+  const visit = (layer: Layer, above: Layer[]) => {
+    if (wanted.has(layer.path)) found.push({ layer, above })
+    const { node } = layer
+    if (node.type === "instance" && !node.slots && !paths.some((path) => path.startsWith(`${layer.path}/`))) return
+    for (const child of layersInside(layer, library)) visit(child, [...above, layer])
+  }
+  visit(rootLayer(design), [])
+  return found
+}
+
+/**
  * A row's id and the id of every row inside it with layers of its own, into instances: what Alt+click on its arrow
  * opens or closes.
  */
 export function branchIds(row: TreeRow, library: ComponentLibrary): string[] {
-  const { design, node, path } = row
-  const ids = node ? [] : [design.key]
+  const { design, path } = row
+  const start = path === undefined ? rootLayer(design) : findLayers(design, [path], library)[0]?.layer
+  const ids = path === undefined ? [design.key] : []
   const visit = (layer: Layer) => {
     const children = layersInside(layer, library)
     if (children.length === 0) return
     ids.push(layerRowId(design.key, layer.path))
     children.forEach(visit)
   }
-  visit(node && path !== undefined ? { node, path, within: row.within } : rootLayer(design))
+  if (start) visit(start)
   return ids
 }
 
@@ -209,30 +250,14 @@ export function siblingIds(rows: readonly TreeRow[], index: number): string[] {
 
 /**
  * The rows that have to be open for layers of a design to show: the design's, then each layer's ancestors', the
- * instances it's inside among them. With no layers, the design's alone, since a selected design shows its page.
+ * instances it's inside and the slots it fills among them. With no layers, the design's alone, since a selected design
+ * shows its page.
  */
 export function revealIds(design: TreeDesign, paths: readonly string[], library: ComponentLibrary): string[] {
   const { key, container } = design
   const ids = new Set([key, layerRowId(key, container.root.id)])
-  for (const path of paths) {
-    let root = container.root
-    let prefix = ""
-    const segments = path.split("/")
-    for (const [index, segment] of segments.entries()) {
-      const location = locateNode(root, segment)
-      if (!location) break
-      // Inside an instance, the component's root is drawn as the instance, which has its row already.
-      for (const ancestor of location.ancestors) {
-        if (index === 0 || ancestor !== root) ids.add(layerRowId(key, `${prefix}${ancestor.id}`))
-      }
-      const { node } = location
-      const component = node.type === "instance" ? library.get(node.design) : undefined
-      // The layer itself stays closed, an instance among them.
-      if (index === segments.length - 1 || !component) break
-      ids.add(layerRowId(key, `${prefix}${segment}`))
-      root = component.root
-      prefix = `${prefix}${segment}/`
-    }
+  for (const { above } of findLayers(design, paths, library)) {
+    for (const layer of above) ids.add(layerRowId(key, layer.path))
   }
   return [...ids]
 }

@@ -1,6 +1,7 @@
 import type { Envelope, EventContext, Outcome, SpanEnvelope, TraceContext } from "./envelope.ts"
 import type { EventAttributes, EventDefinition, EventName } from "./events.ts"
 import { RingBuffer, recentEvents } from "./ring-buffer.ts"
+import { createScrubber } from "./scrub.ts"
 import type { Sink } from "./sink.ts"
 import { cryptoBytes, newSpanId, newTraceId, type RandomBytes } from "./trace.ts"
 
@@ -17,8 +18,11 @@ function copyOf(attributes: unknown): Record<string, unknown> {
 /** A span under way: its place in the trace, for spans and events under it, and `end` to record it. */
 export interface Span extends TraceContext {
   readonly name: string
-  /** Records the span as one event with its duration. Only the first call counts. */
-  end(outcome?: Outcome): void
+  /**
+   * Records the span as one event with its duration, with `attributes` learned on the way, such as a failure's code,
+   * added to those it started with. Only the first call counts.
+   */
+  end(outcome?: Outcome, attributes?: Record<string, unknown>): void
 }
 
 export interface TelemetryOptions<Events extends readonly EventDefinition[]> {
@@ -31,6 +35,8 @@ export interface TelemetryOptions<Events extends readonly EventDefinition[]> {
    * development and tests; off in installed builds, where checking would cost time on every event.
    */
   check: boolean
+  /** Values to scrub from every event's attributes besides keys, tokens and passwords, as `ScrubOptions.secrets`. */
+  secrets?: Iterable<string>
   /** How many recent events to keep, 500 unless given. */
   keep?: number
   /** Called with what a sink threw. A sink's failure never reaches the code that recorded the event. */
@@ -61,13 +67,16 @@ export interface Telemetry<Events extends readonly EventDefinition[]> {
   ): Span
   /** Changes the window or project later events carry. */
   setContext(context: Partial<Pick<EventContext, "windowId" | "project">>): void
+  /** Replaces the values scrubbed from later events, as when another project's `.env` files are read. */
+  setSecrets(secrets: Iterable<string>): void
   /** The events and ended spans kept, oldest first. */
   recent(): Envelope[]
 }
 
 /**
- * The telemetry for one process: it checks, samples and sends each event to every sink, and keeps the most recent
- * ones (decisions.md, "Telemetry's event model is data in and data out in `@parity-app/telemetry`").
+ * The telemetry for one process: it checks, samples, scrubs secrets from and sends each event to every sink, and keeps
+ * the most recent ones (decisions.md, "Telemetry's event model is data in and data out in `@parity-app/telemetry`").
+ * Attributes are scrubbed; the envelope's own fields are Parity's IDs, names and paths.
  */
 export function createTelemetry<const Events extends readonly EventDefinition[]>(
   options: TelemetryOptions<Events>
@@ -87,6 +96,7 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
     definitions.set(definition.name, definition)
   }
   let context: EventContext = { ...options.context }
+  let scrubber = createScrubber({ secrets: options.secrets })
   const kept = new RingBuffer<Envelope>(keep)
 
   /** The event's definition, once its attributes are checked when checking. Undefined for an unknown name. */
@@ -125,7 +135,7 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
     track(name, attributes, { span } = {}) {
       const definition = definitionOf(name, attributes)
       if (!definition || random() >= definition.sample) return
-      const recorded = envelope(definition, now(), copyOf(attributes))
+      const recorded = envelope(definition, now(), scrubber.value(copyOf(attributes)))
       if (span) Object.assign(recorded, { traceId: span.traceId, spanId: span.spanId })
       kept.push(recorded)
       deliver((sink) => sink.event(recorded))
@@ -146,12 +156,12 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
         name,
         traceId,
         spanId,
-        end(outcome = "ok") {
+        end(outcome = "ok", learned) {
           if (ended) return
           ended = true
           if (!sampled || !definition) return
           const recorded: SpanEnvelope = {
-            ...envelope(definition, start, copy, startContext),
+            ...envelope(definition, start, scrubber.value({ ...copy, ...learned }), startContext),
             traceId,
             spanId,
             ...(parent ? { parentSpanId: parent.spanId } : {}),
@@ -166,6 +176,10 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
 
     setContext(changes) {
       context = { ...context, ...changes }
+    },
+
+    setSecrets(secrets) {
+      scrubber = createScrubber({ secrets })
     },
 
     recent: () => kept.toArray()

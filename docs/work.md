@@ -30,10 +30,26 @@ What's decided goes in [decisions.md](decisions.md), designs in [proposals](prop
    without waiting to be asked. A pull request closes its issue when it merges, since Linear is connected to
    betterapps-hq: after it merges, check the issue moved to Done and has that comment, and move it or add the comment if
    not. Work that's only partly landed stays In Progress, with a comment saying what's left.
-7. **Found more work?** Create an issue in the Parity project, written as below.
+7. **Found more work?** Create an issue in the Parity project, written as below. A bug Sentry filed is picked up as
+   [Bugs from Sentry](#bugs-from-sentry) says.
 8. **Blocked by a decision?** Create an issue with the Decision label, assigned to the user, that blocks the issue it
    holds up. Questions go to the user, not into the code. When the user answers, record the answer in decisions.md,
    close the Decision issue, and update the issues it blocked.
+
+## Bugs from Sentry
+
+Sentry files bugs itself. A new error, a regression or a report in `parity-desktop` or `parity-cli` becomes a Todo issue
+with the Bug label and its Sentry link, as [sentry.md](sentry.md#alerts) says.
+
+- **Read the Sentry issue before the code.** Open the Sentry link attached to the bug with Sentry's MCP server, which
+  `.mcp.json` and `.codex/config.toml` give every session in this repository. Read its events, stack, breadcrumbs, trace
+  and replay, and the release, environment and `test_run` it came from. The first time, sign in with OAuth as
+  `admin@betterapps.io`: `/mcp` in Claude Code, `codex mcp login sentry` in Codex.
+- **Name the proof in the pull request:** the Sentry event or trace that showed the bug. Closing the Linear issue
+  resolves the Sentry issue in the next release, and Linear reopens the bug if the error comes back after that.
+- **An agent's test pass sets `PARITY_TEST_RUN`** to a name for the pass, so its events, errors and replays carry that
+  `test_run`. When something looks wrong but nothing threw, it reports it with `parity report "<what's wrong>"`, which
+  Sentry files the same way. `parity report` arrives with PAR-646.
 
 ## Writing an issue
 

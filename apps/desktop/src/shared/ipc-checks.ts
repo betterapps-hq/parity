@@ -52,6 +52,9 @@ export const shownItem = absolutePath
 
 export const betaSetting = z.boolean("The beta setting must be true or false.")
 
+/** The level chosen in Settings > Telemetry (PAR-626). */
+export const telemetrySetting = z.enum(["all", "off"], "The telemetry level must be all or off.")
+
 /** Which frame the console message about to be written comes from, at what level (PAR-147). */
 export const consoleAnnouncement = z.strictObject({
   level: z.enum(["info", "warning", "error", "debug"]),
@@ -66,6 +69,23 @@ export const consoleAnnouncement = z.strictObject({
 export const consoleOrigin = z.url()
 
 /** `handler` with its argument checked by `schema` first, so a bad one never reaches it. */
+/** A report from Help > Report a problem (PAR-635): what happened, and the IDs that tie it to the window's replay and trace. */
+export const problemReport = z.strictObject({
+  message: nonBlankString,
+  screenshot: z.boolean(),
+  afterCrash: z.boolean(),
+  replayId: z
+    .string()
+    .regex(/^[0-9a-f]{32}$/)
+    .optional(),
+  traceId: z
+    .string()
+    .regex(/^[0-9a-f]{32}$/)
+    .optional()
+})
+
+export type ProblemReport = z.infer<typeof problemReport>
+
 export function checked<Event, Schema extends z.ZodType, Result>(
   schema: Schema,
   handler: (event: Event, argument: z.output<Schema>) => Result

@@ -103,6 +103,7 @@ describe("the canvas menu", () => {
       "makeComponent",
       "---",
       "hide",
+      "lock",
       "---",
       "exportSelection"
     ])
@@ -118,8 +119,9 @@ describe("the canvas menu", () => {
   it("ends with Open in editor over an element a project file wrote, at its line", () => {
     const source = { path: "src/components/ui/card.tsx", line: 20, column: 5 }
     const menu = canvasMenu({ ...overTitle, source }, layersSelection(design, ["title"]), entries)
-    expect(outline(menu).slice(-5)).toEqual([
+    expect(outline(menu).slice(-6)).toEqual([
       "hide",
+      "lock",
       "---",
       "exportSelection",
       "---",
@@ -154,6 +156,7 @@ describe("the canvas menu", () => {
       "makeComponent (unavailable)",
       "---",
       "hide",
+      "lock",
       "---",
       "exportSelection"
     ])
@@ -202,6 +205,8 @@ describe("the canvas menu", () => {
       "---",
       "makeComponent",
       "---",
+      "lock",
+      "---",
       "exportSelection"
     ])
     expect(labelOf(menu, "makeComponent")).toBe("Convert to component")
@@ -219,6 +224,8 @@ describe("the canvas menu", () => {
       "duplicate",
       "---",
       "makeComponent (unavailable)",
+      "---",
+      "lock",
       "---",
       "exportSelection"
     ])
@@ -243,6 +250,7 @@ describe("the canvas menu", () => {
       "makeComponent (unavailable)",
       "---",
       "hide (unavailable)",
+      "lock (unavailable)",
       "---",
       "exportSelection"
     ])
@@ -281,16 +289,30 @@ describe("the commands for layers, which the menubar shares", () => {
   const can = (ids: string[]) => layerCommands(layersSelection(design, ids), dashboard.root)
 
   it("act on the design's own layers, the order on one alone", () => {
-    expect(can(["title"])).toEqual({ copy: true, duplicate: true, order: true, wrap: true, hide: true })
-    expect(can(["title", "chart"])).toEqual({ copy: true, duplicate: true, order: false, wrap: true, hide: true })
+    expect(can(["title"])).toEqual({ copy: true, duplicate: true, order: true, wrap: true, hide: true, lock: true })
+    expect(can(["title", "chart"])).toEqual({
+      copy: true,
+      duplicate: true,
+      order: false,
+      wrap: true,
+      hide: true,
+      lock: true
+    })
   })
 
   it("don't act on a layer inside an instance, or the design's root", () => {
-    const none = { copy: false, duplicate: false, order: false, wrap: false, hide: false }
+    const none = { copy: false, duplicate: false, order: false, wrap: false, hide: false, lock: false }
     expect(can(["users/value"])).toEqual(none)
     expect(can(["root"])).toEqual(none)
     // With one of the design's own beside it, all but the order act on that one.
-    expect(can(["users/value", "title"])).toEqual({ copy: true, duplicate: true, order: false, wrap: true, hide: true })
+    expect(can(["users/value", "title"])).toEqual({
+      copy: true,
+      duplicate: true,
+      order: false,
+      wrap: true,
+      hide: true,
+      lock: true
+    })
   })
 })
 

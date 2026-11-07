@@ -38,6 +38,15 @@ export interface MainMethods {
    * when it's the sign-in this copy is waiting for (PAR-612).
    */
   signInLink: { params: { link: string }; result: { taken: boolean } }
+  /**
+   * An event or span the service or its worker recorded, for the local copy and Sentry (PAR-627). Main checks it, since
+   * it's sent as data.
+   */
+  record: { params: unknown; result: undefined }
+  /** The open projects' `.env` values, which main scrubs and passes to every window, as projects open and close. */
+  secrets: { params: string[]; result: undefined }
+  /** An agent called the app, so what follows is tagged as its driving (PAR-630). Main checks it, since it's data. */
+  agentCalled: { params: unknown; result: undefined }
 }
 
 /** Requests the main process sends to the project service. */

@@ -291,13 +291,21 @@ export const EditLayerInInstance: Story = {
   }
 }
 
-/** Object with a layer inside an instance selected: wrapping it, ordering it and hiding it are unavailable. */
+/** Object with a layer inside an instance selected: wrapping it, ordering it, hiding it and locking it are unavailable. */
 export const ObjectLayerInInstance: Story = {
   loaders: [valueInUsersCard],
   play: async () => {
     await frameDesigns("Dashboard")
     await openMenu("Object")
-    const items = ["Wrap in layout", "Bring forward", "Send backward", "Bring to front", "Send to back", "Hide or show"]
+    const items = [
+      "Wrap in layout",
+      "Bring forward",
+      "Send backward",
+      "Bring to front",
+      "Send to back",
+      "Hide or show",
+      "Lock or unlock"
+    ]
     await expect(unavailable(items)).toEqual(Object.fromEntries(items.map((name) => [name, true])))
   }
 }

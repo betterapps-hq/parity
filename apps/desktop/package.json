@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/desktop",
-  "version": "0.20.0",
+  "version": "0.29.0",
   "license": "MIT",
   "description": "A design editor for real components and the code behind them.",
   "author": "Better Apps",
@@ -23,6 +23,7 @@
   "dependencies": {
     "@buildkitgg/shadcn-baseui-kit": "catalog:",
     "@fontsource-variable/geist": "^5.3.0",
+    "@sentry/electron": "catalog:",
     "@tanstack/react-virtual": "3.14.24",
     "axe-core": "4.14.0",
     "lucide-react": "^1.66.0",
@@ -47,7 +48,9 @@
     "@parity-app/registry": "workspace:*",
     "@parity-app/renderer-react": "workspace:*",
     "@parity-app/styles-tailwind": "workspace:*",
+    "@parity-app/telemetry": "workspace:*",
     "@parity-app/tokens": "workspace:*",
+    "@sentry/cli": "catalog:",
     "@storybook/react-vite": "10.6.5",
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "^19.3.0",

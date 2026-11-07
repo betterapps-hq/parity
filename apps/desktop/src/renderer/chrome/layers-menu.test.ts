@@ -52,9 +52,19 @@ function rightClick(row: LayersRow, current: Selection = {}): MenuEntry[] {
 }
 
 describe("the Layers row menu", () => {
-  it("lists Rename, Duplicate, Hide, Export and Delete for a layer, with the keymap's labels and keys", () => {
+  it("lists Rename, Duplicate, Hide, Lock, Export and Delete for a layer, with the keymap's labels and keys", () => {
     const menu = rightClick({ design, node: "subtitle" })
-    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "hide", "---", "exportSelection", "---", "delete"])
+    expect(outline(menu)).toEqual([
+      "rename",
+      "duplicate",
+      "---",
+      "hide",
+      "lock",
+      "---",
+      "exportSelection",
+      "---",
+      "delete"
+    ])
     const items = menu.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
     expect(items.map((entry) => entry.keys)).toEqual(
       items.map((entry) => (entry.action === "pasteHere" ? undefined : keymap[entry.action].keys[0]))
@@ -62,15 +72,16 @@ describe("the Layers row menu", () => {
     expect(items.map((entry) => entry.label)).toEqual([
       keymap.rename.label,
       keymap.duplicate.label,
-      "Show in Loading",
+      "Show",
+      "Lock",
       "Export…",
       keymap.delete.label
     ])
   })
 
-  it("lists Rename, Duplicate, Export and Delete for a design", () => {
+  it("lists Rename, Duplicate, Lock, Export and Delete for a design", () => {
     const menu = rightClick({ design })
-    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "exportSelection", "---", "delete"])
+    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "lock", "---", "exportSelection", "---", "delete"])
   })
 
   it("can't duplicate, hide or delete the design's root", () => {
@@ -79,6 +90,7 @@ describe("the Layers row menu", () => {
       "duplicate (unavailable)",
       "---",
       "hide (unavailable)",
+      "lock (unavailable)",
       "---",
       "exportSelection",
       "---",
@@ -86,12 +98,13 @@ describe("the Layers row menu", () => {
     ])
   })
 
-  it("can't rename, duplicate, hide or delete a layer inside an instance (PAR-92)", () => {
+  it("can't rename, duplicate, hide, lock or delete a layer inside an instance (PAR-92)", () => {
     expect(outline(rightClick({ design, node: "users/value" }))).toEqual([
       "rename (unavailable)",
       "duplicate (unavailable)",
       "---",
       "hide (unavailable)",
+      "lock (unavailable)",
       "---",
       "exportSelection",
       "---",
@@ -102,15 +115,15 @@ describe("the Layers row menu", () => {
   it("acts on every selected layer when the row is one of them", () => {
     const both = layersSelection(design, ["title", "subtitle"], { state: "default" })
     // The title shows in Default, so the two aren't all hidden.
-    expect(labelOf(rightClick({ design, node: "subtitle" }, both), "hide")).toBe("Hide in Default")
+    expect(labelOf(rightClick({ design, node: "subtitle" }, both), "hide")).toBe("Hide")
   })
 
   it("hides in the state the selection was picked in, as the Hide command does (PAR-586)", () => {
     // The title, picked in Default's frame while the board shows Loading: Hide lands in Default, where it shows.
     const picked = layersSelection(design, ["title"], { mode: "desktop", state: "default" })
-    expect(labelOf(rightClick({ design, node: "title" }, picked), "hide")).toBe("Hide in Default")
+    expect(labelOf(rightClick({ design, node: "title" }, picked), "hide")).toBe("Hide")
     // Selected from its row, with no state picked, it's the state the board shows, which hides it.
-    expect(labelOf(rightClick({ design, node: "title" }), "hide")).toBe("Show in Loading")
+    expect(labelOf(rightClick({ design, node: "title" }), "hide")).toBe("Show")
   })
 })
 

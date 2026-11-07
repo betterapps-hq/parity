@@ -13,6 +13,7 @@ import { toast } from "sonner"
 import icon from "../../../../../brand/parity-icon.svg?url"
 import type { BuildInfo } from "../../shared/protocol.ts"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
+import { telemetryLevelNames, useTelemetry } from "./telemetry-setting.ts"
 import { actOnUpdate, checkForUpdates, useUpdates } from "./updates.tsx"
 
 /** The parts of Parity a bug report needs: its version, and the Electron and Chromium it runs on. */
@@ -55,6 +56,7 @@ export function AboutDialog({ build: preview }: { build?: BuildInfo } = {}) {
       active = false
     }
   }, [open, preview])
+  const telemetry = useTelemetry(open)
   const build = preview ?? installed
   const details = buildDetails(build)
   const update = useUpdates()
@@ -76,6 +78,12 @@ export function AboutDialog({ build: preview }: { build?: BuildInfo } = {}) {
   else if (update.phase === "error") action = "Try again"
   details.push({ label: "Update channel", value: update.beta ? "Beta and stable" : "Stable releases" })
   if ("version" in update) details.push({ label: "Available", value: update.version })
+  // What a bug report needs to find this computer's reports in Sentry (PAR-626).
+  if (telemetry) {
+    let level = telemetryLevelNames[telemetry.level]
+    if (telemetry.overriddenBy) level += ` (set by ${telemetry.overriddenBy})`
+    details.push({ label: "Diagnostics", value: level }, { label: "Install ID", value: telemetry.installId })
+  }
   const copy = () => {
     void navigator.clipboard
       .writeText(details.map(({ label, value }) => `${label}: ${value}`).join("\n"))
@@ -93,7 +101,7 @@ export function AboutDialog({ build: preview }: { build?: BuildInfo } = {}) {
           {details.map(({ label, value }) => (
             <div key={label} className="contents">
               <dt className="text-muted-foreground">{label}</dt>
-              <dd className="tabular-nums">{value}</dd>
+              <dd className="tabular-nums break-all">{value}</dd>
             </div>
           ))}
         </dl>

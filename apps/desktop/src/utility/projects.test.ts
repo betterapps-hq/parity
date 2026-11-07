@@ -8,6 +8,7 @@ import {
   parseCanvasDocument
 } from "@parity-app/core"
 import { reactRenderer } from "@parity-app/renderer-react"
+import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { WindowMethods } from "../shared/protocol.ts"
 import type { SavedDetection } from "./detection-cache.ts"
@@ -93,7 +94,7 @@ function memoryDetections(): DetectionCache & { kept: Map<string, SavedDetection
   }
 }
 
-function setUp(environment: ProjectAdapters["environment"] = {}) {
+function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: ProjectAdapters["unsupported"]) {
   const builder = fakeBuilder()
   const watcher = fakeWatcher()
   const detections = memoryDetections()
@@ -118,7 +119,8 @@ function setUp(environment: ProjectAdapters["environment"] = {}) {
       componentsChanged: () => undefined,
       guestMoved: () => Promise.resolve(true)
     },
-    environment
+    environment,
+    unsupported
   })
   return { projects, builder, watcher, detections, checker, fileChanged }
 }
@@ -175,6 +177,34 @@ describe("opening a project", () => {
     const { projects } = setUp({ PARITY_PROJECT: root })
     expect(projects.rootFor(undefined)).toBe(root)
     expect(projects.rootFor(join(root, "designs", "shop.par"))).toBe(root)
+  })
+})
+
+describe("a project Parity doesn't support", () => {
+  function recorded() {
+    const sink = createTestSink()
+    const telemetry = createTelemetry({
+      events: registeredEvents,
+      context: { process: "service", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+    const { projects } = setUp({}, (reason, detail) => telemetry.track("project.unsupported", { reason, detail }))
+    return { projects, unsupported: () => sink.named("project.unsupported").map((event) => event.attributes) }
+  }
+
+  it("records that it has no package.json", async () => {
+    const { projects, unsupported } = recorded()
+    await rm(join(root, "package.json"))
+    await expect(projects.open(root)).rejects.toThrow("There's no package.json")
+    expect(unsupported()).toEqual([{ reason: "no_package", detail: `There's no package.json in ${root}` }])
+  })
+
+  it("records that no renderer supports its framework", async () => {
+    const { projects, unsupported } = recorded()
+    await write("package.json", JSON.stringify({ name: "shop", dependencies: { vue: "^3.0.0" } }))
+    await expect(projects.open(root)).rejects.toThrow("No renderer supports shop")
+    expect(unsupported()).toEqual([{ reason: "no_renderer", detail: "No renderer supports shop" }])
   })
 })
 

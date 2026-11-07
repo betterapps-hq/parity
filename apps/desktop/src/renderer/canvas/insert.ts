@@ -110,8 +110,8 @@ export function addFrameOfItem(session: ProjectSession, item: InsertItem, at = v
 }
 
 /**
- * Inserts at the selection, for a click instead of a drag: into a selected layout, after any other selected layer, or
- * at the end of a selected design. With no design selected, it lands on the canvas, so it makes a new frame there, in
+ * Inserts at the selection, for a click instead of a drag: into a selected layout or slot of an instance, after any
+ * other selected layer, or at the end of a selected design. With no design selected, it lands on the canvas, so it makes a new frame there, in
  * the middle of the view (PAR-546). Returns false when the selected design has nowhere to insert it.
  */
 export function insertAtSelection(session: ProjectSession, item: InsertItem): boolean {
@@ -122,7 +122,7 @@ export function insertAtSelection(session: ProjectSession, item: InsertItem): bo
   }
   const entry = session.store.getEntry(current.design)
   if (!entry) return false
-  const at = whereToInsert(entry.container.root, current.node)
+  const at = whereToInsert(entry.container.root, current.node, session.store.getComponentLibrary())
   if (!at) return false
   insertItem(session, { entry, ...at, mode: current.mode, state: current.state }, item)
   return true

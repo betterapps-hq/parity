@@ -847,7 +847,7 @@ describe("remaining transport contracts", processTests, () => {
   it("keeps the MCP tool list within its budget", async () => {
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     const { tools } = (toolReply(protocol.stdout) as { result: { tools: unknown[] } }).result
-    // 11.7 KB when set, down from 33 KB with output schemas.
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(12 * 1024)
+    // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636).
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(13 * 1024)
   })
 })

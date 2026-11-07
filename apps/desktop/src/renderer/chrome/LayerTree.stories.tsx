@@ -1,4 +1,4 @@
-import { addVariant, type ContainerSpec, type DesignNode, editNode } from "@parity-app/core"
+import { addVariant, type ContainerSpec, type DesignNode, editNode, setSlot } from "@parity-app/core"
 import { designsSelection, layersSelection, newDesign } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
@@ -48,6 +48,28 @@ function innerRow(designName: string, instanceName: string, componentName: strin
   const element = document.getElementById(`layer-${design(designName)}/${path}`)
   if (!element) throw new Error(`The Layers panel shows no row for ${layerName} in ${instanceName}`)
   return element
+}
+
+/**
+ * Scrolls the panel down until a row is drawn, since it draws only the rows in view, then centers it. From the bottom
+ * it starts again at the top, in case the row wasn't open yet.
+ */
+async function scrollUntil(find: () => HTMLElement): Promise<HTMLElement> {
+  const scroller = (await waitFor(() => within(document.body).getByRole("tree", { name: "Layers" }))).parentElement!
+  scroller.scrollTop = 0
+  for (let step = 0; step < 200; step++) {
+    try {
+      const found = find()
+      found.scrollIntoView({ block: "center" })
+      return found
+    } catch {
+      const before = scroller.scrollTop
+      scroller.scrollTop += 200
+      if (scroller.scrollTop === before) scroller.scrollTop = 0
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+  }
+  return find()
 }
 
 /** Selects Value inside the Dashboard's Users card, as Ctrl-clicking it on the canvas would. */
@@ -183,6 +205,23 @@ export const LayerSelected: Story = {
     async () => {
       await openProjects("example")
       example().selection.set({ design: design("Plan card"), node: node("Plan card", "Feature 3 text") })
+    }
+  ]
+}
+
+/**
+ * A component design's slots (PAR-83): Plan card's features are a slot, so the row has the slot's dashed icon and
+ * says features at its end.
+ */
+export const Slots: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const key = design("Plan card")
+      example().store.updateContainer(key, "Make slot", (container) =>
+        setSlot(container, node("Plan card", "Features"), "features")
+      )
+      example().selection.set({ design: key, node: node("Plan card", "Feature 1") })
     }
   ]
 }
@@ -339,7 +378,9 @@ export const LayerMenu: Story = {
     await expect(items.map((item) => item.textContent)).toEqual([
       `Rename${formatKeys("Ctrl R")}`,
       `Duplicate${formatKeys("Ctrl D")}`,
-      `Show in Default${formatKeys("Ctrl Shift H")}`,
+      `Show${formatKeys("Ctrl Shift H")}`,
+      `Lock${formatKeys("Ctrl Shift L")}`,
+      `Export…${formatKeys("Ctrl Shift E")}`,
       `Delete${formatKeys("Del")}`
     ])
   }
@@ -347,7 +388,7 @@ export const LayerMenu: Story = {
 
 /**
  * Plan card with a density variant whose Compact option hides Feature 4, shown on its board. Feature 4's menu offers
- * Show in Compact, where the change lands, rather than in the base state (PAR-497).
+ * Show, reading the layer as the board shows it with Compact, and Show puts the change in Compact (PAR-497).
  */
 export const HiddenByAVariant: Story = {
   loaders: [
@@ -373,7 +414,7 @@ export const HiddenByAVariant: Story = {
   play: async () => {
     await reveal("Plan card", "Feature 4")
     await rightClick(row("Plan card", "Feature 4"))
-    await within(document.body).findByRole("menuitem", { name: "Show in Compact" })
+    await within(document.body).findByRole("menuitem", { name: /^Show/ })
   }
 }
 
@@ -533,8 +574,7 @@ export const HiddenFromItsEye: Story = {
 export const InsideAnInstance: Story = {
   loaders: [selectUsersValue],
   play: async () => {
-    const value = await waitFor(() => innerRow("Dashboard", "Users card", "Stat card", "Value"), { timeout: 8000 })
-    value.scrollIntoView({ block: "center" })
+    const value = await scrollUntil(() => innerRow("Dashboard", "Users card", "Stat card", "Value"))
     await expect(value).toHaveAttribute("aria-selected", "true")
     await expect(row("Dashboard", "Users card")).toHaveAttribute("aria-expanded", "true")
   }
@@ -547,11 +587,7 @@ export const InsideAnInstance: Story = {
 export const HiddenInsideAnInstance: Story = {
   loaders: [selectUsersValue],
   play: async () => {
-    // The panel draws only the rows in view, so it's scrolled to the selection before Trend, below it, is found.
-    const value = await waitFor(() => innerRow("Dashboard", "Users card", "Stat card", "Value"), { timeout: 8000 })
-    value.scrollIntoView({ block: "center" })
-    const trend = await waitFor(() => innerRow("Dashboard", "Users card", "Stat card", "Trend"))
-    trend.scrollIntoView({ block: "center" })
+    const trend = await scrollUntil(() => innerRow("Dashboard", "Users card", "Stat card", "Trend"))
     await expect(trend).toHaveAttribute("draggable", "false")
     await userEvent.hover(trend)
     await userEvent.click(await within(trend).findByRole("button", { name: "Hide" }))
@@ -563,6 +599,49 @@ export const HiddenInsideAnInstance: Story = {
     const menu = await within(document.body).findByRole("menu")
     const rename = within(menu).getByRole("menuitem", { name: /Rename/ })
     await expect(rename).toHaveAttribute("aria-disabled", "true")
+  }
+}
+
+/**
+ * A layer locked from its lock, which shows while the row is hovered and stays once it's locked, without selecting it.
+ * The layers inside it are locked with it: hovered, theirs says what locks them, and isn't a button.
+ */
+export const LockedFromItsLock: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await reveal("Plan card", "Feature 2")
+    await userEvent.click(row("Plan card"))
+    await userEvent.hover(row("Plan card", "Features"))
+    await userEvent.click(await within(row("Plan card", "Features")).findByRole("button", { name: "Lock" }))
+    await userEvent.unhover(row("Plan card", "Features"))
+    await within(row("Plan card", "Features")).findByRole("button", { name: "Unlock" })
+    await expect(example().selection.get()).toEqual({ design: design("Plan card") })
+    await userEvent.hover(row("Plan card", "Feature 2"))
+    await expect(within(row("Plan card", "Feature 2")).queryByRole("button", { name: /lock/i })).toBeNull()
+    await userEvent.hover(within(row("Plan card", "Feature 2")).getByLabelText("Locked"))
+    await expect(await findTooltip()).toHaveTextContent("Locked with Features")
+  }
+}
+
+/** A locked design: its row's lock stays, and its layers are locked with it. Ctrl+Shift+L or the row menu unlocks it. */
+export const LockedDesign: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const { store } = example()
+      store.updateContainer(design("Pricing"), "Lock screen", (container) => ({ ...container, locked: true }))
+    }
+  ],
+  play: async () => {
+    await reveal("Pricing", "Headline")
+    const pricing = await scrollTo("Pricing")
+    await expect(within(pricing).getByRole("button", { name: "Unlock" })).toBeVisible()
+    await userEvent.hover(row("Pricing", "Headline"))
+    await userEvent.hover(within(row("Pricing", "Headline")).getByLabelText("Locked"))
+    await expect(await findTooltip()).toHaveTextContent("Locked with Pricing")
+    await rightClick(pricing)
+    const unlock = await within(document.body).findByRole("menuitem", { name: /^Unlock/ })
+    await waitFor(() => expect(unlock).toBeVisible())
   }
 }
 
