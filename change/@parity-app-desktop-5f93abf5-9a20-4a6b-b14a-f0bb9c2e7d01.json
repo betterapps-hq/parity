@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Layers opens an instance's row to the layers inside it, read-only apart from each layer's eye",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

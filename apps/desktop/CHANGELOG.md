@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 07 Nov 2026 09:04:55 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 09:34:17 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.31.0
+
+Sat, 07 Nov 2026 09:34:17 GMT
+
+### Minor changes
+
+- Layers opens an instance's row to the layers inside it, read-only apart from each layer's eye (ajcraswell@gmail.com)
 
 ## 0.30.0
 

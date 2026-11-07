@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 09:34:17 GMT",
+      "version": "0.31.0",
+      "tag": "@parity-app/desktop_v0.31.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a8556262108a1d2afdef46540760632b63686f94",
+            "comment": "Layers opens an instance's row to the layers inside it, read-only apart from each layer's eye"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 09:04:55 GMT",
       "version": "0.30.0",
       "tag": "@parity-app/desktop_v0.30.0",
