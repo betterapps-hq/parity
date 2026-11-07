@@ -55,7 +55,7 @@ export function logsFolder(env: NodeJS.ProcessEnv = process.env): string {
 const fileName = /^parity-(\d{4}-\d{2}-\d{2})(?:\.(\d+))?\.jsonl$/
 
 /** Every event in the folder's log files, oldest first. Lines that aren't events are skipped. */
-function readEvents(folder: string): LogEvent[] {
+export function readEvents(folder: string): LogEvent[] {
   let names: string[]
   try {
     names = readdirSync(folder)

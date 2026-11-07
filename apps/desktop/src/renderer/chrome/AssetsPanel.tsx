@@ -74,6 +74,7 @@ import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { errorCode, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { componentFile, viewCode } from "./code-editor.ts"
@@ -779,10 +780,18 @@ async function installLibrary(session: ProjectSession, library: { id: string; na
   const progress = toast.loading(`Installing ${library.name}…`, { description: "With the project's package manager" })
   try {
     await request("library.add", { projectId: session.id, library: library.id })
+    track("library.added", { package: library.id })
     toast.success(`${library.name} is ready`, { id: progress, description: undefined })
     await workspace.reload(session.id, `Loading ${library.name}`)
   } catch (error) {
-    toast.error(`Couldn't install ${library.name}`, { id: progress, description: message(error).slice(-400) })
+    const code = errorCode(error)
+    track("library.failed", { package: library.id, ...(code ? { code } : {}) })
+    reportError(error, {
+      operation: "library.add",
+      title: `Couldn't install ${library.name}`,
+      id: progress,
+      description: message(error).slice(-400)
+    })
   }
 }
 
@@ -799,7 +808,11 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
       onOpenChange={(open) => {
         if (open && !catalog) {
           void request("library.catalog", { projectId: session.id }).then(setCatalog, (error: unknown) =>
-            toast.error("Couldn't list libraries", { description: message(error) })
+            reportError(error, {
+              operation: "library.catalog",
+              title: "Couldn't list libraries",
+              description: message(error)
+            })
           )
         }
       }}
@@ -875,6 +888,11 @@ function ImportStyles({ library }: { library: LibraryInfo }) {
 export async function importStyles(session: ProjectSession, library: LibraryInfo): Promise<void> {
   try {
     const edit = await request("library.importStyles", { projectId: session.id, library: library.id })
+    track("styles.imported", {
+      package: library.package,
+      ...(library.version ? { version: library.version } : {}),
+      files: edit?.files.map((file) => file.path) ?? []
+    })
     await workspace.reload(session.id, `Loading ${library.name}'s styles`)
     if (edit) {
       announceEdit(session.id, edit, {
@@ -882,7 +900,11 @@ export async function importStyles(session: ProjectSession, library: LibraryInfo
       })
     }
   } catch (error) {
-    toast.error("Couldn't import its styles", { description: message(error) })
+    reportError(error, {
+      operation: "library.importStyles",
+      title: "Couldn't import its styles",
+      description: message(error)
+    })
   }
 }
 

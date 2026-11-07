@@ -1,8 +1,20 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 07 Nov 2026 02:36:08 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 03:33:55 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.27.0
+
+Sat, 07 Nov 2026 03:33:55 GMT
+
+### Minor changes
+
+- Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633) (ajcraswell@gmail.com)
+- parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time
+  (PAR-636) (ajcraswell@gmail.com)
+- Record every error notification as error.caught, failed service requests, and saves, exports, project edits and
+  libraries (ajcraswell@gmail.com)
 
 ## 0.26.0
 

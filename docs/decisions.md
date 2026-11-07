@@ -5694,6 +5694,45 @@ a known conflict, and electron/electron#46323 is still open. My calls:
 - **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
   dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
 
+## Every error notification is recorded, with saves, exports and project edits (PAR-632)
+
+The editor window records what the proposal's "Errors" and "Files and saving" list, as [telemetry.md](telemetry.md)
+catalogs. My calls:
+
+- **One helper shows an error and records it.** `reportError(error, { operation, title, ...toast })` in
+  `renderer/report-error.ts` shows the notification as before and records `error.caught` with the `CodedError` code, the
+  operation and what it acted on. No window code calls `toast.error` itself. The field is `operation`, not `action`,
+  since a notification's `action` is its button; the event still calls it `action`.
+- **`ipc.failed` is recorded in `request`,** the one way the window asks the service, by method and code. It's a
+  warning, not an error, so a failure the window also shows isn't two Sentry issues.
+- **Events are recorded where the window asks for the work:** saves in `saveDocument`, token writes in `saveTokens`,
+  edits as `announceEdit` shows them and as Undo puts them back, exports in `commands.ts`, libraries in the Assets
+  panel. `document.saved`'s size is the document as JSON. `library.added` names the catalog ID, since the window doesn't
+  know the version installed; `styles.imported` has the package and version.
+- **A recording mistake never stops the work.** `track` logs what the development build's checks throw rather than
+  throwing it, and nothing is recorded where no telemetry was started, as in stories and tests.
+- **Event names can be camelCase,** as the proposal names them (`document.saveFailed`, `projectEdit.applied`).
+
+## Failed data checks and unsupported projects are recorded (PAR-633)
+
+The product telemetry plan called for `data.invalid` and `project.unsupported`. My calls:
+
+- **Core's checks tell one listener.** `checkData`, `parseData` and `parseInput` call `onInvalidData`'s listener with
+  each failure: the schema's name, every zod issue and the data. Core doesn't import telemetry; each process's telemetry
+  (main, the windows, the service and the props worker) sets the listener as it starts, through `recordInvalidData` in
+  `shared/invalid-data.ts`. A listener that throws doesn't change what the check returns.
+- **A schema is named by its `.meta({ id })`, its description, or the function that ran the check,** read from the stack
+  only when a check fails. Most schemas have neither, so the function names most failures; a bundle that renames it
+  gives "unnamed".
+- **Only those three helpers are watched.** Direct `safeParse(value).data` reads, as caches and saved preferences do,
+  fall back to a default by design, so they aren't recorded.
+- **The event carries the first 20 issues and up to 2,000 characters of the data as JSON,** scrubbed like every event's
+  attributes (PAR-621). It's at the `warn` level, so it's a Sentry log and breadcrumb, not an error.
+- **`project.unsupported` is the service refusing to open a project**: no package.json (`no_package`), no renderer for
+  its framework (`no_renderer`), or no builder for its bundler (`no_builder`), with the message the person sees.
+  `openProjects` takes an `unsupported` callback rather than the telemetry, so its tests record through a test sink
+  without Sentry.
+
 ## Every event says who was driving, and in which test pass (PAR-630)
 
 Events are tagged with `environment`, `release`, `test_run`, `driver`, `agent` and `agent_client`, and Sentry's user is
@@ -5780,6 +5819,22 @@ one switch between editing and using the designs.
   them. Lines a crash cut short are skipped.
 - **Main writes the test run on each line as `testRun`,** from `PARITY_TEST_RUN`, since PAR-630's `test_run` tag goes to
   Sentry's scope and not into the envelope.
+
+## Report a problem sends from main, built from the local copy (PAR-635)
+
+Help > Report a problem and `parity diagnostics` share `@parity-app/telemetry`'s `diagnosticFiles`, so the report and
+the zip hold the same things. My calls:
+
+- **Main sends the feedback,** with the screenshot it took and the files it reads from the local copy, scrubbed. The
+  window flushes its replay first and passes the replay and trace IDs, so Sentry shows the replay beside it.
+- **It's sent even with Share diagnostics off.** The person asked, and the dialog lists what goes. Sentry is switched on
+  only while it's sent.
+- **The person never sees Sentry:** no link, no Sentry wording, and a failure says to check the connection. The
+  feedback's ID goes into the local log as `report.sent`, for the team.
+- **A crash is a run that didn't quit:** main records `app.quit` as it quits, so a run of main's with none crashed or
+  was killed. It's offered only in installed builds, since agents and CI stop development copies all the time.
+- **`parity diagnostics` takes the latest run that didn't quit,** which is the one open now if Parity is running, and
+  says so. It writes the zip with Node's own zlib, with no dependency.
 
 ## Support can sign in as someone's account, through WorkOS (PAR-693)
 

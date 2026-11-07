@@ -1,4 +1,3 @@
-import "./start-telemetry.ts"
 import { portFree, viteBuilder } from "@parity-app/builder-vite"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { reactRenderer } from "@parity-app/renderer-react"
@@ -26,6 +25,7 @@ import { checker } from "./props.ts"
 import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { checkStartFolders } from "./start-folders.ts"
+import { telemetry } from "./start-telemetry.ts"
 import { openStorybook } from "./storybook.ts"
 import { useProjectSecrets } from "./telemetry.ts"
 import { losslessWebp } from "./webp.ts"
@@ -45,6 +45,7 @@ const projects = openProjects({
   checker,
   detections: { saved: savedDetection, save: saveDetection },
   ports: { free: freePort, isFree: portFree },
+  unsupported: (reason, detail) => telemetry.track("project.unsupported", { reason, detail }),
   listeners: {
     fileChanged: (change) => {
       editor?.request("project.fileChanged", change).catch(() => undefined)

@@ -8,6 +8,7 @@ import {
   selectedDesigns,
   selectedNodes
 } from "@parity-app/editor"
+import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import {
@@ -24,6 +25,7 @@ import { parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
 import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
+import { errorCode, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import { homeTab, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
@@ -70,7 +72,12 @@ export async function save(session = activeSession()): Promise<void> {
     await session.store.flush()
     toast.success("Saved", { description: paths.join(", ") || session.store.mainPath, duration: 2000 })
   } catch (error) {
-    toast.error("Couldn't save", { id: saveFailureToast(session.id), description: message(error) })
+    reportError(error, {
+      operation: "project.save",
+      title: "Couldn't save",
+      id: saveFailureToast(session.id),
+      description: message(error)
+    })
   }
 }
 
@@ -96,7 +103,7 @@ export async function saveCopy(session = activeSession()): Promise<void> {
       action: { label: "Show", onClick: () => void window.canvasHost.showItem(path) }
     })
   } catch (error) {
-    toast.error("Couldn't save the copy", { description: message(error) })
+    reportError(error, { operation: "document.saveCopy", title: "Couldn't save the copy", description: message(error) })
   }
 }
 
@@ -110,8 +117,10 @@ export async function clearBitmapCache(): Promise<void> {
     await request("frames.clearStored", undefined)
     toast.success("Bitmap cache cleared", { duration: 2000 })
   } catch (error) {
-    toast.error("The bitmap cache couldn't be cleared", {
-      description: error instanceof Error ? error.message : String(error)
+    reportError(error, {
+      operation: "frames.clearStored",
+      title: "The bitmap cache couldn't be cleared",
+      description: message(error)
     })
   }
 }
@@ -162,6 +171,12 @@ export async function exportLayers(
   const progress = toast.loading(
     files.length === 1 ? `Exporting ${files[0]!.name}…` : `Exporting ${files.length} files…`
   )
+  const exported: Exported = {
+    kind: "layers",
+    formats: [...new Set(sizes.map((size) => size.format))],
+    scales: [...new Set(sizes.map((size) => size.scale))],
+    designs: targets.length
+  }
   try {
     const { files: written, warnings } = await request("layers.export", {
       projectId: session.id,
@@ -169,6 +184,7 @@ export async function exportLayers(
       layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
       files
     })
+    track("export.done", { ...exported, files: written.length })
     toast.success(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
       id: progress,
       description: folder,
@@ -181,8 +197,22 @@ export async function exportLayers(
       })
     }
   } catch (error) {
-    toast.error("Couldn't export", { id: progress, description: message(error) })
+    trackExportFailed(exported, error)
+    reportError(error, {
+      operation: "layers.export",
+      title: "Couldn't export",
+      id: progress,
+      description: message(error)
+    })
   }
+}
+
+/** What an export wrote, for `export.done` and `export.failed`. */
+type Exported = Omit<EventAttributes<typeof registeredEvents, "export.failed">, "code">
+
+function trackExportFailed(exported: Exported, error: unknown): void {
+  const code = errorCode(error)
+  track("export.failed", { ...exported, ...(code ? { code } : {}) })
 }
 
 /**
@@ -223,7 +253,9 @@ export async function copySelectedAsPng(session = activeSession()): Promise<void
       }))
     })
     if (!png) {
-      toast.error("Couldn't copy as PNG", {
+      reportError(new Error(warnings.join("\n") || "Nothing was drawn"), {
+        operation: "layers.picture",
+        title: "Couldn't copy as PNG",
         id: progress,
         description: warnings.join("\n") || undefined,
         classNames: { description: "whitespace-pre-line" }
@@ -240,7 +272,12 @@ export async function copySelectedAsPng(session = activeSession()): Promise<void
       })
     }
   } catch (error) {
-    toast.error("Couldn't copy as PNG", { id: progress, description: message(error) })
+    reportError(error, {
+      operation: "layers.picture",
+      title: "Couldn't copy as PNG",
+      id: progress,
+      description: message(error)
+    })
   }
 }
 
@@ -261,6 +298,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
   const scale = getPreferences().exportScale
   const named = designs.length === 1 ? store.getEntry(designs[0]!)?.container.name : undefined
   const progress = toast.loading(`Exporting ${named ?? store.designsLabel(designs)}…`)
+  const exported: Exported = { kind: "designs", formats: ["png"], scales: [scale], designs: designs.length }
   try {
     // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
     const { files, warnings } = await request("designs.export", {
@@ -269,6 +307,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
       designs,
       scale
     })
+    track("export.done", { ...exported, files: files.length })
     toast.success(files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`, {
       id: progress,
       description: folder,
@@ -281,7 +320,13 @@ export async function exportImages(scope: "selection" | "all", session = activeS
         classNames: { description: "whitespace-pre-line" }
       })
   } catch (error) {
-    toast.error("Couldn't export", { id: progress, description: message(error) })
+    trackExportFailed(exported, error)
+    reportError(error, {
+      operation: "designs.export",
+      title: "Couldn't export",
+      id: progress,
+      description: message(error)
+    })
   }
 }
 

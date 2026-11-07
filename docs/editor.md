@@ -4471,6 +4471,23 @@ run's install ID, saving the switch, a variable deciding the run, and a new ID o
 `chrome/TelemetrySetting.stories.tsx` shows the switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and
 turns it off with the pointer.
 
+### Report a problem (PAR-635)
+
+Help > Report a problem asks what happened and sends it to the Parity team with a screenshot of the window (on by
+default, shown in the dialog, taken once the menu has closed), and lists what else goes: the last minute of the window
+as a replay, the last hour of the local log, the versions of Parity and the system, and the open projects. Send stays
+off until something is written. It's sent even with Share diagnostics off, since the person asked; nothing else is. A
+sent report says thanks and nothing more: no link, since only the team can open it. A report that can't be sent says to
+check the connection, and keeps what was written. When the last run of an installed build ended without quitting, Parity
+offers the same dialog as it starts, titled "Parity closed unexpectedly", with the crash in the list and Not now in
+place of Cancel. `parity diagnostics` writes a zip of the same files, for a bug filed by hand.
+
+`@parity-app/telemetry`'s `diagnostics.test.ts` covers finding a run that didn't quit (ignoring runs only the CLI
+recorded), reading the local log's lines, and the files a report takes: the last hour of events, versions, projects and
+the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The CLI's `diagnostics.test.ts` covers the
+zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, sending,
+sent and failed, with Send moving from one to the next.
+
 ### The page never scrolls (PAR-424)
 
 The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.

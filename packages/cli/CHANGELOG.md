@@ -1,8 +1,23 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 07 Nov 2026 02:04:23 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 03:34:11 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.15.0
+
+Sat, 07 Nov 2026 03:34:11 GMT
+
+### Minor changes
+
+- parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time
+  (PAR-636) (ajcraswell@gmail.com)
+- Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633) (ajcraswell@gmail.com)
+
+### Patches
+
+- Telemetry event names may be camelCase, and the app's error, save and export events are registered
+  (ajcraswell@gmail.com)
 
 ## 0.14.0
 

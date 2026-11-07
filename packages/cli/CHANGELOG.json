@@ -2,6 +2,35 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 03:34:11 GMT",
+      "version": "0.15.0",
+      "tag": "@parity-app/cli_v0.15.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ee3447c7d941c2ca646c7a3cd5a6d219434ddcf0",
+            "comment": "parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time (PAR-636)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d7703064df693435234a09a7daf1ae232fcffd05",
+            "comment": "Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d2ede6f4e8a7c3262f4434aa8cb61a05a8a0c508",
+            "comment": "Telemetry event names may be camelCase, and the app's error, save and export events are registered"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 02:04:23 GMT",
       "version": "0.14.0",
       "tag": "@parity-app/cli_v0.14.0",

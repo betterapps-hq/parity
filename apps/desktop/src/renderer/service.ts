@@ -1,5 +1,6 @@
 import { codedErrors } from "../shared/coded-errors.ts"
 import type { Answer, ServiceMethod, ServiceMethods } from "../shared/protocol.ts"
+import { errorCode, track } from "./report-error.ts"
 import { currentTraceHeaders } from "./tracing.ts"
 
 /**
@@ -12,7 +13,13 @@ export async function request<M extends ServiceMethod>(
   params: ServiceMethods[M]["params"]
 ): Promise<ServiceMethods[M]["result"]> {
   const trace = currentTraceHeaders()
-  return settled(await (trace ? window.canvasHost.ask(method, params, trace) : window.canvasHost.ask(method, params)))
+  try {
+    return settled(await (trace ? window.canvasHost.ask(method, params, trace) : window.canvasHost.ask(method, params)))
+  } catch (error) {
+    const code = errorCode(error)
+    track("ipc.failed", { method, ...(code ? { code } : {}) })
+    throw error
+  }
 }
 
 /** An answer's result, or its failure thrown, with checked details. */

@@ -358,6 +358,21 @@ export interface TelemetryState extends ResolvedTelemetry {
   installId: string
 }
 
+/** The last run's crash, which the window offers to report as it starts (PAR-635). */
+export interface ReportCrash {
+  /** When it stopped, as near as the local copy says, in ISO 8601. */
+  time: string
+}
+
+/** What Help > Report a problem sends main: what happened, and the IDs that tie it to the replay and trace. */
+export interface ProblemReportRequest {
+  message: string
+  screenshot: boolean
+  afterCrash: boolean
+  replayId?: string
+  traceId?: string
+}
+
 /** Exposed on `window.canvasHost` by the preload script. */
 export interface CanvasHost {
   appVersion: string
@@ -366,6 +381,15 @@ export interface CanvasHost {
   telemetry: {
     get: () => Promise<TelemetryState>
     setLevel: (level: TelemetryLevel) => Promise<TelemetryState>
+  }
+  /** Help > Report a problem, which main sends to Sentry (PAR-635). */
+  report: {
+    /** Takes the window's screenshot, as a PNG data URL, before the dialog shows. */
+    prepare: () => Promise<{ screenshot?: string }>
+    /** Sends the report and gives its feedback ID. */
+    send: (report: ProblemReportRequest) => Promise<string>
+    /** The last run's crash, once, if it crashed. */
+    lastCrash: () => Promise<ReportCrash | undefined>
   }
   updates: {
     get: () => Promise<UpdateState>

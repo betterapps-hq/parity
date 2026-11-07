@@ -46,6 +46,9 @@ function setup(options: { check?: boolean; random?: () => number; keep?: number 
 describe("defineEvent", () => {
   it("takes dotted names, area first", () => {
     expect(projectOpened).toMatchObject({ name: "project.opened", level: "info", sample: 1 })
+    expect(defineEvent("projectEdit.saveFailed", z.object({}), { level: "info", ...about }).name).toBe(
+      "projectEdit.saveFailed"
+    )
     expect(() => defineEvent("projectOpened", z.object({}), { level: "info", ...about })).toThrow(/dotted/)
     expect(() => defineEvent("Project.opened", z.object({}), { level: "info", ...about })).toThrow(/dotted/)
     expect(() => defineEvent("project", z.object({}), { level: "info", ...about })).toThrow(/dotted/)

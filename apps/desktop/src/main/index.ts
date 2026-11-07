@@ -43,6 +43,7 @@ import {
   openInEditorRequest,
   saveDialogOptions,
   shownItem,
+  problemReport,
   telemetrySetting as telemetryLevelCheck,
   themeSource
 } from "../shared/ipc-checks.ts"
@@ -65,11 +66,13 @@ import { openInEditor } from "./code-editor.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
 import { idleClose } from "./idle-close.ts"
+import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
 import { launchLink, passLink } from "./pass-link.ts"
 import { privateMemory } from "./private-memory.ts"
 import { auditResult, canvasHeightResult, renderResult } from "./render-results.ts"
+import { createReports, offersCrashReports } from "./report.ts"
 import { sessionStore } from "./session-store.ts"
 import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
@@ -116,7 +119,7 @@ const appManifest = () => JSON.parse(readFileSync(join(app.getAppPath(), "packag
 const built = builtRelease(appManifest)
 const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
 // Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
-startTelemetry(process.env, {
+const telemetryStart = startTelemetry(process.env, {
   sending: telemetrySetting.get(),
   installed,
   published: installed && built.published,
@@ -632,6 +635,27 @@ ipcMain.handle(
     return state
   })
 )
+
+// Help > Report a problem, and the last run's crash (PAR-635).
+const reports = createReports({
+  readEvents: () => readLogEvents(join(app.getPath("userData"), "logs")),
+  flushLogs: events.flushLogs,
+  sessionId: events.run.sessionId,
+  offerCrash: offersCrashReports(telemetryStart.environment),
+  telemetry: events.telemetry
+})
+const reportRefusal = "Only the Parity window can send a report."
+ipcMain.handle(ipc.reportPrepare, (event) => reports.prepare(appWindowOf(event, reportRefusal)))
+ipcMain.handle(
+  ipc.reportSend,
+  checked(problemReport, (event: Electron.IpcMainInvokeEvent, report) =>
+    reports.send(appWindowOf(event, reportRefusal), report)
+  )
+)
+ipcMain.handle(ipc.reportLastCrash, (event) => {
+  appWindowOf(event, reportRefusal)
+  return reports.takeLastCrash()
+})
 
 ipcMain.handle(ipc.updateState, (event) => {
   updateOwner(event)
