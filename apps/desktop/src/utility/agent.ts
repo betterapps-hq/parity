@@ -78,7 +78,12 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
     const chunks: Buffer[] = []
     for await (const chunk of request) chunks.push(chunk as Buffer)
     // Any local process with the token can send anything, so the body and its params are checked first (PAR-598).
-    reply(200, { result: await answerRequest(Buffer.concat(chunks).toString("utf8"), desktopHost(window())) })
+    reply(200, {
+      result: await answerRequest(Buffer.concat(chunks).toString("utf8"), desktopHost(window()), (caller) => {
+        // Only tags telemetry, so a main that's gone is no matter.
+        mainProcess.request("agentCalled", caller).catch(() => undefined)
+      })
+    })
   } catch (error) {
     const details = errorDetails(error)
     reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })
