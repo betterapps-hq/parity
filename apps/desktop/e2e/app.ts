@@ -495,8 +495,8 @@ export class App {
   }
 
   /**
-   * Waits until the camera and a design's main frame stop moving or changing, over a few frames, and its board's frames
-   * are drawn where they would wake: frames asleep, as they are once zoomed far out, wake once the camera rests near
+   * Waits until the camera and a design's main frame stop moving or changing, over a few frames, the zoom has settled so
+   * boards have taken their size at it (PAR-655), and its board's frames are drawn where they would wake: frames asleep, as they are once zoomed far out, wake once the camera rests near
    * them above the far line (25% on a 1x screen, and a little past it coming back in), or on the selected board.
    * Components that load on demand have arrived too: until its module loads, one draws nothing and its frame doesn't
    * change, however many frames that takes. A reopened project has a new guest, and its frames sleep on kept bitmaps
@@ -511,20 +511,24 @@ export class App {
       const look = () => {
         const host = e2e.frame(key)
         const { x, y, width, height } = host.getBoundingClientRect()
-        const camera = e2e.session().editor!.getCamera()
+        const editor = e2e.session().editor!
+        const camera = editor.getCamera()
         const elements = host.shadowRoot?.querySelectorAll("*").length
         const board = host.closest(".container-view")
         const wakes = camera.z * devicePixelRatio > 0.25 * 1.15 || !!board?.hasAttribute("data-live")
         return {
           now: `${x},${y},${width},${height},${elements},${camera.x},${camera.y},${camera.z}`,
-          asleep: wakes && !!board?.querySelector("[data-asleep]")
+          asleep: wakes && !!board?.querySelector("[data-asleep]"),
+          // Boards take the size their gutters give at a new zoom only once it settles (PAR-655), which the canvas's
+          // efficient zoom says: a few frames and 150 ms after the camera stops, longer than four still frames.
+          zooming: editor.getZoomLevel() !== editor.getEfficientZoomLevel()
         }
       }
       let last = ""
       for (let still = 0, tries = 0; still < 4 && tries < 400; tries++) {
         await frame()
-        const { now, asleep } = look()
-        still = now === last && !asleep ? still + 1 : 0
+        const { now, asleep, zooming } = look()
+        still = now === last && !asleep && !zooming ? still + 1 : 0
         last = now
         // Still, it waits for what's loading on demand, which draws as it arrives, and counts again if that changed it.
         if (still === 4) {
