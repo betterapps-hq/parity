@@ -55,13 +55,16 @@ let caller = cliCallerName(process.env)
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
 const explicitCallerId = process.env.PARITY_AGENT_ID?.trim() || undefined
 let callerId = explicitCallerId
+/** The program calling through MCP, such as `claude-code`, which the app's telemetry tags (PAR-630). */
+let callerClient: string | undefined
 
 /**
  * Names who's calling in later calls, so the canvas can say who's at work. The MCP server learns the name from its
  * client, and is one session: its calls share an id, apart from any other session of the same agent.
  */
-export function setCaller(name: string | undefined, session = false): void {
+export function setCaller(name: string | undefined, session = false, client?: string): void {
   caller = name ?? caller
+  callerClient = client
   callerId = session ? sessionCallerId(caller, randomUUID()) : explicitCallerId
 }
 
@@ -166,7 +169,7 @@ async function send<M extends AgentMethod>(
     response = await fetch(`${entry.url}/rpc`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}` },
-      body: JSON.stringify({ method, params, agent: caller, agentId: callerId }),
+      body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient }),
       ...(timeout === undefined ? {} : { signal: AbortSignal.timeout(timeout) })
     })
   } catch {
