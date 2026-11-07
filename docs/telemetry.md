@@ -130,6 +130,85 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-No events are registered yet.
+| Event                | Level | Kept | Sent by  | When                                                             |
+| -------------------- | ----- | ---- | -------- | ---------------------------------------------------------------- |
+| `app.quit`           | info  | all  | main     | The app quits.                                                   |
+| `app.started`        | info  | all  | main     | The first window has painted and the project service is running. |
+| `process.memory`     | info  | all  | main     | Every 5 minutes, and when a window stops answering.              |
+| `renderer.long_task` | info  | all  | renderer | A task in the editor window runs for over 200 ms.                |
+| `service.lag`        | warn  | all  | service  | The project service's event loop is late by over 200 ms.         |
+| `update.checked`     | info  | all  | main     | A check for an update finds one or finds none.                   |
+| `update.downloaded`  | info  | all  | main     | An update finishes downloading.                                  |
+| `update.failed`      | warn  | all  | main     | Checking for, downloading or installing an update fails.         |
+| `update.installed`   | info  | all  | main     | The app quits to install a downloaded update.                    |
+
+### `app.quit`
+
+| Attribute   | Type                                     | Meaning                                                                                   |
+| ----------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `reason`    | `"window closed" \| "update" \| "other"` | How it quit: the last window closed, to install an update, or otherwise, as from the menu |
+| `sessionMs` | `integer`                                | How long this run lasted                                                                  |
+
+### `app.started`
+
+| Attribute        | Type      | Meaning                                                               |
+| ---------------- | --------- | --------------------------------------------------------------------- |
+| `mainReadyMs`    | `integer` | From the process starting to Electron being ready                     |
+| `windowShownMs`  | `integer` | From the process starting to the first window being created and shown |
+| `firstPaintMs`   | `integer` | From the process starting to the first window's first paint           |
+| `serviceReadyMs` | `integer` | From the process starting to the project service starting to run      |
+
+### `process.memory`
+
+| Attribute   | Type                   | Meaning                                                                            |
+| ----------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| `reason`    | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                     |
+| `processes` | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it |
+
+### `renderer.long_task`
+
+| Attribute    | Type               | Meaning                                                               |
+| ------------ | ------------------ | --------------------------------------------------------------------- |
+| `durationMs` | `integer`          | How long the task ran                                                 |
+| `action`     | `string`, optional | The input that started it, such as `pointerdown` or `keydown`, if any |
+
+### `service.lag`
+
+| Attribute | Type      | Meaning                                                                        |
+| --------- | --------- | ------------------------------------------------------------------------------ |
+| `lateMs`  | `integer` | How late the service's timer ran, which is how long its event loop was blocked |
+
+### `update.checked`
+
+| Attribute   | Type                 | Meaning                                   |
+| ----------- | -------------------- | ----------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes     |
+| `version`   | `string`             | The version running now                   |
+| `available` | `string`, optional   | The newer version found, if there was one |
+
+### `update.downloaded`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version downloaded                |
+
+### `update.failed`
+
+| Attribute | Type                                 | Meaning                               |
+| --------- | ------------------------------------ | ------------------------------------- |
+| `channel` | `"stable" \| "beta"`                 | The update channel this install takes |
+| `version` | `string`                             | The version running now               |
+| `stage`   | `"check" \| "download" \| "install"` | What was under way when it failed     |
+| `message` | `string`                             | What went wrong                       |
+
+### `update.installed`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version being installed           |
 
 <!-- End of the generated events. -->

@@ -4683,6 +4683,22 @@ held the event's two errors. The trace had no spans and there were no replays ye
 PAR-624's. Both Claude Code (`claude mcp get sentry`) and Codex (`codex mcp get sentry`) load the server from a fresh
 worktree.
 
+## The app records its own startup, quitting, updates, memory and slow work (PAR-631)
+
+The events are in [telemetry.md](telemetry.md#events), from `app-events.ts` in `@parity-app/telemetry`, which also holds
+the rules for when each is sent. My calls:
+
+- **`app.started` waits for the first paint and the service,** and leaves out the first project shown: nothing records a
+  project opening yet. That time joins it once `project.opened` exists.
+- **`app.quit` says `window closed`, `update` or `other`.** Parity doesn't restart itself after a crash, so the
+  proposal's "crash restart" has nothing to report.
+- **`update.installed` is recorded as the app quits to install,** since the new version can't tell it was just
+  installed.
+- **The long-task event is `renderer.long_task`,** not the proposal's `renderer.longTask`, since event names are
+  lowercase. Its `action` is the input in the 100 ms before or during the task, from `PerformanceObserver`'s `longtask`
+  entries.
+- **Main's own hangs still come from the late-timer check** (PAR-620); `service.lag` uses the same check at 200 ms.
+
 ## Errors, crashes and hangs go to Sentry from every process (PAR-620)
 
 `@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to

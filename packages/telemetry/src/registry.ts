@@ -1,3 +1,4 @@
+import { appEvents } from "./app-events.ts"
 import type { EventDefinition } from "./events.ts"
 
 /**
@@ -5,4 +6,4 @@ import type { EventDefinition } from "./events.ts"
  * docs/telemetry.md lists them all. To add one, define it with `defineEvent`, add it here, and regenerate the page with
  * `pnpm exec vp test run packages/telemetry -u`.
  */
-export const registeredEvents = [] as const satisfies readonly EventDefinition[]
+export const registeredEvents = [...appEvents] as const satisfies readonly EventDefinition[]

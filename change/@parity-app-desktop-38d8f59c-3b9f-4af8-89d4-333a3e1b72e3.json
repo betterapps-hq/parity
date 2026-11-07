@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Record startup, quitting, updates, memory, service lag and long tasks as telemetry events (PAR-631)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

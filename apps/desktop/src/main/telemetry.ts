@@ -185,10 +185,16 @@ export function applyTelemetry(next: { level: TelemetryLevel; installId: string 
 }
 
 /** Reports a window that stops answering, once it answers again, with how long it was stuck. */
-export function watchWindowHangs(window: BrowserWindow, name: string, kind: "renderer" | "render"): void {
+export function watchWindowHangs(
+  window: BrowserWindow,
+  name: string,
+  kind: "renderer" | "render",
+  onHang?: () => void
+): void {
   let since: number | undefined
   window.on("unresponsive", () => {
     since = performance.now()
+    onHang?.()
     Sentry.addBreadcrumb({ category: "window", level: "warning", message: `The ${name} stopped answering` })
   })
   window.on("responsive", () => {
