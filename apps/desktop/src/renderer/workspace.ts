@@ -149,9 +149,9 @@ export class Workspace {
     // Set first, so the projects reopening behind it don't take its place.
     if (saved.active === homeTab) this.activeId = homeTab
     if (roots.length === 0) {
-      if (window.canvasHost.initialProject) void this.open(window.canvasHost.initialProject)
+      if (window.canvasHost.initialProject) void this.open(window.canvasHost.initialProject, true, true)
     } else {
-      for (const root of roots) void this.open(root, root === saved.active)
+      for (const root of roots) void this.open(root, root === saved.active, true)
       if (saved.active !== homeTab && !roots.includes(saved.active ?? "")) this.activate(this.tabs[0]?.id)
     }
   }
@@ -166,9 +166,10 @@ export class Workspace {
 
   /**
    * Opens a project in a new tab, or switches to its tab when it's already open. Opened from a new tab, it opens in
-   * that tab instead; one that's already open elsewhere closes the new tab it was picked from.
+   * that tab instead; one that's already open elsewhere closes the new tab it was picked from. `restored` when the
+   * window opens it as it starts, rather than the person choosing it.
    */
-  async open(root: string | undefined, activate = true): Promise<Tab> {
+  async open(root: string | undefined, activate = true, restored = false): Promise<Tab> {
     const active = this.getActive()
     const into = activate && active?.blank ? active.id : undefined
     const existing = root ? this.getTab(root) : undefined
@@ -214,7 +215,7 @@ export class Workspace {
       current = info.id
       const builder = info.builder.name
       this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
-      const session = await createSession(info, asked)
+      const { session, recordLoaded } = await createSession(info, asked, restored)
       if (attempt.abandoned) {
         asked.dropped()
         this.dropAbandoned(info.id, info.guestUrl)
@@ -223,6 +224,7 @@ export class Workspace {
       this.endAttempt(attempt, info.id)
       firstFrameOf(session, asked.ready(info))
       this.replace(info.id, { id: info.id, title: info.name, status: "ready", session })
+      recordLoaded()
       this.settleMove(info.id)
       this.remember(info.root)
       return this.getTab(info.id)!
@@ -331,7 +333,7 @@ export class Workspace {
         return this.dropAbandoned(info.id)
       }
       this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
-      const session = await createSession(info, asked)
+      const { session, recordLoaded } = await createSession(info, asked)
       if (attempt.abandoned) {
         asked.dropped()
         return this.dropAbandoned(info.id, info.guestUrl)
@@ -339,6 +341,7 @@ export class Workspace {
       this.endAttempt(attempt, id)
       firstFrameOf(session, asked.ready(info))
       this.replace(id, { id, title: info.name, status: "ready", session })
+      recordLoaded()
       this.settleMove(id)
     } catch (error) {
       this.endAttempt(attempt, id)
@@ -780,10 +783,15 @@ function sayWhenSavesFail(session: ProjectSession): void {
 }
 
 /**
- * Loads an opened project's guest and components into a session, and records how long that and the whole open took
- * (PAR-637) in the open's trace.
+ * Loads an opened project's guest and components into a session. `recordLoaded` records how long that and the whole
+ * open took (PAR-637), in the open's trace (PAR-711), and whether the window `restored` it as it started (PAR-694);
+ * it's for once the tab has the session, so an open its tab abandoned isn't counted as ready.
  */
-async function createSession(info: ProjectInfo, asked: Opening): Promise<ProjectSession> {
+async function createSession(
+  info: ProjectInfo,
+  asked: Opening,
+  restored = false
+): Promise<{ session: ProjectSession; recordLoaded: () => void }> {
   const loading = performance.now()
   const loaded = await loadGuest(info.guestUrl, info.theme)
   const store = new DesignStore(
@@ -811,14 +819,16 @@ async function createSession(info: ProjectInfo, asked: Opening): Promise<Project
   sayWhenSavesFail(session)
   followCorrections(session)
   const now = performance.now()
-  asked.loaded({
-    name: info.name,
-    root: info.root,
-    durationMs: Math.round(now - asked.began),
-    componentsMs: Math.round(now - loading),
-    components: info.componentCount
-  })
-  return session
+  const recordLoaded = () =>
+    asked.loaded({
+      name: info.name,
+      root: info.root,
+      durationMs: Math.round(now - asked.began),
+      componentsMs: Math.round(now - loading),
+      components: info.componentCount,
+      restored
+    })
+  return { session, recordLoaded }
 }
 
 /** Gives the session what records its canvas's first frame, which it lets go of once it has. */
