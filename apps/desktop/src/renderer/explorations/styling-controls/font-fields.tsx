@@ -1,5 +1,5 @@
 import { Popover, PopoverContent, PopoverTrigger, Slider, Toggle } from "@buildkitgg/shadcn-baseui-kit"
-import { ChevronDown, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
+import { ALargeSmall, ChevronDown, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { clamp, formatNumber, lengthForm } from "./css-values.ts"
@@ -19,7 +19,7 @@ import {
   ValueField
 } from "./field-parts.tsx"
 import { type FontFamily, findFont, genericOf, moreFonts, stackFamilies, weightName } from "./text-data.ts"
-import type { FontValue, LetterSpacing, LineHeight, WeightValue } from "./text-writes.ts"
+import type { FontSize, FontValue, LetterSpacing, LineHeight, WeightValue } from "./text-writes.ts"
 import {
   type FontToken,
   fontToken,
@@ -27,6 +27,7 @@ import {
   type LeadingToken,
   leadingToken,
   type SizeToken,
+  sizeTokens,
   type TrackingToken,
   trackingToken,
   type WeightToken
@@ -671,6 +672,112 @@ export function LineHeightField({
         onChange(next)
       }}
       onStep={step}
+    />
+  )
+}
+
+/** A text size in pixels: a token's, or its own. */
+export function sizePx(size: FontSize, tokens: readonly SizeToken[] = sizeTokens): number {
+  return "token" in size ? (tokens.find((token) => token.name === size.token)?.px ?? 16) : size.px
+}
+
+/**
+ * Text's size (design-options-panel.md's Size): a font size token as a pill (`xl`, which comes to 20px), or pixels of
+ * its own, typed or with maths. Up and Down step a token through the scale and pixels by 1, Shift 10; the icon scrubs.
+ */
+export function FontSizeField({
+  value,
+  inherited = 16,
+  mixed = false,
+  onChange
+}: {
+  value: FontSize | undefined
+  /** The size the text inherits while unset, shown faintly. */
+  inherited?: number
+  mixed?: boolean
+  onChange: (value: FontSize | undefined) => void
+}) {
+  const { tokens, create } = useTokens("size")
+  const held = value !== undefined && "token" in value ? value.token : undefined
+  const token = tokens.find((each) => each.name === held)
+  const own = value !== undefined && "px" in value ? value : undefined
+  const px = value === undefined ? undefined : sizePx(value, tokens)
+  const read = (text: string): Reading<FontSize | undefined> => {
+    const trimmed = text.trim().toLowerCase()
+    if (trimmed === "") return { value: undefined }
+    const name = trimmed.replace(/^text-/, "")
+    if (tokens.some((each) => each.name === name)) return { value: { token: name } }
+    const reading = readNumber(trimmed.replace(/px$/, ""), px, "Size")
+    if ("reason" in reading) return { reason: "Size takes pixels, such as 20, or a text size token" }
+    if ("clear" in reading) return { value: undefined }
+    if (reading.value <= 0) return { reason: "Size takes a number above 0" }
+    return { value: { px: Math.round(reading.value * 100) / 100 } }
+  }
+  const nearest = px === undefined ? undefined : nearestToken(tokens, (each) => each.px, px)
+  return (
+    <ValueField
+      label="Size"
+      inner={<ALargeSmall aria-hidden className="size-3.5" />}
+      scrub={{
+        from: () => px ?? inherited,
+        apply: (next) => onChange({ px: Math.max(1, next) }),
+        by: { step: 1, shiftStep: 10 }
+      }}
+      shown={own === undefined ? undefined : formatNumber(own.px)}
+      placeholder={formatNumber(inherited)}
+      mixed={mixed}
+      chip={
+        held === undefined
+          ? undefined
+          : {
+              name: held,
+              token,
+              onRemove: () => onChange(undefined),
+              onDetach: token ? () => onChange({ px: token.px }) : undefined,
+              onReplace: (name) => onChange({ token: name })
+            }
+      }
+      unit="px"
+      comesTo={token ? `${formatNumber(token.px)}px` : undefined}
+      own={
+        own === undefined
+          ? undefined
+          : {
+              text: `${formatNumber(own.px)}px`,
+              nearest,
+              same: nearest?.px === own.px,
+              onCreate:
+                create &&
+                ((name) => {
+                  create({
+                    name,
+                    kind: "font-size",
+                    value: `${own.px}px`,
+                    detail: `${own.px}px`,
+                    px: own.px,
+                    lineHeight: Math.round(own.px * 1.5)
+                  })
+                  onChange({ token: name })
+                }),
+              allowed: own.allow,
+              onAllow: (allow) => onChange({ px: own.px, allow })
+            }
+      }
+      tokens={{
+        list: tokens,
+        current: held,
+        onPick: (name) => onChange(name === undefined ? undefined : { token: name })
+      }}
+      read={read}
+      onCommit={onChange}
+      onStep={(up, keys) => {
+        if (token) {
+          onChange({ token: stepThrough(tokens, token, up, keys).name })
+          return
+        }
+        const by = keys.shift ? 10 : 1
+        onChange({ px: Math.max(1, (px ?? inherited) + (up ? by : -by)) })
+      }}
     />
   )
 }

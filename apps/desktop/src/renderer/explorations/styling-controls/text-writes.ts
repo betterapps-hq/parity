@@ -50,6 +50,27 @@ export function fontWrites(font: FontValue | undefined): Writes {
   }
 }
 
+/** Text's size: a font size token (`xl`), or pixels of its own (22). */
+export type FontSize = { token: string } | { px: number; allow?: string }
+
+/** Text's size alone, as `text-xl` or `text-[22px]`; a size token's paired line height is lineHeightWrites' to write. */
+export function fontSizeWrites(size: FontSize | undefined): Writes {
+  if (size === undefined) return nothing
+  if ("token" in size) {
+    return {
+      stored: { token: size.token },
+      css: [`font-size: var(--text-${size.token})`],
+      tailwind: [`text-${size.token}`]
+    }
+  }
+  const value = `${formatNumber(size.px)}px`
+  return {
+    stored: { value, ...(size.allow === undefined ? {} : { allow: size.allow }) },
+    css: [`font-size: ${value}`],
+    tailwind: [`text-[${value}]`]
+  }
+}
+
 /** A weight: a font-weight token (`semibold`), or a number of its own (550). */
 export type WeightValue = { token: string } | { value: number; allow?: string }
 

@@ -388,6 +388,13 @@ export function drag(
   target.addEventListener("pointercancel", onCancel)
 }
 
+/**
+ * The color of a value a layer sets over a token or preset it follows (design-options-fields.md's Overrides part of a
+ * token): a typography preset's overridden row, a shadow token's color, and the dot on the token's pill. It's the
+ * component color, as an instance's overrides are drawn, which PAR-707's typography presets settled on.
+ */
+export const overrideColor = kindColors.component
+
 /* The field's box */
 
 /**
@@ -940,7 +947,7 @@ export function TokenChip({
       {overridden && (
         <span
           className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full ring-1 ring-background"
-          style={{ background: kindColors.agent }}
+          style={{ background: overrideColor }}
         >
           <span className="sr-only">A part is changed here</span>
         </span>

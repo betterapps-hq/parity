@@ -15,7 +15,6 @@ import {
 import type { PreviewKind } from "@parity-app/tokens"
 import { ChevronDown, ChevronRight, Ellipsis, Plus, RotateCcw, Unlink } from "lucide-react"
 import { useState } from "react"
-import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
@@ -25,6 +24,7 @@ import { usedColors } from "./data.ts"
 import {
   MessageLine,
   MissingMark,
+  overrideColor,
   type Reading,
   type ScrubKeys,
   TokenChip,
@@ -58,9 +58,6 @@ import { allShadowTokens, type ShadowToken, shadowToken } from "./tokens.ts"
  * the offset pad, or a ring's width, color and Inset. A shadow token is a chip whose layers fold under a disclosure;
  * only its color can be overridden, as Tailwind can (`shadow-lg shadow-black/20`), and the rest offers Detach.
  */
-
-/** The color a part changed on the layer is drawn in: the token chip's override dot's, and a changed field label's. */
-const overrideColor = kindColors.agent
 
 const kindNames: Record<ShadowKind, string> = { drop: "Drop shadow", inner: "Inner shadow", ring: "Ring" }
 const shadowKinds: readonly ShadowKind[] = ["drop", "inner", "ring"]
