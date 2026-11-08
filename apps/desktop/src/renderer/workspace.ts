@@ -210,13 +210,14 @@ export class Workspace {
       current = info.id
       const builder = info.builder.name
       this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
-      const session = await createSession(info, began, restored)
+      const { session, recordLoaded } = await createSession(info, began, restored)
       if (attempt.abandoned) {
         this.dropAbandoned(info.id, info.guestUrl)
         return opening
       }
       this.endAttempt(attempt, info.id)
       this.replace(info.id, { id: info.id, title: info.name, status: "ready", session })
+      recordLoaded()
       this.settleMove(info.id)
       this.remember(info.root)
       return this.getTab(info.id)!
@@ -320,10 +321,11 @@ export class Workspace {
       opened = info.id
       if (attempt.abandoned) return this.dropAbandoned(info.id)
       this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
-      const session = await createSession(info, began)
+      const { session, recordLoaded } = await createSession(info, began)
       if (attempt.abandoned) return this.dropAbandoned(info.id, info.guestUrl)
       this.endAttempt(attempt, id)
       this.replace(id, { id, title: info.name, status: "ready", session })
+      recordLoaded()
       this.settleMove(id)
     } catch (error) {
       this.endAttempt(attempt, id)
@@ -763,10 +765,15 @@ function sayWhenSavesFail(session: ProjectSession): void {
 }
 
 /**
- * Loads an opened project's guest and components into a session, and records how long that and the whole open took
- * from `began`, by `performance.now()` (PAR-637), and whether the window `restored` it as it started (PAR-694).
+ * Loads an opened project's guest and components into a session. `recordLoaded` records how long that and the whole
+ * open took from `began`, by `performance.now()` (PAR-637), and whether the window `restored` it as it started
+ * (PAR-694); it's for once the tab has the session, so an open its tab abandoned isn't counted as ready.
  */
-async function createSession(info: ProjectInfo, began: number, restored = false): Promise<ProjectSession> {
+async function createSession(
+  info: ProjectInfo,
+  began: number,
+  restored = false
+): Promise<{ session: ProjectSession; recordLoaded: () => void }> {
   const loading = performance.now()
   const loaded = await loadGuest(info.guestUrl, info.theme)
   const store = new DesignStore(
@@ -794,15 +801,16 @@ async function createSession(info: ProjectInfo, began: number, restored = false)
   sayWhenSavesFail(session)
   followCorrections(session)
   const now = performance.now()
-  track("project.loaded", {
-    name: info.name,
-    root: info.root,
-    durationMs: Math.round(now - began),
-    componentsMs: Math.round(now - loading),
-    components: info.componentCount,
-    restored
-  })
-  return session
+  const recordLoaded = () =>
+    track("project.loaded", {
+      name: info.name,
+      root: info.root,
+      durationMs: Math.round(now - began),
+      componentsMs: Math.round(now - loading),
+      components: info.componentCount,
+      restored
+    })
+  return { session, recordLoaded }
 }
 
 /**

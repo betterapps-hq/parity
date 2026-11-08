@@ -135,7 +135,7 @@ describe("starting the workspace", () => {
   })
 })
 
-describe("saying whether the window restored a project (PAR-694)", () => {
+describe("recording a project as loaded (PAR-694)", () => {
   /** Whether each `project.loaded` was for a project the window opened as it started. */
   const restored = () =>
     tracked.filter(({ name }) => name === "project.loaded").map(({ attributes }) => attributes.restored)
@@ -161,6 +161,17 @@ describe("saying whether the window restored a project (PAR-694)", () => {
     guest.loads[0]!(loaded)
     await opening
     expect(restored()).toEqual([false])
+  })
+
+  it("doesn't count a project as loaded when its tab closed while the guest loaded", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    await workspace.close(info.id)
+    guest.loads[0]!(loaded)
+    await opening
+    expect(restored()).toEqual([])
   })
 })
 
