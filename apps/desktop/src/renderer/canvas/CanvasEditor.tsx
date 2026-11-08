@@ -456,6 +456,10 @@ export function CanvasEditor({
         stopStore()
         stopHeld()
         stopTranslation()
+        // A drag still going as the canvas goes, as when its tab closes: its frame counter stops with it.
+        translation?.frames()
+        if (translation) store.endGesture(translation.gesture)
+        translation = undefined
         stopCamera()
         camera.stop()
         stopMoves()
