@@ -216,8 +216,27 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   recorded where `CanvasEditor.tsx` ends their gesture. `undoStep` is whether the design store's gesture made a step,
   and `fps` counts the animation frames drawn while it lasted.
 - **`edit.undone` and `edit.redone` come from the design store,** whichever button, key or toast undid the step.
-- **`inspector.changed` comes from where the inspector writes:** the style rows (`chrome/style-editor.ts`) and a layer's
-  text, visibility and props (`chrome/LayerPanel.tsx`). Values are JSON; a row whose layers differ was `mixed`.
+- **`inspector.changed` comes from wherever the inspector writes** (PAR-640, PAR-713), once per change made: previews,
+  such as a number prop being scrubbed, record nothing, and nor does a change that leaves the value as it was. Values
+  are JSON; a style row whose layers differ was `mixed`. Its `field` is one of:
+  - a style row, `style.*`, from `chrome/style-editor.ts`, and a layer's `text`, `hidden` and props, `props.*`, from
+    `chrome/LayerPanel.tsx`, as each is set or reset;
+  - `name`, a layer's or, with no layers, the design's (`chrome/LayerPanel.tsx`, `chrome/DesignPanel.tsx`);
+  - an image's `image.src`, `image.alt` and `image.fit`, and an instance's `instance.state` and `instance.design`, the
+    component it was swapped to;
+  - `overrides`, what a state, variant or copy changes about a layer, when they're reset all at once, from Reset, Reset
+    all or States' Reset;
+  - `bind.text` and `bind.visible`, the prop a component's layer uses (`chrome/field-prop.tsx`);
+  - `slot`, the slot a component's layout is, and `slots.*`, the layers, by id, an instance fills a slot with
+    (`chrome/slot-props.tsx`, `chrome/instance-slots.tsx`);
+  - `states`, each by id and name (`chrome/StatesSection.tsx`), and `params.*`, a component's prop or variant, a
+    variant's options by id and name (`chrome/ComponentsSection.tsx`, `chrome/slot-props.tsx`). These have no layers;
+  - `token.*`, a token's values by theme, from the Tokens panel, with no design or layers.
+
+  `updateAndRecord` in `chrome/inspector-events.ts` makes a change through the design store and reads the field back
+  from the store before and after, so a change the store refuses records nothing. Buttons that act on a whole layer,
+  such as Detach, Push to main, Make component and Wrap, aren't fields, so they aren't `inspector.changed`.
+
 - **`insert.done` comes from `canvas/insert.ts`, `canvas/drop-files.ts` and `canvas/clipboard.ts`,** so an item from the
   Assets panel or Quick insert, files dropped and a paste are each one. A paste is `clipboard.pasted` too, and a paste
   that pastes nothing is `clipboard.failed` with why.
@@ -306,7 +325,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `gesture.ended`       | info  | all  | renderer                                | A gesture ends: a drag, a resize, a run of presses, a pan or a zoom.                                         |
 | `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                   |
 | `insert.done`         | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                       |
-| `inspector.changed`   | info  | all  | renderer                                | A field in the inspector changes a layer.                                                                    |
+| `inspector.changed`   | info  | all  | renderer                                | A field in the inspector changes a layer, a design or a token.                                               |
 | `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                                      |
 | `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                             |
 | `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                     |
@@ -627,15 +646,15 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `inspector.changed`
 
-| Attribute | Type               | Meaning                                                                                              |
-| --------- | ------------------ | ---------------------------------------------------------------------------------------------------- |
-| `field`   | `string`           | What it changed: a style row (`style.padding`), a prop (`props.variant`), `text`, `hidden` or `name` |
-| `design`  | `string`           | The design, by key                                                                                   |
-| `layers`  | `string[]`         | The layers it changed                                                                                |
-| `state`   | `string`, optional | The state the edit went to, by id                                                                    |
-| `from`    | `string`           | The value before, as JSON; `mixed` when the layers differed                                          |
-| `to`      | `string`           | The value after, as JSON                                                                             |
-| `gesture` | `boolean`          | Whether it's part of a run of Up and Down presses                                                    |
+| Attribute | Type               | Meaning                                                                                                                                                                         |
+| --------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `field`   | `string`           | What it changed: a style row (`style.padding`), a prop (`props.variant`), `name`, a param (`params.size`), a token (`token.primary`) or another field the Editing section lists |
+| `design`  | `string`, optional | The design, by key; none for a token, which the whole project shares                                                                                                            |
+| `layers`  | `string[]`         | The layers it changed; none for the design's own name, states and params, or a token                                                                                            |
+| `state`   | `string`, optional | The state the edit went to, by id                                                                                                                                               |
+| `from`    | `string`           | The value before, as JSON; `mixed` when the layers differed                                                                                                                     |
+| `to`      | `string`           | The value after, as JSON                                                                                                                                                        |
+| `gesture` | `boolean`          | Whether it's part of a run of Up and Down presses                                                                                                                               |
 
 ### `ipc.failed`
 

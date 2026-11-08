@@ -32,6 +32,7 @@ import { save } from "./commands.ts"
 import { Announce, CopyOnClick, useCopy } from "./Copy.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
+import { applyToken } from "./inspector-events.ts"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
 import { onShowToken, takeShownToken } from "./shown-token.ts"
@@ -790,9 +791,7 @@ function Detail({ entry }: { entry: Kinded }) {
       stylesheet={store.stylesheet}
       lookup={(name, theme) => comesTo(panel.tokens, name, theme)}
       references={(name, theme) => builtOn(panel.tokens.get(name), theme)}
-      onApply={(changes) =>
-        store.set(Object.entries(changes).map(([theme, value]) => ({ name: token.name, theme, value })))
-      }
+      onApply={(changes) => applyToken(store, token.name, changes)}
       undo={undoLabel === `Edit ${token.name}` ? () => session.store.undo() : undefined}
     />
   )

@@ -82,16 +82,16 @@ export const editingEvents = [
       field: z
         .string()
         .describe(
-          "What it changed: a style row (`style.padding`), a prop (`props.variant`), `text`, `hidden` or `name`"
+          "What it changed: a style row (`style.padding`), a prop (`props.variant`), `name`, a param (`params.size`), a token (`token.primary`) or another field the Editing section lists"
         ),
-      design: z.string().describe("The design, by key"),
-      layers: layerIds.describe("The layers it changed"),
+      design: z.string().optional().describe("The design, by key; none for a token, which the whole project shares"),
+      layers: layerIds.describe("The layers it changed; none for the design's own name, states and params, or a token"),
       state: z.string().optional().describe("The state the edit went to, by id"),
       from: z.string().describe("The value before, as JSON; `mixed` when the layers differed"),
       to: z.string().describe("The value after, as JSON"),
       gesture: z.boolean().describe("Whether it's part of a run of Up and Down presses")
     }),
-    { level: "info", sentBy, when: "A field in the inspector changes a layer." }
+    { level: "info", sentBy, when: "A field in the inspector changes a layer, a design or a token." }
   ),
   defineEvent(
     "insert.done",

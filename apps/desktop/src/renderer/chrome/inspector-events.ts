@@ -1,7 +1,9 @@
-import type { DesignNode, NodeChange, NodeStyle } from "@parity-app/core"
+import type { ContainerSpec, DesignNode, NodeChange, NodeStyle, PatchField } from "@parity-app/core"
 import { type StyleRow, type StyleSelection, styleRows } from "@parity-app/editor"
 import type { ChangePreview } from "../canvas/change-preview.ts"
+import type { DesignStore } from "../design-store.ts"
 import { track } from "../report-error.ts"
+import type { TokenStore } from "../tokens-store.ts"
 
 /**
  * `inspector.changed` (PAR-640): what an inspector field changed, on which layers, from what to what. Values go as
@@ -9,7 +11,8 @@ import { track } from "../report-error.ts"
  */
 export interface InspectorChange {
   field: string
-  design: string
+  /** The design, by key; none for a token, which the whole project shares. */
+  design?: string
   layers: readonly string[]
   state?: string
   from: unknown
@@ -38,7 +41,7 @@ export function recordInspectorChange({
   if (!(changed ?? before !== after)) return
   track("inspector.changed", {
     field,
-    design,
+    ...(design ? { design } : {}),
     layers: [...layers],
     ...(state ? { state } : {}),
     from: before,
@@ -84,18 +87,12 @@ const styleOf = (node: DesignNode) => (node as DesignNode & { style?: NodeStyle 
  * An instance's props are its arguments, which is where a change to them goes.
  */
 export function changedFields(node: DesignNode, change: NodeChange): { field: string; from: unknown; to: unknown }[] {
-  const shown = node as DesignNode & { text?: string; props?: Record<string, unknown>; style?: NodeStyle }
-  const props = node.type === "instance" ? node.args : shown.props
-  const fields: { field: string; from: unknown; to: unknown }[] = []
-  if ("text" in change) fields.push({ field: "text", from: shown.text, to: change.text })
-  if ("hidden" in change) fields.push({ field: "hidden", from: shown.hidden ?? false, to: change.hidden })
-  for (const [name, to] of Object.entries(change.props ?? {})) {
-    fields.push({ field: `props.${name}`, from: props?.[name], to })
-  }
-  for (const [name, to] of Object.entries(change.style ?? {})) {
-    fields.push({ field: `style.${name}`, from: shown.style?.[name as keyof NodeStyle], to })
-  }
-  return fields
+  const fields: { field: PatchField; to: unknown }[] = []
+  if ("text" in change) fields.push({ field: { kind: "text" }, to: change.text })
+  if ("hidden" in change) fields.push({ field: { kind: "hidden" }, to: change.hidden })
+  for (const [key, to] of Object.entries(change.props ?? {})) fields.push({ field: { kind: "props", key }, to })
+  for (const [key, to] of Object.entries(change.style ?? {})) fields.push({ field: { kind: "style", key }, to })
+  return fields.map(({ field, to }) => ({ field: fieldName(field), from: fieldValue(node, field), to }))
 }
 
 /**
@@ -146,4 +143,86 @@ export class PreviewedProp {
     this.before = undefined
     this.preview.cancel()
   }
+}
+
+/** What a change to a design records: its field, the layers it's on, and how to read the field's value off the design. */
+export interface DesignField {
+  field: string
+  /** The layers it changes; none for a field of the design itself, such as its name, states or params. */
+  layers?: readonly string[]
+  state?: string
+  read: (container: ContainerSpec) => unknown
+}
+
+/**
+ * Changes a design through the store as one undo step and records it as `inspector.changed` (PAR-713), with the field
+ * as the design reads before and after. Reading it back from the store, a change that left it as it was, or that the
+ * store didn't make, records nothing; one that throws records nothing either.
+ */
+export function updateAndRecord(
+  store: Pick<DesignStore, "getEntry" | "updateContainer">,
+  key: string,
+  label: string,
+  update: (container: ContainerSpec) => ContainerSpec,
+  { field, layers = [], state, read }: DesignField
+): void {
+  const before = store.getEntry(key)?.container
+  store.updateContainer(key, label, update)
+  const after = store.getEntry(key)?.container
+  if (!before || !after || before === after) return
+  recordInspectorChange({
+    field,
+    design: key,
+    layers,
+    ...(state ? { state } : {}),
+    from: read(before),
+    to: read(after)
+  })
+}
+
+/** A layer field's name as `inspector.changed` sends it: `text`, `hidden`, `props.*` or `style.*`. */
+export function fieldName(field: PatchField): string {
+  return field.kind === "props" || field.kind === "style" ? `${field.kind}.${field.key}` : field.kind
+}
+
+/** What a layer shows in a field, as `changedFields` reads it: an instance's props are its arguments. */
+export function fieldValue(node: DesignNode | undefined, field: PatchField): unknown {
+  if (!node) return undefined
+  const shown = node as DesignNode & { text?: string; props?: Record<string, unknown>; style?: NodeStyle }
+  if (field.kind === "text") return shown.text
+  if (field.kind === "hidden") return shown.hidden ?? false
+  const { key } = field as Extract<PatchField, { key: string }>
+  if (field.kind === "style") return shown.style?.[key as keyof NodeStyle]
+  return (node.type === "instance" ? node.args : shown.props)?.[key]
+}
+
+/** A component design's param as `inspector.changed` sends it: a variant's options by id and name, not what they change. */
+export function paramValue(container: ContainerSpec, name: string): unknown {
+  const param = container.params?.[name]
+  if (!param?.options) return param
+  return { ...param, options: param.options.map(({ id, name: option }) => ({ id, name: option })) }
+}
+
+/** A design's states as `inspector.changed` sends them: each one's id and name, not what it changes. */
+export function statesValue(container: ContainerSpec): unknown {
+  return container.states.map(({ id, name }) => ({ id, name }))
+}
+
+/**
+ * Changes a token's values, by theme, as one undoable step, and records it as `inspector.changed` (PAR-713): the
+ * themes it sets, with what the token had in each before and after.
+ */
+export function applyToken(
+  store: Pick<TokenStore, "get" | "set">,
+  name: string,
+  changes: Record<string, string>
+): void {
+  const themes = Object.keys(changes)
+  const values = () => {
+    const token = store.get().find((candidate) => candidate.name === name)
+    return Object.fromEntries(themes.map((theme) => [theme, token?.values[theme] ?? null]))
+  }
+  const from = values()
+  store.set(themes.map((theme) => ({ name, theme, value: changes[theme]! })))
+  recordInspectorChange({ field: `token.${name}`, layers: [], from, to: values() })
 }
