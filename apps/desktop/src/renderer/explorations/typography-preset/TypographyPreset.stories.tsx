@@ -54,7 +54,7 @@ export const Picking: Story = {
     const folded = version(canvasElement, "Folded into the preset")
     await userEvent.click(folded.getByRole("button", { name: "Typography preset: subtitle1" }))
     const list = within(await screen.findByRole("listbox"))
-    await expect(list.getByRole("group", { name: "From Fluent's typographyStyles" })).toBeInTheDocument()
+    await expect(list.getByRole("group", { name: "From Fluent" })).toBeInTheDocument()
     await userEvent.click(list.getByRole("option", { name: /^title3/ }))
     await expect(folded.getByRole("button", { name: "Typography preset: title3" })).toBeVisible()
     await expect(folded.getByRole("button", { name: "Show what title3 sets" })).toHaveTextContent(

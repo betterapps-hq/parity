@@ -49,7 +49,7 @@ export const viewports: { id: ViewportId; name: string; width: number }[] = [
 
 export interface Preset {
   name: string
-  /** Where it comes from, in the library's own words. */
+  /** Where it comes from, shown as "From Fluent": the design language, never its API's name for presets. */
   source: string
   values: TypeValues
   /** What it changes from a viewport width up, as the project's CSS redefines it there. */
@@ -92,7 +92,7 @@ const tailwindBreakpoints = [
 
 const segoe = `"Segoe UI", "Segoe UI Web (West European)", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif`
 
-const fluentSource = "Fluent's typographyStyles"
+const fluentSource = "Fluent"
 const fluent = (name: string, size: number, lineHeight: number, weight: number): Preset => ({
   name,
   source: fluentSource,
@@ -100,7 +100,7 @@ const fluent = (name: string, size: number, lineHeight: number, weight: number):
 })
 
 const roboto = `"Roboto", "Helvetica", "Arial", sans-serif`
-const muiSource = "Material UI's typography variants"
+const muiSource = "Material UI"
 const mui = (
   name: string,
   weight: number,
@@ -130,7 +130,7 @@ const mui = (
   })
 })
 
-const chakraSource = "Chakra's textStyles"
+const chakraSource = "Chakra"
 const chakra = (name: string, size: number, lineHeight: number, extra: TypeValues = {}): Preset => ({
   name,
   source: chakraSource,
@@ -290,12 +290,12 @@ export const projects: PresetProject[] = [
     presets: [
       {
         name: "tiny",
-        source: "Tailwind's @theme",
+        source: "Tailwind",
         values: { size: 10, lineHeight: { px: 24 }, letterSpacing: { px: 2 }, weight: 500 }
       },
       {
         name: "body",
-        source: "tokens.json",
+        source: "design tokens",
         values: { font: "Geist", size: 16, weight: 600, lineHeight: { multiple: 1.5 } }
       }
     ],
