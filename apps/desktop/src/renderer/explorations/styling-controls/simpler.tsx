@@ -895,7 +895,7 @@ export function SimpleColor({
       <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
         <div className={box(refused || typedColor.error || typedAlpha.error, "pl-1.5")}>
           {(!named || typing) && (
-            <Hint label="Color picker">
+            <Hint label="Picker">
               <PopoverTrigger
                 aria-label={`${label} color picker`}
                 className="grid size-5 shrink-0 place-items-center rounded outline-none hover:bg-background/70 focus-visible:ring-2 focus-visible:ring-ring"

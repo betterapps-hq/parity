@@ -417,6 +417,9 @@ function bareBox(error: boolean, extra: string): string {
 }
 
 const inputBase = "w-0 flex-1 bg-transparent tabular-nums outline-none placeholder:text-muted-foreground"
+/** The input as wide as what's in it, so a mark after it sits beside the value rather than at the field's end. */
+const inputBeside =
+  "[field-sizing:content] max-w-full shrink bg-transparent tabular-nums outline-none placeholder:text-muted-foreground"
 
 /** The input inside a field's box. */
 export const fieldInput = `${inputBase} min-w-0`
@@ -1653,6 +1656,8 @@ export function ValueField<T>({
   // isn't a token (a font), and a value set for a theme.
   let mark: ReactNode
   if (!typing) mark = showChip ? status?.theme : (status?.missing ?? status?.theme)
+  // A mark sits right after the value or pill it's about; the room kept at the end is for the field's button.
+  const beside = mark !== undefined && !bare
 
   // A narrow field has room for one thing after the value: its status mark takes the unit's place, which its hint names.
   const showUnit =
@@ -1687,13 +1692,16 @@ export function ValueField<T>({
       <div className={bare ? bareBox(error, boxExtra) : fieldBox(error, boxExtra)}>
         {labelSlot}
         {picker?.swatch !== undefined && !showChip && (
-          <PopoverTrigger
-            aria-label={`${label} picker`}
-            disabled={disabled}
-            className="-ml-0.5 grid size-5 shrink-0 place-items-center rounded-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {picker.swatch}
-          </PopoverTrigger>
+          // Named as the end button is, since both open the picker; the field's text already says what's set.
+          <Hint label="Picker">
+            <PopoverTrigger
+              aria-label={`${label} picker`}
+              disabled={disabled}
+              className="-ml-0.5 grid size-5 shrink-0 place-items-center rounded-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {picker.swatch}
+            </PopoverTrigger>
+          </Hint>
         )}
         {showChip && (
           <TokenChip
@@ -1716,6 +1724,8 @@ export function ValueField<T>({
             onRemove={detach}
           />
         )}
+        {/* A pill's mark goes right after it, ahead of the empty input that takes what's typed over it. */}
+        {showChip && mark}
         <input
           ref={input}
           aria-label={label}
@@ -1794,13 +1804,24 @@ export function ValueField<T>({
             }
             typed.input.onKeyDown(event)
           }}
-          className={`${inputBase} ${showChip ? "min-w-1" : "min-w-6"} ${muted && !typing ? "text-muted-foreground" : ""} ${said && !typing ? "text-destructive" : ""} ${typed.focused ? "" : "truncate"} ${bare ? "text-center" : ""} ${inputClassName}`}
+          className={`${beside ? inputBeside : inputBase} ${showChip ? "min-w-1" : "min-w-6"} ${muted && !typing ? "text-muted-foreground" : ""} ${said && !typing ? "text-destructive" : ""} ${typed.focused ? "" : "truncate"} ${bare ? "text-center" : ""} ${inputClassName}`}
         />
         {comesTo && !narrow && !showChip && !typed.focused && !typed.error && (
           <span className="min-w-0 shrink truncate text-muted-foreground/70 tabular-nums">{comesTo}</span>
         )}
         {unitPart}
-        {mark}
+        {!showChip && mark}
+        {beside && (
+          // The rest of the field still takes the caret, as the input would.
+          <span
+            aria-hidden
+            className="h-full min-w-0 flex-1 cursor-text"
+            onPointerDown={(event) => {
+              event.preventDefault()
+              input.current?.focus()
+            }}
+          />
+        )}
         {showChip && !bare && (
           <Hint
             label="Detach"
