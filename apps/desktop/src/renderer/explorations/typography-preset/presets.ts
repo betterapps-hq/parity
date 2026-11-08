@@ -533,6 +533,12 @@ export function formatValue(field: TypeField, value: TypeValue | undefined): str
   }
 }
 
+/** Size over line height in pixels, "20/28", or the size alone when the line height isn't set. */
+export function sizeAndLine(project: PresetProject, values: TypeValues): string {
+  const size = values.size ?? project.inherited.size
+  return values.lineHeight ? `${number(size)}/${number(lineHeightPx(values.lineHeight, size))}` : number(size)
+}
+
 /** A preset's one-line summary, as Figma's styles read: "Segoe UI 20/28 Semibold". */
 export function summary(project: PresetProject, values: TypeValues): string {
   const size = values.size ?? project.inherited.size

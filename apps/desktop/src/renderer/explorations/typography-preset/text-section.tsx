@@ -67,6 +67,7 @@ import {
   setOwn,
   type Shown,
   shownAt,
+  sizeAndLine,
   summary,
   type TextCase,
   type TextLayer,
@@ -398,7 +399,7 @@ function PresetRow({
         )
       }
     >
-      <PresetPicker project={project} value={layer.preset} overrides={overrides} onPick={onPick} />
+      <PresetPicker project={project} value={layer.preset} viewport={viewport} overrides={overrides} onPick={onPick} />
     </Row>
   )
 }
@@ -483,23 +484,40 @@ const overrideCountText = (count: number) => (count === 1 ? "1 override" : `${co
 const largestPreview = 28
 
 /**
- * Picks one of the project's presets, each drawn in its own font, size and weight, under where it comes from. The
- * trigger is the preset's chip, with a dot while the layer overrides part of it.
+ * Picks one of the project's presets, each on one line: its name drawn in its own font, size and weight, then its size
+ * and line height in the viewport shown, under where it comes from. The trigger is the preset's chip, with a dot while
+ * the layer overrides part of it.
  */
 function PresetPicker({
   project,
   value,
+  viewport,
   overrides,
   onPick
 }: {
   project: PresetProject
   value: string | undefined
+  viewport: ViewportId
   overrides: number
   onPick: (name: string | undefined) => void
 }) {
   const [open, setOpen] = useState(false)
   const current = presetByName(project, value)
   const groups = Map.groupBy(project.presets, (preset) => preset.source)
+  // Opens scrolled to the preset the layer has, once: scrolling the list itself, so nothing around it moves, and not
+  // again as the pointer highlights other presets.
+  const list = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const frame = requestAnimationFrame(() => {
+      const element = list.current
+      const selected = element?.querySelector<HTMLElement>("[data-selected=true]")
+      if (!element || !selected) return
+      const offset = selected.getBoundingClientRect().top - element.getBoundingClientRect().top
+      element.scrollTop += offset - (element.clientHeight - selected.offsetHeight) / 2
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [open])
   const pick = (name: string | undefined) => {
     onPick(name)
     setOpen(false)
@@ -539,13 +557,9 @@ function PresetPicker({
         }
       />
       <PopoverContent className="w-72 p-0" align="start">
-        {/* Opens on the preset the layer has, scrolled to it. */}
         <Command defaultValue={current?.name ?? "__none"}>
           <CommandInput placeholder="Search presets" className="h-8 text-xs" />
-          <CommandList
-            className="max-h-96"
-            ref={(list) => list?.querySelector("[data-selected=true]")?.scrollIntoView({ block: "center" })}
-          >
+          <CommandList ref={list} className="max-h-96">
             <CommandEmpty>No preset matches.</CommandEmpty>
             <CommandGroup>
               <CommandItem value="__none" onSelect={() => pick(undefined)} className="text-xs text-muted-foreground">
@@ -560,18 +574,15 @@ function PresetPicker({
                     key={preset.name}
                     value={preset.name}
                     onSelect={() => pick(preset.name)}
-                    className="items-start gap-2"
+                    className="gap-2"
                   >
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-foreground" style={previewStyle(project, preset)}>
-                        {preset.name}
-                      </span>
-                      <span className="truncate text-[11px] text-muted-foreground">
-                        {summary(project, preset.values)}
-                        {preset.from && ", changes with the viewport"}
-                      </span>
+                    <span className="min-w-0 flex-1 truncate text-foreground" style={previewStyle(project, preset)}>
+                      {preset.name}
                     </span>
-                    {preset.name === value && <Check className="mt-1 size-3.5 shrink-0" />}
+                    <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                      {sizeAndLine(project, presetAt(preset, viewport))}
+                    </span>
+                    <Check className={`size-3.5 shrink-0 ${preset.name === value ? "" : "invisible"}`} />
                   </CommandItem>
                 ))}
               </CommandGroup>
