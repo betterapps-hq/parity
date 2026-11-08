@@ -1,5 +1,6 @@
 import type { DesignNode, NodeChange, NodeStyle } from "@parity-app/core"
 import { type StyleRow, type StyleSelection, styleRows } from "@parity-app/editor"
+import type { ChangePreview } from "../canvas/change-preview.ts"
 import { track } from "../report-error.ts"
 
 /**
@@ -78,4 +79,54 @@ export function changedFields(node: DesignNode, change: NodeChange): { field: st
     fields.push({ field: `style.${name}`, from: shown.style?.[name as keyof NodeStyle], to })
   }
   return fields
+}
+
+/**
+ * Makes a change to a layer, as part of a gesture's one undo step when given. It's recorded against `shown`, the layer
+ * as it was shown before, unless that's `false`, as for a preview.
+ */
+export type LayerChange = (label: string, value: NodeChange, gesture?: string, shown?: DesignNode | false) => void
+
+/** Records each field a layer's change sets, as `inspector.changed`, with what the layer showed before (PAR-640). */
+export function recordLayerChange(
+  design: string,
+  layers: string[],
+  state: string,
+  node: DesignNode,
+  change: NodeChange,
+  gesture: string | undefined
+): void {
+  for (const { field, from, to } of changedFields(node, change)) {
+    recordInspectorChange({ field, design, layers, state, from, to, ...(gesture ? { gesture } : {}) })
+  }
+}
+
+/**
+ * A component prop shown by being made before it's changed, as a number prop is while it's scrubbed or typed (see
+ * `ChangePreview`). Previews aren't recorded, and nor is one taken back. The change made is, once, from the layer as it
+ * showed before the first preview.
+ */
+export class PreviewedProp {
+  private before: DesignNode | undefined
+
+  constructor(private readonly preview: Pick<ChangePreview, "show" | "commit" | "cancel">) {}
+
+  /** Shows `value` on the layer, which `node` is as it's shown now. */
+  show(node: DesignNode, change: LayerChange, label: string, value: NodeChange): void {
+    this.before ??= node
+    this.preview.show((gesture) => change(label, value, gesture, false))
+  }
+
+  /** Makes the change, in place of what's previewed. */
+  commit(node: DesignNode, change: LayerChange, label: string, value: NodeChange, gesture?: string): void {
+    const shown = this.before ?? node
+    this.before = undefined
+    this.preview.commit((made) => change(label, value, made, shown), gesture)
+  }
+
+  /** Takes the preview back, recording nothing. */
+  cancel(): void {
+    this.before = undefined
+    this.preview.cancel()
+  }
 }

@@ -26,7 +26,6 @@ import {
   locateInner,
   locateNode,
   mapNode,
-  type NodeChange,
   nodeOnBoard,
   type NodePatch,
   overrideCount,
@@ -43,7 +42,7 @@ import {
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
-import { type ReactNode, useRef, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
@@ -60,7 +59,7 @@ import { ExportSection } from "./ExportSection.tsx"
 import { FieldWithProp } from "./field-prop.tsx"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
-import { changedFields, recordInspectorChange } from "./inspector-events.ts"
+import { type LayerChange, PreviewedProp, recordLayerChange } from "./inspector-events.ts"
 import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
@@ -332,10 +331,7 @@ function LayerSections({
   const styleEditor = useStyleEditor(entry, [nodeId])
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
   const propPreview = useChangePreview(session.store, entry.key)
-  // A preview isn't recorded; the change made is, from what the layer showed before the preview (PAR-640).
-  const beforePreview = useRef<DesignNode | undefined>(undefined)
-  const setProp = (name: string, value: unknown, shown: DesignNode | false) => (gesture?: string) =>
-    change(`Change ${name}`, propChange(name, value), gesture, shown)
+  const previewedProp = useMemo(() => new PreviewedProp(propPreview), [propPreview])
   // A component design's own layers can use its props for their text and visibility; a copy's can't.
   const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
   const withProp = (field: BindableField, input: ReactNode) =>
@@ -393,18 +389,11 @@ function LayerSections({
           info={components[node.component]}
           changed={(name) => changesField(override, { kind: "props", key: name })}
           taken={override?.unset?.props}
-          onChange={(name, value, gesture) => {
-            propPreview.commit(setProp(name, value, beforePreview.current ?? node), gesture)
-            beforePreview.current = undefined
-          }}
-          onPreview={(name, value) => {
-            beforePreview.current ??= node
-            propPreview.show(setProp(name, value, false))
-          }}
-          onCancel={() => {
-            propPreview.cancel()
-            beforePreview.current = undefined
-          }}
+          onChange={(name, value, gesture) =>
+            previewedProp.commit(node, change, `Change ${name}`, propChange(name, value), gesture)
+          }
+          onPreview={(name, value) => previewedProp.show(node, change, `Change ${name}`, propChange(name, value))}
+          onCancel={() => previewedProp.cancel()}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
@@ -859,24 +848,4 @@ export function renameLayer(container: ContainerSpec, nodeId: string, name: stri
     return next
   })
   return { ...container, root }
-}
-
-/**
- * Makes a change to a layer, as part of a gesture's one undo step when given. It's recorded against `shown`, the layer
- * as it was shown before, unless that's `false`, as for a preview.
- */
-type LayerChange = (label: string, value: NodeChange, gesture?: string, shown?: DesignNode | false) => void
-
-/** Records each field a layer's change sets, as `inspector.changed`, with what the layer showed before (PAR-640). */
-function recordLayerChange(
-  design: string,
-  layers: string[],
-  state: string,
-  node: DesignNode,
-  change: NodeChange,
-  gesture: string | undefined
-): void {
-  for (const { field, from, to } of changedFields(node, change)) {
-    recordInspectorChange({ field, design, layers, state, from, to, ...(gesture ? { gesture } : {}) })
-  }
 }

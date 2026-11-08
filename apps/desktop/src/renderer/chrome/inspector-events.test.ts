@@ -1,8 +1,17 @@
-import type { DesignNode } from "@parity-app/core"
+import { type ContainerSpec, type DesignNode, defaultModeSettings, editNode, findNode } from "@parity-app/core"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { afterEach, describe, expect, it } from "vite-plus/test"
+import { ChangePreview } from "../canvas/change-preview.ts"
+import { DesignStore } from "../design-store.ts"
 import { setWindowTelemetry } from "../report-error.ts"
-import { changedFields, mixed, recordInspectorChange } from "./inspector-events.ts"
+import {
+  changedFields,
+  type LayerChange,
+  mixed,
+  PreviewedProp,
+  recordInspectorChange,
+  recordLayerChange
+} from "./inspector-events.ts"
 
 const sink = createTestSink()
 
@@ -64,5 +73,67 @@ describe("recordInspectorChange", () => {
     expect(sink.named("inspector.changed").map((event) => event.attributes)).toEqual([
       { field: "style.padding", design: "app.par#home", layers: ["a", "b"], from: "mixed", to: "mixed", gesture: false }
     ])
+  })
+})
+
+describe("a component prop previewed by being made", () => {
+  const key = "app.par#home"
+
+  /** A design holding an icon whose size is 16, changed as the Layers panel changes it, with each render's layer. */
+  function setup() {
+    setWindowTelemetry(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "renderer", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+    const home: ContainerSpec = {
+      id: "home",
+      name: "home",
+      position: { x: 0, y: 0 },
+      root: {
+        type: "layout",
+        id: "root",
+        children: [{ type: "component", id: "icon", component: "lucide/Hexagon", props: { size: 16 } }]
+      },
+      states: [{ id: "default", name: "Default" }]
+    }
+    const store = new DesignStore(
+      [{ path: "app.par", document: { version: 3, containers: [home] } }],
+      defaultModeSettings,
+      "app.par",
+      { saveDocument: async () => undefined, autosave: () => false }
+    )
+    // The layer as the panel shows it now: a preview shows by being made, so it shows the previewed size.
+    const node = () => findNode(store.getEntry(key)!.container.root, "icon")!
+    const change: LayerChange = (label, value, gesture, shown = node()) => {
+      store.updateContainer(key, label, (current) => editNode(current, "default", "icon", value), { gesture })
+      if (shown) recordLayerChange(key, ["icon"], "default", shown, value, gesture)
+    }
+    const prop = new PreviewedProp(new ChangePreview(store, key))
+    const size = (to: number) => ({ props: { size: to } })
+    const recorded = () =>
+      sink.named("inspector.changed").map(({ attributes }) => ({ from: attributes.from, to: attributes.to }))
+    return { node, change, prop, size, recorded }
+  }
+
+  it("records nothing as it's previewed, and the change once, from the size before the first preview", () => {
+    const { node, change, prop, size, recorded } = setup()
+    for (const to of [20, 24, 28]) prop.show(node(), change, "Change size", size(to))
+    expect(recorded()).toEqual([])
+    prop.commit(node(), change, "Change size", size(28))
+    expect(recorded()).toEqual([{ from: "16", to: "28" }])
+  })
+
+  it("records nothing when the preview is taken back, as Escape does", () => {
+    const { node, change, prop, size, recorded } = setup()
+    prop.show(node(), change, "Change size", size(20))
+    prop.cancel()
+    expect(recorded()).toEqual([])
+    // The next change starts from the size the layer has again.
+    prop.commit(node(), change, "Change size", size(18))
+    expect(recorded()).toEqual([{ from: "16", to: "18" }])
   })
 })
