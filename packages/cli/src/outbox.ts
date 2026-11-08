@@ -99,6 +99,8 @@ export function thrownError(error: unknown): ThrownError {
 /** Batches older than this are dropped unsent, as from a computer that's been offline. */
 const keptMs = 24 * 60 * 60 * 1000
 
+let written = 0
+
 /**
  * Writes a batch to the folder, whole or not at all, so the sender never reads half of one. Synchronous, since it runs
  * as the process exits. Nothing is written for an empty batch.
@@ -106,7 +108,9 @@ const keptMs = 24 * 60 * 60 * 1000
 export function writeBatch(folder: string, batch: Batch): string | undefined {
   if (batch.items.length === 0) return undefined
   mkdirSync(folder, { recursive: true })
-  const name = `${Date.now()}-${randomUUID()}.json`
+  // The count keeps a process's batches in order when two are written in the same millisecond.
+  written += 1
+  const name = `${Date.now()}-${String(written).padStart(6, "0")}-${randomUUID()}.json`
   const partial = join(folder, `${name}.partial`)
   writeFileSync(partial, JSON.stringify(batch))
   renameSync(partial, join(folder, name))
