@@ -13,7 +13,9 @@ import {
 } from "@parity-app/project"
 import type { ComponentPreview, PreviewJob } from "../shared/protocol.ts"
 import { previewName } from "../shared/render-job.ts"
+import { track } from "../shared/tracing.ts"
 import { previewIndex, storedPreview, storePreview } from "./bitmap-store.ts"
+import { cacheUse } from "./cache-use.ts"
 import type { OpenProjects } from "./projects.ts"
 import { renderPreview } from "./render.ts"
 import { losslessWebp } from "./webp.ts"
@@ -60,8 +62,12 @@ export function componentPreviews(projects: PreviewProjects): {
   return {
     /** What's kept of each preview for its job's code, in the order asked; one whose project isn't open is left out. */
     async lookupPreviews(previews) {
-      const found = await Promise.all(previews.map(lookup))
-      return found.filter((preview) => preview !== undefined)
+      const found = (await Promise.all(previews.map(lookup))).filter((preview) => preview !== undefined)
+      // What's kept for its code, a picture or that it failed or drew nothing, is a hit, since it isn't drawn again; one
+      // kept only for older code, or never drawn, is a miss.
+      for (const { image, error, empty } of found)
+        cacheUse.preview(image !== undefined || error !== undefined || !!empty)
+      return found
     },
 
     /**
@@ -92,13 +98,20 @@ async function make(
 ): Promise<ComponentPreview> {
   const { key } = looked
   const started = performance.now()
-  const drawn = await renderPreview(job, previewRootId, priority)
+  const took = () => Math.round(performance.now() - started)
+  const drawn = await renderPreview(job, previewRootId, priority).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error)
+    track("preview.failed", { component, reason: "not finished", message, durationMs: took() })
+    throw error
+  })
   if ("error" in drawn) {
+    track("preview.failed", { component, reason: "render threw", message: drawn.error, durationMs: took() })
     await storePreview(job.projectId, component, { key, error: drawn.error })
     return { component, key, error: drawn.error }
   }
   // A picture of nothing isn't kept, only that there was nothing to see, so it isn't drawn again on every open.
   if ("empty" in drawn) {
+    track("preview.failed", { component, reason: "drew nothing", durationMs: took() })
     await storePreview(job.projectId, component, { key, empty: true })
     return { component, key, empty: true }
   }
@@ -110,9 +123,8 @@ async function make(
   const pictures = { thumb: thumbWebp!, large: largeWebp! }
   const image = await storePreview(job.projectId, component, { key }, pictures, { width, height })
   const bytes = pictures.thumb.length + pictures.large.length
-  console.log(
-    `[service] preview of ${component}: ${width}x${height}, ${Math.round(bytes / 1024)} KB, ${Math.round(performance.now() - started)} ms`
-  )
+  track("preview.made", { component, durationMs: took(), width, height, bytes })
+  console.log(`[service] preview of ${component}: ${width}x${height}, ${Math.round(bytes / 1024)} KB, ${took()} ms`)
   return image ? { component, key, image } : looked
 }
 
