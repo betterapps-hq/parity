@@ -18,7 +18,7 @@ import {
 import { useProject } from "../canvas/context.ts"
 import { designColor, kindColors, layerLabel } from "../canvas/kinds.tsx"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
-import { alignSelection, deleteSelection, distributeSelection, duplicateSelection, wrapSelection } from "./commands.ts"
+import { actions } from "./actions.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
@@ -46,11 +46,26 @@ const alignments: { value: Alignment; label: string; shortcut: string; icon: typ
   { value: "bottom", label: "Align bottom", shortcut: keymap.alignBottom.keys[0], icon: AlignEndHorizontal }
 ]
 
+/** Each button's command, so it runs as its keys do and Repeat last action can run it again. */
+const alignCommands = {
+  left: "alignLeft",
+  center: "alignCenter",
+  right: "alignRight",
+  top: "alignTop",
+  middle: "alignMiddle",
+  bottom: "alignBottom"
+} as const
+
 function AlignButtons({ distribute }: { distribute?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-0.5">
       {alignments.map(({ value, label, shortcut, icon: Icon }) => (
-        <IconButton key={value} label={label} shortcut={shortcut} onClick={() => alignSelection(value)}>
+        <IconButton
+          key={value}
+          label={label}
+          shortcut={shortcut}
+          onClick={() => void actions[alignCommands[value]].run()}
+        >
           <Icon />
         </IconButton>
       ))}
@@ -60,14 +75,14 @@ function AlignButtons({ distribute }: { distribute?: boolean }) {
           <IconButton
             label="Distribute horizontal spacing"
             shortcut={keymap.distributeHorizontal.keys[0]}
-            onClick={() => distributeSelection("horizontal")}
+            onClick={() => void actions.distributeHorizontal.run()}
           >
             <AlignHorizontalSpaceAround />
           </IconButton>
           <IconButton
             label="Distribute vertical spacing"
             shortcut={keymap.distributeVertical.keys[0]}
-            onClick={() => distributeSelection("vertical")}
+            onClick={() => void actions.distributeVertical.run()}
           >
             <AlignVerticalSpaceAround />
           </IconButton>
@@ -96,10 +111,15 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
         <AlignButtons distribute={entries.length > 2} />
       </PanelSection>
       <div className={`flex gap-2 py-3 pl-4 ${panelEnd}`}>
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => duplicateSelection()}>
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => void actions.duplicate.run()}>
           <Copy /> Duplicate
         </Button>
-        <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={() => deleteSelection()}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-destructive"
+          onClick={() => void actions.delete.run()}
+        >
           <Trash2 /> Delete
         </Button>
       </div>
@@ -139,7 +159,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
       <PanelSection title="Arrange">
         <div className="flex flex-col gap-2">
           <AlignButtons />
-          <Button variant="outline" size="sm" onClick={() => wrapSelection()}>
+          <Button variant="outline" size="sm" onClick={() => void actions.wrap.run()}>
             <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
           </Button>
         </div>

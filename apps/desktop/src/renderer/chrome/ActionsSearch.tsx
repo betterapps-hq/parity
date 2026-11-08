@@ -96,7 +96,9 @@ const extras: Item[] = [
 /** The selected screen, on its own, which Find repeated parts looks in. */
 const selectedScreen = () => {
   const entry = selectedDesign()
-  return entry && entry.container.kind !== "component" && !activeSession()?.selection.get().node ? entry : undefined
+  // Components and frames have no Repeated parts section; a design with no kind is a screen.
+  const screen = entry && (entry.container.kind ?? "screen") === "screen"
+  return screen && !activeSession()?.selection.get().node ? entry : undefined
 }
 
 /** Inserts a component again in the active tab's project, through its offer as it stands now. */

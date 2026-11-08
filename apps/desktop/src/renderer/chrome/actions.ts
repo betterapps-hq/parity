@@ -233,6 +233,20 @@ const repeatable: readonly Command[] = [
   "distributeVertical"
 ]
 
+/**
+ * Remembers a repeatable command done some other way than its action, as New screen where the canvas was right-clicked,
+ * so Repeat follows the last change, however it was made.
+ */
+export function rememberCommand(command: Command): void {
+  if (!repeatable.includes(command)) return
+  const action = keymapActions[command]
+  rememberAction({
+    label: keymap[command].label,
+    run: () => action.run(),
+    available: () => action.available?.() !== false
+  })
+}
+
 /** The repeatable commands' actions remember themselves each time they run, however they're run. */
 const remembering: Record<Command, Action> = { ...keymapActions }
 for (const command of repeatable) {
@@ -240,11 +254,7 @@ for (const command of repeatable) {
   remembering[command] = {
     ...action,
     run: (event) => {
-      rememberAction({
-        label: keymap[command].label,
-        run: () => action.run(),
-        available: () => action.available?.() !== false
-      })
+      rememberCommand(command)
       return action.run(event)
     }
   }
