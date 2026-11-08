@@ -8,13 +8,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { type BindableField, bindableProps, bindField, propFromField } from "@parity-app/core"
+import { type BindableField, bindableProps, bindField, findNode, propFromField } from "@parity-app/core"
 import { Link2, Plus, X } from "lucide-react"
 import type { ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
+import { updateAndRecord } from "./inspector-events.ts"
 import { revealSelection } from "./reveal.ts"
 
 const propColor = kindColors.component
@@ -45,8 +46,13 @@ export function FieldWithProp({
   const session = useProject()
   const { store } = session
   const { key, container } = entry
+  // Each change records the prop the field uses, before and after (PAR-713).
   const update = (label: string, change: Parameters<typeof store.updateContainer>[2]) =>
-    store.updateContainer(key, label, change)
+    updateAndRecord(store, key, label, change, {
+      field: `bind.${field}`,
+      layers: [nodeId],
+      read: (current) => findNode(current.root, nodeId)?.bind?.[field]
+    })
   if (bound !== undefined) {
     return (
       <div className="group relative min-w-0">
