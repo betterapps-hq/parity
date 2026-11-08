@@ -5,9 +5,9 @@ import { useProject } from "../canvas/context.ts"
 import { tally, useConsole } from "../console-store.ts"
 import { type DesignStore, useSaveState } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
-import { save } from "./commands.ts"
+import { actions } from "./actions.ts"
 import { Hint } from "./Hint.tsx"
-import { setLayout, toggleConsole, useLayout } from "./layout.ts"
+import { setLayout, useLayout } from "./layout.ts"
 import { PerformanceStats } from "./PerformanceStats.tsx"
 import { usePreferences } from "./preferences.ts"
 import { Processes } from "./Processes.tsx"
@@ -170,7 +170,7 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
         icon={<SquareTerminal className="size-3.5" />}
         hint="Console"
         detail={detail}
-        onClick={toggleConsole}
+        onClick={() => void actions.console.run("panel")}
         pressed={open}
       >
         <Words>Console</Words>
@@ -189,7 +189,7 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
       }
       hint={`${said.join(" and ")} from the designs`}
       detail={detail}
-      onClick={toggleConsole}
+      onClick={() => void actions.console.run("panel")}
       pressed={open}
     >
       <strong className="font-medium text-foreground tabular-nums">{errors > 0 ? errors : warnings}</strong>
@@ -218,7 +218,7 @@ function SaveFailure({ store }: { store: DesignStore }) {
       icon={<TriangleAlert className="size-3.5 text-destructive" />}
       hint="Couldn't save"
       detail="Click to try again"
-      onClick={() => void save()}
+      onClick={() => void actions.save.run("panel")}
     >
       <Words>
         <span className="text-destructive">Couldn&apos;t save</span>

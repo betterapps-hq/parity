@@ -58,7 +58,7 @@ describe("inSpan", () => {
   it("nests under the span this process is working in, or a parent given for work queued earlier", async () => {
     sink.clear()
     await inSpan("agent.called", { method: "screenshot" }, () =>
-      inSpan("frame.drawn", { priority: "render", queuedMs: 3, whole: true }, () => undefined)
+      inSpan("frame.rendered", { priority: "render", queuedMs: 3, whole: true }, () => undefined)
     )
     const [drawn, called] = sink.spans
     expect(drawn?.parentSpanId).toBe(called?.spanId)

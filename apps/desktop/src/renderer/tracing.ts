@@ -68,12 +68,15 @@ export function keepTrace(): <T>(work: () => T) => T {
   }
 }
 
+/** What `command.ran` records of a command as it starts. */
+export type CommandAttributes = EventAttributes<Events, "command.ran">
+
 /**
- * Runs an action in a trace of its own, by its ID, which lasts until what it returns settles when that's a promise.
- * What it returns or throws passes through unchanged.
+ * Runs a command in a trace of its own, recorded as `command.ran`, which lasts until what it returns settles when that's
+ * a promise. What it returns or throws passes through unchanged.
  */
-export function tracedAction<T>(action: string, work: () => T): T {
-  const trace = startTrace("action.ran", { action })
+export function tracedCommand<T>(attributes: CommandAttributes, work: () => T): T {
+  const trace = startTrace("command.ran", attributes)
   let result: T
   try {
     result = work()

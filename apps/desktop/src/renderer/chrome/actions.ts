@@ -1,7 +1,6 @@
 import type { ContainerKind } from "@parity-app/core"
 import { selectedDesigns, selectedNodes } from "@parity-app/editor"
 import type { Tool } from "../selection.ts"
-import { tracedAction } from "../tracing.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {
@@ -60,9 +59,11 @@ import {
   zoomToSelection
 } from "./commands.ts"
 import { createDesign } from "./create.ts"
-import type { Command } from "./keymap.ts"
+import { type Command, keymap } from "./keymap.ts"
 import { toggleConsole, togglePanels } from "./layout.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
+import { type RecordedAction, recordActions } from "./record-actions.ts"
+import { lastAction, rememberAction, repeatLastAction } from "./repeat.ts"
 
 /**
  * What each shortcut in the keymap runs, for the key handlers and the actions search. `app` ones work anywhere in the
@@ -132,6 +133,7 @@ const keymapActions: Record<Command, Action> = {
 
   undo: { run: () => undo(), available: () => !!activeSession()?.store.getHistory().canUndo },
   redo: { run: () => redo(), available: () => !!activeSession()?.store.getHistory().canRedo },
+  repeat: { run: repeatLastAction, available: () => !!lastAction() && lastAction()?.available?.() !== false },
   cut: { run: () => cut(), available: hasSomething },
   copy: { run: () => copy(), available: () => (hasLayer() ? can("copy") : hasSomething()) },
   paste: { run: () => paste(), available: hasSession },
@@ -200,12 +202,54 @@ const keymapActions: Record<Command, Action> = {
 }
 
 /**
- * Each action, run in a trace of its own named by its ID, which the work it causes in the service and main joins
- * (PAR-629), whether a key, a menu or the actions search ran it.
+ * What Repeat last action runs again (PAR-180): what changes the selected layers or designs, or adds one. Undo, the
+ * clipboard's copying, renaming, selecting, nudging and moving around aren't, as repeating them does nothing new.
  */
-export const actions = Object.fromEntries(
-  Object.entries<Action>(keymapActions).map(([id, action]) => [
-    id,
-    { ...action, run: (event?: KeyboardEvent) => tracedAction(id, () => action.run(event)) }
-  ])
-) as Record<Command, Action>
+const repeatable: readonly Command[] = [
+  "paste",
+  "pasteOver",
+  "pasteReplace",
+  "duplicate",
+  "delete",
+  "pasteStyle",
+  "newScreen",
+  "newComponent",
+  "wrap",
+  "unwrap",
+  "makeComponent",
+  "detach",
+  "bringForward",
+  "sendBackward",
+  "bringToFront",
+  "sendToBack",
+  "hide",
+  "alignLeft",
+  "alignCenter",
+  "alignRight",
+  "alignTop",
+  "alignMiddle",
+  "alignBottom",
+  "distributeHorizontal",
+  "distributeVertical"
+]
+
+/**
+ * Remembers a repeatable command as it runs, however it's run, even in a place of its own as New screen where the canvas
+ * was right-clicked, so Repeat follows the last change.
+ */
+function rememberCommand(command: Command): void {
+  if (!repeatable.includes(command)) return
+  const action = keymapActions[command]
+  rememberAction({
+    label: keymap[command].label,
+    run: () => action.run(),
+    available: () => action.available?.() !== false
+  })
+}
+
+/** Each action in the keymap, recorded however it's run: a key, a menu, Search actions, the toolbar or a panel. */
+export const actions: Record<Command, RecordedAction> = recordActions(
+  keymapActions,
+  () => ({ layers: layers(), designs: designs() }),
+  rememberCommand
+)

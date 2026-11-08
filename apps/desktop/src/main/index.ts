@@ -13,7 +13,7 @@ import {
   type RenderPriority,
   renderQueue
 } from "@parity-app/core"
-import { telemetryFileName } from "@parity-app/telemetry"
+import { type Span, telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
   BrowserWindow,
@@ -65,6 +65,7 @@ import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
+import { watchFrame } from "./frame-telemetry.ts"
 import { idleClose } from "./idle-close.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
@@ -78,6 +79,7 @@ import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
   agentCalled,
   applyTelemetry,
+  keepFailedFrame,
   personActed,
   recordForwarded,
   scrubber,
@@ -978,31 +980,50 @@ function renderOffscreen(
 ): Promise<{ frame: RenderedFrame; png?: string }> {
   // Held from the moment it's queued, so the window never closes under a job or with one waiting.
   const done = renderIdle.use()
-  // Drawn under the trace it was queued in, with how long it waited for a window (PAR-629).
+  // Drawn under the trace it was queued in, with how long it waited for a window (PAR-629), and timed (PAR-638).
   const parent = currentTrace()
   const queued = performance.now()
   const run = (index: number) =>
     inSpan(
-      "frame.drawn",
+      "frame.rendered",
       { priority, queuedMs: Math.round(performance.now() - queued), whole },
-      () => draw(index),
+      (span) => draw(index, span),
       parent
     )
-  const draw = async (index: number) => {
+  const draw = async (index: number, span: Span | undefined) => {
     const window = await ensureRenderWindow(index)
     const width = devicePixels(job.mode.width, job.scale)
     window.setContentSize(width, 800)
     if (job.design) drawing.set(window, consoleContextOf(job.design))
+    // A frame that fails is pictured as the window shows it, for the errors that follow.
+    const watch = watchFrame(job, priority, span, () => {
+      if (window.isDestroyed()) return
+      void window.webContents
+        .capturePage()
+        .then((image) => keepFailedFrame(image.toPNG()))
+        .catch(() => undefined)
+    })
     try {
-      const frame = renderResult(
+      const result = renderResult(
         await window.webContents.executeJavaScript(`window.canvasRender(${JSON.stringify(job)})`, true)
       )
-      if (!whole || frame.error) return { frame }
+      watch.rendered(result)
+      // The guest's stack is telemetry's alone; agents get the message.
+      const { errorStack: _stack, ...frame } = result
+      if (!whole || frame.error) {
+        watch.end(frame)
+        return { frame }
+      }
       // The whole frame is in view, so a capture or a contrast check sees all of it.
       const height = devicePixels(frame.height, job.scale)
       window.setContentSize(width, height)
       await window.webContents.executeJavaScript("window.canvasSettle()", true)
-      return await then(window, frame, width, height)
+      const done = await then(window, frame, width, height)
+      watch.end(frame)
+      return done
+    } catch (error) {
+      watch.end(undefined, true)
+      throw error
     } finally {
       drawing.delete(window)
     }

@@ -17,6 +17,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -26,12 +27,14 @@ import { useProject } from "../canvas/context.ts"
 import { useHistory, useModeSettings } from "../design-store.ts"
 import { comesTo, type TokenMap } from "../token-values.ts"
 import { useTokenFailure, useTokenList } from "../tokens-store.ts"
+import { actions } from "./actions.ts"
 import { save } from "./commands.ts"
 import { Announce, CopyOnClick, useCopy } from "./Copy.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
+import { onShowToken, takeShownToken } from "./shown-token.ts"
 import {
   Keyframes,
   type PreviewToken,
@@ -132,12 +135,22 @@ export function TokensPanel() {
   const tokens = useTokenList(store)
   const failure = useTokenFailure(store)
   const unwritten = new Set(failure?.tokens.map((change) => change.name))
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(() => takeShownToken(info.root) ?? "")
   const [source, setSource] = useState<Source>("all")
   const [view, setView] = useState<View>("list")
   // The sections folded closed, by title. Starting or clearing a search unfolds them, so matches always show.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const needle = query.trim().toLowerCase()
+  // A token picked in Search actions shows however the panel was filtered: every source, every section open.
+  useEffect(
+    () =>
+      onShowToken(info.root, (name) => {
+        setQuery(name)
+        setSource("all")
+        setCollapsed(new Set())
+      }),
+    [info.root]
+  )
   const toggle = (title: string) =>
     setCollapsed((current) => {
       const next = new Set(current)
@@ -337,7 +350,11 @@ export function TokensPanel() {
           <PanelError
             title={`Couldn't write ${failedNames(failure.tokens)} to ${store.stylesheet}`}
             action={
-              <Button variant="outline" size="sm" onClick={() => void save(session)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void actions.save.run("panel", { instead: () => save(session) })}
+              >
                 Try again
               </Button>
             }

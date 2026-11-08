@@ -5,7 +5,8 @@ import type { EventDefinition } from "./events.ts"
 import { filesEvents } from "./files-events.ts"
 import { interfaceEvents } from "./interface-events.ts"
 import { projectEvents } from "./project-events.ts"
-import { actionRan, agentCalled, builderStarted, frameDrawn, gestureRan, requestHandled } from "./trace-events.ts"
+import { renderEvents } from "./render-events.ts"
+import { agentCalled, builderStarted, commandRan, gestureRan, requestHandled } from "./trace-events.ts"
 
 /**
  * Every event Parity records, from any process. Each process passes `createTelemetry` the ones it sends, and
@@ -13,13 +14,13 @@ import { actionRan, agentCalled, builderStarted, frameDrawn, gestureRan, request
  * `pnpm exec vp test run packages/telemetry -u`.
  */
 export const registeredEvents = [
-  actionRan,
+  commandRan,
   gestureRan,
   requestHandled,
-  frameDrawn,
   builderStarted,
   agentCalled,
   ...appEvents,
+  ...renderEvents,
   ...interfaceEvents,
   ...filesEvents,
   ...projectEvents,
