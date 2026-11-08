@@ -345,7 +345,9 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
   )
   selection.set(layersSelection(frame.design, copies, hit))
   warnUnknown(nodes, session.components.get())
-  pasted("here", layers.content, copies.length, frame.design)
+  // The design or its layout can go while the clipboard is read, leaving nowhere to paste.
+  if (copies.length === 0) pasteFailed("here", layers.content, "noTarget")
+  else pasted("here", layers.content, copies.length, frame.design)
 }
 
 /**

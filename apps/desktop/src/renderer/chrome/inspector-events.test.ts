@@ -1,4 +1,5 @@
 import { type ContainerSpec, type DesignNode, defaultModeSettings, editNode, findNode } from "@parity-app/core"
+import type { StyleSelection } from "@parity-app/editor"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 import { ChangePreview } from "../canvas/change-preview.ts"
@@ -10,7 +11,8 @@ import {
   mixed,
   PreviewedProp,
   recordInspectorChange,
-  recordLayerChange
+  recordLayerChange,
+  rowChanged
 } from "./inspector-events.ts"
 
 const sink = createTestSink()
@@ -37,6 +39,37 @@ describe("changedFields", () => {
       { field: "props.size", from: undefined, to: "sm" },
       { field: "style.padding", from: [2, 2], to: [3, 3] }
     ])
+  })
+})
+
+describe("changedFields of an instance", () => {
+  it("reads a prop from the instance's arguments, where a change to it goes", () => {
+    const node = { type: "instance", id: "card", design: "card", args: { title: "Hello" } } as unknown as DesignNode
+    expect(changedFields(node, { props: { title: "Bye" } })).toEqual([
+      { field: "props.title", from: "Hello", to: "Bye" }
+    ])
+  })
+})
+
+describe("rowChanged", () => {
+  const layer = (id: string, gap?: number) => ({
+    id,
+    node: {
+      type: "layout",
+      id,
+      children: [],
+      ...(gap === undefined ? {} : { style: { gap } })
+    } as unknown as DesignNode,
+    parent: undefined,
+    base: true
+  })
+  const selection = (...layers: ReturnType<typeof layer>[]) => ({ layers }) as unknown as StyleSelection
+
+  it("counts a change to layers whose values differ, and not setting the value a field already had", () => {
+    expect(rowChanged(selection(layer("a", 1), layer("b", 2)), selection(layer("a", 2), layer("b", 3)), "gap")).toBe(
+      true
+    )
+    expect(rowChanged(selection(layer("a", 2)), selection(layer("a", 2)), "gap")).toBe(false)
   })
 })
 

@@ -66,14 +66,31 @@ export function rowValues(selection: StyleSelection | undefined, row: StyleRow):
   )
 }
 
-/** Each field a layer's change sets, with what the layer showed there before: `text`, `hidden`, `props.*`, `style.*`. */
+/**
+ * Whether a style row changed on any of the layers, value by value, so an edit to layers whose values differ counts
+ * though they read `mixed` before and after, and one that sets the value a field already had doesn't.
+ */
+export function rowChanged(before: StyleSelection, after: StyleSelection | undefined, row: StyleRow): boolean {
+  const keys: readonly (keyof NodeStyle)[] = styleRows[row]
+  const values = (selection: StyleSelection | undefined) =>
+    JSON.stringify(selection?.layers.map((layer) => [layer.id, keys.map((key) => styleOf(layer.node)?.[key] ?? null)]))
+  return values(before) !== values(after)
+}
+
+const styleOf = (node: DesignNode) => (node as DesignNode & { style?: NodeStyle }).style
+
+/**
+ * Each field a layer's change sets, with what the layer showed there before: `text`, `hidden`, `props.*`, `style.*`.
+ * An instance's props are its arguments, which is where a change to them goes.
+ */
 export function changedFields(node: DesignNode, change: NodeChange): { field: string; from: unknown; to: unknown }[] {
   const shown = node as DesignNode & { text?: string; props?: Record<string, unknown>; style?: NodeStyle }
+  const props = node.type === "instance" ? node.args : shown.props
   const fields: { field: string; from: unknown; to: unknown }[] = []
   if ("text" in change) fields.push({ field: "text", from: shown.text, to: change.text })
   if ("hidden" in change) fields.push({ field: "hidden", from: shown.hidden ?? false, to: change.hidden })
   for (const [name, to] of Object.entries(change.props ?? {})) {
-    fields.push({ field: `props.${name}`, from: shown.props?.[name], to })
+    fields.push({ field: `props.${name}`, from: props?.[name], to })
   }
   for (const [name, to] of Object.entries(change.style ?? {})) {
     fields.push({ field: `style.${name}`, from: shown.style?.[name as keyof NodeStyle], to })
