@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 import { AppWindow } from "../App.tsx"
 import { inspecting, PanelColumn, SelectedStyles } from "../chrome/inspector-stories.tsx"
 import { Inspector } from "../chrome/Inspector.tsx"
+import { setLayout } from "../chrome/layout.ts"
 import { LeftPanel } from "../chrome/LeftPanel.tsx"
 import { StatusBar } from "../chrome/StatusBar.tsx"
 import { design, example, frameDesigns, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
@@ -13,7 +14,7 @@ import { Specimen, TypeCompare } from "./interface-type/compare.tsx"
 /**
  * The app's interface type as it is and as proposed (PAR-709), on the real panels: Inter in place of Geist, fewer sizes
  * (11, 12, 13 and 15px for the chrome, nothing smaller), regular text a step heavier, section titles in sentence case,
- * and code in a monospace as tall as Inter. Each story draws the same UI twice, current beside proposed, and both sides
+ * and code in a monospace that matches it. Each story draws the same UI twice, current beside proposed, and both sides
  * work; the toolbar's Type control turns the proposed type on for any story in Storybook, menus and dialogs included.
  * The audit and the proposal are in docs/proposals/interface-type.md.
  */
@@ -49,6 +50,17 @@ const roles: Role[] = [
     )
   },
   {
+    name: "Group label",
+    where: "Groups in lists: Layers, Tokens",
+    sample: (
+      <div className="relative flex h-7 items-center pl-3 text-xs text-muted-foreground">
+        <span data-sample className="flex-1">
+          Components
+        </span>
+      </div>
+    )
+  },
+  {
     name: "Label",
     where: "Field labels and secondary text in panels",
     sample: (
@@ -81,13 +93,14 @@ const roles: Role[] = [
   {
     name: "Layer",
     where: "Rows in Layers",
+    // A row as Layers draws one, a design at the top of its tree, not selected.
     sample: (
-      <span className="flex items-baseline gap-2">
-        <span data-sample className="text-[13px] font-medium">
+      <div role="tree" aria-label="Layers" className="text-[13px]">
+        <div data-sample role="treeitem" aria-selected={false} className="flex items-baseline gap-2 font-medium">
           Plan card
-        </span>
-        <span className="text-xs text-muted-foreground">2 states</span>
-      </span>
+          <span className="text-xs text-muted-foreground">2 states</span>
+        </div>
+      </div>
     )
   },
   {
@@ -109,21 +122,39 @@ const roles: Role[] = [
     )
   },
   {
+    name: "Description",
+    where: "A section's or setting's description, which wraps",
+    sample: (
+      <p data-sample className="mb-3 max-w-56 px-1 text-xs text-muted-foreground">
+        Find parts that repeat and turn them into components. Each copy becomes an instance.
+      </p>
+    )
+  },
+  {
     name: "Empty panel",
     where: "What a panel says when there's nothing to show",
     sample: (
-      <p data-sample className="max-w-56 text-sm text-muted-foreground">
+      <p data-sample className="max-w-56 text-center text-sm text-muted-foreground">
         Select a screen, component or frame on the canvas or in Layers.
       </p>
     )
   },
   {
     name: "Name",
-    where: "The selected design's name, dialog titles",
+    where: "The selected design's name",
     sample: (
       <span data-sample className="text-base font-semibold">
         Pricing
       </span>
+    )
+  },
+  {
+    name: "Dialog title",
+    where: "Titles of dialogs, as the kit draws them",
+    sample: (
+      <h2 data-sample data-slot="dialog-title" className="text-base leading-none font-medium">
+        Settings
+      </h2>
     )
   },
   {
@@ -141,6 +172,15 @@ const roles: Role[] = [
     sample: (
       <code data-sample className="font-mono text-xs">
         text-5xl tracking-tight
+      </code>
+    )
+  },
+  {
+    name: "Secondary code",
+    where: "A file name, a token's path, a stack trace",
+    sample: (
+      <code data-sample className="font-mono text-[11px] text-muted-foreground">
+        src/components/plan-card.tsx
       </code>
     )
   },
@@ -229,6 +269,26 @@ export const Layers: Story = {
     async () => {
       await openProjects("example")
       example().selection.set({ design: design("Plan card"), node: node("Plan card", "Feature 3 text") })
+    }
+  ],
+  render: () => (
+    <Stage>
+      <TypeCompare>
+        <LeftPanel />
+      </TypeCompare>
+    </Stage>
+  )
+}
+
+/**
+ * The Tokens tab, where token names are code in fixed-width rows: the monospace's size and weight show most here. A
+ * token's detail opens over the page, in the type the toolbar's Type control sets.
+ */
+export const Tokens: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      setLayout({ leftTab: "tokens" })
     }
   ],
   render: () => (

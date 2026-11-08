@@ -36,7 +36,6 @@
     "unconfig": "^7.5.0"
   },
   "devDependencies": {
-    "@fontsource-variable/inter": "catalog:",
     "@parity-app/account": "workspace:*",
     "@parity-app/agent": "workspace:*",
     "@parity-app/builder-vite": "workspace:*",

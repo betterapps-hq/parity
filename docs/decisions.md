@@ -5971,8 +5971,11 @@ preset says what it does, filling in the fields it covers and locking them while
 
 - **Parity's own interface is set in Inter, not Geist,** Andrew's call on 2026-11-08, after seeing the proposed type
   ([interface-type.md](proposals/interface-type.md)) set in both at the same sizes and weights. Inter was drawn for
-  interfaces at small sizes, and its optical sizes draw small text a little looser and headings a little tighter.
-- **It comes from `@fontsource-variable/inter`, with its optical sizes (`opsz.css`).** That's Google Fonts' build, which
-  leaves out Inter's alternates for I, l and 1 and its slashed zero. Until PAR-710 builds the type into the app, it's a
-  dev dependency that only Storybook loads, as the proposed type's typeface.
+  interfaces at small sizes. Its optical sizes run from 14px, so they tighten names and headings; the chrome's 11 to
+  13px all use the 14px cut.
+- **It's Inter's own release, bundled with the app,** 4.1 from github.com/rsms/inter, in
+  `apps/desktop/src/renderer/fonts/inter` with its licence (SIL OFL 1.1). Andrew agreed on 2026-11-08: it's a desktop
+  app, so shipping the font is no problem. The npm builds come from Google Fonts and leave out the alternates that tell
+  I, l and 1 apart, which a design tool needs for layer names, token names and values. Until PAR-710 builds the type
+  into the app, only Storybook loads it, as the proposed type's typeface.
 - **The rest of the proposed type waits for Andrew's approval:** the scale, weights, section titles and monospace.

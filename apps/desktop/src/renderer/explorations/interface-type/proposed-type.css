@@ -1,4 +1,14 @@
-@import "@fontsource-variable/inter/opsz.css";
+/*
+ * Inter's own release (4.1, from github.com/rsms/inter), bundled with the app under its licence in ../../fonts/inter.
+ * The npm builds come from Google Fonts, which leave out the alternates that tell I, l and 1 apart.
+ */
+@font-face {
+  font-family: "InterVariable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url("../../fonts/inter/InterVariable.woff2") format("woff2");
+}
 
 /*
  * The proposed interface type (PAR-709), for comparing with the app's type in Storybook before it's built. It applies
@@ -12,45 +22,54 @@
 @scope ([data-interface-type="proposed"]) to ([data-interface-type="current"]) {
   :scope {
     /*
-     * Inter, drawn for interfaces at small sizes, in place of Geist (Andrew's call, 2026-11-08). Its optical sizes are
-     * on by default, so each size is drawn from the matching cut.
+     * Inter, drawn for interfaces at small sizes, in place of Geist (Andrew's call, 2026-11-08). Its optical sizes run
+     * from 14px, so the chrome's 11 to 13px all use the 14px cut, and only names and headings tighten on their own.
      */
-    font-family: "Inter Variable", sans-serif;
+    font-family: "InterVariable", sans-serif;
 
     & .font-sans {
-      font-family: inherit;
+      font-family: "InterVariable", sans-serif;
     }
 
-    /* Four sizes for the chrome, 11, 12, 13 and 15px, where there were nine between 10 and 16px. */
+    /*
+     * Four sizes for the chrome, 11, 12, 13 and 15px, where there were nine between 10 and 16px. Line heights are
+     * ratios, as Tailwind's are, so a child sized inline inherits a line in proportion rather than a fixed one.
+     */
     --text-xs: 0.75rem;
-    --text-xs--line-height: 1rem;
+    --text-xs--line-height: calc(16 / 12);
     --text-sm: 0.8125rem;
-    --text-sm--line-height: 1.125rem;
+    --text-sm--line-height: calc(18 / 13);
     --text-base: 0.9375rem;
-    --text-base--line-height: 1.25rem;
+    --text-base--line-height: calc(20 / 15);
     --text-lg: 1.125rem;
-    --text-lg--line-height: 1.5rem;
+    --text-lg--line-height: calc(24 / 18);
     --text-xl: 1.25rem;
-    --text-xl--line-height: 1.75rem;
+    --text-xl--line-height: calc(28 / 20);
     --text-2xl: 1.5rem;
-    --text-2xl--line-height: 2rem;
+    --text-2xl--line-height: calc(32 / 24);
 
     /*
      * Inter is variable, so regular text sits a step above 400, which reads thin at 12px on a dark panel, with medium
      * and semibold moved up to keep their distance from it.
      */
     --font-weight-normal: 450;
-    --font-weight-medium: 540;
-    --font-weight-semibold: 620;
+    /* Inter's own medium and semibold, which code swaps for 500 and 600 and Inter inside code takes back. */
+    --weight-sans-medium: 550;
+    --weight-sans-semibold: 650;
+    --font-weight-medium: var(--weight-sans-medium);
+    --font-weight-semibold: var(--weight-sans-semibold);
     font-weight: var(--font-weight-normal);
 
     /*
-     * Code in a monospace whose lowercase is as tall as Inter's. `ui-monospace` only works in Safari, so in Chromium
-     * code fell through to Consolas on Windows, whose lowercase is 6% shorter than Inter's and 8% shorter than Geist's.
+     * Code in each system's monospace, set to one lowercase height on `.font-mono` below. `ui-monospace` only works
+     * in Safari, so in Chromium code fell through to Consolas on Windows, whose lowercase is 10% shorter than Inter's.
      */
     --font-mono: "Cascadia Mono", Menlo, Consolas, monospace;
 
-    /* macOS draws light text on a dark panel heavier with subpixel smoothing; Windows ignores this. */
+    /*
+     * On macOS this turns off the stem darkening that thickens light text on a dark panel, so it thins all text; 450
+     * makes up for it, as Figma and Linear pair the two. Windows ignores it. To be checked on a Mac before it's built.
+     */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -104,21 +123,207 @@
   }
 
   /* Shortcuts in menus are read as keys, not spaced out like a label: the kit sets them at its widest tracking. */
-  [data-slot$="-shortcut"] {
+  [data-slot$="-shortcut"],
+  [data-slot="empty-title"] {
     letter-spacing: 0;
   }
 
-  /* Headings close up a little as they grow. Notes on the canvas are people's own text, so they're left alone. */
-  .text-lg {
-    letter-spacing: var(--tw-tracking, -0.01em);
+  /* Shortcuts are capitals and symbols, so + and - sit at the capitals' middle, as native menus draw them. */
+  [data-slot$="-shortcut"],
+  [data-slot="kbd"] {
+    font-feature-settings: "case";
   }
 
-  .text-xl {
-    letter-spacing: var(--tw-tracking, -0.015em);
+  /* The menu bar's File, Edit and the rest at the regular weight, as native menu bars are; the kit sets them medium. */
+  [data-slot="menubar-trigger"] {
+    font-weight: var(--font-weight-normal);
   }
 
-  :is(.text-2xl, .text-3xl):not(.canvas-note) {
-    letter-spacing: var(--tw-tracking, -0.02em);
+  /*
+   * Code at the size of the values beside it, with Cascadia's lowercase, 5% under Inter's, and at 400 against Inter's
+   * 450 to quieten its wider, darker letters. Bare `code` and `pre` take the monospace from Tailwind's preflight
+   * without the class, so they're named too.
+   */
+  :is(.font-mono, code, pre) {
+    font-weight: 400;
+    letter-spacing: var(--tw-tracking, 0);
+    /*
+     * Whichever monospace renders, its lowercase is Cascadia Mono's (0.52 of the size), 5% under Inter's: a monospace's
+     * wider, even letters read bigger than Inter's at the same height. Consolas grows 6% to it.
+     */
+    font-size-adjust: ex-height 0.52;
+    /*
+     * Menlo and Consolas have only regular and bold, so Inter's 550 medium would pick bold; mono keeps 500 and 600,
+     * which pick regular and bold there as they do today. Windows gives Cascadia its named weights, so both draw its
+     * SemiBold: a mono heading still stands clear of code at 400.
+     */
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+  }
+
+  /* Sans text inside code, such as the word between two colors, is Inter again: these all inherit. */
+  :is(.font-mono, code, pre) .font-sans {
+    font-size-adjust: none;
+    font-weight: var(--font-weight-normal);
+    --font-weight-medium: var(--weight-sans-medium);
+    --font-weight-semibold: var(--weight-sans-semibold);
+  }
+
+  /* Mono headings that set medium keep it, as they will once these rules are in the base layer. */
+  .font-mono.font-medium {
+    font-weight: var(--font-weight-medium);
+  }
+
+  /* Notes on the canvas are people's own text: the font's own regular, not the interface's 450. */
+  .canvas-note {
+    font-weight: 400;
+  }
+
+  /* A token picker with nothing chosen says None in the panel's font; the monospace is for real tokens and classes. */
+  [data-slot="popover-trigger"] .font-mono.text-muted-foreground {
+    font-family: inherit;
+    font-weight: var(--font-weight-normal);
+    font-size-adjust: none;
+  }
+
+  /*
+   * Names and values tell I, l and 1 apart, with Inter's set for it (ss04: I with serifs, l with a tail), where a
+   * layer or token is named, a value is typed, and a design's name shows over its board on the canvas (the last
+   * selector stands in for a class on that title). Labels and titles keep Inter's plain letters.
+   */
+  :is([role="treeitem"], input, .cursor-default.rounded-md.px-1.py-0\.5 > .truncate) {
+    /* Without Inter's contextual alternates, which draw a typed -> as an arrow: a name shows what was typed. */
+    font-feature-settings:
+      "ss04",
+      "calt" 0;
+  }
+
+  /* A textarea holds prose, so it keeps the plain letters, but still shows a typed -> as typed. */
+  textarea {
+    font-feature-settings: "calt" 0;
+  }
+
+  /*
+   * A placeholder is a label, so it keeps the plain letters, and the editors over people's own text (a note, a text
+   * layer) draw it as it's shown, not as the chrome's names are.
+   */
+  :is(input, textarea)::placeholder,
+  .canvas-note textarea,
+  textarea.canvas-note {
+    font-feature-settings: normal;
+  }
+
+  /* Headings the app tracks tight close up less, since Inter's optical sizes already tighten them from 14px up. */
+  .tracking-tight:is(.text-lg, .text-xl, .text-2xl, .text-3xl):not(.canvas-note) {
+    letter-spacing: -0.01em;
+  }
+
+  /*
+   * Layer rows at the regular weight, the top level's too, which Layers sets medium: in white at 13px, medium made a
+   * long tree a column of bold, and the icons, the indent and the group titles already mark the top level.
+   */
+  [role="treeitem"].font-medium {
+    font-weight: var(--font-weight-normal);
+  }
+
+  /*
+   * Wrapped text gets more room between lines than a single label: a section's description and a panel's empty state.
+   * These stand in for a leading class on each.
+   */
+  p.text-xs:not([class*="leading-"]),
+  [data-slot="dialog-content"] .text-xs.text-muted-foreground {
+    line-height: var(--tw-leading, 1.125rem);
+    /* No word left alone on the last line. */
+    text-wrap: pretty;
+  }
+
+  /*
+   * Tokens is a list, like Layers, so its groups recede as Layers' do: medium and gray, where the inspector's section
+   * titles lead in the text color. This stands in for a quiet variant of PanelSectionTitle.
+   */
+  /*
+   * Settings' and Shortcuts' group titles are semibold and gray: the weight sets them apart from the gray descriptions,
+   * the color from the 13px white rows they head. This stands in for that class on their `h3`s.
+   */
+  [data-slot="dialog-content"] h3.pb-1.text-xs.font-medium.text-muted-foreground {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  [data-tokens-list] .uppercase.tracking-wide {
+    color: var(--muted-foreground);
+    font-weight: var(--font-weight-medium);
+  }
+
+  /*
+   * The kit's input, input group and textarea set `md:text-sm`, which beats a caller's size in any window wider than
+   * 48rem, as the app's always is (Storybook's narrow column hides it), so a name at `text-base` or a field at `text-xs`
+   * would draw at 13px. Their own size wins here.
+   */
+  @media (width >= 48rem) {
+    :is([data-slot="input"], [data-slot="input-group-control"], [data-slot="textarea"]).text-xs {
+      font-size: var(--text-xs);
+      line-height: var(--tw-leading, var(--text-xs--line-height));
+    }
+
+    :is([data-slot="input"], [data-slot="input-group-control"], [data-slot="textarea"]).text-base {
+      font-size: var(--text-base);
+      line-height: var(--tw-leading, var(--text-base--line-height));
+    }
+  }
+
+  [data-slot="dialog-description"],
+  [data-slot="dialog-title"],
+  [data-slot="alert-dialog-title"] {
+    line-height: 1.25rem;
+  }
+
+  /* 15px is a name or a title, at semibold either way, so a dialog's title outranks its own group titles. */
+  [data-slot="dialog-title"],
+  [data-slot="alert-dialog-title"] {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .text-center.text-sm.text-muted-foreground {
+    line-height: var(--tw-leading, 1.25rem);
+    /* Centered lines of even length. */
+    text-wrap: balance;
+
+    & > .text-xs {
+      line-height: 1.125rem;
+    }
+  }
+
+  /*
+   * A field's messages and errors are read, not glanced at, so they're the panel's 12px rather than the 11px of units
+   * and counts. This stands in for `text-xs` on them in fields.tsx.
+   */
+  .text-\[11px\].leading-snug {
+    font-size: var(--text-xs);
+    line-height: 1.125rem;
+    letter-spacing: 0;
+  }
+
+  /*
+   * A select opens over its field with the chosen item where the value was, so its items are the field's 12px, not a
+   * menu's 13px. Menus opened from the title bar or the canvas stay 13px. Here it's every select; the build sets it on
+   * the panels' own selects, so a dialog's selects keep the dialog's size.
+   */
+  [data-slot="select-item"] {
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
+  }
+
+  /*
+   * A section title that folds its section shows hover with a fill, as rows do, since it's already in the text color
+   * that hover used to turn it.
+   */
+  .uppercase.tracking-wide button[aria-expanded] {
+    margin-left: -0.25rem;
+    padding-left: 0.25rem;
+
+    &:hover {
+      background: color-mix(in oklab, var(--accent) 50%, transparent);
+    }
   }
 }
 
