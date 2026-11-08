@@ -974,7 +974,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
         key={action}
         disabled={!entry.enabled}
         variant={action === "delete" ? "destructive" : undefined}
-        onClick={() => (action === "rename" ? onRename() : void actions[action].run("layersMenu"))}
+        onClick={() => void actions[action].run("layersMenu", action === "rename" ? { instead: onRename } : {})}
       >
         {entry.label}
         {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
