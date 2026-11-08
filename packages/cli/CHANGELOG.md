@@ -1,8 +1,19 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 07 Nov 2026 09:34:30 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 11:14:21 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.20.0
+
+Sun, 08 Nov 2026 11:14:21 GMT
+
+### Minor changes
+
+- Record frame renders, frame failures, component previews and the bitmap cache's hit rate in telemetry
+  (ajcraswell@gmail.com)
+- Search actions (Ctrl+K) finds designs, layers, components, tokens and panel actions, with recent picks first, and
+  Repeat last action (Ctrl+Alt+P) runs the last change again on the selection (ajcraswell@gmail.com)
 
 ## 0.19.0
 

@@ -2,6 +2,35 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 11:13:59 GMT",
+      "version": "0.33.0",
+      "tag": "@parity-app/desktop_v0.33.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "651f285d7df29df99be712d6c86325e8d16bb0cf",
+            "comment": "Search actions (Ctrl+K) finds designs, layers, components, tokens and panel actions, with recent picks first, and Repeat last action (Ctrl+Alt+P) runs the last change again on the selection"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3058ce2e9b46f0963a2c9ca09a96d79ae56ff73d",
+            "comment": "Record frame renders, frame failures, component previews and the bitmap cache's hit rate in telemetry"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8f5b7c3d5d867f280c4514b4656449bc495b1d0b",
+            "comment": "Storybook stories for the Copy as PNG notifications"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 11:02:22 GMT",
       "version": "0.32.0",
       "tag": "@parity-app/desktop_v0.32.0",

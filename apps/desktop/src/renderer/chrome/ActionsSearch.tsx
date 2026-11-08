@@ -6,48 +6,272 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandShortcut
+  CommandShortcut,
+  Kbd
 } from "@buildkitgg/shadcn-baseui-kit"
-import { useState } from "react"
-import { useHomeActive, useKnownProjects, useTabs, useActiveTabId, workspace } from "../workspace.ts"
-import { type Action, actions } from "./actions.ts"
+import { walkNodes } from "@parity-app/core"
+import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
+import { FolderOpen, Palette } from "lucide-react"
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
+import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import {
+  type ProjectSession,
+  useActiveTabId,
+  useHomeActive,
+  useKnownProjects,
+  useTabs,
+  workspace
+} from "../workspace.ts"
+import { actions } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
-import { clearBitmapCache, exportImages } from "./commands.ts"
+import { activeSession, clearBitmapCache, exportImages, selectedDesign, zoomToSelection } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
+import { setLayout } from "./layout.ts"
 import { getPreferences, setPreferences } from "./preferences.ts"
-import { matchWords } from "./word-match.ts"
+import { insertOption, offerOf } from "./QuickInsert.tsx"
+import { rememberAction } from "./repeat.ts"
+import { findRepeatedParts } from "./repeated-parts.ts"
+import { revealSelection } from "./reveal.ts"
+import { showToken } from "./shown-token.ts"
 
-interface Item extends Action {
-  id: string
-  label: string
-  group: Group
+type Heading = Group | "Designs" | "Layers" | "Components" | "Tokens" | "Projects"
+
+interface Item extends FindItem<Heading> {
+  run(): unknown
+  available?(): boolean
+  /** Shown at the end of the row: an action's keys, a layer's design, a component's source. */
+  detail?: string
   keys?: string
+  icon?: ReactNode
 }
 
-/** What the menus offer that has no shortcut, so the search finds those too. */
+/** At most this many of each of these while searching, as there can be thousands. */
+const limits = { Layers: 8, Components: 6, Tokens: 6, Designs: 6 }
+
+/** What the menus and panels offer that has no shortcut, so the search finds those too. */
 const extras: Item[] = [
-  { id: "exportAll", group: "File", label: "Export all", run: () => exportImages("all") },
+  { id: "action:exportAll", group: "File", label: "Export all", run: () => exportImages("all") },
   {
-    id: "snapping",
+    id: "action:snapping",
     group: "View",
     label: "Snap to screens and components",
     run: () => setPreferences({ snapping: !getPreferences().snapping })
   },
   {
-    id: "performanceStats",
+    id: "action:performanceStats",
     group: "View",
     label: "Performance stats",
     run: () => setPreferences({ performanceStats: !getPreferences().performanceStats })
   },
-  { id: "clearBitmapCache", group: "View", label: "Clear bitmap cache", run: () => void clearBitmapCache() },
-  { id: "about", group: "Help", label: "About Parity", run: () => openDialog("about") }
+  {
+    id: "action:clearBitmapCache",
+    group: "View",
+    label: "Clear bitmap cache",
+    run: () => void clearBitmapCache()
+  },
+  ...(["icons", "images", "tokens"] as const).map((tab): Item => ({
+    id: `action:show-${tab}`,
+    group: "View",
+    label: `Show ${tab[0]!.toUpperCase()}${tab.slice(1)}`,
+    run: () => setLayout({ left: true, leftTab: tab })
+  })),
+  {
+    id: "action:findRepeatedParts",
+    group: "Object",
+    label: "Find repeated parts",
+    available: () => selectedScreen() !== undefined,
+    run: () => {
+      rememberAction({
+        label: "Find repeated parts",
+        run: findInSelectedScreen,
+        available: () => !!selectedScreen()
+      })
+      findInSelectedScreen()
+    }
+  },
+  { id: "action:about", group: "Help", label: "About Parity", run: () => openDialog("about") }
 ]
 
+/** The selected screen, on its own, which Find repeated parts looks in. */
+const selectedScreen = () => {
+  const entry = selectedDesign()
+  // Components and frames have no Repeated parts section; a design with no kind is a screen.
+  const screen = entry && (entry.container.kind ?? "screen") === "screen"
+  return screen && !activeSession()?.selection.get().node ? entry : undefined
+}
+
+/** Inserts a component again in the active tab's project, through its offer as it stands now. */
+function repeatInsert(key: string): void {
+  const session = activeSession()
+  if (session) insertOption(session, offerOf(session, session.store.getEntries()), key)
+}
+
+/** Finds the repeated parts in the selected screen and shows them in the inspector. */
+function findInSelectedScreen(): void {
+  const entry = selectedScreen()
+  const session = activeSession()
+  if (!entry || !session) return
+  setLayout({ right: true, rightTab: "design" })
+  findRepeatedParts(session.info.root, entry)
+}
+
+/** Whether there's more of the list above and below what shows. */
+interface Edges {
+  top: boolean
+  bottom: boolean
+}
+
+function scrolledEdges(list: HTMLElement): Edges {
+  return { top: list.scrollTop > 0, bottom: list.scrollTop + list.clientHeight < list.scrollHeight - 1 }
+}
+
 /**
- * Every action by name, as Figma's actions menu, and the projects the window remembers: Ctrl+K or Ctrl+/, or Help >
- * Search actions. What's typed matches the start of words in a name or its group (`matchWords`). Projects come first
- * on Home and in a new tab, where opening one is what you're there for, and last in a project.
+ * Rows fade out at an edge with more beyond it, so a highlighted row scrolled half out of view doesn't look cut off by,
+ * or tucked under, the search field.
+ */
+function edgeFade({ top, bottom }: Edges): string | undefined {
+  if (!top && !bottom) return undefined
+  return `linear-gradient(to bottom, ${top ? "transparent, black 1.5rem" : "black"}, ${bottom ? "black calc(100% - 1.5rem), transparent" : "black"})`
+}
+
+const recentKey = "parity.recentSearches"
+
+function readRecent(): string[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(recentKey) ?? "[]")
+    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : []
+  } catch {
+    // Storage can be unavailable, or hold something else; nothing's recent then.
+    return []
+  }
+}
+
+/** Forgets what was picked lately, as a first run starts: stories start from nothing picked. */
+export function forgetRecentPicks(): void {
+  saveRecent([])
+}
+
+function saveRecent(recent: readonly string[]): void {
+  try {
+    localStorage.setItem(recentKey, JSON.stringify(recent))
+  } catch {
+    // Storage can be unavailable; the picks are then forgotten.
+  }
+}
+
+/** Every action in the keymap that the search can run, with its first keys. */
+function commandItems(): Item[] {
+  return (Object.keys(keymap) as KeyCommand[])
+    .filter((id) => id !== "actions" && !actions[id].byKey)
+    .map((id) => ({
+      id: `action:${id}`,
+      group: keymap[id].group,
+      label: keymap[id].label,
+      keywords: keymap[id].group,
+      keys: keymap[id].keys[0],
+      run: () => actions[id].run(),
+      available: () => actions[id].available?.() !== false
+    }))
+}
+
+/** The open project's designs, their layers, the components it can insert and its tokens. */
+function projectItems(session: ProjectSession): Item[] {
+  const entries = session.store.getEntries()
+  const library = session.store.getComponentLibrary()
+  const items: Item[] = []
+  for (const entry of entries) {
+    items.push({
+      id: `design:${entry.key}`,
+      group: "Designs",
+      label: entry.container.name,
+      keywords: entry.container.kind ?? "screen",
+      icon: <DesignIcon kind={entry.container.kind} style={{ color: designColor(entry.container.kind) }} />,
+      run: () => {
+        session.selection.set({ design: entry.key })
+        zoomToSelection(session)
+      }
+    })
+  }
+  for (const entry of entries) {
+    walkNodes(entry.container.root, (node, depth) => {
+      if (depth === 0) return
+      items.push({
+        id: `layer:${entry.key}/${node.id}`,
+        group: "Layers",
+        label: layerLabel(node, entries, library),
+        keywords: entry.container.name,
+        detail: entry.container.name,
+        searchOnly: true,
+        icon: <NodeIcon node={node} style={{ color: nodeColor(node) }} />,
+        run: () => {
+          session.selection.set(layersSelection(entry.key, [node.id]))
+          // The layer's frame lays out first, then it's scrolled into view.
+          requestAnimationFrame(() => revealSelection(session))
+        }
+      })
+    })
+  }
+  const offer = offerOf(session, entries)
+  for (const option of offer.options) {
+    if (option.origin === "basic" || option.hidden) continue
+    items.push({
+      id: `component:${option.key}`,
+      group: "Components",
+      label: option.name,
+      keywords: `${option.sourceName} ${option.description ?? ""}`,
+      detail: option.sourceName,
+      searchOnly: true,
+      run: () => {
+        rememberAction({
+          label: `Insert ${option.name}`,
+          run: () => repeatInsert(option.key),
+          // Only in this project's tab: another project has its own selection, and may not have the component.
+          available: () => activeSession()?.info.root === session.info.root
+        })
+        insertOption(session, offer, option.key)
+      }
+    })
+  }
+  for (const token of session.tokens.inOrder()) {
+    items.push({
+      id: `token:${token.name}`,
+      group: "Tokens",
+      label: `--${token.name}`,
+      keywords: token.category,
+      detail: token.values.default,
+      searchOnly: true,
+      icon: <Palette className="text-muted-foreground" />,
+      run: () => showToken(session.info.root, token.name)
+    })
+  }
+  return items
+}
+
+/** Everything the search can find now: the actions, the active project's contents and the remembered projects. */
+function gatherItems(session: ProjectSession | undefined, projects: readonly { root: string; name: string }[]): Item[] {
+  return [
+    ...commandItems(),
+    ...extras,
+    ...(session ? projectItems(session) : []),
+    ...projects.map((project): Item => ({
+      id: `project:${project.root}`,
+      group: "Projects",
+      label: project.name,
+      keywords: project.root,
+      detail: project.root,
+      icon: <FolderOpen className="text-muted-foreground" />,
+      run: () => void workspace.open(project.root)
+    }))
+  ]
+}
+
+/**
+ * Finds anything from one search (PAR-180): Ctrl+K or Ctrl+/, or Help > Search actions. It lists every action by name,
+ * as Figma's actions menu, and the projects the window remembers; with a project open, its designs, and once something's
+ * typed, their layers, the components it can insert and its tokens. What was picked lately comes first. What's typed
+ * matches the start of words (`matchWords`); `findAnything` ranks and groups the matches. Projects come first on Home
+ * and in a new tab, where opening one is what you're there for, and last in a project.
  */
 export function ActionsSearch() {
   const open = useOpenDialog() === "actions"
@@ -56,69 +280,79 @@ export function ActionsSearch() {
   const activeId = useActiveTabId()
   const starting = useHomeActive() || !!tabs.find((tab) => tab.id === activeId)?.blank
   const [query, setQuery] = useState("")
+  const [recent, setRecent] = useState(readRecent)
+  const [scrolled, setScrolled] = useState<Edges>({ top: false, bottom: false })
   // Each time it opens it starts empty, even if keys reached the search while it was closing.
   const [wasOpen, setWasOpen] = useState(open)
+  // Gathered once each time it opens, as what's in the project can't change while it's open, and kept while it closes
+  // so its rows stay put as it fades.
+  const [items, setItems] = useState(() => (open ? gatherItems(activeSession(), projects) : []))
   if (open !== wasOpen) {
     setWasOpen(open)
-    if (open) setQuery("")
+    if (open) {
+      setQuery("")
+      setRecent(readRecent())
+      setItems(gatherItems(activeSession(), projects))
+    }
   }
-  const items: Item[] = [
-    ...(Object.keys(keymap) as KeyCommand[])
-      .filter((id) => id !== "actions" && !actions[id].byKey)
-      .map((id) => ({ id, ...keymap[id], keys: keymap[id].keys[0], ...actions[id] })),
-    ...extras
-  ]
+  const order: Heading[] = starting
+    ? ["Projects", "Designs", "Layers", ...groups, "Components", "Tokens"]
+    : ["Designs", "Layers", ...groups, "Components", "Tokens", "Projects"]
+  const found = findAnything(items, query, { recent, groups: order, limits })
+  // A new search lists other rows from the top, so the edges are measured again once they're drawn.
+  const list = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (list.current) setScrolled(scrolledEdges(list.current))
+  }, [query, items])
   const run = (item: Item) => {
     closeDialog()
+    const next = rememberPick(recent, item.id)
+    setRecent(next)
+    saveRecent(next)
     void item.run()
   }
-  const projectGroup = projects.length > 0 && (
-    <CommandGroup heading="Projects">
-      {projects.map((project) => (
-        <CommandItem
-          key={project.root}
-          value={`${project.name} Projects ${project.root}`}
-          onSelect={() => {
-            closeDialog()
-            void workspace.open(project.root)
-          }}
-        >
-          <span className="truncate">{project.name}</span>
-          <span className="ml-auto max-w-1/2 truncate text-xs text-muted-foreground">{project.root}</span>
-        </CommandItem>
-      ))}
-    </CommandGroup>
-  )
   return (
     <CommandDialog
       open={open}
       onOpenChange={(next) => !next && closeDialog()}
       title="Search"
-      description="Find a project to open or an action to run."
+      description="Find an action to run, or a project, design, layer, component or token."
+      className="sm:max-w-lg"
     >
-      <Command filter={matchWords}>
-        <CommandInput value={query} onValueChange={setQuery} placeholder="Search projects and actions" />
-        <CommandList className="max-h-96">
+      <Command shouldFilter={false}>
+        <CommandInput value={query} onValueChange={setQuery} placeholder="Search actions, layers, components…" />
+        <CommandList
+          className="mt-1 max-h-96"
+          style={{ maskImage: edgeFade(scrolled) }}
+          ref={list}
+          onScroll={(event) => setScrolled(scrolledEdges(event.currentTarget))}
+        >
           <CommandEmpty>Nothing matches.</CommandEmpty>
-          {starting && projectGroup}
-          {groups.map((group) => (
+          {found.map(({ group, items: listed }) => (
             <CommandGroup key={group} heading={group}>
-              {items
-                .filter((item) => item.group === group)
-                .map((item) => (
-                  <CommandItem
-                    key={item.id}
-                    value={`${item.label} ${item.group} ${item.id}`}
-                    disabled={item.available?.() === false}
-                    onSelect={() => run(item)}
-                  >
-                    {item.label}
-                    {item.keys && <CommandShortcut>{formatKeys(item.keys)}</CommandShortcut>}
-                  </CommandItem>
-                ))}
+              {listed.map((item) => (
+                <CommandItem
+                  key={item.id}
+                  value={item.id}
+                  disabled={item.available?.() === false}
+                  onSelect={() => run(item)}
+                >
+                  {item.icon}
+                  <span className="truncate">{item.label}</span>
+                  {item.keys ? (
+                    <CommandShortcut className="tracking-normal">
+                      <Kbd>{formatKeys(item.keys)}</Kbd>
+                    </CommandShortcut>
+                  ) : (
+                    item.detail && (
+                      // The kit's slot for what ends a row, which also keeps its check mark from taking the space.
+                      <CommandShortcut className="max-w-1/2 truncate tracking-normal">{item.detail}</CommandShortcut>
+                    )
+                  )}
+                </CommandItem>
+              ))}
             </CommandGroup>
           ))}
-          {!starting && projectGroup}
         </CommandList>
       </Command>
     </CommandDialog>

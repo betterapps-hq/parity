@@ -75,7 +75,7 @@ import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
-import { actions } from "./actions.ts"
+import { actions, rememberCommand } from "./actions.ts"
 import { SearchField } from "./AssetsPanel.tsx"
 import { showConsole } from "./ConsolePanel.tsx"
 import { createDesign } from "./create.ts"
@@ -552,7 +552,10 @@ export function LayerTree() {
 /** The + for frames picks the frame tool, to draw one; the others make a design. */
 function addDesign(session: Session, kind: ContainerKind): void {
   if (kind === "frame") session.selection.setTool("frame")
-  else createDesign(session, kind)
+  else {
+    createDesign(session, kind)
+    rememberCommand(kind === "component" ? "newComponent" : "newScreen")
+  }
 }
 
 /** A group's heading: its title and a + that makes a new one. */

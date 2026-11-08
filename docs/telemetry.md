@@ -75,8 +75,8 @@ One action is one trace in Sentry, across every process that works on it (PAR-62
   drag, as `gesture.ran` with its kind from `canvas/gesture.ts`. The service's requests made while it runs carry it.
 - **Requests carry the trace** as `sentry-trace` and `baggage`, in the channel message's `trace` field. The service and
   main answer each in a `request.handled` span, with the error code when it fails.
-- **Queued work keeps its trace:** an offscreen frame or preview is a `frame.drawn` span with how long it waited for a
-  window, and a builder's start is `builder.started`.
+- **Queued work keeps its trace:** an offscreen frame or preview is a `frame.rendered` span with how long it waited for
+  a window, and a builder's start is `builder.started`.
 - **An agent's call starts its trace in the CLI.** A `parity` command's calls carry its `cli.ran` span, and each MCP
   call starts a trace of its own. The agent server's `agent.called` span continues it, so the call and the frame it drew
   are one trace.
@@ -98,6 +98,29 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   (`not_answering`); `cli.versionMismatch` when the app is newer than the CLI reads, or its answer doesn't check; and
   `mcp.session` with each MCP client's name and version. They're written to `~/.parity/logs/parity-cli-<date>.jsonl`,
   the newest 10 days kept, and don't go to Sentry until PAR-642.
+
+## Frames, previews and the bitmap cache
+
+Every frame and component preview drawn offscreen is recorded, so a slow or broken frame can be found and read
+(PAR-638):
+
+- **`frame.rendered`** is the span of each one, under the action, agent call or capture that asked for it: the design,
+  state and mode, the queue it waited in and for how long, how long the guest took to draw it (`renderMs`) and how long
+  settling and capturing took after (`captureMs`), its size and how many layers were measured. A frame that failed ends
+  as `error` with why.
+- **`frame.failed`** records a frame whose guest failed, with its error message, its stack and why: `module not found`,
+  `render threw`, or `timed out` when it's still drawing 30 seconds after its turn came, which is left to finish. It's a
+  warning, a log rather than a Sentry issue, since a project's own component failing isn't Parity's bug. Main keeps a
+  picture of what the window showed, and the Sentry errors in the 10 minutes after carry it as `failed-frame.png`, until
+  another frame fails.
+- **`preview.made` and `preview.failed`** come from the service: each preview's component, size and time, or why it
+  couldn't be made.
+- **`bitmapCache.used`** gives the session's hits and misses for frame bitmaps and component previews kept on disk, each
+  minute there were lookups. A preview kept as failing or as drawing nothing counts as a hit, since it isn't drawn
+  again.
+
+None of them is sampled. Opening `examples/shadcn-vite` on an empty cache drew about 640 frames and made 520 previews in
+two minutes, once; opening it again drew none.
 
 ## Turning it off
 
@@ -186,51 +209,55 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-| Event                 | Level | Kept | Sent by                                 | When                                                                                |
-| --------------------- | ----- | ---- | --------------------------------------- | ----------------------------------------------------------------------------------- |
-| `action.ran`          | info  | all  | renderer                                | An action runs from a key, a menu or the actions search, until it's done.           |
-| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer. |
-| `agent.serverFailed`  | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                      |
-| `app.quit`            | info  | all  | main                                    | The app quits.                                                                      |
-| `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                    |
-| `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                         |
-| `cli.connectFailed`   | warn  | all  | cli                                     | The CLI can't reach a running copy of the app for a call.                           |
-| `cli.ran`             | info  | all  | cli                                     | A `parity` command runs, until it's done.                                           |
-| `cli.versionMismatch` | warn  | all  | cli                                     | The CLI and the app it calls are versions apart that don't fit.                     |
-| `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.             |
-| `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                 |
-| `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                    |
-| `document.saved`      | info  | all  | renderer                                | A design file is saved.                                                             |
-| `error.caught`        | error | all  | renderer                                | A failure is shown as an error notification.                                        |
-| `export.done`         | info  | all  | renderer                                | An export finishes.                                                                 |
-| `export.failed`       | warn  | all  | renderer                                | An export fails.                                                                    |
-| `frame.drawn`         | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end.           |
-| `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                          |
-| `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                             |
-| `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                    |
-| `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                            |
-| `mcp.session`         | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                   |
-| `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer. |
-| `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.               |
-| `process.memory`      | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                 |
-| `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                    |
-| `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                          |
-| `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                 |
-| `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                   |
-| `report.sent`         | info  | all  | main                                    | Help > Report a problem sends a report.                                             |
-| `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                              |
-| `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                            |
-| `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                     |
-| `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                |
-| `styles.imported`     | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                      |
-| `tab.closed`          | info  | all  | renderer                                | A tab closes.                                                                       |
-| `tab.opened`          | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                         |
-| `tab.switched`        | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                           |
-| `tokens.saved`        | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                         |
-| `update.checked`      | info  | all  | main                                    | A check for an update finds one or finds none.                                      |
-| `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                     |
-| `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                            |
-| `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                       |
+| Event                 | Level | Kept | Sent by                                 | When                                                                                                         |
+| --------------------- | ----- | ---- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `action.ran`          | info  | all  | renderer                                | An action runs from a key, a menu or the actions search, until it's done.                                    |
+| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer.                          |
+| `agent.serverFailed`  | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                                               |
+| `app.quit`            | info  | all  | main                                    | The app quits.                                                                                               |
+| `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                                             |
+| `bitmapCache.used`    | info  | all  | service                                 | Each minute in which bitmaps or previews were looked up, with this session's totals so far.                  |
+| `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                                                  |
+| `cli.connectFailed`   | warn  | all  | cli                                     | The CLI can't reach a running copy of the app for a call.                                                    |
+| `cli.ran`             | info  | all  | cli                                     | A `parity` command runs, until it's done.                                                                    |
+| `cli.versionMismatch` | warn  | all  | cli                                     | The CLI and the app it calls are versions apart that don't fit.                                              |
+| `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                      |
+| `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                          |
+| `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                                             |
+| `document.saved`      | info  | all  | renderer                                | A design file is saved.                                                                                      |
+| `error.caught`        | error | all  | renderer                                | A failure is shown as an error notification.                                                                 |
+| `export.done`         | info  | all  | renderer                                | An export finishes.                                                                                          |
+| `export.failed`       | warn  | all  | renderer                                | An export fails.                                                                                             |
+| `frame.failed`        | warn  | all  | main                                    | A frame or preview drawn offscreen fails, or is still drawing 30 seconds after its turn came.                |
+| `frame.rendered`      | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end, under the trace that asked for it. |
+| `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                   |
+| `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                                      |
+| `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                             |
+| `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                     |
+| `mcp.session`         | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                            |
+| `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                          |
+| `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                        |
+| `preview.failed`      | warn  | all  | service                                 | A component's preview can't be made.                                                                         |
+| `preview.made`        | info  | all  | service                                 | A component's preview is drawn and kept.                                                                     |
+| `process.memory`      | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                                          |
+| `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                                             |
+| `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                                   |
+| `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                                          |
+| `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                            |
+| `report.sent`         | info  | all  | main                                    | Help > Report a problem sends a report.                                                                      |
+| `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                                                       |
+| `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                     |
+| `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                              |
+| `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                                         |
+| `styles.imported`     | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                                               |
+| `tab.closed`          | info  | all  | renderer                                | A tab closes.                                                                                                |
+| `tab.opened`          | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                                                  |
+| `tab.switched`        | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                                                    |
+| `tokens.saved`        | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                                                  |
+| `update.checked`      | info  | all  | main                                    | A check for an update finds one or finds none.                                                               |
+| `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                                              |
+| `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                     |
+| `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                                                |
 
 ### `action.ran`
 
@@ -277,6 +304,17 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `windowShownMs`  | `integer` | From the process starting to the first window being created and shown |
 | `firstPaintMs`   | `integer` | From the process starting to the first window's first paint           |
 | `serviceReadyMs` | `integer` | From the process starting to the project service starting to run      |
+
+### `bitmapCache.used`
+
+| Attribute          | Type      | Meaning                                                           |
+| ------------------ | --------- | ----------------------------------------------------------------- |
+| `frames.hits`      | `integer` | Frame bitmaps found kept for the code they draw                   |
+| `frames.misses`    | `integer` | Frame bitmaps looked for and not kept for the code they draw      |
+| `frames.hitRate`   | `number`  | The share of lookups found, from 0 to 1                           |
+| `previews.hits`    | `integer` | Component previews found kept for the code they draw              |
+| `previews.misses`  | `integer` | Component previews looked for and not kept for the code they draw |
+| `previews.hitRate` | `number`  | The share of lookups found, from 0 to 1                           |
 
 ### `builder.started`
 
@@ -374,13 +412,34 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `states`  | `integer`, optional     | The states exported, when they're counted                        |
 | `code`    | `string`, optional      | The `CodedError` code, when the failure has one                  |
 
-### `frame.drawn`
+### `frame.failed`
 
-| Attribute  | Type      | Meaning                                                     |
-| ---------- | --------- | ----------------------------------------------------------- |
-| `priority` | `string`  | The queue it waited in: render, visible or background       |
-| `queuedMs` | `number`  | How long it waited for an offscreen window, in milliseconds |
-| `whole`    | `boolean` | Whether it was drawn whole, to capture or check it          |
+| Attribute  | Type                                                  | Meaning                                                                                |
+| ---------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `design`   | `string`, optional                                    | The design's key, as the document names it. None for a component preview               |
+| `state`    | `string`, optional                                    | The design's state, when it draws one                                                  |
+| `mode`     | `string`, optional                                    | The mode it draws in, by ID                                                            |
+| `priority` | `string`                                              | The queue it waited in: render, visible or idle                                        |
+| `failure`  | `"module not found" \| "render threw" \| "timed out"` | Why: its module didn't load, its code threw while drawing, or it didn't finish in time |
+| `message`  | `string`                                              | The guest's error message                                                              |
+| `stack`    | `string`, optional                                    | The guest's stack, when it threw an error that has one                                 |
+
+### `frame.rendered`
+
+| Attribute   | Type                                                            | Meaning                                                                                |
+| ----------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `design`    | `string`, optional                                              | The design's key, as the document names it. None for a component preview               |
+| `state`     | `string`, optional                                              | The design's state, when it draws one                                                  |
+| `mode`      | `string`, optional                                              | The mode it draws in, by ID                                                            |
+| `priority`  | `string`                                                        | The queue it waited in: render, visible or idle                                        |
+| `queuedMs`  | `integer`                                                       | How long it waited for an offscreen window                                             |
+| `whole`     | `boolean`                                                       | Whether it was drawn whole, to capture or check it                                     |
+| `renderMs`  | `integer`, optional                                             | How long the guest took to draw and measure it                                         |
+| `captureMs` | `integer`, optional                                             | How long settling, checking and capturing it took after that, when it was drawn whole  |
+| `width`     | `number`, optional                                              | Its width in CSS pixels                                                                |
+| `height`    | `number`, optional                                              | Its height in CSS pixels                                                               |
+| `nodes`     | `integer`, optional                                             | How many layers were measured                                                          |
+| `failure`   | `"module not found" \| "render threw" \| "timed out"`, optional | Why: its module didn't load, its code threw while drawing, or it didn't finish in time |
 
 ### `gesture.ran`
 
@@ -431,6 +490,25 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | --------- | -------------------------------- | ------------------------------------------------------ |
 | `panel`   | `"left" \| "right" \| "console"` | The side panel, or the console under the canvas        |
 | `tab`     | `string`, optional               | The tab the side panel shows, such as layers or design |
+
+### `preview.failed`
+
+| Attribute    | Type                                                 | Meaning                                                                                                         |
+| ------------ | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `component`  | `string`                                             | The component it pictures, by ID                                                                                |
+| `reason`     | `"render threw" \| "drew nothing" \| "not finished"` | Why: its component failed to draw, it drew nothing to see, or the draw didn't finish, as when its window closed |
+| `message`    | `string`, optional                                   | What went wrong, when there's an error                                                                          |
+| `durationMs` | `integer`                                            | From asking for it to giving up                                                                                 |
+
+### `preview.made`
+
+| Attribute    | Type      | Meaning                                                                    |
+| ------------ | --------- | -------------------------------------------------------------------------- |
+| `component`  | `string`  | The component it pictures, by ID                                           |
+| `durationMs` | `integer` | From asking for it to keeping it, waiting for an offscreen window included |
+| `width`      | `number`  | The large picture's width in pixels                                        |
+| `height`     | `number`  | The large picture's height in pixels                                       |
+| `bytes`      | `integer` | The size of both pictures kept, in bytes                                   |
 
 ### `process.memory`
 

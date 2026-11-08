@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 11:14:21 GMT",
+      "version": "0.20.0",
+      "tag": "@parity-app/cli_v0.20.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3058ce2e9b46f0963a2c9ca09a96d79ae56ff73d",
+            "comment": "Record frame renders, frame failures, component previews and the bitmap cache's hit rate in telemetry"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "651f285d7df29df99be712d6c86325e8d16bb0cf",
+            "comment": "Search actions (Ctrl+K) finds designs, layers, components, tokens and panel actions, with recent picks first, and Repeat last action (Ctrl+Alt+P) runs the last change again on the selection"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 09:34:30 GMT",
       "version": "0.19.0",
       "tag": "@parity-app/cli_v0.19.0",

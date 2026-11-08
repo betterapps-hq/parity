@@ -9,6 +9,7 @@ import type { ConnectMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, exportLayers, layersPicture, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings, startBuilder } from "./builders.ts"
+import { cacheUse, reportCacheUse } from "./cache-use.ts"
 import { readProjectFile } from "./code.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
@@ -119,6 +120,7 @@ const handlers: Handlers<ServiceMethods> = {
   "frames.stored": async ({ job }) => {
     const served = projects.codeServedAt(job.projectId, job.guestUrl)
     const kept = served && (await storedBitmap(served, job))
+    if (served) cacheUse.frame(kept !== undefined)
     return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
   },
   "frames.clearStored": clearBitmaps,
@@ -178,6 +180,7 @@ mainProcess.connect(nodePort(process.parentPort, { wrapped: true }))
 
 // Kept bitmaps past their limits go when the service starts, so a session never begins over them.
 void sweepBitmaps()
+reportCacheUse()
 void startAgentServer(editorWindow).catch((error: unknown) => {
   console.error("[service] agent server failed to start", error)
   const code = errorCode(error)

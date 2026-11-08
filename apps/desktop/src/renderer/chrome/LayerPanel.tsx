@@ -1,6 +1,7 @@
 import {
   Button,
   Input,
+  Kbd,
   Select,
   SelectContent,
   SelectItem,
@@ -52,7 +53,7 @@ import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { wrapSelection } from "./commands.ts"
+import { actions } from "./actions.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
@@ -421,7 +422,6 @@ function LayerSections({
  * and offers a layout around it to size instead. Inside an instance, that belongs in the component design.
  */
 function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) {
-  const session = useProject()
   return (
     <div className={`flex flex-col gap-2 border-b py-2.5 pl-4 ${panelEnd}`}>
       <p className="text-xs text-muted-foreground">
@@ -429,9 +429,8 @@ function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) 
         {wrap ? " Wrap it in a layout and size that instead." : ""}
       </p>
       {wrap && (
-        <Button variant="outline" size="sm" onClick={() => wrapSelection(session)}>
-          <Group /> {keymap.wrap.label}{" "}
-          <span className="ml-auto text-xs text-muted-foreground">{formatKeys(keymap.wrap.keys[0])}</span>
+        <Button variant="outline" size="sm" onClick={() => void actions.wrap.run()}>
+          <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
         </Button>
       )}
     </div>

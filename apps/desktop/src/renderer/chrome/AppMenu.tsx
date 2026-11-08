@@ -51,6 +51,7 @@ import {
   PenLine,
   Plus,
   Redo2,
+  Repeat2,
   RefreshCw,
   Save,
   SaveAll,
@@ -80,6 +81,7 @@ import { type Command, keymap } from "./keymap.ts"
 import { formatKeys, isMac } from "./keys.ts"
 import { setLayout, useLayout } from "./layout.ts"
 import { setPreferences, usePreferences } from "./preferences.ts"
+import { lastAction } from "./repeat.ts"
 import { openReport } from "./ReportProblemDialog.tsx"
 import { checkForUpdates } from "./updates.tsx"
 
@@ -219,6 +221,7 @@ function FileItems() {
 
 function EditItems() {
   const history = activeSession()?.store.getHistory()
+  const repeated = lastAction()
   return (
     <>
       <Item command="undo" icon={Undo2}>
@@ -226,6 +229,9 @@ function EditItems() {
       </Item>
       <Item command="redo" icon={Redo2}>
         {history?.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : "Redo"}
+      </Item>
+      <Item command="repeat" icon={Repeat2}>
+        {repeated ? `Repeat ${repeated.label[0]!.toLowerCase()}${repeated.label.slice(1)}` : keymap.repeat.label}
       </Item>
       <MenubarSeparator />
       <Item command="cut" icon={Scissors} />
