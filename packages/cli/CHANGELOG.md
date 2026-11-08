@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 08 Nov 2026 11:14:21 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 11:33:58 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.21.0
+
+Sun, 08 Nov 2026 11:33:58 GMT
+
+### Minor changes
+
+- Record every action in the action list as command.ran, with where it came from, whether it applied, and the selection
+  (PAR-639) (ajcraswell@gmail.com)
 
 ## 0.20.0
 
