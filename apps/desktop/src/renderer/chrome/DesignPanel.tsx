@@ -1,15 +1,4 @@
-import {
-  Badge,
-  Button,
-  Input,
-  Label,
-  RadioGroup,
-  RadioGroupItem,
-  Switch,
-  ToggleGroup,
-  ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
-import type { ContainerKind } from "@parity-app/core"
+import { Badge, Button, Input, Label, RadioGroup, RadioGroupItem, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import { kindName, kindTitle, selectionKey } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
@@ -18,7 +7,6 @@ import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { ComponentsSection, InCodeSection, ParamsSection } from "./ComponentsSection.tsx"
-import { setDesignKind } from "./designs.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
@@ -70,12 +58,8 @@ function SelectedPanel() {
   return <DesignPanel entry={entry} />
 }
 
-/** The kinds a design can be, lightest first, as the kind switch lists them. */
-const kinds: readonly ContainerKind[] = ["frame", "component", "screen"]
-
 function DesignPanel({ entry }: { entry: ContainerEntry }) {
-  const session = useProject()
-  const { store } = session
+  const { store } = useProject()
   const settings = useModeSettings(store)
   const { container, key } = entry
   const { primary } = containerModes(settings, container)
@@ -107,23 +91,6 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
           />
         </div>
         <div className="mt-2 flex items-center gap-2 pl-6">
-          <ToggleGroup
-            variant="outline"
-            size="sm"
-            spacing={0}
-            value={[container.kind ?? "screen"]}
-            aria-label="Kind"
-            onValueChange={([value]) => {
-              const picked = kinds.find((each) => each === value)
-              if (picked) setDesignKind(session, entry, picked)
-            }}
-          >
-            {kinds.map((each) => (
-              <ToggleGroupItem key={each} value={each} className="h-6 px-2 text-xs">
-                {kindTitle(each)}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
           <Hint label={entry.path} wait>
             <Badge variant="outline" className="min-w-0 shrink justify-start font-normal">
               <span className="truncate">{entry.path}</span>

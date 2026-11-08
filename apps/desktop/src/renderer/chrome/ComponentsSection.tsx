@@ -3,7 +3,6 @@ import {
   addVariant,
   addVariantOption,
   designSlots,
-  findRepeats,
   type ParamSpec,
   removeParam,
   removeVariantOption,
@@ -11,7 +10,7 @@ import {
   type RepeatCandidate
 } from "@parity-app/core"
 import { Diamond, Plus, ScanSearch, Sparkles, Trash2, X } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
@@ -20,6 +19,7 @@ import { ChoiceInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
+import { clearRepeatedParts, findRepeatedParts, holdRepeatedParts, useRepeatedParts } from "./repeated-parts.ts"
 import { revealSelection } from "./reveal.ts"
 import { AddProp, CodeLines, NewPropRow, PropTile, SlotPropRow } from "./slot-props.tsx"
 
@@ -29,11 +29,13 @@ import { AddProp, CodeLines, NewPropRow, PropTile, SlotPropRow } from "./slot-pr
  * Naming parts and finding the ones used once is an agent's job (the decompose skill).
  */
 export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
-  const [candidates, setCandidates] = useState<RepeatCandidate[]>()
+  const { root } = useProject().info
+  const candidates = useRepeatedParts(root, entry.key)
+  useEffect(() => holdRepeatedParts(root, entry.key), [root, entry.key])
   let content: ReactNode
   if (candidates === undefined) {
     content = (
-      <Button variant="outline" size="sm" onClick={() => setCandidates(findRepeats(entry.container.root))}>
+      <Button variant="outline" size="sm" onClick={() => findRepeatedParts(root, entry)}>
         <ScanSearch /> Find repeated parts
       </Button>
     )
@@ -51,7 +53,7 @@ export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
             key={candidate.nodes.join()}
             entry={entry}
             candidate={candidate}
-            onDone={() => setCandidates(undefined)}
+            onDone={() => clearRepeatedParts(root, entry.key)}
           />
         ))}
       </ul>

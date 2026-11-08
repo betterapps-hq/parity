@@ -274,13 +274,17 @@ has no Mixed state for part of a text.
 
 Typography preset, the section's first row, shows when the project has one
 ([design-options-tokens.md](design-options-tokens.md), What a typography preset is); in a stock Tailwind project, whose
-sizes pair only a line height, Size's token shows its line height as From size. With a style applied, the rows it sets
-fold into its row as a summary ("Inter 20/28 Semibold"), as Figma's Typography does, with a disclosure to show them. An
-overridden row stays shown, marked, with its reset arrow. Detach is in the style row's menu.
+sizes pair only a line height, Size's token shows its line height as From size. With a preset applied, the rows it sets
+fold into its row as a summary ("Inter 20/28 Semibold"), as Figma's Typography does, marked with a lock and with a
+disclosure to show them. Shown, they're locked to the preset's values, each with an Unlock button, and changing an
+unlocked row overrides the preset there. An overridden row stays shown while the summary is closed, marked, with its
+reset arrow, and picking the preset again takes back every override. Detach is an icon button beside the picker. A layer
+with no preset whose type matches one, or nearly does, says so under the row, with Use one click away (call 6, in
+[decisions.md](../decisions.md#the-design-panels-calls-par-652)).
 
 | Row                 | Control                                                                                                                 | Writes                                                                              | Figma                                                      |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Typography preset   | Picker of the project's typography presets (PAR-135); the rows it sets fold into it while it's applied                  | the style's class (`text-xl`), or those rows' properties; never `font`              | Text styles                                                |
+| Typography preset   | Picker of the project's typography presets (PAR-135); the rows it sets fold into it, locked, while it's applied         | the style's class (`text-xl`), or those rows' properties; never `font`              | Text styles                                                |
 | Font                | Searchable list in each font, the project's fonts first, then Google Fonts (today: a token)                             | `font-family`                                                                       | Font family                                                |
 | Weight and style    | Menu of the weights the font has (Semibold 600), a slider for a variable font; italics (today: nine weights and Italic) | `font-weight`, `font-style`                                                         | Font style                                                 |
 | Size                | Length field with font size tokens, px, rem and `clamp()` (today: a token)                                              | `font-size`, and what the size token pairs, unless those rows are set               | Size                                                       |

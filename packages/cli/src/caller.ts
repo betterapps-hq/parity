@@ -20,6 +20,11 @@ export function mcpClientName(clientInfo: { name?: unknown; title?: unknown } | 
   return declaredName(clientInfo?.name)
 }
 
+/** The MCP client's version from `initialize`, for telemetry (PAR-641). */
+export function mcpClientVersion(clientInfo: { version?: unknown } | undefined): string | undefined {
+  return declaredName(clientInfo?.version)?.slice(0, 80)
+}
+
 /** CLI callers opt in to attribution explicitly; ambient tool configuration is not identity. */
 export function cliCallerName(env: Record<string, string | undefined>): string {
   return declaredName(env.PARITY_AGENT_NAME) ?? "Terminal"

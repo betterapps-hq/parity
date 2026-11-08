@@ -2,7 +2,7 @@ import { createInterface } from "node:readline"
 import { requestJsonSchema } from "@parity-app/agent/contracts"
 import { checkData, jsonText, plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
-import { mcpCallerName, mcpClientName } from "./caller.ts"
+import { mcpCallerName, mcpClientName, mcpClientVersion } from "./caller.ts"
 import {
   call,
   describeAccessibility,
@@ -21,6 +21,7 @@ import { executeOperation } from "./execute.ts"
 import { describeLogs, logsFields, logsInputSchema, readLogs } from "./logs.ts"
 import { type Operation, operations, skillOperation } from "./operations.ts"
 import { readSkill } from "./skills.ts"
+import { recordCli } from "./telemetry.ts"
 
 interface Tool {
   name: string
@@ -204,10 +205,13 @@ const message = z.looseObject({
   params: z.looseObject({}).optional()
 })
 
-/** The client's side of `initialize`: who it is, for the canvas, and the protocol version it speaks. */
+/** The client's side of `initialize`: who it is, for the canvas and telemetry, and the protocol version it speaks. */
 const initializeParams = z.looseObject({
   protocolVersion: z.string().optional().catch(undefined),
-  clientInfo: z.looseObject({ name: z.unknown().optional(), title: z.unknown().optional() }).optional().catch(undefined)
+  clientInfo: z
+    .looseObject({ name: z.unknown().optional(), title: z.unknown().optional(), version: z.unknown().optional() })
+    .optional()
+    .catch(undefined)
 })
 
 /** `tools/call`'s params: which tool, and its arguments, which the tool's own schema checks. */
@@ -242,7 +246,14 @@ async function respond(method: string, params: Record<string, unknown> = {}) {
   switch (method) {
     case "initialize": {
       const { clientInfo, protocolVersion } = initializeParams.parse(params)
-      setCaller(mcpCallerName(clientInfo), true, mcpClientName(clientInfo))
+      const client = mcpClientName(clientInfo)
+      setCaller(mcpCallerName(clientInfo), true, client)
+      const version = mcpClientVersion(clientInfo)
+      recordCli("mcp.session", {
+        ...(client ? { client } : {}),
+        ...(version ? { clientVersion: version } : {}),
+        ...(protocolVersion ? { protocolVersion } : {})
+      })
       return {
         result: {
           protocolVersion: protocolVersion ?? "2025-06-18",

@@ -8,7 +8,7 @@ import {
   type SignInRequest,
   signedOut
 } from "../../shared/account.ts"
-import { openProjectFolder } from "../chrome/commands.ts"
+import { actions } from "../chrome/actions.ts"
 import { reportError } from "../report-error.ts"
 import { workspace } from "../workspace.ts"
 import { currentOrganization } from "./OrganizationBadge.tsx"
@@ -160,7 +160,7 @@ export const accountActions = {
     remember("skipped")
     update({ place: undefined })
     void window.canvasHost.account.cancel()
-    void openProjectFolder()
+    void actions.openFolder.run("panel")
   },
   /** A project opened another way while the sign-in screen showed, as from the File menu: that's going on without. */
   leaveScreen: () => {

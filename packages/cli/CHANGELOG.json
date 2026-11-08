@@ -2,6 +2,57 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 12:58:30 GMT",
+      "version": "0.22.0",
+      "tag": "@parity-app/cli_v0.22.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "395b70bdf130b0adbc0bd5d06fca78231fb88820",
+            "comment": "Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures, version mismatches and MCP sessions in ~/.parity/logs"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 11:33:58 GMT",
+      "version": "0.21.0",
+      "tag": "@parity-app/cli_v0.21.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1370341b0ba204ba201eec13a35bad0527117735",
+            "comment": "Record every action in the action list as command.ran, with where it came from, whether it applied, and the selection (PAR-639)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 11:14:21 GMT",
+      "version": "0.20.0",
+      "tag": "@parity-app/cli_v0.20.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3058ce2e9b46f0963a2c9ca09a96d79ae56ff73d",
+            "comment": "Record frame renders, frame failures, component previews and the bitmap cache's hit rate in telemetry"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "651f285d7df29df99be712d6c86325e8d16bb0cf",
+            "comment": "Search actions (Ctrl+K) finds designs, layers, components, tokens and panel actions, with recent picks first, and Repeat last action (Ctrl+Alt+P) runs the last change again on the selection"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 07 Nov 2026 09:34:30 GMT",
       "version": "0.19.0",
       "tag": "@parity-app/cli_v0.19.0",

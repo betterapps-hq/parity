@@ -1,8 +1,42 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 07 Nov 2026 11:02:22 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 12:58:18 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.35.0
+
+Sun, 08 Nov 2026 12:58:18 GMT
+
+### Minor changes
+
+- Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures,
+  version mismatches and MCP sessions in ~/.parity/logs (ajcraswell@gmail.com)
+
+### Patches
+
+- The Design panel no longer has a Frame, Component and Screen switch; convert a design from its title menu
+  (ajcraswell@gmail.com)
+
+## 0.34.0
+
+Sun, 08 Nov 2026 11:33:42 GMT
+
+### Minor changes
+
+- Record every action in the action list as command.ran, with where it came from, whether it applied, and the selection
+  (PAR-639) (ajcraswell@gmail.com)
+
+## 0.33.0
+
+Sun, 08 Nov 2026 11:13:59 GMT
+
+### Minor changes
+
+- Search actions (Ctrl+K) finds designs, layers, components, tokens and panel actions, with recent picks first, and
+  Repeat last action (Ctrl+Alt+P) runs the last change again on the selection (ajcraswell@gmail.com)
+- Record frame renders, frame failures, component previews and the bitmap cache's hit rate in telemetry
+  (ajcraswell@gmail.com)
 
 ## 0.32.0
 

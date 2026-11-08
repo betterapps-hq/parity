@@ -71,16 +71,58 @@ a span adds its `parentSpanId`, `durationMs` and `outcome` (`ok`, `error` or `ca
 
 One action is one trace in Sentry, across every process that works on it (PAR-629):
 
-- **The window starts a trace** for each action, as `action.ran` with its ID from `chrome/actions.ts`, and each canvas
+- **The window starts a trace** for each action, as `command.ran` with its ID from `chrome/actions.ts`, and each canvas
   drag, as `gesture.ran` with its kind from `canvas/gesture.ts`. The service's requests made while it runs carry it.
 - **Requests carry the trace** as `sentry-trace` and `baggage`, in the channel message's `trace` field. The service and
   main answer each in a `request.handled` span, with the error code when it fails.
-- **Queued work keeps its trace:** an offscreen frame or preview is a `frame.drawn` span with how long it waited for a
-  window, and a builder's start is `builder.started`.
-- **An agent's call starts its trace in the CLI,** which sends the headers with each request; the agent server's
-  `agent.called` span continues it, so the call and the frame it drew are one trace.
+- **Queued work keeps its trace:** an offscreen frame or preview is a `frame.rendered` span with how long it waited for
+  a window, and a builder's start is `builder.started`.
+- **An agent's call starts its trace in the CLI.** A `parity` command's calls carry its `cli.ran` span, and each MCP
+  call starts a trace of its own. The agent server's `agent.called` span continues it, so the call and the frame it drew
+  are one trace.
 
 To find one, open a span's trace in Sentry, or search spans by `trace` from an error.
+
+## Agents and the CLI
+
+Agents' calls are recorded where they're answered, once for every operation, whichever way they came (PAR-641):
+
+- **The agent server records each call as `agent.called`:** the operation, `cli` or `mcp`, the caller's declared name
+  and MCP client, the params as JSON, the answer's size, and how it ended. A failure adds its code, `retryable` and how
+  many alternatives it offered; a snippet or screenshot that failed without throwing counts as failed too. The answer's
+  warning groups are listed by category. An `exec` call's snippet goes on the span by itself, so a failed snippet reads
+  beside its error. `agentCallStart`, `agentCallAnswered` and `agentCallFailed` in `@parity-app/telemetry` read these
+  from the body and the answer, scrubbing the open projects' `.env` values before the params are serialized or cut,
+  since an escaped or shortened secret wouldn't match later. When the server can't start, the service records
+  `agent.serverFailed`.
+- **The CLI records its own runs** through `@parity-app/telemetry`: `cli.ran` for each command, with the flags' names
+  but not their values; `cli.connectFailed` when no copy of the app is registered (`not_running`) or none answers
+  (`not_answering`); `cli.versionMismatch` when the app is newer than the CLI reads, or its answer doesn't check; and
+  `mcp.session` with each MCP client's name and version. They're written to `~/.parity/logs/parity-cli-<date>.jsonl`,
+  the newest 10 days kept, and don't go to Sentry until PAR-642.
+
+## Frames, previews and the bitmap cache
+
+Every frame and component preview drawn offscreen is recorded, so a slow or broken frame can be found and read
+(PAR-638):
+
+- **`frame.rendered`** is the span of each one, under the action, agent call or capture that asked for it: the design,
+  state and mode, the queue it waited in and for how long, how long the guest took to draw it (`renderMs`) and how long
+  settling and capturing took after (`captureMs`), its size and how many layers were measured. A frame that failed ends
+  as `error` with why.
+- **`frame.failed`** records a frame whose guest failed, with its error message, its stack and why: `module not found`,
+  `render threw`, or `timed out` when it's still drawing 30 seconds after its turn came, which is left to finish. It's a
+  warning, a log rather than a Sentry issue, since a project's own component failing isn't Parity's bug. Main keeps a
+  picture of what the window showed, and the Sentry errors in the 10 minutes after carry it as `failed-frame.png`, until
+  another frame fails.
+- **`preview.made` and `preview.failed`** come from the service: each preview's component, size and time, or why it
+  couldn't be made.
+- **`bitmapCache.used`** gives the session's hits and misses for frame bitmaps and component previews kept on disk, each
+  minute there were lookups. A preview kept as failing or as drawing nothing counts as a hit, since it isn't drawn
+  again.
+
+None of them is sampled. Opening `examples/shadcn-vite` on an empty cache drew about 640 frames and made 520 previews in
+two minutes, once; opening it again drew none.
 
 ## Turning it off
 
@@ -187,69 +229,96 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-| Event                 | Level | Kept | Sent by                                 | When                                                                                |
-| --------------------- | ----- | ---- | --------------------------------------- | ----------------------------------------------------------------------------------- |
-| `action.ran`          | info  | all  | renderer                                | An action runs from a key, a menu or the actions search, until it's done.           |
-| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI.                                       |
-| `app.quit`            | info  | all  | main                                    | The app quits.                                                                      |
-| `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                    |
-| `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                         |
-| `clipboard.failed`    | info  | all  | renderer                                | A paste pastes nothing, and says why.                                               |
-| `clipboard.pasted`    | info  | all  | renderer                                | A paste puts something on the canvas.                                               |
-| `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.             |
-| `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                 |
-| `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                    |
-| `document.saved`      | info  | all  | renderer                                | A design file is saved.                                                             |
-| `edit.redone`         | info  | all  | renderer                                | A step undone is redone.                                                            |
-| `edit.undone`         | info  | all  | renderer                                | A step is undone.                                                                   |
-| `error.caught`        | error | all  | renderer                                | A failure is shown as an error notification.                                        |
-| `export.done`         | info  | all  | renderer                                | An export finishes.                                                                 |
-| `export.failed`       | warn  | all  | renderer                                | An export fails.                                                                    |
-| `frame.drawn`         | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end.           |
-| `gesture.ended`       | info  | all  | renderer                                | A gesture ends: a drag, a resize, a run of presses, a pan or a zoom.                |
-| `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                          |
-| `insert.done`         | info  | all  | renderer                                | Something is inserted onto the canvas.                                              |
-| `inspector.changed`   | info  | all  | renderer                                | A field in the inspector changes a layer.                                           |
-| `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                             |
-| `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                    |
-| `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                            |
-| `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer. |
-| `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.               |
-| `process.memory`      | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                 |
-| `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                    |
-| `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                          |
-| `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                 |
-| `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                   |
-| `report.sent`         | info  | all  | main                                    | Help > Report a problem sends a report.                                             |
-| `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                              |
-| `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                            |
-| `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                     |
-| `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                |
-| `styles.imported`     | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                      |
-| `tab.closed`          | info  | all  | renderer                                | A tab closes.                                                                       |
-| `tab.opened`          | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                         |
-| `tab.switched`        | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                           |
-| `text.edited`         | info  | all  | renderer                                | Editing a text layer in place on the canvas ends.                                   |
-| `tokens.saved`        | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                         |
-| `update.checked`      | info  | all  | main                                    | A check for an update finds one or finds none.                                      |
-| `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                     |
-| `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                            |
-| `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                       |
-
-### `action.ran`
-
-| Attribute | Type               | Meaning                                                        |
-| --------- | ------------------ | -------------------------------------------------------------- |
-| `action`  | `string`           | The action's ID in the keymap, as `chrome/actions.ts` names it |
-| `code`    | `string`, optional | The error code, when it failed                                 |
+| Event                 | Level | Kept | Sent by                                 | When                                                                                                         |
+| --------------------- | ----- | ---- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer.                          |
+| `agent.serverFailed`  | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                                               |
+| `app.quit`            | info  | all  | main                                    | The app quits.                                                                                               |
+| `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                                             |
+| `bitmapCache.used`    | info  | all  | service                                 | Each minute in which bitmaps or previews were looked up, with this session's totals so far.                  |
+| `builder.crashed`     | warn  | all  | service                                 | A project's builder stops by itself while the project is open.                                               |
+| `builder.ready`       | info  | all  | service                                 | A project's builder answers and serves the project.                                                          |
+| `builder.restarted`   | info  | all  | service                                 | A project's builder is started again from the processes list.                                                |
+| `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                                                  |
+| `cli.connectFailed`   | warn  | all  | cli                                     | The CLI can't reach a running copy of the app for a call.                                                    |
+| `cli.ran`             | info  | all  | cli                                     | A `parity` command runs, until it's done.                                                                    |
+| `cli.versionMismatch` | warn  | all  | cli                                     | The CLI and the app it calls are versions apart that don't fit.                                              |
+| `clipboard.failed`    | info  | all  | renderer                                | A paste pastes nothing, and says why.                                                                        |
+| `clipboard.pasted`    | info  | all  | renderer                                | A paste puts something on the canvas.                                                                        |
+| `command.ran`         | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                               |
+| `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                      |
+| `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                          |
+| `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                                             |
+| `document.saved`      | info  | all  | renderer                                | A design file is saved.                                                                                      |
+| `edit.redone`         | info  | all  | renderer                                | A step undone is redone.                                                                                     |
+| `edit.undone`         | info  | all  | renderer                                | A step is undone.                                                                                            |
+| `error.caught`        | error | all  | renderer                                | A failure is shown as an error notification.                                                                 |
+| `export.done`         | info  | all  | renderer                                | An export finishes.                                                                                          |
+| `export.failed`       | warn  | all  | renderer                                | An export fails.                                                                                             |
+| `frame.failed`        | warn  | all  | main                                    | A frame or preview drawn offscreen fails, or is still drawing 30 seconds after its turn came.                |
+| `frame.rendered`      | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end, under the trace that asked for it. |
+| `gesture.ended`       | info  | all  | renderer                                | A gesture ends: a drag, a resize, a run of presses, a pan or a zoom.                                         |
+| `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                   |
+| `insert.done`         | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                       |
+| `inspector.changed`   | info  | all  | renderer                                | A field in the inspector changes a layer.                                                                    |
+| `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                                      |
+| `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                             |
+| `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                     |
+| `mcp.session`         | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                            |
+| `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                          |
+| `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                        |
+| `preview.failed`      | warn  | all  | service                                 | A component's preview can't be made.                                                                         |
+| `preview.made`        | info  | all  | service                                 | A component's preview is drawn and kept.                                                                     |
+| `process.memory`      | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                                          |
+| `project.closed`      | info  | all  | service                                 | An open project is closed.                                                                                   |
+| `project.detected`    | debug | all  | service                                 | The service reads a project's package, tools, files and components as it opens, until it's done.             |
+| `project.loaded`      | info  | all  | renderer                                | A project's tab has its components loaded and is ready to draw.                                              |
+| `project.openFailed`  | warn  | all  | service                                 | A project can't be opened.                                                                                   |
+| `project.opened`      | info  | all  | service                                 | A project opens, with its builder serving it.                                                                |
+| `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                                             |
+| `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                                   |
+| `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                                          |
+| `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                            |
+| `report.sent`         | info  | all  | main                                    | Help > Report a problem sends a report.                                                                      |
+| `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                                                       |
+| `server.failed`       | warn  | all  | service                                 | A server the process manager started can't start.                                                            |
+| `server.started`      | info  | all  | service                                 | A server the process manager started answers at its address.                                                 |
+| `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                     |
+| `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                              |
+| `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                                         |
+| `styles.imported`     | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                                               |
+| `tab.closed`          | info  | all  | renderer                                | A tab closes.                                                                                                |
+| `tab.opened`          | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                                                  |
+| `tab.switched`        | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                                                    |
+| `text.edited`         | info  | all  | renderer                                | Editing a text layer in place on the canvas ends.                                                            |
+| `tokens.saved`        | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                                                  |
+| `update.checked`      | info  | all  | main                                    | A check for an update finds one or finds none.                                                               |
+| `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                                              |
+| `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                     |
+| `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                                                |
 
 ### `agent.called`
 
-| Attribute | Type               | Meaning                        |
-| --------- | ------------------ | ------------------------------ |
-| `method`  | `string`           | The agent method called        |
-| `agent`   | `string`, optional | The caller's name              |
-| `code`    | `string`, optional | The error code, when it failed |
+| Attribute      | Type                | Meaning                                                                                                |
+| -------------- | ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `method`       | `string`            | The operation called, such as `exec` or `screenshot`, or `unreadable`                                  |
+| `transport`    | `"cli" \| "mcp"`    | How the agent called: `cli` for the parity command, `mcp` for MCP                                      |
+| `agent`        | `string`, optional  | The caller's declared name, as PAR-450 has it                                                          |
+| `client`       | `string`, optional  | The MCP client's program, such as `claude-code`                                                        |
+| `input`        | `string`, optional  | The call's params as JSON, without an exec call's snippet, cut at 2,000 characters                     |
+| `snippet`      | `string`, optional  | An exec call's snippet, cut at 10,000 characters                                                       |
+| `resultBytes`  | `integer`, optional | How long the answer was, as JSON, in characters                                                        |
+| `code`         | `string`, optional  | The error code, when it failed                                                                         |
+| `retryable`    | `boolean`, optional | Whether the failure says sending it again unchanged can succeed                                        |
+| `alternatives` | `integer`, optional | How many alternatives the failure offered instead of what was asked for                                |
+| `warnings`     | `string`, optional  | The answer's warning groups by category, with how many places each, such as `overlap:2 unknown_prop:1` |
+
+### `agent.serverFailed`
+
+| Attribute | Type               | Meaning                                   |
+| --------- | ------------------ | ----------------------------------------- |
+| `message` | `string`           | Why it couldn't start                     |
+| `code`    | `string`, optional | The error's code, such as Node's `EACCES` |
 
 ### `app.quit`
 
@@ -267,11 +336,73 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `firstPaintMs`   | `integer` | From the process starting to the first window's first paint           |
 | `serviceReadyMs` | `integer` | From the process starting to the project service starting to run      |
 
+### `bitmapCache.used`
+
+| Attribute          | Type      | Meaning                                                           |
+| ------------------ | --------- | ----------------------------------------------------------------- |
+| `frames.hits`      | `integer` | Frame bitmaps found kept for the code they draw                   |
+| `frames.misses`    | `integer` | Frame bitmaps looked for and not kept for the code they draw      |
+| `frames.hitRate`   | `number`  | The share of lookups found, from 0 to 1                           |
+| `previews.hits`    | `integer` | Component previews found kept for the code they draw              |
+| `previews.misses`  | `integer` | Component previews looked for and not kept for the code they draw |
+| `previews.hitRate` | `number`  | The share of lookups found, from 0 to 1                           |
+
+### `builder.crashed`
+
+| Attribute  | Type                | Meaning                                                  |
+| ---------- | ------------------- | -------------------------------------------------------- |
+| `builder`  | `string`            | The builder's name, as Vite                              |
+| `exitCode` | `integer`, optional | The builder process's exit code, when it exited with one |
+| `signal`   | `string`, optional  | The signal that ended it, when one did                   |
+| `output`   | `string`            | The last of what it printed, up to 50 lines              |
+
+### `builder.ready`
+
+| Attribute    | Type      | Meaning                                        |
+| ------------ | --------- | ---------------------------------------------- |
+| `builder`    | `string`  | The builder's name, as Vite                    |
+| `durationMs` | `number`  | How long it took, in milliseconds              |
+| `restart`    | `boolean` | Whether it was started again, as after a crash |
+
+### `builder.restarted`
+
+| Attribute    | Type               | Meaning                                         |
+| ------------ | ------------------ | ----------------------------------------------- |
+| `builder`    | `string`           | The builder's name, as Vite                     |
+| `durationMs` | `number`           | How long it took, in milliseconds               |
+| `outcome`    | `"ok" \| "error"`  | Whether it answered again                       |
+| `code`       | `string`, optional | The `CodedError` code, when the failure has one |
+
 ### `builder.started`
 
 | Attribute | Type     | Meaning            |
 | --------- | -------- | ------------------ |
 | `builder` | `string` | The builder's name |
+
+### `cli.connectFailed`
+
+| Attribute | Type                               | Meaning                                                                                            |
+| --------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `code`    | `"not_running" \| "not_answering"` | `not_running` when no copy of the app is registered, `not_answering` when none registered answered |
+| `copies`  | `integer`                          | How many copies of the app were registered                                                         |
+
+### `cli.ran`
+
+| Attribute  | Type                | Meaning                                                                |
+| ---------- | ------------------- | ---------------------------------------------------------------------- |
+| `command`  | `string`            | The command, such as `exec` or `mcp`, or `help` with none              |
+| `flags`    | `string[]`          | The flags given, by name, without their values                         |
+| `exitCode` | `integer`, optional | What the command exited with: 0, or 1 when it failed or found problems |
+| `code`     | `string`, optional  | The error code, when it failed                                         |
+
+### `cli.versionMismatch`
+
+| Attribute     | Type                                 | Meaning                                                                                               |
+| ------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `cause`       | `"app_newer" \| "unreadable_answer"` | `app_newer` when the app's registry entry is newer, `unreadable_answer` when its answer doesn't check |
+| `cliRegistry` | `integer`                            | The registry version this CLI reads                                                                   |
+| `appRegistry` | `integer`, optional                  | The registry version the app wrote, for `app_newer`                                                   |
+| `method`      | `string`, optional                   | The method whose answer couldn't be read, for `unreadable_answer`                                     |
 
 ### `clipboard.failed`
 
@@ -289,6 +420,17 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `how`     | `"paste" \| "over" \| "replace" \| "here"`                                                  | Which paste: Paste, Paste over selection, Paste to replace, or Paste here                                                       |
 | `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, text, nothing, or a copy that can't be read |
 | `count`   | `integer`                                                                                   | How many layers, designs or notes were pasted                                                                                   |
+
+### `command.ran`
+
+| Attribute | Type                                                                                  | Meaning                                                                                                                           |
+| --------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `action`  | `string`                                                                              | The action's ID in the keymap, as `chrome/actions.ts` names it                                                                    |
+| `from`    | `"key" \| "menu" \| "canvasMenu" \| "layersMenu" \| "search" \| "toolbar" \| "panel"` | What ran it: a key, the menubar, the canvas's or a Layers row's menu, Search actions, the toolbar, or a button in a panel or page |
+| `enabled` | `boolean`                                                                             | Whether it applied then. One that didn't is recorded as cancelled, without running                                                |
+| `layers`  | `integer`                                                                             | How many layers were selected                                                                                                     |
+| `designs` | `integer`                                                                             | How many designs were selected, with no layer inside one                                                                          |
+| `code`    | `string`, optional                                                                    | The error code, when it failed                                                                                                    |
 
 ### `data.invalid`
 
@@ -375,13 +517,34 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `states`  | `integer`, optional     | The states exported, when they're counted                        |
 | `code`    | `string`, optional      | The `CodedError` code, when the failure has one                  |
 
-### `frame.drawn`
+### `frame.failed`
 
-| Attribute  | Type      | Meaning                                                     |
-| ---------- | --------- | ----------------------------------------------------------- |
-| `priority` | `string`  | The queue it waited in: render, visible or background       |
-| `queuedMs` | `number`  | How long it waited for an offscreen window, in milliseconds |
-| `whole`    | `boolean` | Whether it was drawn whole, to capture or check it          |
+| Attribute  | Type                                                  | Meaning                                                                                |
+| ---------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `design`   | `string`, optional                                    | The design's key, as the document names it. None for a component preview               |
+| `state`    | `string`, optional                                    | The design's state, when it draws one                                                  |
+| `mode`     | `string`, optional                                    | The mode it draws in, by ID                                                            |
+| `priority` | `string`                                              | The queue it waited in: render, visible or idle                                        |
+| `failure`  | `"module not found" \| "render threw" \| "timed out"` | Why: its module didn't load, its code threw while drawing, or it didn't finish in time |
+| `message`  | `string`                                              | The guest's error message                                                              |
+| `stack`    | `string`, optional                                    | The guest's stack, when it threw an error that has one                                 |
+
+### `frame.rendered`
+
+| Attribute   | Type                                                            | Meaning                                                                                |
+| ----------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `design`    | `string`, optional                                              | The design's key, as the document names it. None for a component preview               |
+| `state`     | `string`, optional                                              | The design's state, when it draws one                                                  |
+| `mode`      | `string`, optional                                              | The mode it draws in, by ID                                                            |
+| `priority`  | `string`                                                        | The queue it waited in: render, visible or idle                                        |
+| `queuedMs`  | `integer`                                                       | How long it waited for an offscreen window                                             |
+| `whole`     | `boolean`                                                       | Whether it was drawn whole, to capture or check it                                     |
+| `renderMs`  | `integer`, optional                                             | How long the guest took to draw and measure it                                         |
+| `captureMs` | `integer`, optional                                             | How long settling, checking and capturing it took after that, when it was drawn whole  |
+| `width`     | `number`, optional                                              | Its width in CSS pixels                                                                |
+| `height`    | `number`, optional                                              | Its height in CSS pixels                                                               |
+| `nodes`     | `integer`, optional                                             | How many layers were measured                                                          |
+| `failure`   | `"module not found" \| "render threw" \| "timed out"`, optional | Why: its module didn't load, its code threw while drawing, or it didn't finish in time |
 
 ### `gesture.ended`
 
@@ -450,6 +613,14 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `version` | `string`, optional | The version installed, when known               |
 | `code`    | `string`, optional | The `CodedError` code, when the failure has one |
 
+### `mcp.session`
+
+| Attribute         | Type               | Meaning                                                        |
+| ----------------- | ------------------ | -------------------------------------------------------------- |
+| `client`          | `string`, optional | The MCP client's name from `initialize`, such as `claude-code` |
+| `clientVersion`   | `string`, optional | The MCP client's version from `initialize`                     |
+| `protocolVersion` | `string`, optional | The MCP protocol version the client asked for                  |
+
 ### `mode.switched`
 
 | Attribute | Type                     | Meaning                       |
@@ -463,12 +634,94 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `panel`   | `"left" \| "right" \| "console"` | The side panel, or the console under the canvas        |
 | `tab`     | `string`, optional               | The tab the side panel shows, such as layers or design |
 
+### `preview.failed`
+
+| Attribute    | Type                                                 | Meaning                                                                                                         |
+| ------------ | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `component`  | `string`                                             | The component it pictures, by ID                                                                                |
+| `reason`     | `"render threw" \| "drew nothing" \| "not finished"` | Why: its component failed to draw, it drew nothing to see, or the draw didn't finish, as when its window closed |
+| `message`    | `string`, optional                                   | What went wrong, when there's an error                                                                          |
+| `durationMs` | `integer`                                            | From asking for it to giving up                                                                                 |
+
+### `preview.made`
+
+| Attribute    | Type      | Meaning                                                                    |
+| ------------ | --------- | -------------------------------------------------------------------------- |
+| `component`  | `string`  | The component it pictures, by ID                                           |
+| `durationMs` | `integer` | From asking for it to keeping it, waiting for an offscreen window included |
+| `width`      | `number`  | The large picture's width in pixels                                        |
+| `height`     | `number`  | The large picture's height in pixels                                       |
+| `bytes`      | `integer` | The size of both pictures kept, in bytes                                   |
+
 ### `process.memory`
 
 | Attribute   | Type                   | Meaning                                                                            |
 | ----------- | ---------------------- | ---------------------------------------------------------------------------------- |
 | `reason`    | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                     |
 | `processes` | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it |
+
+### `project.closed`
+
+| Attribute | Type     | Meaning                                                 |
+| --------- | -------- | ------------------------------------------------------- |
+| `name`    | `string` | The project's name, from its package.json or its folder |
+| `root`    | `string` | The project's folder                                    |
+| `openMs`  | `number` | How long it was open, in milliseconds                   |
+
+### `project.detected`
+
+| Attribute | Type     | Meaning              |
+| --------- | -------- | -------------------- |
+| `root`    | `string` | The project's folder |
+
+### `project.loaded`
+
+| Attribute      | Type      | Meaning                                                        |
+| -------------- | --------- | -------------------------------------------------------------- |
+| `name`         | `string`  | The project's name, from its package.json or its folder        |
+| `root`         | `string`  | The project's folder                                           |
+| `durationMs`   | `number`  | From asking to open it until its tab is ready, in milliseconds |
+| `componentsMs` | `number`  | How long its guest and components took to load in the window   |
+| `components`   | `integer` | The components it has                                          |
+
+### `project.openFailed`
+
+| Attribute     | Type                       | Meaning                                                                            |
+| ------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| `name`        | `string`                   | The project's name, from its package.json or its folder                            |
+| `root`        | `string`                   | The project's folder                                                               |
+| `reopen`      | `boolean`                  | Whether it was reopened as Parity started, because it was open last time (PAR-179) |
+| `durationMs`  | `number`                   | How long it took, in milliseconds                                                  |
+| `detectionMs` | `number`, optional         | How long detection took, when it finished                                          |
+| `builderMs`   | `number`, optional         | How long the builder took to answer, when it did                                   |
+| `framework`   | `string`, optional         | The renderer's ID, as `react`, once one was found                                  |
+| `builder`     | `string`, optional         | The builder's ID, as `vite`, once one was found                                    |
+| `step`        | `"detection" \| "builder"` | The step that failed                                                               |
+| `message`     | `string`                   | Why, as the tab says it                                                            |
+| `code`        | `string`, optional         | The `CodedError` code, when the failure has one                                    |
+
+### `project.opened`
+
+| Attribute     | Type               | Meaning                                                                            |
+| ------------- | ------------------ | ---------------------------------------------------------------------------------- |
+| `name`        | `string`           | The project's name, from its package.json or its folder                            |
+| `root`        | `string`           | The project's folder                                                               |
+| `reopen`      | `boolean`          | Whether it was reopened as Parity started, because it was open last time (PAR-179) |
+| `durationMs`  | `number`           | How long it took, in milliseconds                                                  |
+| `detectionMs` | `number`, optional | How long detection took, when it finished                                          |
+| `builderMs`   | `number`, optional | How long the builder took to answer, when it did                                   |
+| `framework`   | `string`, optional | The renderer's ID, as `react`, once one was found                                  |
+| `builder`     | `string`, optional | The builder's ID, as `vite`, once one was found                                    |
+| `cached`      | `boolean`          | Whether its components and props came from the last detection, as nothing changed  |
+| `react`       | `string`, optional | The React version installed, when it has one                                       |
+| `vite`        | `string`, optional | The Vite version installed, when it has one                                        |
+| `tailwind`    | `string`, optional | The Tailwind version installed, when it has one                                    |
+| `storybook`   | `string`, optional | The Storybook version installed, when it has one                                   |
+| `typescript`  | `string`, optional | The TypeScript version installed, when it has one                                  |
+| `components`  | `integer`          | The components it has                                                              |
+| `designs`     | `integer`          | The designs in its project files                                                   |
+| `tokens`      | `integer`          | The theme variables its styles have                                                |
+| `libraries`   | `integer`          | The component libraries it depends on                                              |
 
 ### `project.unsupported`
 
@@ -514,6 +767,24 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | --------- | ------------------ | ------------------------------ |
 | `method`  | `string`           | The method asked for           |
 | `code`    | `string`, optional | The error code, when it failed |
+
+### `server.failed`
+
+| Attribute    | Type                    | Meaning                                                         |
+| ------------ | ----------------------- | --------------------------------------------------------------- |
+| `kind`       | `string`                | The kind of server, as `storybook`                              |
+| `name`       | `string`                | Its name, as the processes list shows it                        |
+| `durationMs` | `number`                | How long it took, in milliseconds                               |
+| `reason`     | `"exited" \| "timeout"` | Whether it stopped before it answered, or didn't answer in time |
+| `output`     | `string`                | The last of what it printed, up to 50 lines                     |
+
+### `server.started`
+
+| Attribute    | Type     | Meaning                                  |
+| ------------ | -------- | ---------------------------------------- |
+| `kind`       | `string` | The kind of server, as `storybook`       |
+| `name`       | `string` | Its name, as the processes list shows it |
+| `durationMs` | `number` | How long it took, in milliseconds        |
 
 ### `service.lag`
 
