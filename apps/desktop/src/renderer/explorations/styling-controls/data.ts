@@ -34,6 +34,9 @@ export const colorTokens: ColorToken[] = [
   { name: "teal-600", hex: "#0d9488" },
   { name: "orange-600", hex: "#ea580c" },
   { name: "amber-400", hex: "#fbbf24" },
+  // Tailwind's black and white, which its shadows are drawn in.
+  { name: "black", hex: "#000000" },
+  { name: "white", hex: "#ffffff" },
   // An old brand color the project has replaced, kept so layers still using it draw and say so.
   { name: "brand-blue", hex: "#1d4ed8", deprecated: "blue-600" }
 ]
