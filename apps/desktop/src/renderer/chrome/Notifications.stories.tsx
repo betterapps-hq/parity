@@ -17,7 +17,7 @@ import { answerNext, answering, pickingWith, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
 import { importStyles } from "./AssetsPanel.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
-import { copySelectionStyle, exportImages, save, saveCopy, unwrapSelection } from "./commands.ts"
+import { copySelectedAsPng, copySelectionStyle, exportImages, save, saveCopy, unwrapSelection } from "./commands.ts"
 
 /**
  * The notifications the window's commands show at its bottom right, each run as its menu item or shortcut would.
@@ -188,6 +188,61 @@ export const NothingSelectedToExport: Story = {
     await frameDesigns("Pricing", "Dashboard")
     void exportImages("selection")
     await holdToast("Select a screen or component to export it")
+  }
+}
+
+/** Ctrl+Shift+C while the selection is being drawn: a spinner until it's on the clipboard. */
+export const CopyingAsPng: Story = {
+  name: "Copying as PNG",
+  loaders: [
+    async () => {
+      await pricingSelected()
+      answering({ "layers.picture": () => never() })
+    }
+  ],
+  play: async () => {
+    await frameDesigns("Pricing")
+    void copySelectedAsPng()
+    await holdToast("Copying as PNG…")
+  }
+}
+
+/** Ctrl+Shift+C, done: the selection is on the clipboard as a PNG. It goes after two seconds. */
+export const CopiedAsPng: Story = {
+  name: "Copied as PNG",
+  loaders: [pricingSelected],
+  beforeEach: () => {
+    // The story's frame isn't focused, so the real clipboard would refuse the picture.
+    const { write } = navigator.clipboard
+    navigator.clipboard.write = () => Promise.resolve()
+    return () => {
+      navigator.clipboard.write = write
+    }
+  },
+  play: async () => {
+    await frameDesigns("Pricing")
+    void copySelectedAsPng()
+    await holdToast("Copied as PNG")
+  }
+}
+
+/** Ctrl+Shift+C with every design selected, spread too far over the canvas for one picture: nothing is copied. */
+export const TooBigToCopyAsPng: Story = {
+  name: "Too big to copy as PNG",
+  loaders: [
+    async () => {
+      await pricingSelected()
+      answering({
+        "layers.picture": () => ({
+          warnings: ["At 2x it's over 16,384 pixels wide or tall, too big to copy. Select less, or export it."]
+        })
+      })
+    }
+  ],
+  play: async () => {
+    await frameDesigns("Pricing")
+    void copySelectedAsPng()
+    await holdToast("Couldn't copy as PNG")
   }
 }
 
