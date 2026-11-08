@@ -66,6 +66,11 @@ export interface PresetProject {
   library?: string
   /** Fonts the project loads, by name, with the stack each is written as. */
   fonts: { name: string; stack: string; token?: string }[]
+  /**
+   * The CSS variable the library's provider defines for a color or font token, which Tailwind's classes read. A Tailwind
+   * project has none: its tokens are theme names, written as classes.
+   */
+  variable?: (kind: "color" | "font", token: string) => string
   /** What a text layer inherits when neither a preset nor the layer sets it. */
   inherited: TypeValueMap
   colors: Token[]
@@ -145,6 +150,8 @@ export const projects: PresetProject[] = [
     fixture: "fixtures/fluent",
     library: "Fluent",
     fonts: [{ name: "Segoe UI", stack: segoe, token: "fontFamilyBase" }],
+    // FluentProvider defines each token as a variable of its own name.
+    variable: (_kind, token) => `--${token}`,
     inherited: {
       font: "Segoe UI",
       size: 14,
@@ -186,6 +193,8 @@ export const projects: PresetProject[] = [
     fixture: "fixtures/mui",
     library: "Material UI",
     fonts: [{ name: "Roboto", stack: roboto }],
+    // The theme's CSS variables, with `cssVariables` on.
+    variable: (_kind, token) => `--mui-palette-${token.replaceAll(".", "-")}`,
     inherited: {
       font: "Roboto",
       size: 16,
@@ -226,6 +235,8 @@ export const projects: PresetProject[] = [
     name: "Chakra",
     fixture: "fixtures/chakra",
     library: "Chakra",
+    // The system's CSS variables, named by token category.
+    variable: (kind, token) => `--chakra-${kind === "color" ? "colors" : "fonts"}-${token.replaceAll(".", "-")}`,
     fonts: [
       {
         name: "Inter",
@@ -413,10 +424,15 @@ export function setOwn<F extends TypeField>(
   return { ...layer, own: { ...layer.own, [viewport]: values } }
 }
 
-/** Takes back the value a row shows in a viewport, where it was set, so the preset's shows again. */
+/**
+ * Takes back the value a row shows in a viewport, so the preset's shows there again: the layer's own value in that
+ * viewport and in every narrower one, since each applies from its width up. Wider viewports keep theirs.
+ */
 export function resetOwn(layer: TextLayer, viewport: ViewportId, field: TypeField): TextLayer {
-  const set = setIn(layer, viewport, field)
-  return set ? setOwn(layer, set.id, field, undefined) : layer
+  return viewportsUpTo(viewport).reduce(
+    (next, entry) => (next.own[entry.id]?.[field] === undefined ? next : setOwn(next, entry.id, field, undefined)),
+    layer
+  )
 }
 
 /** The viewport whose patch sets the layer's own value for a row in a viewport: that one, or the nearest narrower. */
@@ -636,7 +652,9 @@ export function stored(layer: TextLayer): Stored {
     ...(layer.preset && { typePreset: { token: layer.preset } }),
     ...storedValues(layer.own.mobile),
     ...(layer.color && { color: { token: layer.color } }),
-    ...(layer.align && { textAlign: { keyword: layer.align } })
+    ...(layer.align && { textAlign: { keyword: layer.align } }),
+    ...(layer.italic && { fontStyle: { keyword: "italic" } }),
+    ...(layer.decoration && { textDecorationLine: { keyword: layer.decoration } })
   }
   const patches = Object.fromEntries(
     viewports
@@ -694,12 +712,21 @@ const trackingNames: Record<number, string> = {
   0.1: "widest"
 }
 
-/** A font's class: its theme token, or its first family in single quotes, as Tailwind reads a family in brackets. */
+/**
+ * A font's class, keeping its whole stack so it falls back as the preset did: its theme token, the variable the
+ * library defines for it, or the stack in brackets, each family with a space in single quotes as Tailwind reads one.
+ */
 function fontClass(project: PresetProject, font: string): string {
   const entry = project.fonts.find((candidate) => candidate.name === font)
   if (entry?.token?.startsWith("font-")) return entry.token
-  const family = (entry?.stack ?? font).split(",")[0]!.trim().replaceAll('"', "")
-  return `font-['${family.replaceAll(" ", "_")}']`
+  if (entry?.token && project.variable) return `font-(${project.variable("font", entry.token)})`
+  const families = (entry?.stack ?? font).split(",").map((family) => family.trim().replaceAll('"', ""))
+  return `font-[${families.map((family) => (family.includes(" ") ? `'${family.replaceAll(" ", "_")}'` : family)).join(",")}]`
+}
+
+/** A color token's class: its theme name in a Tailwind project, or the variable the library defines for it. */
+function colorClass(project: PresetProject, token: string): string {
+  return project.variable ? `text-(${project.variable("color", token)})` : `text-${token}`
 }
 
 function tailwindClass(project: PresetProject, field: TypeField, value: TypeValue): string {
@@ -818,7 +845,7 @@ export function tailwindCode(project: PresetProject, layer: TextLayer): CodeLine
       classes.push({ text: variant ? `${variant}:${written}` : written, override: covered.has(field) })
     }
   }
-  if (layer.color) classes.push({ text: `text-(--${layer.color.replaceAll(".", "-")})` })
+  if (layer.color) classes.push({ text: colorClass(project, layer.color) })
   if (layer.align) classes.push({ text: `text-${layer.align}` })
   if (layer.italic) classes.push({ text: "italic" })
   if (layer.decoration) classes.push({ text: layer.decoration })
@@ -897,6 +924,8 @@ function fluentCode(layer: TextLayer, preset: Preset | undefined, covered: Set<T
     ...values(layer.own.mobile, "    "),
     ...(color ? [{ text: `    color: tokens.${color.name},` }] : []),
     ...(layer.align ? [{ text: `    textAlign: "${layer.align}",` }] : []),
+    ...(layer.italic ? [{ text: `    fontStyle: "italic",` }] : []),
+    ...(layer.decoration ? [{ text: `    textDecorationLine: "${layer.decoration}",` }] : []),
     ...viewports
       .slice(1)
       .flatMap((viewport) =>
@@ -936,17 +965,12 @@ export function libraryCode(project: PresetProject, layer: TextLayer): CodeLine[
       ...(color ? [{ text: `  color="${color.name}"` }] : []),
       ...(layer.align ? [{ text: `  align="${muiAlign[layer.align]}"` }] : [])
     ]
-    const sx =
-      own.length > 0
-        ? [
-            { text: "  sx={{" },
-            ...own.map(({ field, text }) => ({
-              text: `    ${jsProperty[field]}: ${text},`,
-              override: covered.has(field)
-            })),
-            { text: "  }}" }
-          ]
-        : []
+    const entries: CodeLine[] = [
+      ...own.map(({ field, text }) => ({ text: `    ${jsProperty[field]}: ${text},`, override: covered.has(field) })),
+      ...(layer.italic ? [{ text: `    fontStyle: "italic",` }] : []),
+      ...(layer.decoration ? [{ text: `    textDecoration: "${layer.decoration}",` }] : [])
+    ]
+    const sx = entries.length > 0 ? [{ text: "  sx={{" }, ...entries, { text: "  }}" }] : []
     return [{ text: "<Typography" }, ...props, ...sx, { text: ">" }]
   }
   const own = responsive(project, layer, (field, value) => {
@@ -963,6 +987,8 @@ export function libraryCode(project: PresetProject, layer: TextLayer): CodeLine[
     })),
     ...(color ? [{ text: `  color="${color.name}"` }] : []),
     ...(layer.align ? [{ text: `  textAlign="${layer.align}"` }] : []),
+    ...(layer.italic ? [{ text: `  fontStyle="italic"` }] : []),
+    ...(layer.decoration ? [{ text: `  textDecoration="${layer.decoration}"` }] : []),
     { text: ">" }
   ]
 }
