@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Record app.first_project, the time from the app starting to the first project's tab being ready to draw, and whether the window restored it",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
