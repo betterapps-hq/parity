@@ -64,7 +64,7 @@ const parsesAsColor = (value: string | undefined): value is string =>
   value !== undefined && parseColor(value) !== undefined
 
 /** The token whose color looks closest to `value`, and how far off it is. */
-function nearestColorToken(
+export function nearestColorToken(
   value: string,
   tokens: readonly ColorToken[]
 ): { token: ColorToken; distance: number } | undefined {
@@ -77,7 +77,7 @@ function nearestColorToken(
 }
 
 /** A plain color in short form, as Figma shows it: `2F6FED` for hex, `oklch 62% .19 260` for OKLCH. */
-function shortForm(value: string): string {
+export function shortForm(value: string): string {
   if (value.startsWith("#")) return value.slice(1, 7).toUpperCase()
   const { l, c, h } = rgbaToOklch(parseColor(value)!)
   return `oklch ${Math.round(l * 100)}% ${c.toFixed(2).replace(/^0/, "")} ${Math.round(h)}`
