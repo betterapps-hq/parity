@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Record the first frame a newly opened project's canvas draws, and put the whole open in one trace (PAR-711)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
