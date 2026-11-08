@@ -19,7 +19,7 @@ import { ChoiceInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
-import { clearRepeatedParts, findRepeatedParts, useRepeatedParts } from "./repeated-parts.ts"
+import { clearRepeatedParts, findRepeatedParts, holdRepeatedParts, useRepeatedParts } from "./repeated-parts.ts"
 import { revealSelection } from "./reveal.ts"
 import { AddProp, CodeLines, NewPropRow, PropTile, SlotPropRow } from "./slot-props.tsx"
 
@@ -31,7 +31,7 @@ import { AddProp, CodeLines, NewPropRow, PropTile, SlotPropRow } from "./slot-pr
 export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
   const { root } = useProject().info
   const candidates = useRepeatedParts(root, entry.key)
-  useEffect(() => () => clearRepeatedParts(root, entry.key), [root, entry.key])
+  useEffect(() => holdRepeatedParts(root, entry.key), [root, entry.key])
   let content: ReactNode
   if (candidates === undefined) {
     content = (

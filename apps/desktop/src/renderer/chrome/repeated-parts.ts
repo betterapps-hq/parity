@@ -22,6 +22,26 @@ export function clearRepeatedParts(root: string, key: string): void {
   if (found.delete(keyOf(root, key))) notify()
 }
 
+const holders = new Map<string, number>()
+
+/**
+ * Keeps a screen's repeated parts while its Repeated parts section shows, returning what lets them go. They're forgotten
+ * once nothing's held them for a moment, so a section mounted again straight away, as React's StrictMode does, or as
+ * Search actions opening the inspector does, keeps what was just found.
+ */
+export function holdRepeatedParts(root: string, key: string): () => void {
+  const id = keyOf(root, key)
+  holders.set(id, (holders.get(id) ?? 0) + 1)
+  return () => {
+    holders.set(id, (holders.get(id) ?? 1) - 1)
+    setTimeout(() => {
+      if ((holders.get(id) ?? 0) > 0) return
+      holders.delete(id)
+      if (found.delete(id)) notify()
+    })
+  }
+}
+
 /** The repeated parts found in a screen of the project at `root`, or undefined until they're looked for. */
 export function useRepeatedParts(root: string, key: string): RepeatCandidate[] | undefined {
   return useSyncExternalStore(
