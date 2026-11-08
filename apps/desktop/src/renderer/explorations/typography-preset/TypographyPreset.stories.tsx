@@ -121,7 +121,7 @@ export const Detached: Story = {
 
 /**
  * A layer with no preset whose type is subtitle1's but for a 24px line height: the preset row offers the nearest
- * preset and says where it differs. Using it fills in subtitle1, line height and all.
+ * preset, and Use's hint says what it changes. Using it fills in subtitle1, line height and all.
  */
 export const ClosestPreset: Story = {
   args: {
@@ -129,7 +129,7 @@ export const ClosestPreset: Story = {
   },
   play: async ({ canvasElement }) => {
     const locked = version(canvasElement, "Shown locked")
-    await expect(locked.getByRole("status")).toHaveTextContent("Near subtitle1, which sets line height 28")
+    await expect(locked.getByRole("status")).toHaveTextContent("Near subtitle1")
     await userEvent.click(locked.getByRole("button", { name: "Use subtitle1" }))
     await expect(locked.getByRole("button", { name: "Typography preset: subtitle1" })).toBeVisible()
     await expect(locked.getByRole("textbox", { name: "Line height, set by subtitle1" })).toHaveValue("28")

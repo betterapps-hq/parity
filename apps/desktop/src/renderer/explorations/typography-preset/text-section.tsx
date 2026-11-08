@@ -431,21 +431,25 @@ function ClosestPreset({
 }) {
   const { preset, differs } = match
   const values = presetAt(preset, viewport)
-  const sets = differs.map((field) => `${fieldLabel(field).toLowerCase()} ${formatValue(field, values[field])}`)
-  const text = differs.length === 0 ? `Matches ${preset.name}` : `Near ${preset.name}, which sets ${sets.join(" and ")}`
+  // What using it changes goes in the button's hint, so the line stays one short line.
+  const changes = differs.map((field) => `${fieldLabel(field)} becomes ${formatValue(field, values[field])}`)
   return (
     <div className="-mt-1 grid grid-cols-[88px_1fr] gap-2 pb-1">
       <span />
       <div className="flex items-baseline justify-between gap-2">
-        <output className="min-w-0 text-[11px] leading-snug text-muted-foreground">{text}</output>
-        <button
-          type="button"
-          onClick={() => onUse(preset.name)}
-          aria-label={`Use ${preset.name}`}
-          className="shrink-0 rounded-sm text-[11px] leading-snug font-medium whitespace-nowrap text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        >
-          Use
-        </button>
+        <output className="min-w-0 truncate text-[11px] leading-snug text-muted-foreground">
+          {differs.length === 0 ? `Matches ${preset.name}` : `Near ${preset.name}`}
+        </output>
+        <Hint label={`Use ${preset.name}`} detail={changes.join("\n") || undefined}>
+          <button
+            type="button"
+            onClick={() => onUse(preset.name)}
+            aria-label={`Use ${preset.name}`}
+            className="shrink-0 rounded-sm text-[11px] leading-snug font-medium whitespace-nowrap text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            Use
+          </button>
+        </Hint>
       </div>
     </div>
   )
