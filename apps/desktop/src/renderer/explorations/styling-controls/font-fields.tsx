@@ -10,12 +10,10 @@ import {
   MissingMark,
   nearestToken,
   notAToken,
-  OffSystemMark,
   type Reading,
   readNumber,
   type ScrubKeys,
   type SearchOption,
-  TokenMark,
   UnitMenu,
   useTokens,
   ValueField
@@ -31,8 +29,7 @@ import {
   type SizeToken,
   type TrackingToken,
   trackingToken,
-  type WeightToken,
-  weightToken
+  type WeightToken
 } from "./tokens.ts"
 
 /*
@@ -200,32 +197,36 @@ export function FontFamilyField({
         shown={own ? resolved?.name : undefined}
         placeholder={inherited.font.name}
         mixed={mixed}
-        chip={held === undefined ? undefined : { name: held, token: heldToken, onRemove: () => change(undefined) }}
+        chip={
+          held === undefined
+            ? undefined
+            : {
+                name: held,
+                token: heldToken,
+                onRemove: () => change(undefined),
+                onDetach: heldToken ? () => change({ stack: heldToken.stack }) : undefined,
+                onReplace: (replacement) => change({ token: replacement })
+              }
+        }
         comesTo={comesTo}
-        status={{
-          missing,
-          offSystem:
-            own && near ? (
-              <OffSystemMark
-                compact
-                label="Font"
-                description={`${resolved?.name} isn't one of the project's font tokens.`}
-                nearest={{ name: `font-${near.name}`, preview: <TokenMark kind="font" value={near.stack} /> }}
-                allowed={own.allow}
-                isTaken={(name) => tokens.some((token) => token.name === name)}
-                namePlaceholder="display"
-                onUse={() => change({ token: near.name })}
-                onCreate={
+        status={{ missing }}
+        own={
+          own === undefined
+            ? undefined
+            : {
+                text: resolved?.name ?? own.stack,
+                nearest: near,
+                onCreate:
                   create &&
                   ((name) => {
                     create(fontToken(name, resolved?.name ?? name, own.stack))
                     change({ token: name })
-                  })
-                }
-                onAllow={(allow) => change({ stack: own.stack, allow })}
-              />
-            ) : undefined
-        }}
+                  }),
+                tokensOnly,
+                allowed: own.allow,
+                onAllow: (allow) => change({ stack: own.stack, allow })
+              }
+        }
         refused={
           tokensOnly && own && own.allow === undefined && near
             ? { nearest: near, onUse: () => change({ token: near.name }) }
@@ -307,7 +308,7 @@ export function WeightField({
   onItalic: (italic: boolean | undefined) => void
   onPreview: (weight: number | undefined) => void
 }) {
-  const { tokens, create } = useTokens("weight")
+  const { tokens } = useTokens("weight")
   const [open, setOpen] = useState(false)
   const weight = weightOf(value, tokens)
   const shown = weight ?? inherited
@@ -337,8 +338,6 @@ export function WeightField({
     faceNote = `Drawn with ${weightName(face.face, tokens)}, the nearest face ${font.name} has`
   const tokenName = weight === undefined ? undefined : tokens.find((token) => token.weight === weight)?.name
   const italicFaked = italic === true && !font.italic
-  const near =
-    value !== undefined && "value" in value ? nearestToken(tokens, (token) => token.weight, value.value) : undefined
   const item = (each: number, faked: boolean) => (
     <button
       key={each}
@@ -441,26 +440,6 @@ export function WeightField({
             )}
           </PopoverContent>
         </Popover>
-        {value !== undefined && "value" in value && near && (
-          <OffSystemMark
-            compact
-            label="Weight"
-            description={`${value.value} isn't one of the font-weight tokens.`}
-            nearest={{ name: `font-${near.name}` }}
-            allowed={value.allow}
-            isTaken={(name) => tokens.some((token) => token.name === name)}
-            namePlaceholder="heading"
-            onUse={() => onChange({ token: near.name })}
-            onCreate={
-              create &&
-              ((name) => {
-                create(weightToken(name, value.value, name[0]!.toUpperCase() + name.slice(1)))
-                onChange({ token: name })
-              })
-            }
-            onAllow={(allow) => onChange({ value: value.value, allow })}
-          />
-        )}
         <Hint label="Italic" detail={italicFaked ? `Faked by the browser: ${font.name} has no italic` : undefined}>
           <Toggle
             variant="outline"
@@ -633,7 +612,13 @@ export function LineHeightField({
       chip={
         held === undefined
           ? undefined
-          : { name: held, token, onRemove: () => onChange(undefined), onReplace: (name) => onChange({ token: name }) }
+          : {
+              name: held,
+              token,
+              onRemove: () => onChange(undefined),
+              onDetach: token ? () => onChange({ multiple: token.multiple }) : undefined,
+              onReplace: (name) => onChange({ token: name })
+            }
       }
       unit={
         auto ? undefined : (
@@ -656,33 +641,24 @@ export function LineHeightField({
         )
       }
       comesTo={comesTo}
-      status={{
-        missing: held !== undefined && !token ? <MissingMark name={held} /> : undefined,
-        offSystem:
-          own && nearest ? (
-            <OffSystemMark
-              compact
-              label="Line height"
-              description={`${shown}${unit === "px" ? "px" : "×"} isn't a leading token or a spacing step.`}
-              nearest={{ name: `leading-${nearest.name}`, preview: <TokenMark kind="leading" value={nearest.value} /> }}
-              allowed={"px" in own ? own.allow : undefined}
-              isTaken={(name) => tokens.some((each) => each.name === name)}
-              namePlaceholder="body"
-              onUse={() => onChange({ token: nearest.name })}
-              onCreate={
+      own={
+        own === undefined
+          ? undefined
+          : {
+              text: `${shown}${unit === "px" ? "px" : "×"}`,
+              nearest,
+              same: nearest?.multiple === multiple,
+              onCreate:
                 create &&
                 ((name) => {
                   create(leadingToken(name, Math.round(multiple * 1000) / 1000))
                   onChange({ token: name })
-                })
-              }
-              onAllow={(allow) => {
-                // A multiple is a value in CSS's own terms; pixels off the steps keep why they're allowed here.
-                if ("px" in own) onChange({ px: own.px, allow })
-              }}
-            />
-          ) : undefined
-      }}
+                }),
+              allowed: "px" in own ? own.allow : undefined,
+              // A multiple is a value in CSS's own terms; pixels off the steps keep why they're allowed here.
+              onAllow: "px" in own ? (allow) => onChange({ px: own.px, allow }) : undefined
+            }
+      }
       tokens={{
         list: tokens,
         current: held,
@@ -778,7 +754,13 @@ export function LetterSpacingField({
       chip={
         held === undefined
           ? undefined
-          : { name: held, token, onRemove: () => onChange(undefined), onReplace: (name) => onChange({ token: name }) }
+          : {
+              name: held,
+              token,
+              onRemove: () => onChange(undefined),
+              onDetach: token ? () => onChange({ em: token.em }) : undefined,
+              onReplace: (name) => onChange({ token: name })
+            }
       }
       unit={
         <UnitMenu
@@ -796,36 +778,26 @@ export function LetterSpacingField({
         />
       }
       comesTo={token ? `${signed(token.em * 100)}%` : undefined}
-      status={{
-        missing: held !== undefined && !token ? <MissingMark name={held} /> : undefined,
-        offSystem:
-          value !== undefined && !("token" in value) && nearest ? (
-            <OffSystemMark
-              compact
-              label="Letter spacing"
-              description={`${shown}${unit} isn't a tracking token.`}
-              nearest={{
-                name: `tracking-${nearest.name}`,
-                preview: <TokenMark kind="tracking" value={nearest.value} />
-              }}
-              allowed={value.allow}
-              isTaken={(name) => tokens.some((each) => each.name === name)}
-              namePlaceholder="caps"
-              onUse={() => onChange({ token: nearest.name })}
-              onCreate={
+      own={
+        value === undefined || "token" in value
+          ? undefined
+          : {
+              text: `${shown}${unit}`,
+              nearest,
+              same: nearest?.em === em,
+              onCreate:
                 create &&
                 ((name) => {
                   create(trackingToken(name, Math.round(em * 10_000) / 10_000))
                   onChange({ token: name })
-                })
-              }
-              onAllow={(allow) => {
+                }),
+              allowed: value.allow,
+              onAllow: (allow) => {
                 if ("em" in value) onChange({ em: value.em, allow })
                 if ("px" in value) onChange({ px: value.px, allow })
-              }}
-            />
-          ) : undefined
-      }}
+              }
+            }
+      }
       tokens={{
         list: tokens,
         current: held,

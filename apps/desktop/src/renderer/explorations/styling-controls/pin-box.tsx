@@ -10,11 +10,12 @@ import {
 import { AppWindow, ArrowUpToLine, Crosshair, Ellipsis, Layers, Maximize, Move, Rows3 } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { ChoiceInput, Field } from "../../chrome/fields.tsx"
+import { ChoiceInput } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { formatNumber } from "./css-values.ts"
 import { MessageLine, useTokens } from "./field-parts.tsx"
+import { Field } from "./field-row.tsx"
 import {
   distances,
   inFlow,

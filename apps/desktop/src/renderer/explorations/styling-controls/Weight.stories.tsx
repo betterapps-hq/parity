@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { Field } from "../../chrome/fields.tsx"
+import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont, WeightField } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
 import { findFont, projectFonts } from "./text-data.ts"

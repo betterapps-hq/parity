@@ -1,39 +1,17 @@
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
 import { scrubSteps } from "@parity-app/core"
-import {
-  AlignHorizontalSpaceAround,
-  AlignVerticalSpaceAround,
-  PanelBottom,
-  PanelLeft,
-  PanelRight,
-  PanelTop,
-  Scan,
-  Square,
-  SquareDashed,
-  SquareSplitHorizontal
-} from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { Field } from "../../chrome/fields.tsx"
-import { Hint } from "../../chrome/Hint.tsx"
 import { formatNumber, stepSpacing } from "./css-values.ts"
 import {
   type Message,
-  MissingMark,
+  nearestToken,
   notAStep,
-  OffSystemMark,
   type Reading,
   type ScrubBy,
   type ScrubKeys,
-  TokenMark,
   useTokens,
   ValueField
 } from "./field-parts.tsx"
+import { Field } from "./field-row.tsx"
 import {
   onStep,
   readSide,
@@ -44,6 +22,7 @@ import {
   sideNumber,
   stepSide
 } from "./sides-writes.ts"
+import { EachToggle, PairGlyph, SideGlyph } from "./simpler.tsx"
 import { lengthToken } from "./tokens.ts"
 
 /*
@@ -92,6 +71,8 @@ export interface SideFieldProps {
   rules: SideRules
   value: Side
   mixed?: boolean
+  /** What its hint says of Mixed, where it's the sides it covers that differ rather than the selected layers. */
+  mixedNote?: string
   /** What unset comes to, muted: 0, or Auto 24 for an unpinned inset. */
   placeholder?: string
   /** What Auto, a percentage or unset comes to on the layer, measured, for what it comes to and for stepping from it. */
@@ -116,8 +97,9 @@ export interface SideFieldProps {
 /**
  * One side, or any one value of a side's kind, on the shared ValueField: a number in the field's unit, a percentage, a
  * token as a chip, or Auto in words with what it comes to. It types like the app's fields (maths, units, `spacing-4`, a
- * token's name), and shorthand typed into it (`8 16`) fills every side. A number off the steps carries the hollow mark,
- * whose Create token adds to the project's tokens. Narrow, the unit shows on hover and what it comes to is in its hint.
+ * token's name), and shorthand typed into it (`8 16`) fills every side. A number of its own has no mark: its token list
+ * offers the nearest token first, then Create token. Narrow, the unit shows on hover and what it comes to is in its
+ * hint.
  */
 export function SideField({
   label,
@@ -125,6 +107,7 @@ export function SideField({
   rules,
   value,
   mixed = false,
+  mixedNote = "Mixed: the selected layers differ",
   placeholder = "0",
   measured,
   narrow = false,
@@ -147,6 +130,7 @@ export function SideField({
   const unit = rules.unit ?? ""
   const nearestStep = own === undefined ? 0 : Math.round(own.number)
   const useNearest = () => onChange({ number: nearestStep }, "side")
+  const nearest = own === undefined ? undefined : nearestToken(tokens, (each) => each.px, own.number)
   const spreadFrom = (keys: ScrubKeys): Spread => (spreads ? spreadOf(keys) : "side")
 
   let shown: string | undefined
@@ -170,7 +154,7 @@ export function SideField({
   else if (own?.allow !== undefined) status = `Allowed here: ${own.allow}`
   else if (offSystem) status = `Not a step. Nearest: ${nearestStep}${unit}`
   else if (percent !== undefined && percentOf) status = `${formatNumber(percent)}% of ${percentOf}`
-  else if (mixed && value === undefined) status = "Mixed: the selected layers differ"
+  else if (mixed && value === undefined) status = mixedNote
 
   const read = (text: string): Reading<SideEntry> => {
     const reading = readSide(text, label, rules, value, tokens)
@@ -187,7 +171,7 @@ export function SideField({
       label={label}
       inner={inner}
       scrub={
-        inner === undefined
+        bare
           ? undefined
           : {
               from: () => sideNumber(value, tokens) ?? measured ?? 0,
@@ -206,39 +190,32 @@ export function SideField({
               token,
               namespace: rules.namespace,
               onRemove: () => onChange(undefined, "side"),
+              onDetach: token ? () => onChange({ number: token.px }, "side") : undefined,
               onReplace: (replacement) => onChange({ token: replacement }, "side")
             }
       }
       unit={shownUnit}
       comesTo={comesTo}
-      status={{
-        missing: tokenName !== undefined && !token ? <MissingMark name={tokenName} /> : undefined,
-        offSystem: offSystem ? (
-          <OffSystemMark
-            label={label}
-            compact
-            description={`${formatNumber(own.number)}${unit} isn't one of the project's steps or tokens.`}
-            nearest={{
-              name: `${nearestStep}${unit}`,
-              preview: <TokenMark kind={rules.tokens.kind} value={`${nearestStep}px`} />
-            }}
-            allowed={own.allow}
-            isTaken={(name) => tokens.some((other) => other.name === rules.namespace + name)}
-            namePlaceholder="gutter"
-            onUse={useNearest}
-            onCreate={
-              create &&
-              ((name) => {
-                create(lengthToken(rules.tokens.kind, rules.namespace + name, own.number))
-                onChange({ token: rules.namespace + name }, "side")
-              })
+      own={
+        own === undefined
+          ? undefined
+          : {
+              text: `${formatNumber(own.number)}${unit}`,
+              nearest,
+              same: nearest?.px === own.number,
+              namespace: rules.namespace,
+              onCreate:
+                create &&
+                ((name) => {
+                  create(lengthToken(rules.tokens.kind, name, own.number))
+                  onChange({ token: name }, "side")
+                }),
+              tokensOnly,
+              allowed: own.allow,
+              onAllow: (reason) =>
+                onChange(reason === undefined ? { number: own.number } : { ...own, allow: reason }, "side")
             }
-            onAllow={(reason) =>
-              onChange(reason === undefined ? { number: own.number } : { ...own, allow: reason }, "side")
-            }
-          />
-        ) : undefined
-      }}
+      }
       tokens={{
         list: tokens,
         current: tokenName,
@@ -278,61 +255,17 @@ export function useSidesLine() {
   }
 }
 
-/** How four sides lay out: one field, vertical and horizontal, one side alone, or all four. */
-type SidesForm = "one" | "two" | "top" | "right" | "bottom" | "left" | "four"
-
-const singleForms = ["top", "right", "bottom", "left"] as const
-
-const formOptions = [
-  { value: "one", label: "All", Icon: Square },
-  { value: "two", label: "Vertical and horizontal", Icon: SquareSplitHorizontal },
-  { value: "top", label: "Top", Icon: PanelTop },
-  { value: "bottom", label: "Bottom", Icon: PanelBottom },
-  { value: "left", label: "Left", Icon: PanelLeft },
-  { value: "right", label: "Right", Icon: PanelRight },
-  { value: "four", label: "Custom", Icon: SquareDashed }
-] as const satisfies readonly { value: SidesForm; label: string; Icon: unknown }[]
-
 const same = (a: Side, b: Side) => JSON.stringify(a) === JSON.stringify(b)
 
-/** Whether a form can show the sides as they are. */
-function holds(form: SidesForm, sides: Sides): boolean {
-  if (form === "four") return true
-  if (form === "one") return sides.every((side) => same(side, sides[0]))
-  if (form === "two") return same(sides[0], sides[2]) && same(sides[1], sides[3])
-  const index = singleForms.indexOf(form)
-  return sides.every((side, other) => other === index || side === undefined)
-}
+/** What four sides show together, before Each side opens them: vertical and horizontal, or one field for all four. */
+export type Together = "pair" | "one"
 
-/**
- * The shortest form that holds the sides: one field when they all match, two when the pairs do, one side alone when
- * only it's set, four otherwise. Padding on a layout shows at least two.
- */
-function shortestForm(sides: Sides, mixed: readonly boolean[] = [], atLeastTwo = false): SidesForm {
-  const known = !mixed.some(Boolean)
-  if (known && holds("one", sides)) return atLeastTwo ? "two" : "one"
-  const alone = sides.filter((side) => side !== undefined).length === 1
-  if (known && alone && !atLeastTwo) return singleForms[sides.findIndex((side) => side !== undefined)]!
-  const pairsMixedAlike = Boolean(mixed[0]) === Boolean(mixed[2]) && Boolean(mixed[1]) === Boolean(mixed[3])
-  if (holds("two", sides) && pairsMixedAlike) return "two"
-  return "four"
+/** Whether the fields shown together can show the sides as they are, without saying Mixed. */
+function fitsTogether(together: Together, sides: Sides, mixed: readonly boolean[]): boolean {
+  const alike = (a: number, b: number) => same(sides[a], sides[b]) && Boolean(mixed[a]) === Boolean(mixed[b])
+  if (together === "one") return alike(0, 1) && alike(0, 2) && alike(0, 3)
+  return alike(0, 2) && alike(1, 3)
 }
-
-/** The sides for a form chosen from the menu, from the value the fields show now. */
-function sidesFor(form: SidesForm, sides: Sides): Sides {
-  const first = sides.find((side) => side !== undefined)
-  if (form === "one") return [first, first, first, first]
-  if (form === "two") {
-    const vertical = sides[0] ?? sides[2]
-    const horizontal = sides[1] ?? sides[3]
-    return [vertical, horizontal, vertical, horizontal]
-  }
-  if (form === "four") return sides
-  const index = singleForms.indexOf(form)
-  return sides.map((_, other) => (other === index ? (sides[index] ?? first) : undefined)) as Sides
-}
-
-const icon = "size-3.5"
 
 /**
  * Where each narrow field sits in the two-column grid, in reading order, so the grid places the fields first and what
@@ -346,23 +279,24 @@ const cells = [
 ] as const
 
 /**
- * Four sides, laid out in the shortest form that holds them when the layer is selected, never while editing: one
- * field, vertical and horizontal, one side alone, or four in CSS's order. The button after them switches forms, as
- * Figma's does. Mixed is per side. Hovering a field reports the sides it covers, for the canvas to highlight. What a
- * field says goes under the whole row of fields.
+ * Four sides under one name, as the simpler fields lay them out (PAR-186): vertical and horizontal together, or one
+ * field for all four, and each side once Each side is pressed, as Figma's padding is. A pair whose sides differ says
+ * Mixed rather than taking one of them, so closing Each side never loses a value; typing sides that differ into one
+ * (`8 16 8 0`) opens every side, to show them. Mixed is per side. Hovering a field reports the sides it covers, for the
+ * canvas to highlight. What a field says goes under the whole row of fields.
  */
 export function FourSidesField({
   label,
   rules,
   sides,
   mixed = [],
-  atLeastTwo = false,
+  together = "pair",
   placeholders,
   measured,
   hint,
   doesNothing,
   tokensOnly,
-  startForm,
+  startEach,
   customView,
   onChange,
   onHover
@@ -372,8 +306,8 @@ export function FourSidesField({
   rules: SideRules
   sides: Sides
   mixed?: readonly boolean[]
-  /** Padding on a layout shows at least two fields, as Figma's does. */
-  atLeastTwo?: boolean
+  /** What shows before Each side: vertical and horizontal (Padding, Margin), or one field (Stroke's width). */
+  together?: Together
   /** Each side's unset placeholder, as measured. */
   placeholders?: readonly string[]
   /** What each side comes to on the layer, for Auto and for stepping from unset. */
@@ -382,30 +316,29 @@ export function FourSidesField({
   /** Why the row does nothing here, which dims it. */
   doesNothing?: string
   tokensOnly?: boolean
-  /** The form to open in, where a story starts on Custom; otherwise the shortest that holds the sides. */
-  startForm?: SidesForm
-  /** Shown in place of the four fields for Custom, as Padding opens the box-model widget. */
+  /** Opens with Each side pressed, where a story starts on the box-model widget; otherwise only when sides differ. */
+  startEach?: boolean
+  /** Shown in place of the four fields while Each side is pressed, as Padding opens the box-model widget. */
   customView?: ReactNode
   onChange: (sides: Sides, cleared: number[]) => void
   onHover?: (sides: number[] | undefined) => void
 }) {
-  const [form, setForm] = useState<SidesForm>(() => startForm ?? shortestForm(sides, mixed, atLeastTwo))
+  const [each, setEach] = useState(() => startEach ?? !fitsTogether(together, sides, mixed))
   const noun = label.toLowerCase()
   const update = (indexes: number[], value: Side, spread: Spread) => {
     const reached = spreadTo(indexes, spread)
-    const next = sides.map((side, index) => (reached.includes(index) ? value : side)) as Sides
-    // The form changes under the pointer only when it can't show what's set now.
-    if (!holds(form, next)) setForm(shortestForm(next, [], atLeastTwo))
-    onChange(next, reached)
+    onChange(sides.map((side, index) => (reached.includes(index) ? value : side)) as Sides, reached)
   }
   const shorthand = (next: Sides) => {
-    if (!holds(form, next)) setForm(shortestForm(next, [], atLeastTwo))
     onChange(next, [0, 1, 2, 3])
+    // Sides typed that differ open every side, to show them; nothing closes it under the pointer.
+    if (!fitsTogether(together, next, [])) setEach(true)
   }
   /** A field for some of the sides: alone and wide, or narrow in a cell of the two-column grid. */
   const field = (indexes: number[], fieldLabel: string, inner: ReactNode, cell?: number) => {
-    const value = indexes.every((index) => same(sides[index], sides[indexes[0]!])) ? sides[indexes[0]!] : undefined
-    const isMixed = indexes.some((index) => mixed[index])
+    const first = indexes[0]!
+    const alike = indexes.every((index) => same(sides[index], sides[first]))
+    const isMixed = !alike || indexes.some((index) => mixed[index])
     return (
       // `contents`, so the field's message line spans the grid's whole row rather than its own column.
       <div
@@ -418,14 +351,15 @@ export function FourSidesField({
           label={fieldLabel}
           inner={inner}
           rules={rules}
-          value={value}
+          value={alike ? sides[first] : undefined}
           mixed={isMixed}
+          mixedNote={alike ? undefined : "Mixed: these sides differ. Each side shows them"}
           narrow={cell !== undefined}
           rowClassName={cell === undefined ? undefined : cells[cell]}
           spreads
           tokensOnly={tokensOnly}
-          placeholder={placeholders?.[indexes[0]!] ?? "0"}
-          measured={measured?.[indexes[0]!]}
+          placeholder={placeholders?.[first] ?? "0"}
+          measured={measured?.[first]}
           onChange={(next, spread) => update(indexes, next, spread)}
           onShorthand={shorthand}
         />
@@ -433,62 +367,31 @@ export function FourSidesField({
     )
   }
   let fields: ReactNode
-  if (form === "one") fields = field([0, 1, 2, 3], label, <Scan className={icon} />)
-  else if (form === "two")
+  if (each)
+    fields = sideNames.map((side, index) => field([index], `${side} ${noun}`, <SideGlyph letter={side[0]!} />, index))
+  else if (together === "pair")
     fields = [
-      field([0, 2], `Vertical ${noun}`, <AlignVerticalSpaceAround className={icon} />, 0),
-      field([1, 3], `Horizontal ${noun}`, <AlignHorizontalSpaceAround className={icon} />, 1)
+      field([0, 2], `Vertical ${noun}`, <PairGlyph />, 0),
+      field([1, 3], `Horizontal ${noun}`, <PairGlyph across />, 1)
     ]
-  else if (form === "four") fields = sideNames.map((side, index) => field([index], `${side} ${noun}`, side[0], index))
-  else {
-    const index = singleForms.indexOf(form)
-    fields = field([index], `${sideNames[index]} ${noun}`, sideNames[index]![0])
-  }
-  const custom = form === "four" && customView !== undefined
-  const option = formOptions.find((other) => other.value === form)!
+  else fields = field([0, 1, 2, 3], label, undefined)
   return (
     <div className={doesNothing ? "opacity-50" : undefined}>
-      <Field label={label} hint={[doesNothing, hint].filter(Boolean).join("\n") || undefined}>
-        <div className="flex items-start gap-1">
-          {!custom && (
-            <div
-              className={`grid min-w-0 flex-1 gap-1 ${form === "one" || singleForms.includes(form as never) ? "grid-cols-1" : "grid-cols-2"}`}
-            >
-              {fields}
-            </div>
-          )}
-          {custom && <span className="h-7 flex-1 content-center text-xs text-muted-foreground">Custom, below</span>}
-          <DropdownMenu>
-            <Hint label={`${label} sides`}>
-              <DropdownMenuTrigger
-                aria-label={`${label} sides: ${option.label}`}
-                className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-              >
-                <option.Icon className="size-4" />
-              </DropdownMenuTrigger>
-            </Hint>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuRadioGroup
-                value={form}
-                onValueChange={(next) => {
-                  const chosen = next as SidesForm
-                  setForm(chosen)
-                  const changed = sidesFor(chosen, sides)
-                  if (!changed.every((side, index) => same(side, sides[index]))) onChange(changed, [0, 1, 2, 3])
-                }}
-              >
-                {formOptions.map((choice) => (
-                  <DropdownMenuRadioItem key={choice.value} value={choice.value} className="text-xs">
-                    <choice.Icon className="size-3.5" />
-                    {choice.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      <Field
+        label={label}
+        hint={[doesNothing, hint].filter(Boolean).join("\n") || undefined}
+        action={<EachToggle label="Each side" parts="sides" pressed={each} onClick={() => setEach(!each)} />}
+      >
+        {each && customView !== undefined ? (
+          customView
+        ) : (
+          <div
+            className={`grid min-w-0 gap-x-2 gap-y-1 ${together === "one" && !each ? "grid-cols-1" : "grid-cols-2"}`}
+          >
+            {fields}
+          </div>
+        )}
       </Field>
-      {custom && customView}
     </div>
   )
 }

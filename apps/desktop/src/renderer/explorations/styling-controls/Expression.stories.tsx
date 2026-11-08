@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { Field } from "../../chrome/fields.tsx"
 import { type Basis, evaluateLength, ExpressionField, expressionWrites, fillTokens } from "./expression.tsx"
+import { Field } from "./field-row.tsx"
 import { Playground } from "./playground.tsx"
 import { TextSample } from "./text-preview.tsx"
 

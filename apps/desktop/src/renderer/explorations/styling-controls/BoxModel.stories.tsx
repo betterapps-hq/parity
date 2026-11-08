@@ -16,7 +16,7 @@ import { FourSidesField } from "./sides.tsx"
 import { mergeWrites } from "./writes.ts"
 
 /**
- * The box-model widget (PAR-186, PAR-652's Spacing), opened from Custom in Padding's sides menu: padding's ring
+ * The box-model widget (PAR-186, PAR-652's Spacing), in place of Padding's sides while Each side is pressed: padding's ring
  * around the layer's size, and margin's ring around that once a margin is set or Margin is added from Spacing's More.
  * Each side is a field where the side is, typed, stepped and scrubbed as any side (Alt reaches the opposite side,
  * Alt+Shift all four), and hovering it highlights the side in the preview, as DevTools' box model does. Margin's row
@@ -93,8 +93,7 @@ function Spacing({
             label="Padding"
             rules={sideRules.padding}
             sides={padding}
-            atLeastTwo
-            startForm="four"
+            startEach
             customView={widget}
             onChange={(next) => setPadding(next)}
             onHover={(sides) => setHover(sides && { box: "padding", sides })}

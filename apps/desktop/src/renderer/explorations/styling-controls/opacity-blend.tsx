@@ -10,9 +10,9 @@ import { ChevronDown, Contrast } from "lucide-react"
 import { Fragment } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { formatNumber } from "./css-values.ts"
-import { fieldBox, NotBaseline, OffSystemMark, PercentField, useTokens } from "./field-parts.tsx"
+import { fieldBox, nearestToken, NotBaseline, PercentField, useTokens } from "./field-parts.tsx"
 import { type BlendMode, blendModes } from "./text-data.ts"
-import { onOpacityStep, type Opacity } from "./text-writes.ts"
+import type { Opacity } from "./text-writes.ts"
 import { opacityToken } from "./tokens.ts"
 
 /*
@@ -36,8 +36,7 @@ export function OpacityField({
 }) {
   const { tokens, create } = useTokens("opacity")
   const own = value !== undefined && "percent" in value ? value : undefined
-  const offStep = own !== undefined && !onOpacityStep(own.percent)
-  const nearestStep = own === undefined ? 0 : Math.round(own.percent * 4) / 4
+  const nearest = own === undefined ? undefined : nearestToken(tokens, (each) => each.percent, own.percent)
   const token = value !== undefined && "token" in value ? value.token : undefined
   return (
     // The row's width, beside the blend menu, with what it says under both.
@@ -54,29 +53,23 @@ export function OpacityField({
           current: token,
           onPick: (name) => onChange(name === undefined ? undefined : { token: name })
         }}
-        status={{
-          offSystem:
-            offStep && own !== undefined ? (
-              <OffSystemMark
-                compact
-                label="Opacity"
-                description={`${formatNumber(own.percent)}% is finer than opacity's steps, a quarter of a percent.`}
-                nearest={{ name: `opacity-${formatNumber(nearestStep)}` }}
-                allowed={own.allow}
-                isTaken={(name) => tokens.some((each) => each.name === name)}
-                namePlaceholder="faint"
-                onUse={() => onChange({ percent: nearestStep })}
-                onCreate={
+        own={
+          own === undefined
+            ? undefined
+            : {
+                text: `${formatNumber(own.percent)}%`,
+                nearest,
+                same: nearest?.percent === own.percent,
+                onCreate:
                   create &&
                   ((name) => {
                     create(opacityToken(name, own.percent))
                     onChange({ token: name })
-                  })
-                }
-                onAllow={(allow) => onChange({ percent: own.percent, allow })}
-              />
-            ) : undefined
-        }}
+                  }),
+                allowed: own.allow,
+                onAllow: (allow) => onChange({ percent: own.percent, allow })
+              }
+        }
         onChange={(percent) => onChange(percent === undefined ? undefined : { percent })}
       />
     </div>

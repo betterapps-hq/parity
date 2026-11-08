@@ -10,11 +10,11 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, Plus } from "lucide-react"
 import { useId, useState } from "react"
-import { Field } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { CurveThumb, EasingField, SaveAsToken } from "./easing.tsx"
 import { useTokens } from "./field-parts.tsx"
+import { Field } from "./field-row.tsx"
 import { ListRow, moved } from "./list-parts.tsx"
 import {
   defaultDuration,

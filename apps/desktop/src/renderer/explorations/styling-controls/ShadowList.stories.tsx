@@ -176,7 +176,7 @@ export const OnTextWithAFill: Story = {
   render: () => <Shadows start={[drop("text", "text-shadow-sm")]} text={{ hasFill: true }} openId="text" />
 }
 
-/** A shadow colored #2f6fed at 40%, a value of its own, with the hollow mark in its color field. */
+/** A shadow colored #2f6fed at 40%, a value of its own: its color field's Tokens offers the nearest first. */
 export const ColorOffTheSystem: Story = {
   render: () => (
     <Shadows

@@ -45,7 +45,7 @@ export const BackgroundBlur: Story = { render: () => <Blurs start={{ backdropBlu
 /** Both at once, each stored under its own property. */
 export const Both: Story = { render: () => <Blurs start={{ blur: "blur-xs", backdropBlur: "blur-xl" }} /> }
 
-/** A value of its own, 6px, with the hollow mark and blur-xs or blur-sm as the nearest token. */
+/** A value of its own, 6px, with no mark: Tokens offers blur-xs or blur-sm, the nearest, first. */
 export const PlainValue: Story = { render: () => <Blurs start={{ backdropBlur: { px: 6 } }} /> }
 
 /** No effects yet: Effects is a title with +, which offers Layer blur and Background blur. */

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { Field } from "../../chrome/fields.tsx"
+import { Field } from "./field-row.tsx"
 import { LetterSpacingField, LineHeightField } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
 import { TextSample } from "./text-preview.tsx"
@@ -100,7 +100,7 @@ export const Step: Story = { render: () => <TextSpacing size="sm" line={{ px: 24
 /** A multiple, 1.5×: `text-sm/[1.5]`, marked as a value of its own, with leading-normal as the nearest token. */
 export const Multiple: Story = { render: () => <TextSpacing size="sm" line={{ multiple: 1.5 }} /> }
 
-/** A leading token, `snug`, as a chip with what it comes to: `text-sm/snug`. Up and Down step through the scale. */
+/** A leading token, `snug`, as a pill with what it comes to in its hint: `text-sm/snug`. Up and Down step the scale. */
 export const Token: Story = { render: () => <TextSpacing size="sm" line={{ token: "snug" }} /> }
 
 /** Auto, CSS's `normal`: the font's own line height. Choose it from the unit's menu, or type auto. */

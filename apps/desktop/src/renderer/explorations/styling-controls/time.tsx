@@ -1,13 +1,4 @@
-import {
-  MissingMark,
-  nearestToken,
-  OffSystemMark,
-  type Reading,
-  readUnitNumber,
-  TokenMark,
-  useTokens,
-  ValueField
-} from "./field-parts.tsx"
+import { nearestToken, type Reading, readUnitNumber, useTokens, ValueField } from "./field-parts.tsx"
 import { splitUnit, type Time, timeMs, timeUnits } from "./motion-data.ts"
 import { durationToken } from "./tokens.ts"
 
@@ -88,40 +79,41 @@ export function TimeField({
       shown={own === undefined || setBy || ms === undefined ? undefined : String(ms)}
       placeholder={String(setBy ? setBy.ms : defaultMs)}
       mixed={mixed}
-      chip={name === undefined ? undefined : { name, token, namespace, onRemove: () => onChange(undefined) }}
+      chip={
+        name === undefined
+          ? undefined
+          : {
+              name,
+              token,
+              namespace,
+              onRemove: () => onChange(undefined),
+              onDetach: token ? () => onChange({ step: token.ms }) : undefined,
+              onReplace: (replacement) => onChange({ token: replacement })
+            }
+      }
       unit="ms"
       comesTo={comesTo}
-      status={{
-        missing: name !== undefined && !token ? <MissingMark name={name} /> : undefined,
-        offSystem:
-          own && nearest && !setBy ? (
-            <OffSystemMark
-              compact
-              label={label}
-              description={`${ms}ms isn't one of the project's durations.`}
-              nearest={{
-                name: `${nearest.name}, ${nearest.detail}`,
-                preview: <TokenMark kind={nearest.kind} value={nearest.value} />
-              }}
-              allowed={own.allow}
-              isTaken={(taken) => tokens.some((other) => other.name === namespace + taken || other.name === taken)}
-              namePlaceholder="quick"
-              onUse={() => onChange({ token: nearest.name })}
-              onCreate={
+      own={
+        own === undefined || setBy || ms === undefined
+          ? undefined
+          : {
+              text: `${ms}ms`,
+              nearest,
+              same: nearest?.ms === ms,
+              namespace,
+              onCreate:
                 create &&
                 ((made) => {
-                  const full = made.startsWith(namespace) ? made : namespace + made
-                  create(durationToken(full, ms!))
-                  onChange({ token: full })
-                })
-              }
-              onAllow={(reason) => {
+                  create(durationToken(made, ms))
+                  onChange({ token: made })
+                }),
+              allowed: own.allow,
+              onAllow: (reason) => {
                 const plain = "step" in own ? { step: own.step } : { value: own.value }
                 onChange(reason === undefined ? plain : { ...plain, allow: reason })
-              }}
-            />
-          ) : undefined
-      }}
+              }
+            }
+      }
       tokens={
         tokens.length > 0
           ? { list: tokens, current: name, onPick: (picked) => onChange(picked ? { token: picked } : undefined) }

@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { Field } from "../../chrome/fields.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { usedColors } from "./data.ts"
+import { Field } from "./field-row.tsx"
 import { CardPreview, Playground, useDraft } from "./playground.tsx"
 import { colorWrites, inState, mixedWrites, type Writes } from "./writes.ts"
 
@@ -83,8 +83,8 @@ export const Token: Story = { render: () => <ColorField value="primary" /> }
 export const TokenWithOpacity: Story = { render: () => <ColorField value="card" alpha={70} /> }
 
 /**
- * A value of its own, #2f6fed, in short form with a hollow mark: its menu has Use nearest (blue-600), Create token and
- * Allow here. Its opacity is part of the color (`#2f6fed80`).
+ * A value of its own, #2f6fed, in short form with no mark: Tokens offers the nearest (blue-600) first, then Create
+ * token. Its opacity is part of the color (`#2f6fed80`).
  */
 export const PlainValue: Story = { render: () => <ColorField value="#2f6fed" /> }
 

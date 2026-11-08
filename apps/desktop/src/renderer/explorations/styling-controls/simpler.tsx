@@ -1,4 +1,4 @@
-import { Button, Input, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { formatHex, formatOklch, parseColor, sameColorDistance } from "@parity-app/tokens"
 import { ChevronDown, Unlink } from "lucide-react"
 import {
@@ -25,8 +25,7 @@ import {
   scrub,
   type ScrubBy,
   type ScrubKeys,
-  TokenList,
-  TokenMark,
+  TokenMenu,
   useTyped
 } from "./field-parts.tsx"
 import type { ColorToken, FieldToken } from "./tokens.ts"
@@ -96,10 +95,6 @@ const box = (error: boolean, extra = "") =>
 /** The one button over the end of a field, faded in while the field's hovered or focused, or its list is open. */
 const endButton =
   "absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 outline-none group-focus-within/simple:opacity-100 group-hover/simple:opacity-100 hover:bg-background/70 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:opacity-100"
-
-/** A row of a token menu that isn't a token: Create token, Allow here. */
-const menuRow =
-  "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent"
 
 /** A key that types a character, which typing on a token's pill starts with. */
 const typesCharacter = (event: KeyboardEvent) =>
@@ -572,169 +567,6 @@ export function SimpleNumber({
         </PopoverContent>
       </Popover>
       {line === undefined && <MessageLine message={typed.message ?? standing} />}
-    </div>
-  )
-}
-
-interface TokenMenuProps<T extends FieldToken> {
-  label: string
-  tokens: readonly T[]
-  /** The token the field holds. */
-  current?: string
-  none?: string
-  /** The value of its own the field holds, in words (`12px`, `#2563EB`), which the nearest token and Create token are for. */
-  own?: string
-  nearest?: T
-  /** The nearest token comes to the same value as the field's own, so it's offered as the same, not the nearest. */
-  same?: boolean
-  /** The order the tokens are listed in, where it isn't the project's: a scale's, smallest first. */
-  order?: (a: T, b: T) => number
-  /** The token the field holds, replaced, and what replaced it. */
-  replaced?: { name: string; by: T }
-  namespace?: string
-  tokensOnly?: boolean
-  /** Why the value of its own is allowed here, in a project set to Tokens only. */
-  allowed?: string
-  onAllow?: (reason: string | undefined) => void
-  /** Makes a token of the value of its own, by the whole name given; without it, the menu has no Create token. */
-  onCreate?: (name: string) => void
-  onPick: (name: string | undefined) => void
-}
-
-/**
- * A field's token menu: the swap for a replaced token; for a value of its own, the nearest token, first, under what it's
- * nearest to (or the same as); the tokens, in `order`, without the ones the project has replaced, which aren't for
- * picking; then Create token, and, in a project set to Tokens only, Allow here, which asks why.
- */
-function TokenMenu<T extends FieldToken>({
-  label,
-  tokens,
-  current,
-  none,
-  own,
-  nearest,
-  same = false,
-  order,
-  replaced,
-  namespace = "",
-  tokensOnly = false,
-  allowed,
-  onAllow,
-  onCreate,
-  onPick
-}: TokenMenuProps<T>) {
-  const [naming, setNaming] = useState<string>()
-  const [reason, setReason] = useState<string>()
-  const name = (naming ?? "").trim()
-  const full = `${namespace}${name}`
-  const taken = name !== "" && tokens.some((each) => each.name === full)
-  const allowing = tokensOnly && onAllow !== undefined
-  const pickable = tokens.filter((each) => each.deprecated === undefined)
-  const listed = order ? pickable.toSorted(order) : pickable
-  return (
-    <div className="flex min-w-0 flex-col">
-      {replaced && (
-        <button
-          type="button"
-          onClick={() => onPick(replaced.by.name)}
-          className="mb-1 rounded-sm bg-amber-500/10 px-2 py-1.5 text-left text-xs outline-none hover:bg-amber-500/20 focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {replaced.name} is replaced. Use {replaced.by.name}
-        </button>
-      )}
-      {own !== undefined && nearest && (
-        <div className="mb-1 flex flex-col border-b pb-1">
-          <p className="px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">
-            {same ? "Same as" : "Nearest to"} {own}
-          </p>
-          <button type="button" className={menuRow} onClick={() => onPick(nearest.name)}>
-            <TokenMark kind={nearest.kind} value={nearest.value} name={nearest.name} />
-            <span className="min-w-0 flex-1 truncate">{nearest.name}</span>
-            <span className="text-muted-foreground tabular-nums">{nearest.detail}</span>
-          </button>
-        </div>
-      )}
-      {listed.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No tokens for {label} yet</p>}
-      {(listed.length > 0 || none !== undefined) && (
-        <TokenList
-          label={label}
-          tokens={listed}
-          current={current}
-          none={none}
-          own={own !== undefined}
-          onPick={onPick}
-        />
-      )}
-      {own !== undefined && (onCreate !== undefined || allowing) && (
-        <div className="mt-1 flex flex-col border-t pt-1">
-          {onCreate && naming === undefined && (
-            <button type="button" className={menuRow} onClick={() => setNaming("")}>
-              Create token from {own}…
-            </button>
-          )}
-          {onCreate && naming !== undefined && (
-            <form
-              className="flex flex-col gap-1 p-1"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (name !== "" && !taken) onCreate(full)
-              }}
-            >
-              <div className="flex items-center gap-1">
-                {namespace !== "" && <span className="text-xs text-muted-foreground">{namespace}</span>}
-                <Input
-                  ref={(node) => node?.focus()}
-                  aria-label="New token's name"
-                  placeholder={namespace === "" ? "brand" : "card"}
-                  value={naming}
-                  onChange={(event) => setNaming(event.target.value.replace(/\s+/g, "-").toLowerCase())}
-                  aria-invalid={taken || undefined}
-                  className="h-7 text-xs"
-                />
-              </div>
-              {taken && <p className="text-[11px] text-destructive">{`There's a token called ${full} already.`}</p>}
-              <Button type="submit" size="sm" className="h-7 text-xs" disabled={name === "" || taken}>
-                Create {name === "" ? "token" : full}
-              </Button>
-            </form>
-          )}
-          {allowing && allowed !== undefined && (
-            <>
-              <p className="px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">Allowed here: {allowed}</p>
-              <button type="button" className={menuRow} onClick={() => onAllow(undefined)}>
-                Don&apos;t allow here
-              </button>
-            </>
-          )}
-          {allowing && allowed === undefined && reason === undefined && (
-            <button type="button" className={menuRow} onClick={() => setReason("")}>
-              Allow {own} here…
-            </button>
-          )}
-          {allowing && allowed === undefined && reason !== undefined && (
-            // The reason is kept with the value, so it moves with the layer.
-            <form
-              className="flex flex-col gap-1 p-1"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (reason.trim() !== "") onAllow(reason.trim())
-              }}
-            >
-              <Input
-                ref={(node) => node?.focus()}
-                aria-label="Why it's allowed here"
-                placeholder="Photo backdrop"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                className="h-7 text-xs"
-              />
-              <Button type="submit" size="sm" className="h-7 text-xs" disabled={reason.trim() === ""}>
-                Allow here
-              </Button>
-            </form>
-          )}
-        </div>
-      )}
     </div>
   )
 }

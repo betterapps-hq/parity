@@ -14,7 +14,19 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { applyFieldInput, readFieldInput, scrubSteps } from "@parity-app/core"
 import type { PreviewKind } from "@parity-app/tokens"
-import { Check, Circle, CircleAlert, CircleCheck, CircleDashed, Hexagon, Moon, TriangleAlert, X } from "lucide-react"
+import {
+  Check,
+  ChevronDown,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  CircleDashed,
+  Hexagon,
+  Moon,
+  TriangleAlert,
+  Unlink,
+  X
+} from "lucide-react"
 import {
   createContext,
   type CSSProperties,
@@ -31,6 +43,7 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
+import { useRowScrub } from "./field-row.tsx"
 import { type FieldToken, type OpacityToken, type TokenSetName, type TokenSets, tokenSets } from "./tokens.ts"
 
 /*
@@ -377,11 +390,23 @@ export function drag(
 
 /* The field's box */
 
-/** The field's box: outlined in the error color while what's typed can't be read. Its chip's × shows on its hover. */
+/**
+ * The field's box, as the simpler fields draw it (PAR-186): filled, with no border; hovering outlines it faintly,
+ * focus outlines it in the ring's color, and an error in red, which hovering leaves. Nothing in it moves on hover.
+ */
 export function fieldBox(error: boolean, extra = ""): string {
-  const ring = error ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"
-  return `group/field flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent px-1.5 text-xs focus-within:ring-2 dark:bg-input/30 ${ring} ${extra}`
+  const ring = error
+    ? "ring-1 ring-destructive"
+    : "hover:not-focus-within:ring-1 hover:not-focus-within:ring-border focus-within:ring-1 focus-within:ring-ring"
+  return `group/field relative flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-muted px-2 text-xs ring-inset dark:bg-input/40 ${ring} ${extra}`
 }
+
+/**
+ * The one button over the end of a field (Tokens, or Detach on a token), in room the field keeps for it (`pr-7`), faded
+ * in while the field's hovered or focused, or its list is open, so nothing moves.
+ */
+export const fieldEndButton =
+  "absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 outline-none group-focus-within/field:opacity-100 group-hover/field:opacity-100 hover:bg-background/70 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:opacity-100"
 
 /** A bare field's box (ValueField's `bare`): no border until hovered or focused, or while it's in error. */
 function bareBox(error: boolean, extra: string): string {
@@ -807,17 +832,17 @@ export interface TokenChipProps {
   /** A key typed on the focused chip, which replaces the token with what's typed. */
   onType?: (key: string) => void
   onStep?: (up: boolean, keys: ScrubKeys) => void
-  /** Takes the token off: the ×, or Backspace or Delete on the focused chip. */
+  /** Takes the token off, or in a field detaches it: Backspace or Delete on the focused chip, or a list entry's ×. */
   onRemove?: () => void
-  /** Swaps a deprecated token's replacement in, from the warning on the chip. */
-  onReplace?: (replacement: string) => void
 }
 
 /**
- * A token in a field or a list entry, as a chip on a tinted background, as Figma UI3's variable pill: the kind's preview
- * and the name without the field's namespace. Focused, typing replaces it and Backspace or Delete takes it off, as the ×
- * does on hover or focus. A deprecated token carries a warning whose click swaps the replacement in; a missing one is
- * struck through in the warning color; a composite token with a part changed has a dot.
+ * A token in a field or a list entry, as a pill, as the simpler fields draw it (PAR-186) after Figma UI3's variable pill:
+ * the name without the field's namespace, with its whole name and what it comes to in its hint. In a field, the pill is
+ * the name alone; outside one, a list entry's, it carries the kind's preview and a × that takes it off. A token the
+ * project has replaced is amber, one it no longer has red, and a composite token with a part changed has a dot.
+ * Focused, typing replaces it, and Backspace or Delete detaches it (`onRemove`), keeping what it came to where the field
+ * can.
  */
 export function TokenChip({
   name,
@@ -833,24 +858,39 @@ export function TokenChip({
   hint = true,
   onType,
   onStep,
-  onRemove,
-  onReplace
+  onRemove
 }: TokenChipProps) {
   const shownName = withoutNamespace(name, namespace)
-  // A chip squeezed into a narrow field keeps its name and leaves the preview to its hint and list.
+  // In a field, the pill is the name alone, but for a preview the field passes (a color's swatch); outside a field, a
+  // list entry's carries the kind's preview.
   let drawn = fill ? undefined : preview
-  if (drawn === undefined && token && !fill) {
+  if (drawn === undefined && token && !fill && !trigger) {
     drawn = <TokenMark kind={token.kind} value={token.value} name={token.name} width={20} height={14} />
+  }
+  const replacement = token?.deprecated
+  let tone = "bg-foreground/10 hover:bg-foreground/15"
+  let hintLabel = name
+  let hintDetail = token?.detail
+  let named = `${label ? `${label}: ` : ""}${name}`
+  if (struck) {
+    tone = "bg-destructive/15 text-destructive hover:bg-destructive/25"
+    hintLabel = `${name} is missing`
+    hintDetail = "The project no longer has it. Pick another, or detach."
+    named += ", missing"
+  } else if (replacement) {
+    tone = "bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300"
+    hintLabel = `${name} is replaced by ${replacement}`
+    named += `, replaced by ${replacement}`
   }
   const content = (
     <>
       {drawn}
-      <span className={`truncate ${struck ? "text-amber-700 line-through dark:text-amber-400" : ""}`}>{shownName}</span>
+      <span className="truncate">{shownName}</span>
       {detail && <span className="shrink-0 text-muted-foreground">{detail}</span>}
     </>
   )
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (onType && event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey) {
+    if (onType && event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault()
       onType(event.key)
     } else if (onRemove && (event.key === "Backspace" || event.key === "Delete")) {
@@ -863,42 +903,32 @@ export function TokenChip({
   }
   const main = trigger ? (
     <PopoverTrigger
-      aria-label={`${label ? `${label}: ` : ""}${name}${struck ? ", missing" : ""}`}
+      aria-label={named}
       onKeyDown={onKeyDown}
-      className="flex min-w-0 items-center gap-1 rounded-sm px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex h-full min-w-0 items-center gap-1 rounded px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {content}
     </PopoverTrigger>
   ) : (
-    <span className="flex min-w-0 items-center gap-1 px-1">{content}</span>
+    <span className="flex min-w-0 items-center gap-1 px-1.5">{content}</span>
   )
-  let hintDetail = token?.detail
-  if (struck) hintDetail = "The project has no token by this name now. Choose another."
-  const replacement = token?.deprecated
   return (
     <span
-      className={`group/chip relative flex h-5 ${fill ? "min-w-0 shrink" : "max-w-[calc(100%-1.5rem)] shrink-0"} items-center rounded-sm bg-accent text-xs text-foreground`}
+      className={`group/chip relative flex h-5 ${fill ? "min-w-0 shrink" : "max-w-full min-w-0 shrink"} items-center rounded text-xs ${tone}`}
     >
       {hint ? (
-        <Hint label={struck ? `${name} is missing` : name} detail={hintDetail} wait>
+        <Hint label={hintLabel} detail={hintDetail} wait>
           {main}
         </Hint>
       ) : (
         main
       )}
-      {replacement && (
-        <DeprecatedMark
-          name={name}
-          replacement={replacement}
-          onReplace={onReplace ? () => onReplace(replacement) : undefined}
-        />
-      )}
-      {onRemove && (
+      {onRemove && !trigger && (
         <button
           type="button"
           aria-label={`Remove ${name}${label ? ` from ${label}` : ""}`}
           onClick={onRemove}
-          className="mr-0.5 hidden size-4 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none group-focus-within/field:grid group-hover/chip:grid group-hover/field:grid hover:bg-background/60 hover:text-foreground focus-visible:grid focus-visible:ring-2 focus-visible:ring-ring"
+          className="mr-0.5 hidden size-4 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none group-hover/chip:grid hover:bg-background/60 hover:text-foreground focus-visible:grid focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="size-3" />
         </button>
@@ -997,6 +1027,192 @@ export function TokenList({ label, tokens, current, none, own = false, onPick }:
   )
 }
 
+/** What a token comes to as a number, where its kind has one (a length, a duration, a percentage, a weight). */
+function measureOf(token: FieldToken): number | undefined {
+  const fields = token as unknown as Record<string, unknown>
+  for (const key of ["px", "ms", "percent", "number", "em", "multiple"]) {
+    const value = fields[key]
+    if (typeof value === "number") return value
+  }
+  return undefined
+}
+
+/** Tokens that come to numbers, smallest first, as a scale reads; others, as colors, in the project's order. */
+function inScaleOrder<T extends FieldToken>(tokens: readonly T[]): readonly T[] {
+  if (!tokens.every((token) => measureOf(token) !== undefined)) return tokens
+  return tokens.toSorted((a, b) => measureOf(a)! - measureOf(b)!)
+}
+
+/** A row of a token menu that isn't a token: Create token, Allow here. */
+const menuRow =
+  "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent"
+
+export interface TokenMenuProps<T extends FieldToken> {
+  label: string
+  tokens: readonly T[]
+  /** The token the field holds. */
+  current?: string
+  none?: string
+  /** The value of its own the field holds, in words (`12px`, `#2563EB`), which the nearest token and Create token are for. */
+  own?: string
+  nearest?: T
+  /** The nearest token comes to the same value as the field's own, so it's offered as the same, not the nearest. */
+  same?: boolean
+  /** The field holds a value of its own though `own` doesn't say it, so None isn't the one it holds. */
+  holdsOwn?: boolean
+  /** The order the tokens are listed in, where it isn't the project's: a scale's, smallest first. */
+  order?: (a: T, b: T) => number
+  /** The token the field holds, replaced, and what replaced it. */
+  replaced?: { name: string; by: T }
+  namespace?: string
+  tokensOnly?: boolean
+  /** Why the value of its own is allowed here, in a project set to Tokens only. */
+  allowed?: string
+  onAllow?: (reason: string | undefined) => void
+  /** Makes a token of the value of its own, by the whole name given; without it, the menu has no Create token. */
+  onCreate?: (name: string) => void
+  onPick: (name: string | undefined) => void
+}
+
+/**
+ * A field's token menu: the swap for a replaced token; for a value of its own, the nearest token, first, under what it's
+ * nearest to (or the same as); the tokens, in `order`, without the ones the project has replaced, which aren't for
+ * picking; then Create token, and, in a project set to Tokens only, Allow here, which asks why.
+ */
+export function TokenMenu<T extends FieldToken>({
+  label,
+  tokens,
+  current,
+  none,
+  own,
+  nearest,
+  same = false,
+  holdsOwn = false,
+  order,
+  replaced,
+  namespace = "",
+  tokensOnly = false,
+  allowed,
+  onAllow,
+  onCreate,
+  onPick
+}: TokenMenuProps<T>) {
+  const [naming, setNaming] = useState<string>()
+  const [reason, setReason] = useState<string>()
+  const name = (naming ?? "").trim()
+  const full = `${namespace}${name}`
+  const taken = name !== "" && tokens.some((each) => each.name === full)
+  const allowing = tokensOnly && onAllow !== undefined
+  const pickable = tokens.filter((each) => each.deprecated === undefined)
+  const listed = order ? pickable.toSorted(order) : inScaleOrder(pickable)
+  return (
+    <div className="flex min-w-0 flex-col">
+      {replaced && (
+        <button
+          type="button"
+          onClick={() => onPick(replaced.by.name)}
+          className="mb-1 rounded-sm bg-amber-500/10 px-2 py-1.5 text-left text-xs outline-none hover:bg-amber-500/20 focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {replaced.name} is replaced. Use {replaced.by.name}
+        </button>
+      )}
+      {own !== undefined && nearest && (
+        <div className="mb-1 flex flex-col border-b pb-1">
+          <p className="px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">
+            {same ? "Same as" : "Nearest to"} {own}
+          </p>
+          <button type="button" className={menuRow} onClick={() => onPick(nearest.name)}>
+            <TokenMark kind={nearest.kind} value={nearest.value} name={nearest.name} />
+            <span className="min-w-0 flex-1 truncate">{nearest.name}</span>
+            <span className="text-muted-foreground tabular-nums">{nearest.detail}</span>
+          </button>
+        </div>
+      )}
+      {listed.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No tokens for {label} yet</p>}
+      {(listed.length > 0 || none !== undefined) && (
+        <TokenList
+          label={label}
+          tokens={listed}
+          current={current}
+          none={none}
+          own={own !== undefined || holdsOwn}
+          onPick={onPick}
+        />
+      )}
+      {own !== undefined && (onCreate !== undefined || allowing) && (
+        <div className="mt-1 flex flex-col border-t pt-1">
+          {onCreate && naming === undefined && (
+            <button type="button" className={menuRow} onClick={() => setNaming("")}>
+              Create token from {own}…
+            </button>
+          )}
+          {onCreate && naming !== undefined && (
+            <form
+              className="flex flex-col gap-1 p-1"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (name !== "" && !taken) onCreate(full)
+              }}
+            >
+              <div className="flex items-center gap-1">
+                {namespace !== "" && <span className="text-xs text-muted-foreground">{namespace}</span>}
+                <Input
+                  ref={(node) => node?.focus()}
+                  aria-label="New token's name"
+                  placeholder={namespace === "" ? "brand" : "card"}
+                  value={naming}
+                  onChange={(event) => setNaming(event.target.value.replace(/\s+/g, "-").toLowerCase())}
+                  aria-invalid={taken || undefined}
+                  className="h-7 text-xs"
+                />
+              </div>
+              {taken && <p className="text-[11px] text-destructive">{`There's a token called ${full} already.`}</p>}
+              <Button type="submit" size="sm" className="h-7 text-xs" disabled={name === "" || taken}>
+                Create {name === "" ? "token" : full}
+              </Button>
+            </form>
+          )}
+          {/* A reason kept with the value shows wherever it is, so it isn't lost on a project that's not Tokens only. */}
+          {onAllow !== undefined && allowed !== undefined && (
+            <>
+              <p className="px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">Allowed here: {allowed}</p>
+              <button type="button" className={menuRow} onClick={() => onAllow(undefined)}>
+                Don&apos;t allow here
+              </button>
+            </>
+          )}
+          {allowing && allowed === undefined && reason === undefined && (
+            <button type="button" className={menuRow} onClick={() => setReason("")}>
+              Allow {own} here…
+            </button>
+          )}
+          {allowing && allowed === undefined && reason !== undefined && (
+            // The reason is kept with the value, so it moves with the layer.
+            <form
+              className="flex flex-col gap-1 p-1"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (reason.trim() !== "") onAllow(reason.trim())
+              }}
+            >
+              <Input
+                ref={(node) => node?.focus()}
+                aria-label="Why it's allowed here"
+                placeholder="Photo backdrop"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                className="h-7 text-xs"
+              />
+              <Button type="submit" size="sm" className="h-7 text-xs" disabled={reason.trim() === ""}>
+                Allow here
+              </Button>
+            </form>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 /** One of a search list's options: how it's drawn, and the heading of the group it starts, where it starts one. */
 export interface SearchOption {
   /** Unique among the options. */
@@ -1122,8 +1338,10 @@ export function useTokenSets(): TokenSets {
 /* The field */
 
 /**
- * The status slot's marks (slot 5), of which the field shows the first that applies, in this order: Invalid, its own
- * while what's typed can't be read; Missing; Off the system or Exception; Set for a theme; Deprecated.
+ * The status slot's marks (slot 5), of which the field shows the first that applies. Since the simpler fields
+ * (PAR-186), a token's problems show on its pill (red for missing, amber for replaced) and a value of its own has no
+ * mark, its nearest token and Create token being in its list (`own`), so a field shows only `missing` for something
+ * that isn't a token (a font the frame can't load) and `theme`. `offSystem` and `deprecated` are no longer drawn.
  */
 export interface StatusMarks {
   missing?: ReactNode
@@ -1132,18 +1350,44 @@ export interface StatusMarks {
   deprecated?: ReactNode
 }
 
-/** The token a field holds, drawn as its chip in the value's place. */
+/** The token a field holds, drawn as its pill in the value's place. */
 export interface FieldChip {
   name: string
-  /** The token, or nothing for one the project no longer has, which shows struck through. */
+  /** The token, or nothing for one the project no longer has, which shows in red. */
   token?: FieldToken
   namespace?: string
   /** A preview in place of the token's own, as a color's at its alpha. */
   preview?: ReactNode
   overridden?: boolean
+  /** Takes the token off, leaving the field unset, where it has nothing to keep (`onDetach`). */
   onRemove: () => void
-  /** Swaps a deprecated token's replacement in. */
+  /**
+   * Detaches the token, keeping what it came to as the field's own value, as Figma's Detach does: the end button, and
+   * Backspace or Delete on the pill. Without it, they take the token off (`onRemove`).
+   */
+  onDetach?: () => void
+  /** Swaps a replaced token's replacement in, from the top of the token list. */
   onReplace?: (replacement: string) => void
+}
+
+/**
+ * A value of the field's own, which its token list is for: the nearest token, first, then Create token, and, in a
+ * project set to Tokens only, Allow here, which asks why.
+ */
+export interface OwnValue {
+  /** The value in words, as the list says it: `12px`, `#2563EB`. */
+  text: string
+  nearest?: FieldToken
+  /** The nearest token comes to the same value, so the list offers it as the same, not the nearest. */
+  same?: boolean
+  /** What the field's tokens' names start with, which Create token puts before the name typed. */
+  namespace?: string
+  /** Makes a token of the value by the whole name given, and sets the field to it. */
+  onCreate?: (name: string) => void
+  tokensOnly?: boolean
+  /** Why it's allowed here, in a project set to Tokens only. */
+  allowed?: string
+  onAllow?: (reason: string | undefined) => void
 }
 
 export interface ValueFieldProps<T> {
@@ -1164,10 +1408,15 @@ export interface ValueFieldProps<T> {
   chip?: FieldChip
   /** Slot 3: the unit, as text, or a button that opens the field's unit and mode menu (`unitButtonClass`). */
   unit?: ReactNode
-  /** Slot 4: what it comes to, or "set by …", faint after the value; in a narrow field, in the hint. */
+  /**
+   * Slot 4: what it comes to, or "set by …", faint after the value; in a narrow field, or after a token's pill, in the
+   * hint.
+   */
   comesTo?: string
   /** Slot 5: the marks that apply to the value; the field shows one. */
   status?: StatusMarks
+  /** A value of the field's own, which its token list offers the nearest token and Create token for. */
+  own?: OwnValue
   /** Slot 6: the tokens the field offers, drawn as its TokenList, which the token button, the chip and Alt+Down open. */
   tokens?: {
     list: readonly FieldToken[]
@@ -1269,12 +1518,14 @@ export interface FieldSearch<T> {
 }
 
 /**
- * The field every styling control builds on, in design-options-fields.md's anatomy: the inner label or icon, which
- * scrubs; the value, or a token's chip; the unit; what it comes to, faintly; one status mark; and the token button,
- * on hover or focus while no chip shows. What's typed is read when Enter is pressed or the field is left: text it
- * can't read stays, outlined, with the reason under the row, and Escape or leaving puts the value back and says so.
- * Up and Down step it. Typing on a focused chip replaces the token; Backspace in the empty field, or on the chip, takes
- * it off; Alt+Down opens the tokens. Messages span a grid's row, so a row of fields says things under the whole row.
+ * The field every styling control builds on, drawn as the simpler fields are (PAR-186): a filled box with the inner
+ * label or icon, which scrubs; the value, or a token's pill, named alone, with what it comes to in its hint; the unit;
+ * and one button over the box's end, in room it keeps, faded in on hover or focus: Tokens, or Detach on a token. A
+ * value of its own has no mark: its token list offers the nearest token first, then Create token (`own`). What's typed
+ * is read when Enter is pressed or the field is left: text it can't read stays, outlined, with the reason under the
+ * row, and Escape or leaving puts the value back and says so. Up and Down step it. Typing on a focused pill replaces
+ * the token; Backspace in the empty field, or on the pill, detaches it; Alt+Down opens the tokens. Messages span a
+ * grid's row, so a row of fields says things under the whole row.
  */
 export function ValueField<T>({
   label,
@@ -1288,6 +1539,7 @@ export function ValueField<T>({
   unit,
   comesTo,
   status,
+  own,
   tokens,
   picker,
   read,
@@ -1317,6 +1569,8 @@ export function ValueField<T>({
   const [highlight, setHighlight] = useState(0)
   const searchId = useId()
   const input = useRef<HTMLInputElement>(null)
+  // Set when a pick closes the list, so the focus goes to the value's text rather than a pill that may have gone.
+  const picked = useRef(false)
   const unitText = typeof unit === "string" ? unit : ""
   let backTo = shown === undefined ? placeholder || "unset" : `${shown}${unitText}`
   if (chip) backTo = chip.name
@@ -1363,6 +1617,16 @@ export function ValueField<T>({
     requestAnimationFrame(() => input.current?.blur())
   }
 
+  // The row's name drags the value too, as Figma's labels do, where the field drags at all.
+  useRowScrub(
+    scrubbing && !disabled
+      ? (event) => {
+          clearTyping()
+          scrub(scrubbing.from, scrubbing.apply, scrubbing.by)(event)
+        }
+      : undefined
+  )
+
   let labelSlot: ReactNode
   if (inner !== undefined && scrubbing) {
     const handler = scrub(scrubbing.from, scrubbing.apply, scrubbing.by)
@@ -1385,9 +1649,10 @@ export function ValueField<T>({
   let fieldPlaceholder = mixed && shown === undefined ? "Mixed" : placeholder
   if (showChip) fieldPlaceholder = ""
 
+  // A token's problems show on its pill, and a value of its own has no mark; what's left is something missing that
+  // isn't a token (a font), and a value set for a theme.
   let mark: ReactNode
-  if (typed.error) mark = <InvalidMark />
-  else if (!typing) mark = status?.missing ?? status?.offSystem ?? status?.theme ?? status?.deprecated
+  if (!typing) mark = showChip ? status?.theme : (status?.missing ?? status?.theme)
 
   // A narrow field has room for one thing after the value: its status mark takes the unit's place, which its hint names.
   const showUnit =
@@ -1404,9 +1669,19 @@ export function ValueField<T>({
   }
 
   const hintLabel = hint?.label ?? (narrow ? `${label}: ${backTo}` : undefined)
+  // What a token comes to is in its pill's hint, and a narrow field's in the field's.
   const hintDetail = narrow ? [comesTo, hint?.detail].filter(Boolean).join(". ") || undefined : hint?.detail
+  const detach = () => {
+    if (!chip) return
+    const detaching = chip.onDetach ?? chip.onRemove
+    detaching()
+    // The pill and Detach go, so the value's text takes the focus.
+    input.current?.focus()
+  }
+  // Room at the box's end for its one button, kept whether it shows or not, so nothing moves on hover.
+  const endRoom = !bare && (offers || chip !== undefined)
 
-  const boxExtra = `flex-1 ${disabled ? "opacity-50" : ""}`
+  const boxExtra = `flex-1 ${endRoom ? "pr-7" : ""} ${disabled ? "opacity-50" : ""}`
   const box = (
     <Hint label={hintLabel} detail={hintDetail} hidden={open} wait>
       <div className={bare ? bareBox(error, boxExtra) : fieldBox(error, boxExtra)}>
@@ -1438,11 +1713,7 @@ export function ValueField<T>({
               input.current?.focus()
             }}
             onStep={onStep}
-            onRemove={() => {
-              chip.onRemove()
-              input.current?.focus()
-            }}
-            onReplace={chip.onReplace}
+            onRemove={detach}
           />
         )}
         <input
@@ -1490,7 +1761,7 @@ export function ValueField<T>({
           onKeyDown={(event) => {
             if (showChip && event.currentTarget.value === "" && (event.key === "Backspace" || event.key === "Delete")) {
               event.preventDefault()
-              chip.onRemove()
+              detach()
               return
             }
             if (expression && event.key === "=") {
@@ -1525,12 +1796,34 @@ export function ValueField<T>({
           }}
           className={`${inputBase} ${showChip ? "min-w-1" : "min-w-6"} ${muted && !typing ? "text-muted-foreground" : ""} ${said && !typing ? "text-destructive" : ""} ${typed.focused ? "" : "truncate"} ${bare ? "text-center" : ""} ${inputClassName}`}
         />
-        {comesTo && !narrow && !typed.focused && !typed.error && (
+        {comesTo && !narrow && !showChip && !typed.focused && !typed.error && (
           <span className="min-w-0 shrink truncate text-muted-foreground/70 tabular-nums">{comesTo}</span>
         )}
         {unitPart}
         {mark}
-        {tokens && !showChip && !bare && <TokenButton label={label} focusOnly={narrow} />}
+        {showChip && !bare && (
+          <Hint
+            label="Detach"
+            detail={chip.token ? `Keeps ${chip.token.detail}, not the token` : "Clears the missing token"}
+          >
+            <button
+              type="button"
+              aria-label={`Detach ${label} from ${chip.name}`}
+              disabled={disabled}
+              onClick={detach}
+              className={fieldEndButton}
+            >
+              <Unlink className="size-3.5" />
+            </button>
+          </Hint>
+        )}
+        {!showChip && offers && !bare && (
+          <Hint label={picker ? "Picker" : "Tokens"} detail={altSteps ? undefined : "Alt+Down"}>
+            <PopoverTrigger aria-label={`${label} tokens`} disabled={disabled} className={fieldEndButton}>
+              <ChevronDown className="size-3.5" />
+            </PopoverTrigger>
+          </Hint>
+        )}
         {description !== undefined && (
           <span id={`${searchId}-description`} className="sr-only">
             {description}
@@ -1551,18 +1844,55 @@ export function ValueField<T>({
       </PopoverContent>
     )
   } else if (tokens) {
+    const close = () => {
+      picked.current = true
+      clearTyping()
+      setListOpen(false)
+    }
+    const replacement = chip?.token?.deprecated
+    const replacedBy = replacement === undefined ? undefined : tokens.list.find((each) => each.name === replacement)
+    const onAllow = own?.onAllow
+    const onCreate = own?.onCreate
     popup = (
-      <PopoverContent className="w-56 gap-0 p-1" align="start">
-        <TokenList
+      <PopoverContent
+        className="w-60 gap-0 p-1"
+        align="start"
+        finalFocus={() => {
+          if (!picked.current) return true
+          picked.current = false
+          return input.current
+        }}
+      >
+        <TokenMenu
           label={label}
           tokens={tokens.list}
           current={tokens.current}
           none={tokens.none}
-          own={chip === undefined && shown !== undefined && shown !== ""}
+          own={own?.text}
+          holdsOwn={chip === undefined && shown !== undefined && shown !== ""}
+          nearest={own?.nearest}
+          same={own?.same}
+          replaced={chip && replacedBy ? { name: chip.name, by: replacedBy } : undefined}
+          namespace={own?.namespace ?? chip?.namespace}
+          tokensOnly={own?.tokensOnly}
+          allowed={own?.allowed}
+          onAllow={
+            onAllow &&
+            ((reason) => {
+              onAllow(reason)
+              close()
+            })
+          }
+          onCreate={
+            onCreate &&
+            ((name) => {
+              onCreate(name)
+              close()
+            })
+          }
           onPick={(name) => {
             tokens.onPick(name)
-            clearTyping()
-            setListOpen(false)
+            close()
           }}
         />
       </PopoverContent>
@@ -1631,6 +1961,7 @@ export function PercentField({
   keywords,
   tokens,
   status,
+  own,
   onChange
 }: {
   label: string
@@ -1656,8 +1987,10 @@ export function PercentField({
    * token's name (`muted`, `opacity-muted`) picks it, and Up and Down step through them in order.
    */
   tokens?: { list: readonly OpacityToken[]; current?: string; onPick: (name: string | undefined) => void }
-  /** Slot 5's marks, as Opacity's off its steps. */
+  /** Slot 5's marks. */
   status?: StatusMarks
+  /** A value of its own, which its token list offers the nearest token and Create token for. */
+  own?: OwnValue
   onChange: (value: number | undefined) => void
 }) {
   const held = tokens?.current === undefined ? undefined : tokens.list.find((token) => token.name === tokens.current)
@@ -1693,11 +2026,18 @@ export function PercentField({
       chip={
         tokens?.current === undefined
           ? undefined
-          : { name: tokens.current, token: held, onRemove: () => tokens.onPick(undefined) }
+          : {
+              name: tokens.current,
+              token: held,
+              onRemove: () => tokens.onPick(undefined),
+              onDetach: held ? () => onChange(held.percent) : undefined,
+              onReplace: (replacement) => tokens.onPick(replacement)
+            }
       }
       unit="%"
       comesTo={held?.detail}
       status={status}
+      own={own}
       tokens={tokens && { list: tokens.list, current: tokens.current, onPick: tokens.onPick }}
       narrow={narrow}
       hint={hint}

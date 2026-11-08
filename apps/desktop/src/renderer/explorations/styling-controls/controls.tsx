@@ -30,23 +30,16 @@ import {
   Lock,
   LockOpen,
   Minus,
-  PanelBottom,
-  PanelLeft,
-  PanelRight,
-  PanelTop,
   Plus,
   Repeat,
   SlidersHorizontal,
-  Square,
-  SquareDashed,
-  SquareRoundCorner,
   Squircle,
   WrapText,
   X
 } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { ChoiceInput, Field } from "../../chrome/fields.tsx"
+import { ChoiceInput } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
@@ -66,20 +59,19 @@ import {
   usedColors
 } from "./data.ts"
 import {
-  MissingMark,
   nearestToken,
   notAToken,
-  OffSystemMark,
   type Reading,
   type ScrubKeys,
-  TokenMark,
   unitButtonClass,
   useTokens,
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
+import { Field } from "./field-row.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { NineSpots } from "./position-box.tsx"
+import { CornerGlyph, EachToggle, SideGlyph } from "./simpler.tsx"
 import { lengthToken } from "./tokens.ts"
 import { readLength } from "./typing.ts"
 import type { StrokePosition } from "./writes.ts"
@@ -133,7 +125,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
         </DropdownMenu>
       }
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2.5">
         <Field label="Type">
           <div className="flex items-center gap-1.5">
             <ToggleGroup
@@ -574,7 +566,7 @@ export function ChildSizeSection({ draft, set }: SectionProps) {
         </DropdownMenu>
       }
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2.5">
         <div className="grid grid-cols-2 items-start gap-1 pr-1">
           <SizeField
             axis="Width"
@@ -758,7 +750,7 @@ export function SizeSection({ draft, set }: SectionProps) {
   }
   return (
     <PanelSection title="Size">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2.5">
         <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-1 pr-1">
           <SizeField
             axis="Width"
@@ -1118,59 +1110,70 @@ const corners = ["Top left", "Top right", "Bottom right", "Bottom left"] as cons
 /** The corners' indices in reading order across the two-by-two grid of fields. */
 const cornersAsLaidOut = [0, 1, 3, 2] as const
 
+const sameLength = (a: Length | undefined, b: Length | undefined) => JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * Appearance's Radius, as the simpler fields lay it out (PAR-186): one field under its name, and each corner, laid out
+ * where it is, once Each corner at the end of the name's row is pressed. It opens pressed when the corners differ.
+ * Closing it never loses a value: corners that match become one radius again, and corners that don't stay as they are,
+ * the one field saying Mixed until something's typed for them all. Corner shape's button sits beside Each corner.
+ */
 export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: SectionProps) {
-  const perCorner = Array.isArray(draft.radius)
   const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
+  const alike = radii.every((radius) => sameLength(radius, radii[0]))
+  const [each, setEach] = useState(!alike)
   return (
     <PanelSection title="Appearance">
-      <div className="flex flex-col gap-1">
-        <Field label="Radius" changed={changed !== undefined} onReset={changed?.onReset}>
-          <div className="flex items-start gap-1">
-            {perCorner ? (
-              <div className="grid min-w-0 flex-1 grid-cols-2 gap-1">
-                {/* Laid out where each corner is: the top two, then bottom left and bottom right. */}
-                {cornersAsLaidOut.map((index) => (
-                  <RadiusChoice
-                    key={index}
-                    label={`${corners[index]} radius`}
-                    corner={index}
-                    value={radii[index]}
-                    tokensOnly={tokensOnly}
-                    mixed={mixed}
-                    onChange={(value) => {
-                      const next = [...radii] as [Length?, Length?, Length?, Length?]
-                      next[index] = value
-                      set({ radius: next })
-                    }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-2.5">
+        <Field
+          label="Radius"
+          changed={changed !== undefined}
+          onReset={changed?.onReset}
+          action={
+            <>
+              <CornerShape value={draft.cornerShape} onChange={(cornerShape) => set({ cornerShape })} />
+              <EachToggle
+                label="Each corner"
+                parts="corners"
+                pressed={each}
+                onClick={() => {
+                  // Corners that match become one radius again; corners that don't stay, and the field says Mixed.
+                  if (each && alike && Array.isArray(draft.radius)) set({ radius: radii[0] })
+                  setEach(!each)
+                }}
+              />
+            </>
+          }
+        >
+          {each ? (
+            <div className="grid min-w-0 grid-cols-2 gap-x-2 gap-y-1">
+              {/* Laid out where each corner is: the top two, then bottom left and bottom right. */}
+              {cornersAsLaidOut.map((index) => (
                 <RadiusChoice
-                  label="Radius"
-                  value={Array.isArray(draft.radius) ? undefined : draft.radius}
+                  key={index}
+                  label={`${corners[index]} radius`}
+                  corner={index}
+                  value={radii[index]}
                   tokensOnly={tokensOnly}
                   mixed={mixed}
-                  onChange={(radius) => set({ radius })}
+                  onChange={(value) => {
+                    const next = [...radii] as [Length?, Length?, Length?, Length?]
+                    next[index] = value
+                    set({ radius: next })
+                  }}
                 />
-              </div>
-            )}
-            <div className="flex shrink-0 flex-col gap-1">
-              <Hint label="Radius per corner">
-                <Toggle
-                  size="sm"
-                  className="size-7 min-w-7 shrink-0 p-0"
-                  aria-label="Radius per corner"
-                  pressed={perCorner}
-                  onPressedChange={(on) => set({ radius: on ? ([...radii] as Draft["radius"]) : radii[0] })}
-                >
-                  <SquareRoundCorner />
-                </Toggle>
-              </Hint>
-              <CornerShape value={draft.cornerShape} onChange={(cornerShape) => set({ cornerShape })} />
+              ))}
             </div>
-          </div>
+          ) : (
+            <RadiusChoice
+              label="Radius"
+              value={alike ? radii[0] : undefined}
+              tokensOnly={tokensOnly}
+              mixed={mixed || !alike}
+              mixedNote={alike ? undefined : "Mixed: the corners differ. Each corner shows them"}
+              onChange={(radius) => set({ radius })}
+            />
+          )}
         </Field>
       </div>
     </PanelSection>
@@ -1187,7 +1190,7 @@ const cornerShapes = [
 ] as const
 
 /**
- * Corner shape, in the corners' popover (PAR-652's Appearance): Round, as every browser draws, or Squircle, Bevel,
+ * Corner shape, from its button in Radius's name row (PAR-652's Appearance): Round, as every browser draws, or Squircle, Bevel,
  * Scoop, Notch or Square, which only Chromium draws (`corner-shape`), so it's marked †; elsewhere the radius still
  * holds, drawn round.
  */
@@ -1207,9 +1210,9 @@ function CornerShape({
       >
         <PopoverTrigger
           aria-label={`Corner shape: ${cornerShapes.find((option) => option.value === shape)?.label}`}
-          className={`grid size-7 place-items-center rounded-md text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent ${value && value !== "round" ? "bg-accent text-foreground" : "text-muted-foreground"}`}
+          className={`grid size-5 shrink-0 place-items-center rounded outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-muted dark:hover:bg-input/40 ${value && value !== "round" ? "bg-muted text-foreground dark:bg-input/60" : "text-muted-foreground"}`}
         >
-          <Squircle className="size-3.5" />
+          <Squircle className="size-3" />
         </PopoverTrigger>
       </Hint>
       <PopoverContent className="w-52 gap-2 p-2" align="end">
@@ -1356,7 +1359,7 @@ export function EffectsSection({ draft, set, tokensOnly, mixed }: SectionProps) 
       }
     >
       {shown.length > 0 && (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2.5">
           {shown.map((effect) => (
             <Field key={effect.key} label={effect.label} hint={effect.hint}>
               <div className="flex items-start gap-1">
@@ -1392,50 +1395,36 @@ export function EffectsSection({ draft, set, tokensOnly, mixed }: SectionProps) 
   )
 }
 
-/** A radius, a token or a value of its own, with a corner mark inside when it's one corner's. */
+/** A radius, a token or a value of its own, with the corner's glyph inside when it's one corner's. */
 export function RadiusChoice({
   label,
   corner,
   value,
   tokensOnly,
   mixed,
+  mixedNote,
   onChange
 }: {
   mixed?: boolean
+  /** What its hint says of Mixed, where it's the corners that differ rather than the selected layers. */
+  mixedNote?: string
   label: string
-  corner?: number
+  corner?: 0 | 1 | 2 | 3
   value: Length | undefined
   tokensOnly?: boolean
   onChange: (value: Length | undefined) => void
 }) {
-  const shape = (
-    <span
-      aria-hidden
-      // A block, so it keeps its size outside the chip too, where an inline span would draw only its border's edge.
-      className="block size-3 shrink-0 border-muted-foreground"
-      style={
-        corner === undefined
-          ? { borderWidth: 1.5, borderRadius: 3 }
-          : {
-              [["borderTop", "borderTop", "borderBottom", "borderBottom"][corner]!]: "1.5px solid",
-              [["borderLeft", "borderRight", "borderRight", "borderLeft"][corner]!]: "1.5px solid",
-              [["borderTopLeftRadius", "borderTopRightRadius", "borderBottomRightRadius", "borderBottomLeftRadius"][
-                corner
-              ]!]: 5
-            }
-      }
-    />
-  )
   return (
     <LengthField
       label={label}
       kind="radius"
-      icon={shape}
+      icon={corner === undefined ? undefined : <CornerGlyph corner={corner} />}
       // A corner's field is narrow, so what its value comes to and its status show in its hint.
       narrow={corner !== undefined}
       value={value}
       tokensOnly={tokensOnly}
       mixed={mixed}
+      mixedNote={mixedNote}
       cssTakes={(length) => CSS.supports("border-radius", length)}
       onChange={onChange}
     />
@@ -1471,10 +1460,10 @@ export function BlurChoice({
 
 /**
  * A length field that takes a token or a value of its own, as every field does (call 1), on the shared field. A token
- * shows as a chip, then what it comes to, faintly (`lg 10px`); clicking the chip opens the kind's tokens, as the token
- * button after a value does on hover or focus. Typing beside the chip, or on it, replaces it, and Backspace or the
- * chip's × removes it. A value shows as typed, with its unit and a hollow mark whose menu has the nearest token, Create
- * token and Allow here; Tokens only refuses it. Typing a token's name (`lg`, `radius-lg`) takes the token. What's typed
+ * shows as a pill naming it, with what it comes to in its hint; clicking it opens the kind's tokens, as the button at
+ * the field's end does on hover or focus. Typing on the pill replaces it, and Backspace or Detach keeps its value
+ * without the token. A value shows as typed, with its unit and no mark; Tokens offers the nearest token first, then
+ * Create token, and Allow here under Tokens only, which refuses it. Typing a token's name (`lg`, `radius-lg`) takes the token. What's typed
  * is checked as CSS checks the property (`CSS.supports`) before it's stored. Up and Down step a token through the scale
  * and a value by a pixel. In a narrow field (`narrow`, under about 96px), the unit shows on hover, and what the value
  * comes to and its status are in its hint.
@@ -1488,6 +1477,7 @@ function LengthField({
   tokensOnly = false,
   placeholder = "0",
   mixed = false,
+  mixedNote = "Mixed: the selected layers differ",
   cssTakes,
   onChange
 }: {
@@ -1502,6 +1492,8 @@ function LengthField({
   placeholder?: string
   /** The selected layers differ here: it shows Mixed, and typing replaces every one. */
   mixed?: boolean
+  /** What its hint says of Mixed. */
+  mixedNote?: string
   /** Whether CSS takes a length here, as `CSS.supports` says for the property. */
   cssTakes: (length: string) => boolean
   onChange: (value: Length | undefined) => void
@@ -1551,22 +1543,18 @@ function LengthField({
   else if (name !== undefined && !token) status = "Missing: the project has no token by this name now"
   else if (own?.allow !== undefined) status = `Allowed here: ${own.allow}`
   else if (own && nearest) status = `Not a token. Nearest: ${nearest.name} (${nearest.detail})`
-  else if (mixed && value === undefined) status = "Mixed: the selected layers differ"
+  else if (mixed && value === undefined) status = mixedNote
   else if (value === undefined) status = "Unset"
   return (
     <ValueField
       label={label}
       inner={icon}
-      // Dragging the icon scrubs a value of its own a pixel per screen pixel, and a token through the scale.
-      scrub={
-        icon === undefined
-          ? undefined
-          : {
-              from: () => own?.px ?? token?.px ?? 0,
-              apply: (px) => onChange({ px }),
-              by: { step: 1, shiftStep: 10, altStep: 0.1, min: 0 }
-            }
-      }
+      // Dragging the icon, or the row's name, scrubs the value a pixel per screen pixel.
+      scrub={{
+        from: () => own?.px ?? token?.px ?? 0,
+        apply: (px) => onChange({ px }),
+        by: { step: 1, shiftStep: 10, altStep: 0.1, min: 0 }
+      }}
       shown={own ? formatNumber(own.px) : undefined}
       placeholder={placeholder}
       mixed={mixed}
@@ -1578,38 +1566,31 @@ function LengthField({
               token,
               namespace,
               onRemove: () => onChange(undefined),
+              onDetach: token ? () => onChange({ px: token.px }) : undefined,
               onReplace: (replacement) => onChange(replacement)
             }
       }
       unit={own ? "px" : undefined}
       comesTo={token?.detail}
-      status={{
-        missing: name !== undefined && !token ? <MissingMark name={name} /> : undefined,
-        offSystem:
-          own && nearest ? (
-            <OffSystemMark
-              label={label}
-              compact
-              description={`${own.px}px isn't one of the project's ${kind} tokens.`}
-              nearest={{
-                name: `${nearest.name}, ${nearest.detail}`,
-                preview: <TokenMark kind={nearest.kind} value={nearest.value} />
-              }}
-              allowed={own.allow}
-              isTaken={(taken) => tokens.some((other) => other.name === namespace + taken)}
-              namePlaceholder={kind === "radius" ? "card" : "glass"}
-              onUse={() => onChange(nearest.name)}
-              onCreate={
+      own={
+        own === undefined
+          ? undefined
+          : {
+              text: `${formatNumber(own.px)}px`,
+              nearest,
+              same: nearest?.px === own.px,
+              namespace,
+              onCreate:
                 create &&
                 ((made) => {
-                  create(lengthToken(kind, namespace + made, own.px))
-                  onChange(namespace + made)
-                })
-              }
-              onAllow={(reason) => onChange(reason === undefined ? { px: own.px } : { ...own, allow: reason })}
-            />
-          ) : undefined
-      }}
+                  create(lengthToken(kind, made, own.px))
+                  onChange(made)
+                }),
+              tokensOnly,
+              allowed: own.allow,
+              onAllow: (reason) => onChange(reason === undefined ? { px: own.px } : { ...own, allow: reason })
+            }
+      }
       tokens={{ list: tokens, current: name, none: "None", onPick: onChange }}
       refused={refused && nearest ? { nearest, onUse: () => onChange(nearest.name) } : undefined}
       narrow={narrow}
@@ -1623,83 +1604,27 @@ function LengthField({
 
 const sides = ["Top", "Right", "Bottom", "Left"] as const
 
-/** Figma's stroke sides: every side, one side alone, or each side its own (Custom). */
-type SideMode = "all" | "top" | "right" | "bottom" | "left" | "custom"
-
-const sideNames = { top: "Top", right: "Right", bottom: "Bottom", left: "Left" } as const
-
-const sideOptions = [
-  { value: "all", label: "All", Icon: Square },
-  { value: "top", label: "Top", Icon: PanelTop },
-  { value: "bottom", label: "Bottom", Icon: PanelBottom },
-  { value: "left", label: "Left", Icon: PanelLeft },
-  { value: "right", label: "Right", Icon: PanelRight },
-  { value: "custom", label: "Custom", Icon: SquareDashed }
-] as const satisfies readonly { value: SideMode; label: string; Icon: unknown }[]
-
-/** Which of the menu's choices a stroke width is: one width, one side alone, or anything else. */
-function sideModeOf(width: Draft["borderWidth"]): SideMode {
-  if (!Array.isArray(width)) return "all"
-  const stroked = width.flatMap((side, index) => (side > 0 ? [index] : []))
-  if (stroked.length === 1) return (["top", "right", "bottom", "left"] as const)[stroked[0]!]!
-  return "custom"
-}
-
-/** The widths for a choice: one width for All, one side's width alone, or the four as they are for Custom. */
-function widthsFor(mode: SideMode, width: number, current?: readonly number[]): Draft["borderWidth"] {
-  if (mode === "all") return width
-  if (mode === "custom") return (current ? [...current] : [width, width, width, width]) as Draft["borderWidth"]
-  return sides.map((side) => (side === sideNames[mode] ? width : 0)) as Draft["borderWidth"]
-}
-
-/** The button after Width that picks which sides are stroked, as Figma's stroke sides menu does. */
-function SidesMenu({ mode, onChange }: { mode: SideMode; onChange: (mode: SideMode) => void }) {
-  const Icon = sideOptions.find((option) => option.value === mode)!.Icon
-  return (
-    <DropdownMenu>
-      <Hint label="Stroke sides">
-        <DropdownMenuTrigger
-          aria-label={`Stroke sides: ${sideOptions.find((option) => option.value === mode)!.label}`}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-        >
-          <Icon className="size-4" />
-        </DropdownMenuTrigger>
-      </Hint>
-      <DropdownMenuContent align="end" className="w-36">
-        <DropdownMenuRadioGroup value={mode} onValueChange={(next) => onChange(next as SideMode)}>
-          {sideOptions.map(({ value, label, Icon: OptionIcon }) => (
-            <DropdownMenuRadioItem key={value} value={value} className="gap-2 text-xs">
-              <OptionIcon className="size-3.5" />
-              {label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 /**
  * Stroke, a title with + until it's set, as PAR-652's panel starts Fill, Stroke and Effects. + adds the project's usual
  * stroke, `border-border` at 1px, and − takes it off.
  */
 export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
-  // Custom stays chosen while one side is stroked, which the widths alone would read as that side.
-  const [custom, setCustom] = useState(false)
-  const sideMode = custom ? "custom" : sideModeOf(draft.borderWidth)
   // A new stroke is in layout (call 2): a border. Out of layout, it's an outline at its position.
   const inLayout = draft.strokeInLayout ?? true
   const position: StrokePosition = inLayout ? "inside" : (draft.strokePosition ?? "inside")
   const widths = Array.isArray(draft.borderWidth)
     ? draft.borderWidth
     : ([0, 0, 0, 0].map(() => (draft.borderWidth as number | undefined) ?? 1) as [number, number, number, number])
+  const alike = widths.every((width) => width === widths[0])
+  // Each side opens pressed when the sides differ, and stays as it's left: one side alone still shows every side.
+  const [each, setEach] = useState(!alike)
   const stroked = draft.border !== undefined || draft.borderWidth !== undefined
   const action = (
     <SectionButton
       adds={!stroked}
       what="stroke"
       onClick={() => {
-        setCustom(false)
+        setEach(false)
         set(
           stroked
             ? {
@@ -1724,7 +1649,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
   }
   return (
     <PanelSection title="Stroke" action={action}>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2.5">
         <Field label="Color">
           <ColorInput
             label="Stroke"
@@ -1737,52 +1662,55 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
             onChange={(border, borderAlpha) => set({ border, borderAlpha, borderAllowed: undefined })}
           />
         </Field>
-        <Field label="Width">
-          <div className="flex items-start gap-1">
-            {sideMode === "custom" && (
-              <div className="grid min-w-0 flex-1 grid-cols-2 gap-1">
-                {sides.map((side, index) => (
-                  <Num
-                    key={side}
-                    label={`${side} stroke width`}
-                    inner={side[0]}
-                    pixels
-                    narrow
-                    value={widths[index]}
-                    min={0}
-                    onChange={(value) => {
-                      const next = [...widths] as [number, number, number, number]
-                      next[index] = value ?? 0
-                      set({ borderWidth: next })
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-            {sideMode !== "custom" && (
-              <div className="min-w-0 flex-1">
-                <Num
-                  label={sideMode === "all" ? "Stroke width" : `${sideNames[sideMode]} stroke width`}
-                  inner={sideMode === "all" ? undefined : sideNames[sideMode][0]}
-                  pixels
-                  value={sideMode === "all" ? widths[0] : widths[sides.indexOf(sideNames[sideMode])]}
-                  min={0}
-                  onChange={(value) => set({ borderWidth: widthsFor(sideMode, value ?? 1) })}
-                />
-              </div>
-            )}
-            <SidesMenu
-              mode={sideMode}
-              onChange={(mode) => {
-                setCustom(mode === "custom")
-                // Only a border strokes some sides and not others, so choosing sides puts the stroke in layout.
-                set({
-                  borderWidth: widthsFor(mode, Math.max(...widths) || 1, widths),
-                  ...(mode === "all" ? {} : { strokeInLayout: undefined, strokePosition: undefined })
-                })
+        <Field
+          label="Width"
+          action={
+            <EachToggle
+              label="Each side"
+              parts="sides"
+              pressed={each}
+              onClick={() => {
+                // Sides that match become one width again; sides that don't stay, and the field says Mixed.
+                if (each && alike && Array.isArray(draft.borderWidth)) set({ borderWidth: widths[0] })
+                setEach(!each)
               }}
             />
-          </div>
+          }
+        >
+          {each ? (
+            <div className="grid min-w-0 grid-cols-2 gap-x-2 gap-y-1">
+              {sides.map((side, index) => (
+                <Num
+                  key={side}
+                  label={`${side} stroke width`}
+                  inner={<SideGlyph letter={side[0]} />}
+                  pixels
+                  narrow
+                  value={widths[index]}
+                  min={0}
+                  onChange={(value) => {
+                    const next = [...widths] as [number, number, number, number]
+                    next[index] = value ?? 0
+                    // Only a border strokes some sides and not others, so sides that differ put the stroke in layout.
+                    const differ = !next.every((width) => width === next[0])
+                    set({
+                      borderWidth: next,
+                      ...(differ ? { strokeInLayout: undefined, strokePosition: undefined } : {})
+                    })
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <Num
+              label="Stroke width"
+              pixels
+              value={alike ? widths[0] : undefined}
+              mixed={!alike}
+              min={0}
+              onChange={(value) => set({ borderWidth: value ?? 1 })}
+            />
+          )}
         </Field>
         <Field
           label="Position"
@@ -1797,7 +1725,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
                   if (!next || next === position) return
                   // Center and Outside are outlines, which stroke every side at one width.
                   if (next !== "inside") {
-                    setCustom(false)
+                    setEach(false)
                     set({ strokeInLayout: false, strokePosition: next, borderWidth: Math.max(...widths) || 1 })
                   } else set({ strokePosition: inLayout ? undefined : "inside" })
                 }}
@@ -1817,7 +1745,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
                 aria-label="Include in layout"
                 pressed={inLayout}
                 onPressedChange={(on) => {
-                  setCustom(false)
+                  setEach(false)
                   set(
                     on
                       ? { strokeInLayout: undefined, strokePosition: undefined }
@@ -1873,7 +1801,7 @@ export function FrameSection({
 }) {
   return (
     <PanelSection title="Frame" description="Pricing's size in Desktop. Dragging the frame's edges sets it too.">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2.5">
         <Field label="Size">
           <div className="grid grid-cols-2 gap-1">
             <Num
@@ -1938,17 +1866,21 @@ export function Num({
   narrow = false,
   value,
   placeholder = "0",
+  mixed = false,
   min = 0,
   onChange
 }: {
   label: string
-  inner?: string
+  /** A letter or glyph inside, which scrubs: T, or a side's glyph. */
+  inner?: ReactNode
   suffix?: string
   pixels?: boolean
   spacing?: boolean
   narrow?: boolean
   value: number | undefined
   placeholder?: string
+  /** The sides or layers it covers differ: it says Mixed, and typing sets them all. */
+  mixed?: boolean
   min?: number
   onChange: (value: number | undefined) => void
 }) {
@@ -2006,6 +1938,7 @@ export function Num({
       }}
       shown={shown}
       placeholder={placeholder}
+      mixed={mixed}
       unit={unitPart}
       narrow={narrow}
       read={read}

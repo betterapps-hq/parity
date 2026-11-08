@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { Field } from "../../chrome/fields.tsx"
+import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
 import { projectFonts } from "./text-data.ts"
@@ -55,7 +55,7 @@ export const Unset: Story = { render: () => <Font /> }
 /** A font of its own, Segoe UI, picked from More fonts: marked, with font-sans as the nearest token. */
 export const ValueOfItsOwn: Story = { render: () => <Font start={{ stack: '"Segoe UI", sans-serif' }} /> }
 
-/** Segoe UI allowed here, with its reason in the filled mark's hint. */
+/** Segoe UI allowed here, with its reason in Tokens, which can stop allowing it. */
 export const AllowedHere: Story = {
   render: () => <Font start={{ stack: '"Segoe UI", sans-serif', allow: "The partner's brand font" }} />
 }

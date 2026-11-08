@@ -5,7 +5,7 @@ import { SideField, spreadTo, useSidesLine } from "./sides.tsx"
 import type { LengthToken } from "./tokens.ts"
 
 /*
- * The box-model widget (PAR-652's Spacing), opened from Custom in Padding's sides menu: padding's ring around the
+ * The box-model widget (PAR-652's Spacing), in place of Padding's sides while Each side is pressed: padding's ring around the
  * layer's size, and margin's ring around that once a margin is set, each side a field typed as any side is, and
  * SpacingPreview, the canvas's stand-in, which draws padding and margin as DevTools does and highlights the side
  * that's hovered.

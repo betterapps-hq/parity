@@ -38,13 +38,11 @@ import {
   drag,
   type Message,
   MessageLine,
-  MissingMark,
   notAToken,
-  OffSystemMark,
   PercentField,
   type Reading,
   ThemeMark,
-  TokenList,
+  TokenMenu,
   useTokens,
   useTyped,
   ValueField
@@ -53,8 +51,8 @@ import { type ColorToken, colorToken } from "./tokens.ts"
 
 /*
  * The color field and its picker, as PAR-652's design-options-values.md (Color) and design-options-fields.md specify
- * them, on the shared field. At rest, a token is a chip; a plain color is its value in short form, with a hollow mark
- * for a value off the token system. The picker's Custom tab edits the color live: a square, hue and alpha strips, a
+ * them, on the shared field. At rest, a token is a pill; a plain color is its value in short form, with no mark: its
+ * Tokens tab offers the nearest token first. The picker's Custom tab edits the color live: a square, hue and alpha strips, a
  * model menu, the eyedropper, the design's colors and the nearest token. The Tokens panel's picker edits a token's own
  * value.
  */
@@ -527,6 +525,8 @@ export function ColorInput({
   const [round, setRound] = useState(0)
   const nearest = nearestColorToken(custom, colors)
   const nearestToValue = plain ? nearestColorToken(value, colors) : undefined
+  const replacedBy =
+    current?.deprecated === undefined ? undefined : colors.find((each) => each.name === current.deprecated)
   const choose = (next: string) => {
     onChange(next, alpha)
     setOpen(false)
@@ -582,10 +582,31 @@ export function ColorInput({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="tokens" className="p-1">
-        <TokenList
+        <TokenMenu
           label={label}
           tokens={colors}
           current={value}
+          own={plain ? `${value.startsWith("#") ? "#" : ""}${shortForm(value)}` : undefined}
+          nearest={nearestToValue?.token}
+          same={nearestToValue !== undefined && nearestToValue.distance < sameColorDistance}
+          replaced={current && replacedBy ? { name: current.name, by: replacedBy } : undefined}
+          tokensOnly={tokensOnly}
+          allowed={allowed}
+          onAllow={
+            onAllow &&
+            ((reason) => {
+              onAllow(reason)
+              setOpen(false)
+            })
+          }
+          onCreate={
+            create && plain
+              ? (name) => {
+                  create(colorToken(name, formatHex({ ...parseColor(value)!, a: 1 })))
+                  choose(name)
+                }
+              : undefined
+          }
           onPick={(name) => {
             if (name) choose(name)
           }}
@@ -661,33 +682,11 @@ export function ColorInput({
                 token: current,
                 preview: current ? <ColorSwatch color={current.hex} alpha={alpha} /> : undefined,
                 onRemove: () => onChange(undefined, alpha),
+                onDetach: current ? () => onChange(current.hex, alpha) : undefined,
                 onReplace: (replacement) => onChange(replacement, alpha)
               }
         }
-        status={{
-          missing: chipName !== undefined && !current ? <MissingMark name={chipName} /> : undefined,
-          offSystem:
-            plain && nearestToValue ? (
-              <OffSystemMark
-                label={label}
-                compact
-                description={`${value} isn't one of the project's tokens. It stays the same in every theme.`}
-                nearest={{ name: nearestToValue.token.name, preview: <ColorSwatch color={nearestToValue.token.hex} /> }}
-                isTaken={(name) => colors.some((token) => token.name === name)}
-                allowed={allowed}
-                onUse={() => onChange(nearestToValue.token.name, alpha)}
-                onCreate={
-                  create &&
-                  ((name) => {
-                    create(colorToken(name, formatHex({ ...parseColor(value)!, a: 1 })))
-                    onChange(name, alpha)
-                  })
-                }
-                onAllow={(next) => onAllow?.(next)}
-              />
-            ) : undefined,
-          theme: theme ? <ThemeMark label={label} theme={theme} /> : undefined
-        }}
+        status={{ theme: theme ? <ThemeMark label={label} theme={theme} /> : undefined }}
         picker={{
           content: picker,
           swatch: shownSwatch,

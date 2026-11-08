@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useState } from "react"
-import { Field } from "../../chrome/fields.tsx"
 import { DoesNothing } from "./field-parts.tsx"
+import { Field } from "./field-row.tsx"
 import {
   alignChoices,
   caseChoices,

@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { Field } from "../../chrome/fields.tsx"
 import { HoverCard } from "./easing.tsx"
 import { useTokens } from "./field-parts.tsx"
+import { Field } from "./field-row.tsx"
 import {
   bezierCss,
   defaultCurve,
@@ -20,10 +20,10 @@ import { mixedWrites, type Writes } from "./writes.ts"
 
 /**
  * A time (PAR-652's Time), as a transition's Duration and Delay take it: milliseconds. `0.2s` typed becomes 200ms; one
- * read from code keeps `s` until it's edited. Any whole millisecond is a step (`duration-200`), unmarked while the
- * project has no duration tokens, and marked once it has some, with the nearest token in the mark's menu. Up and Down
- * step 10ms, Shift 100ms; a token steps to the next. Duration tokens show as a track against half a second, in the
- * chip and the token list. With a spring, Duration shows the spring's settle time, set by Easing.
+ * read from code keeps `s` until it's edited. Any whole millisecond is a step (`duration-200`), with no mark; once the
+ * project has duration tokens, Tokens offers the nearest first. Up and Down step 10ms, Shift 100ms; a token steps to
+ * the next. Duration tokens show as a track against half a second in the token list. With a spring, Duration shows the
+ * spring's settle time, set by Easing.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Time",
@@ -118,16 +118,16 @@ export const TypedInSeconds: Story = {
 /** `0.2s` read from code: shown as 200ms with "as 0.2s" after it, and written back as `duration-[0.2s]`. */
 export const ReadFromCode: Story = { render: () => <Timing start={{ value: "0.2s" }} /> }
 
-/** A duration token, `duration-fast`, as a chip with its track against half a second. Up steps to normal. */
+/** A duration token, `duration-fast`, as a pill named fast, with 150ms in its hint. Up steps to normal. */
 export const Token: Story = { render: () => <Timing start={{ token: "duration-fast" }} withTokens /> }
 
 /**
- * 200ms in a project with duration tokens: marked as off the system, with Use nearest (fast, 150ms, as near as
- * normal), Create token and Allow here in the mark's menu.
+ * 200ms in a project with duration tokens: no mark, and Tokens offers the nearest first (fast, 150ms, as near as
+ * normal), then Create token.
  */
 export const OffTheSystem: Story = { render: () => <Timing start={{ step: 200 }} withTokens /> }
 
-/** 200ms allowed here, with its reason in the filled mark's hint. */
+/** 200ms allowed here, with its reason in Tokens, which can stop allowing it. */
 export const AllowedHere: Story = {
   render: () => <Timing start={{ step: 200, allow: "Matches the video's fade" }} withTokens />
 }

@@ -631,7 +631,6 @@ function PaddingNow({ start, mixed }: { start: Sides; mixed?: boolean[] }) {
       rules={sideRules.padding}
       sides={sides}
       mixed={differ}
-      atLeastTwo
       onChange={(next, cleared) => {
         setSides(next)
         setDiffer((current) => current.map((side, index) => side && !cleared.includes(index)))
@@ -663,13 +662,7 @@ function SidesStory() {
     <Page
       now={
         <PanelSection title="Spacing">
-          <FourSidesField
-            label="Padding"
-            rules={sideRules.padding}
-            sides={sides}
-            atLeastTwo
-            onChange={(next) => setSides(next)}
-          />
+          <FourSidesField label="Padding" rules={sideRules.padding} sides={sides} onChange={(next) => setSides(next)} />
         </PanelSection>
       }
       simpler={
@@ -877,7 +870,6 @@ function WholePanelStory() {
               label="Padding"
               rules={sideRules.padding}
               sides={sides}
-              atLeastTwo
               onChange={(next) => setSides(next)}
             />
           </PanelSection>

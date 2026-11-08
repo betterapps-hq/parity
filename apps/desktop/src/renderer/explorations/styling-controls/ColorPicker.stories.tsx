@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { Field } from "../../chrome/fields.tsx"
 import { ColorInput, TokenColorEditor } from "./color-picker.tsx"
 import { usedColors } from "./data.ts"
+import { Field } from "./field-row.tsx"
 import { CardPreview, Playground, useDraft } from "./playground.tsx"
 import { colorTokens } from "./tokens.ts"
 import { colorWrites } from "./writes.ts"

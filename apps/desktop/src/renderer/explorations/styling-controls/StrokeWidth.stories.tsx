@@ -8,10 +8,11 @@ import { type Sides, sideRules, sidesWrites } from "./sides-writes.ts"
 import { FourSidesField } from "./sides.tsx"
 
 /**
- * Stroke's Width (PAR-186, PAR-652's Four sides), as a border. Its sides menu is Figma's: All, one side alone, or each
- * side's own (Custom), plus vertical and horizontal. A width is a whole pixel (`border-2`; 1 is `border`), a
- * border-width token, or a value off the steps, marked. Up and Down go a pixel, Shift ten. It writes the fewest
- * classes, shorthand first (`border-x border-y-2`).
+ * Stroke's Width (PAR-186, PAR-652's Four sides), as a border: one field for every side, and each side once Each side,
+ * at the end of the name's row, is pressed. It opens pressed when the sides differ, and the one field says Mixed if
+ * they still differ when it's closed. A width is a whole pixel (`border-2`; 1 is `border`), a border-width token, or a
+ * value off the steps. Up and Down go a pixel, Shift ten. It writes the fewest classes, shorthand first (`border-x
+ * border-y-2`).
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Stroke width",
@@ -36,6 +37,7 @@ function StrokeWidth({ start, mixed = [] }: { start: Sides; mixed?: boolean[] })
         <FourSidesField
           label="Width"
           rules={sideRules.border}
+          together="one"
           sides={sides}
           mixed={mixedNow}
           onChange={(next, cleared) => {
@@ -52,10 +54,10 @@ function StrokeWidth({ start, mixed = [] }: { start: Sides; mixed?: boolean[] })
 /** 1 on every side: `border`. */
 export const AllSides: Story = { render: () => <StrokeWidth start={[px(1), px(1), px(1), px(1)]} /> }
 
-/** The bottom alone, from the sides menu: `border-b`. */
+/** The bottom alone: Each side opens to show it, writing `border-b`. */
 export const BottomOnly: Story = { render: () => <StrokeWidth start={[undefined, undefined, px(1), undefined]} /> }
 
-/** 2 down and 1 across: `border-x border-y-2`, the fewest classes. */
+/** 2 down and 1 across: Each side opens to show them, writing `border-x border-y-2`, the fewest classes. */
 export const VerticalAndHorizontal: Story = { render: () => <StrokeWidth start={[px(2), px(1), px(2), px(1)]} /> }
 
 /** Each side its own: four fields in CSS's order. */
@@ -75,10 +77,10 @@ export const Token: Story = {
   )
 }
 
-/** 1.5, off the whole pixels: the hollow mark, writing `border-[1.5px]`. */
+/** 1.5, off the whole pixels: no mark, and Tokens offers the nearest token first, writing `border-[1.5px]`. */
 export const OffTheSteps: Story = { render: () => <StrokeWidth start={[px(1.5), px(1.5), px(1.5), px(1.5)]} /> }
 
-/** The selected layers' left widths differ: Left shows Mixed. */
+/** The selected layers' left widths differ: Each side opens, and Left shows Mixed. */
 export const MixedLeft: Story = {
   render: () => <StrokeWidth start={[px(1), px(1), px(1), undefined]} mixed={[false, false, false, true]} />
 }

@@ -16,7 +16,6 @@ import type { PreviewKind } from "@parity-app/tokens"
 import { ChevronDown, ChevronRight, Ellipsis, Plus, RotateCcw, Unlink } from "lucide-react"
 import { useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { Field } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
@@ -33,6 +32,7 @@ import {
   useTokens,
   ValueField
 } from "./field-parts.tsx"
+import { Field } from "./field-row.tsx"
 import { ListRow, moved, OffsetPad, TypeMenu, type TypeOption } from "./list-parts.tsx"
 import {
   boxLayersOf,
