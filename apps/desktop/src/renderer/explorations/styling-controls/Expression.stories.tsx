@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import { type Basis, evaluateLength, ExpressionField, expressionWrites, fillTokens } from "./expression.tsx"
 import { Field } from "./field-row.tsx"
 import { Playground } from "./playground.tsx"
@@ -10,9 +10,10 @@ import { TextSample } from "./text-preview.tsx"
  * Expression (PAR-186, design-options-values.md's Expression). `=` in any field opens an expression, widened to the
  * row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and tokens inside `var()`, each `var()`
  * drawn as a token chip and what it comes to beside it. At rest it's the function's name and what it comes to
- * (`clamp 25.6`), or `ƒ` in a field under 96px; focusing it opens it again. A `clamp()` opens its three fields: least,
- * preferred and most, from the field or the button after it. Enter checks it with `CSS.supports` and stores it in its
- * simplest form, so `calc(var(--spacing) * 18)` is a step.
+ * (`clamp 25.6`), or `ƒ` in a field under 96px; focusing it, clicking it or pressing Enter in it opens it again. A
+ * `clamp()` opens its three fields: least, preferred and most, from the field or the button after it. Enter checks it
+ * with `CSS.supports` and stores it in its simplest form, so `calc(var(--spacing) * 18)` is a step. Enter and Escape put
+ * focus back on the field.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Expression",
@@ -123,6 +124,7 @@ export const TypingAnExpression: Story = {
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
     const editor = await canvas.findByRole("textbox", { name: "Width expression" })
     await userEvent.type(editor, "min(100%, 40rem){Enter}")
+    await expect(canvas.getByRole("textbox", { name: "Width" })).toHaveFocus()
   }
 }
 
@@ -145,6 +147,7 @@ export const SimplestForm: Story = {
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
     const editor = await canvas.findByRole("textbox", { name: "Width expression" })
     await userEvent.type(editor, "calc(var(--spacing) * 18){Enter}")
+    await expect(canvas.getByRole("textbox", { name: "Width" })).toHaveFocus()
   }
 }
 

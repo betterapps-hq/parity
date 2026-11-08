@@ -375,8 +375,8 @@ function clampParts(text: string): [string, string, string] | undefined {
  * A field whose value can be an expression, on ValueField. A plain length types as any length field does; `=` opens
  * the expression, widened to the row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and
  * tokens inside `var()`. Enter checks it with `CSS.supports` and stores it in its simplest form; Escape puts it back.
- * At rest an expression shows its function and what it comes to, and focusing it opens it again; a `clamp()` opens its
- * three fields instead.
+ * Either one puts focus back on the field. At rest an expression shows its function and what it comes to, and focusing
+ * it, clicking it or pressing Enter in it opens it again; a `clamp()` opens its three fields instead.
  */
 export function ExpressionField({
   label,
@@ -403,6 +403,9 @@ export function ExpressionField({
   const [message, setMessage] = useState<Message>()
   const [clampOpen, setClampOpen] = useState(false)
   const editor = useRef<HTMLTextAreaElement>(null)
+  const field = useRef<HTMLDivElement>(null)
+  // Set while Enter or Escape puts focus back on the field, so the editor's blur doesn't commit again.
+  const returning = useRef(false)
   const listId = useId()
   const form = value === undefined ? undefined : simplest(value)
   const isExpression = form !== undefined && "value" in form && !/^\d/.test(form.value)
@@ -427,19 +430,20 @@ export function ExpressionField({
       setCaret(text.length)
     })
   }
-  const commit = (leaving: boolean) => {
-    if (editing === undefined) return
+  /** Closes the editor, if what's typed can be stored or `leaving` puts the value back; says whether it closed. */
+  const commit = (leaving: boolean): boolean => {
+    if (editing === undefined) return false
     const text = editing.trim()
     if (text === "") {
       onChange(undefined)
       setEditing(undefined)
       setMessage(undefined)
-      return
+      return true
     }
     const reason = check(text)
     if (reason && !leaving) {
       setMessage({ tone: "error", text: reason })
-      return
+      return false
     }
     if (reason) setMessage({ tone: "note", text: `${label} is back to ${value ?? "unset"}. ${reason}.` })
     else {
@@ -447,6 +451,13 @@ export function ExpressionField({
       setMessage(undefined)
     }
     setEditing(undefined)
+    return true
+  }
+  // The editor goes once it's closed, so focus goes back to the field rather than to the page.
+  const backToField = () => {
+    returning.current = true
+    field.current?.querySelector("input")?.focus()
+    returning.current = false
   }
   const accept = (index: number) => {
     if (!completions || editing === undefined) return
@@ -475,7 +486,7 @@ export function ExpressionField({
     }
     if (event.key === "Enter") {
       event.preventDefault()
-      commit(false)
+      if (commit(false)) backToField()
     }
     if (event.key === "Escape") {
       event.stopPropagation()
@@ -483,6 +494,7 @@ export function ExpressionField({
       setMessage(
         message?.tone === "error" ? { tone: "note", text: `${label} is back to ${value ?? "unset"}.` } : undefined
       )
+      backToField()
     }
   }
   const came = typeof comesTo === "number" ? formatNumber(comesTo) : undefined
@@ -524,7 +536,7 @@ export function ExpressionField({
   const editedComesTo = editing === undefined || kind !== "length" ? undefined : evaluateLength(editing, basis)
   const showList = completions !== undefined && completions.items.length > 0
   return (
-    <div className="relative">
+    <div ref={field} className="relative">
       <ValueField
         label={label}
         inner={inner}
@@ -583,6 +595,7 @@ export function ExpressionField({
             </span>
             <textarea
               ref={editor}
+              data-expression-editor
               rows={1}
               aria-label={`${label} expression`}
               aria-autocomplete="list"
@@ -598,7 +611,9 @@ export function ExpressionField({
               }}
               onSelect={(event) => setCaret(event.currentTarget.selectionStart ?? 0)}
               onKeyDown={onEditorKey}
-              onBlur={() => commit(true)}
+              onBlur={() => {
+                if (!returning.current) commit(true)
+              }}
               className={`${fieldInput} ${wrappingText} font-mono leading-4`}
             />
             {error && <InvalidMark />}

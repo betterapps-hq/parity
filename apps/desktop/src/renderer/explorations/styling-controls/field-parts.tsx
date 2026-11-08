@@ -1526,7 +1526,8 @@ export interface ValueFieldProps<T> {
   /**
    * `=` opens an expression, as design-options-values.md's Expression has it in any field: typing `=` hands what's
    * typed after it to `onEquals`, which opens the expression's editor. Where the field holds one, `onOpen` opens it as
-   * the field's focused, as clicking `calc 648` does.
+   * the field's focused or clicked, as clicking `calc 648` does, or Enter's pressed in it before anything's typed.
+   * Focus coming back from the editor, which carries `data-expression-editor`, doesn't open it again.
    */
   expression?: { onEquals: (text: string) => void; onOpen?: () => void }
 }
@@ -1789,8 +1790,11 @@ export function ValueField<T>({
               setSearching(true)
               setHighlight(0)
             }
-            expression?.onOpen?.()
+            // Focus coming back from the expression's own editor, on Enter, Escape or Shift+Tab, leaves it closed.
+            const from = event.relatedTarget
+            if (!(from instanceof Element && from.closest("[data-expression-editor]"))) expression?.onOpen?.()
           }}
+          onClick={() => expression?.onOpen?.()}
           onBlur={() => {
             typed.input.onBlur()
             if (search) closeSearch()
@@ -1805,6 +1809,11 @@ export function ValueField<T>({
               event.preventDefault()
               clearTyping()
               expression.onEquals("")
+              return
+            }
+            if (expression?.onOpen && event.key === "Enter" && !typing) {
+              event.preventDefault()
+              expression.onOpen()
               return
             }
             if (search && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
