@@ -42,6 +42,8 @@ import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { panelLimits, setLayout, useLayout } from "./layout.ts"
+import { Name } from "./Name.tsx"
+import { PanelSectionTitle } from "./PanelSection.tsx"
 import { revealSelection } from "./reveal.ts"
 
 /** The levels the console filters by; debug messages go with info. */
@@ -163,7 +165,8 @@ function ConsoleHeader({ session, messages }: { session: ProjectSession; message
   const counts = tally(messages)
   return (
     <div className="flex h-10 shrink-0 items-center gap-2 border-b px-2">
-      <h2 className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Console</h2>
+      {/* The title sits in the header's row, so it drops the margin a section title keeps over its fields. */}
+      <PanelSectionTitle title="Console" as="h2" spacing="" />
       <LevelsMenu counts={counts} levels={shown.levels} />
       <InputGroup className="h-7 w-56">
         <InputGroupAddon>
@@ -292,11 +295,11 @@ function DesignGroup({
           ) : (
             <FolderCode className="size-3.5 shrink-0 text-muted-foreground" />
           )}
-          <span className="truncate">{designName(entries, design)}</span>
+          <Name>{designName(entries, design)}</Name>
         </CollapsibleTrigger>
         <Counts errors={counts.errors} warnings={counts.warnings} />
         <span className="flex-1" />
-        {!entry && <span className="text-[11px] text-muted-foreground">Written outside any design</span>}
+        {!entry && <span className="text-xs text-muted-foreground">Written outside any design</span>}
       </div>
       <CollapsibleContent>
         <ul>
@@ -377,18 +380,18 @@ function MessageRow({
             <span className="sr-only">{look.label}</span>
           </span>
           {message.failure ? (
-            <div className="min-w-0 flex-1 text-xs leading-5">
+            <div className="min-w-0 flex-1 type-message">
               <p className={look.text}>
                 <span className="font-medium">{message.failure.component} fails to draw.</span> {message.failure.reason}{" "}
                 {message.failure.fix}
               </p>
-              <p className="font-mono break-words whitespace-pre-wrap text-muted-foreground select-text">
+              <p className="type-code font-mono break-words whitespace-pre-wrap text-muted-foreground select-text">
                 {message.text}
               </p>
             </div>
           ) : (
             <p
-              className={`min-w-0 flex-1 font-mono text-xs leading-5 break-words whitespace-pre-wrap ${look.text} ${
+              className={`min-w-0 flex-1 type-code font-mono break-words whitespace-pre-wrap ${look.text} ${
                 open ? "" : "line-clamp-2"
               }`}
             >
@@ -400,7 +403,7 @@ function MessageRow({
               <Button
                 variant="outline"
                 size="xs"
-                className="h-5 text-[11px]"
+                className="h-5"
                 onClick={() => {
                   session.selection.set({ design: entry.key, node: message.failure!.nodeId })
                   revealSelection(session)
@@ -411,7 +414,7 @@ function MessageRow({
             )}
             {message.count > 1 && (
               <Hint label={`Logged ${message.count} times`} wait>
-                <Badge variant="secondary" className="h-4 min-w-5 px-1.5 text-[10px] tabular-nums">
+                <Badge variant="secondary" className="h-4 min-w-5 px-1.5 text-2xs tabular-nums">
                   {message.count}
                 </Badge>
               </Hint>
@@ -419,14 +422,14 @@ function MessageRow({
             {frames.slice(0, 2).map((frame) => (
               <span
                 key={`${frame.state}:${frame.mode}`}
-                className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-[11px] text-muted-foreground"
+                className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-2xs text-muted-foreground"
               >
                 {frameName(frame)}
               </span>
             ))}
             {frames.length > 2 && (
               <Hint label={frames.slice(2).map(frameName).join(", ")} wait>
-                <span className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-[11px] text-muted-foreground">
+                <span className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-2xs text-muted-foreground">
                   +{frames.length - 2}
                 </span>
               </Hint>
@@ -435,7 +438,7 @@ function MessageRow({
               <Hint label={`Open ${message.at.path} at line ${message.at.line}`} wait>
                 <button
                   type="button"
-                  className="font-mono text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  className="font-mono text-2xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                   onClick={() => void openSource(session, message.at!)}
                 >
                   {`${message.at.path.split("/").at(-1)}:${message.at.line}`}
@@ -445,7 +448,7 @@ function MessageRow({
           </div>
         </div>
         <CollapsibleContent>
-          <ol className="pb-2 pl-14 font-mono text-[11px] leading-5 text-muted-foreground">
+          <ol className="pb-2 pl-14 type-code font-mono text-muted-foreground">
             {stack.map((call, index) => (
               <li key={index} className="truncate">
                 {call}
@@ -461,7 +464,7 @@ function MessageRow({
 /** A group's errors and warnings, each only when there are some. */
 export function Counts({ errors, warnings }: { errors: number; warnings: number }) {
   return (
-    <span className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
+    <span className="flex shrink-0 items-center gap-2 text-2xs text-muted-foreground tabular-nums">
       {errors > 0 && (
         <span className="flex items-center gap-1" aria-label={`${errors} ${errors === 1 ? "error" : "errors"}`}>
           <CircleX className="size-3 text-destructive" /> {errors}

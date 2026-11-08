@@ -129,7 +129,9 @@ export function ProjectFailed({ tab }: { tab: Tab }) {
           <TriangleAlert className="size-5" />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-lg font-semibold">{name ? `Couldn't open ${name}` : "Couldn't open the project"}</h1>
+          <h1 className="text-lg font-semibold tracking-tight">
+            {name ? `Couldn't open ${name}` : "Couldn't open the project"}
+          </h1>
           {folder && (
             <p className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
               <span className="truncate" title={folder}>
@@ -185,7 +187,7 @@ export function ErrorDetails({ message }: { message: string }) {
           {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy"}
         </Button>
       </div>
-      <pre className="max-h-56 overflow-auto p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground/90 select-text">
+      <pre className="max-h-56 overflow-auto p-3 type-code font-mono whitespace-pre-wrap text-foreground/90 select-text">
         {message}
       </pre>
     </div>

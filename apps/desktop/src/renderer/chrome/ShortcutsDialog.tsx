@@ -14,6 +14,7 @@ import { Fragment, useState } from "react"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
 import { type Binding, type Gesture, gestures, groups, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
+import { DialogGroupTitle } from "./PanelSection.tsx"
 
 interface Row {
   label: string
@@ -76,7 +77,7 @@ export function ShortcutsDialog() {
             <div className="columns-1 gap-8 sm:columns-2">
               {sections.map(({ group, rows }) => (
                 <section key={group} className="mb-4 break-inside-avoid">
-                  <h3 className="pb-1 text-xs font-medium text-muted-foreground">{group}</h3>
+                  <DialogGroupTitle>{group}</DialogGroupTitle>
                   <ul>
                     {rows.map((row) => (
                       <li key={row.label} className="flex items-center justify-between gap-4 py-1">

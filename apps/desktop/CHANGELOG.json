@@ -2,6 +2,41 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 23:45:38 GMT",
+      "version": "0.38.0",
+      "tag": "@parity-app/desktop_v0.38.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "33c9cb09ea9ffd42430caf5c62cc8662e6258778",
+            "comment": "Compare Geist and Inter with the proposed interface type in Storybook"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "052a16e64db477d0681c52ec460943074f36ab95",
+            "comment": "Record the rest of the inspector's changes as inspector.changed: names, images, an instance's state and component, prop bindings, slots, states, a component's props and variants, resets, and token edits"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9f5303f843c898486ddb88ee7054e5b7b880d114",
+            "comment": "Record the first frame a newly opened project's canvas draws, and put the whole open in one trace (PAR-711)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "79c1ef4deb630f083a531818dd09127653a04a75",
+            "comment": "Record app.first_project, the time from the app starting to the first project's tab being ready to draw, and whether the window restored it"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 22:43:32 GMT",
       "version": "0.37.0",
       "tag": "@parity-app/desktop_v0.37.0",

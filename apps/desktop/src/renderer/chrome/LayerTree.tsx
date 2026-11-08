@@ -85,6 +85,8 @@ import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { renameLayer } from "./LayerPanel.tsx"
 import { type LayersRow, layersMenu, rowSelection } from "./layers-menu.ts"
+import { Name, NameInput } from "./Name.tsx"
+import { GroupLabel } from "./PanelSection.tsx"
 import { revealSelection } from "./reveal.ts"
 
 type Row = TreeRow<ContainerEntry>
@@ -469,7 +471,7 @@ export function LayerTree() {
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div
           ref={treeRef}
-          className="flex flex-col pb-2 text-[13px]"
+          className="flex flex-col pb-2 text-sm"
           role="tree"
           aria-label="Layers"
           tabIndex={0}
@@ -512,7 +514,9 @@ export function LayerTree() {
           </div>
           {notes.length > 0 && !search && (
             <div className="mb-2">
-              <div className="px-3 py-1 text-xs text-muted-foreground">Text on the canvas</div>
+              <GroupLabel as="div" className="px-3 py-1">
+                Text on the canvas
+              </GroupLabel>
               {notes.map((note) => (
                 <button
                   key={note.key}
@@ -540,7 +544,7 @@ export function LayerTree() {
                 <FileWarning className="size-3.5" />
                 {error.path}
               </div>
-              <code className="break-words text-muted-foreground">{error.error}</code>
+              <code className="type-code break-words text-muted-foreground">{error.error}</code>
             </div>
           ))}
         </div>
@@ -558,13 +562,13 @@ function addDesign(session: Session, kind: ContainerKind): void {
   }
 }
 
-/** A group's heading: its title and a + that makes a new one. */
+/** A group's heading: its title, a group label, and a + that makes a new one. */
 function GroupHeading({ group }: { group: Group }) {
   const session = useProject()
   return (
     // Positioned, so nothing in it is ever placed against the window, which made the page taller (PAR-424).
     <div className="relative flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
-      <span className="flex-1">{group.title}</span>
+      <GroupLabel className="flex-1">{group.title}</GroupLabel>
       <IconButton
         label={keymap[group.command].label}
         shortcut={keymap[group.command].keys[0]}
@@ -721,7 +725,7 @@ const LayerRow = memo(function LayerRow({
             onPointerLeave={() => handlers.hover(row, false)}
             className={`group relative flex h-7 cursor-default items-center gap-1.5 pr-2 ${
               background
-            } ${hidden ? "text-muted-foreground/60" : ""} ${row.depth === 0 ? "font-medium" : ""}`}
+            } ${hidden ? "text-muted-foreground/60" : ""}`}
             style={{ paddingLeft: 8 + row.depth * 14 }}
           >
             {selected && <span className="absolute inset-y-0 left-0 w-0.5" style={{ background: color }} />}
@@ -769,7 +773,7 @@ const LayerRow = memo(function LayerRow({
               <DesignIcon kind={container.kind} className="size-3.5 shrink-0" style={{ color }} />
             )}
             {renaming ? (
-              <input
+              <NameInput
                 ref={focusOnMount}
                 defaultValue={label}
                 onClick={(event) => event.stopPropagation()}
@@ -784,10 +788,10 @@ const LayerRow = memo(function LayerRow({
                   else handlers.renamed(row, undefined)
                   requestAnimationFrame(() => tree?.focus())
                 }}
-                className="h-5 min-w-0 flex-1 rounded-sm border border-ring bg-background px-1 outline-none"
+                className="h-5 min-w-0 flex-1 rounded-sm border-ring bg-background px-1 py-0 text-sm focus-visible:ring-0 dark:bg-background"
               />
             ) : (
-              <span className="min-w-0 flex-1 truncate">{label}</span>
+              <Name className="min-w-0 flex-1">{label}</Name>
             )}
             <span className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
               {failure && (
@@ -808,7 +812,7 @@ const LayerRow = memo(function LayerRow({
               )}
               {/* A component's slot says which: children, or the prop that takes it. */}
               {row.node?.type === "layout" && row.node.slot !== undefined && container.kind === "component" && (
-                <span className="font-mono text-[11px]" style={{ color: kindColors.component }}>
+                <span className="font-mono text-2xs" style={{ color: kindColors.component }}>
                   {row.node.slot}
                 </span>
               )}

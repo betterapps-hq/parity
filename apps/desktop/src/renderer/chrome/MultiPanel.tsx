@@ -85,7 +85,7 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex items-center gap-2 font-semibold">
+        <div className="flex items-center gap-2 text-base font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: designColor("screen") }} />
           {kindsName(entries.map((entry) => entry.container.kind))}
         </div>
@@ -133,7 +133,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex items-center gap-2 font-semibold">
+        <div className="flex items-center gap-2 text-base font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: kindColors.layer }} />
           {selection.layers.length} layers
         </div>
@@ -151,7 +151,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         </div>
       </PanelSection>
       {mixed.length > 0 && (
-        <p className={`border-b py-2.5 pl-4 text-xs text-muted-foreground ${panelEnd}`}>
+        <p className={`type-description border-b py-2.5 pl-4 text-muted-foreground ${panelEnd}`}>
           Different across these layers: {mixed.map(styleLabel).join(", ")}. Setting one gives them all the same value,
           and <code className="font-mono">Mixed+8</code> adds 8 to each layer&apos;s own value.
         </p>

@@ -8,6 +8,7 @@ import { actions } from "./actions.ts"
 import { AppMenu } from "./AppMenu.tsx"
 import { Hint } from "./Hint.tsx"
 import { formatKeys } from "./keys.ts"
+import { Name } from "./Name.tsx"
 
 const mac = navigator.userAgent.includes("Mac")
 
@@ -76,7 +77,7 @@ function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
       >
         {tab.status === "loading" && <LoaderCircle className="size-3.5 shrink-0 animate-spin" />}
         {tab.status === "error" && <TriangleAlert className="size-3.5 shrink-0 text-destructive" />}
-        <span className="min-w-0 flex-1 truncate">{tab.title}</span>
+        <Name className="min-w-0 flex-1">{tab.title}</Name>
         <CloseButton tab={tab} selected={selected} unsaved={unsaved} />
         {selected && <span className="absolute inset-x-0 -bottom-px h-px bg-background" />}
       </div>

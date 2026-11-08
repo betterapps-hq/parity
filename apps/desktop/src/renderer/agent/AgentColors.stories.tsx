@@ -65,7 +65,7 @@ function PaletteRow({ palette }: { palette: AgentPalette }) {
         />
         <div className="flex gap-2">
           {palette.stops.map((stop) => (
-            <span key={stop} className="flex items-center gap-1 text-[11px] text-muted-foreground tabular-nums">
+            <span key={stop} className="flex items-center gap-1 text-2xs text-muted-foreground tabular-nums">
               <span className="size-3 rounded-sm" style={{ background: stop }} />
               {stop}
             </span>

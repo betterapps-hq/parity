@@ -6161,7 +6161,7 @@ The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` 
   `CodedError` code when there is one. An unsupported project is still `project.unsupported` too.
 - **The window's part is `project.loaded`,** recorded once the tab's guest and components have loaded, with the time
   from asking to open it. It names the project by `name` and `root`, as `project.opened` does, so the two can be paired
-  when several projects open in one session. The first frame drawn isn't recorded yet: PAR-711.
+  when several projects open in one session. The first frame drawn is `project.drawn` (PAR-711), below.
 - **TypeScript's version comes from its installed package,** since detection doesn't list it; React, Vite, Tailwind and
   Storybook come from detection.
 - **A reopen is one the service makes as it starts** (PAR-179), and `cached` means the components and props came from
@@ -6172,6 +6172,29 @@ The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` 
   processes of their own, outside it, so they have their own events.
 - **Node code records through `track` in `shared/tracing.ts`,** which puts the event under the span the process is
   working in, as `inSpan` does for spans.
+
+## The first frame drawn when a project opens is recorded (PAR-711)
+
+The events are in [telemetry.md](telemetry.md#events), from `project-events.ts`. My calls:
+
+- **The window starts the open's trace, as `project.opening`.** It's a span from asking to open a project until its tab
+  is ready, the open fails (with its code) or the tab is closed (cancelled). It continues the trace of the action that
+  asked, such as Open project, and starts one of its own otherwise, as at startup or from the start page. The
+  `project.open` request is asked in it, so the service's `project.detected`, `builder.started` and `project.opened` are
+  in the same trace, and so is `project.loaded`. Before this, an open from the start page had no trace in the window.
+- **The first frame is `project.drawn`, an event in that trace,** since it comes after the span ends, when the canvas
+  has mounted. Its `durationMs` runs from asking to open, the same start as `project.loaded`, so the two compare. `from`
+  says whether the frame drew its design (`live`) or showed a bitmap kept from an earlier session or captured offscreen
+  (`bitmap`).
+- **A frame counts once it's seen on screen, not once it's ready.** Frames offer a bitmap once it's decoded, and a live
+  frame once the guest has put its design in it (a `MutationObserver` on the element it mounts in). Then, each animation
+  frame, `canvas/first-frame.ts` checks whether what was offered is rendered (`checkVisibility`, which leaves out a live
+  frame that `content-visibility` skips while its bitmap stands in) and in the window. Whether a bitmap shows depends on
+  styles (the zoom, sleep, the selected board), so a decoded bitmap that stays hidden at the zoom a project opens at
+  isn't counted. The check stops at the first frame seen, or when nothing is offered.
+- **Only the first frame of a newly opened or reopened tab is recorded.** A tab opened in the background, as at startup,
+  records it when it's first shown, so its time includes the wait. A project with no designs draws no frame, so it has
+  no `project.drawn`.
 
 ## The CLI sends to Sentry from a process of its own (PAR-642)
 
@@ -6219,10 +6242,41 @@ default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My 
 - **It's Inter's own release, bundled with the app,** 4.1 from github.com/rsms/inter, in
   `apps/desktop/src/renderer/fonts/inter` with its licence (SIL OFL 1.1). Andrew agreed on 2026-11-08: it's a desktop
   app, so shipping the font is no problem. The npm builds come from Google Fonts and leave out the alternates that tell
-  I, l and 1 apart, which a design tool needs for layer names, token names and values. Until PAR-710 builds the type
-  into the app, only Storybook loads it, as the proposed type's typeface.
+  I, l and 1 apart, which a design tool needs for layer names, token names and values. `styles.css` loads it with
+  `font-display: block`, since the file is local.
 - **The rest of the proposed type is approved,** Andrew's call on 2026-11-08: its sizes, roles, sentence-case section
   titles and monospace, as [interface-type.md](proposals/interface-type.md) sets them. Its weights, 450, 550 and 650,
+  stay provisional until the check on a Mac and on Windows at 150% that the proposal sets out.
+
+## The interface type is built into the app (PAR-710)
+
+The approved type from [interface-type.md](proposals/interface-type.md) is the app's, and [typography.md](typography.md)
+describes its roles and their classes. My calls, and Andrew's where named:
+
+- **Four chrome sizes in the theme:** 11/14 (`text-2xs`, with 0.01em), 12/16, 13/18 and 15/20, with headings at 18/24
+  and 24/32, set in a plain `@theme` in `styles.css` so the kit's components read them. Line heights are ratios. Wrapped
+  text has its own utilities, `type-description`, `type-message`, `type-body`, `type-empty` and `type-code`.
+- **Weights at 450, 550 and 650, still provisional,** through `font-normal`, `font-medium` and `font-semibold`, with
+  Inter's medium and semibold held once as `--weight-sans-medium` and `--weight-sans-semibold`. Font smoothing isn't set
+  yet: the proposal pairs it with the weights, so both wait for the check on a Mac.
+- **Code is set in each system's monospace,** Cascadia Mono, Menlo or Consolas, at 400 with Cascadia's lowercase height
+  through `font-size-adjust`, never medium.
+- **The kit's overrides stay in the app,** Andrew's call on 2026-11-08: the type is Parity's, not something every app
+  built on Buildkit should take. Each is a rule in `styles.css` keyed on the kit class it replaces, and
+  `kit-type.test.ts` fails when a kit upgrade adds or changes one of the kit's own type classes.
+- **The app depends on `cn` directly,** 0.5.1, the merger the kit's runtime already uses, Andrew's go-ahead on
+  2026-11-08. `class-merger.ts` registers `text-2xs` as a size and the `type-*` roles as sizes with line heights, and
+  installs it with the kit's `setCn`, so a caller's role replaces the kit's size rather than sitting beside it. Without
+  it, `cn` read `text-2xs` as a color and dropped it beside one.
+- **Names have their own letters:** `<Name>` and `NameInput` (`chrome/Name.tsx`) carry `name-text`, Inter's `ss04` with
+  contextual alternates off, wherever a name stands on its own or is edited.
+- **The 12px titles are components:** `PanelSectionTitle` with a `lead` or `quiet` tone, `GroupLabel` and
+  `DialogGroupTitle`, so the three styles can't drift apart again.
+- **Geist's package is gone,** and with it the Storybook Type control and the exploration's stylesheet. The Scale story
+  stays as Parity/Type/Scale.
+- **The lint rule lands on its own,** as PAR-729: it can only pass once every class is on a role, and it's a plugin with
+  tests of its own, so it follows this build rather than holding it up.
+
   stay provisional until the check on a Mac and on Windows at 150% that the proposal sets out. PAR-710 builds it into
   the app.
 

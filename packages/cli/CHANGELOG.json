@@ -2,6 +2,33 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 23:45:46 GMT",
+      "version": "0.26.0",
+      "tag": "@parity-app/cli_v0.26.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "9f5303f843c898486ddb88ee7054e5b7b880d114",
+            "comment": "Record the first frame a newly opened project's canvas draws, and put the whole open in one trace (PAR-711)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "79c1ef4deb630f083a531818dd09127653a04a75",
+            "comment": "Record app.first_project, the time from the app starting to the first project's tab being ready to draw, and whether the window restored it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "052a16e64db477d0681c52ec460943074f36ab95",
+            "comment": "Record the rest of the inspector's changes as inspector.changed: names, images, an instance's state and component, prop bindings, slots, states, a component's props and variants, resets, and token edits"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 22:43:39 GMT",
       "version": "0.25.0",
       "tag": "@parity-app/cli_v0.25.0",

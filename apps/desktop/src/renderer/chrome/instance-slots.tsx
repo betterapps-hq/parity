@@ -1,5 +1,5 @@
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { clearSlot, type InstanceNode, type InstanceSlot, instanceSlots } from "@parity-app/core"
+import { clearSlot, findNode, type InstanceNode, type InstanceSlot, instanceSlots } from "@parity-app/core"
 import { slotPreviewTree } from "@parity-app/editor"
 import { ArrowLeft, Square, SquareDashed, X } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
@@ -11,6 +11,7 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { Field } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
+import { updateAndRecord } from "./inspector-events.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { revealSelection } from "./reveal.ts"
 
@@ -30,14 +31,27 @@ const slotPath = (instance: InstanceNode, slot: InstanceSlot) => `${instance.id}
 /** What a slot shows, in words, for a row's accessible name and its card: its layers, or its placeholder. */
 const slotState = (slot: InstanceSlot) => (slot.fill.length > 0 ? layers(slot.fill.length) : "Empty")
 
-/** Clears a slot as one undoable step, deleting what fills it. */
+/**
+ * Clears a slot as one undoable step, deleting what fills it. It's recorded as the slot's layers, by id, before and
+ * after (PAR-713).
+ */
 function useClear(entry: ContainerEntry, instance: InstanceNode) {
   const { store } = useProject()
   return (slot: InstanceSlot) =>
-    store.updateContainer(entry.key, `Clear ${slot.name}`, (container) => ({
-      ...container,
-      root: clearSlot(container.root, instance.id, slot.name)
-    }))
+    updateAndRecord(
+      store,
+      entry.key,
+      `Clear ${slot.name}`,
+      (container) => ({ ...container, root: clearSlot(container.root, instance.id, slot.name) }),
+      {
+        field: `slots.${slot.name}`,
+        layers: [instance.id],
+        read: (container) => {
+          const node = findNode(container.root, instance.id)
+          return node?.type === "instance" ? node.slots?.[slot.name]?.map((layer) => layer.id) : undefined
+        }
+      }
+    )
 }
 
 /** The hint and accessible name of a slot's Clear, which deletes its layers. */
@@ -57,7 +71,7 @@ function SlotState({ slot }: { slot: InstanceSlot }) {
         style={{ color: slotColor, fill: filled ? `color-mix(in oklch, ${slotColor} 25%, transparent)` : undefined }}
       />
       <span
-        className={`rounded-full px-1.5 text-[11px] leading-4 ${
+        className={`rounded-full px-1.5 py-px text-2xs ${
           filled ? "bg-muted text-foreground" : "border border-dashed text-muted-foreground"
         }`}
       >
@@ -92,7 +106,7 @@ function SlotPicture({ slot }: { slot: InstanceSlot }) {
       />
     )
   } else if (preview?.error) {
-    shown = <span className="text-xs text-muted-foreground">{preview.error}</span>
+    shown = <span className="type-message text-muted-foreground">{preview.error}</span>
   } else {
     // A shimmer while it's drawn, as a component's preview has.
     shown = (
@@ -236,7 +250,8 @@ export function SlotPanel({
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex h-7 items-center gap-2">
           <SquareDashed className="size-4 shrink-0" style={{ color: slotColor }} />
-          <span className="truncate px-1.5 font-mono text-sm font-medium">{slot.name}</span>
+          {/* The selection's title, in code, so at code's semibold rather than a name's. */}
+          <span className="truncate px-1.5 font-mono text-base font-semibold">{slot.name}</span>
         </div>
         <p className="mt-0.5 flex items-center gap-1 pl-6 text-xs text-muted-foreground">
           Slot in
@@ -268,7 +283,9 @@ export function SlotPanel({
           {!filled && <span className="text-muted-foreground">Placeholder showing</span>}
         </div>
         <SlotPicture slot={slot} />
-        <p className="mt-3 px-1 text-xs text-muted-foreground">Click a component in Components to add it here.</p>
+        <p className="type-description mt-3 px-1 text-muted-foreground">
+          Click a component in Components to add it here.
+        </p>
       </PanelSection>
     </>
   )

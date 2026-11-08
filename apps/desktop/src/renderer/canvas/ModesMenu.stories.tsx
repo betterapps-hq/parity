@@ -39,7 +39,7 @@ function Board({ main: initialMain, shown: initialShown }: { main: string; shown
       <div className="flex w-[36rem] items-start gap-3 rounded-2xl border bg-card p-4">
         {[mainMode, ...beside].map((mode, index) => (
           <div key={mode.id} className="flex flex-col gap-1.5">
-            <span className="text-[11px] text-muted-foreground">{mode.name}</span>
+            <span className="text-2xs text-muted-foreground">{mode.name}</span>
             <div
               className={`rounded-md border ${dark(mode) ? "bg-[#1c1c20]" : "bg-white"}`}
               style={{

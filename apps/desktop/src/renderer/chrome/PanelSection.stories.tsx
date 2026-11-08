@@ -5,7 +5,7 @@ import { Field, SwitchInput, TextInput } from "./fields.tsx"
 import { PanelColumn } from "./inspector-stories.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 
-/** One section of a side panel: an uppercase title with an optional count and action, a description, then content. */
+/** One section of a side panel: a title with an optional count and action, a description, then content. */
 const meta = {
   title: "Parity/Inspector/Panel section",
   component: PanelSection,

@@ -72,7 +72,7 @@ function Heading({ dialog, className, children }: { dialog?: boolean; className:
 }
 
 function Description({ dialog, children }: { dialog?: boolean; children: ReactNode }) {
-  const className = "text-sm text-pretty text-muted-foreground"
+  const className = "type-body text-muted-foreground"
   return dialog ? (
     <DialogDescription className={className}>{children}</DialogDescription>
   ) : (
@@ -128,7 +128,7 @@ function SignInForm({ onSignIn }: { onSignIn: (request: SignInRequest) => void }
           Continue
         </Button>
       </form>
-      <p className="text-center text-xs leading-relaxed text-muted-foreground">
+      <p className="text-center type-description text-muted-foreground">
         If your company signs in with Okta, Entra ID or Google Workspace, your email takes you there.
       </p>
     </div>
@@ -165,7 +165,7 @@ export function SignInPanel({
       <div className="flex flex-col items-center gap-4 text-center">
         {!title && <Mark size={dialog ? 40 : 48} />}
         <div className="flex flex-col gap-1.5">
-          <Heading dialog={dialog} className="text-2xl leading-tight font-semibold tracking-tight">
+          <Heading dialog={dialog} className="text-2xl font-semibold tracking-tight">
             {title ?? "Sign in to Parity"}
           </Heading>
           <Description dialog={dialog}>{description}</Description>
@@ -235,7 +235,7 @@ export function WaitingPanel({
     <div className="flex flex-col items-center gap-8">
       <MarkRing turning />
       <div className="flex max-w-sm flex-col items-center gap-2 text-center">
-        <Heading dialog={dialog} className="text-xl font-semibold tracking-tight">
+        <Heading dialog={dialog} className="text-2xl font-semibold tracking-tight">
           {slow ? "Still waiting for your browser" : "Continue in your browser"}
         </Heading>
         <Description dialog={dialog}>
@@ -260,7 +260,7 @@ export function WaitingPanel({
             Cancel
           </Button>
         )}
-        <p className="text-center text-xs text-pretty text-muted-foreground">
+        <p className="text-center type-description text-muted-foreground">
           {slow ? (
             <>
               Or <InlineAction onClick={copyLink}>copy the link</InlineAction> and paste it into the browser you use.
@@ -300,7 +300,7 @@ function Details({ text }: { text: string }) {
       </CollapsibleTrigger>
       <CollapsibleContent className="w-full">
         <div className="relative rounded-lg border bg-muted/40 p-3 pr-10 text-left">
-          <pre className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground">{text}</pre>
+          <pre className="type-code font-mono whitespace-pre-wrap text-muted-foreground">{text}</pre>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -407,7 +407,7 @@ export function ProblemPanel({
     <div className="flex flex-col items-center gap-8">
       <MarkRing badge={badges[attempt.problem]} />
       <div className="flex max-w-sm flex-col items-center gap-2 text-center">
-        <Heading dialog={dialog} className="text-xl font-semibold tracking-tight">
+        <Heading dialog={dialog} className="text-2xl font-semibold tracking-tight">
           {shown.title}
         </Heading>
         <Description dialog={dialog}>{shown.text}</Description>

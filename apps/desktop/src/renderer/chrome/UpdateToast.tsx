@@ -57,8 +57,8 @@ export function UpdateToast({ notice, onDismiss, onAction }: Props) {
           <Icon className={`size-4 ${notice.kind === "checking" ? "animate-spin" : ""}`} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] leading-5 font-medium">{titles[notice.kind]}</div>
-          <div className="mt-0.5 text-xs leading-[18px] text-muted-foreground">{description}</div>
+          <div className="text-sm font-medium">{titles[notice.kind]}</div>
+          <div className="mt-0.5 type-description text-muted-foreground">{description}</div>
         </div>
         {(downloading || result) && (
           <Button
@@ -80,7 +80,7 @@ export function UpdateToast({ notice, onDismiss, onAction }: Props) {
             max={100}
             value={knownSize ? percent : undefined}
           />
-          <div className="mt-2 flex justify-between gap-3 text-[11px] leading-4 text-muted-foreground tabular-nums">
+          <div className="mt-2 flex justify-between gap-3 text-2xs text-muted-foreground tabular-nums">
             <span>
               {knownSize
                 ? `${megabytes.format((Number.isFinite(notice.transferred) ? Math.max(0, notice.transferred) : 0) / 1_000_000)} MB of ${megabytes.format(notice.total / 1_000_000)} MB`

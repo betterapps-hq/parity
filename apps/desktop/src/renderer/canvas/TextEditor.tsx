@@ -226,6 +226,11 @@ function editorLayout(element: HTMLElement, area: DOMRect, grows: boolean, color
     fontSize: parseFloat(computed.fontSize) * scale,
     fontWeight: computed.fontWeight,
     fontStyle: computed.fontStyle,
+    // The text's own letters, so a field's rules (no contextual alternates, a name's ss04) don't change them mid-edit.
+    fontFeatureSettings: computed.fontFeatureSettings,
+    fontVariantLigatures: computed.fontVariantLigatures,
+    fontVariationSettings: computed.fontVariationSettings,
+    fontKerning: computed.fontKerning as CSSProperties["fontKerning"],
     lineHeight: scaled(computed.lineHeight),
     letterSpacing: scaled(computed.letterSpacing),
     color,

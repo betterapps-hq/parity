@@ -10,6 +10,7 @@ import {
 import type { ResolvedMode } from "@parity-app/core"
 import { Check, ChevronDown, Moon, Sun } from "lucide-react"
 import { Hint } from "../chrome/Hint.tsx"
+import { Name } from "../chrome/Name.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import { kindColors } from "./kinds.tsx"
 import { toggleShownMode } from "./view.ts"
@@ -74,20 +75,20 @@ export function ModesMenu({
                   {on && <Check className="size-3" strokeWidth={3} />}
                 </span>
                 <ModeViewportIcon of={mode} className="text-muted-foreground" />
-                <span className="flex-1 truncate">{mode.name}</span>
+                <Name className="flex-1">{mode.name}</Name>
                 <span className="text-xs text-muted-foreground tabular-nums">{mode.width}</span>
               </DropdownMenuItem>
               <div className="flex w-24 shrink-0 justify-end">
                 {mode.id === main.id ? (
                   <span
-                    className="mr-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                    className="mr-1 rounded-full px-2 py-0.5 text-2xs font-medium whitespace-nowrap"
                     style={mainTint}
                   >
                     Shown first
                   </span>
                 ) : (
                   <DropdownMenuItem
-                    className="h-auto rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground opacity-0 group-hover/mode:opacity-100 focus:opacity-100"
+                    className="h-auto rounded-full border px-2 py-0.5 text-2xs text-muted-foreground opacity-0 group-hover/mode:opacity-100 focus:opacity-100"
                     closeOnClick={false}
                     onClick={() => {
                       onChange(mode.id, on ? shown : [...shown, mode.id])
@@ -137,7 +138,7 @@ function ModeChip({ mode, main }: { mode: ResolvedMode; main: boolean }) {
       >
         <ModeViewportIcon of={mode} className="size-3.5" aria-hidden />
         <ThemeIcon mode={mode} />
-        {main && <span className="ml-0.5 max-w-32 truncate text-xs font-medium">{mode.name}</span>}
+        {main && <Name className="ml-0.5 max-w-32 text-xs font-medium">{mode.name}</Name>}
       </span>
     </Hint>
   )

@@ -1,8 +1,9 @@
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Select, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn-baseui-kit"
 import { describeFiles, type ExportSize, exportFiles, nextExportSize } from "@parity-app/editor"
 import { Download, Minus, Plus } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { type ExportTarget, exportLayers } from "./commands.ts"
+import { PanelSelectContent } from "./fields.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { setPreferences, usePreferences } from "./preferences.ts"
@@ -42,11 +43,11 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
               <SelectTrigger size="sm" className="h-7 w-20 text-xs" aria-label="Scale">
                 <SelectValue>{(value: string) => `${value}x`}</SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <PanelSelectContent>
                 <SelectItem value="1">1x</SelectItem>
                 <SelectItem value="2">2x</SelectItem>
                 <SelectItem value="3">3x</SelectItem>
-              </SelectContent>
+              </PanelSelectContent>
             </Select>
             <Select<string>
               value={size.format}
@@ -55,10 +56,10 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
               <SelectTrigger size="sm" className="h-7 min-w-0 flex-1 text-xs" aria-label="Format">
                 <SelectValue>{(value: string) => value.toUpperCase()}</SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <PanelSelectContent>
                 <SelectItem value="png">PNG</SelectItem>
                 <SelectItem value="jpg">JPG</SelectItem>
-              </SelectContent>
+              </PanelSelectContent>
             </Select>
             <IconButton
               label="Remove this size"
@@ -70,11 +71,9 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
           </li>
         ))}
       </ul>
-      <p className="mt-2.5 px-1 font-mono text-[11px] leading-relaxed break-all text-muted-foreground">
-        {describeFiles(files)}
-      </p>
+      <p className="mt-2.5 px-1 font-mono text-2xs/4 break-all text-muted-foreground">{describeFiles(files)}</p>
       {sizes.some((size) => size.format === "jpg") && (
-        <p className="mt-1.5 px-1 text-xs text-muted-foreground">
+        <p className="type-description mt-1.5 px-1 text-muted-foreground">
           A JPG has no see-through parts, so they&apos;re white.
         </p>
       )}

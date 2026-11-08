@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import type { PictureFrame, PictureScreen, ProjectPicture } from "../../shared/protocol.ts"
+import { Name } from "../chrome/Name.tsx"
 import { usePicture } from "./pictures.ts"
 import { type KnownProject, projectHue } from "./projects.ts"
 
@@ -124,9 +125,7 @@ function Frame({ frame, slot, label }: { frame: PictureFrame; slot: Slot; label?
       }}
     >
       {label && (
-        <span className="absolute bottom-full left-0 mb-1 max-w-full truncate text-[11px] leading-none font-medium text-muted-foreground">
-          {label}
-        </span>
+        <Name className="absolute bottom-full left-0 mb-1 max-w-full text-2xs text-muted-foreground">{label}</Name>
       )}
       <div
         className={`overflow-hidden bg-background ring-1 ring-neutral-500/60 ${slot.phone ? `rounded-[7px] ${phoneShadow}` : "rounded-[5px] shadow-lg"}`}
