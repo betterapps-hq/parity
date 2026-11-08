@@ -10,6 +10,7 @@ import { ComponentsSection, InCodeSection, ParamsSection } from "./ComponentsSec
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { updateAndRecord } from "./inspector-events.ts"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
@@ -85,7 +86,10 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
             onBlur={(event) => {
               const name = event.currentTarget.value.trim()
               if (name && name !== container.name) {
-                store.updateContainer(key, `Rename ${kind}`, (current) => ({ ...current, name }))
+                updateAndRecord(store, key, `Rename ${kind}`, (current) => ({ ...current, name }), {
+                  field: "name",
+                  read: (current) => current.name
+                })
               }
             }}
             onKeyDown={(event) => {

@@ -18,7 +18,8 @@ import {
   removeState,
   renameState,
   resetOverride,
-  type StateSpec
+  type StateSpec,
+  targetPatches
 } from "@parity-app/core"
 import { activeState } from "@parity-app/editor"
 import { Copy, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react"
@@ -27,6 +28,7 @@ import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors, layerLabel, NodeIcon } from "../canvas/kinds.tsx"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
+import { statesValue, updateAndRecord } from "./inspector-events.ts"
 import { Name } from "./Name.tsx"
 import { GroupLabel, PanelSection } from "./PanelSection.tsx"
 
@@ -41,15 +43,23 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
   const allStates = container.view?.allStates ?? false
   const [renaming, setRenaming] = useState<string>()
 
+  // A change to the states records them all, by id and name, before and after (PAR-713).
+  const states = { field: "states", read: statesValue }
   const view = (state: string, name = container.states.find(({ id }) => id === state)?.name ?? state) =>
     store.updateView(key, `Show ${name}`, (current) => ({ ...current, state, allStates: false }))
   const add = () => {
     let id = ""
-    store.updateContainer(key, "Add state", (current) => {
-      const result = addState(current, "New state")
-      id = result.id
-      return result.container
-    })
+    updateAndRecord(
+      store,
+      key,
+      "Add state",
+      (current) => {
+        const result = addState(current, "New state")
+        id = result.id
+        return result.container
+      },
+      states
+    )
     view(id)
     setRenaming(id)
   }
@@ -76,22 +86,28 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
             onRenamed={(name) => {
               setRenaming(undefined)
               if (name && name !== state.name) {
-                store.updateContainer(key, "Rename state", (current) => renameState(current, state.id, name))
+                updateAndRecord(store, key, "Rename state", (current) => renameState(current, state.id, name), states)
               }
             }}
             onDuplicate={() => {
               let id = ""
-              store.updateContainer(key, "Duplicate state", (current) => {
-                const result = duplicateState(current, state.id)
-                id = result.id
-                return result.container
-              })
+              updateAndRecord(
+                store,
+                key,
+                "Duplicate state",
+                (current) => {
+                  const result = duplicateState(current, state.id)
+                  id = result.id
+                  return result.container
+                },
+                states
+              )
               view(id)
             }}
             onDelete={
               index === 0
                 ? undefined
-                : () => store.updateContainer(key, "Delete state", (current) => removeState(current, state.id))
+                : () => updateAndRecord(store, key, "Delete state", (current) => removeState(current, state.id), states)
             }
           />
         ))}
@@ -256,8 +272,17 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
                       size="icon-xs"
                       aria-label="Reset every change to this layer"
                       onClick={() =>
-                        store.updateContainer(entry.key, "Reset layer", (current) =>
-                          resetOverride(current, state.id, nodeId)
+                        updateAndRecord(
+                          store,
+                          entry.key,
+                          "Reset layer",
+                          (current) => resetOverride(current, state.id, nodeId),
+                          {
+                            field: "overrides",
+                            layers: [nodeId],
+                            state: state.id,
+                            read: (current) => targetPatches(current, state.id)?.[nodeId]
+                          }
                         )
                       }
                     >

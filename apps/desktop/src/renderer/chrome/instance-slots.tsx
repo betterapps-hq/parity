@@ -1,5 +1,5 @@
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { clearSlot, type InstanceNode, type InstanceSlot, instanceSlots } from "@parity-app/core"
+import { clearSlot, findNode, type InstanceNode, type InstanceSlot, instanceSlots } from "@parity-app/core"
 import { slotPreviewTree } from "@parity-app/editor"
 import { ArrowLeft, Square, SquareDashed, X } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
@@ -11,6 +11,7 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { Field } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
+import { updateAndRecord } from "./inspector-events.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { revealSelection } from "./reveal.ts"
 
@@ -30,14 +31,27 @@ const slotPath = (instance: InstanceNode, slot: InstanceSlot) => `${instance.id}
 /** What a slot shows, in words, for a row's accessible name and its card: its layers, or its placeholder. */
 const slotState = (slot: InstanceSlot) => (slot.fill.length > 0 ? layers(slot.fill.length) : "Empty")
 
-/** Clears a slot as one undoable step, deleting what fills it. */
+/**
+ * Clears a slot as one undoable step, deleting what fills it. It's recorded as the slot's layers, by id, before and
+ * after (PAR-713).
+ */
 function useClear(entry: ContainerEntry, instance: InstanceNode) {
   const { store } = useProject()
   return (slot: InstanceSlot) =>
-    store.updateContainer(entry.key, `Clear ${slot.name}`, (container) => ({
-      ...container,
-      root: clearSlot(container.root, instance.id, slot.name)
-    }))
+    updateAndRecord(
+      store,
+      entry.key,
+      `Clear ${slot.name}`,
+      (container) => ({ ...container, root: clearSlot(container.root, instance.id, slot.name) }),
+      {
+        field: `slots.${slot.name}`,
+        layers: [instance.id],
+        read: (container) => {
+          const node = findNode(container.root, instance.id)
+          return node?.type === "instance" ? node.slots?.[slot.name]?.map((layer) => layer.id) : undefined
+        }
+      }
+    )
 }
 
 /** The hint and accessible name of a slot's Clear, which deletes its layers. */

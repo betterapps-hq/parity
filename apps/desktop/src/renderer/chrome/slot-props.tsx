@@ -24,6 +24,7 @@ import {
   slotPlaceProblem,
   slotProblem,
   type ValuePropType,
+  findNode,
   walkNodes
 } from "@parity-app/core"
 import { Braces, Columns3, Hash, type LucideIcon, Plus, Rows3, SquareDashed, ToggleRight, Type, X } from "lucide-react"
@@ -32,6 +33,7 @@ import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
+import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { refuseNewProp, startNewProp, useNewProp } from "./new-prop.ts"
 import type { ValueKind } from "./prop-values.ts"
 import { revealSelection } from "./reveal.ts"
@@ -78,6 +80,18 @@ function freeLayouts(container: ContainerSpec): LayoutNode[] {
     if (node.type === "layout" && node.slot === undefined && !slotPlaceProblem(container, node.id)) list.push(node)
   })
   return list
+}
+
+/** The slot a layout is, as `inspector.changed` records it (PAR-713). */
+function slotField(nodeId: string) {
+  return {
+    field: "slot",
+    layers: [nodeId],
+    read: (container: ContainerSpec) => {
+      const node = findNode(container.root, nodeId)
+      return node?.type === "layout" ? node.slot : undefined
+    }
+  }
 }
 
 /** The value props Add offers, as Props shows their kinds. */
@@ -128,7 +142,13 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
                   onClick={() => {
                     const name = freeSlotName(container, node.id)
                     if (!name) return
-                    session.store.updateContainer(key, "Make slot", (current) => setSlot(current, node.id, name))
+                    updateAndRecord(
+                      session.store,
+                      key,
+                      "Make slot",
+                      (current) => setSlot(current, node.id, name),
+                      slotField(node.id)
+                    )
                     focusSlot(key, node.id)
                   }}
                 >
@@ -158,7 +178,10 @@ export function NewPropRow({ entry }: { entry: ContainerEntry }) {
     if (!name) return startNewProp(entry.key, undefined)
     const problem = propNameProblem(entry.container, name)
     if (problem) return refuseNewProp(problem)
-    store.updateContainer(entry.key, `Add ${name}`, (current) => addValueProp(current, name, adding.type))
+    updateAndRecord(store, entry.key, `Add ${name}`, (current) => addValueProp(current, name, adding.type), {
+      field: `params.${name}`,
+      read: (current) => paramValue(current, name)
+    })
     startNewProp(entry.key, undefined)
   }
   return (
@@ -216,7 +239,7 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
     const problem = slotProblem(container, node.id, next)
     if (problem) return refuseSlotName(key, node.id, problem)
     refuseSlotName(key, node.id, undefined)
-    session.store.updateContainer(key, "Rename slot", (current) => setSlot(current, node.id, next))
+    updateAndRecord(session.store, key, "Rename slot", (current) => setSlot(current, node.id, next), slotField(node.id))
   }
   return (
     <div className="group" onPointerEnter={() => hover(true)} onPointerLeave={() => hover(false)}>
@@ -259,7 +282,13 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
               aria-label={`Remove the ${name} slot`}
               className="absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
               onClick={() =>
-                session.store.updateContainer(key, "Remove slot", (current) => setSlot(current, node.id, undefined))
+                updateAndRecord(
+                  session.store,
+                  key,
+                  "Remove slot",
+                  (current) => setSlot(current, node.id, undefined),
+                  slotField(node.id)
+                )
               }
             >
               <X className="size-3" />
@@ -376,7 +405,15 @@ export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutN
         variant="outline"
         size="sm"
         className="flex-1"
-        onClick={() => store.updateContainer(entry.key, "Make slot", (current) => setSlot(current, node.id, name))}
+        onClick={() =>
+          updateAndRecord(
+            store,
+            entry.key,
+            "Make slot",
+            (current) => setSlot(current, node.id, name),
+            slotField(node.id)
+          )
+        }
       >
         <SquareDashed style={{ color: slotColor }} /> Make slot
       </Button>
@@ -407,7 +444,13 @@ export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutN
           size="icon-sm"
           aria-label={`Remove the ${slot} slot`}
           onClick={() =>
-            store.updateContainer(entry.key, "Remove slot", (current) => setSlot(current, node.id, undefined))
+            updateAndRecord(
+              store,
+              entry.key,
+              "Remove slot",
+              (current) => setSlot(current, node.id, undefined),
+              slotField(node.id)
+            )
           }
         >
           <X />

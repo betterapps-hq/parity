@@ -17,6 +17,7 @@ import type { ContainerEntry } from "../design-store.ts"
 import { extractIntoComponent } from "./components.ts"
 import { ChoiceInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { NameInput } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
@@ -168,10 +169,16 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
                 kind={valueKind(param.default, param.type)}
                 title={`${name} default`}
                 onCommit={(value) =>
-                  session.store.updateContainer(entry.key, `Change ${name} default`, (container) => ({
-                    ...container,
-                    params: { ...container.params, [name]: { ...container.params![name]!, default: value } }
-                  }))
+                  updateAndRecord(
+                    session.store,
+                    entry.key,
+                    `Change ${name} default`,
+                    (container) => ({
+                      ...container,
+                      params: { ...container.params, [name]: { ...container.params![name]!, default: value } }
+                    }),
+                    { field: `params.${name}`, read: (container) => paramValue(container, name) }
+                  )
                 }
               />
             </div>
@@ -203,9 +210,17 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
   const { store } = useProject()
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string>()
-  const update = (label: string, change: (container: ContainerEntry["container"]) => ContainerEntry["container"]) => {
+  // Each change records the variant's param, its options by id and name, before and after (PAR-713).
+  const update = (
+    label: string,
+    name: string,
+    change: (container: ContainerEntry["container"]) => ContainerEntry["container"]
+  ) => {
     try {
-      store.updateContainer(entry.key, label, change)
+      updateAndRecord(store, entry.key, label, change, {
+        field: `params.${name}`,
+        read: (container) => paramValue(container, name)
+      })
       setError(undefined)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
@@ -240,7 +255,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
               .map((option) => option.trim())
               .filter(Boolean)
             if (!name || options.length === 0) return
-            update(`Add ${name} variant`, (container) => addVariant(container, name, options))
+            update(`Add ${name} variant`, name, (container) => addVariant(container, name, options))
             setAdding(false)
           }}
         >
@@ -266,7 +281,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
                   type="button"
                   aria-label={`Remove the ${name} variant`}
                   className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-                  onClick={() => update(`Remove ${name} variant`, (container) => removeParam(container, name))}
+                  onClick={() => update(`Remove ${name} variant`, name, (container) => removeParam(container, name))}
                 >
                   <Trash2 className="size-3" />
                 </button>
@@ -279,7 +294,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
                 options={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
                 placeholder={param.options?.[0]?.name}
                 onChange={(option) =>
-                  update(`Change ${name} default`, (container) => {
+                  update(`Change ${name} default`, name, (container) => {
                     const spec = { ...container.params![name]! }
                     if (option) spec.default = option
                     else delete spec.default
@@ -299,7 +314,9 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
                     onBlur={(event) => {
                       const next = event.currentTarget.value.trim()
                       if (next && next !== option.name)
-                        update("Rename option", (container) => renameVariantOption(container, name, option.id, next))
+                        update("Rename option", name, (container) =>
+                          renameVariantOption(container, name, option.id, next)
+                        )
                     }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") event.currentTarget.blur()
@@ -316,7 +333,9 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
                     disabled={(param.options?.length ?? 0) < 2}
                     className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
                     onClick={() =>
-                      update(`Remove ${option.name}`, (container) => removeVariantOption(container, name, option.id))
+                      update(`Remove ${option.name}`, name, (container) =>
+                        removeVariantOption(container, name, option.id)
+                      )
                     }
                   >
                     <X className="size-3" />
@@ -331,7 +350,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
                 const input = event.currentTarget.elements.namedItem("option") as HTMLInputElement
                 const option = input.value.trim()
                 if (!option) return
-                update(`Add ${option}`, (container) => addVariantOption(container, name, option).container)
+                update(`Add ${option}`, name, (container) => addVariantOption(container, name, option).container)
                 input.value = ""
               }}
             >
