@@ -1,6 +1,6 @@
 import { createTelemetry, createTestSink, registeredEvents, traceHeaders } from "@parity-app/telemetry"
 import { describe, expect, it } from "vite-plus/test"
-import { currentTraceHeaders, keepTrace, startTrace, traceWith, tracedAction } from "./tracing.ts"
+import { currentTraceHeaders, keepTrace, startTrace, traceWith, tracedCommand } from "./tracing.ts"
 
 const sink = createTestSink()
 traceWith(
@@ -12,12 +12,15 @@ traceWith(
   })
 )
 
-describe("tracedAction", () => {
+/** A command run from a key with nothing selected. */
+const command = (action: string) => ({ action, from: "key" as const, enabled: true, layers: 0, designs: 0 })
+
+describe("tracedCommand", () => {
   it("is the trace requests carry until what the action returns settles", async () => {
     sink.clear()
     let finish: () => void = () => undefined
     const asked: unknown[] = []
-    const running = tracedAction("save", async () => {
+    const running = tracedCommand(command("save"), async () => {
       await new Promise<void>((resolve) => (finish = resolve))
       asked.push(currentTraceHeaders())
       return "saved"
@@ -26,23 +29,23 @@ describe("tracedAction", () => {
     expect(await running).toBe("saved")
     await Promise.resolve()
     const [span] = sink.spans
-    expect(span).toMatchObject({ name: "action.ran", outcome: "ok", attributes: { action: "save" } })
+    expect(span).toMatchObject({ name: "command.ran", outcome: "ok", attributes: command("save") })
     expect(asked).toEqual([traceHeaders(span!)])
     expect(currentTraceHeaders()).toBeUndefined()
   })
 
   it("passes on what a synchronous action returns or throws, and records the failure's code", () => {
     sink.clear()
-    expect(tracedAction("selectAll", () => 3)).toBe(3)
+    expect(tracedCommand(command("selectAll"), () => 3)).toBe(3)
     const locked = Object.assign(new Error("Locked"), { details: { code: "locked" } })
     expect(() =>
-      tracedAction("delete", () => {
+      tracedCommand(command("delete"), () => {
         throw locked
       })
     ).toThrow(locked)
     expect(sink.spans.map(({ outcome, attributes }) => ({ outcome, attributes }))).toEqual([
-      { outcome: "ok", attributes: { action: "selectAll" } },
-      { outcome: "error", attributes: { action: "delete", code: "locked" } }
+      { outcome: "ok", attributes: command("selectAll") },
+      { outcome: "error", attributes: { ...command("delete"), code: "locked" } }
     ])
   })
 })
@@ -50,7 +53,7 @@ describe("tracedAction", () => {
 describe("startTrace", () => {
   it("gives back the trace it interrupted once it ends", () => {
     sink.clear()
-    const action = startTrace("action.ran", { action: "paste" })
+    const action = startTrace("command.ran", command("paste"))
     const outer = currentTraceHeaders()
     const gesture = startTrace("gesture.ran", { gesture: "resize" })
     expect(currentTraceHeaders()).not.toEqual(outer)
@@ -63,7 +66,7 @@ describe("startTrace", () => {
 
 describe("keepTrace", () => {
   it("runs later work, such as a scheduled save, in the trace it was kept in", () => {
-    const action = startTrace("action.ran", { action: "duplicate" })
+    const action = startTrace("command.ran", command("duplicate"))
     const during = currentTraceHeaders()
     const inTrace = keepTrace()
     action.end()

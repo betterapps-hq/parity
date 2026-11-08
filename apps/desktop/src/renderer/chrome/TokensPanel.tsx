@@ -26,6 +26,7 @@ import { useProject } from "../canvas/context.ts"
 import { useHistory, useModeSettings } from "../design-store.ts"
 import { comesTo, type TokenMap } from "../token-values.ts"
 import { useTokenFailure, useTokenList } from "../tokens-store.ts"
+import { actions } from "./actions.ts"
 import { save } from "./commands.ts"
 import { Announce, CopyOnClick, useCopy } from "./Copy.tsx"
 import { Hint } from "./Hint.tsx"
@@ -337,7 +338,11 @@ export function TokensPanel() {
           <PanelError
             title={`Couldn't write ${failedNames(failure.tokens)} to ${store.stylesheet}`}
             action={
-              <Button variant="outline" size="sm" onClick={() => void save(session)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void actions.save.run("panel", { instead: () => save(session) })}
+              >
                 Try again
               </Button>
             }

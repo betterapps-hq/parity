@@ -71,7 +71,7 @@ a span adds its `parentSpanId`, `durationMs` and `outcome` (`ok`, `error` or `ca
 
 One action is one trace in Sentry, across every process that works on it (PAR-629):
 
-- **The window starts a trace** for each action, as `action.ran` with its ID from `chrome/actions.ts`, and each canvas
+- **The window starts a trace** for each action, as `command.ran` with its ID from `chrome/actions.ts`, and each canvas
   drag, as `gesture.ran` with its kind from `canvas/gesture.ts`. The service's requests made while it runs carry it.
 - **Requests carry the trace** as `sentry-trace` and `baggage`, in the channel message's `trace` field. The service and
   main answer each in a `request.handled` span, with the error code when it fails.
@@ -171,11 +171,11 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 | Event                 | Level | Kept | Sent by                                 | When                                                                                |
 | --------------------- | ----- | ---- | --------------------------------------- | ----------------------------------------------------------------------------------- |
-| `action.ran`          | info  | all  | renderer                                | An action runs from a key, a menu or the actions search, until it's done.           |
 | `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI.                                       |
 | `app.quit`            | info  | all  | main                                    | The app quits.                                                                      |
 | `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                    |
 | `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                         |
+| `command.ran`         | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.      |
 | `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.             |
 | `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                 |
 | `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                    |
@@ -210,13 +210,6 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                            |
 | `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                       |
 
-### `action.ran`
-
-| Attribute | Type               | Meaning                                                        |
-| --------- | ------------------ | -------------------------------------------------------------- |
-| `action`  | `string`           | The action's ID in the keymap, as `chrome/actions.ts` names it |
-| `code`    | `string`, optional | The error code, when it failed                                 |
-
 ### `agent.called`
 
 | Attribute | Type               | Meaning                        |
@@ -246,6 +239,17 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | Attribute | Type     | Meaning            |
 | --------- | -------- | ------------------ |
 | `builder` | `string` | The builder's name |
+
+### `command.ran`
+
+| Attribute | Type                                                                                  | Meaning                                                                                                                           |
+| --------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `action`  | `string`                                                                              | The action's ID in the keymap, as `chrome/actions.ts` names it                                                                    |
+| `from`    | `"key" \| "menu" \| "canvasMenu" \| "layersMenu" \| "search" \| "toolbar" \| "panel"` | What ran it: a key, the menubar, the canvas's or a Layers row's menu, Search actions, the toolbar, or a button in a panel or page |
+| `enabled` | `boolean`                                                                             | Whether it applied then. One that didn't is recorded as cancelled, without running                                                |
+| `layers`  | `integer`                                                                             | How many layers were selected                                                                                                     |
+| `designs` | `integer`                                                                             | How many designs were selected, with no layer inside one                                                                          |
+| `code`    | `string`, optional                                                                    | The error code, when it failed                                                                                                    |
 
 ### `data.invalid`
 

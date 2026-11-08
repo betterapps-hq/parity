@@ -257,8 +257,10 @@ function SelectLayer({ label, choices, target }: { label: string; choices: Layer
 function run(session: ProjectSession, action: MenuAction, point: Point): void {
   if (action === "pasteHere") void pasteAtPointer(session, point)
   else if ((action === "newScreen" || action === "newComponent") && session.editor) {
-    createDesign(session, action === "newScreen" ? "screen" : "component", session.editor.screenToPage(point))
-  } else void actions[action].run()
+    const { editor } = session
+    const kind = action === "newScreen" ? "screen" : "component"
+    void actions[action].run("canvasMenu", { instead: () => createDesign(session, kind, editor.screenToPage(point)) })
+  } else void actions[action].run("canvasMenu")
 }
 
 /**

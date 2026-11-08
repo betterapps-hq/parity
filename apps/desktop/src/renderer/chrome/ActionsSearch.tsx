@@ -10,15 +10,16 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { useState } from "react"
 import { useHomeActive, useKnownProjects, useTabs, useActiveTabId, workspace } from "../workspace.ts"
-import { type Action, actions } from "./actions.ts"
+import { actions } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { clearBitmapCache, exportImages } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { getPreferences, setPreferences } from "./preferences.ts"
+import type { RecordedAction } from "./record-actions.ts"
 import { matchWords } from "./word-match.ts"
 
-interface Item extends Action {
+interface Item extends RecordedAction {
   id: string
   label: string
   group: Group
@@ -70,7 +71,7 @@ export function ActionsSearch() {
   ]
   const run = (item: Item) => {
     closeDialog()
-    void item.run()
+    void item.run("search")
   }
   const projectGroup = projects.length > 0 && (
     <CommandGroup heading="Projects">

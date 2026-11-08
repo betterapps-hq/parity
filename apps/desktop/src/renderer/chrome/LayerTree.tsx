@@ -551,8 +551,11 @@ export function LayerTree() {
 
 /** The + for frames picks the frame tool, to draw one; the others make a design. */
 function addDesign(session: Session, kind: ContainerKind): void {
-  if (kind === "frame") session.selection.setTool("frame")
-  else createDesign(session, kind)
+  if (kind === "frame") void actions.frame.run("panel")
+  else {
+    const command = kind === "screen" ? "newScreen" : "newComponent"
+    void actions[command].run("panel", { instead: () => createDesign(session, kind) })
+  }
 }
 
 /** A group's heading: its title and a + that makes a new one. */
@@ -971,7 +974,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
         key={action}
         disabled={!entry.enabled}
         variant={action === "delete" ? "destructive" : undefined}
-        onClick={() => (action === "rename" ? onRename() : void actions[action].run())}
+        onClick={() => (action === "rename" ? onRename() : void actions[action].run("layersMenu"))}
       >
         {entry.label}
         {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}

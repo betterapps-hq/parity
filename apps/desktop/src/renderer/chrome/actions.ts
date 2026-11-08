@@ -1,7 +1,6 @@
 import type { ContainerKind } from "@parity-app/core"
 import { selectedDesigns, selectedNodes } from "@parity-app/editor"
 import type { Tool } from "../selection.ts"
-import { tracedAction } from "../tracing.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {
@@ -63,6 +62,7 @@ import { createDesign } from "./create.ts"
 import type { Command } from "./keymap.ts"
 import { toggleConsole, togglePanels } from "./layout.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
+import { type RecordedAction, recordActions } from "./record-actions.ts"
 
 /**
  * What each shortcut in the keymap runs, for the key handlers and the actions search. `app` ones work anywhere in the
@@ -199,13 +199,8 @@ const keymapActions: Record<Command, Action> = {
   developerTools: { run: toggleDeveloperTools, scope: "app" }
 }
 
-/**
- * Each action, run in a trace of its own named by its ID, which the work it causes in the service and main joins
- * (PAR-629), whether a key, a menu or the actions search ran it.
- */
-export const actions = Object.fromEntries(
-  Object.entries<Action>(keymapActions).map(([id, action]) => [
-    id,
-    { ...action, run: (event?: KeyboardEvent) => tracedAction(id, () => action.run(event)) }
-  ])
-) as Record<Command, Action>
+/** Each action in the keymap, recorded however it's run: a key, a menu, Search actions, the toolbar or a panel. */
+export const actions: Record<Command, RecordedAction> = recordActions(keymapActions, () => ({
+  layers: layers(),
+  designs: designs()
+}))
