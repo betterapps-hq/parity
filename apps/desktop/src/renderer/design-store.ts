@@ -32,6 +32,7 @@ import {
   endGesture,
   type FileWrite,
   fileWrite,
+  type HistoryEntry,
   type HistoryState,
   kindName,
   kindsName,
@@ -64,6 +65,7 @@ import {
   writeSucceeded
 } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
+import { track } from "./report-error.ts"
 import { keepTrace } from "./tracing.ts"
 
 export interface ContainerEntry {
@@ -154,6 +156,8 @@ export class DesignStore {
   editFrame = (picked: Picked): EditFrame | undefined =>
     editFrame(picked, (key) => this.getEntry(key)?.container, this.getModes())
   getHistory = (): HistoryState => this.state.historyState
+  /** The step Undo would take back, the same object until a change, an undo, a redo or a gesture's end. */
+  getUndoStep = (): HistoryEntry | undefined => this.state.past.at(-1)
   getSaveState = (): SaveState => this.state.saveState
   getTokenEdits = (): TokenEdits => this.state.current.tokens
   getTokenFailure = (): TokenFailure | undefined => this.state.tokenFailure
@@ -211,9 +215,11 @@ export class DesignStore {
     return `${this.epoch}:${this.gestures}`
   }
 
-  /** Ends a gesture: a change made with it later starts a step of its own. */
-  endGesture(gesture: string): void {
+  /** Ends a gesture: a change made with it later starts a step of its own. Returns whether it made an undo step. */
+  endGesture(gesture: string): boolean {
+    const stepped = this.state.past.some((step) => step.gesture === gesture)
     this.state = endGesture(this.state, gesture)
+    return stepped
   }
 
   /**
@@ -235,12 +241,34 @@ export class DesignStore {
     this.take(revertTo(this.state, checkpoint))
   }
 
+  /** Undoes the last step, recorded as `edit.undone` with what it changed (PAR-640). */
   undo(): void {
-    this.take(undoChange(this.state))
+    const step = this.state.historyState.undoLabel
+    this.stepWith("edit.undone", step, undoChange(this.state))
   }
 
+  /** Redoes the last step undone, recorded as `edit.redone`. */
   redo(): void {
-    this.take(redoChange(this.state))
+    const step = this.state.historyState.redoLabel
+    this.stepWith("edit.redone", step, redoChange(this.state))
+  }
+
+  /** Takes an undo or redo step, recording what it changed: its designs, files, modes and tokens. */
+  private stepWith(name: "edit.undone" | "edit.redone", label: string | undefined, step: DesignStep | undefined): void {
+    if (!step) return
+    const before = this.state.current
+    const entries = this.byKey
+    this.take(step)
+    const after = this.state.current
+    const designs = this.entries.filter((entry) => entries.get(entry.key) !== entry).map((entry) => entry.key)
+    for (const key of entries.keys()) if (!this.byKey.has(key)) designs.push(key)
+    track(name, {
+      step: label ?? "",
+      designs,
+      files: [...step.writes],
+      modes: before.modes !== after.modes,
+      tokens: before.tokens !== after.tokens
+    })
   }
 
   updateContainer(

@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Record gestures, undo and redo, inspector changes, inserts, pastes and text edits as telemetry events (PAR-640)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -7,9 +7,13 @@ import {
   withEditedText
 } from "@parity-app/editor"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
+import { track } from "../report-error.ts"
 import { useProject } from "./context.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
 import { kindColors } from "./kinds.tsx"
+
+/** What closed the editor: Enter, Escape, or clicking away. */
+type TextEditEnd = "enter" | "escape" | "blur"
 
 /** Where the editor draws, in the canvas area's pixels, and how its text looks there. */
 interface EditorLayout {
@@ -35,6 +39,31 @@ export function TextEditor() {
   const opened = useRef<{ text: string; range: TextRange }>(undefined)
   const composing = useRef(false)
   const done = useRef(false)
+  const [openedAt] = useState(() => performance.now())
+  /** Records how the edit ended, as `text.edited` (PAR-640). */
+  const record = (outcome: "committed" | "unchanged" | "cancelled", how?: TextEditEnd, length = 0) =>
+    track("text.edited", {
+      design: editing.design,
+      layer: editing.node,
+      outcome,
+      ...(how ? { how } : {}),
+      durationMs: Math.round(performance.now() - openedAt),
+      length
+    })
+
+  // Closed without being committed, as when the layer goes or the editor can't find its text. Checked a tick after it
+  // unmounts, since a development build mounts it twice. It's keyed by its layer, so the layer stays the one it opened on.
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      setTimeout(() => {
+        if (!mounted.current && !done.current) record("cancelled")
+      })
+    }
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- Once per mount, for the layer it opened on.
+  }, [])
 
   useEffect(() => {
     const textarea = ref.current
@@ -93,15 +122,16 @@ export function TextEditor() {
     textarea.setSelectionRange(range.start, range.end)
   }, [shown])
 
-  const commit = () => {
+  const commit = (how: TextEditEnd) => {
     if (done.current) return
     done.current = true
     const text = ref.current?.value ?? ""
     selection.setEditing(undefined)
     const original = opened.current?.text
-    if (original === undefined || text === original) return
     // Written to the state it was read from, by the same rule (see `textToEdit`).
-    if (!store.getEntry(editing.design)) return
+    if (original === undefined || !store.getEntry(editing.design)) return record("cancelled", how, text.length)
+    if (text === original) return record("unchanged", how, text.length)
+    record("committed", how, text.length)
     // A text frame named after its text follows it (see `textFrameRenamed`), in the same step.
     store.updateContainer(editing.design, "Edit text", (container) =>
       textFrameRenamed(
@@ -133,7 +163,7 @@ export function TextEditor() {
             }
           : { display: "none" }
       }
-      onBlur={commit}
+      onBlur={() => commit("blur")}
       onCompositionStart={() => {
         composing.current = true
       }}
@@ -146,7 +176,7 @@ export function TextEditor() {
         if (composing.current || event.nativeEvent.isComposing) return
         if (event.key === "Escape" || (event.key === "Enter" && !event.shiftKey)) {
           event.preventDefault()
-          commit()
+          commit(event.key === "Escape" ? "escape" : "enter")
         }
       }}
     />

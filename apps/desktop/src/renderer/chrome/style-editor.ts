@@ -16,6 +16,7 @@ import { useStylePreview } from "../canvas/style-preview.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
+import { recordInspectorChange, rowChanged, rowValues } from "./inspector-events.ts"
 import { measureNode } from "./LayerPanel.tsx"
 
 /** Edits the selected layers' style through the style rows, in the state and variant being edited. */
@@ -70,15 +71,35 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   }
   const count = selection.layers.length
   const only = count === 1 ? selection.layers[0]!.id : undefined
+  // Each change is recorded with the row's values before and after, as the layers show them (PAR-640).
+  const recordRow = (row: StyleRow, gesture?: string) => {
+    const changed = store.getEntry(entry.key)?.container
+    const now =
+      changed &&
+      styleSelection(frameRoot ? frameRootShown(changed, unit) : changed, ids, selected.state, projectLibrary(store))
+    recordInspectorChange({
+      field: `style.${row}`,
+      design: entry.key,
+      layers: selection.layers.map((layer) => layer.id),
+      state: selection.state.id,
+      from: rowValues(selection, row),
+      to: rowValues(now, row),
+      changed: rowChanged(selection, now, row),
+      ...(gesture ? { gesture } : {})
+    })
+  }
   return {
     selection,
     set: (row, edit, label = "Change style", gesture) => {
       const apply = within(selection.edit(row, edit, measure))
       preview.settle(apply)
       store.updateContainer(entry.key, count > 1 ? `${label} on ${count} layers` : label, apply, { gesture })
+      recordRow(row, gesture)
     },
-    reset: (row) =>
-      store.updateContainer(entry.key, count > 1 ? "Reset changes" : "Reset change", within(selection.reset(row))),
+    reset: (row) => {
+      store.updateContainer(entry.key, count > 1 ? "Reset changes" : "Reset change", within(selection.reset(row)))
+      recordRow(row)
+    },
     preview: (row, edit) => preview.show(within(selection.edit(row, edit, measure))),
     endPreview: () => preview.cancel(),
     tokens,

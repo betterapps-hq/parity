@@ -586,7 +586,7 @@ export function insertOption(session: ProjectSession, offer: Offer, key: string)
 
 function insert(session: ProjectSession, item: InsertItem): void {
   setOpen(false)
-  if (!insertAtSelection(session, item)) toast.info("Select a layout, or a layer to add it after")
+  if (!insertAtSelection(session, item, "quickInsert")) toast.info("Select a layout, or a layer to add it after")
 }
 
 function insertBasic(session: ProjectSession, { node: make, label }: (typeof basics)[number]): void {

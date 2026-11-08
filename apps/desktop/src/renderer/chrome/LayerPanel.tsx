@@ -26,7 +26,6 @@ import {
   locateInner,
   locateNode,
   mapNode,
-  type NodeChange,
   nodeOnBoard,
   type NodePatch,
   overrideCount,
@@ -43,7 +42,7 @@ import {
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
@@ -60,6 +59,7 @@ import { ExportSection } from "./ExportSection.tsx"
 import { FieldWithProp } from "./field-prop.tsx"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { type LayerChange, PreviewedProp, recordLayerChange } from "./inspector-events.ts"
 import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
@@ -101,10 +101,12 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
   const node = nodeOnBoard(container, location.node, state)
   const override = targetPatches(container, target)?.[nodeId]
 
-  const change = (label: string, value: NodeChange, gesture?: string) =>
+  const change: LayerChange = (label, value, gesture, shown = node) => {
     store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
       gesture
     })
+    if (shown) recordLayerChange(key, [nodeId], state.id, shown, value, gesture)
+  }
   const reset = (field?: PatchField) =>
     store.updateContainer(key, "Reset change", (current) =>
       resetOverride(current, boardTarget(current, state.id), nodeId, field)
@@ -191,13 +193,15 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
   const own = inner.instance.overrides?.[inner.key]
   const main = entries.find((candidate) => candidate.container.id === inner.instance.design)
 
-  const change = (label: string, value: NodeChange, gesture?: string) =>
+  const change: LayerChange = (label, value, gesture, shown = node) => {
     store.updateContainer(
       key,
       label,
       (current) => editLayer(store, current, boardTarget(current, state.id), path, value),
       { gesture }
     )
+    if (shown) recordLayerChange(key, [path], state.id, shown, value, gesture)
+  }
   const reset = (field?: PatchField) =>
     store.updateContainer(key, "Reset change", (current) =>
       resetLayer(store, current, boardTarget(current, state.id), path, field)
@@ -315,7 +319,7 @@ function LayerSections({
   /** What the state, variant or copy being edited changes about it, to mark and reset. */
   override: NodePatch | undefined
   /** Makes a change, as part of a gesture's one undo step when given (see `NumberField`). */
-  change: (label: string, value: NodeChange, gesture?: string) => void
+  change: LayerChange
   reset: (field?: PatchField) => void
   /** Inside an instance, where an image's file and description belong to the component. */
   inner?: boolean
@@ -327,8 +331,7 @@ function LayerSections({
   const styleEditor = useStyleEditor(entry, [nodeId])
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
   const propPreview = useChangePreview(session.store, entry.key)
-  const setProp = (name: string, value: unknown) => (gesture?: string) =>
-    change(`Change ${name}`, propChange(name, value), gesture)
+  const previewedProp = useMemo(() => new PreviewedProp(propPreview), [propPreview])
   // A component design's own layers can use its props for their text and visibility; a copy's can't.
   const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
   const withProp = (field: BindableField, input: ReactNode) =>
@@ -386,9 +389,11 @@ function LayerSections({
           info={components[node.component]}
           changed={(name) => changesField(override, { kind: "props", key: name })}
           taken={override?.unset?.props}
-          onChange={(name, value, gesture) => propPreview.commit(setProp(name, value), gesture)}
-          onPreview={(name, value) => propPreview.show(setProp(name, value))}
-          onCancel={() => propPreview.cancel()}
+          onChange={(name, value, gesture) =>
+            previewedProp.commit(node, change, `Change ${name}`, propChange(name, value), gesture)
+          }
+          onPreview={(name, value) => previewedProp.show(node, change, `Change ${name}`, propChange(name, value))}
+          onCancel={() => previewedProp.cancel()}
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}

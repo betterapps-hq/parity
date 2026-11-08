@@ -5893,6 +5893,33 @@ preferences, dialog and selection stores and the start page's actions record the
 takes a new id as its project opens isn't an open, a close or a switch. Mode means designing or Interact, the canvas's
 one switch between editing and using the designs.
 
+## Editing is recorded once per thing done (PAR-640)
+
+`gesture.ended`, `edit.undone`, `edit.redone`, `inspector.changed`, `insert.done`, `clipboard.pasted`,
+`clipboard.failed` and `text.edited` are in [telemetry.md](telemetry.md#editing), from `editing-events.ts` in
+`@parity-app/telemetry`. My calls:
+
+- **Nothing is recorded per pointer move or per frame, so nothing is sampled.** Each event is one gesture, step, field
+  change, insert, paste or edit. A frame rate is a count kept while the gesture lasts and sent with its end. PAR-647 can
+  sample them if their volume needs it.
+- **Gesture kinds are the names `canvas/gesture.ts` already gives them** (`resize`, `layerDrag`, `absoluteDrag`,
+  `titleDrag`, `boxSelect`, `frameDraw`), with `move` for boards and notes tldraw moves, `nudge` and `fieldNudge` for
+  runs of presses, `insertDrag`, `pan` and `zoom`, rather than the proposal's coarser list, so a kind matches the code
+  and its `gesture.ran` trace.
+- **A pan or zoom is one gesture until the camera has been still for 300 ms,** as the camera has no press and release of
+  its own. It includes the camera's own moves, such as zooming to fit.
+- **`undoStep` comes from the design store:** `endGesture` now says whether the gesture made a step, so a drag taken
+  back, or one that changed nothing, says no.
+- **Undo and redo are recorded in the design store,** so the toolbar, the keys, the menus and the toasts' Undo all
+  count, with the designs whose entries changed and the files the step writes.
+- **Inspector values go as JSON,** with `mixed` for a row whose layers differed, and a change that leaves the value as
+  it was isn't recorded. The style rows and a layer's text, visibility and props are covered; the rest of the inspector
+  (names, images, tokens, states) isn't yet.
+- **A paste is an insert too,** so `insert.done` covers everything that puts something on the canvas, and
+  `clipboard.pasted` says which paste and what was on the clipboard.
+- **A text edit closed by Escape is committed,** as Escape keeps the edit. It's `unchanged` when the text is as it was
+  and `cancelled` when the editor closes before it could write, as when the layer goes.
+
 ## `parity logs` reads the local copy (PAR-636)
 
 `parity logs` and the MCP tool `get_logs` read Parity's own events from the local copy main writes at every level
