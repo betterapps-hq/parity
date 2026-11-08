@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 08 Nov 2026 21:21:05 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 21:40:54 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.24.0
+
+Sun, 08 Nov 2026 21:40:54 GMT
+
+### Minor changes
+
+- The CLI sends its errors, traces and events to Sentry's parity-cli project, without slowing a command
+  (ajcraswell@gmail.com)
 
 ## 0.23.0
 

@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 21:40:54 GMT",
+      "version": "0.24.0",
+      "tag": "@parity-app/cli_v0.24.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7ebd84f261601b994d281004ca594af9c5c19aa4",
+            "comment": "The CLI sends its errors, traces and events to Sentry's parity-cli project, without slowing a command"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 21:21:05 GMT",
       "version": "0.23.0",
       "tag": "@parity-app/cli_v0.23.0",

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "The CLI sends its errors, traces and events to Sentry's parity-cli project, without slowing a command",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
