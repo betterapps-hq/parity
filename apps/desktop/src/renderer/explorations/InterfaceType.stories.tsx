@@ -113,6 +113,27 @@ const roles: Role[] = [
     )
   },
   {
+    name: "Strong value",
+    where: "The part of a line of labels that's read: the status bar's figures",
+    sample: (
+      <span className="text-xs text-muted-foreground">
+        <strong data-sample className="font-medium text-foreground">
+          587
+        </strong>{" "}
+        components in code
+      </span>
+    )
+  },
+  {
+    name: "Item title",
+    where: "A name or title heading a card, popover or panel",
+    sample: (
+      <span data-sample className="text-sm font-medium">
+        Processes
+      </span>
+    )
+  },
+  {
     name: "Layer",
     where: "Rows in Layers",
     // A row as Layers draws one, a design at the top of its tree, not selected.
@@ -156,12 +177,23 @@ const roles: Role[] = [
     )
   },
   {
+    name: "Button",
+    where: "Dialogs' actions",
+    sample: (
+      <Button data-sample variant="outline">
+        Cancel
+      </Button>
+    )
+  },
+  {
     name: "Control and chip",
     where: "The kit's segmented controls and badges",
     sample: (
       <span className="flex items-center gap-2">
-        <ToggleGroup data-sample variant="outline" size="sm" defaultValue={["layout"]}>
-          <ToggleGroupItem value="layout">In layout</ToggleGroupItem>
+        <ToggleGroup variant="outline" size="sm" defaultValue={["layout"]}>
+          <ToggleGroupItem data-sample value="layout">
+            In layout
+          </ToggleGroupItem>
           <ToggleGroupItem value="absolute">Absolute</ToggleGroupItem>
         </ToggleGroup>
         <Badge variant="secondary">Screen</Badge>
@@ -196,8 +228,21 @@ const roles: Role[] = [
     )
   },
   {
-    name: "Name",
-    where: "The selected design's name",
+    name: "Empty panel hint",
+    where: "The line under an empty panel's message",
+    // As the Design tab draws it, inside the empty panel's message.
+    sample: (
+      <p className="flex max-w-56 flex-col gap-1 text-center text-sm text-muted-foreground">
+        Select a screen.
+        <span data-sample className="text-xs">
+          Click inside one to select a layer, and double-click to go deeper.
+        </span>
+      </p>
+    )
+  },
+  {
+    name: "Selection title",
+    where: "The inspector's title for what's selected: a design, a layer",
     sample: (
       <span data-sample className="text-base font-semibold">
         Pricing
@@ -259,8 +304,8 @@ const roles: Role[] = [
     )
   },
   {
-    name: "Canvas label",
-    where: "Names and sizes over the canvas",
+    name: "Canvas chip",
+    where: "A name over the canvas on a colored chip",
     sample: (
       <span
         data-sample
@@ -328,6 +373,19 @@ export const InspectorStyles: Story = {
 export const DesignTab: Story = {
   name: "Design tab",
   loaders: [inspecting("design", () => ({ design: design("Pricing") }))],
+  render: () => (
+    <Stage>
+      <TypeCompare>
+        <Inspector />
+      </TypeCompare>
+    </Stage>
+  )
+}
+
+/** Pricing's headline selected: the inspector's title is the layer's name, in the same role as a design's. */
+export const LayerSelected: Story = {
+  name: "Layer selected",
+  loaders: [inspecting("design", () => layersSelection(design("Pricing"), [node("Pricing", "Headline")]))],
   render: () => (
     <Stage>
       <TypeCompare>

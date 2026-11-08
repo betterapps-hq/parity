@@ -44,7 +44,7 @@
     --text-lg: 1.125rem;
     --text-lg--line-height: calc(24 / 18);
     --text-xl: 1.25rem;
-    --text-xl--line-height: calc(28 / 20);
+    --text-xl--line-height: calc(26 / 20);
     --text-2xl: 1.5rem;
     --text-2xl--line-height: calc(32 / 24);
 
@@ -154,9 +154,11 @@
     font-size-adjust: ex-height 0.52;
     /*
      * Code is never medium: Menlo and Consolas have only regular and bold, and Cascadia only named weights, so a medium
-     * would come out regular on one system and semibold on another. Emphasis in code is semibold, at 600, which every
-     * one of them draws as its bold or SemiBold.
+     * at 550 would come out bold on one system and SemiBold on another. A kit part's own `font-medium` set in code reads
+     * this and stays regular. Emphasis in code is semibold, at 600, which every one of them draws as its bold or
+     * SemiBold.
      */
+    --font-weight-medium: 400;
     --font-weight-semibold: 600;
   }
 
@@ -168,7 +170,10 @@
     --font-weight-semibold: var(--weight-sans-semibold);
   }
 
-  /* The build takes `font-medium` off code (a token's heading, slot names); this stands in for that. */
+  /*
+   * The build takes `font-medium` off the app's code (a token's heading, slot names); this stands in for that. The
+   * variable above covers the kit's own.
+   */
   .font-mono.font-medium {
     font-weight: 400;
   }
@@ -193,6 +198,7 @@
   :is(
     [role="treeitem"],
     input.text-base.font-semibold,
+    input[aria-label="Layer name"],
     [role="treeitem"] input,
     .cursor-default.rounded-md.px-1.py-0\.5 > .truncate
   ) {
@@ -260,8 +266,10 @@
 
   /*
    * The kit's input, input group and textarea set `md:text-sm`, which beats a caller's size in any window wider than
-   * 48rem, as the app's always is (Storybook's narrow column hides it), so a name at `text-base` or a field at `text-xs`
-   * would draw at 13px. Their own size wins here.
+   * 48rem, as the app's always is (Storybook's narrow column hides it), so a field at `text-xs` would draw at 13px. Its
+   * own size wins here. Not `text-base`: the kit's inputs carry `text-base md:text-sm` themselves, so every input with no
+   * size of its own would grow to 15px. The selection's title takes `md:text-base` instead, which the rule after this
+   * stands in for.
    */
   @media (width >= 48rem) {
     :is([data-slot="input"], [data-slot="input-group-control"], [data-slot="textarea"]).text-xs {
@@ -269,18 +277,37 @@
       line-height: var(--tw-leading, var(--text-xs--line-height));
     }
 
-    :is([data-slot="input"], [data-slot="input-group-control"], [data-slot="textarea"]).text-base {
+    /* The selection's title, a design's or a layer's, is one role: 15px semibold. */
+    [data-slot="input"]:is(.text-base.font-semibold, [aria-label="Layer name"]) {
       font-size: var(--text-base);
-      line-height: var(--tw-leading, var(--text-base--line-height));
+      line-height: var(--text-base--line-height);
+      font-weight: var(--font-weight-semibold);
     }
+  }
+
+  /* The selection's title when it isn't a field: several layers or designs, a slot, the Code and Accessibility tabs'. */
+  .flex.items-center.gap-2.font-semibold,
+  .flex.h-7.items-center.gap-2 > .font-mono.text-sm.font-medium,
+  .flex.items-center.gap-2 > .min-w-0.flex-1.truncate.text-sm.font-medium {
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  /* Processes is a compact list: a process's name is 12px and regular, like a token's, over its 11px lines. */
+  .truncate.text-\[13px\].font-medium {
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
+    font-weight: var(--font-weight-normal);
   }
 
   /*
    * The kit sets its tabs, toggles and badges medium, which at 550 sat one step under the section titles. They're
-   * controls and chips, so they're regular, and the active tab medium; buttons, which act, stay medium.
+   * controls and chips, so they're regular, the active tab too: the kit's fill marks it, and a heavier active label
+   * would widen its tab and, with the kit's transition-all, animate the weight. Buttons, which act, stay medium.
    */
   :is(
-    [data-slot="tabs-trigger"]:not([data-active]),
+    [data-slot="tabs-trigger"],
     [data-slot="toggle"],
     [data-slot="toggle-group-item"],
     [data-slot="badge"],

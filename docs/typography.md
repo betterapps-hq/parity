@@ -16,40 +16,46 @@ weight from the theme, and a lint rule that fails one-off values.
 
 Pick the role, not a size. Each role's classes are all it needs; the theme sets what they come to.
 
-| Role                | Classes                                                            | Comes to                          | For                                                                                    |
-| ------------------- | ------------------------------------------------------------------ | --------------------------------- | -------------------------------------------------------------------------------------- |
-| Caption             | `text-2xs`                                                         | 11/14, 450, 0.01em                | Units, counts, chips, labels over the canvas, a line under a 12px name                 |
-| Label               | `text-xs text-muted-foreground`                                    | 12/16, 450, gray                  | Field labels, secondary text, a line under a 13px name                                 |
-| Value               | `text-xs`                                                          | 12/16, 450                        | Values in fields, the status bar                                                       |
-| Description         | `type-description text-muted-foreground`                           | 12/18, 450, gray                  | Text that wraps: a section's or a setting's description                                |
-| Message             | `type-message`                                                     | 12/18, 450                        | Messages and errors that are read, not glanced at                                      |
-| Section title       | `PanelSectionTitle`                                                | 12/16, 650                        | The inspector's sections, the console, the error screen                                |
-| Group label         | `GroupLabel`                                                       | 12/16, 550, gray                  | Groups in lists: Layers, Tokens, Processes                                             |
-| Group title         | `DialogGroupTitle`                                                 | 12/16, 650, gray                  | Groups in dialogs: Settings, Shortcuts                                                 |
-| Row, menu item, tab | `text-sm`                                                          | 13/18, 450; active tab 550        | Layer rows, the kit's menus, tabs, dialogs' selects                                    |
-| Control, chip       | the kit's `ToggleGroup`, `Toggle`, `Badge`, `Kbd`                  | 12/16, 450                        | Segmented controls such as Placement, badges                                           |
-| Compact row         | `text-xs`, with a Caption under it                                 | 12/16, 450                        | A list whose names are code or status: Tokens, Processes; every other list row is 13px |
-| Select in a panel   | `PanelSelectContent` (`fields.tsx`)                                | 12/16, 450                        | A panel's select opens at its field's size                                             |
-| Small button        | the kit's `Button size="sm"`                                       | 12/16, 550                        | Buttons in panels                                                                      |
-| Empty panel         | `type-empty text-muted-foreground text-center`                     | 13/20, 450, gray, balanced        | What a panel says when there's nothing to show                                         |
-| Design name         | `text-base font-semibold`                                          | 15/20, 650                        | The selected design's name, an input, which takes its letters from the input rule      |
-| Dialog title        | the kit's `DialogTitle`                                            | 15/20, 650                        | Titles of dialogs                                                                      |
-| Dialog description  | the kit's `DialogDescription`                                      | 13/20, 450, gray                  | What a dialog is for, under its title                                                  |
-| Heading             | `text-lg`, `text-xl` or `text-2xl`, `font-semibold tracking-tight` | 18/24, 20/28, 24/32; 650, -0.01em | The start page and sign-in                                                             |
-| Code                | `font-mono text-xs`                                                | 12/16, 400                        | Classes, token names, code                                                             |
-| Code block          | `type-code font-mono`                                              | 12/18, 400                        | Code over many lines: the Code tab, stack traces, console messages                     |
-| Secondary code      | `font-mono text-2xs`, `text-2xs/4` where it wraps                  | 11/14 or 11/16, 400, no tracking  | A file name, a token's path, a stack trace                                             |
+| Role                | Classes                                                             | Comes to                          | For                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Caption             | `text-2xs`                                                          | 11/14, 450, 0.01em                | Units, counts, tags on a row (a mode's chips, the console's count, Primary), a line under a 12px name                             |
+| Canvas chip         | `text-2xs font-medium tabular-nums`, white on a selection color     | 11/14, 550, 0.01em                | Any white text on a selection or spacing color: labels, W×H, spacing values, the inspect label, an agent's; never dimmed          |
+| Label               | `text-xs text-muted-foreground`                                     | 12/16, 450, gray                  | Field labels, secondary text, a line under a 13px name                                                                            |
+| Value               | `text-xs`                                                           | 12/16, 450                        | Values in fields, the status bar                                                                                                  |
+| Description         | `type-description text-muted-foreground`                            | 12/18, 450, gray                  | Text that wraps: a section's or a setting's description                                                                           |
+| Message             | `type-message`                                                      | 12/18, 450                        | Messages and errors that are read, not glanced at                                                                                 |
+| Section title       | `PanelSectionTitle`                                                 | 12/16, 650                        | The inspector's sections, the console, the error screen                                                                           |
+| Group label         | `GroupLabel`                                                        | 12/16, 550, gray                  | Groups in lists: Layers, Tokens, Processes; the kit's menu labels and command groups draw it already                              |
+| Group title         | `DialogGroupTitle`                                                  | 12/16, 650, gray                  | Groups in dialogs: Settings, Shortcuts                                                                                            |
+| Strong value        | `font-medium text-foreground` inside a Label                        | 12/16, 550                        | The part of a line of labels that's read: the status bar's and Performance's figures                                              |
+| Row, menu item, tab | `text-sm`                                                           | 13/18, 450                        | Layer rows, the kit's menus, tabs (the active one too), dialogs' selects                                                          |
+| Item title          | `text-sm font-medium`                                               | 13/18, 550                        | A name or title heading a card, popover or panel: a component card, Processes, Performance, a panel's error                       |
+| Control, chip       | the kit's `ToggleGroup`, `Toggle`, `Kbd`, a `Badge` holding a value | 12/16, 450                        | Segmented controls such as Placement, key chips, the design's path                                                                |
+| Compact row         | `text-xs`, with a Caption under it                                  | 12/16, 450                        | A list whose names are code or status: Tokens, Processes (names regular); every other list row is 13px                            |
+| Select in a panel   | `PanelSelectContent` (`fields.tsx`)                                 | 12/16, 450                        | A panel's select opens at its field's size                                                                                        |
+| Small button        | the kit's `Button size="sm"`                                        | 12/16, 550                        | Buttons in panels                                                                                                                 |
+| Button              | the kit's `Button`                                                  | 13/18, 550                        | Dialogs' actions, such as Cancel and Save                                                                                         |
+| Empty panel         | `type-empty text-muted-foreground text-center`                      | 13/20, 450, gray, balanced        | What a panel says when there's nothing to show; a title in it is `font-medium text-foreground`, 550                               |
+| Empty panel hint    | `text-xs` inside `type-empty`                                       | 12/18, 450, gray, balanced        | The line under it, such as how to select a layer                                                                                  |
+| Selection title     | `text-base font-semibold`; `md:text-base` on a field                | 15/20, 650                        | The inspector's title for what's selected, on every tab: a design's or layer's name (a `NameInput`), several layers, a slot (600) |
+| Dialog title        | the kit's `DialogTitle`                                             | 15/20, 650                        | Titles of dialogs                                                                                                                 |
+| Dialog description  | the kit's `DialogDescription`                                       | 13/20, 450, gray                  | What a dialog is for, under its title                                                                                             |
+| Heading             | `text-lg`, `text-xl` or `text-2xl`, `font-semibold tracking-tight`  | 18/24, 20/26, 24/32; 650, -0.01em | The start page and sign-in                                                                                                        |
+| Code                | `font-mono text-xs`                                                 | 12/16, 400                        | Classes, token names, code                                                                                                        |
+| Code block          | `type-code font-mono`                                               | 12/18, 400                        | Code over many lines: the Code tab, stack traces, console messages                                                                |
+| Secondary code      | `font-mono text-2xs`, `text-2xs/4` where it wraps                   | 11/14 or 11/16, 400, no tracking  | A file name, a token's path, a stack trace                                                                                        |
 
 Weights are `font-normal` (450), `font-medium` (550) and `font-semibold` (650). Code is 400, and never medium: Menlo and
-Consolas have only regular and bold, so a medium would draw differently on each system. Emphasis in code is
+Consolas have only regular and bold, so a medium would draw bold on one system and SemiBold on another. Code repoints
+`--font-weight-medium` to 400, so a kit part's own `font-medium` set in code stays regular. Emphasis in code is
 `font-semibold`, at 600. Names in scripts Inter doesn't draw fall back to the system's static faces, which round 550 and
 650 up to their semibold or bold; if that reads heavier than it should, `--font-sans` maps their weights back with
 `@font-face` aliases.
 
 The three 12px titles differ only by weight and color, so they're components, not recipes. `PanelSectionTitle`
 (`PanelSection.tsx`) takes a `tone`, `lead` or `quiet`, and holds the fold, chevron, count and hover fill for both;
-`GroupLabel` is its quiet tone, which Layers, Tokens and Processes share. `DialogGroupTitle` is Settings' and
-Shortcuts'. A secondary line sits one step below the name it's under.
+`GroupLabel` is its quiet tone, which Layers, Tokens, Processes, Assets, the actions search and a state's changes share.
+`DialogGroupTitle` is Settings' and Shortcuts'. A secondary line sits one step below the name it's under.
 
 ## Rules
 
