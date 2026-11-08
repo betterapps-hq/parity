@@ -22,7 +22,7 @@ import {
   CircleCheck,
   CircleDashed,
   Hexagon,
-  Moon,
+  SunMoon,
   TriangleAlert,
   Unlink,
   X
@@ -621,7 +621,7 @@ export function ThemeMark({ label, theme }: { label: string; theme: { name: stri
         aria-label={`${label} is set for ${theme.name}: ${theme.value}`}
         className="grid size-5 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <Moon className="size-3.5" />
+        <SunMoon className="size-3.5" />
       </button>
     </Hint>
   )

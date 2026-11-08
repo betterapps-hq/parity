@@ -367,7 +367,7 @@ export function FourSidesField({
   }
   let fields: ReactNode
   if (each)
-    fields = sideNames.map((side, index) => field([index], `${side} ${noun}`, <SideGlyph letter={side[0]!} />, index))
+    fields = sideNames.map((side, index) => field([index], `${side} ${noun}`, <SideGlyph side={index} />, index))
   else if (together === "pair")
     fields = [
       field([0, 2], `Vertical ${noun}`, <PairGlyph />, 0),

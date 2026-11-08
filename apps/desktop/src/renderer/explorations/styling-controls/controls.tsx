@@ -22,13 +22,13 @@ import {
   ArrowDown,
   ArrowDownUp,
   ArrowRight,
+  ArrowRightLeft,
   Baseline,
   ChevronDown,
   Ellipsis,
   Grid3x3,
   LayoutTemplate,
-  Lock,
-  LockOpen,
+  Link2,
   Minus,
   Plus,
   Repeat,
@@ -182,7 +182,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
                   pressed
                   onPressedChange={(reverse) => set({ reverse: reverse || undefined })}
                 >
-                  <ArrowDownUp />
+                  {draft.direction === "row" ? <ArrowRightLeft /> : <ArrowDownUp />}
                 </Toggle>
               </Hint>
             )}
@@ -770,7 +770,7 @@ export function SizeSection({ draft, set }: SectionProps) {
               pressed={ratio !== undefined}
               onPressedChange={lock}
             >
-              {ratio ? <Lock /> : <LockOpen />}
+              <Link2 />
             </Toggle>
           </Hint>
           <SizeField
@@ -1741,7 +1741,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
                 <Num
                   key={side}
                   label={`${side} stroke width`}
-                  inner={<SideGlyph letter={side[0]} />}
+                  inner={<SideGlyph side={index} />}
                   pixels
                   narrow
                   value={widths[index]}

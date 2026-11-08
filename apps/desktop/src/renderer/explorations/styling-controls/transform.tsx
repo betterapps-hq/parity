@@ -1,5 +1,5 @@
 import { Button, Toggle } from "@buildkitgg/shadcn-baseui-kit"
-import { FlipHorizontal2, FlipVertical2, Link2, Minus, Plus, Unlink2 } from "lucide-react"
+import { FlipHorizontal2, FlipVertical2, Link2, Minus, Plus } from "lucide-react"
 import { useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -100,7 +100,7 @@ export function TransformSection({
                         })
                       }
                     >
-                      {linked ? <Link2 /> : <Unlink2 />}
+                      <Link2 />
                     </Toggle>
                   </Hint>
                 </div>

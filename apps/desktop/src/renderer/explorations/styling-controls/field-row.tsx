@@ -214,25 +214,35 @@ export function CornerGlyph({ corner = 0 }: { corner?: 0 | 1 | 2 | 3 }) {
   )
 }
 
-/** The pair of sides a field sets, drawn as a double arrow: up and down, or left and right. */
-export function PairGlyph({ across = false }: { across?: boolean }) {
+/** A square's four sides, from the top, clockwise, each drawn apart from the rest as EachToggle draws them. */
+const sidePaths = ["M3.5 1.5 H8.5", "M10.5 3.5 V8.5", "M3.5 10.5 H8.5", "M1.5 3.5 V8.5"]
+
+/** Each whole edge of the glyph's box, from the top, clockwise, for the sides a field sets. */
+const edgePaths = ["M2 2 H12", "M12 2 V12", "M2 12 H12", "M2 2 V12"]
+
+/**
+ * The sides a field sets, drawn thick along a faint box. Drawn rather than lettered or arrowed, so it reads in any
+ * language and isn't taken for Line height's or Letter spacing's arrows.
+ */
+function SidesGlyph({ lit }: { lit: readonly number[] }) {
   return (
-    <svg aria-hidden viewBox="0 0 12 12" className="size-3" style={across ? { transform: "rotate(90deg)" } : undefined}>
-      <path
-        d="M6 1.5 V10.5 M3.5 4 L6 1.5 L8.5 4 M3.5 8 L6 10.5 L8.5 8"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg aria-hidden viewBox="0 0 14 14" className="size-3.5" fill="none" stroke="currentColor" strokeLinecap="round">
+      <rect x="2" y="2" width="10" height="10" rx="1.5" strokeWidth="1" opacity="0.4" />
+      {lit.map((index) => (
+        <path key={index} d={edgePaths[index]} strokeWidth="2" />
+      ))}
     </svg>
   )
 }
 
-/** One side's letter as a field's glyph: T, R, B or L. */
-export function SideGlyph({ letter }: { letter: string }) {
-  return <span className="text-[11px] leading-none font-medium">{letter}</span>
+/** The pair of sides a field sets: top and bottom, or left and right across. */
+export function PairGlyph({ across = false }: { across?: boolean }) {
+  return <SidesGlyph lit={across ? [1, 3] : [0, 2]} />
+}
+
+/** One side as a field's glyph, from the top (0), clockwise. */
+export function SideGlyph({ side }: { side: number }) {
+  return <SidesGlyph lit={[side]} />
 }
 
 /**
@@ -244,7 +254,7 @@ type Parts = "corners" | "sides"
 const partsIcons: Record<Parts, string> = {
   corners:
     "M1.5 4.5 V3.5 A2 2 0 0 1 3.5 1.5 H4.5 M7.5 1.5 H8.5 A2 2 0 0 1 10.5 3.5 V4.5 M10.5 7.5 V8.5 A2 2 0 0 1 8.5 10.5 H7.5 M4.5 10.5 H3.5 A2 2 0 0 1 1.5 8.5 V7.5",
-  sides: "M3.5 1.5 H8.5 M10.5 3.5 V8.5 M3.5 10.5 H8.5 M1.5 3.5 V8.5"
+  sides: sidePaths.join(" ")
 }
 
 /**
