@@ -1,9 +1,9 @@
-import { CodedError, describeRenderStatus, renderProblem, resolveModes } from "@parity-app/core"
+import { CodedError, describeRenderStatus, renderProblem, resolveModes, unknownReference } from "@parity-app/core"
 import type { ChangeConflict } from "@parity-app/core"
 import { callerIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
 import { isAgentMethod, readRequest, requests, rpcRequest } from "./contracts.ts"
-import type { CopyReport } from "./routing.ts"
+import { activeTab, type CopyReport, matchTab } from "./routing.ts"
 import { type ExecRequest, execute } from "./run.ts"
 import type {
   AccessibilityFinding,
@@ -399,18 +399,32 @@ export async function exportPictures(
   return { files, warnings: result.warnings }
 }
 
+/**
+ * The name of the tab a report without a design is about, from the tabs' summaries, which list tabs still opening or
+ * that failed to open: the one named, else the active one, and none when no project is open.
+ */
+async function reportedTab(host: AgentHost, reference: string | undefined): Promise<string | undefined> {
+  const tabs = await host.tabs()
+  if (reference === undefined || reference === activeTab) return tabs.find((tab) => tab.active)?.name
+  const tab = matchTab(tabs, reference)
+  if (tab) return tab.name
+  const ids = tabs.map((candidate) => candidate.id)
+  throw unknownReference("unknown_tab", `No open tab matches "${reference}"`, reference, ids, "tab")
+}
+
 /** The longest a Sentry tag's value may be. */
 const tagLength = 200
 
 /**
  * Sends a problem an agent saw (PAR-646): its message, tagged with what it's about, with the frames of the design it
- * names in the state it names (else the one it shows), drawn offscreen without the caller's cursor. It works with no project open, as long as
- * it names no tab or design. A design or state that isn't there fails as a screenshot of it would, so the tags only
- * name real ones.
+ * names in the state it names (else the one it shows), drawn offscreen without the caller's cursor. Without a design,
+ * it works with no project open, or one still opening or failed to open. A design or state that isn't there fails as
+ * a screenshot of it would, so the tags only name real ones.
  */
 async function report(host: AgentHost, params: Params<"report">): Promise<Answer<"report">> {
-  const needsTab = params.tab !== undefined || params.design !== undefined
-  const snapshot = needsTab || (await host.tabs()).length > 0 ? await host.snapshot(params.tab) : undefined
+  // Only a design's frames need the tab ready, so a project that's opening or failed to open can still be reported.
+  const snapshot = params.design === undefined ? undefined : await host.snapshot(params.tab)
+  const tabName = snapshot?.tab.name ?? (await reportedTab(host, params.tab))
   const frames: AgentReport["frames"] = []
   let design: string | undefined
   let state = params.state
@@ -431,7 +445,7 @@ async function report(host: AgentHost, params: Params<"report">): Promise<Answer
     }
   }
   const named: Record<string, string | undefined> = {
-    tab: snapshot?.tab.name,
+    tab: tabName,
     design: design ?? params.design,
     state,
     node: params.node,

@@ -6239,8 +6239,9 @@ Report a problem. My calls:
   the report's own request together. The window's replay goes beside it.
 - **The tags are what the agent names, checked:** a design or state that isn't there fails as a screenshot of it would
   (`unknown_design`, `unknown_state`), so a tag always names a real one. A node is passed through, since an agent
-  reporting a wrong node may name one that's gone. With no tab or design named, it works with no project open: the CLI
-  routes it as `tab-or-any`, to the copy the person used last when no copy has a project open.
+  reporting a wrong node may name one that's gone. Without a design it needs no ready tab, so a project that failed to
+  open can be reported, and with no tab named it works with no project open: the CLI routes it as `tab-or-any`, to the
+  copy the person used last when no copy has a project open.
 - **It isn't sent while Telemetry is off.** The person's own report goes regardless, since they chose to send it and see
   what goes; an agent's would override their setting. It fails with `app_error`, saying to tell the person instead or
   run `parity diagnostics`.

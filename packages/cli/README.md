@@ -153,8 +153,8 @@ one where nothing failed, such as a screenshot that doesn't match its design. Th
 feedback, with a screenshot of its window, the window's replay, the last hour of its log, and the frames of the design
 named with `--design` (in `--state`, else the state it shows). It's tied to the command's trace and tagged with the tab,
 design, state, `--node` and test pass (`PARITY_TEST_RUN` unless `--test-run` says), and the command prints the
-feedback's link. Sentry files it in Linear and links the issue from the feedback. It works with no project open when it
-names no tab or design, and isn't sent while Share diagnostics is off in Parity's settings.
+feedback's link. Sentry files it in Linear and links the issue from the feedback. Without `--design` it works with a
+project that failed to open, or with none open, and isn't sent while Share diagnostics is off in Parity's settings.
 
 ```sh
 parity report "The default state's screenshot shows the outline variant" --design button --state default

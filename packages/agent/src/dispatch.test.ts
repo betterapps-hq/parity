@@ -313,6 +313,15 @@ describe("report", () => {
     expect(asked.presence).toEqual([])
   })
 
+  it("sends a report about a tab that isn't ready, naming it from the tab list, when it names no design", async () => {
+    const { host, asked } = fixtureHost()
+    host.snapshot = () => Promise.reject(new CodedError("App is still opening", { code: "tab_not_ready" }))
+    await dispatch("report", { message: "It won't open", tab: "App" }, host)
+    expect(asked.reports).toEqual([{ message: "It won't open", tags: { tab: "App" }, frames: [] }])
+    const refused = dispatch("report", { message: "It won't open", tab: "Shop" }, host)
+    await expect(refused).rejects.toMatchObject({ details: { code: "unknown_tab", field: "tab" } })
+  })
+
   it("works with no project open, as long as it names no tab or design", async () => {
     const { host, asked } = fixtureHost()
     host.tabs = async () => []
