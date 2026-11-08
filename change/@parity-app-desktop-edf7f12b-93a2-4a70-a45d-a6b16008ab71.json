@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Storybook stories for the Copy as PNG notifications",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
