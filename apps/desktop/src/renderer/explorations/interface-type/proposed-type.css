@@ -130,8 +130,11 @@
     letter-spacing: 0;
   }
 
-  /* Shortcuts are capitals and symbols, so + and - sit at the capitals' middle, as native menus draw them. */
-  [data-slot$="-shortcut"],
+  /*
+   * Shortcuts are capitals and symbols, so + and - sit at the capitals' middle, as native menus draw them. Not the
+   * search's truncated detail in the same slot, a path or a parent's name, whose hyphens sit with its lowercase.
+   */
+  [data-slot$="-shortcut"]:not(.truncate),
   [data-slot="kbd"] {
     font-feature-settings: "case";
   }

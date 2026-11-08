@@ -402,9 +402,11 @@ Reviews of the proposal raised these, and they were decided as follows.
   `leading-tight`; the crash screen's whole-app heading moves from `text-xl` to `text-2xl` while a part's error stays
   `text-lg` (`ErrorBoundary.tsx`), 18 and 20 being too close to read as different steps. The lint rule fails `text-xl`
   in the chrome.
-- **Leftovers the lint rule would fail:** `tracking-normal` on a shortcut in `ComponentMenu.tsx`, which the shortcut
-  rule already covers, and `tracking-normal normal-case` on the section count in `PanelSection.tsx`, which only undid
-  the old capitals, both go.
+- **Leftovers the lint rule would fail:** `tracking-normal` on the shortcuts in `ComponentMenu.tsx` and on both of
+  Search's row ends in `ActionsSearch.tsx`, which the shortcut rule already covers, and `tracking-normal normal-case` on
+  the section count in `PanelSection.tsx`, which only undid the old capitals, all go. Search's row end that holds a
+  detail rather than keys, a path or a layer's design, keeps its lowercase's hyphens: the shortcut's raised symbols are
+  for keys only.
 - **Storybook:** the Type control and the exploration's stylesheet go, since the app is the proposed type then. The
   Scale story stays, as Parity/Type/Scale: one column, every role in [typography.md](../typography.md) drawn with its
   classes and measured, so a change to a role is reviewed where it shows.
