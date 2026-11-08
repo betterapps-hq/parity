@@ -4720,8 +4720,11 @@ worktree.
 The events are in [telemetry.md](telemetry.md#events), from `app-events.ts` in `@parity-app/telemetry`, which also holds
 the rules for when each is sent. My calls:
 
-- **`app.started` waits for the first paint and the service,** and leaves out the first project shown: nothing records a
-  project opening yet. That time joins it once `project.opened` exists.
+- **`app.started` waits for the first paint and the service,** and leaves out the first project shown, which has an
+  event of its own (PAR-694): `app.first_project`, from the process starting to the first project's tab being ready to
+  draw, as its `project.loaded` reaches main. It's apart because a window can stay on Home, and holding `app.started`
+  for a project would lose it, and the run it starts, whenever none opens. `restored` says whether the window opened the
+  project as it started, from last time's tabs, so a person's time choosing one can be told apart.
 - **`app.quit` says `window closed`, `update` or `other`.** Parity doesn't restart itself after a crash, so the
   proposal's "crash restart" has nothing to report.
 - **`update.installed` is recorded as the app quits to install,** since the new version can't tell it was just

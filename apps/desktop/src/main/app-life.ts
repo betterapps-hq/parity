@@ -9,6 +9,14 @@ import {
 } from "@parity-app/telemetry"
 import { app } from "electron"
 
+/** Whether a window's event is `project.loaded`, and whether its project was restored, or nothing when it isn't. */
+function projectLoadedOf(envelope: unknown): { restored: boolean } | undefined {
+  if (typeof envelope !== "object" || envelope === null) return undefined
+  const { name, attributes } = envelope as { name?: unknown; attributes?: { restored?: unknown } }
+  if (name !== "project.loaded") return undefined
+  return { restored: attributes?.restored === true }
+}
+
 /** What `process.memory` lists: each process's role and private memory in bytes. */
 export type MemoryReading = () => Promise<{ role: string; memory: number }[]>
 
@@ -42,10 +50,19 @@ export function recordAppLife(telemetry: Telemetry<typeof registeredEvents>, rea
   })
 
   return {
-    /** Marks a startup step the first time it happens; `app.started` goes once they're all in. */
-    mark(step: StartupStep): void {
-      const timings = startup(step, performance.now())
-      if (timings) telemetry.track("app.started", timings)
+    /**
+     * Marks a startup step the first time it happens: `app.started` goes once its steps are in, and
+     * `app.first_project` when the first project shows.
+     */
+    mark(step: StartupStep, how?: { restored: boolean }): void {
+      const record = startup(step, performance.now(), how)
+      if (record?.name === "app.started") telemetry.track(record.name, record.attributes)
+      else if (record) telemetry.track(record.name, record.attributes)
+    },
+    /** Marks the first project shown when a window's event says a project is ready to draw. */
+    forwarded(envelope: unknown): void {
+      const loaded = projectLoadedOf(envelope)
+      if (loaded) this.mark("firstProject", loaded)
     },
     /** Records a change in the update state that's a step: checked, downloaded, installing or failed. */
     update(next: UpdatePhase & { beta: boolean }): void {

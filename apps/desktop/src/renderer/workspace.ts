@@ -146,9 +146,9 @@ export class Workspace {
     // Set first, so the projects reopening behind it don't take its place.
     if (saved.active === homeTab) this.activeId = homeTab
     if (roots.length === 0) {
-      if (window.canvasHost.initialProject) void this.open(window.canvasHost.initialProject)
+      if (window.canvasHost.initialProject) void this.open(window.canvasHost.initialProject, true, true)
     } else {
-      for (const root of roots) void this.open(root, root === saved.active)
+      for (const root of roots) void this.open(root, root === saved.active, true)
       if (saved.active !== homeTab && !roots.includes(saved.active ?? "")) this.activate(this.tabs[0]?.id)
     }
   }
@@ -163,9 +163,10 @@ export class Workspace {
 
   /**
    * Opens a project in a new tab, or switches to its tab when it's already open. Opened from a new tab, it opens in
-   * that tab instead; one that's already open elsewhere closes the new tab it was picked from.
+   * that tab instead; one that's already open elsewhere closes the new tab it was picked from. `restored` when the
+   * window opens it as it starts, rather than the person choosing it.
    */
-  async open(root: string | undefined, activate = true): Promise<Tab> {
+  async open(root: string | undefined, activate = true, restored = false): Promise<Tab> {
     const active = this.getActive()
     const into = activate && active?.blank ? active.id : undefined
     const existing = root ? this.getTab(root) : undefined
@@ -209,7 +210,7 @@ export class Workspace {
       current = info.id
       const builder = info.builder.name
       this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
-      const session = await createSession(info, began)
+      const session = await createSession(info, began, restored)
       if (attempt.abandoned) {
         this.dropAbandoned(info.id, info.guestUrl)
         return opening
@@ -763,9 +764,9 @@ function sayWhenSavesFail(session: ProjectSession): void {
 
 /**
  * Loads an opened project's guest and components into a session, and records how long that and the whole open took
- * from `began`, by `performance.now()` (PAR-637).
+ * from `began`, by `performance.now()` (PAR-637), and whether the window `restored` it as it started (PAR-694).
  */
-async function createSession(info: ProjectInfo, began: number): Promise<ProjectSession> {
+async function createSession(info: ProjectInfo, began: number, restored = false): Promise<ProjectSession> {
   const loading = performance.now()
   const loaded = await loadGuest(info.guestUrl, info.theme)
   const store = new DesignStore(
@@ -798,7 +799,8 @@ async function createSession(info: ProjectInfo, began: number): Promise<ProjectS
     root: info.root,
     durationMs: Math.round(now - began),
     componentsMs: Math.round(now - loading),
-    components: info.componentCount
+    components: info.componentCount,
+    restored
   })
   return session
 }

@@ -1,6 +1,7 @@
 import { defaultModeSettings } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ProjectInfo } from "../shared/protocol.ts"
+import type * as ReportError from "./report-error.ts"
 import { preloadAnswers } from "./service.ts"
 import type { ProjectSession } from "./workspace.ts"
 
@@ -20,6 +21,12 @@ vi.mock("./guest.ts", () => ({
     }),
   releaseGuest: (url: string) => guest.released.push(url),
   previewToken: () => undefined
+}))
+
+const tracked = vi.hoisted(() => [] as Array<{ name: string; attributes: Record<string, unknown> }>)
+vi.mock("./report-error.ts", async (original) => ({
+  ...(await original<typeof ReportError>()),
+  track: (name: string, attributes: Record<string, unknown>) => tracked.push({ name, attributes })
 }))
 
 const { homeTab, Workspace } = await import("./workspace.ts")
@@ -48,6 +55,7 @@ let checked: string[][]
 let folders: { missing: string[]; example?: string }
 
 beforeEach(() => {
+  tracked.length = 0
   opens = []
   closes = []
   picturesKept = []
@@ -124,6 +132,35 @@ describe("starting the workspace", () => {
     workspace.restore()
     expect(opens).toHaveLength(1)
     expect(workspace.getTabs()[0]?.id).toBe(info.root)
+  })
+})
+
+describe("saying whether the window restored a project (PAR-694)", () => {
+  /** Whether each `project.loaded` was for a project the window opened as it started. */
+  const restored = () =>
+    tracked.filter(({ name }) => name === "project.loaded").map(({ attributes }) => attributes.restored)
+
+  it("marks a tab from last time as restored", async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => (key === "parity.workspace" ? JSON.stringify({ roots: [info.root] }) : null),
+      setItem: () => undefined
+    })
+    new Workspace().restore()
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await settle()
+    expect(restored()).toEqual([true])
+  })
+
+  it("marks a project the person opens as not restored", async () => {
+    vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => undefined })
+    const opening = new Workspace().open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    expect(restored()).toEqual([false])
   })
 })
 
