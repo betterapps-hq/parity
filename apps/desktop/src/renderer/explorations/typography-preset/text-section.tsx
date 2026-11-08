@@ -8,10 +8,7 @@ import {
   CommandList,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
   Popover,
@@ -40,8 +37,7 @@ import {
   LockOpen,
   RotateCcw,
   Strikethrough,
-  Underline,
-  X
+  Underline
 } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
@@ -83,8 +79,14 @@ import {
   detach
 } from "./presets.ts"
 
-/** How the rows a preset sets are shown while it's applied: the three treatments being compared. */
-export type Locking = "hidden" | "folded" | "disabled"
+/**
+ * How the rows a preset covers are shown while it's applied: folded into a summary and locked when opened, folded and
+ * editable when opened, or locked in place.
+ */
+export type Locking = "folded-locked" | "folded" | "disabled"
+
+/** Whether a covered row is locked until it's unlocked to override it. */
+const locks = (locking: Locking) => locking !== "folded"
 
 /** A value set on the layer over its preset's: the component color, as an instance's overrides are drawn. */
 export const overrideColor = kindColors.component
@@ -104,7 +106,7 @@ interface TextSectionProps {
 
 /**
  * The Design panel's Text section for a text layer, with a typography preset row first. While a preset is applied, the
- * rows it covers are hidden, folded into its row, or shown locked, by `locking`; the rest stay as they are.
+ * rows it covers fold into its row or stay in place, locked or not, by `locking`; the rest stay as they are.
  */
 export function PresetTextSection({
   locking,
@@ -116,14 +118,13 @@ export function PresetTextSection({
 }: TextSectionProps) {
   const preset = presetByName(project, layer.preset)
   const covered = coveredBy(preset)
-  // Rows a person has asked to see while they still follow the preset: brought back from the menu (hidden) or
-  // unlocked (disabled). Changing the preset puts them away again.
+  // Rows a person has unlocked while they still follow the preset. Changing the preset locks them again.
   const [opened, setOpened] = useState<{ preset?: string; fields: ReadonlySet<TypeField> }>({ fields: new Set() })
   const shownFields = opened.preset === layer.preset ? opened.fields : new Set<TypeField>()
   const [expanded, setExpanded] = useState(initiallyOpen)
 
-  // Opening a row moves focus into it; putting it away or resetting it leaves focus on its lock, or on the preset's
-  // menu when the row goes.
+  // Unlocking a row moves focus into it; locking or resetting it leaves focus on its lock, or on the preset's menu when
+  // the row folds away.
   const rows = useRef<HTMLDivElement>(null)
   const refocus = useRef<{ field: TypeField; to: "control" | "action" }>(undefined)
   useEffect(() => {
@@ -164,14 +165,13 @@ export function PresetTextSection({
 
   const typeRows = typeFields.map(({ field }) => field)
   const presetRows = typeRows.filter((field) => covered.has(field))
-  const visible = (field: TypeField) => {
-    if (!preset || !covered.has(field)) return true
-    if (locking === "disabled") return true
-    if (locking === "hidden") return isOverride(field) || shownFields.has(field)
-    return expanded || isOverride(field)
-  }
-  // Folded rows sit under the preset's summary; elsewhere every row keeps its place.
-  const inPlace = typeRows.filter((field) => (locking === "folded" && preset ? !covered.has(field) : true))
+  // Folded, a covered row shows while the summary is open, and stays shown while it's overridden or unlocked, so a
+  // difference from the preset is never folded away.
+  const folds = locking !== "disabled"
+  const visible = (field: TypeField) =>
+    !preset || !covered.has(field) || !folds || expanded || isOverride(field) || shownFields.has(field)
+  // Folded rows sit under the preset's summary; locked in place, every row keeps its place.
+  const inPlace = typeRows.filter((field) => (folds && preset ? !covered.has(field) : true))
   const beforeColor = inPlace.filter((field) => field !== "case")
 
   return (
@@ -179,23 +179,21 @@ export function PresetTextSection({
       <div ref={rows} className="flex flex-col gap-1">
         {project.presets.length > 0 && (
           <PresetRow
-            locking={locking}
             project={project}
             layer={layer}
             viewport={viewport}
-            hiddenFields={presetRows.filter((field) => !visible(field))}
             onPick={(name) => onChange(applyPreset(project, layer, name))}
-            onReveal={(field) => open(field, true)}
             onResetOverrides={() => onChange(resetOverrides(project, layer))}
             onDetach={() => onChange(detach(project, layer))}
           />
         )}
-        {locking === "folded" && preset && (
+        {folds && preset && (
           <>
             <Disclosure
               project={project}
               preset={preset}
               viewport={viewport}
+              locked={locks(locking)}
               open={expanded}
               onOpenChange={setExpanded}
             />
@@ -349,25 +347,19 @@ function RowAction({
   )
 }
 
-/** The preset row: its picker, and a menu with Detach, the reset for its overrides, and, where rows hide, Override. */
+/** The preset row: its picker, and a menu with Detach and the reset for its overrides. */
 function PresetRow({
-  locking,
   project,
   layer,
   viewport,
-  hiddenFields,
   onPick,
-  onReveal,
   onResetOverrides,
   onDetach
 }: {
-  locking: Locking
   project: PresetProject
   layer: TextLayer
   viewport: ViewportId
-  hiddenFields: TypeField[]
   onPick: (name: string | undefined) => void
-  onReveal: (field: TypeField) => void
   onResetOverrides: () => void
   onDetach: () => void
 }) {
@@ -385,14 +377,7 @@ function PresetRow({
         dot={changesByViewport.length > 0}
         action={
           preset && (
-            <PresetMenu
-              preset={preset}
-              hiddenFields={locking === "hidden" ? hiddenFields : []}
-              overrides={overrides}
-              onReveal={onReveal}
-              onResetOverrides={onResetOverrides}
-              onDetach={onDetach}
-            />
+            <PresetMenu preset={preset} overrides={overrides} onResetOverrides={onResetOverrides} onDetach={onDetach} />
           )
         }
       >
@@ -453,20 +438,15 @@ const presetVaries = (preset: Preset, field: TypeField) =>
 
 function PresetMenu({
   preset,
-  hiddenFields,
   overrides,
-  onReveal,
   onResetOverrides,
   onDetach
 }: {
   preset: Preset
-  hiddenFields: TypeField[]
   overrides: number
-  onReveal: (field: TypeField) => void
   onResetOverrides: () => void
   onDetach: () => void
 }) {
-  const revealing = useRef(false)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -483,35 +463,7 @@ function PresetMenu({
           </Hint>
         }
       />
-      {/* A row brought back to override takes focus, so the menu doesn't hand it back to its button. */}
-      <DropdownMenuContent
-        align="end"
-        className="w-52"
-        finalFocus={() => {
-          const back = !revealing.current
-          revealing.current = false
-          return back
-        }}
-      >
-        {hiddenFields.length > 0 && (
-          <>
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Override</DropdownMenuLabel>
-              {hiddenFields.map((field) => (
-                <DropdownMenuItem
-                  key={field}
-                  onClick={() => {
-                    revealing.current = true
-                    onReveal(field)
-                  }}
-                >
-                  {fieldLabel(field)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-          </>
-        )}
+      <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuItem disabled={overrides === 0} onClick={onResetOverrides}>
           {overrides === 0 ? "No overrides to reset" : `Reset ${overrideCountText(overrides)}`}
         </DropdownMenuItem>
@@ -667,17 +619,22 @@ function Sample({ project, preset, size }: { project: PresetProject; preset: Pre
   )
 }
 
-/** The folded preset's summary under its row, which opens and closes the rows it sets. */
+/**
+ * The folded preset's summary under its row, which opens and closes the rows it sets. Where those rows open locked, a
+ * lock at the line's end says so while they're folded away.
+ */
 function Disclosure({
   project,
   preset,
   viewport,
+  locked,
   open,
   onOpenChange
 }: {
   project: PresetProject
   preset: Preset
   viewport: ViewportId
+  locked: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -687,12 +644,14 @@ function Disclosure({
       <button
         type="button"
         aria-expanded={open}
-        aria-label={`${open ? "Hide" : "Show"} what ${preset.name} sets`}
+        aria-label={`${open ? "Hide" : "Show"} what ${preset.name} sets${locked ? ", locked" : ""}`}
         onClick={() => onOpenChange(!open)}
         className="flex min-w-0 items-center gap-1 rounded-sm py-0.5 text-left text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         <ChevronRight className={`size-3 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
-        <span className="truncate">{summary(project, presetAt(preset, viewport))}</span>
+        <span className="min-w-0 flex-1 truncate">{summary(project, presetAt(preset, viewport))}</span>
+        {/* Lined up with the rows' locks below. */}
+        {locked && <Lock aria-hidden className="mr-2 size-3 shrink-0" />}
       </button>
     </div>
   )
@@ -760,7 +719,9 @@ function TypeRow({
     )
   }
 
-  if (locking === "disabled" && !opened) {
+  const control = <TypeControl field={field} project={project} shown={shown} onSet={set} label={label} />
+  if (!locks(locking)) return row(control)
+  if (!opened) {
     return row(
       <LockedControl field={field} shown={shown} label={label} preset={preset} />,
       <RowAction label={`Unlock ${label} to override it`} onClick={() => onOpen(true)}>
@@ -768,25 +729,12 @@ function TypeRow({
       </RowAction>
     )
   }
-
-  const control = <TypeControl field={field} project={project} shown={shown} onSet={set} label={label} />
-  if (locking === "disabled") {
-    return row(
-      control,
-      <RowAction label={`Lock ${label} to ${preset.name}`} onClick={() => onOpen(false)}>
-        <LockOpen className="size-3.5" />
-      </RowAction>
-    )
-  }
-  if (locking === "hidden") {
-    return row(
-      control,
-      <RowAction label={`Hide ${label}`} onClick={() => onOpen(false)}>
-        <X className="size-3.5" />
-      </RowAction>
-    )
-  }
-  return row(control)
+  return row(
+    control,
+    <RowAction label={`Lock ${label} to ${preset.name}`} onClick={() => onOpen(false)}>
+      <LockOpen className="size-3.5" />
+    </RowAction>
+  )
 }
 
 /** A value the preset sets, shown but not editable. */

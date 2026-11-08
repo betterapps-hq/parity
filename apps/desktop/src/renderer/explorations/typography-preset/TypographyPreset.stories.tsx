@@ -6,7 +6,8 @@ import { detach, layerWith, projectById, setOwn } from "./presets.ts"
 /**
  * Choosing a typography preset for a text layer, and how the Text section shows the rows it then sets, for PAR-707
  * (call 6 of docs/proposals/design-options.md). The same layer is shown three ways side by side: the rows the preset
- * sets hidden, folded into its row, or shown locked. Rows it doesn't set (color, alignment, decoration, and whatever
+ * sets folded into a summary that opens locked, folded and editable, or shown locked in place. Rows it doesn't set
+ * (color, alignment, decoration, and whatever
  * else it leaves out) stay editable in all three. Changing a row the preset sets overrides it there, in the override
  * color with a reset arrow, and the preset's menu detaches it. Presets are the fixture projects' own: Fluent's
  * typographyStyles, Material UI's typography variants (which grow with the viewport), Chakra's textStyles, and, for
@@ -21,6 +22,8 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+const foldedLocked = "Folded and locked"
+
 const version = (canvasElement: HTMLElement, name: string) =>
   within(within(canvasElement).getByRole("region", { name }))
 
@@ -33,12 +36,16 @@ async function enter(field: HTMLElement, text: string): Promise<void> {
 /** Fluent's subtitle1 on the layer, three ways. Fluent's presets set font, size, weight and line height. */
 export const Compare: Story = {
   play: async ({ canvasElement }) => {
-    for (const name of ["Hidden", "Folded into the preset", "Shown locked"]) {
+    for (const name of [foldedLocked, "Folded into the preset", "Shown locked"]) {
       const section = version(canvasElement, name)
       await expect(section.getByRole("button", { name: "Typography preset: subtitle1" })).toBeVisible()
       await expect(section.getByRole("button", { name: "Italic" })).toBeEnabled()
     }
-    await expect(version(canvasElement, "Hidden").queryByRole("textbox", { name: "Size" })).toBeNull()
+    const both = version(canvasElement, foldedLocked)
+    await expect(both.queryByRole("textbox", { name: /^Size/ })).toBeNull()
+    await expect(both.getByRole("button", { name: "Show what subtitle1 sets, locked" })).toHaveTextContent(
+      "Segoe UI 20/28 Semibold"
+    )
     await expect(
       version(canvasElement, "Shown locked").getByRole("textbox", { name: "Size, set by subtitle1" })
     ).toBeDisabled()
@@ -74,7 +81,7 @@ const lineHeight24 = () => setOwn(layerWith("subtitle1"), "mobile", "lineHeight"
 export const OverridingOneRow: Story = {
   args: { start: lineHeight24 },
   play: async ({ canvasElement }) => {
-    for (const name of ["Hidden", "Folded into the preset", "Shown locked"]) {
+    for (const name of [foldedLocked, "Folded into the preset", "Shown locked"]) {
       const section = version(canvasElement, name)
       await expect(
         section.getByRole("button", { name: "Typography preset: subtitle1, 1 value overridden" })
@@ -88,7 +95,7 @@ export const OverridingOneRow: Story = {
   }
 }
 
-/** Overriding from each: Hidden brings the row back from the preset's menu, Shown locked unlocks it. */
+/** Overriding by unlocking a row: in place in Shown locked, and under the opened summary in Folded and locked. */
 export const Overriding: Story = {
   play: async ({ canvasElement }) => {
     const locked = version(canvasElement, "Shown locked")
@@ -98,10 +105,11 @@ export const Overriding: Story = {
     await enter(size, "22")
     await expect(locked.getByRole("button", { name: "Reset Size to subtitle1" })).toBeVisible()
 
-    const hidden = version(canvasElement, "Hidden")
-    await userEvent.click(hidden.getByRole("button", { name: "More for subtitle1" }))
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Line height" }))
-    await expect(hidden.getByRole("textbox", { name: "Line height" })).toHaveValue("28")
+    const both = version(canvasElement, foldedLocked)
+    await userEvent.click(both.getByRole("button", { name: "Show what subtitle1 sets, locked" }))
+    await expect(both.getByRole("textbox", { name: "Line height, set by subtitle1" })).toBeDisabled()
+    await userEvent.click(both.getByRole("button", { name: "Unlock Line height to override it" }))
+    await expect(both.getByRole("textbox", { name: "Line height" })).toHaveFocus()
   }
 }
 
@@ -112,10 +120,10 @@ export const Overriding: Story = {
 export const Detached: Story = {
   args: { start: (project) => detach(project, layerWith("subtitle1")) },
   play: async ({ canvasElement }) => {
-    const hidden = version(canvasElement, "Hidden")
-    await expect(hidden.getByRole("button", { name: "Typography preset: none" })).toBeVisible()
-    await expect(hidden.getByRole("textbox", { name: "Size" })).toHaveValue("20")
-    await expect(hidden.getByRole("status")).toHaveTextContent("Matches subtitle1")
+    const both = version(canvasElement, foldedLocked)
+    await expect(both.getByRole("button", { name: "Typography preset: none" })).toBeVisible()
+    await expect(both.getByRole("textbox", { name: "Size" })).toHaveValue("20")
+    await expect(both.getByRole("status")).toHaveTextContent("Matches subtitle1")
   }
 }
 
@@ -172,8 +180,8 @@ export const PerViewport: Story = {
 export const SomeRowsSet: Story = {
   args: { project: "chakra", start: () => layerWith(projectById("chakra").initial) },
   play: async ({ canvasElement }) => {
-    const hidden = version(canvasElement, "Hidden")
-    await expect(hidden.getByRole("combobox", { name: "Weight" })).toBeEnabled()
-    await expect(hidden.queryByRole("textbox", { name: "Size" })).toBeNull()
+    const both = version(canvasElement, foldedLocked)
+    await expect(both.getByRole("combobox", { name: "Weight" })).toBeEnabled()
+    await expect(both.queryByRole("textbox", { name: /^Size/ })).toBeNull()
   }
 }

@@ -35,9 +35,9 @@ import { type Locking, PresetTextSection } from "./text-section.tsx"
 
 const lockings: { id: Locking; title: string; note: string }[] = [
   {
-    id: "hidden",
-    title: "Hidden",
-    note: "The rows the preset covers leave the section. Bring one back from the preset's menu to override it."
+    id: "folded-locked",
+    title: "Folded and locked",
+    note: "The rows the preset covers fold into a summary and open locked. Unlock one to override it."
   },
   {
     id: "folded",
