@@ -473,6 +473,12 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
         files: (params.files as { name: string }[]).map((file) => `D:/exports/${file.name}`),
         warnings: []
       }
+    case "layers.picture":
+      // A see-through pixel, as a PNG.
+      return {
+        png: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+        warnings: []
+      }
     case "designs.export":
       return {
         files: (params.designs as string[]).map((design) => `D:/exports/${design.split("#").at(-1)}.png`),
