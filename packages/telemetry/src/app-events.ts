@@ -22,6 +22,17 @@ export const appStarted = defineEvent(
   { level: "info", sentBy: ["main"], when: "The first window has painted and the project service is running." }
 )
 
+export const appFirstProject = defineEvent(
+  "app.first_project",
+  z.object({
+    firstProjectMs: ms("From the process starting to the first project's tab being ready to draw"),
+    restored: z
+      .boolean()
+      .describe("Whether the window opened it as it started, as last time's tabs, rather than the person choosing it")
+  }),
+  { level: "info", sentBy: ["main"], when: "The first project opened since the app started has its tab ready to draw." }
+)
+
 export const appQuit = defineEvent(
   "app.quit",
   z.object({
@@ -99,6 +110,7 @@ export const rendererLongTask = defineEvent(
 
 export const appEvents = [
   appStarted,
+  appFirstProject,
   appQuit,
   updateChecked,
   updateDownloaded,
@@ -115,28 +127,39 @@ export const slowThresholdMs = 200
 /** How often each process's memory is recorded, in milliseconds. */
 export const memoryEveryMs = 5 * 60_000
 
-/** The steps `app.started` times. */
-export type StartupStep = "mainReady" | "windowShown" | "firstPaint" | "serviceReady"
+/** The steps `app.started` times, and `firstProject`, which `app.first_project` times. */
+export type StartupStep = "mainReady" | "windowShown" | "firstPaint" | "serviceReady" | "firstProject"
+
+/** A startup event to record: `app.started` once its steps are in, or `app.first_project`. */
+export type StartupRecord =
+  | { name: "app.started"; attributes: z.input<typeof appStarted.schema> }
+  | { name: "app.first_project"; attributes: z.input<typeof appFirstProject.schema> }
 
 /**
- * Times startup from `origin`, the process starting. Each step counts the first time it's marked; `mark` gives
- * `app.started`'s attributes once, when the last step is in.
+ * Times startup from `origin`, the process starting. Each step counts the first time it's marked. `mark` gives
+ * `app.started` once, when its last step is in, and `app.first_project` once, when the first project shows, saying
+ * whether it was `restored` from last time.
  */
 export function startupTimer(
   origin: number
-): (step: StartupStep, at: number) => z.input<typeof appStarted.schema> | undefined {
+): (step: StartupStep, at: number, how?: { restored: boolean }) => StartupRecord | undefined {
   const marks = new Map<StartupStep, number>()
   let sent = false
-  return (step, at) => {
-    if (sent || marks.has(step)) return undefined
-    marks.set(step, Math.max(0, Math.round(at - origin)))
+  return (step, at, how) => {
+    if (marks.has(step)) return undefined
+    const elapsed = Math.max(0, Math.round(at - origin))
+    marks.set(step, elapsed)
+    if (step === "firstProject") {
+      return { name: "app.first_project", attributes: { firstProjectMs: elapsed, restored: how?.restored ?? false } }
+    }
+    if (sent) return undefined
     const [mainReadyMs, windowShownMs, firstPaintMs, serviceReadyMs] = (
       ["mainReady", "windowShown", "firstPaint", "serviceReady"] as const
     ).map((name) => marks.get(name))
     if (mainReadyMs === undefined || windowShownMs === undefined) return undefined
     if (firstPaintMs === undefined || serviceReadyMs === undefined) return undefined
     sent = true
-    return { mainReadyMs, windowShownMs, firstPaintMs, serviceReadyMs }
+    return { name: "app.started", attributes: { mainReadyMs, windowShownMs, firstPaintMs, serviceReadyMs } }
   }
 }
 

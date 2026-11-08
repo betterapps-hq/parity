@@ -279,6 +279,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------------------- | ----- | ---- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer.                          |
 | `agent.serverFailed`  | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                                               |
+| `app.first_project`   | info  | all  | main                                    | The first project opened since the app started has its tab ready to draw.                                    |
 | `app.quit`            | info  | all  | main                                    | The app quits.                                                                                               |
 | `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                                             |
 | `bitmapCache.used`    | info  | all  | service                                 | Each minute in which bitmaps or previews were looked up, with this session's totals so far.                  |
@@ -365,6 +366,13 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | ------------------ | ----------------------------------------- |
 | `message` | `string`           | Why it couldn't start                     |
 | `code`    | `string`, optional | The error's code, such as Node's `EACCES` |
+
+### `app.first_project`
+
+| Attribute        | Type      | Meaning                                                                                             |
+| ---------------- | --------- | --------------------------------------------------------------------------------------------------- |
+| `firstProjectMs` | `integer` | From the process starting to the first project's tab being ready to draw                            |
+| `restored`       | `boolean` | Whether the window opened it as it started, as last time's tabs, rather than the person choosing it |
 
 ### `app.quit`
 
@@ -722,13 +730,14 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `project.loaded`
 
-| Attribute      | Type      | Meaning                                                        |
-| -------------- | --------- | -------------------------------------------------------------- |
-| `name`         | `string`  | The project's name, from its package.json or its folder        |
-| `root`         | `string`  | The project's folder                                           |
-| `durationMs`   | `number`  | From asking to open it until its tab is ready, in milliseconds |
-| `componentsMs` | `number`  | How long its guest and components took to load in the window   |
-| `components`   | `integer` | The components it has                                          |
+| Attribute      | Type                | Meaning                                                                                            |
+| -------------- | ------------------- | -------------------------------------------------------------------------------------------------- |
+| `name`         | `string`            | The project's name, from its package.json or its folder                                            |
+| `root`         | `string`            | The project's folder                                                                               |
+| `durationMs`   | `number`            | From asking to open it until its tab is ready, in milliseconds                                     |
+| `componentsMs` | `number`            | How long its guest and components took to load in the window                                       |
+| `components`   | `integer`           | The components it has                                                                              |
+| `restored`     | `boolean`, optional | Whether the window opened it as it started, as last time's tabs, rather than the person opening it |
 
 ### `project.openFailed`
 
