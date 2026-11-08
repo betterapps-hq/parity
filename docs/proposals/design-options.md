@@ -135,8 +135,8 @@ from. [design-options-code.md](design-options-code.md) has the details.
 
 ## Calls to make
 
-Andrew answered these on 2026-11-06 and 2026-11-07 ([decisions.md](../decisions.md#the-design-panels-calls-par-652)).
-Call 6 is still open, and 3 and 7 have follow-up issues.
+Andrew answered these from 2026-11-06 to 2026-11-08 ([decisions.md](../decisions.md#the-design-panels-calls-par-652)).
+Calls 3 and 7 have follow-up issues.
 
 1. **Can a layer use a value that isn't a token?** Decided: yes, if it's valid
    ([decisions.md](../decisions.md#a-layer-can-use-its-own-values-not-only-tokens-if-theyre-valid-par-652)). Every field
@@ -159,17 +159,18 @@ Call 6 is still open, and 3 and 7 have follow-up issues.
    Spacing, Appearance, then the content section the layer has (Text, Image or Icon), then Fill, Stroke, Effects,
    Selection colors, Transform, Text inside for layouts, components and instances, Interaction, Motion, CSS. Size comes
    before Layout as Figma's W and H come before auto layout, and Spacing follows Layout so padding sits next to gap.
-6. **What is a typography preset?** Open. Andrew sees it as a design language's bundle of type values (Fluent's
-   typography styles bundle font, size, weight and line height): choosing one fills in the fields it covers and locks
-   them, and the layer stays synced to it. Parity calls it a typography preset in every project, whatever the framework
-   names it (Fluent's typography styles, MUI's typography variants, Chakra's textStyles), so the panel reads the same
-   across projects; "style" alone would be ambiguous in a panel where every value is style. PAR-707 explores picking one
-   and how the locked fields are shown. The recommendation it starts from: in Tailwind projects, a `--text-*` size that
-   pairs a weight or letter spacing, usually with a line height (Tailwind v4's own), or a project utility that sets only
-   type when the style names a font or sets what a size can't pair (OpenType features, case); a DTCG typography token
-   compiles to the same. Overriding one row keeps the style and marks the override, and a style can differ per
-   breakpoint. PAR-135 waits on this. [design-options-tokens.md](design-options-tokens.md), What a typography preset is,
-   has the detail.
+6. **What is a typography preset?** Decided: a design language's bundle of type values (Fluent's typography styles
+   bundle font, size, weight and line height). Choosing one fills in the fields it covers and locks them, and the layer
+   stays synced to it. Parity calls it a typography preset in every project, whatever the framework names it (Fluent's
+   typography styles, MUI's typography variants, Chakra's textStyles), so the panel reads the same across projects;
+   "style" alone would be ambiguous in a panel where every value is style. After trying PAR-707's exploration, Andrew
+   chose to fold the rows a preset covers into a summary that opens to them locked, each with an Unlock button to
+   override it, and to detach with a button beside the picker. In Tailwind projects, it's a `--text-*` size that pairs a
+   weight or letter spacing, usually with a line height (Tailwind v4's own), or a project utility that sets only type
+   when the preset names a font or sets what a size can't pair (OpenType features, case); a DTCG typography token
+   compiles to the same. Overriding one row keeps the preset and marks the override, and a preset can differ per
+   breakpoint. PAR-135 reads the presets. [design-options-panel.md](design-options-panel.md), Text, shows how the panel
+   draws one, and [design-options-tokens.md](design-options-tokens.md), What a typography preset is, how it's written.
 7. **What a state writes.** Each state names its trigger: a pseudo-class (`:hover`), an attribute (`[data-state=open]`)
    or a prop. Decided for Tailwind projects: pseudo-classes and attributes by default, as Webflow's and Plasmic's states
    are, with a prop only when the component's code has one, written as Tailwind variants. A component's state reaches
