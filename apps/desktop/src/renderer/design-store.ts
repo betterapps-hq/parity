@@ -32,6 +32,7 @@ import {
   endGesture,
   type FileWrite,
   fileWrite,
+  type HistoryEntry,
   type HistoryState,
   kindName,
   kindsName,
@@ -155,6 +156,8 @@ export class DesignStore {
   editFrame = (picked: Picked): EditFrame | undefined =>
     editFrame(picked, (key) => this.getEntry(key)?.container, this.getModes())
   getHistory = (): HistoryState => this.state.historyState
+  /** The step Undo would take back, the same object until a change, an undo, a redo or a gesture's end. */
+  getUndoStep = (): HistoryEntry | undefined => this.state.past.at(-1)
   getSaveState = (): SaveState => this.state.saveState
   getTokenEdits = (): TokenEdits => this.state.current.tokens
   getTokenFailure = (): TokenFailure | undefined => this.state.tokenFailure

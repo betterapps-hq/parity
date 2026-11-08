@@ -1,4 +1,4 @@
-import { type Checkpoint, dragThreshold, type HistoryState } from "@parity-app/editor"
+import { type Checkpoint, dragThreshold, type HistoryEntry } from "@parity-app/editor"
 import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
 import type { DesignStore } from "../design-store.ts"
 import { track } from "../report-error.ts"
@@ -115,11 +115,11 @@ export const gestures = {
 
 /**
  * What a gesture needs of the store: an undo gesture, and a checkpoint of its design to take it back to. Ending the
- * undo gesture says whether it made an undo step, and the history says whether one was made when the drag ended.
+ * undo gesture says whether it made an undo step, and the step Undo would take says whether one was made as it ended.
  */
 export type GestureStore = Pick<
   DesignStore,
-  "beginGesture" | "endGesture" | "checkpoint" | "revert" | "getEntry" | "getHistory"
+  "beginGesture" | "endGesture" | "checkpoint" | "revert" | "getEntry" | "getUndoStep"
 >
 
 /** A press that's become a drag. */
@@ -182,7 +182,7 @@ export function followPress(
   const now = at.now ?? (() => performance.now())
   let began = 0
   let frames: (() => number | undefined) | undefined
-  let history: HistoryState | undefined
+  let step: HistoryEntry | undefined
   // Only once the design has changed, since a revert writes its file again.
   const revert = () => {
     if (!checkpoint || press.design === undefined) return
@@ -197,7 +197,7 @@ export function followPress(
       trace = startTrace("gesture.ran", { gesture: gestureKind(policy) ?? "other" })
       began = now()
       frames = (at.countFrames ?? countFrames)()
-      history = store.getHistory()
+      step = store.getUndoStep()
       const gesture = store.beginGesture()
       checkpoint = press.design === undefined ? undefined : store.checkpoint(press.design, gesture)
       releaseCursor = press.cursor === undefined ? undefined : at.holdCursor(press.cursor)
@@ -220,8 +220,9 @@ export function followPress(
     if (outcome === "revert") revert()
     releaseCursor?.()
     press.end?.(outcome === "keep", drag)
-    // A drag that writes once it's kept, as a design dragged by its title does, makes its step as it ends.
-    const undoStep = store.endGesture(drag.gesture) || (outcome === "keep" && store.getHistory() !== history)
+    // A drag that writes once it's kept, as a design dragged by its title does, makes its step as it ends. A drag
+    // that changed things and then put them back leaves the step Undo would take as it was.
+    const undoStep = store.endGesture(drag.gesture) || (outcome === "keep" && store.getUndoStep() !== step)
     trace?.end(outcome === "cancel" ? "cancelled" : "ok", { how })
     const kind = gestureKind(policy)
     if (!kind) return

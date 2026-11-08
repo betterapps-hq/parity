@@ -421,6 +421,24 @@ describe("gesture.ended", () => {
     expect(ended()).toMatchObject([{ kind: "titleDrag", kept: true, undoStep: true }])
   })
 
+  it("counts no undo step for a drag that changed something and put it back before the release", () => {
+    const { target, at, store, name, rename } = setup()
+    const was = name()
+    followPress(
+      gestures.resize,
+      store,
+      { clientX: 0, clientY: 0 },
+      { design, move: (event, drag) => rename(event.clientX === 20 ? was : `Home ${event.clientX}`, drag.gesture) },
+      at
+    )
+    for (const x of [10, 20]) target.dispatchEvent(pointer("pointermove", x))
+    target.dispatchEvent(new Event("pointerup"))
+    expect({ canUndo: store.getHistory().canUndo, ended: ended() }).toMatchObject({
+      canUndo: false,
+      ended: [{ kind: "resize", kept: true, undoStep: false }]
+    })
+  })
+
   it("records nothing for a click", () => {
     const { target, at, store } = setup()
     followPress(gestures.layerDrag, store, { clientX: 0, clientY: 0 }, { move: () => undefined }, at)
