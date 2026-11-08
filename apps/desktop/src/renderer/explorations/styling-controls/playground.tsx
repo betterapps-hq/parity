@@ -53,7 +53,7 @@ export function Playground({
   )
 }
 
-function Readout({ writes }: { writes: Writes }) {
+export function Readout({ writes }: { writes: Writes }) {
   const blocks = [
     { title: "Stored", text: writes.stored === undefined ? "Unset" : JSON.stringify(writes.stored, null, 2) },
     { title: "CSS", text: writes.css.length > 0 ? writes.css.map((line) => `${line};`).join("\n") : "Nothing" },
