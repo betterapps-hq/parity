@@ -7,7 +7,8 @@ import { StylingPrototype } from "./prototype.tsx"
  * The styling controls designers expect from Figma, proposed for the inspector (PAR-186): a color picker with the
  * nearest token, opacity on a color, radius per corner, stroke per side, blur and backdrop blur, aspect ratio, a text
  * layer's tag, grid tracks and placement, baseline alignment and reversed order, and a typed frame size. The fields
- * follow PAR-652's design options pages (design-options-fields.md and design-options-values.md).
+ * follow PAR-652's design options pages (design-options-fields.md and design-options-values.md), with the sections in
+ * the order Andrew chose (call 5): Size, Layout, Appearance, Fill, Stroke, Effects, then Text inside.
  *
  * Each story is the same prototype, a stand-in for Plans on the canvas and the inspector beside it, starting on one
  * control. Every control works: the stand-in redraws as it changes. A token shows as a chip, then what it comes to,
@@ -25,8 +26,10 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * Plans, a card with a translucent fill, per-corner radius and a backdrop blur over shapes behind it, so the fill's
- * opacity (`bg-card/70`) and the blur show. Fill, radius and blur tokens show as chips. Radius per corner is a toggle
+ * Plans, a card with a translucent fill, per-corner radius and a background blur over shapes behind it, so the fill's
+ * opacity (`bg-card/70`) and the blur show. Fill, radius and blur tokens show as chips. Fill and Effects are sections of
+ * their own, as Stroke is: a title with + until something is set, and Effects' + offers Layer blur and Background
+ * blur, each a row with − to take it off. Radius per corner is a toggle
  * beside its row, with the corners laid out where they are on the layer. Stroke's sides are Figma's menu after Width:
  * All, Top, Bottom, Left, Right or Custom; this card has a bottom stroke only. Custom's four fields are narrow, so their
  * unit shows on hover. Stroke widths switch between px and rem. Stroke's − takes it off, and its + adds `border-border`

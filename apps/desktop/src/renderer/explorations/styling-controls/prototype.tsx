@@ -92,10 +92,13 @@ export function StylingPrototype({ start }: { start: Start }) {
   let selected = "Plans"
   let panel = (
     <>
-      <LayoutSection draft={draft} set={set} />
+      {/* Call 5's order: Size, Layout, Appearance, Fill, Stroke, Effects, then Text inside for a layout. */}
       <SizeSection draft={draft} set={set} />
-      <AppearanceSection draft={draft} set={set} tokensOnly={start.tokensOnly} fillPicker={start.fillPicker} />
+      <LayoutSection draft={draft} set={set} />
+      <AppearanceSection draft={draft} set={set} tokensOnly={start.tokensOnly} />
+      <FillSection draft={draft} set={set} tokensOnly={start.tokensOnly} fillPicker={start.fillPicker} />
       <StrokeSection draft={draft} set={set} tokensOnly={start.tokensOnly} />
+      <EffectsSection draft={draft} set={set} tokensOnly={start.tokensOnly} />
       <TextSection draft={draft} set={set} />
     </>
   )
@@ -1263,33 +1266,12 @@ const corners = ["Top left", "Top right", "Bottom right", "Bottom left"] as cons
 /** The corners' indices in reading order across the two-by-two grid of fields. */
 const cornersAsLaidOut = [0, 1, 3, 2] as const
 
-function AppearanceSection({
-  draft,
-  set,
-  tokensOnly,
-  fillPicker
-}: SectionProps & { fillPicker?: "tokens" | "custom" }) {
+function AppearanceSection({ draft, set, tokensOnly }: SectionProps) {
   const perCorner = Array.isArray(draft.radius)
   const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
   return (
     <PanelSection title="Appearance">
       <div className="flex flex-col gap-1">
-        <Field label="Fill">
-          <ColorInput
-            label="Fill"
-            tokensOnly={tokensOnly}
-            used={usedColors}
-            value={draft.background}
-            alpha={draft.backgroundAlpha}
-            open={fillPicker !== undefined}
-            tab={fillPicker}
-            allowed={draft.backgroundAllowed}
-            onAllow={(backgroundAllowed) => set({ backgroundAllowed })}
-            onChange={(background, backgroundAlpha) =>
-              set({ background, backgroundAlpha, backgroundAllowed: undefined })
-            }
-          />
-        </Field>
         <Field label="Radius">
           <div className="flex items-start gap-1">
             {perCorner ? (
@@ -1333,18 +1315,153 @@ function AppearanceSection({
             </Hint>
           </div>
         </Field>
-        <Field label="Blur" hint="Blurs the layer itself">
-          <BlurChoice label="Blur" value={draft.blur} tokensOnly={tokensOnly} onChange={(blur) => set({ blur })} />
-        </Field>
-        <Field label="Backdrop blur" hint="Blurs what shows through the layer, for frosted glass">
-          <BlurChoice
-            label="Backdrop blur"
-            value={draft.backdropBlur}
-            tokensOnly={tokensOnly}
-            onChange={(backdropBlur) => set({ backdropBlur })}
-          />
-        </Field>
       </div>
+    </PanelSection>
+  )
+}
+
+/** A section title's + or −, for a section that starts empty: Fill, Stroke, Effects. */
+function SectionButton({ adds, what, onClick }: { adds: boolean; what: string; onClick: () => void }) {
+  const label = adds ? `Add ${what}` : `Remove ${what}`
+  return (
+    <Hint label={label}>
+      <Button variant="ghost" size="icon-sm" className="size-6" aria-label={label} onClick={onClick}>
+        {adds ? <Plus /> : <Minus />}
+      </Button>
+    </Hint>
+  )
+}
+
+/**
+ * Fill, a section of its own in call 5's order: the layer's fill, or a title with + until it has one, which adds
+ * `bg-background`, the project's usual fill. The row stays while its token is taken off to type another.
+ */
+function FillSection({ draft, set, tokensOnly, fillPicker }: SectionProps & { fillPicker?: "tokens" | "custom" }) {
+  const [shown, setShown] = useState(draft.background !== undefined)
+  const filled = shown || draft.background !== undefined
+  return (
+    <PanelSection
+      title="Fill"
+      action={
+        <SectionButton
+          adds={!filled}
+          what="fill"
+          onClick={() => {
+            setShown(!filled)
+            set(
+              filled
+                ? { background: undefined, backgroundAlpha: undefined, backgroundAllowed: undefined }
+                : { background: "background" }
+            )
+          }}
+        />
+      }
+    >
+      {filled && (
+        <div className="pr-1">
+          <ColorInput
+            label="Fill"
+            tokensOnly={tokensOnly}
+            used={usedColors}
+            value={draft.background}
+            alpha={draft.backgroundAlpha}
+            open={fillPicker !== undefined}
+            tab={fillPicker}
+            allowed={draft.backgroundAllowed}
+            onAllow={(backgroundAllowed) => set({ backgroundAllowed })}
+            onChange={(background, backgroundAlpha) =>
+              set({ background, backgroundAlpha, backgroundAllowed: undefined })
+            }
+          />
+        </div>
+      )}
+    </PanelSection>
+  )
+}
+
+const effects = [
+  { key: "blur", label: "Layer blur", hint: "Blurs the layer itself", added: "blur-sm" },
+  {
+    key: "backdropBlur",
+    label: "Background blur",
+    hint: "Blurs what shows through the layer, for frosted glass",
+    added: "blur-md"
+  }
+] as const
+
+/**
+ * Effects, a section of its own in call 5's order, with Layer blur and Background blur as PAR-652's panel names them.
+ * It's a title with + until an effect is added; + offers each effect, and each row's − takes it off.
+ */
+function EffectsSection({ draft, set, tokensOnly }: SectionProps) {
+  const [added, setAdded] = useState(() => ({
+    blur: draft.blur !== undefined,
+    backdropBlur: draft.backdropBlur !== undefined
+  }))
+  const shown = effects.filter((effect) => added[effect.key] || draft[effect.key] !== undefined)
+  return (
+    <PanelSection
+      title="Effects"
+      action={
+        <DropdownMenu>
+          <Hint label="Add an effect">
+            <DropdownMenuTrigger
+              aria-label="Add an effect"
+              className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+            >
+              <Plus className="size-4" />
+            </DropdownMenuTrigger>
+          </Hint>
+          <DropdownMenuContent align="end" className="w-44">
+            {effects.map((effect) => (
+              <DropdownMenuItem
+                key={effect.key}
+                className="text-xs"
+                disabled={shown.includes(effect)}
+                onClick={() => {
+                  setAdded((current) => ({ ...current, [effect.key]: true }))
+                  set({ [effect.key]: effect.added })
+                }}
+              >
+                {effect.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      }
+    >
+      {shown.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {shown.map((effect) => (
+            <Field key={effect.key} label={effect.label} hint={effect.hint}>
+              <div className="flex items-start gap-1">
+                <div className="min-w-0 flex-1">
+                  <BlurChoice
+                    label={effect.label}
+                    value={draft[effect.key]}
+                    tokensOnly={tokensOnly}
+                    onChange={(value) => set({ [effect.key]: value })}
+                  />
+                </div>
+                <Hint label={`Remove ${effect.label.toLowerCase()}`}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-7"
+                    aria-label={`Remove ${effect.label.toLowerCase()}`}
+                    onClick={() => {
+                      setAdded((current) => ({ ...current, [effect.key]: false }))
+                      set({ [effect.key]: undefined })
+                    }}
+                  >
+                    <Minus />
+                  </Button>
+                </Hint>
+              </div>
+            </Field>
+          ))}
+        </div>
+      )}
     </PanelSection>
   )
 }
@@ -1773,24 +1890,18 @@ function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
     : ([0, 0, 0, 0].map(() => (draft.borderWidth as number | undefined) ?? 1) as [number, number, number, number])
   const stroked = draft.border !== undefined || draft.borderWidth !== undefined
   const action = (
-    <Hint label={stroked ? "Remove stroke" : "Add stroke"}>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="size-6"
-        aria-label={stroked ? "Remove stroke" : "Add stroke"}
-        onClick={() => {
-          setCustom(false)
-          set(
-            stroked
-              ? { border: undefined, borderAlpha: undefined, borderAllowed: undefined, borderWidth: undefined }
-              : { border: "border", borderWidth: 1 }
-          )
-        }}
-      >
-        {stroked ? <Minus /> : <Plus />}
-      </Button>
-    </Hint>
+    <SectionButton
+      adds={!stroked}
+      what="stroke"
+      onClick={() => {
+        setCustom(false)
+        set(
+          stroked
+            ? { border: undefined, borderAlpha: undefined, borderAllowed: undefined, borderWidth: undefined }
+            : { border: "border", borderWidth: 1 }
+        )
+      }}
+    />
   )
   if (!stroked) {
     return (
