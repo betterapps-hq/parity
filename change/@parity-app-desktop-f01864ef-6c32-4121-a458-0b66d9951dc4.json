@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "The Design panel no longer has a Frame, Component and Screen switch; convert a design from its title menu",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

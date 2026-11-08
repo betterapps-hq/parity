@@ -1,8 +1,22 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 08 Nov 2026 11:33:42 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 12:58:18 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.35.0
+
+Sun, 08 Nov 2026 12:58:18 GMT
+
+### Minor changes
+
+- Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures,
+  version mismatches and MCP sessions in ~/.parity/logs (ajcraswell@gmail.com)
+
+### Patches
+
+- The Design panel no longer has a Frame, Component and Screen switch; convert a design from its title menu
+  (ajcraswell@gmail.com)
 
 ## 0.34.0
 

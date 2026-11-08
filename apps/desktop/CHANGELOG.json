@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 12:58:18 GMT",
+      "version": "0.35.0",
+      "tag": "@parity-app/desktop_v0.35.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "395b70bdf130b0adbc0bd5d06fca78231fb88820",
+            "comment": "Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures, version mismatches and MCP sessions in ~/.parity/logs"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2d98fd60215f52cdec5c23cabcb7f989074bc319",
+            "comment": "The Design panel no longer has a Frame, Component and Screen switch; convert a design from its title menu"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 11:33:42 GMT",
       "version": "0.34.0",
       "tag": "@parity-app/desktop_v0.34.0",
