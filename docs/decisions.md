@@ -5966,3 +5966,13 @@ everywhere, in the panel, the Tokens panel, the CLI and the agent API, so the wo
 framework's own name shows only where it says where a preset came from ("From Fluent's typographyStyles"). Andrew chose
 "preset" over "text style" for now: in a panel where every value is a style, "style" could mean any of them, while a
 preset says what it does, filling in the fields it covers and locking them while it's applied.
+
+## The interface is set in Inter (PAR-709)
+
+- **Parity's own interface is set in Inter, not Geist,** Andrew's call on 2026-11-08, after seeing the proposed type
+  ([interface-type.md](proposals/interface-type.md)) set in both at the same sizes and weights. Inter was drawn for
+  interfaces at small sizes, and its optical sizes draw small text a little looser and headings a little tighter.
+- **It comes from `@fontsource-variable/inter`, with its optical sizes (`opsz.css`).** That's Google Fonts' build, which
+  leaves out Inter's alternates for I, l and 1 and its slashed zero. Until PAR-710 builds the type into the app, it's a
+  dev dependency that only Storybook loads, as the proposed type's typeface.
+- **The rest of the proposed type waits for Andrew's approval:** the scale, weights, section titles and monospace.

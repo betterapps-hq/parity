@@ -8,16 +8,14 @@ import { Inspector } from "../chrome/Inspector.tsx"
 import { LeftPanel } from "../chrome/LeftPanel.tsx"
 import { StatusBar } from "../chrome/StatusBar.tsx"
 import { design, example, frameDesigns, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
-import { type InterfaceFont, type InterfaceType, Specimen, TypeCompare } from "./interface-type/compare.tsx"
-// Inter with its optical sizes, for comparing it with Geist.
-import "@fontsource-variable/inter/opsz.css"
+import { Specimen, TypeCompare } from "./interface-type/compare.tsx"
 
 /**
- * The app's interface type as it is and as proposed (PAR-709), on the real panels: fewer sizes (11, 12, 13 and 15px for
- * the chrome, nothing smaller), regular text a step heavier, section titles in sentence case, and code in a monospace
- * that matches Geist. Each story draws the same UI twice, current beside proposed, and both sides work; the toolbar's
- * Type control turns the proposed type on for any story in Storybook, menus and dialogs included. The audit and the
- * proposal are in docs/proposals/interface-type.md.
+ * The app's interface type as it is and as proposed (PAR-709), on the real panels: Inter in place of Geist, fewer sizes
+ * (11, 12, 13 and 15px for the chrome, nothing smaller), regular text a step heavier, section titles in sentence case,
+ * and code in a monospace as tall as Inter. Each story draws the same UI twice, current beside proposed, and both sides
+ * work; the toolbar's Type control turns the proposed type on for any story in Storybook, menus and dialogs included.
+ * The audit and the proposal are in docs/proposals/interface-type.md.
  */
 const meta = {
   title: "Parity/Explorations/Interface type",
@@ -167,78 +165,28 @@ const roles: Role[] = [
  */
 export const Scale: Story = {
   render: () => (
-    <ScaleTable
-      parts={roles}
-      columns={[
-        { label: "Current", type: "current", font: "geist" },
-        { label: "Proposed", type: "proposed", font: "geist" }
-      ]}
-    />
-  )
-}
-
-/**
- * The proposed type set in Geist, as the app is now, and in Inter, which Figma, Framer and Linear use. Inter comes with
- * its optical sizes, so its small text is drawn a little looser and its headings a little tighter on their own. The
- * last row is letters and figures that are easy to mistake for each other in layer and token names.
- */
-export const GeistOrInter: Story = {
-  name: "Geist or Inter",
-  render: () => (
-    <ScaleTable
-      parts={[
-        ...roles,
-        {
-          name: "Look-alikes",
-          where: "Layer and token names, values",
-          sample: (
-            <span data-sample className="text-xs">
-              Il1 O0 rn m 5S 8B
-            </span>
-          )
-        }
-      ]}
-      columns={[
-        { label: "Proposed in Geist", type: "proposed", font: "geist" },
-        { label: "Proposed in Inter", type: "proposed", font: "inter" }
-      ]}
-    />
-  )
-}
-
-/** Each part in two columns of type, one row each, the part named and placed on the left. */
-function ScaleTable({
-  parts,
-  columns
-}: {
-  parts: Role[]
-  columns: { label: string; type: InterfaceType; font: InterfaceFont }[]
-}) {
-  return (
     <div className="h-screen overflow-y-auto bg-background p-6 text-foreground">
       <Table className="max-w-4xl">
         <TableHeader>
           <TableRow>
             <TableHead className="w-64">Part</TableHead>
-            {columns.map((column) => (
-              <TableHead key={column.label}>{column.label}</TableHead>
-            ))}
+            <TableHead>Current</TableHead>
+            <TableHead>Proposed</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {parts.map((part) => (
-            <TableRow key={part.name} className="hover:bg-transparent">
+          {roles.map((role) => (
+            <TableRow key={role.name} className="hover:bg-transparent">
               <TableCell className="py-3 align-top">
-                <div className="font-medium">{part.name}</div>
-                <div className="text-xs whitespace-normal text-muted-foreground">{part.where}</div>
+                <div className="font-medium">{role.name}</div>
+                <div className="text-xs whitespace-normal text-muted-foreground">{role.where}</div>
               </TableCell>
-              {columns.map((column) => (
-                <TableCell key={column.label} className="py-3 align-top whitespace-normal">
-                  <Specimen type={column.type} font={column.font}>
-                    {part.sample}
-                  </Specimen>
-                </TableCell>
-              ))}
+              <TableCell className="py-3 align-top whitespace-normal">
+                <Specimen type="current">{role.sample}</Specimen>
+              </TableCell>
+              <TableCell className="py-3 align-top whitespace-normal">
+                <Specimen type="proposed">{role.sample}</Specimen>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

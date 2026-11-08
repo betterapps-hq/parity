@@ -1,14 +1,26 @@
+@import "@fontsource-variable/inter/opsz.css";
+
 /*
  * The proposed interface type (PAR-709), for comparing with the app's type in Storybook before it's built. It applies
  * inside an element marked `data-interface-type="proposed"`: the page, when the toolbar's Type control says Proposed,
  * or one column of a comparison. A part marked "current" inside it keeps the type the app has now.
  *
- * Most of it is the theme's own variables, which the kit's components and the app's classes both read, so the build
- * changes them once in styles.css. The rest stands in for class changes the build makes in the components: the odd
- * pixel sizes onto the scale, and section titles in sentence case.
+ * Most of it is the theme's own variables and typeface, which the kit's components and the app's classes both read, so
+ * the build changes them once in styles.css. The rest stands in for class changes the build makes in the components:
+ * the odd pixel sizes onto the scale, and section titles in sentence case.
  */
 @scope ([data-interface-type="proposed"]) to ([data-interface-type="current"]) {
   :scope {
+    /*
+     * Inter, drawn for interfaces at small sizes, in place of Geist (Andrew's call, 2026-11-08). Its optical sizes are
+     * on by default, so each size is drawn from the matching cut.
+     */
+    font-family: "Inter Variable", sans-serif;
+
+    & .font-sans {
+      font-family: inherit;
+    }
+
     /* Four sizes for the chrome, 11, 12, 13 and 15px, where there were nine between 10 and 16px. */
     --text-xs: 0.75rem;
     --text-xs--line-height: 1rem;
@@ -24,7 +36,7 @@
     --text-2xl--line-height: 2rem;
 
     /*
-     * Geist is variable, so regular text sits a step above 400, which reads thin at 12px on a dark panel, with medium
+     * Inter is variable, so regular text sits a step above 400, which reads thin at 12px on a dark panel, with medium
      * and semibold moved up to keep their distance from it.
      */
     --font-weight-normal: 450;
@@ -33,8 +45,8 @@
     font-weight: var(--font-weight-normal);
 
     /*
-     * Code in a monospace that matches Geist's x-height. `ui-monospace` only works in Safari, so in Chromium code fell
-     * through to Consolas on Windows, whose lowercase is 8% shorter than Geist's.
+     * Code in a monospace whose lowercase is as tall as Inter's. `ui-monospace` only works in Safari, so in Chromium
+     * code fell through to Consolas on Windows, whose lowercase is 6% shorter than Inter's and 8% shorter than Geist's.
      */
     --font-mono: "Cascadia Mono", Menlo, Consolas, monospace;
 
@@ -128,19 +140,8 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: "Geist Variable", sans-serif;
   font-weight: 400;
   -webkit-font-smoothing: auto;
   -moz-osx-font-smoothing: auto;
-}
-
-/*
- * Inter in place of Geist, for comparing the two typefaces. Its optical sizes are on by default, so it draws each size
- * from the matching cut. Anything that names the sans font itself takes Inter too.
- */
-[data-interface-font="inter"] {
-  font-family: "Inter Variable", sans-serif;
-
-  & .font-sans {
-    font-family: inherit;
-  }
 }
