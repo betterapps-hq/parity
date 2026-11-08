@@ -42,8 +42,8 @@ describe("execute transport contract", processTests, () => {
       expect(cli.code).toBe(0)
     }
     expect(requests).toEqual([
-      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "One" },
-      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "Two" }
+      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "One", transport: "cli" },
+      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "Two", transport: "cli" }
     ])
   })
   it("publishes execute defaults and patch constraints through MCP discovery", async () => {
@@ -92,6 +92,35 @@ describe("execute transport contract", processTests, () => {
         isError: true
       }
     })
+  })
+  it("records each run, MCP session and missing app in the CLI's own log, and says how each call came", async () => {
+    const code = "Print(1)\n"
+    const [cli, protocol, missing] = await Promise.all([
+      run(["exec", "--label", "Try"], code),
+      mcp({ input: code }),
+      run(["tabs"], "", { PARITY_AGENT_FILE: join(fixture.directory, "none.json") })
+    ])
+    expect([cli.code, missing.code]).toEqual([0, 1])
+    expect(toolReply(protocol.stdout)).toEqual(expect.objectContaining({ result: expect.anything() }))
+    expect(
+      requests
+        .map((request) => String((request as { transport?: unknown }).transport))
+        .sort((a, b) => a.localeCompare(b))
+    ).toEqual(["cli", "mcp"])
+    const events = fixture.events()
+    expect(events.every((event) => event.process === "cli")).toBe(true)
+    const named = (name: string) =>
+      events
+        .filter((event) => event.name === name)
+        .map((event) => event.attributes)
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    expect(named("cli.ran")).toEqual([
+      { command: "exec", flags: ["label"], exitCode: 0 },
+      { command: "mcp", flags: [], exitCode: 0 },
+      { command: "tabs", flags: [], exitCode: 1, code: "not_running" }
+    ])
+    expect(named("mcp.session")).toEqual([{ client: "Contract Caller" }])
+    expect(named("cli.connectFailed")).toEqual([{ code: "not_running", copies: 0 }])
   })
   it("maps CLI stdin and MCP input to the same defaults and preserves their response formats", async () => {
     const code = "Print(Designs().length)\n"
