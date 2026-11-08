@@ -85,7 +85,7 @@ export function TypographyPresetExploration({
           <h1 className="text-sm font-semibold">Typography presets</h1>
           <p className="text-xs text-muted-foreground">
             A typography preset fills in the type rows it covers and locks them to the design language. Pick one, change
-            a row to override it, or detach it from the preset&apos;s menu.
+            a row to override it, or detach it to keep its values as the layer&apos;s own.
           </p>
         </div>
         <ProjectPicker value={projectId} onChange={setProjectId} />

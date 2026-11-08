@@ -9,7 +9,7 @@ import { detach, layerWith, projectById, setOwn } from "./presets.ts"
  * sets folded into a summary that opens locked, folded and editable, or shown locked in place. Rows it doesn't set
  * (color, alignment, decoration, and whatever
  * else it leaves out) stay editable in all three. Changing a row the preset sets overrides it there, in the override
- * color with a reset arrow, and the preset's menu detaches it. Presets are the fixture projects' own: Fluent's
+ * color with a reset arrow, and the button beside the preset detaches it. Presets are the fixture projects' own: Fluent's
  * typographyStyles, Material UI's typography variants (which grow with the viewport), Chakra's textStyles, and, for
  * Tailwind, Tailwind's documented `--text-tiny` and a DTCG token. Under each, what the layer stores, the same in every
  * project, and what Tailwind's adapter writes from it, beside the library's own for comparison (PAR-708).
@@ -144,13 +144,12 @@ export const ClosestPreset: Story = {
   }
 }
 
-/** Detaching from the preset's menu. */
+/** Detaching with the button beside the preset: focus stays on the preset's picker. */
 export const Detaching: Story = {
   play: async ({ canvasElement }) => {
     const folded = version(canvasElement, "Folded into the preset")
-    await userEvent.click(folded.getByRole("button", { name: "More for subtitle1" }))
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Detach preset" }))
-    await expect(folded.getByRole("button", { name: "Typography preset: none" })).toBeVisible()
+    await userEvent.click(folded.getByRole("button", { name: "Detach subtitle1" }))
+    await expect(folded.getByRole("button", { name: "Typography preset: none" })).toHaveFocus()
     await expect(folded.getByRole("textbox", { name: "Line height" })).toHaveValue("28")
   }
 }

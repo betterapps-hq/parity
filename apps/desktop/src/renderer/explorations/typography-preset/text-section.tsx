@@ -6,10 +6,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Input,
   Popover,
   PopoverContent,
@@ -31,13 +27,13 @@ import {
   Check,
   ChevronRight,
   ChevronsUpDown,
-  Ellipsis,
   Italic,
   Lock,
   LockOpen,
   RotateCcw,
   Strikethrough,
-  Underline
+  Underline,
+  Unlink
 } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
@@ -60,7 +56,6 @@ import {
   type PresetMatch,
   presetByName,
   type PresetProject,
-  resetOverrides,
   resetOwn,
   setOwn,
   type Shown,
@@ -123,8 +118,8 @@ export function PresetTextSection({
   const shownFields = opened.preset === layer.preset ? opened.fields : new Set<TypeField>()
   const [expanded, setExpanded] = useState(initiallyOpen)
 
-  // Unlocking a row moves focus into it; locking or resetting it leaves focus on its lock, or on the preset's menu when
-  // the row folds away.
+  // Unlocking a row moves focus into it; locking or resetting it leaves focus on its lock, or on the summary when the row
+  // folds back into it.
   const rows = useRef<HTMLDivElement>(null)
   const refocus = useRef<{ field: TypeField; to: "control" | "action" }>(undefined)
   useEffect(() => {
@@ -136,7 +131,7 @@ export function PresetTextSection({
       pending.to === "control"
         ? row?.querySelector<HTMLElement>("input:not(:disabled), [role='combobox']")
         : (row?.querySelector<HTMLElement>("button[aria-label^='Unlock']") ??
-          rows.current?.querySelector<HTMLElement>("button[aria-label^='More for']"))
+          rows.current?.querySelector<HTMLElement>("button[aria-label^='Show what'], button[aria-label^='Hide what']"))
     target?.focus()
   })
   const open = (field: TypeField, on: boolean) => {
@@ -183,8 +178,11 @@ export function PresetTextSection({
             layer={layer}
             viewport={viewport}
             onPick={(name) => onChange(applyPreset(project, layer, name))}
-            onResetOverrides={() => onChange(resetOverrides(project, layer))}
-            onDetach={() => onChange(detach(project, layer))}
+            onDetach={() => {
+              // Detach goes with the preset, so focus stays on the row, on its picker.
+              rows.current?.querySelector<HTMLElement>("button[aria-label^='Typography preset']")?.focus()
+              onChange(detach(project, layer))
+            }}
           />
         )}
         {folds && preset && (
@@ -347,20 +345,21 @@ function RowAction({
   )
 }
 
-/** The preset row: its picker, and a menu with Detach and the reset for its overrides. */
+/**
+ * The preset row: its picker, and Detach. Each override has its own reset arrow, and picking the preset again takes back
+ * all of them, so the row needs no menu.
+ */
 function PresetRow({
   project,
   layer,
   viewport,
   onPick,
-  onResetOverrides,
   onDetach
 }: {
   project: PresetProject
   layer: TextLayer
   viewport: ViewportId
   onPick: (name: string | undefined) => void
-  onResetOverrides: () => void
   onDetach: () => void
 }) {
   const preset = presetByName(project, layer.preset)
@@ -377,7 +376,9 @@ function PresetRow({
         dot={changesByViewport.length > 0}
         action={
           preset && (
-            <PresetMenu preset={preset} overrides={overrides} onResetOverrides={onResetOverrides} onDetach={onDetach} />
+            <RowAction label={`Detach ${preset.name}`} onClick={onDetach}>
+              <Unlink />
+            </RowAction>
           )
         }
       >
@@ -436,45 +437,7 @@ function ClosestPreset({
 const presetVaries = (preset: Preset, field: TypeField) =>
   (preset.from ?? []).some((step) => step.values[field] !== undefined)
 
-function PresetMenu({
-  preset,
-  overrides,
-  onResetOverrides,
-  onDetach
-}: {
-  preset: Preset
-  overrides: number
-  onResetOverrides: () => void
-  onDetach: () => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Hint label={`More for ${preset.name}`}>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`More for ${preset.name}`}
-              className="size-7 shrink-0 text-muted-foreground"
-            >
-              <Ellipsis />
-            </Button>
-          </Hint>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuItem disabled={overrides === 0} onClick={onResetOverrides}>
-          {overrides === 0 ? "No overrides to reset" : `Reset ${overrideCountText(overrides)}`}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onDetach}>Detach preset</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 const valueCount = (count: number) => (count === 1 ? "1 value" : `${count} values`)
-const overrideCountText = (count: number) => (count === 1 ? "1 override" : `${count} overrides`)
 
 /** The largest a preset's name is drawn in the picker, so a display size still fits a row. */
 const largestPreview = 28

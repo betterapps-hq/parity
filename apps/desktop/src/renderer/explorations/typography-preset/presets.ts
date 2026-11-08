@@ -425,7 +425,7 @@ function setIn(layer: TextLayer, viewport: ViewportId, field: TypeField) {
 }
 
 /** Takes back every override of the preset, keeping the layer's values for what the preset doesn't set. */
-export function resetOverrides(project: PresetProject, layer: TextLayer): TextLayer {
+function resetOverrides(project: PresetProject, layer: TextLayer): TextLayer {
   const covered = coveredBy(presetByName(project, layer.preset))
   return {
     ...layer,
