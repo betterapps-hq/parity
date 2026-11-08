@@ -230,7 +230,7 @@
   }
 
   /* Every field shows a typed -> as typed, but keeps the plain letters unless it edits a name. */
-  :is(input, textarea):not(.text-base.font-semibold, [role="treeitem"] input) {
+  :is(input, textarea):not(.text-base.font-semibold, [aria-label="Layer name"], [role="treeitem"] input) {
     font-feature-settings: "calt" 0;
   }
 
