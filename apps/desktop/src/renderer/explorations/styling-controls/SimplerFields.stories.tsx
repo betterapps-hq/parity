@@ -24,8 +24,8 @@ import { Readout } from "./playground.tsx"
 import { type Side, type Sides, sideRules, sidesWrites } from "./sides-writes.ts"
 import { FourSidesField, type Spread, spreadTo } from "./sides.tsx"
 import {
-  CaptionButton,
   CornerGlyph,
+  EachToggle,
   type GroupLine,
   type Holds,
   PairGlyph,
@@ -295,16 +295,16 @@ function RadiusField({
           })
         }
         captionAction={
-          <CaptionButton
+          <EachToggle
             ref={toggle}
+            label="Each corner"
+            parts="corners"
             pressed={false}
             onClick={() => {
               setEach(true)
               refocus()
             }}
-          >
-            Each corner
-          </CaptionButton>
+          />
         }
       />
     )
@@ -348,6 +348,7 @@ function RadiusField({
     <SimpleGroup
       label="Radius"
       each="Each corner"
+      parts="corners"
       expanded
       toggleRef={toggle}
       onExpand={() => {
@@ -425,7 +426,7 @@ function PaddingSimpler({
     )
   }
   return (
-    <SimpleGroup label="Padding" each="Each side" expanded={each} onExpand={setEach}>
+    <SimpleGroup label="Padding" each="Each side" parts="sides" expanded={each} onExpand={setEach}>
       {(line) =>
         each
           ? [

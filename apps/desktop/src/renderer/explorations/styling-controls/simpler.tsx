@@ -1,5 +1,5 @@
 import { Button, Input, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { formatHex, formatOklch, parseColor } from "@parity-app/tokens"
+import { formatHex, formatOklch, parseColor, sameColorDistance } from "@parity-app/tokens"
 import { ChevronDown, Unlink } from "lucide-react"
 import {
   type KeyboardEvent,
@@ -82,6 +82,9 @@ function Caption({ text, onScrub }: { text: string; onScrub?: (event: PointerEve
     </span>
   )
 }
+
+/** The row a field's name sits in, the toggle's height whether it has one or not, so fields side by side line up. */
+const captionRow = "flex h-5 min-w-0 items-center justify-between gap-1 whitespace-nowrap"
 
 /**
  * The filled box every simpler field draws, with room kept at its end for the one button, so hovering moves nothing.
@@ -519,7 +522,7 @@ export function SimpleNumber({
   return (
     <div className="flex min-w-0 flex-col gap-1">
       {caption && (
-        <div className="flex min-w-0 items-center justify-between gap-1 whitespace-nowrap">
+        <div className={captionRow}>
           <Caption text={label} onScrub={onScrub} />
           {captionAction}
         </div>
@@ -542,6 +545,8 @@ export function SimpleNumber({
             none={none}
             own={own === undefined ? undefined : said(own.value, own.percent)}
             nearest={nearest}
+            same={nearest !== undefined && nearest.px === own?.value}
+            order={(a, b) => a.px - b.px}
             replaced={token && replacement ? { name: token.name, by: replacement } : undefined}
             namespace={namespace}
             tokensOnly={tokensOnly}
@@ -580,6 +585,10 @@ interface TokenMenuProps<T extends FieldToken> {
   /** The value of its own the field holds, in words (`12px`, `#2563EB`), which the nearest token and Create token are for. */
   own?: string
   nearest?: T
+  /** The nearest token comes to the same value as the field's own, so it's offered as the same, not the nearest. */
+  same?: boolean
+  /** The order the tokens are listed in, where it isn't the project's: a scale's, smallest first. */
+  order?: (a: T, b: T) => number
   /** The token the field holds, replaced, and what replaced it. */
   replaced?: { name: string; by: T }
   namespace?: string
@@ -594,7 +603,8 @@ interface TokenMenuProps<T extends FieldToken> {
 
 /**
  * A field's token menu: the swap for a replaced token; for a value of its own, the nearest token, first, under what it's
- * nearest to; the tokens; then Create token, and, in a project set to Tokens only, Allow here, which asks why.
+ * nearest to (or the same as); the tokens, in `order`, without the ones the project has replaced, which aren't for
+ * picking; then Create token, and, in a project set to Tokens only, Allow here, which asks why.
  */
 function TokenMenu<T extends FieldToken>({
   label,
@@ -603,6 +613,8 @@ function TokenMenu<T extends FieldToken>({
   none,
   own,
   nearest,
+  same = false,
+  order,
   replaced,
   namespace = "",
   tokensOnly = false,
@@ -617,6 +629,8 @@ function TokenMenu<T extends FieldToken>({
   const full = `${namespace}${name}`
   const taken = name !== "" && tokens.some((each) => each.name === full)
   const allowing = tokensOnly && onAllow !== undefined
+  const pickable = tokens.filter((each) => each.deprecated === undefined)
+  const listed = order ? pickable.toSorted(order) : pickable
   return (
     <div className="flex min-w-0 flex-col">
       {replaced && (
@@ -630,7 +644,9 @@ function TokenMenu<T extends FieldToken>({
       )}
       {own !== undefined && nearest && (
         <div className="mb-1 flex flex-col border-b pb-1">
-          <p className="px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">Nearest to {own}</p>
+          <p className="px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">
+            {same ? "Same as" : "Nearest to"} {own}
+          </p>
           <button type="button" className={menuRow} onClick={() => onPick(nearest.name)}>
             <TokenMark kind={nearest.kind} value={nearest.value} name={nearest.name} />
             <span className="min-w-0 flex-1 truncate">{nearest.name}</span>
@@ -638,11 +654,11 @@ function TokenMenu<T extends FieldToken>({
           </button>
         </div>
       )}
-      {tokens.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No tokens for {label} yet</p>}
-      {(tokens.length > 0 || none !== undefined) && (
+      {listed.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No tokens for {label} yet</p>}
+      {(listed.length > 0 || none !== undefined) && (
         <TokenList
           label={label}
-          tokens={tokens}
+          tokens={listed}
           current={current}
           none={none}
           own={own !== undefined}
@@ -754,30 +770,51 @@ export function SideGlyph({ letter }: { letter: string }) {
 }
 
 /**
- * A small text button in a group's name row, as Each side and Each corner are: words where Figma has an icon. It's a
- * toggle, so its name stays the same and it shows pressed while every part is open.
+ * What a group's parts are, which its toggle draws: a rounded square's four corners, or its four sides, each drawn
+ * apart from the rest.
  */
-export function CaptionButton({
+export type Parts = "corners" | "sides"
+
+const partsIcons: Record<Parts, string> = {
+  corners:
+    "M1.5 4.5 V3.5 A2 2 0 0 1 3.5 1.5 H4.5 M7.5 1.5 H8.5 A2 2 0 0 1 10.5 3.5 V4.5 M10.5 7.5 V8.5 A2 2 0 0 1 8.5 10.5 H7.5 M4.5 10.5 H3.5 A2 2 0 0 1 1.5 8.5 V7.5",
+  sides: "M3.5 1.5 H8.5 M10.5 3.5 V8.5 M3.5 10.5 H8.5 M1.5 3.5 V8.5"
+}
+
+/**
+ * The toggle at the end of a group's name row that opens every part, as Figma's and Penpot's do: an icon drawn as the
+ * fields' own glyphs are, named in its hint (Each corner, Each side), and filled while every part is open. It's a
+ * toggle, so its name stays the same and it says whether it's pressed.
+ */
+export function EachToggle({
+  label,
+  parts,
   pressed,
   onClick,
-  ref,
-  children
+  ref
 }: {
+  /** Its name, in its hint and for screen readers: Each corner, Each side. */
+  label: string
+  parts: Parts
   pressed: boolean
   onClick: () => void
   ref?: Ref<HTMLButtonElement>
-  children: ReactNode
 }) {
   return (
-    <button
-      ref={ref}
-      type="button"
-      aria-pressed={pressed}
-      onClick={onClick}
-      className="shrink-0 rounded px-1 text-[11px] whitespace-nowrap text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:text-foreground"
-    >
-      {children}
-    </button>
+    <Hint label={label}>
+      <button
+        ref={ref}
+        type="button"
+        aria-label={label}
+        aria-pressed={pressed}
+        onClick={onClick}
+        className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:text-foreground dark:hover:bg-input/40 dark:aria-pressed:bg-input/60"
+      >
+        <svg aria-hidden viewBox="0 0 12 12" className="size-3">
+          <path d={partsIcons[parts]} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      </button>
+    </Hint>
   )
 }
 
@@ -788,14 +825,16 @@ export function CaptionButton({
 export function SimpleGroup({
   label,
   each,
+  parts,
   expanded,
   onExpand,
   toggleRef,
   children
 }: {
   label: string
-  /** The toggle's words: Each side, Each corner. */
+  /** The toggle's name: Each side, Each corner. */
   each: string
+  parts: Parts
   expanded: boolean
   onExpand: (expanded: boolean) => void
   /** The toggle, for a field that swaps a group in and out to keep the focus on it. */
@@ -812,11 +851,9 @@ export function SimpleGroup({
   const shown = message ?? Object.values(standing).find((said) => said !== undefined)
   return (
     <div className="col-span-2 flex min-w-0 flex-col gap-1">
-      <div className="flex min-w-0 items-center justify-between gap-1 whitespace-nowrap">
+      <div className={captionRow}>
         <Caption text={label} />
-        <CaptionButton ref={toggleRef} pressed={expanded} onClick={() => onExpand(!expanded)}>
-          {each}
-        </CaptionButton>
+        <EachToggle ref={toggleRef} label={each} parts={parts} pressed={expanded} onClick={() => onExpand(!expanded)} />
       </div>
       <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
         {children({ message, onMessage: setMessage, onStanding })}
@@ -1019,7 +1056,7 @@ export function SimpleColor({
   return (
     <div className="col-span-2 flex min-w-0 flex-col gap-1">
       {caption && (
-        <div className="flex min-w-0 items-center whitespace-nowrap">
+        <div className={captionRow}>
           <Caption text={label} />
         </div>
       )}
@@ -1128,6 +1165,7 @@ export function SimpleColor({
                 current={value}
                 own={ownText}
                 nearest={near?.token}
+                same={near !== undefined && near.distance < sameColorDistance}
                 replaced={token && replacement ? { name: token.name, by: replacement } : undefined}
                 tokensOnly={tokensOnly}
                 allowed={allowed}
