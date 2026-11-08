@@ -417,9 +417,6 @@ function bareBox(error: boolean, extra: string): string {
 }
 
 const inputBase = "w-0 flex-1 bg-transparent tabular-nums outline-none placeholder:text-muted-foreground"
-/** The input as wide as what's in it, so a mark after it sits beside the value rather than at the field's end. */
-const inputBeside =
-  "[field-sizing:content] max-w-full shrink bg-transparent tabular-nums outline-none placeholder:text-muted-foreground"
 
 /** The input inside a field's box. */
 export const fieldInput = `${inputBase} min-w-0`
@@ -1656,8 +1653,6 @@ export function ValueField<T>({
   // isn't a token (a font), and a value set for a theme.
   let mark: ReactNode
   if (!typing) mark = showChip ? status?.theme : (status?.missing ?? status?.theme)
-  // A mark sits right after the value or pill it's about; the room kept at the end is for the field's button.
-  const beside = mark !== undefined && !bare
 
   // A narrow field has room for one thing after the value: its status mark takes the unit's place, which its hint names.
   const showUnit =
@@ -1683,10 +1678,16 @@ export function ValueField<T>({
     // The pill and Detach go, so the value's text takes the focus.
     input.current?.focus()
   }
-  // Room at the box's end for its one button, kept whether it shows or not, so nothing moves on hover.
+  // Room at the box's end for its one button, kept whether it shows or not, so nothing moves on hover. A mark at the end
+  // has the room at rest instead, and moves aside for the button while it shows: on hover or focus, and while Tokens
+  // has its list open (Detach shows only on hover or focus).
   const endRoom = !bare && (offers || chip !== undefined)
+  let room = ""
+  if (endRoom && mark === undefined) room = "pr-7"
+  else if (endRoom && open && !showChip) room = "pr-7"
+  else if (endRoom) room = "transition-[padding] duration-100 hover:pr-7 focus-within:pr-7"
 
-  const boxExtra = `flex-1 ${endRoom ? "pr-7" : ""} ${disabled ? "opacity-50" : ""}`
+  const boxExtra = `flex-1 ${room} ${disabled ? "opacity-50" : ""}`
   const box = (
     <Hint label={hintLabel} detail={hintDetail} hidden={open} wait>
       <div className={bare ? bareBox(error, boxExtra) : fieldBox(error, boxExtra)}>
@@ -1724,8 +1725,6 @@ export function ValueField<T>({
             onRemove={detach}
           />
         )}
-        {/* A pill's mark goes right after it, ahead of the empty input that takes what's typed over it. */}
-        {showChip && mark}
         <input
           ref={input}
           aria-label={label}
@@ -1804,24 +1803,13 @@ export function ValueField<T>({
             }
             typed.input.onKeyDown(event)
           }}
-          className={`${beside ? inputBeside : inputBase} ${showChip ? "min-w-1" : "min-w-6"} ${muted && !typing ? "text-muted-foreground" : ""} ${said && !typing ? "text-destructive" : ""} ${typed.focused ? "" : "truncate"} ${bare ? "text-center" : ""} ${inputClassName}`}
+          className={`${inputBase} ${showChip ? "min-w-1" : "min-w-6"} ${muted && !typing ? "text-muted-foreground" : ""} ${said && !typing ? "text-destructive" : ""} ${typed.focused ? "" : "truncate"} ${bare ? "text-center" : ""} ${inputClassName}`}
         />
         {comesTo && !narrow && !showChip && !typed.focused && !typed.error && (
           <span className="min-w-0 shrink truncate text-muted-foreground/70 tabular-nums">{comesTo}</span>
         )}
         {unitPart}
-        {!showChip && mark}
-        {beside && (
-          // The rest of the field still takes the caret, as the input would.
-          <span
-            aria-hidden
-            className="h-full min-w-0 flex-1 cursor-text"
-            onPointerDown={(event) => {
-              event.preventDefault()
-              input.current?.focus()
-            }}
-          />
-        )}
+        {mark}
         {showChip && !bare && (
           <Hint
             label="Detach"

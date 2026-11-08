@@ -108,7 +108,7 @@ export const Mixed: Story = { render: () => <ColorField mixed /> }
 /** Set on Hover: the label takes the state color, with a reset arrow back to the first state's `card`. */
 export const SetInAState: Story = { render: () => <ColorField value="primary" alpha={90} hover /> }
 
-/** Set for the Dark theme too: a moon right after the pill, with the dark value in its hint. */
+/** Set for the Dark theme too: a moon at the field's end, with the dark value in its hint, moving aside for Detach. */
 export const SetForATheme: Story = {
   render: () => <ColorField value="card" theme={{ name: "Dark", value: "secondary" }} />
 }
