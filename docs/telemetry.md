@@ -338,9 +338,11 @@ Some failures are recorded for you, so code doesn't record them again:
 | `process.memory`      | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                                          |
 | `project.closed`      | info  | all  | service                                 | An open project is closed.                                                                                   |
 | `project.detected`    | debug | all  | service                                 | The service reads a project's package, tools, files and components as it opens, until it's done.             |
+| `project.drawn`       | info  | all  | renderer                                | A newly opened project's canvas first draws a frame, in the trace of `project.opening`.                      |
 | `project.loaded`      | info  | all  | renderer                                | A project's tab has its components loaded and is ready to draw.                                              |
 | `project.openFailed`  | warn  | all  | service                                 | A project can't be opened.                                                                                   |
 | `project.opened`      | info  | all  | service                                 | A project opens, with its builder serving it.                                                                |
+| `project.opening`     | info  | all  | renderer                                | A tab asks the service to open a project, until the tab is ready or the open fails.                          |
 | `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                                             |
 | `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                                   |
 | `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                                          |
@@ -747,6 +749,15 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | -------- | -------------------- |
 | `root`    | `string` | The project's folder |
 
+### `project.drawn`
+
+| Attribute    | Type                 | Meaning                                                                     |
+| ------------ | -------------------- | --------------------------------------------------------------------------- |
+| `name`       | `string`             | The project's name, from its package.json or its folder                     |
+| `root`       | `string`             | The project's folder                                                        |
+| `durationMs` | `number`             | From asking to open it until its canvas first drew a frame, in milliseconds |
+| `from`       | `"live" \| "bitmap"` | Whether the frame drew its design, or showed a bitmap kept of it            |
+
 ### `project.loaded`
 
 | Attribute      | Type                | Meaning                                                                                            |
@@ -796,6 +807,15 @@ Some failures are recorded for you, so code doesn't record them again:
 | `designs`     | `integer`          | The designs in its project files                                                   |
 | `tokens`      | `integer`          | The theme variables its styles have                                                |
 | `libraries`   | `integer`          | The component libraries it depends on                                              |
+
+### `project.opening`
+
+| Attribute | Type               | Meaning                                                                        |
+| --------- | ------------------ | ------------------------------------------------------------------------------ |
+| `reload`  | `boolean`          | Whether the tab's project was opened again in place, as after adding a library |
+| `root`    | `string`, optional | The project's folder                                                           |
+| `name`    | `string`, optional | The project's name, from its package.json or its folder                        |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one                                |
 
 ### `project.unsupported`
 

@@ -6161,7 +6161,7 @@ The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` 
   `CodedError` code when there is one. An unsupported project is still `project.unsupported` too.
 - **The window's part is `project.loaded`,** recorded once the tab's guest and components have loaded, with the time
   from asking to open it. It names the project by `name` and `root`, as `project.opened` does, so the two can be paired
-  when several projects open in one session. The first frame drawn isn't recorded yet: PAR-711.
+  when several projects open in one session. The first frame drawn is `project.drawn` (PAR-711), below.
 - **TypeScript's version comes from its installed package,** since detection doesn't list it; React, Vite, Tailwind and
   Storybook come from detection.
 - **A reopen is one the service makes as it starts** (PAR-179), and `cached` means the components and props came from
@@ -6172,6 +6172,29 @@ The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` 
   processes of their own, outside it, so they have their own events.
 - **Node code records through `track` in `shared/tracing.ts`,** which puts the event under the span the process is
   working in, as `inSpan` does for spans.
+
+## The first frame drawn when a project opens is recorded (PAR-711)
+
+The events are in [telemetry.md](telemetry.md#events), from `project-events.ts`. My calls:
+
+- **The window starts the open's trace, as `project.opening`.** It's a span from asking to open a project until its tab
+  is ready, the open fails (with its code) or the tab is closed (cancelled). It continues the trace of the action that
+  asked, such as Open project, and starts one of its own otherwise, as at startup or from the start page. The
+  `project.open` request is asked in it, so the service's `project.detected`, `builder.started` and `project.opened` are
+  in the same trace, and so is `project.loaded`. Before this, an open from the start page had no trace in the window.
+- **The first frame is `project.drawn`, an event in that trace,** since it comes after the span ends, when the canvas
+  has mounted. Its `durationMs` runs from asking to open, the same start as `project.loaded`, so the two compare. `from`
+  says whether the frame drew its design (`live`) or showed a bitmap kept from an earlier session or captured offscreen
+  (`bitmap`).
+- **A frame counts once it's seen on screen, not once it's ready.** Frames offer a bitmap once it's decoded, and a live
+  frame once the guest has put its design in it (a `MutationObserver` on the element it mounts in). Then, each animation
+  frame, `canvas/first-frame.ts` checks whether what was offered is rendered (`checkVisibility`, which leaves out a live
+  frame that `content-visibility` skips while its bitmap stands in) and in the window. Whether a bitmap shows depends on
+  styles (the zoom, sleep, the selected board), so a decoded bitmap that stays hidden at the zoom a project opens at
+  isn't counted. The check stops at the first frame seen, or when nothing is offered.
+- **Only the first frame of a newly opened or reopened tab is recorded.** A tab opened in the background, as at startup,
+  records it when it's first shown, so its time includes the wait. A project with no designs draws no frame, so it has
+  no `project.drawn`.
 
 ## The CLI sends to Sentry from a process of its own (PAR-642)
 

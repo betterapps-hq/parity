@@ -2,7 +2,7 @@ import { type FrameGeometry, type MountHandle, modeGlobals, type RenderNode, typ
 import { frameAttributes } from "@parity-app/tokens"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { reportFrameFailures } from "./failures-store.ts"
-import { prepareFrame, registerFrame, setDrawnNodes, setFrameViewport } from "./frame.ts"
+import { prepareFrame, registerFrame, setDrawnNodes, setFrameViewport, whenDrawn } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
 
 interface ModeViewProps {
@@ -41,6 +41,11 @@ interface ModeViewProps {
    * mode key it.
    */
   shows?: string
+  /**
+   * Hears when the frame has drawn its design, with the element it's drawn in, each time it's mounted. What it gives
+   * back is called when the frame is taken apart.
+   */
+  onDrawn?: (drawn: HTMLElement) => (() => void) | undefined
 }
 
 /** What the canvas and tldraw would otherwise act on too, when the pointer or keys are the design's. */
@@ -73,7 +78,8 @@ export function ModeView({
   interactions = 0,
   interactive = false,
   asleep = false,
-  shows
+  shows,
+  onDrawn
 }: ModeViewProps) {
   const frameRef = useRef<HTMLDivElement>(null)
   const hostRef = useRef<HTMLDivElement>(null)
@@ -90,6 +96,10 @@ export function ModeView({
   const [error, setError] = useState<{ key: string; message: string }>()
 
   const currentKey = useRef(renderKey)
+  const onDrawnRef = useRef(onDrawn)
+  useLayoutEffect(() => {
+    onDrawnRef.current = onDrawn
+  }, [onDrawn])
 
   // The frame's failing layers show in the console and mark Layers. Asleep, it keeps the ones it last drew with; gone, it
   // takes them back.
@@ -181,6 +191,8 @@ export function ModeView({
       }
     })
     handleRef.current = handle
+    let undraw: (() => void) | undefined
+    const waiting = onDrawnRef.current ? whenDrawn(target, () => (undraw = onDrawnRef.current?.(target))) : undefined
     // Selecting, outlining and measuring find the design's nodes through the guest, which reads them from React's tree.
     setDrawnNodes(host, handle.drawnNodes?.bind(handle))
     // Until it's drawn again, the frame keeps the height it had, so its board doesn't shrink and grow back. The design
@@ -189,6 +201,8 @@ export function ModeView({
     const held = requestAnimationFrame(() => outer.style.removeProperty("min-height"))
     return () => {
       cancelAnimationFrame(held)
+      waiting?.()
+      undraw?.()
       // In a tab that isn't showing, nothing is laid out: the frame keeps the height it last had when drawn (see the
       // `contain-intrinsic-size` rule on `[data-frame]`), rather than holding none.
       if (outer.getClientRects().length > 0) outer.style.minHeight = `${outer.offsetHeight}px`

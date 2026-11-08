@@ -76,6 +76,39 @@ export const projectLoaded = defineEvent(
   { level: "info", sentBy: ["renderer"], when: "A project's tab has its components loaded and is ready to draw." }
 )
 
+export const projectOpening = defineEvent(
+  "project.opening",
+  z.object({
+    reload: z.boolean().describe("Whether the tab's project was opened again in place, as after adding a library"),
+    root: root.optional(),
+    name: name.optional(),
+    code
+  }),
+  {
+    level: "info",
+    sentBy: ["renderer"],
+    when: "A tab asks the service to open a project, until the tab is ready or the open fails."
+  }
+)
+
+export const projectDrawn = defineEvent(
+  "project.drawn",
+  z.object({
+    name,
+    root,
+    durationMs: z
+      .number()
+      .nonnegative()
+      .describe("From asking to open it until its canvas first drew a frame, in milliseconds"),
+    from: z.enum(["live", "bitmap"]).describe("Whether the frame drew its design, or showed a bitmap kept of it")
+  }),
+  {
+    level: "info",
+    sentBy: ["renderer"],
+    when: "A newly opened project's canvas first draws a frame, in the trace of `project.opening`."
+  }
+)
+
 export const projectClosed = defineEvent(
   "project.closed",
   z.object({ name, root, openMs: z.number().nonnegative().describe("How long it was open, in milliseconds") }),
@@ -136,6 +169,8 @@ export const projectEvents = [
   projectOpened,
   projectOpenFailed,
   projectLoaded,
+  projectOpening,
+  projectDrawn,
   projectClosed,
   builderReady,
   builderCrashed,
