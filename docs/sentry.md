@@ -132,6 +132,11 @@ attribute in a logs widget is picked as a number, as `durationMs`, which the API
 | Agent error codes by operation        | Spans    | Table   | `span.op:agent.called has:code`                     | `count()`                                            | `method`, `code`, `transport`              |
 | Gestures interrupted or cancelled     | Logs     | Bar     | `message:gesture.ended how:[interrupted,cancelled]` | `count()`                                            | `kind`, `how`                              |
 
+- **Four widgets wait for events that aren't on main yet.** `project.openFailed` and `project.loaded` come with PAR-637
+  (betterapps-hq/parity#319), `gesture.ended` with PAR-640 (#324) and `frame.rendered` with PAR-638 (#323). Builds from
+  those branches have already sent them, and the queries were checked against what they sent, but builds from main send
+  none of them, so Project open failures, Gestures interrupted or cancelled and the opening half of p95 of opening and
+  saving stay empty until those land. Rendering reads `frame.drawn` until then.
 - **Opening is `project.loaded`,** from asking to open a project until its tab is ready, the time a person waits.
   `project.opened`'s `durationMs` stops at the service, and `project.detected` is one step of it.
 - **Rendering is `frame.rendered`,** which PAR-638 renames from `frame.drawn`; the query takes both until no build sends
