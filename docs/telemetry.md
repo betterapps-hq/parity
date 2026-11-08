@@ -6,7 +6,7 @@
 
 Parity sends what happens inside it to Sentry, so a bug that a tester or an agent hits arrives with its context: the
 error, the trace from click to file write, the replay of the window and the events before it. This page says what's
-sent, how to turn it down and what's kept out, and lists every event Parity records.
+sent, how code records it, how to turn it down and what's kept out, and lists every event Parity records.
 
 The plan is [proposals/product-telemetry.md](proposals/product-telemetry.md), and the direction is in
 [decisions.md](decisions.md#paritys-own-telemetry-goes-to-sentry-on-by-default). It's being built in the Product
@@ -194,6 +194,36 @@ What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbe
 Each event has a level, lowest first: `debug`, `info`, `warn`, `error` and `fatal`. `error` and `fatal` events also
 become Sentry errors, as every `error.*` event does. **Kept** is the share of an event that's recorded: all of them
 unless the event says otherwise. Sampling is decided when an event is tracked or a span starts.
+
+## Recording events and errors
+
+Code records through its process's helpers, not through Sentry. Each records nothing until its process's telemetry has
+started, as in unit tests and stories, and logs a mistake the development build's checks catch rather than throwing it,
+so recording never stops the work it describes.
+
+- **An error the person sees goes through `reportError`** in `renderer/report-error.ts`:
+  `reportError(error, { operation, title, context, ...toast })` shows the error notification and records `error.caught`
+  with the error's code, what failed and what it acted on. Lint refuses `toast.error` anywhere else (PAR-644). A failure
+  that isn't shown is recorded as its work's own event, such as `document.saveFailed` or `export.failed`, or as a span
+  that ends as `error`.
+- **In the editor window,** `track` from `renderer/report-error.ts` records an event, under a span when given. Every
+  action in `chrome/actions.ts` runs in its own `command.ran` trace through `tracedCommand`, and a canvas drag starts a
+  `gesture.ran` trace with `startTrace`, both in `renderer/tracing.ts`. Work that runs later, such as a save an edit
+  scheduled, keeps the trace with `keepTrace`. Tabs, panels, dialogs, the mode, settings and the start page are recorded
+  by the store that owns them, through `recordInterface`, not at each control.
+- **In main and the service,** `track` and `inSpan` from `shared/tracing.ts` record under the span the process is
+  working in, followed across `await`s. A request to another process carries it with `currentTraceHeaders()`, and queued
+  work keeps it with `currentTrace()`. A channel's handlers each run in a `request.handled` span through `handleInSpan`.
+- **In the CLI,** `recordCli` records an event under the running command, and `inCliRun` runs a command in its `cli.ran`
+  span. `runTraceHeaders()` gives the headers that carry that span to the app.
+
+Some failures are recorded for you, so code doesn't record them again:
+
+- **A failed request from the window to the service** is recorded as `ipc.failed` by `request` in `renderer/service.ts`.
+- **A failed check of data Parity didn't make,** through `checkData`, `parseData` or `parseInput` in `@parity-app/core`,
+  is recorded as `data.invalid` in every process.
+- **Uncaught errors and crashes** reach Sentry through each app process's Sentry setup, and what a React render throws
+  through `reactErrorHandlers` in `renderer/telemetry.ts`.
 
 ## Adding an event
 
