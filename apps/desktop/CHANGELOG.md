@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 08 Nov 2026 21:40:38 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 22:43:32 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.37.0
+
+Sun, 08 Nov 2026 22:43:32 GMT
+
+### Minor changes
+
+- Record gestures, undo and redo, inspector changes, inserts, pastes and text edits as telemetry events (PAR-640)
+  (ajcraswell@gmail.com)
 
 ## 0.36.1
 

@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 22:43:32 GMT",
+      "version": "0.37.0",
+      "tag": "@parity-app/desktop_v0.37.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "428c71dec222b959873a83c4695dcad819116979",
+            "comment": "Record gestures, undo and redo, inspector changes, inserts, pastes and text edits as telemetry events (PAR-640)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 21:40:38 GMT",
       "version": "0.36.1",
       "tag": "@parity-app/desktop_v0.36.1",
