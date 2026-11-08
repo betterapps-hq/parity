@@ -102,7 +102,7 @@ describe("an agent's report (PAR-646)", () => {
 
   it("fails as retryable when it doesn't reach Sentry in time", async () => {
     sentry.flush.mockResolvedValue(false)
-    const { created, track } = reports("errors")
+    const { created, track } = reports()
     const failed = created.sendForAgent(window, problem)
     await expect(failed).rejects.toMatchObject({ details: { code: "app_error", retryable: true } })
     expect(track).not.toHaveBeenCalled()
