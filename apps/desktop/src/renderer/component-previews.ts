@@ -1,6 +1,13 @@
-import { frameViewport, nextPreview, previewMode, previewSettleMs, resolveModes } from "@parity-app/core"
+import {
+  frameViewport,
+  nextPreview,
+  previewMode,
+  previewSettleMs,
+  type RenderNode,
+  resolveModes
+} from "@parity-app/core"
 import { componentPreviewTree, previewFrameWidth } from "@parity-app/editor"
-import { useEffect, useState, useSyncExternalStore } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import type { ComponentPreview, PreviewImage, PreviewJob } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
 import { bitmapsWaiting } from "./canvas/frame-bitmaps.ts"
@@ -41,19 +48,39 @@ export type PreviewState =
 export function previewJob(
   session: ProjectSession,
   component: string,
+  appearance: ResolvedTheme = getResolvedTheme(),
+  variant?: Variant
+): PreviewJob | undefined {
+  return treePreviewJob(
+    session,
+    variant ? variantId(component, variant) : component,
+    (viewport) =>
+      componentPreviewTree(component, {
+        ...(session.components.get()[component] ? { info: session.components.get()[component] } : {}),
+        sources: session.info.sources,
+        library: session.store.getComponentLibrary(),
+        viewport,
+        ...(variant ? { props: { [variant.prop]: variant.value } } : {})
+      }),
+    appearance
+  )
+}
+
+/**
+ * The job that draws any preview tree, kept under `id`, as a component's is drawn: in the mode matching Parity's theme,
+ * in a window the mode's width, at `previewScale`. `tree` is given the mode's viewport option.
+ */
+export function treePreviewJob(
+  session: ProjectSession,
+  id: string,
+  tree: (viewport: string) => RenderNode[],
   appearance: ResolvedTheme = getResolvedTheme()
 ): PreviewJob | undefined {
   const mode = previewMode(resolveModes(session.store.getModes()), appearance)
   if (!mode) return undefined
-  const tree = componentPreviewTree(component, {
-    ...(session.components.get()[component] ? { info: session.components.get()[component] } : {}),
-    sources: session.info.sources,
-    library: session.store.getComponentLibrary(),
-    viewport: mode.viewport
-  })
   const viewport = frameViewport({ width: mode.width }, mode)
   return {
-    component,
+    component: id,
     job: renderJob(
       {
         projectId: session.id,
@@ -61,9 +88,63 @@ export function previewJob(
         ...(session.added ? { components: session.added } : {}),
         theme: session.info.theme
       },
-      { tree, mode, frame: { width: previewFrameWidth, viewport }, scale: previewScale, inlinePortals: true }
+      {
+        tree: tree(mode.viewport),
+        mode,
+        frame: { width: previewFrameWidth, viewport },
+        scale: previewScale,
+        inlinePortals: true
+      }
     )
   }
+}
+
+/**
+ * A picture drawn on demand while `job` is given, as a slot's is while its card is open: one already made for its key is
+ * looked up, else it's made straight away. Undefined until it's there; an error says why it couldn't be.
+ */
+export function useOneOffPreview(job: PreviewJob | undefined): { image?: PreviewImage; error?: string } | undefined {
+  const [shown, setShown] = useState<{ key: string; image?: PreviewImage; error?: string }>()
+  const want = job ? JSON.stringify(job) : undefined
+  useEffect(() => {
+    if (!want) return undefined
+    const asked: PreviewJob = JSON.parse(want) as PreviewJob
+    let live = true
+    void (async () => {
+      try {
+        const { previews } = await request("previews.lookup", { previews: [asked] })
+        const found = previews[0]
+        const made = found?.image ? found : await request("previews.make", { preview: asked, priority: "visible" })
+        if (!live) return
+        setShown({
+          key: want,
+          ...(made.image ? { image: made.image } : {}),
+          ...(made.error ? { error: made.error } : {}),
+          ...(made.empty ? { error: "Nothing to see" } : {})
+        })
+      } catch (reason) {
+        if (live) setShown({ key: want, error: reason instanceof Error ? reason.message : String(reason) })
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [want])
+  return shown?.key === want ? shown : undefined
+}
+
+/** One option of a component's variant, as its card shows it (PAR-208). */
+export interface Variant {
+  prop: string
+  value: string | number | boolean
+}
+
+/**
+ * The name a variant's preview is kept under, beside its component's in the project's index: the component, then the
+ * prop and value, as `Button?variant=outline`. Component names have no `?`.
+ */
+export function variantId(component: string, { prop, value }: Variant): string {
+  return `${component}?${prop}=${String(value)}`
 }
 
 interface Entry {
@@ -75,6 +156,8 @@ interface Entry {
 class ProjectPreviews {
   private readonly entries = new Map<string, Entry>()
   private readonly onScreen = new Map<string, number>()
+  /** Variants a card has asked for, by their id, made on demand and kept while the tab is open. */
+  private readonly variants = new Map<string, { component: string; variant: Variant }>()
   private readonly listeners = new Set<() => void>()
   /** Ones whose making didn't finish, as when the offscreen window closed under it: tried again after a refresh. */
   private readonly skipped = new Set<string>()
@@ -144,12 +227,55 @@ class ProjectPreviews {
     return workspace.getTabs().find((tab) => tab.session?.id === this.projectId)?.session
   }
 
-  /** Every component the Components panel lists, in its order. */
-  private components(session: ProjectSession): string[] {
-    return Object.keys(session.info.sources)
+  /**
+   * Shows a component's variants on its card: each is looked up, then made before anything off screen, until the
+   * function it gives is called. The ones asked for are kept, and looked up again with the rest.
+   */
+  showVariants(component: string, variants: readonly Variant[]): () => void {
+    const added = variants.flatMap((variant) => {
+      const id = variantId(component, variant)
+      if (this.variants.has(id)) return []
+      this.variants.set(id, { component, variant })
+      return [id]
+    })
+    const hides = variants.map((variant) => this.show(variantId(component, variant)))
+    if (added.length > 0) void this.lookUp(added)
+    return () => {
+      for (const hide of hides) hide()
+    }
   }
 
+  /** Every preview the window keeps: each component the Components panel lists, in its order, then variants asked for. */
+  private components(session: ProjectSession): string[] {
+    return [...Object.keys(session.info.sources), ...this.variants.keys()]
+  }
+
+  /** The job that draws a preview by its id, a component's or a variant's. */
+  private jobFor(session: ProjectSession, id: string): PreviewJob | undefined {
+    const asked = this.variants.get(id)
+    return asked ? previewJob(session, asked.component, undefined, asked.variant) : previewJob(session, id)
+  }
+
+  /** Looks some previews up straight away, outside a refresh, as a card's variants are when it opens. */
+  private async lookUp(ids: string[]): Promise<void> {
+    const session = this.session()
+    if (!session) return
+    const jobs = ids.flatMap((id) => this.jobFor(session, id) ?? [])
+    try {
+      const { previews } = await request("previews.lookup", { previews: jobs })
+      for (const preview of previews) if (!this.entries.has(preview.component)) this.apply(preview)
+      this.notify()
+      this.schedule(0)
+    } catch {
+      // Looked up again with the rest at the next refresh.
+    }
+  }
+
+  /** Counts changes, so a view showing several previews can tell when any of them changed. */
+  version = 0
+
   private notify(): void {
+    this.version += 1
     for (const listener of this.listeners) listener()
   }
 
@@ -187,7 +313,7 @@ class ProjectPreviews {
     if (!session) return
     this.skipped.clear()
     const run = async () => {
-      const jobs = this.components(session).flatMap((component) => previewJob(session, component) ?? [])
+      const jobs = this.components(session).flatMap((id) => this.jobFor(session, id) ?? [])
       for (let start = 0; start < jobs.length; start += lookupBatch) {
         const { previews } = await request("previews.lookup", {
           previews: jobs.slice(start, start + lookupBatch)
@@ -254,7 +380,7 @@ class ProjectPreviews {
       this.schedule(settled ? next.wait : previewSettleMs)
       return
     }
-    const preview = previewJob(session, next.make)
+    const preview = this.jobFor(session, next.make)
     const entry = this.entries.get(next.make)
     if (!preview || !entry || entry.preview.state !== "waiting") return
     const waiting = entry.preview
@@ -300,6 +426,32 @@ export function startPreviews(projectId: string): () => void {
 export function useComponentPreview(projectId: string, component: string): PreviewState | undefined {
   const previews = previewsFor(projectId)
   return useSyncExternalStore(previews.subscribe, () => previews.get(component))
+}
+
+/**
+ * The previews of a component's variants while `shown`, as its card shows them, made on demand: a card that never opens
+ * makes none (PAR-208).
+ */
+export function useVariantPreviews(
+  projectId: string,
+  component: string,
+  variants: readonly Variant[],
+  shown: boolean
+): (PreviewState | undefined)[] {
+  const previews = previewsFor(projectId)
+  const ids = variants.map((variant) => variantId(component, variant))
+  // The variants are asked for again only when they change, not when a new array of the same ones comes.
+  const key = ids.join(" ")
+  const asked = useRef(variants)
+  useEffect(() => {
+    asked.current = variants
+  })
+  useEffect(() => {
+    if (!shown || key === "") return undefined
+    return previews.showVariants(component, asked.current)
+  }, [previews, component, key, shown])
+  useSyncExternalStore(previews.subscribe, () => previews.version)
+  return ids.map((id) => previews.get(id))
 }
 
 /**

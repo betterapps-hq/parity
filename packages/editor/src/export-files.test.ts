@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vite-plus/test"
-import { describeFiles, exportFiles, nextExportSize, pictureCrop, planExport, safeName } from "./export-files.ts"
+import {
+  copyScale,
+  describeFiles,
+  exportFiles,
+  largestPicture,
+  nextExportSize,
+  pictureCrop,
+  planExport,
+  planPicture,
+  safeName
+} from "./export-files.ts"
 
 describe("the files an export writes", () => {
   it("names each layer's file after it, with each size's suffix and format", () => {
@@ -106,5 +116,101 @@ describe("where each exported file comes from", () => {
       height: 20
     })
     expect(pictureCrop({ x: 200, y: 0, width: 10, height: 10 }, { width: 100, height: 100, scale: 1 })).toBeUndefined()
+  })
+})
+
+describe("a selection copied as one picture", () => {
+  const pricing = {
+    design: "pricing",
+    scale: 2,
+    width: 1280,
+    height: 900,
+    nodes: [
+      { id: "headline", x: 100.25, y: 40, width: 300, height: 48 },
+      { id: "button", x: 100, y: 200, width: 120, height: 40 },
+      { id: "hidden", x: 0, y: 0, width: 0, height: 0 }
+    ]
+  }
+  const card = { design: "card", scale: 2, width: 320, height: 200, nodes: [] }
+  const at = { x: 0, y: 0 }
+
+  it("is exactly what exporting one layer as a PNG at 2x writes", () => {
+    const files = exportFiles(["Headline"], [{ format: "png", scale: copyScale }])
+    const [exported] = planExport([{ design: "pricing", node: "headline" }], files, [pricing])
+    const plan = planPicture([{ design: "pricing", node: "headline", name: "Headline", at }], [pricing], copyScale)
+    expect(plan.pieces).toEqual([{ frame: exported!.frame, crop: exported!.crop, left: 0, top: 0 }])
+    expect(plan).toMatchObject({ width: exported!.crop!.width, height: exported!.crop!.height, problems: [] })
+  })
+
+  it("takes the box around a design's selected layers, with what's between them", () => {
+    const plan = planPicture(
+      [
+        { design: "pricing", node: "headline", name: "Headline", at },
+        { design: "pricing", node: "button", name: "Button", at }
+      ],
+      [pricing],
+      copyScale
+    )
+    expect(plan.pieces).toEqual([{ frame: 0, crop: { left: 200, top: 80, width: 601, height: 400 }, left: 0, top: 0 }])
+  })
+
+  it("places designs as they sit on the canvas, in the box around them", () => {
+    const plan = planPicture(
+      [
+        { design: "pricing", name: "Pricing", at: { x: 400, y: 100 } },
+        { design: "card", name: "Card", at: { x: 0, y: 1100 } }
+      ],
+      [pricing, card],
+      copyScale
+    )
+    expect(plan.pieces.map(({ frame, left, top }) => ({ frame, left, top }))).toEqual([
+      { frame: 0, left: 800, top: 0 },
+      { frame: 1, left: 0, top: 2000 }
+    ])
+    expect(plan).toMatchObject({ width: 800 + 2560, height: 2000 + 400 })
+  })
+
+  it("leaves out what can't be drawn and says why", () => {
+    const plan = planPicture(
+      [
+        { design: "pricing", node: "missing", name: "Missing", at },
+        { design: "pricing", node: "button", name: "Button", at },
+        { design: "deleted", name: "Gone", at }
+      ],
+      [pricing],
+      copyScale
+    )
+    expect(plan.pieces).toHaveLength(1)
+    expect(plan.problems).toEqual([
+      "Missing: the layer isn't drawn in the state the canvas shows",
+      "Gone: its design didn't draw"
+    ])
+  })
+
+  it("is nothing, and says so, when it's too big to copy", () => {
+    const far = { x: largestPicture, y: 0 }
+    const plan = planPicture(
+      [
+        { design: "pricing", name: "Pricing", at },
+        { design: "card", name: "Card", at: far }
+      ],
+      [pricing, card],
+      copyScale
+    )
+    expect(plan).toEqual({
+      width: 0,
+      height: 0,
+      pieces: [],
+      problems: ["At 2x it's over 16,384 pixels wide or tall, too big to copy. Select less, or export it."]
+    })
+  })
+
+  it("is empty when nothing has a size", () => {
+    expect(planPicture([{ design: "pricing", node: "hidden", name: "Hidden", at }], [pricing], copyScale)).toEqual({
+      width: 0,
+      height: 0,
+      pieces: [],
+      problems: ["Hidden: the layer has no size"]
+    })
   })
 })

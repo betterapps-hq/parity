@@ -1,12 +1,13 @@
-import { Blocks, BookOpen, Brush, Hammer, Palette, TriangleAlert } from "lucide-react"
+import { Blocks, BookOpen, Brush, CircleX, Hammer, Palette, SquareTerminal, TriangleAlert } from "lucide-react"
 import type { ReactNode } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
+import { tally, useConsole } from "../console-store.ts"
 import { type DesignStore, useSaveState } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
-import { save } from "./commands.ts"
+import { actions } from "./actions.ts"
 import { Hint } from "./Hint.tsx"
-import { setLayout } from "./layout.ts"
+import { setLayout, useLayout } from "./layout.ts"
 import { PerformanceStats } from "./PerformanceStats.tsx"
 import { usePreferences } from "./preferences.ts"
 import { Processes } from "./Processes.tsx"
@@ -72,6 +73,7 @@ export function StatusBar() {
         </Item>
       )}
       <span className="min-w-0 flex-1" />
+      <ConsoleStatus projectId={session.id} />
       <SaveFailure store={store} />
       <Processes />
       {performanceStats && <PerformanceStats />}
@@ -98,8 +100,12 @@ function withStatus(info: ProjectInfo, id: string, line: string): string {
   return line
 }
 
-function plural(count: number, noun: string): string {
-  return `${count.toLocaleString()} ${count === 1 ? noun : `${noun}s`}`
+function plural(count: number, word: string): string {
+  return `${count.toLocaleString()} ${noun(count, word)}`
+}
+
+function noun(count: number, word: string): string {
+  return count === 1 ? word : `${word}s`
 }
 
 /**
@@ -116,19 +122,27 @@ function Item({
   hint,
   detail,
   onClick,
+  pressed,
   children
 }: {
   icon: ReactNode
   hint: string
   detail?: string
   onClick?: () => void
+  /** Whether what it opens is open, for one that opens and closes something. */
+  pressed?: boolean
   children: ReactNode
 }) {
   const className = "flex h-6 shrink-0 items-center gap-1.5 rounded px-1.5"
   return (
     <Hint label={hint} detail={detail}>
       {onClick ? (
-        <button type="button" className={`${className} hover:bg-accent hover:text-foreground`} onClick={onClick}>
+        <button
+          type="button"
+          aria-pressed={pressed}
+          className={`${className} hover:bg-accent hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground`}
+          onClick={onClick}
+        >
           {icon}
           {children}
         </button>
@@ -139,6 +153,56 @@ function Item({
         </span>
       )}
     </Hint>
+  )
+}
+
+/**
+ * The designs' errors and warnings in the console (PAR-147), counted, which open it and close it again. With none,
+ * it's a quiet way in: the console's icon, and its name while there's room.
+ */
+function ConsoleStatus({ projectId }: { projectId: string }) {
+  const { errors, warnings } = tally(useConsole(projectId))
+  const open = !!useLayout().console
+  const detail = open ? "Click to close the console" : "Click to show the console"
+  if (errors === 0 && warnings === 0) {
+    return (
+      <Item
+        icon={<SquareTerminal className="size-3.5" />}
+        hint="Console"
+        detail={detail}
+        onClick={() => void actions.console.run("panel")}
+        pressed={open}
+      >
+        <Words>Console</Words>
+      </Item>
+    )
+  }
+  const said = [errors > 0 && plural(errors, "error"), warnings > 0 && plural(warnings, "warning")].filter(Boolean)
+  return (
+    <Item
+      icon={
+        errors > 0 ? (
+          <CircleX className="size-3.5 text-destructive" />
+        ) : (
+          <TriangleAlert className="size-3.5 text-amber-500" />
+        )
+      }
+      hint={`${said.join(" and ")} from the designs`}
+      detail={detail}
+      onClick={() => void actions.console.run("panel")}
+      pressed={open}
+    >
+      <strong className="font-medium text-foreground tabular-nums">{errors > 0 ? errors : warnings}</strong>
+      <span className="sr-only">{errors > 0 ? ` ${noun(errors, "error")}` : ` ${noun(warnings, "warning")}`}</span>
+      {errors > 0 && warnings > 0 && (
+        <>
+          <span className="sr-only"> and </span>
+          <TriangleAlert className="ml-1 size-3.5 text-amber-500" />
+          <strong className="font-medium text-foreground tabular-nums">{warnings}</strong>
+          <span className="sr-only">{` ${noun(warnings, "warning")}`}</span>
+        </>
+      )}
+    </Item>
   )
 }
 
@@ -154,7 +218,7 @@ function SaveFailure({ store }: { store: DesignStore }) {
       icon={<TriangleAlert className="size-3.5 text-destructive" />}
       hint="Couldn't save"
       detail="Click to try again"
-      onClick={() => void save()}
+      onClick={() => void actions.save.run("panel")}
     >
       <Words>
         <span className="text-destructive">Couldn&apos;t save</span>

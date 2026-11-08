@@ -1,6 +1,7 @@
 import {
   Button,
   Input,
+  Kbd,
   Select,
   SelectContent,
   SelectItem,
@@ -8,6 +9,7 @@ import {
   SelectValue
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
+  type BindableField,
   boardTarget,
   changesField,
   type ComponentLibrary,
@@ -34,13 +36,14 @@ import {
   pushOverrides,
   resetInstance,
   resetOverride,
+  slotAtPath,
   type StateSpec,
   swapInstance,
   targetPatches
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
@@ -50,18 +53,21 @@ import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { wrapSelection } from "./commands.ts"
+import { actions } from "./actions.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
+import { FieldWithProp } from "./field-prop.tsx"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
+import { MakeSlot } from "./slot-props.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -72,11 +78,11 @@ import { StyleSections } from "./StyleSections.tsx"
  * component's board takes edits the same way. Inside an instance, edits change only that copy.
  */
 export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
-  return isInnerPath(nodeId) ? (
-    <InnerLayerPanel entry={entry} path={nodeId} />
-  ) : (
-    <DesignLayerPanel entry={entry} nodeId={nodeId} />
-  )
+  const { store } = useProject()
+  if (!isInnerPath(nodeId)) return <DesignLayerPanel entry={entry} nodeId={nodeId} />
+  // A slot of one of the design's instances is selected as a layer is, and has a panel of its own (PAR-84).
+  const slot = slotAtPath(entry.container.root, nodeId, projectLibrary(store))
+  return slot ? <SlotPanel entry={entry} {...slot} /> : <InnerLayerPanel entry={entry} path={nodeId} />
 }
 
 /** One of the design's own layers. */
@@ -130,7 +136,20 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
         </p>
         <StateTarget entry={entry} state={state} target={target} />
         {location.ancestors.length > 0 && location.node.type !== "instance" && (
-          <MakeComponent entry={entry} nodeId={nodeId} />
+          <MakeComponent
+            entry={entry}
+            nodeId={nodeId}
+            beside={
+              location.node.type === "layout" &&
+              container.kind === "component" && <MakeSlot entry={entry} node={location.node} />
+            }
+          />
+        )}
+        {/* The outermost layout is the design itself, with no Make component, but it can still be a slot. */}
+        {location.ancestors.length === 0 && location.node.type === "layout" && container.kind === "component" && (
+          <div className="mt-2 flex">
+            <MakeSlot entry={entry} node={location.node} />
+          </div>
         )}
       </div>
 
@@ -310,13 +329,26 @@ function LayerSections({
   const propPreview = useChangePreview(session.store, entry.key)
   const setProp = (name: string, value: unknown) => (gesture?: string) =>
     change(`Change ${name}`, propChange(name, value), gesture)
+  // A component design's own layers can use its props for their text and visibility; a copy's can't.
+  const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
+  const withProp = (field: BindableField, input: ReactNode) =>
+    usesProps ? (
+      <FieldWithProp entry={entry} nodeId={nodeId} field={field} bound={node.bind?.[field]}>
+        {input}
+      </FieldWithProp>
+    ) : (
+      input
+    )
   return (
     <>
       {(node.type === "text" || (node.type === "component" && typeof node.props?.children === "string")) && (
         <PanelSection title="Content">
           {node.type === "text" ? (
             <Field label="Text" changed={override?.text !== undefined} onReset={() => reset({ kind: "text" })}>
-              <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
+              {withProp(
+                "text",
+                <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
+              )}
             </Field>
           ) : (
             <Field
@@ -338,7 +370,13 @@ function LayerSections({
 
       <PanelSection title="Visibility">
         <Field label="Visible" changed={override?.hidden !== undefined} onReset={() => reset({ kind: "hidden" })}>
-          <SwitchInput value={!node.hidden} onChange={(visible) => change("Toggle visibility", { hidden: !visible })} />
+          {withProp(
+            "visible",
+            <SwitchInput
+              value={!node.hidden}
+              onChange={(visible) => change("Toggle visibility", { hidden: !visible })}
+            />
+          )}
         </Field>
       </PanelSection>
 
@@ -384,7 +422,6 @@ function LayerSections({
  * and offers a layout around it to size instead. Inside an instance, that belongs in the component design.
  */
 function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) {
-  const session = useProject()
   return (
     <div className={`flex flex-col gap-2 border-b py-2.5 pl-4 ${panelEnd}`}>
       <p className="text-xs text-muted-foreground">
@@ -392,25 +429,30 @@ function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) 
         {wrap ? " Wrap it in a layout and size that instead." : ""}
       </p>
       {wrap && (
-        <Button variant="outline" size="sm" onClick={() => wrapSelection(session)}>
-          <Group /> {keymap.wrap.label}{" "}
-          <span className="ml-auto text-xs text-muted-foreground">{formatKeys(keymap.wrap.keys[0])}</span>
+        <Button variant="outline" size="sm" onClick={() => void actions.wrap.run("panel")}>
+          <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
         </Button>
       )}
     </div>
   )
 }
 
-/** Extracts the selected layer into a component design, with its texts as params. */
-function MakeComponent({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
+/**
+ * Extracts the selected layer into a component design, with its texts as params. `beside` is the other thing the
+ * layer can become, a slot, shown next to it until a name is being typed.
+ */
+function MakeComponent({ entry, nodeId, beside }: { entry: ContainerEntry; nodeId: string; beside?: ReactNode }) {
   const session = useProject()
   const [naming, setNaming] = useState(false)
   const [error, setError] = useState<string>()
   if (!naming) {
     return (
-      <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => setNaming(true)}>
-        <Sparkles /> Make component
-      </Button>
+      <div className="mt-2 flex gap-1.5">
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => setNaming(true)}>
+          <Sparkles /> Make component
+        </Button>
+        {beside}
+      </div>
     )
   }
   return (
@@ -567,6 +609,7 @@ function InstanceSection({
             </Field>
           )
         )}
+        {own && <InstanceSlotFields entry={entry} instance={own} />}
       </div>
       {own && (
         <div className="mt-3 flex flex-col gap-2 px-1">
@@ -707,7 +750,8 @@ function describeNode(node: DesignNode, entries: readonly ContainerEntry[], libr
   }
   if (node.type === "text") return `Text${node.tag ? `, ${node.tag}` : ""}`
   if (node.type === "image") return "Image"
-  return node.style?.direction === "row" ? "Row layout" : "Column layout"
+  const layout = node.style?.direction === "row" ? "Row layout" : "Column layout"
+  return node.slot === undefined ? layout : `${layout}, the ${node.slot} slot`
 }
 
 /**

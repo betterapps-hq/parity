@@ -1,7 +1,7 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, Circle, Copy, FolderOpen, LoaderCircle, RotateCw, TriangleAlert } from "lucide-react"
 import { useEffect, useState } from "react"
-import { openProjectFolder } from "./chrome/commands.ts"
+import { actions } from "./chrome/actions.ts"
 import { useLayout } from "./chrome/layout.ts"
 import { isPlaceholder, type Tab, workspace } from "./workspace.ts"
 
@@ -152,7 +152,7 @@ export function ProjectFailed({ tab }: { tab: Tab }) {
               <RotateCw /> Try again
             </Button>
           )}
-          <Button variant={folder ? "outline" : "default"} onClick={() => void openProjectFolder()}>
+          <Button variant={folder ? "outline" : "default"} onClick={() => void actions.openFolder.run("panel")}>
             <FolderOpen /> {folder ? "Open another project…" : "Open a project…"}
           </Button>
           <Button variant="ghost" onClick={() => void workspace.close(tab.id)}>
@@ -164,8 +164,8 @@ export function ProjectFailed({ tab }: { tab: Tab }) {
   )
 }
 
-/** The error as the service gave it, to read in full or copy into a bug report. */
-function ErrorDetails({ message }: { message: string }) {
+/** The error as the service gave it, to read in full or copy into a bug report. Error boundaries' tabs show it too. */
+export function ErrorDetails({ message }: { message: string }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return

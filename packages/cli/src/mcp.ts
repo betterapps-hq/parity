@@ -1,7 +1,8 @@
 import { createInterface } from "node:readline"
+import { requestJsonSchema } from "@parity-app/agent/contracts"
 import { checkData, jsonText, plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
-import { mcpCallerName } from "./caller.ts"
+import { mcpCallerName, mcpClientName } from "./caller.ts"
 import {
   call,
   describeAccessibility,
@@ -17,6 +18,7 @@ import {
 } from "./client.ts"
 import { operationError, renamePath } from "./errors.ts"
 import { executeOperation } from "./execute.ts"
+import { describeLogs, logsFields, logsInputSchema, readLogs } from "./logs.ts"
 import { type Operation, operations, skillOperation } from "./operations.ts"
 import { readSkill } from "./skills.ts"
 
@@ -170,6 +172,17 @@ const tools: Tool[] = [
     (result) => [text(describeProps(result))]
   ),
   {
+    name: "get_logs",
+    description:
+      "Read Parity's own events (errors, spans, traces) from its local log, for when Parity misbehaves; works with the app closed. The last run, oldest first, newest limit (100). level is the lowest shown; trace (or its start) and testRun search all runs; since is ISO or '10m'; session is an ID or 'all'.",
+    inputSchema: requestJsonSchema(logsInputSchema),
+    fields: logsFields,
+    run: async (input) => {
+      const result = readLogs(input)
+      return { content: [text(describeLogs(result))], structuredContent: { ...result } }
+    }
+  },
+  {
     name: "read_skill",
     description: "Read the Parity design skill or a file it references.",
     inputSchema: skillOperation.inputSchema,
@@ -229,7 +242,7 @@ async function respond(method: string, params: Record<string, unknown> = {}) {
   switch (method) {
     case "initialize": {
       const { clientInfo, protocolVersion } = initializeParams.parse(params)
-      setCaller(mcpCallerName(clientInfo), true)
+      setCaller(mcpCallerName(clientInfo), true, mcpClientName(clientInfo))
       return {
         result: {
           protocolVersion: protocolVersion ?? "2025-06-18",

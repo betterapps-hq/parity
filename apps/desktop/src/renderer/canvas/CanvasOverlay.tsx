@@ -1,4 +1,4 @@
-import { boardTarget, editNode, generateId, isInnerPath, locateNode, resolveModes } from "@parity-app/core"
+import { boardTarget, designSlots, editNode, isInnerPath, locateNode, resolveModes } from "@parity-app/core"
 import {
   distancesBetween,
   drawsOver,
@@ -10,7 +10,9 @@ import {
   layerSizeReset,
   layersResize,
   type SpacingEdit,
+  isLocked,
   measuresNext,
+  movesOnlyTheView,
   overlayDesigns,
   pasteHere,
   resizeStart,
@@ -21,7 +23,10 @@ import {
   toggleLayer,
   withFrame
 } from "@parity-app/editor"
+import { SquareDashed } from "lucide-react"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
+import { flushSync } from "react-dom"
+import { react, type TLRecord } from "tldraw"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
@@ -30,6 +35,7 @@ import { useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
+import { drawFrame, useFrameDrawing } from "./frame-tool.ts"
 import { followPress, gestures } from "./gesture.ts"
 import {
   frameAt,
@@ -47,6 +53,7 @@ import { designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
 import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
 import { getSnapMeasures, LayerSnapping } from "./layer-snap.ts"
 import { findLayer } from "./layers.ts"
+import { addFrameOfText } from "./new-screen.ts"
 import { frameDrawn } from "./nudge.ts"
 import { placeAtPoint } from "./paste-here.ts"
 import { hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
@@ -81,6 +88,8 @@ interface Handles {
   box: Box
   color: string
   edges: Edge[]
+  /** What the handles say they do, for a frame's (see `ResizeHandles`). */
+  label?: string
   design: string
   mode: string
   state: string
@@ -107,6 +116,10 @@ interface Model {
   spacingHandles?: { target: SpacingTarget; measure: SpacingMeasure }
   /** Column grids over frames, from View > Layout grid. */
   columns?: { key: string; box: Box }[]
+  /** A selected frame's size, under it, as a layer's is: a frame's name is its title above it. */
+  frameSize?: { box: Box; size: string }
+  /** A selected component design's slots (PAR-83), each outlined and named, so it's clear where instances put layers. */
+  slots?: { key: string; box: Box; name: string }[]
 }
 
 const empty: Model = { outlines: [], redlines: [], handles: [] }
@@ -121,6 +134,7 @@ const frameEdges: Edge[] = ["e", "s", "se"]
 export function CanvasOverlay() {
   const session = useProject()
   const rootRef = useRef<HTMLDivElement>(null)
+  const tickerRef = useRef<HTMLDivElement>(null)
   const [model, setModel] = useState<Model>(empty)
   const pointer = useRef<{ point?: Point; alt: boolean; deep: boolean }>({ alt: false, deep: false })
   const editing = useEditing(session.selection)
@@ -152,6 +166,13 @@ export function CanvasOverlay() {
         event.preventDefault()
         return
       }
+      // The frame tool draws over the empty canvas and over designs alike.
+      if (tool === "frame") {
+        event.stopPropagation()
+        event.preventDefault()
+        drawFrame(session, area, event)
+        return
+      }
       if (tool === "text") {
         event.stopPropagation()
         event.preventDefault()
@@ -160,8 +181,9 @@ export function CanvasOverlay() {
         return
       }
       // Outside a design's frames, and on a free text note over one, the press is tldraw's: it selects and moves
-      // boards and notes. A board is selected by its title or its background around the frames.
-      if (!hit || overNote(session, point)) return
+      // boards and notes. A board is selected by its title or its background around the frames. A locked design's
+      // frames are tldraw's too, which leaves its locked board alone and draws a box over it (PAR-192).
+      if (!hit || hit.entry.container.locked || overNote(session, point)) return
       // Inside a frame a press selects what's under the pointer, as in Figma's top-level frames: the top-level layer,
       // or with a layer of this design selected, its sibling; Ctrl goes to the deepest layer (see pick.ts).
       const current = selection.get()
@@ -192,7 +214,7 @@ export function CanvasOverlay() {
       if (interactive(event.target) || selection.getTool() !== "select") return
       const point = { x: event.clientX, y: event.clientY }
       const hit = hitTest(area, store, point, session.editor)
-      if (!hit || overNote(session, point)) return
+      if (!hit || hit.entry.container.locked || overNote(session, point)) return
       const selected = selectedIn(hit, selection.get())
       event.stopPropagation()
       // Its first click selected what's under the pointer; the double-click goes one level deeper, as in Figma. It
@@ -228,7 +250,7 @@ export function CanvasOverlay() {
       // Hovering outlines what a click would select, in the frame under the pointer, in any design. Over a frame's
       // background, or around the frames, nothing is, and tldraw outlines the board.
       const frame = frameAt(area, store, pointer.current.point!, session.editor)
-      if (!frame) {
+      if (!frame || frame.entry.container.locked) {
         selection.setHover(undefined)
         return
       }
@@ -264,6 +286,7 @@ export function CanvasOverlay() {
   // Outlines follow the camera, layout changes, animations and drags, so they're measured when one of those can have
   // moved them, not every frame (PAR-522, see `@parity-app/editor`'s overlay-measuring.ts): each change measures every
   // frame for a moment, and after that only while an animation runs in a frame drawn over. Measuring rests otherwise.
+  // The camera is followed apart from that, in the frame it moves (PAR-653): see `followCamera` below.
   useEffect(() => {
     const { selection, store, editor } = session
     const area = rootRef.current?.parentElement
@@ -283,19 +306,35 @@ export function CanvasOverlay() {
       const drawn = designs()
       return allFrames(area).some((host) => drawsOver(drawn, host.dataset.design) && animates(host))
     }
-    const tick = () => {
-      frame = 0
-      if (measuresNext({ now: performance.now(), until, showing: showing(), animating }))
-        frame = requestAnimationFrame(tick)
+    const draw = (now: boolean) => {
       if (area.closest("[hidden]")) return
       // Interacting, outlines and handles would sit over the components being tried.
       const next = selection.getTool() === "interact" ? empty : measure(session, area, pointer.current.alt)
       const serialized = JSON.stringify(next)
-      if (serialized !== last) {
-        last = serialized
-        setModel(next)
-      }
+      if (serialized === last) return
+      last = serialized
+      if (now) flushSync(() => setModel(next))
+      else setModel(next)
     }
+    const tick = () => {
+      frame = 0
+      if (measuresNext({ now: performance.now(), until, showing: showing(), animating }))
+        frame = requestAnimationFrame(tick)
+      draw(false)
+    }
+    // The camera moves in tldraw's own animation frame, which moves the canvas and has boards' gutters follow the zoom
+    // (PAR-602). Measured in an animation frame of its own, outlines were drawn from before the camera moved or after,
+    // and laid the page out partway through the frame; and drawn from React state, they were painted a frame late. So
+    // once the camera has moved, the outlines are measured when the frame has been laid out, and drawn before it's
+    // painted: a ResizeObserver's callbacks run then, after every animation frame callback, so the camera changes the
+    // size of a hidden element to be called.
+    const ticker = tickerRef.current
+    const followCamera = () => {
+      if (!ticker || !showing()) return
+      ticker.style.width = ticker.style.width === "1px" ? "2px" : "1px"
+    }
+    const laidOut = new ResizeObserver(() => draw(true))
+    if (ticker) laidOut.observe(ticker)
     const wake = () => {
       until = settleUntil(performance.now(), until)
       frame ||= requestAnimationFrame(tick)
@@ -341,18 +380,37 @@ export function CanvasOverlay() {
       if (area.contains(host)) wakeFor(host)
     })
 
-    // The selection, hover, tool and preferences; the designs; tldraw's camera and boards; and the pointer and keys,
-    // which drive drags, snapping, resizing and Alt's redlines.
+    // The selection, hover, tool and preferences; the designs; tldraw's boards; and the pointer and keys, which drive
+    // drags, snapping, resizing and Alt's redlines. The camera, and the wheel that moves it, are left to `followCamera`,
+    // which measures once in each frame the camera moves; measuring every frame as well would lay the page out twice.
     const stopSelection = selection.subscribe(wake)
     const stopPreferences = subscribePreferences(wake)
     const stopStore = store.subscribe(wake)
-    const stopEditor = editor?.store.listen(wake)
-    const inputs = ["pointermove", "pointerdown", "pointerup", "pointercancel", "wheel", "keydown", "keyup"]
+    const stopEditor = editor?.store.listen(({ changes }) => {
+      const types = (records: Record<string, TLRecord>) => Object.values(records).map((record) => record.typeName)
+      const change = {
+        added: types(changes.added),
+        updated: Object.values(changes.updated).map(([from, to]) => ({
+          type: to.typeName,
+          fields: Object.keys(to).filter((field) => from[field as keyof TLRecord] !== to[field as keyof TLRecord])
+        })),
+        removed: types(changes.removed)
+      }
+      if (!movesOnlyTheView(change)) wake()
+    })
+    const stopCamera =
+      editor &&
+      react("overlay follows the camera", () => {
+        editor.getCamera()
+        followCamera()
+      })
+    const inputs = ["pointermove", "pointerdown", "pointerup", "pointercancel", "keydown", "keyup"]
     for (const type of inputs) window.addEventListener(type, wake, { capture: true, passive: true })
     document.fonts.addEventListener("loadingdone", wake)
     wake()
     return () => {
       cancelAnimationFrame(frame)
+      laidOut.disconnect()
       resizes.disconnect()
       for (const stop of watched.values()) stop()
       stopFrames()
@@ -360,6 +418,7 @@ export function CanvasOverlay() {
       stopPreferences()
       stopStore()
       stopEditor?.()
+      stopCamera?.()
       for (const type of inputs) window.removeEventListener(type, wake, { capture: true })
       document.fonts.removeEventListener("loadingdone", wake)
     }
@@ -367,6 +426,9 @@ export function CanvasOverlay() {
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[300] overflow-hidden">
+      {/* Resized as the camera moves, to measure once the frame is laid out (see followCamera). */}
+      <div ref={tickerRef} aria-hidden className="invisible absolute top-0 left-0 h-0" />
+      <FrameDrawingView />
       {model.outlines.map((outline) => (
         <div
           key={outline.key}
@@ -405,6 +467,43 @@ export function CanvasOverlay() {
           </div>
         </>
       )}
+      {model.frameSize && !editing && (
+        <div
+          className="absolute -translate-x-1/2 rounded px-1.5 py-px text-[11px] text-white tabular-nums"
+          style={{
+            left: model.frameSize.box.x + model.frameSize.box.w / 2,
+            top: model.frameSize.box.y + model.frameSize.box.h + 6,
+            background: kindColors.layer
+          }}
+        >
+          {model.frameSize.size}
+        </div>
+      )}
+      {model.slots?.map((slot) => (
+        <div
+          key={slot.key}
+          className="absolute rounded-[2px]"
+          style={{
+            left: slot.box.x,
+            top: slot.box.y,
+            width: slot.box.w,
+            height: slot.box.h,
+            outline: `1px dashed ${kindColors.component}`,
+            outlineOffset: 2
+          }}
+        >
+          <span
+            className="absolute -top-[3px] -left-[3px] flex -translate-y-full items-center gap-1 rounded-[3px] px-1 font-mono text-[10px] whitespace-nowrap"
+            style={{
+              background: `color-mix(in oklch, ${kindColors.component} 16%, var(--background))`,
+              color: kindColors.component
+            }}
+          >
+            <SquareDashed className="size-2.5" />
+            {slot.name}
+          </span>
+        </div>
+      ))}
       {model.columns?.map((column) => (
         <div
           key={column.key}
@@ -562,6 +661,8 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   // While layers are dragged they are hidden where they were, so they have no outline there. An absolutely placed layer
   // moves itself, so its outline follows it.
   const layers = entry && !getDragView()?.ghost ? selectedNodes(current) : []
+  // Locked layers keep their outline but take no handles, so they're changed only from the panels (PAR-192).
+  const locked = layers.some((id) => isLocked(entry!.container, id))
   const pickedRects: DOMRect[] = []
   for (const id of layers) {
     const node = findLayer(store, entry!.container, id)
@@ -589,7 +690,8 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         size: `${formatPx(rect.width / scale)} × ${formatPx(rect.height / scale)}`,
         color
       }
-      if (selection.getTool() === "select" && !getDragView() && !isInnerPath(id)) {
+      // A locked layer, selected from Layers, isn't resized on the canvas (PAR-192).
+      if (selection.getTool() === "select" && !getDragView() && !isInnerPath(id) && !locked) {
         model.handles.push({
           kind: "node",
           key: "node",
@@ -614,7 +716,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const scale = editor.getZoomLevel() * frameScale(picked)
     model.outlines.push({ key: "union", box, color: kindColors.layer, dashed: false, thick: false })
     // Resized together by handles on that box, unless one is inside an instance, which keeps the component's size.
-    if (selection.getTool() === "select" && !getDragView() && !layers.some(isInnerPath)) {
+    if (selection.getTool() === "select" && !getDragView() && !layers.some(isInnerPath) && !locked) {
       model.handles.push({
         kind: "node",
         key: "union",
@@ -637,7 +739,28 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   const drag = getDragView()
   if (drag) model.drag = drag
 
-  if (entry && !current.node && selection.getTool() === "select") {
+  if (entry?.container.kind === "frame" && !current.node) {
+    const host = findFrames(area, entry.key)[0]
+    if (host) {
+      const rect = host.getBoundingClientRect()
+      const scale = editor.getZoomLevel() * frameScale(host)
+      model.frameSize = {
+        box: toBox(rect),
+        size: `${formatPx(rect.width / scale)} × ${formatPx(rect.height / scale)}`
+      }
+    }
+  }
+
+  if (entry && picked && !drag) {
+    const slots = designSlots(entry.container).flatMap(({ name, node }) =>
+      nodeInFrames(area, entry.key, node.id, picked)
+        .filter((item) => item.picked)
+        .map(({ rect }) => ({ key: `slot:${node.id}`, box: toBox(rect), name }))
+    )
+    if (slots.length > 0) model.slots = slots
+  }
+
+  if (entry && !current.node && selection.getTool() === "select" && !entry.container.locked) {
     for (const host of findFrames(area, entry.key)) {
       model.handles.push({
         kind: "frame",
@@ -645,6 +768,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         box: toBox(host.getBoundingClientRect()),
         color: designColor(entry.container.kind),
         edges: frameEdges,
+        ...(entry.container.kind === "frame" ? { label: "Drag to resize the frame" } : {}),
         design: entry.key,
         mode: host.dataset.mode ?? "",
         state: host.dataset.state ?? ""
@@ -717,7 +841,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const children = layout.children.map((child) => findNodeElement(picked, `${prefix}${child.id}`))
     if (element) model.spacing = layoutSpacing(element, children, toBox)
     // Its padding and gaps take handles, except inside an instance, where they're the component's (PAR-169).
-    if (element && selection.getTool() === "select" && !isInnerPath(single)) {
+    if (element && selection.getTool() === "select" && !isInnerPath(single) && !locked) {
       model.spacingHandles = {
         target: {
           design: entry!.key,
@@ -901,6 +1025,7 @@ function startResize(
     const mode = resolveModes(store.getModes()).find((candidate) => candidate.id === handles.mode)
     if (!mode) return
     const resize = frameResize({ design: entry.container, mode, edge, rect: host.getBoundingClientRect(), scale })
+    const label = entry.container.kind === "frame" ? "Resize frame" : "Resize preview"
     followPress(gestures.resize, store, start, {
       design: entry.key,
       cursor: resizeCursors[edge],
@@ -909,7 +1034,7 @@ function startResize(
         const serialized = JSON.stringify(next)
         if (serialized === last) return
         last = serialized
-        store.updateContainer(entry.key, "Resize preview", (container) => withFrame(container, mode.viewport, next), {
+        store.updateContainer(entry.key, label, (container) => withFrame(container, mode.viewport, next), {
           gesture
         })
       }
@@ -1071,8 +1196,10 @@ function resetSize(session: ProjectSession, handles: Handles, edge: Edge, fill =
   if (handles.kind === "frame") {
     const mode = resolveModes(store.getModes()).find((candidate) => candidate.id === handles.mode)
     if (!mode) return
-    const next = frameSizeReset(entry.container.frames?.[mode.viewport], edge)
-    store.updateContainer(entry.key, "Reset preview size", (container) => withFrame(container, mode.viewport, next))
+    const { container } = entry
+    const next = frameSizeReset(container.kind === "frame" ? container.size : container.frames?.[mode.viewport], edge)
+    const label = container.kind === "frame" ? "Reset frame size" : "Reset preview size"
+    store.updateContainer(entry.key, label, (current) => withFrame(current, mode.viewport, next))
     return
   }
   const layers = handles.nodes ?? (handles.node ? [handles.node] : [])
@@ -1102,7 +1229,8 @@ function contentBox(parent: HTMLElement | null, scale: number) {
 
 /**
  * The text tool: inside a design, a text layer where a drop at the pointer would land (see `placeAtPoint`), in the
- * frame there; on the canvas, a free note. Over a design with no layout under the pointer, nothing.
+ * frame there; on the empty canvas, a text layer in a frame that hugs it (see `addFrameOfText`). Either way it's
+ * edited in place at once. Over a design with no layout under the pointer, nothing.
  */
 function addText(session: ProjectSession, area: ParentNode, point: Point): void {
   const { store, selection, editor } = session
@@ -1125,16 +1253,48 @@ function addText(session: ProjectSession, area: ParentNode, point: Point): void 
   }
   if (!editor) return
   const page = editor.screenToPage(point)
-  const current = selection.get()
-  const path = (current.design && store.getEntry(current.design)?.path) ?? store.mainPath
-  const taken = new Set(store.getNotes().map((note) => note.note.id))
-  const id = `note-${generateId(taken)}`
-  const key = store.addNote(path, { id, text: "Text", position: { x: Math.round(page.x), y: Math.round(page.y) } })
-  selection.set({ note: key })
-  setTimeout(() => {
-    const shape = editor
-      .getCurrentPageShapes()
-      .find((candidate) => candidate.type === "canvas-note" && candidate.props.key === key)
-    if (shape) editor.setEditingShape(shape.id)
-  }, 50)
+  const { key, node } = addFrameOfText(session, "Text", page, "Add text")
+  const mode = resolveModes(store.getModes())[0]?.id
+  const state = store.getEntry(key)?.container.states[0]?.id
+  if (!mode || !state) return
+  const picked = { design: key, node, mode, state }
+  // The frame renders on the next frame; its text is edited once it's there.
+  requestAnimationFrame(() => requestAnimationFrame(() => selection.setEditing(picked)))
+}
+
+/**
+ * The frame being dragged out with the frame tool: a white rectangle outlined in the layer color, with its size in the
+ * canvas's pixels underneath as it grows, and a guide across the canvas at each edge it snapped to.
+ */
+function FrameDrawingView() {
+  const drawing = useFrameDrawing()
+  if (!drawing) return null
+  const { box, size, guides } = drawing
+  return (
+    <>
+      {guides.x !== undefined && (
+        <div className="absolute inset-y-0 w-px" style={{ left: guides.x, background: kindColors.layer }} />
+      )}
+      {guides.y !== undefined && (
+        <div className="absolute inset-x-0 h-px" style={{ top: guides.y, background: kindColors.layer }} />
+      )}
+      <div
+        className="absolute bg-white/90"
+        style={{
+          left: box.x,
+          top: box.y,
+          width: box.w,
+          height: box.h,
+          outline: `1.5px solid ${kindColors.layer}`
+        }}
+      >
+        <span
+          className="absolute top-full left-1/2 mt-2 -translate-x-1/2 rounded px-1.5 py-px text-[11px] font-medium whitespace-nowrap text-white tabular-nums"
+          style={{ background: kindColors.layer }}
+        >
+          {formatPx(size.width)} × {formatPx(size.height)}
+        </span>
+      </div>
+    </>
+  )
 }

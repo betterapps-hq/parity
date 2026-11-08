@@ -74,22 +74,26 @@ describe("what a new screen is called", () => {
   })
 
   it("is never Pasted", () => {
-    expect(layersName([])).toBe("Untitled screen")
+    expect(layersName([])).toBe("Untitled frame")
     expect(layersName([text("pasted", "Pasted text")])).not.toBe("Pasted")
   })
 })
 
 describe("layers with nothing to go into", () => {
-  it("become a new screen there, named after them, laid out in a padded column", () => {
+  it("become a new frame there, named after them, laid out in a padded column that hugs them", () => {
     const design = designOfLayers([text("heading", "Welcome back")], ["form"], { x: 40, y: 60 })
     expect(design).toMatchObject({
       id: "welcome-back",
       name: "Welcome back",
+      kind: "frame",
       position: { x: 40, y: 60 },
-      root: { type: "layout", style: { padding: 6, gap: 4 } },
+      root: {
+        type: "layout",
+        style: { padding: 6, gap: 4, width: "hug", background: "background", foreground: "foreground" }
+      },
       states: [{ id: "default", name: "Default" }]
     })
-    expect(design).not.toHaveProperty("kind")
+    expect(design).not.toHaveProperty("size")
     expect(inside(design)).toMatchObject([{ type: "text", text: "Welcome back" }])
   })
 
@@ -110,7 +114,7 @@ describe("layers with nothing to go into", () => {
 })
 
 describe("an item with nothing to go into", () => {
-  it("makes a new screen there named after the component, holding it as inserting it would", () => {
+  it("makes a new frame there named after the component, holding it as inserting it would", () => {
     const button: ComponentInfo = {
       name: "Button",
       path: "src/components/ui/button.tsx",
@@ -122,7 +126,7 @@ describe("an item with nothing to go into", () => {
       ["button"],
       { x: 300, y: -120 }
     )
-    expect(design).toMatchObject({ id: "button-2", name: "Button", position: { x: 300, y: -120 } })
+    expect(design).toMatchObject({ id: "button-2", name: "Button", kind: "frame", position: { x: 300, y: -120 } })
     expect(inside(design)).toEqual([findNode(design.root, node)])
     expect(findNode(design.root, node)).toMatchObject({ component: "nova/Button", props: { children: "Button" } })
   })

@@ -1,3 +1,4 @@
+import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { type Edge, handleBoxes } from "@parity-app/editor"
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, useState } from "react"
 import { Hint } from "../chrome/Hint.tsx"
@@ -23,6 +24,8 @@ export interface ResizeHandlesProps {
     box: { x: number; y: number; w: number; h: number }
     color: string
     edges: Edge[]
+    /** What its handles say they do, when it isn't a layer's or a preview's. */
+    label?: string
   }
   onStart: (edge: Edge, event: ReactPointerEvent) => void
   /** A double-click: `fill` when the keys for filling rather than hugging are held, for a layer. */
@@ -46,14 +49,16 @@ export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps)
     return (
       <Hint
         key={edge}
-        label={handles.kind === "frame" ? "Drag to resize this preview" : "Drag to resize"}
+        label={handles.label ?? (handles.kind === "frame" ? "Drag to resize this preview" : "Drag to resize")}
         detail={
           handles.kind === "frame" ? (
             "Double-click to reset."
           ) : (
             <>
               <KeyHints rows={[{ keys: held.fromMiddle.keys, does: "From the middle" }]} />
-              <span className="mt-1 block">Double-click to hug, {formatKeys(held.fill.keys)}+double-click to fill</span>
+              <span className="mt-1 block">
+                Double-click to hug, <Kbd>{formatKeys(held.fill.keys)}</Kbd>+double-click to fill
+              </span>
             </>
           )
         }

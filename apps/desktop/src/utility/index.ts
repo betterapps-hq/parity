@@ -5,12 +5,14 @@ import { tailwindStyles } from "@parity-app/styles-tailwind"
 import type { MessagePortMain } from "electron"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import type { ConnectMessage } from "../shared/service.ts"
-import { checkAccessibility, exportDesigns, exportLayers, startAgentServer } from "./agent.ts"
+import { checkAccessibility, exportDesigns, exportLayers, layersPicture, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings, startBuilder } from "./builders.ts"
+import { cacheUse, reportCacheUse } from "./cache-use.ts"
 import { readProjectFile } from "./code.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
+import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
@@ -23,7 +25,10 @@ import { openProjects, saveDocumentCopy } from "./projects.ts"
 import { checker } from "./props.ts"
 import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
+import { checkStartFolders } from "./start-folders.ts"
+import { telemetry } from "./start-telemetry.ts"
 import { openStorybook } from "./storybook.ts"
+import { useProjectSecrets } from "./telemetry.ts"
 import { losslessWebp } from "./webp.ts"
 import { windowChannel, windowClosed } from "./window-channel.ts"
 
@@ -41,12 +46,16 @@ const projects = openProjects({
   checker,
   detections: { saved: savedDetection, save: saveDetection },
   ports: { free: freePort, isFree: portFree },
+  unsupported: (reason, detail) => telemetry.track("project.unsupported", { reason, detail }),
   listeners: {
     fileChanged: (change) => {
       editor?.request("project.fileChanged", change).catch(() => undefined)
     },
     componentsChanged: (change) => {
       editor?.request("project.componentsChanged", change).catch(() => undefined)
+    },
+    codeChanged: (change) => {
+      editor?.request("project.codeChanged", change).catch(() => undefined)
     },
     guestMoved: (change) =>
       editor
@@ -66,8 +75,17 @@ const reopening = startReopening({
   close: (root) => projects.close(root).finally(rememberOpen)
 })
 
+let secretsRead = 0
+
 function rememberOpen(): void {
-  reopening.remember(projects.roots())
+  const roots = projects.roots()
+  reopening.remember(roots)
+  // The open projects' `.env` values are scrubbed from telemetry in every process (PAR-672). A later open or close
+  // reads them again, so only the latest read is used.
+  const reading = ++secretsRead
+  void projectEnvSecrets(roots).then((secrets) => {
+    if (reading === secretsRead) useProjectSecrets(secrets)
+  })
 }
 
 const handlers: Handlers<ServiceMethods> = {
@@ -84,6 +102,7 @@ const handlers: Handlers<ServiceMethods> = {
   "storybook.open": (params) => openStorybook(projects.get(params.projectId), params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "layers.export": (params) => exportLayers(editorWindow(), params),
+  "layers.picture": (params) => layersPicture(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
     const { frame, png } = await renderOffscreen(job, true)
     if (frame.error || !png) return {}
@@ -100,12 +119,14 @@ const handlers: Handlers<ServiceMethods> = {
   "frames.stored": async ({ job }) => {
     const served = projects.codeServedAt(job.projectId, job.guestUrl)
     const kept = served && (await storedBitmap(served, job))
+    if (served) cacheUse.frame(kept !== undefined)
     return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
   },
   "frames.clearStored": clearBitmaps,
   "pictures.store": ({ root, picture }) => storePicture(root, picture),
   "pictures.read": ({ roots }) => readPictures(roots),
   "pictures.keepOnly": ({ roots }) => keepOnlyPictures(roots),
+  "start.check": ({ roots }) => checkStartFolders(roots),
   "previews.lookup": async (params) => ({ previews: await previews.lookupPreviews(params.previews) }),
   "previews.make": ({ preview, priority }) => previews.makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
@@ -158,6 +179,7 @@ mainProcess.connect(nodePort(process.parentPort, { wrapped: true }))
 
 // Kept bitmaps past their limits go when the service starts, so a session never begins over them.
 void sweepBitmaps()
+reportCacheUse()
 void startAgentServer(editorWindow).catch((error: unknown) =>
   console.error("[service] agent server failed to start", error)
 )

@@ -1,8 +1,163 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 06 Nov 2026 03:55:41 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 11:33:58 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.21.0
+
+Sun, 08 Nov 2026 11:33:58 GMT
+
+### Minor changes
+
+- Record every action in the action list as command.ran, with where it came from, whether it applied, and the selection
+  (PAR-639) (ajcraswell@gmail.com)
+
+## 0.20.0
+
+Sun, 08 Nov 2026 11:14:21 GMT
+
+### Minor changes
+
+- Record frame renders, frame failures, component previews and the bitmap cache's hit rate in telemetry
+  (ajcraswell@gmail.com)
+- Search actions (Ctrl+K) finds designs, layers, components, tokens and panel actions, with recent picks first, and
+  Repeat last action (Ctrl+Alt+P) runs the last change again on the selection (ajcraswell@gmail.com)
+
+## 0.19.0
+
+Sat, 07 Nov 2026 09:34:30 GMT
+
+### Minor changes
+
+- Layers opens an instance's row to the layers inside it, read-only apart from each layer's eye (ajcraswell@gmail.com)
+
+## 0.18.0
+
+Sat, 07 Nov 2026 09:05:12 GMT
+
+### Minor changes
+
+- Failing components draw a hatched box and show in the console with why and how to fix them, the console filters levels
+  from a menu, and saved component code reaches the canvas live (ajcraswell@gmail.com)
+
+## 0.17.0
+
+Sat, 07 Nov 2026 04:58:13 GMT
+
+### Minor changes
+
+- Lock layers and designs with Ctrl+Shift+L, a lock on each Layers row, and Lock in the canvas and row menus: a locked
+  one can't be selected or moved on the canvas, only from Layers, and stays locked in the .par (ajcraswell@gmail.com)
+
+## 0.16.0
+
+Sat, 07 Nov 2026 03:48:34 GMT
+
+### Minor changes
+
+- Add Help > Report a problem, which sends what happened with a screenshot, logs, versions and projects, and offers
+  itself after a crash; add parity diagnostics, which writes the same as a zip (PAR-635) (ajcraswell@gmail.com)
+
+## 0.15.0
+
+Sat, 07 Nov 2026 03:34:11 GMT
+
+### Minor changes
+
+- parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time
+  (PAR-636) (ajcraswell@gmail.com)
+- Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633) (ajcraswell@gmail.com)
+
+### Patches
+
+- Telemetry event names may be camelCase, and the app's error, save and export events are registered
+  (ajcraswell@gmail.com)
+
+## 0.14.0
+
+Sat, 07 Nov 2026 02:04:23 GMT
+
+### Minor changes
+
+- Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or
+  agent as Sentry's user (ajcraswell@gmail.com)
+- Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)
+  (ajcraswell@gmail.com)
+- Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside
+  Make component and the slots outlined on the canvas (ajcraswell@gmail.com)
+
+## 0.13.1
+
+Fri, 06 Nov 2026 18:38:16 GMT
+
+### Patches
+
+- Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token (ajcraswell@gmail.com)
+
+## 0.13.0
+
+Fri, 06 Nov 2026 10:43:10 GMT
+
+### Minor changes
+
+- Keep a size or inset off the spacing scale, flagged with the nearest step one click away, and nudge layers by 1px
+  (ajcraswell@gmail.com)
+- Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom
+  when frames run slow (ajcraswell@gmail.com)
+
+## 0.12.0
+
+Fri, 06 Nov 2026 07:14:05 GMT
+
+### Minor changes
+
+- Layers draws only the rows in view, closes rows opened for an earlier selection, and adds search, Collapse all, an eye
+  on each layer and dragging designs to reorder them (ajcraswell@gmail.com)
+
+## 0.11.0
+
+Fri, 06 Nov 2026 05:34:58 GMT
+
+### Minor changes
+
+- Read prefers-color-scheme blocks as a theme: a project's dark block is its dark theme, the light values stay the
+  defaults, and each frame draws the block for its own mode (ajcraswell@gmail.com)
+
+## 0.10.0
+
+Fri, 06 Nov 2026 05:21:34 GMT
+
+### Minor changes
+
+- Frames on the canvas: the frame tool draws them, text and anything landing on the empty canvas make them, and Convert
+  to switches between frames, components and screens (ajcraswell@gmail.com)
+- Show component previews in the Components panel, in Names, List and Grid views, with each component's card, and in the
+  insert picker (ajcraswell@gmail.com)
+
+### Patches
+
+- Spacing handles no longer cover a layout's children, so a click on a child still selects it (ajcraswell@gmail.com)
+- Keep hover and selection outlines on their layers in every frame of a zoom, and stop the overlays laying the page out
+  partway through each frame (ajcraswell@gmail.com)
+
+## 0.9.0
+
+Fri, 06 Nov 2026 04:25:16 GMT
+
+### Minor changes
+
+- In development, each element a project's JSX writes carries its file, line and column: the inspector's Code tab shows
+  and opens it, parity components gives each component's file, and Measure each node's source (ajcraswell@gmail.com)
+- Drag a layout's padding and gaps on the canvas, type or pick a value, resize several layers together or from the
+  middle, and double-click an edge to hug or fill (ajcraswell@gmail.com)
+- Errors and warnings from the designs show with a count in the status bar, on each board and by design in a Console
+  panel (ajcraswell@gmail.com)
 
 ## 0.8.0
 

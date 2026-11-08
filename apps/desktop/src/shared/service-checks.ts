@@ -19,7 +19,9 @@ const stringRecord = z.record(z.string(), z.string())
 const renderJob = z.object({
   projectId: z.string(),
   guestUrl: z.string(),
-  components: z.record(z.string(), z.object({ path: z.string(), export: z.string() })).optional(),
+  components: z
+    .record(z.string(), z.object({ path: z.string(), export: z.string(), version: z.number().optional() }))
+    .optional(),
   theme: z.array(themeVariable),
   // The node tree is drawn by the offscreen window's guest, which reads it as the canvas does.
   tree: z.unknown(),
@@ -35,7 +37,8 @@ const renderJob = z.object({
   audit: z.boolean().optional(),
   colorTokens: z.array(z.string()).optional(),
   inlinePortals: z.literal(true).optional(),
-  previews: z.array(tokenChange).optional()
+  previews: z.array(tokenChange).optional(),
+  design: z.object({ key: z.string(), state: z.string().optional(), mode: z.string().optional() }).optional()
 })
 
 const previewJob = z.object({ component: z.string(), job: renderJob })
@@ -80,12 +83,23 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
       })
     )
   }),
+  "layers.picture": project.extend({
+    layers: z.array(
+      z.object({
+        design: z.string(),
+        node: z.string().optional(),
+        name: z.string(),
+        at: z.object({ x: finiteNumber, y: finiteNumber })
+      })
+    )
+  }),
   "frames.capture": z.object({ job: renderJob, height: finiteNumber.optional() }),
   "frames.stored": z.object({ job: renderJob }),
   "frames.clearStored": z.undefined(),
   "pictures.store": z.object({ root: z.string(), picture: projectPicture }),
   "pictures.read": roots,
   "pictures.keepOnly": roots,
+  "start.check": roots,
   "previews.lookup": z.object({ previews: z.array(previewJob) }),
   "previews.make": z.object({ preview: previewJob, priority: z.enum(["visible", "idle"]) }),
   "accessibility.check": project.extend({ design: z.string() }),

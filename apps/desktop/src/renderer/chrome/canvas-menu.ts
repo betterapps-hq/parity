@@ -10,7 +10,15 @@ import {
   locateInner,
   nodeLabel
 } from "@parity-app/core"
-import { editingState, layersSelection, selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
+import {
+  designsLocked,
+  editingState,
+  layersLocked,
+  layersSelection,
+  selectedDesigns,
+  selectedNodes,
+  type Selection
+} from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
 import { type Command, keymap } from "./keymap.ts"
 
@@ -73,7 +81,8 @@ export interface MenuTarget {
  * nothing to act on when the canvas holds no design and none of its `notes`. Items for layers only (Paste to replace,
  * the order, Wrap in layout and Hide) are left out with designs selected, and Go to the main component unless an
  * instance is. Each is unavailable when the menubar's would be, and, for layers inside an instance, when it can't act
- * on them: Copy, Duplicate, the order, Wrap in layout and Hide. Paste over and Paste to replace stay, and say why they
+ * on them: Copy, Duplicate, the order, Wrap in layout, Hide and Lock. Lock, beside Hide, reads Unlock when every
+ * selected layer, or every selected design, is locked (PAR-192). Paste over and Paste to replace stay, and say why they
  * can't. Export, at the Export section's sizes (PAR-185), then, over an element a project file wrote, Open in editor at
  * its line (PAR-167) end the menu.
  */
@@ -105,6 +114,10 @@ export function canvasMenu(
   // As Hide decides: every selected layer hidden as the board shows it, with its variant, the state and the params.
   const ownIds = own.map((node) => node.id)
   const hidden = !!entry && !!state && ownIds.length > 0 && hiddenOnBoard(entry.container, state.id, ownIds)
+  // As Lock decides: every selected layer locked by its own lock, or every selected design locked.
+  const locked = layers
+    ? !!entry && layersLocked(entry.container, ownIds)
+    : designsLocked(selectedDesigns(selection).flatMap((key) => entries.find((e) => e.key === key)?.container ?? []))
   const order: Command[] = ["bringToFront", "bringForward", "sendBackward", "sendToBack"]
   return sections([
     [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries) }],
@@ -123,24 +136,27 @@ export function canvasMenu(
         ? [item("goToMain", true, `Go to ${designName(entries, instance.design) ?? "the main component"}`)]
         : [])
     ],
-    layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : [],
+    [
+      ...(layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : []),
+      item("lock", layers ? can.lock : !!entry, locked ? "Unlock" : "Lock")
+    ],
     [item("exportSelection", true, "Export…")],
     target.source ? [{ kind: "open-source", label: "Open in editor", source: target.source }] : []
   ])
 }
 
 /** The commands that copy, move or change the selected layers themselves. */
-export type LayerCommand = "copy" | "duplicate" | "order" | "wrap" | "hide"
+export type LayerCommand = "copy" | "duplicate" | "order" | "wrap" | "hide" | "lock"
 
 /**
  * Which commands that copy, move or change the selected layers can act on them, for this menu and the menubar alike:
- * Copy, Duplicate, Wrap in layout and Hide when any is the design's own, and the order when one layer is selected and
+ * Copy, Duplicate, Wrap in layout, Hide and Lock when any is the design's own, and the order when one layer is selected and
  * it's the design's own. Layers inside an instance, and the design's root, aren't (see `ownLayers`).
  */
 export function layerCommands(selection: Selection, root: DesignNode | undefined): Record<LayerCommand, boolean> {
   const own = ownLayers(selection, root).length
   const one = own === 1 && selectedNodes(selection).length === 1
-  return { copy: own > 0, duplicate: own > 0, order: one, wrap: own > 0, hide: own > 0 }
+  return { copy: own > 0, duplicate: own > 0, order: one, wrap: own > 0, hide: own > 0, lock: own > 0 }
 }
 
 /**

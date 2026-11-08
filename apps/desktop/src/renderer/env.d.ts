@@ -1,9 +1,12 @@
 /// <reference types="vite/client" />
+import type { TelemetryHost } from "../preload/telemetry.ts"
 import type { CanvasHost } from "../shared/protocol.ts"
 
 declare global {
   interface Window {
     canvasHost: CanvasHost
+    /** Missing outside Electron, as in Storybook. */
+    parityTelemetry?: TelemetryHost
   }
 
   interface ImportMetaEnv {

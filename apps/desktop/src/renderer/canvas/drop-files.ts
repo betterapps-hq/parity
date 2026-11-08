@@ -12,6 +12,7 @@ import {
   sortDrop
 } from "@parity-app/editor"
 import { toast } from "sonner"
+import { reportError } from "../report-error.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { importImage } from "./clipboard.ts"
 import { type Hit, pickedIn } from "./hit.ts"
@@ -21,7 +22,7 @@ import { placeAtPoint } from "./paste-here.ts"
 /**
  * Image files dragged onto the canvas from Explorer or Finder (PAR-24). Over a layout inside a design they go into the
  * slot under the pointer, as a dragged layer lands, or at the pointer in an absolutely placed layout, as Paste here puts
- * layers; on the empty canvas they make a new screen there, as a paste with nothing to paste into does. Each file is
+ * layers; on the empty canvas they make a new frame there, as a paste with nothing to paste into does. Each file is
  * saved under `public/images/` through `images.import` at once, as a paste saves it, and placing them is one undo step,
  * which leaves the files, as undoing a paste does. Which files are taken, and what's said about the rest, are
  * `@parity-app/editor`'s rules.
@@ -84,7 +85,10 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
   }
   if (failed.length > 0) {
     const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
-    toast.error(failed.length === 1 ? `Couldn't add ${failed[0]!.name}` : `Couldn't add ${failed.length} images`, {
+    reportError(failed[0]!.error, {
+      operation: "images.import",
+      title: failed.length === 1 ? `Couldn't add ${failed[0]!.name}` : `Couldn't add ${failed.length} images`,
+      context: { images: failed.length },
       id: progress,
       description:
         failed.length === 1

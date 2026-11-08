@@ -8,6 +8,7 @@ import {
   selectedDesigns,
   selectedNodes
 } from "@parity-app/editor"
+import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
 import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import {
@@ -24,6 +25,7 @@ import { parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
 import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
+import { errorCode, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import { homeTab, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
@@ -36,6 +38,7 @@ import {
   orderLayer,
   selectAll,
   toggleHiddenLayers,
+  toggleLockedSelection,
   unwrapLayer,
   wrapLayers
 } from "./arrange.ts"
@@ -70,7 +73,12 @@ export async function save(session = activeSession()): Promise<void> {
     await session.store.flush()
     toast.success("Saved", { description: paths.join(", ") || session.store.mainPath, duration: 2000 })
   } catch (error) {
-    toast.error("Couldn't save", { id: saveFailureToast(session.id), description: message(error) })
+    reportError(error, {
+      operation: "project.save",
+      title: "Couldn't save",
+      id: saveFailureToast(session.id),
+      description: message(error)
+    })
   }
 }
 
@@ -96,7 +104,7 @@ export async function saveCopy(session = activeSession()): Promise<void> {
       action: { label: "Show", onClick: () => void window.canvasHost.showItem(path) }
     })
   } catch (error) {
-    toast.error("Couldn't save the copy", { description: message(error) })
+    reportError(error, { operation: "document.saveCopy", title: "Couldn't save the copy", description: message(error) })
   }
 }
 
@@ -110,8 +118,10 @@ export async function clearBitmapCache(): Promise<void> {
     await request("frames.clearStored", undefined)
     toast.success("Bitmap cache cleared", { duration: 2000 })
   } catch (error) {
-    toast.error("The bitmap cache couldn't be cleared", {
-      description: error instanceof Error ? error.message : String(error)
+    reportError(error, {
+      operation: "frames.clearStored",
+      title: "The bitmap cache couldn't be cleared",
+      description: message(error)
     })
   }
 }
@@ -121,6 +131,25 @@ export interface ExportTarget {
   design: string
   node?: string
   name: string
+}
+
+/** What exporting or copying as a PNG acts on: the selected layers, or else the selected designs, named as Layers names them. */
+function selectedTargets(session: ProjectSession): ExportTarget[] {
+  const { store } = session
+  const selection = session.selection.get()
+  const entry = selection.design ? store.getEntry(selection.design) : undefined
+  const nodes = selectedNodes(selection)
+  const entries = store.getEntries()
+  const library = store.getComponentLibrary()
+  return entry && nodes.length > 0
+    ? nodes.flatMap((node) => {
+        const layer = findNode(entry.container.root, node)
+        return layer ? [{ design: entry.key, node, name: layerLabel(layer, entries, library) }] : []
+      })
+    : selectedDesigns(selection).flatMap((key) => {
+        const design = store.getEntry(key)
+        return design ? [{ design: key, name: design.container.name }] : []
+      })
 }
 
 /**
@@ -143,6 +172,12 @@ export async function exportLayers(
   const progress = toast.loading(
     files.length === 1 ? `Exporting ${files[0]!.name}…` : `Exporting ${files.length} files…`
   )
+  const exported: Exported = {
+    kind: "layers",
+    formats: [...new Set(sizes.map((size) => size.format))],
+    scales: [...new Set(sizes.map((size) => size.scale))],
+    designs: targets.length
+  }
   try {
     const { files: written, warnings } = await request("layers.export", {
       projectId: session.id,
@@ -150,6 +185,7 @@ export async function exportLayers(
       layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
       files
     })
+    track("export.done", { ...exported, files: written.length })
     toast.success(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
       id: progress,
       description: folder,
@@ -162,8 +198,22 @@ export async function exportLayers(
       })
     }
   } catch (error) {
-    toast.error("Couldn't export", { id: progress, description: message(error) })
+    trackExportFailed(exported, error)
+    reportError(error, {
+      operation: "layers.export",
+      title: "Couldn't export",
+      id: progress,
+      description: message(error)
+    })
   }
+}
+
+/** What an export wrote, for `export.done` and `export.failed`. */
+type Exported = Omit<EventAttributes<typeof registeredEvents, "export.failed">, "code">
+
+function trackExportFailed(exported: Exported, error: unknown): void {
+  const code = errorCode(error)
+  track("export.failed", { ...exported, ...(code ? { code } : {}) })
 }
 
 /**
@@ -172,27 +222,64 @@ export async function exportLayers(
  */
 export async function exportSelected(session = activeSession()): Promise<void> {
   if (!session) return
-  const { store } = session
-  const selection = session.selection.get()
-  const entry = selection.design ? store.getEntry(selection.design) : undefined
-  const nodes = selectedNodes(selection)
-  const entries = store.getEntries()
-  const library = store.getComponentLibrary()
-  const targets: ExportTarget[] =
-    entry && nodes.length > 0
-      ? nodes.flatMap((node) => {
-          const layer = findNode(entry.container.root, node)
-          return layer ? [{ design: entry.key, node, name: layerLabel(layer, entries, library) }] : []
-        })
-      : selectedDesigns(selection).flatMap((key) => {
-          const design = store.getEntry(key)
-          return design ? [{ design: key, name: design.container.name }] : []
-        })
+  const targets = selectedTargets(session)
   if (targets.length === 0) {
     toast.info("Select a screen, a component or a layer to export it")
     return
   }
   await exportLayers(session, targets, getPreferences().exportSizes)
+}
+
+/**
+ * Copies what's selected to the clipboard as one PNG at 2x (PAR-190), drawn as exporting draws it: the selected
+ * layers, or else the selected designs, where they sit on the canvas. A toast says it's copied, or warns of any it
+ * couldn't draw.
+ */
+export async function copySelectedAsPng(session = activeSession()): Promise<void> {
+  if (!session) return
+  const targets = selectedTargets(session)
+  if (targets.length === 0) {
+    toast.info("Select a screen, a component or a layer to copy it as a PNG")
+    return
+  }
+  const progress = toast.loading("Copying as PNG…")
+  try {
+    const { png, warnings } = await request("layers.picture", {
+      projectId: session.id,
+      layers: targets.map(({ design, node, name }) => ({
+        design,
+        ...(node ? { node } : {}),
+        name,
+        at: session.store.getEntry(design)?.container.position ?? { x: 0, y: 0 }
+      }))
+    })
+    if (!png) {
+      reportError(new Error(warnings.join("\n") || "Nothing was drawn"), {
+        operation: "layers.picture",
+        title: "Couldn't copy as PNG",
+        id: progress,
+        description: warnings.join("\n") || undefined,
+        classNames: { description: "whitespace-pre-line" }
+      })
+      return
+    }
+    const blob = new Blob([Uint8Array.from(atob(png), (char) => char.charCodeAt(0))], { type: "image/png" })
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+    toast.success("Copied as PNG", { id: progress, duration: 2000 })
+    if (warnings.length > 0) {
+      toast.warning("Some layers couldn't be drawn", {
+        description: warnings.join("\n"),
+        classNames: { description: "whitespace-pre-line" }
+      })
+    }
+  } catch (error) {
+    reportError(error, {
+      operation: "layers.picture",
+      title: "Couldn't copy as PNG",
+      id: progress,
+      description: message(error)
+    })
+  }
 }
 
 export async function exportImages(scope: "selection" | "all", session = activeSession()): Promise<void> {
@@ -212,6 +299,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
   const scale = getPreferences().exportScale
   const named = designs.length === 1 ? store.getEntry(designs[0]!)?.container.name : undefined
   const progress = toast.loading(`Exporting ${named ?? store.designsLabel(designs)}…`)
+  const exported: Exported = { kind: "designs", formats: ["png"], scales: [scale], designs: designs.length }
   try {
     // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
     const { files, warnings } = await request("designs.export", {
@@ -220,6 +308,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
       designs,
       scale
     })
+    track("export.done", { ...exported, files: files.length })
     toast.success(files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`, {
       id: progress,
       description: folder,
@@ -232,7 +321,13 @@ export async function exportImages(scope: "selection" | "all", session = activeS
         classNames: { description: "whitespace-pre-line" }
       })
   } catch (error) {
-    toast.error("Couldn't export", { id: progress, description: message(error) })
+    trackExportFailed(exported, error)
+    reportError(error, {
+      operation: "designs.export",
+      title: "Couldn't export",
+      id: progress,
+      description: message(error)
+    })
   }
 }
 
@@ -353,6 +448,7 @@ export function nudge(event: KeyboardEvent | undefined, session = activeSession(
     {
       store: session.store,
       selection: session.selection,
+      unit,
       drawn: area ? (design) => frameDrawn(area, design, session.selection.get(), unit) : undefined
     },
     arrow,
@@ -488,6 +584,10 @@ export function orderSelection(order: Order, session = activeSession()): void {
 
 export function hideSelection(session = activeSession()): void {
   if (session) toggleHiddenLayers(session)
+}
+
+export function lockSelection(session = activeSession()): void {
+  if (session) toggleLockedSelection(session)
 }
 
 /** The selected design, when it's selected on its own rather than one of its layers. */

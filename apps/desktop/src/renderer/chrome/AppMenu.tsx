@@ -41,14 +41,17 @@ import {
   Images,
   Info,
   Keyboard,
+  Lock,
   LogOut,
   Magnet,
   Maximize,
   Paintbrush,
   PanelsLeftRight,
+  SquareTerminal,
   PenLine,
   Plus,
   Redo2,
+  Repeat2,
   RefreshCw,
   Save,
   SaveAll,
@@ -66,7 +69,8 @@ import {
   Unlink,
   X,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  MessageSquareWarning
 } from "lucide-react"
 import type { ReactNode } from "react"
 import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
@@ -77,6 +81,8 @@ import { type Command, keymap } from "./keymap.ts"
 import { formatKeys, isMac } from "./keys.ts"
 import { setLayout, useLayout } from "./layout.ts"
 import { setPreferences, usePreferences } from "./preferences.ts"
+import { lastAction } from "./repeat.ts"
+import { openReport } from "./ReportProblemDialog.tsx"
 import { checkForUpdates } from "./updates.tsx"
 
 const mac = isMac()
@@ -130,7 +136,7 @@ function Item({
       variant={variant}
       inset={Icon ? undefined : true}
       disabled={action.available?.() === false}
-      onClick={() => void action.run()}
+      onClick={() => void action.run("menu")}
     >
       {Icon && <Icon />} {children ?? keymap[command].label}
       <MenubarShortcut>{formatKeys(keymap[command].keys[0])}</MenubarShortcut>
@@ -215,6 +221,7 @@ function FileItems() {
 
 function EditItems() {
   const history = activeSession()?.store.getHistory()
+  const repeated = lastAction()
   return (
     <>
       <Item command="undo" icon={Undo2}>
@@ -222,6 +229,9 @@ function EditItems() {
       </Item>
       <Item command="redo" icon={Redo2}>
         {history?.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : "Redo"}
+      </Item>
+      <Item command="repeat" icon={Repeat2}>
+        {repeated ? `Repeat ${repeated.label[0]!.toLowerCase()}${repeated.label.slice(1)}` : keymap.repeat.label}
       </Item>
       <MenubarSeparator />
       <Item command="cut" icon={Scissors} />
@@ -267,6 +277,9 @@ function ViewItems() {
         onCheckedChange={(open) => setLayout({ left: open, right: open })}
       >
         <PanelsLeftRight /> Panels <MenubarShortcut>{formatKeys(keymap.panels.keys[0])}</MenubarShortcut>
+      </MenubarCheckboxItem>
+      <MenubarCheckboxItem checked={!!layout.console} onCheckedChange={(open) => setLayout({ console: open })}>
+        <SquareTerminal /> Console <MenubarShortcut>{formatKeys(keymap.console.keys[0])}</MenubarShortcut>
       </MenubarCheckboxItem>
       <MenubarCheckboxItem
         checked={preferences.layoutGrid}
@@ -321,6 +334,7 @@ function ObjectItems() {
       <Item command="sendToBack" icon={SendToBack} />
       <MenubarSeparator />
       <Item command="hide" icon={EyeOff} />
+      <Item command="lock" icon={Lock} />
       {!current.design && !current.note && (
         <SelectionHint>Select layers, a screen or a component to act on them</SelectionHint>
       )}
@@ -363,6 +377,10 @@ function HelpItems() {
       </Item>
       <MenubarSeparator />
       <Item command="developerTools" icon={Code} />
+      <MenubarSeparator />
+      <MenubarItem onClick={() => void openReport()}>
+        <MessageSquareWarning /> Report a problem…
+      </MenubarItem>
       <MenubarSeparator />
       <MenubarItem onClick={checkForUpdates}>
         <RefreshCw /> Check for updates

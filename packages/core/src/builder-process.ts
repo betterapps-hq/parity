@@ -1,4 +1,4 @@
-import type { BuilderAdapter, BuilderSession, BuilderStartOptions } from "./adapters.ts"
+import type { BuilderAdapter, BuilderSession, BuilderStartOptions, CodeChange } from "./adapters.ts"
 import type { ComponentSource, ProjectConfig } from "./project.ts"
 
 /*
@@ -25,6 +25,8 @@ export type BuilderProcessRequest =
 export type BuilderProcessReply =
   | { type: "started"; guestUrl: string; toolVersion: string }
   | { type: "failed"; error: string }
+  /** Project files whose code changed on disk, as the builder found them (PAR-165). */
+  | ({ type: "codeChanged" } & CodeChange)
   | ({ type: "usage"; id: number } & ProcessTimes)
 
 /** A process's CPU time and memory, as it reads them itself. */
@@ -85,6 +87,7 @@ export function serveBuilderProcess(
       })().then(
         (started) => {
           side.send({ type: "started", guestUrl: started.guestUrl, toolVersion: started.toolVersion })
+          started.codeChanges?.((change) => side.send({ type: "codeChanged", ...change }))
           return started
         },
         (error: unknown) => {
@@ -147,6 +150,8 @@ export interface BuilderProcessClient {
 export interface BuilderProcessClientOptions {
   /** Called when the process ends by itself after its builder started, with why. */
   onCrash?: (reason: string) => void
+  /** Called when the builder says project files' code changed, while it runs. */
+  onCodeChange?: (change: CodeChange) => void
   /** How long a builder has to close before its process is ended, in milliseconds. */
   closeTimeout?: number
   /** How long a usage reading is waited for, in milliseconds. */
@@ -163,7 +168,7 @@ export interface BuilderProcessClientOptions {
 export function connectBuilderProcess(
   link: BuilderProcessLink,
   options: BuilderProcessOptions,
-  { onCrash, closeTimeout = 5000, usageTimeout = 500, cores = 1 }: BuilderProcessClientOptions = {}
+  { onCrash, onCodeChange, closeTimeout = 5000, usageTimeout = 500, cores = 1 }: BuilderProcessClientOptions = {}
 ): BuilderProcessClient {
   let state: "starting" | "running" | "closing" | "ended" = "starting"
   let resolveStart: (session: BuilderProcessSession) => void = () => undefined
@@ -216,6 +221,8 @@ export function connectBuilderProcess(
       if (reply.type === "usage") {
         const { type: _, id, ...reading } = reply
         readings.get(id)?.(reading)
+      } else if (reply.type === "codeChanged") {
+        if (state === "running") onCodeChange?.({ paths: reply.paths, stamp: reply.stamp })
       } else if (state !== "starting") {
         // A start that answers after it was told to close is closing anyway.
       } else if (reply.type === "started") {

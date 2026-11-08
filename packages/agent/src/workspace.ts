@@ -1025,6 +1025,7 @@ export class AgentWorkspace {
     })
     const frame = await this.hooks.render({
       design: designKey,
+      state: state.id,
       tree,
       mode,
       height: size.height,

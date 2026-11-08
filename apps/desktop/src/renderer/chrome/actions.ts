@@ -1,5 +1,6 @@
 import type { ContainerKind } from "@parity-app/core"
 import { selectedDesigns, selectedNodes } from "@parity-app/editor"
+import type { Tool } from "../selection.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {
@@ -7,6 +8,7 @@ import {
   alignSelection,
   closeTab,
   copy,
+  copySelectedAsPng,
   copySelectionStyle,
   cut,
   deleteSelection,
@@ -17,6 +19,7 @@ import {
   goHome,
   goToMainComponent,
   hideSelection,
+  lockSelection,
   nudge,
   openNewTab,
   openProjectFile,
@@ -56,9 +59,11 @@ import {
   zoomToSelection
 } from "./commands.ts"
 import { createDesign } from "./create.ts"
-import type { Command } from "./keymap.ts"
-import { togglePanels } from "./layout.ts"
+import { type Command, keymap } from "./keymap.ts"
+import { toggleConsole, togglePanels } from "./layout.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
+import { type RecordedAction, recordActions } from "./record-actions.ts"
+import { lastAction, rememberAction, repeatLastAction } from "./repeat.ts"
 
 /**
  * What each shortcut in the keymap runs, for the key handlers and the actions search. `app` ones work anywhere in the
@@ -103,14 +108,15 @@ const newDesign = (kind: ContainerKind) => {
   const session = activeSession()
   if (session) createDesign(session, kind)
 }
-const tool = (name: "select" | "hand" | "text" | "interact"): Action => ({
+const tool = (name: Tool): Action => ({
   run: () => activeSession()?.selection.setTool(name),
   available: hasSession
 })
 
-export const actions: Record<Command, Action> = {
+const keymapActions: Record<Command, Action> = {
   select: tool("select"),
   hand: tool("hand"),
+  frame: tool("frame"),
   text: tool("text"),
   interact: tool("interact"),
 
@@ -127,6 +133,7 @@ export const actions: Record<Command, Action> = {
 
   undo: { run: () => undo(), available: () => !!activeSession()?.store.getHistory().canUndo },
   redo: { run: () => redo(), available: () => !!activeSession()?.store.getHistory().canRedo },
+  repeat: { run: repeatLastAction, available: () => !!lastAction() && lastAction()?.available?.() !== false },
   cut: { run: () => cut(), available: hasSomething },
   copy: { run: () => copy(), available: () => (hasLayer() ? can("copy") : hasSomething()) },
   paste: { run: () => paste(), available: hasSession },
@@ -134,6 +141,7 @@ export const actions: Record<Command, Action> = {
   pasteReplace: { run: () => pasteReplace(), available: hasLayer },
   duplicate: { run: () => duplicateSelection(), available: () => (hasLayer() ? can("duplicate") : hasDesign()) },
   delete: { run: () => deleteSelection(), available: hasSomething },
+  copyAsPng: { run: () => copySelectedAsPng(), available: () => hasLayer() || designs() > 0 },
   copyStyle: { run: () => copySelectionStyle(), available: hasLayer },
   pasteStyle: { run: () => pasteSelectionStyle(), available: hasLayer },
   rename: { run: () => renameSelection(), available: hasDesign },
@@ -151,6 +159,7 @@ export const actions: Record<Command, Action> = {
   bringToFront: { run: () => orderSelection("front"), available: () => can("order") },
   sendToBack: { run: () => orderSelection("back"), available: () => can("order") },
   hide: { run: () => hideSelection(), available: () => can("hide") },
+  lock: { run: () => lockSelection(), available: () => (hasLayer() ? can("lock") : hasDesign()) },
 
   alignLeft: { run: () => alignSelection("left"), available: alignable },
   alignCenter: { run: () => alignSelection("center"), available: alignable },
@@ -169,6 +178,7 @@ export const actions: Record<Command, Action> = {
   zoomToFit: { run: () => zoomToFit(), available: hasEditor },
   zoomToSelection: { run: () => zoomToSelection(), available: hasSomething },
   panels: { run: togglePanels, scope: "app" },
+  console: { run: toggleConsole, scope: "app" },
   // Not in text fields, where Alt and a digit can type a character.
   showLayers: { run: () => showPanelTab("layers") },
   showComponents: { run: () => showPanelTab("components") },
@@ -190,3 +200,56 @@ export const actions: Record<Command, Action> = {
   shortcuts: { run: () => openDialog("shortcuts"), scope: "app" },
   developerTools: { run: toggleDeveloperTools, scope: "app" }
 }
+
+/**
+ * What Repeat last action runs again (PAR-180): what changes the selected layers or designs, or adds one. Undo, the
+ * clipboard's copying, renaming, selecting, nudging and moving around aren't, as repeating them does nothing new.
+ */
+const repeatable: readonly Command[] = [
+  "paste",
+  "pasteOver",
+  "pasteReplace",
+  "duplicate",
+  "delete",
+  "pasteStyle",
+  "newScreen",
+  "newComponent",
+  "wrap",
+  "unwrap",
+  "makeComponent",
+  "detach",
+  "bringForward",
+  "sendBackward",
+  "bringToFront",
+  "sendToBack",
+  "hide",
+  "alignLeft",
+  "alignCenter",
+  "alignRight",
+  "alignTop",
+  "alignMiddle",
+  "alignBottom",
+  "distributeHorizontal",
+  "distributeVertical"
+]
+
+/**
+ * Remembers a repeatable command as it runs, however it's run, even in a place of its own as New screen where the canvas
+ * was right-clicked, so Repeat follows the last change.
+ */
+function rememberCommand(command: Command): void {
+  if (!repeatable.includes(command)) return
+  const action = keymapActions[command]
+  rememberAction({
+    label: keymap[command].label,
+    run: () => action.run(),
+    available: () => action.available?.() !== false
+  })
+}
+
+/** Each action in the keymap, recorded however it's run: a key, a menu, Search actions, the toolbar or a panel. */
+export const actions: Record<Command, RecordedAction> = recordActions(
+  keymapActions,
+  () => ({ layers: layers(), designs: designs() }),
+  rememberCommand
+)

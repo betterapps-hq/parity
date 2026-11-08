@@ -117,13 +117,11 @@ Every event is tagged so a test pass can be found, filtered and compared:
 
 ### On by default
 
-| Level             | Sent                                                                     |
-| ----------------- | ------------------------------------------------------------------------ |
-| **All** (default) | Errors, crashes, traces, events, replays and failure bitmaps             |
-| **Errors**        | Errors and crashes, with their breadcrumbs, traces and the replay buffer |
-| **Off**           | Nothing; the local copy is still written                                 |
+It's either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does, and the
+local copy is still written. PAR-626 dropped an Errors level between the two.
 
-- Set in Settings > Telemetry, or by `PARITY_TELEMETRY=all|errors|off`. The CLI reads the same setting and variables.
+- Set in Settings > Privacy > Share diagnostics, or by `PARITY_TELEMETRY=all|off`. The CLI reads the same setting and
+  variables.
 - On in development and CI too, with their own `environment`. Only unit tests (Vitest) leave it off, through the test
   sink.
 - About shows the level and the install ID, with a button to copy them.
@@ -228,9 +226,9 @@ The point of all this is that the agent fixing a bug can see what the agent or t
 1. **Agents report what they find.** `parity report "<what's wrong>"` and an MCP tool, `report_problem`, send a Sentry
    user feedback tied to the current trace and replay, with a screenshot of the window and the frames involved, and
    return its link. An agent's test pass calls it whenever something looks wrong but nothing threw.
-2. **Sentry files the bug.** Alert rules turn a new issue, a regression, a spike or a report into a Linear issue in
-   PAR's Todo with the Bug label, its Sentry link, release and `test_run`. Sentry's Linear integration links the two, so
-   resolving one resolves the other.
+2. **Sentry files the bug.** Alert rules turn a new issue, a regression or a report into a Linear issue in PAR's Todo
+   with the Bug label, its Sentry link, release and `test_run`. Sentry's Linear integration links the two, so resolving
+   one resolves the other.
 3. **Agents read the context.** Sessions in this repository get Sentry's MCP server, so an agent picking up a bug reads
    its events, stack, trace, breadcrumbs and replay without leaving the session. `parity logs` reads the local copy for
    a bug on the agent's own machine.
@@ -239,8 +237,9 @@ The point of all this is that the agent fixing a bug can see what the agent or t
 
 ## Where events go
 
-- **Sentry, as you decided on 2026-11-05.** Two projects in one organisation: `parity-desktop` for the app and
-  `parity-cli` for the CLI, so their releases and quotas stay apart.
+- **Sentry, as you decided on 2026-11-05.** The `better-apps` organisation, set up as [sentry.md](../sentry.md)
+  describes: `parity-desktop` for the app and `parity-cli` for the CLI, so their releases and quotas stay apart, beside
+  projects for the web app, dashboard and API.
 - **Errors** become Sentry issues, grouped by `CodedError` code and Parity's own frames.
 - **Events** become Sentry structured logs and breadcrumbs, searchable by every attribute.
 - **Spans** become Sentry traces, linked across processes and to the CLI.

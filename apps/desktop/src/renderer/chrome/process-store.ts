@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react"
-import { toast } from "sonner"
 import type { ProjectProcess } from "../../shared/protocol.ts"
+import { errorMessage, reportError } from "../report-error.ts"
 import { request } from "../service.ts"
 
 /** How often the list is asked for: often while it's shown, now and then for the status bar. */
@@ -129,7 +129,7 @@ async function act(
     await request(method, { id: process.id })
   } catch (error) {
     pending.delete(process.id)
-    toast.error(failure, { description: error instanceof Error ? error.message : String(error) })
+    reportError(error, { operation: method, title: failure, description: errorMessage(error) })
   }
   poll()
 }

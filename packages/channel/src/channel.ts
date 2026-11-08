@@ -30,9 +30,12 @@ type Answer<Result> = undefined extends Result ? Result | void : Result
  */
 export type Checks<T extends MethodMap<T>> = { [M in keyof T]: (params: unknown) => T[M]["params"] }
 
-/** A message on a channel's port. A failed request's reply carries its message, and details the codec adds. */
+/**
+ * A message on a channel's port. A failed request's reply carries its message, and details the codec adds. A request
+ * may carry the trace it was sent in (PAR-629), which the channel passes on without reading; older senders leave it out.
+ */
 export type ChannelMessage =
-  | { type: "request"; id: number; method: string; params?: unknown }
+  | { type: "request"; id: number; method: string; params?: unknown; trace?: unknown }
   | { type: "response"; id: number; result?: unknown; error?: string; details?: unknown }
 
 /** What a channel needs of a port: to send a message, and to hear what arrives and when the other end goes. */
@@ -82,11 +85,23 @@ export interface ChannelOptions<Local extends MethodMap<Local>> {
   notServing?: () => Error
   /** What a request sent fails with when its port closes or the channel moves to another one. */
   disconnected?: (reason?: Error) => Error
+  /** The trace each request is sent in, read as it's sent, for the other end's `around`. */
+  trace?: () => unknown
+  /**
+   * Runs each request's handler, given its method and the trace it came with, as a span that times it does. Its result
+   * is the answer, so it must return what `answer` gives.
+   */
+  around?: (request: { method: string; trace: unknown }, answer: () => unknown) => unknown
 }
 
 export interface Channel<Local extends MethodMap<Local>, Remote extends MethodMap<Remote>> {
   /** Asks the other end. Before the channel has a port, the request waits and goes once it connects. */
-  request<M extends keyof Remote & string>(method: M, params: Remote[M]["params"]): Promise<Remote[M]["result"]>
+  request<M extends keyof Remote & string>(
+    method: M,
+    params: Remote[M]["params"],
+    /** The trace it's sent in, instead of the channel's `trace`. */
+    trace?: unknown
+  ): Promise<Remote[M]["result"]>
   /** Starts answering the other end, or answers it with these handlers from now on. */
   serve(handlers: Handlers<Local>): void
   /**
@@ -123,7 +138,9 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
     errors = plainErrors,
     unknownMethod = (method) => new Error(`Unknown method ${method}`),
     notServing = () => new Error("Nothing answers requests here yet"),
-    disconnected = (reason) => reason ?? new Error("The other end of the channel went away")
+    disconnected = (reason) => reason ?? new Error("The other end of the channel went away"),
+    trace: currentTrace,
+    around
   } = options
   let handlers = options.handlers
   let port: Port | undefined
@@ -139,10 +156,11 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
     }
   }
 
-  const answer = async (from: Port, id: number, method: string, params: unknown) => {
+  const answer = async (from: Port, id: number, method: string, params: unknown, trace: unknown) => {
     let reply: ChannelMessage
     try {
-      reply = { type: "response", id, result: await handle(method, params) }
+      const run = () => handle(method, params)
+      reply = { type: "response", id, result: await (around ? around({ method, trace }, run) : run()) }
     } catch (error) {
       reply = { type: "response", id, ...errors.encode(error) }
     }
@@ -167,7 +185,7 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
     const message = readMessage(data)
     if (!message) return
     if (message.type === "request") {
-      void answer(from, message.id, message.method, message.params)
+      void answer(from, message.id, message.method, message.params, message.trace)
       return
     }
     const request = pending.get(message.id)
@@ -190,11 +208,19 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
   }
 
   return {
-    request(method, params) {
+    request(method, params, given) {
       if (closed) return Promise.reject(closed)
+      const trace = given ?? currentTrace?.()
       return new Promise((resolve, reject) => {
         const id = nextId++
-        const request: Pending = { resolve, reject, message: { type: "request", id, method, params } }
+        const message: ChannelMessage = {
+          type: "request",
+          id,
+          method,
+          params,
+          ...(trace === undefined ? {} : { trace })
+        }
+        const request: Pending = { resolve, reject, message }
         pending.set(id, request)
         if (port) send(port, id, request)
       })
@@ -256,7 +282,8 @@ function readMessage(data: unknown): ChannelMessage | undefined {
   const message = data as Record<string, unknown>
   if (typeof message.id !== "number") return undefined
   if (message.type === "request") {
-    return { type: "request", id: message.id, method: String(message.method), params: message.params }
+    const request = { type: "request" as const, id: message.id, method: String(message.method), params: message.params }
+    return message.trace === undefined ? request : { ...request, trace: message.trace }
   }
   if (message.type !== "response") return undefined
   if (message.error === undefined) return { type: "response", id: message.id, result: message.result }

@@ -24,7 +24,23 @@ describe("extractTokens", () => {
 })
 
 describe("extractTokens with at-rules", () => {
-  it("keeps the default's value when a prefers-color-scheme block overrides it", () => {
+  it("reads a prefers-color-scheme block as a theme, keeping the defaults (PAR-138)", () => {
+    // mantine's stylesheet.
+    const css = [
+      ":root { --app-surface: #ffffff; --app-accent: #228be6; --app-radius: 12px; }",
+      "@media (prefers-color-scheme: dark) { :root { --app-surface: #1a1b1e; --app-accent: #4dabf7; } }"
+    ].join("\n")
+    const values = Object.fromEntries(extractTokens(css).map((token) => [token.name, token.values]))
+    expect(values).toEqual({
+      "app-accent": { default: "#228be6", dark: "#4dabf7" },
+      "app-radius": { default: "12px" },
+      "app-surface": { default: "#ffffff", dark: "#1a1b1e" }
+    })
+    const light = "@media (prefers-color-scheme: light) { :root { --c: #fff; } } :root { --c: #000; }"
+    expect(extractTokens(light).find((token) => token.name === "c")?.values).toEqual({ default: "#000" })
+  })
+
+  it("keeps the dark value a theme's own selector gives over a prefers-color-scheme block", () => {
     const css = [
       ":root { --c: #fff; }",
       "@media (prefers-color-scheme: dark) { :root { --c: #00f; } }",

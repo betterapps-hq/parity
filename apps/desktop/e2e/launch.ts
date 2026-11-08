@@ -149,6 +149,10 @@ function appEnvironment(): NodeJS.ProcessEnv {
     if (name.startsWith("VITEST") || name === "TEST") delete env[name]
   }
   if (env.NODE_ENV === "test") delete env.NODE_ENV
+  // Every event from one CI run of the suite groups under its run in Sentry (PAR-630).
+  if (!env.PARITY_TEST_RUN && env.GITHUB_RUN_ID) {
+    env.PARITY_TEST_RUN = `github-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT ?? "1"}`
+  }
   return env
 }
 
@@ -283,7 +287,8 @@ async function stopProcess(child: ChildProcess): Promise<void> {
 
 /**
  * Components the canvas has to find from React's tree: a row that takes a member and renders none of its other props,
- * a pair of elements with nothing around them, and a field that passes its props to the input inside it.
+ * a pair of elements with nothing around them, and a field that passes its props to the input inside it. A row warns
+ * when it's clicked, for the console's tests.
  */
 const memberRow = `import type * as React from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -298,7 +303,7 @@ export interface Member {
 /** One member of a team: it takes the member and nothing else, so it renders none of the props it's given. */
 export function MemberRow({ member }: { member: Member }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border p-3">
+    <div className="flex items-center gap-3 rounded-md border p-3" onClick={() => console.warn("Picked", member.name)}>
       <Avatar>
         <AvatarFallback>{member.name.slice(0, 2)}</AvatarFallback>
       </Avatar>

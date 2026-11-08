@@ -5,9 +5,11 @@ import {
   Columns3,
   Component,
   Diamond,
+  Frame,
   Image as ImageIcon,
   type LucideProps,
   Rows3,
+  SquareDashed,
   Type
 } from "lucide-react"
 import type { ContainerEntry } from "../design-store.ts"
@@ -24,7 +26,9 @@ export const kindColors = {
   agent: "var(--canvas-agent)"
 } as const
 
+/** A design's color. A frame is a layout on the canvas, so it's selected in the layer color. */
 export function designColor(kind: ContainerKind | undefined): string {
+  if (kind === "frame") return kindColors.layer
   return kind === "component" ? kindColors.component : kindColors.screen
 }
 
@@ -44,7 +48,9 @@ export function layerLabel(node: DesignNode, entries: readonly ContainerEntry[],
   )
 }
 
+/** Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. */
 export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKind | undefined }) {
+  if (kind === "frame") return <Frame {...props} />
   return kind === "component" ? <Component {...props} /> : <AppWindow {...props} />
 }
 
@@ -53,6 +59,8 @@ export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode })
   if (node.type === "image") return <ImageIcon {...props} />
   if (node.type === "component") return <Box {...props} />
   if (node.type === "instance") return <Diamond {...props} />
+  // A slot is a hole each instance fills.
+  if (node.slot !== undefined) return <SquareDashed {...props} />
   return node.style?.direction === "row" ? <Columns3 {...props} /> : <Rows3 {...props} />
 }
 

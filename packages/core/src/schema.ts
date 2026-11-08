@@ -88,7 +88,58 @@ export function checkData<T extends z.ZodType>(
 ): { success: true; data: z.output<T> } | { success: false; problem: SchemaProblem } {
   const result = schema.safeParse(value, { error: issueText })
   if (result.success) return { success: true, data: result.data }
-  return { success: false, problem: firstProblem(result.error.issues, at) }
+  const problem = firstProblem(result.error.issues, at)
+  if (invalidDataListener) {
+    try {
+      invalidDataListener({ schema: schemaName(schema), problem, issues: result.error.issues, value })
+    } catch {
+      // A listener's failure never changes what the check returns.
+    }
+  }
+  return { success: false, problem }
+}
+
+/** A check through `checkData`, `parseData` or `parseInput` that failed, for telemetry's `data.invalid` (PAR-633). */
+export interface InvalidData {
+  /** The schema's name: its `.meta({ id })`, its description, or the function that ran the check. */
+  schema: string
+  problem: SchemaProblem
+  issues: readonly z.core.$ZodIssue[]
+  /** The data that failed, as given. */
+  value: unknown
+}
+
+let invalidDataListener: ((failure: InvalidData) => void) | undefined
+
+/**
+ * Calls `listener` with each failed check through `checkData`, `parseData` or `parseInput`, in place of the one before,
+ * so a process's telemetry records it as `data.invalid`. Returns a function that stops it.
+ */
+export function onInvalidData(listener: (failure: InvalidData) => void): () => void {
+  invalidDataListener = listener
+  return () => {
+    if (invalidDataListener === listener) invalidDataListener = undefined
+  }
+}
+
+/** A name for a schema in telemetry: its registered id, its description, or else the function that checked with it. */
+function schemaName(schema: z.ZodType): string {
+  const meta = z.globalRegistry.get(schema)
+  if (typeof meta?.id === "string") return meta.id
+  if (schema.description) return schema.description
+  return checkingFunction() ?? "unnamed"
+}
+
+/** The functions in this file a failed check passes through, which are never the checker's name. */
+const ownFunctions = new Set(["checkingFunction", "schemaName", "checkData", "parseData", "parseInput"])
+
+/** The first function on the stack outside this file, as `readLibrary`, when the runtime names it. */
+function checkingFunction(): string | undefined {
+  for (const line of new Error().stack?.split("\n").slice(1) ?? []) {
+    const name = /at (?:async )?([\w$.<>]+) \(/.exec(line)?.[1]
+    if (name && !ownFunctions.has(name.split(".").pop() ?? name)) return name
+  }
+  return undefined
 }
 
 /** A path inside a value as a JSON pointer (RFC 6901): `/edits/0/find`, or `` for the value itself. */

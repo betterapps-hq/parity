@@ -1,5 +1,5 @@
-import { addVariant, editNode } from "@parity-app/core"
-import { designsSelection, layersSelection } from "@parity-app/editor"
+import { addVariant, type ContainerSpec, type DesignNode, editNode, setSlot } from "@parity-app/core"
+import { designsSelection, layersSelection, newDesign } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { design, example, findTooltip, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
@@ -42,6 +42,43 @@ function row(designName: string, layerName?: string): HTMLElement {
   return element
 }
 
+/** The Layers panel's row for a layer inside an instance: the instance's id, then the layer's in its component. */
+function innerRow(designName: string, instanceName: string, componentName: string, layerName: string): HTMLElement {
+  const path = `${node(designName, instanceName)}/${node(componentName, layerName)}`
+  const element = document.getElementById(`layer-${design(designName)}/${path}`)
+  if (!element) throw new Error(`The Layers panel shows no row for ${layerName} in ${instanceName}`)
+  return element
+}
+
+/**
+ * Scrolls the panel down until a row is drawn, since it draws only the rows in view, then centers it. From the bottom
+ * it starts again at the top, in case the row wasn't open yet.
+ */
+async function scrollUntil(find: () => HTMLElement): Promise<HTMLElement> {
+  const scroller = (await waitFor(() => within(document.body).getByRole("tree", { name: "Layers" }))).parentElement!
+  scroller.scrollTop = 0
+  for (let step = 0; step < 200; step++) {
+    try {
+      const found = find()
+      found.scrollIntoView({ block: "center" })
+      return found
+    } catch {
+      const before = scroller.scrollTop
+      scroller.scrollTop += 200
+      if (scroller.scrollTop === before) scroller.scrollTop = 0
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+  }
+  return find()
+}
+
+/** Selects Value inside the Dashboard's Users card, as Ctrl-clicking it on the canvas would. */
+async function selectUsersValue(): Promise<void> {
+  await openProjects("example")
+  const path = `${node("Dashboard", "Users card")}/${node("Stat card", "Value")}`
+  example().selection.set({ design: design("Dashboard"), node: path })
+}
+
 /** Waits for a row to show, then scrolls the panel to it, as someone would scroll to what they selected. */
 async function scrollTo(designName: string, layerName?: string): Promise<HTMLElement> {
   const found = await waitFor(() => row(designName, layerName))
@@ -77,6 +114,16 @@ function dragOver(target: HTMLElement, designName: string, layerNames: string[],
   )
 }
 
+/**
+ * Searches the panel, as typing would. `userEvent.type` changes the field without React's change handler seeing it,
+ * so the value is set the way React reads it, as the Components panel's stories do.
+ */
+async function search(canvasElement: HTMLElement, text: string): Promise<void> {
+  const field = within(canvasElement).getByRole("textbox", { name: "Search layers" })
+  field.focus()
+  await fireEvent.input(field, { target: { value: text } })
+}
+
 /** Right-clicks a row where it is, as a person would, so its menu opens beside it. */
 async function rightClick(target: HTMLElement): Promise<void> {
   const box = target.getBoundingClientRect()
@@ -84,14 +131,14 @@ async function rightClick(target: HTMLElement): Promise<void> {
 }
 
 /**
- * Every design closed: component designs first, then screens, each with how many states it has. Each heading has its
- * count, then a + that makes a new one, always showing (PAR-546).
+ * Every design closed: component designs first, then screens, those with more than one state saying how many. Each
+ * heading has a + that makes a new one, always showing (PAR-546).
  */
 export const Designs: Story = { loaders: [() => openProjects("example")] }
 
 /**
- * A project whose designs were all deleted: each heading's + shows, the count is left out since the row below says so,
- * and that row is a button that makes the first one, its action in the kind's color.
+ * A project whose designs were all deleted: each heading's + shows, and the row below it is a button that makes the
+ * first one, its action in the kind's color.
  */
 export const EmptyProject: Story = {
   parameters: { blank: true },
@@ -158,6 +205,23 @@ export const LayerSelected: Story = {
     async () => {
       await openProjects("example")
       example().selection.set({ design: design("Plan card"), node: node("Plan card", "Feature 3 text") })
+    }
+  ]
+}
+
+/**
+ * A component design's slots (PAR-83): Plan card's features are a slot, so the row has the slot's dashed icon and
+ * says features at its end.
+ */
+export const Slots: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const key = design("Plan card")
+      example().store.updateContainer(key, "Make slot", (container) =>
+        setSlot(container, node("Plan card", "Features"), "features")
+      )
+      example().selection.set({ design: key, node: node("Plan card", "Feature 1") })
     }
   ]
 }
@@ -314,7 +378,9 @@ export const LayerMenu: Story = {
     await expect(items.map((item) => item.textContent)).toEqual([
       `Rename${formatKeys("Ctrl R")}`,
       `Duplicate${formatKeys("Ctrl D")}`,
-      `Show in Default${formatKeys("Ctrl Shift H")}`,
+      `Show${formatKeys("Ctrl Shift H")}`,
+      `Lock${formatKeys("Ctrl Shift L")}`,
+      `Export…${formatKeys("Ctrl Shift E")}`,
       `Delete${formatKeys("Del")}`
     ])
   }
@@ -322,7 +388,7 @@ export const LayerMenu: Story = {
 
 /**
  * Plan card with a density variant whose Compact option hides Feature 4, shown on its board. Feature 4's menu offers
- * Show in Compact, where the change lands, rather than in the base state (PAR-497).
+ * Show, reading the layer as the board shows it with Compact, and Show puts the change in Compact (PAR-497).
  */
 export const HiddenByAVariant: Story = {
   loaders: [
@@ -348,7 +414,7 @@ export const HiddenByAVariant: Story = {
   play: async () => {
     await reveal("Plan card", "Feature 4")
     await rightClick(row("Plan card", "Feature 4"))
-    await within(document.body).findByRole("menuitem", { name: "Show in Compact" })
+    await within(document.body).findByRole("menuitem", { name: /^Show/ })
   }
 }
 
@@ -385,6 +451,200 @@ export const DraggingIntoALayout: Story = {
   }
 }
 
+/**
+ * The Pricing screen dragged over the bottom half of Dashboard's row: a line under Dashboard, in the screen color,
+ * shows it would be listed after it (PAR-187).
+ */
+export const DraggingADesign: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    const data = new DataTransfer()
+    row("Pricing").dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: data }))
+    const target = await waitFor(() => row("Dashboard"))
+    const box = target.getBoundingClientRect()
+    target.dispatchEvent(
+      new DragEvent("dragover", {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: data,
+        clientX: box.left + box.width / 2,
+        clientY: box.top + box.height * 0.9
+      })
+    )
+  }
+}
+
+/**
+ * Searching for "feature": Plan card's four features and their texts, with the rows above them open, and nothing else.
+ * Its arrows are gone, since a search opens what it finds (PAR-187).
+ */
+export const Searching: Story = {
+  loaders: [() => openProjects("example")],
+  play: async ({ canvasElement }) => {
+    await search(canvasElement, "feature")
+    await waitFor(() => row("Plan card", "Feature 4"))
+    await expect(row("Plan card")).toHaveAttribute("aria-expanded", "true")
+    await expect(document.getElementById(`layer-${design("Dashboard")}`)).toBeNull()
+  }
+}
+
+/** A search that finds nothing says so, in place of the tree. */
+export const NothingFound: Story = {
+  loaders: [() => openProjects("example")],
+  play: async ({ canvasElement }) => {
+    await search(canvasElement, "carousel")
+    await within(canvasElement).findByText("No layers or designs match “carousel”")
+  }
+}
+
+/** Collapse all, pressed with a layer deep in Plan card selected: every row closes, the selection's too (PAR-187). */
+export const CollapsedAll: Story = {
+  loaders: [() => openProjects("example")],
+  play: async ({ canvasElement }) => {
+    await reveal("Plan card", "Feature 3 text")
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Collapse all" }))
+    await waitFor(() => expect(row("Plan card")).toHaveAttribute("aria-expanded", "false"))
+  }
+}
+
+/**
+ * Alt+click on Plan card's arrow opens it with every layer inside it, down to each feature's text (PAR-187). Another
+ * Alt+click closes them all.
+ */
+export const OpenedWithEverythingInside: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    const arrow = within(row("Plan card")).getByRole("button", { name: "Expand" })
+    await fireEvent.click(arrow, { altKey: true })
+    await waitFor(() => expect(row("Plan card", "Feature 4")).toHaveAttribute("aria-expanded", "true"))
+    await expect(row("Plan card", "Price block")).toHaveAttribute("aria-expanded", "true")
+  }
+}
+
+/**
+ * * pressed on Pricing opens every screen beside it, as in any tree, and no component, since those are another group
+ * (PAR-187).
+ */
+export const OpenedWithItsSiblings: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await userEvent.click(row("Pricing"))
+    await userEvent.keyboard("*")
+    await waitFor(() => expect(row("Dashboard")).toHaveAttribute("aria-expanded", "true"))
+    await expect(row("Plan card")).toHaveAttribute("aria-expanded", "false")
+  }
+}
+
+/**
+ * Plan card's Feature 3 text selected on the canvas, then Pricing's headline: the rows opened for the feature close,
+ * and only Pricing's open, so the tree doesn't grow as the selection moves around the project (PAR-187).
+ */
+export const SelectionMovedOn: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await reveal("Plan card", "Feature 3 text")
+    example().selection.set({ design: design("Pricing"), node: node("Pricing", "Headline") })
+    await waitFor(() => expect(row("Plan card")).toHaveAttribute("aria-expanded", "false"))
+    await expect(row("Pricing")).toHaveAttribute("aria-expanded", "true")
+  }
+}
+
+/**
+ * Feature 2 hovered, then hidden from its eye, which leaves the selection as it was: its eye is crossed out, and stays
+ * while the pointer is elsewhere, as Value skeleton's does (PAR-187).
+ */
+export const HiddenFromItsEye: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await reveal("Plan card", "Feature 2")
+    // Picked in the tree, so the rows opened to show Feature 2 stay open.
+    await userEvent.click(row("Plan card"))
+    await userEvent.hover(row("Plan card", "Feature 2"))
+    await userEvent.click(await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Hide" }))
+    await userEvent.unhover(row("Plan card", "Feature 2"))
+    await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Show" })
+    await expect(example().selection.get()).toEqual({ design: design("Plan card") })
+  }
+}
+
+/**
+ * A layer selected inside an instance, as Ctrl-click selects it on the canvas: the Users card opens below its row to
+ * the Stat card's layers, drawn in the component's color, with Value highlighted (PAR-92).
+ */
+export const InsideAnInstance: Story = {
+  loaders: [selectUsersValue],
+  play: async () => {
+    const value = await scrollUntil(() => innerRow("Dashboard", "Users card", "Stat card", "Value"))
+    await expect(value).toHaveAttribute("aria-selected", "true")
+    await expect(row("Dashboard", "Users card")).toHaveAttribute("aria-expanded", "true")
+  }
+}
+
+/**
+ * A layer inside an instance hidden from its eye: only this copy hides it. It can't be dragged, renamed with a
+ * double-click, or renamed, duplicated or deleted from its menu (PAR-92).
+ */
+export const HiddenInsideAnInstance: Story = {
+  loaders: [selectUsersValue],
+  play: async () => {
+    const trend = await scrollUntil(() => innerRow("Dashboard", "Users card", "Stat card", "Trend"))
+    await expect(trend).toHaveAttribute("draggable", "false")
+    await userEvent.hover(trend)
+    await userEvent.click(await within(trend).findByRole("button", { name: "Hide" }))
+    await userEvent.unhover(trend)
+    await within(trend).findByRole("button", { name: "Show" })
+    await userEvent.dblClick(trend)
+    await expect(within(trend).queryByRole("textbox")).toBeNull()
+    await rightClick(trend)
+    const menu = await within(document.body).findByRole("menu")
+    const rename = within(menu).getByRole("menuitem", { name: /Rename/ })
+    await expect(rename).toHaveAttribute("aria-disabled", "true")
+  }
+}
+
+/**
+ * A layer locked from its lock, which shows while the row is hovered and stays once it's locked, without selecting it.
+ * The layers inside it are locked with it: hovered, theirs says what locks them, and isn't a button.
+ */
+export const LockedFromItsLock: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await reveal("Plan card", "Feature 2")
+    await userEvent.click(row("Plan card"))
+    await userEvent.hover(row("Plan card", "Features"))
+    await userEvent.click(await within(row("Plan card", "Features")).findByRole("button", { name: "Lock" }))
+    await userEvent.unhover(row("Plan card", "Features"))
+    await within(row("Plan card", "Features")).findByRole("button", { name: "Unlock" })
+    await expect(example().selection.get()).toEqual({ design: design("Plan card") })
+    await userEvent.hover(row("Plan card", "Feature 2"))
+    await expect(within(row("Plan card", "Feature 2")).queryByRole("button", { name: /lock/i })).toBeNull()
+    await userEvent.hover(within(row("Plan card", "Feature 2")).getByLabelText("Locked"))
+    await expect(await findTooltip()).toHaveTextContent("Locked with Features")
+  }
+}
+
+/** A locked design: its row's lock stays, and its layers are locked with it. Ctrl+Shift+L or the row menu unlocks it. */
+export const LockedDesign: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const { store } = example()
+      store.updateContainer(design("Pricing"), "Lock screen", (container) => ({ ...container, locked: true }))
+    }
+  ],
+  play: async () => {
+    await reveal("Pricing", "Headline")
+    const pricing = await scrollTo("Pricing")
+    await expect(within(pricing).getByRole("button", { name: "Unlock" })).toBeVisible()
+    await userEvent.hover(row("Pricing", "Headline"))
+    await userEvent.hover(within(row("Pricing", "Headline")).getByLabelText("Locked"))
+    await expect(await findTooltip()).toHaveTextContent("Locked with Pricing")
+    await rightClick(pricing)
+    const unlock = await within(document.body).findByRole("menuitem", { name: /^Unlock/ })
+    await waitFor(() => expect(unlock).toBeVisible())
+  }
+}
+
 /** Free text on the canvas, listed after the designs; the selected one is highlighted. */
 export const TextOnTheCanvas: Story = {
   loaders: [
@@ -408,6 +668,51 @@ export const TextOnTheCanvas: Story = {
     const note = await within(canvasElement).findByText("Review the empty states with design before handoff")
     note.scrollIntoView({ block: "center" })
   }
+}
+
+/**
+ * A screen of 6,050 layers, 50 sections of 30 rows of three texts, listed after 100 other screens, with a row deep in
+ * its 40th section selected. Only the rows in view are drawn, so the panel stays as quick as it is for a small project.
+ */
+export const LargeProject: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const { store, selection } = example()
+      for (let index = 0; index < 100; index++) {
+        const taken = store.getEntries().map((entry) => entry.container.id)
+        const screen = newDesign("screen", taken, { x: index * 400, y: 6000 })
+        store.addContainer(store.mainPath, { ...screen, name: `Screen ${index + 1}` })
+      }
+      const taken = store.getEntries().map((entry) => entry.container.id)
+      const key = store.addContainer(store.mainPath, largeScreen(taken))
+      selection.set({ design: key, node: "large-40-15-title" })
+    }
+  ]
+}
+
+/** A screen of 50 sections, each of 30 rows of a title, a detail and a note: 6,050 layers in all. */
+function largeScreen(taken: string[]): ContainerSpec {
+  const screen = newDesign("screen", taken, { x: 0, y: 4000 })
+  const text = (id: string, value: string): DesignNode => ({ type: "text", id, text: value })
+  const sections = Array.from({ length: 50 }, (_, section): DesignNode => ({
+    type: "layout",
+    id: `large-${section + 1}`,
+    name: `Section ${section + 1}`,
+    children: Array.from({ length: 30 }, (_, index): DesignNode => ({
+      type: "layout",
+      id: `large-${section + 1}-${index + 1}`,
+      name: `Row ${section + 1}.${index + 1}`,
+      style: { direction: "row" },
+      children: [
+        text(`large-${section + 1}-${index + 1}-title`, `Title ${section + 1}.${index + 1}`),
+        text(`large-${section + 1}-${index + 1}-detail`, `Detail ${section + 1}.${index + 1}`),
+        text(`large-${section + 1}-${index + 1}-note`, "Note")
+      ]
+    }))
+  }))
+  const root = screen.root.type === "layout" ? { ...screen.root, children: sections } : screen.root
+  return { ...screen, name: "Large list", root }
 }
 
 /** A design file that couldn't be read, with the reason, after everything that could. */

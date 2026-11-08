@@ -24,8 +24,9 @@ export interface PropertyBlocks {
   /** Blocks the property may live in, by prelude (`:root`, `.dark`, `@theme`). A prelude matches if any of its comma-separated parts does. */
   blocks: string[]
   /**
-   * A theme whose blocks the property may also live in, as `themeOfSelector` reads them: for `dark`, `.dark` and
-   * `[data-theme="dark"]` alike. A block under a condition (`@media`…) is no theme's, so it's never edited.
+   * A theme whose blocks the property may also live in, as `themeOfSelector` reads them: for `dark`, `.dark`,
+   * `[data-theme="dark"]` and a `:root` in `@media (prefers-color-scheme: dark)` alike. A block under another condition
+   * (`@media (width >= 40rem)`…) is no theme's, so it's never edited.
    */
   theme?: string
 }
@@ -102,8 +103,9 @@ export function setCustomProperty(source: string, name: string, value: string, o
     return next
   }
 
+  // A new `:root` or `.dark` declaration goes in a block of that prelude under no condition, not a colour-scheme one.
   const target =
-    blocks.find((candidate) => matches(candidate, [options.create])) ??
+    blocks.find((candidate) => isUnconditional(candidate.atRules) && matches(candidate, [options.create])) ??
     (options.create.startsWith("@") ? undefined : blocks.find((candidate) => inTheme(candidate, options.theme)))
   if (target) {
     const body = source.slice(target.bodyStart, target.bodyEnd)
@@ -143,9 +145,17 @@ export function removeCustomProperty(source: string, name: string, options: Prop
   }
 }
 
-/** The blocks a custom property can be edited in: not nested in a style rule, and under no condition. */
+/**
+ * The blocks a custom property can be edited in: not nested in a style rule, and under no condition, or one that
+ * picks the block's theme, as a `prefers-color-scheme` query does.
+ */
 function editableBlocks(source: string): PlacedBlock[] {
-  return place(scanBlocks(source), [], false).filter((block) => !block.nested && isUnconditional(block.atRules))
+  return place(scanBlocks(source), [], false).filter(
+    (block) =>
+      !block.nested &&
+      (isUnconditional(block.atRules) ||
+        (!block.prelude.startsWith("@") && themeOfSelector(block.prelude, block.atRules) !== undefined))
+  )
 }
 
 /** Whether a block is one the property may live in. */

@@ -49,21 +49,25 @@
     },
     "semantic": {
       "app-accent": {
-        "default": "#228be6"
+        "default": "#228be6",
+        "dark": "#4dabf7"
       },
       "app-radius": {
         "default": "12px"
       },
       "app-surface": {
-        "default": "#ffffff"
+        "default": "#ffffff",
+        "dark": "#1a1b1e"
       },
       "app-text": {
-        "default": "#1a1b1e"
+        "default": "#1a1b1e",
+        "dark": "#f1f3f5"
       }
     }
   },
   "themes": [
-    "default"
+    "default",
+    "dark"
   ],
   "breakpoints": {
     "mantine/xs": "576px",

@@ -3,6 +3,8 @@ import { contextBridge, ipcRenderer } from "electron"
 import { ipc } from "../shared/channels.ts"
 import {
   type CanvasHost,
+  type ConsoleChange,
+  type LoggedEntry,
   type ProcessUsage,
   type ServeAnswer,
   type ServiceMethods,
@@ -10,6 +12,7 @@ import {
   type WindowMethods,
   windowMethods
 } from "../shared/protocol.ts"
+import { exposeTelemetry } from "./telemetry.ts"
 
 /**
  * The window's channel to the project service. Requests wait until main gives the page its port, and a second port
@@ -59,6 +62,15 @@ const host: CanvasHost = {
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
   getBuildInfo: () => ipcRenderer.invoke(ipc.buildInfo),
+  telemetry: {
+    get: () => ipcRenderer.invoke(ipc.telemetryState),
+    setLevel: (level) => ipcRenderer.invoke(ipc.telemetryLevel, level)
+  },
+  report: {
+    prepare: () => ipcRenderer.invoke(ipc.reportPrepare),
+    send: (report) => ipcRenderer.invoke(ipc.reportSend, report),
+    lastCrash: () => ipcRenderer.invoke(ipc.reportLastCrash)
+  },
   updates: {
     get: () => ipcRenderer.invoke(ipc.updateState),
     check: () => ipcRenderer.invoke(ipc.updateCheck),
@@ -94,15 +106,17 @@ const host: CanvasHost = {
     signIn: (request) => ipcRenderer.invoke(ipc.accountSignIn, request) as Promise<void>,
     reopen: () => ipcRenderer.invoke(ipc.accountReopen) as Promise<void>,
     cancel: () => ipcRenderer.invoke(ipc.accountCancel) as Promise<void>,
-    signOut: () => ipcRenderer.invoke(ipc.accountSignOut) as Promise<void>
+    signOut: (email) => ipcRenderer.invoke(ipc.accountSignOut, email) as Promise<void>,
+    switchOrganization: (organizationId) => ipcRenderer.invoke(ipc.accountSwitch, organizationId) as Promise<void>,
+    use: (email) => ipcRenderer.invoke(ipc.accountUse, email) as Promise<void>
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
     ?.split("=")
     .slice(1)
     .join("="),
-  ask: (method, params) =>
-    service.request(method, params).then(
+  ask: (method, params, trace) =>
+    service.request(method, params, trace).then(
       (result) => ({ result }),
       (error: unknown) => plainErrors.encode(error)
     ),
@@ -121,6 +135,18 @@ const host: CanvasHost = {
   toggleDevTools: () => ipcRenderer.invoke(ipc.toggleDevTools) as Promise<void>,
   setTheme: (theme) => ipcRenderer.invoke(ipc.setTheme, theme) as Promise<void>,
   metrics: () => ipcRenderer.invoke(ipc.metrics) as Promise<ProcessUsage[]>,
+  console: {
+    announce: (level, context) => ipcRenderer.send(ipc.consoleAnnounce, { level, ...context }),
+    read: (origin) => ipcRenderer.invoke(ipc.consoleRead, origin) as Promise<LoggedEntry[]>,
+    clear: (origin) => ipcRenderer.invoke(ipc.consoleClear, origin) as Promise<void>,
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, change: ConsoleChange) => listener(change)
+      ipcRenderer.on(ipc.consoleChanged, changed)
+      return () => {
+        ipcRenderer.removeListener(ipc.consoleChanged, changed)
+      }
+    }
+  },
   onClosing(listener) {
     ipcRenderer.on(ipc.closing, () => {
       ipcRenderer.send(ipc.closePending)
@@ -133,3 +159,4 @@ const host: CanvasHost = {
 }
 
 contextBridge.exposeInMainWorld("canvasHost", host)
+exposeTelemetry()

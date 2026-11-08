@@ -1,5 +1,6 @@
 import { type Selection, sameSelection } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
+import { recordInterface } from "./interface-events.ts"
 
 export interface Hover {
   design: string
@@ -9,8 +10,11 @@ export interface Hover {
   state?: string
 }
 
-/** `interact` hands the pointer and keys to the designs' real components, to try them as in a browser. */
-export type Tool = "select" | "hand" | "text" | "interact"
+/**
+ * `frame` draws a frame by dragging on the canvas, and `interact` hands the pointer and keys to the designs' real
+ * components, to try them as in a browser.
+ */
+export type Tool = "select" | "hand" | "frame" | "text" | "interact"
 
 /** Asks whatever shows a design or layer's name to start renaming it in place. */
 export interface RenameRequest {
@@ -74,6 +78,9 @@ export class SelectionStore {
   setTool(tool: Tool): void {
     if (tool === this.tool) return
     if (this.tool === "interact") this.interactions++
+    if ((tool === "interact") !== (this.tool === "interact")) {
+      recordInterface("mode.switched", { mode: tool === "interact" ? "interact" : "design" })
+    }
     this.tool = tool
     this.notify()
   }

@@ -1,6 +1,6 @@
 import type { ElementSource } from "@parity-app/core"
-import { toast } from "sonner"
 import type { OpenInEditorRequest } from "../../shared/protocol.ts"
+import { reportError } from "../report-error.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { getPreferences } from "./preferences.ts"
 
@@ -40,7 +40,9 @@ async function openFile(at: Omit<OpenInEditorRequest, "editor">): Promise<void> 
   try {
     await window.canvasHost.openInEditor({ ...at, editor: getPreferences().codeEditor })
   } catch (error) {
-    toast.error("Couldn't open the code", {
+    reportError(error, {
+      operation: "editor.open",
+      title: "Couldn't open the code",
       description: (error instanceof Error ? error.message : String(error)).replace(
         /^Error invoking remote method '[^']+': (Error: )?/,
         ""

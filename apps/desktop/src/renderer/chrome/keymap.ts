@@ -21,6 +21,7 @@ export const groups: readonly Group[] = ["Tools", "Selection", "Edit", "Object",
 export const keymap = {
   select: { group: "Tools", label: "Move and select", keys: ["V"] },
   hand: { group: "Tools", label: "Hand", keys: ["H"] },
+  frame: { group: "Tools", label: "Frame", keys: ["F", "A"] },
   text: { group: "Tools", label: "Text", keys: ["T"] },
   interact: { group: "Tools", label: "Interact with previews", keys: ["I"] },
 
@@ -37,6 +38,7 @@ export const keymap = {
 
   undo: { group: "Edit", label: "Undo", keys: ["Ctrl Z"] },
   redo: { group: "Edit", label: "Redo", keys: ["Ctrl Shift Z", "Ctrl Y"] },
+  repeat: { group: "Edit", label: "Repeat last action", keys: ["Ctrl Alt P"] },
   cut: { group: "Edit", label: "Cut", keys: ["Ctrl X"] },
   copy: { group: "Edit", label: "Copy", keys: ["Ctrl C"] },
   paste: { group: "Edit", label: "Paste", keys: ["Ctrl V"] },
@@ -44,6 +46,7 @@ export const keymap = {
   pasteReplace: { group: "Edit", label: "Paste to replace", keys: ["Ctrl Shift R"] },
   duplicate: { group: "Edit", label: "Duplicate", keys: ["Ctrl D"] },
   delete: { group: "Edit", label: "Delete", keys: ["Del", "Backspace"] },
+  copyAsPng: { group: "Edit", label: "Copy as PNG", keys: ["Ctrl Shift C"] },
   copyStyle: { group: "Edit", label: "Copy style", keys: ["Ctrl Alt C"] },
   pasteStyle: { group: "Edit", label: "Paste style", keys: ["Ctrl Alt V"] },
   rename: { group: "Edit", label: "Rename", keys: ["Ctrl R", "F2"] },
@@ -61,6 +64,7 @@ export const keymap = {
   bringToFront: { group: "Object", label: "Bring to front", keys: ["Ctrl Shift ]", "]"] },
   sendToBack: { group: "Object", label: "Send to back", keys: ["Ctrl Shift [", "["] },
   hide: { group: "Object", label: "Hide or show", keys: ["Ctrl Shift H"] },
+  lock: { group: "Object", label: "Lock or unlock", keys: ["Ctrl Shift L"] },
 
   alignLeft: { group: "Arrange", label: "Align left", keys: ["Alt A"] },
   alignCenter: { group: "Arrange", label: "Align horizontal centers", keys: ["Alt H"] },
@@ -79,6 +83,7 @@ export const keymap = {
   zoomToFit: { group: "View", label: "Zoom to fit", keys: ["Shift 1"] },
   zoomToSelection: { group: "View", label: "Zoom to selection", keys: ["Shift 2"] },
   panels: { group: "View", label: "Show or hide the panels", keys: ["Ctrl \\"] },
+  console: { group: "View", label: "Show or hide the console", keys: ["Ctrl `"] },
   showLayers: { group: "View", label: "Show Layers", keys: ["Alt 1"] },
   showComponents: { group: "View", label: "Show Components", keys: ["Alt 2"] },
   layoutGrid: { group: "View", label: "Layout grid", keys: ["Shift G"] },

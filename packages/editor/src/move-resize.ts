@@ -15,6 +15,7 @@ import {
   topmostNodes
 } from "@parity-app/core"
 import type { Flow, Rect } from "./drop-slot.ts"
+import { withFrameSize } from "./frames.ts"
 import type { Edge } from "./handles.ts"
 import { type BoardView, boardReader } from "./shown.ts"
 import {
@@ -479,7 +480,7 @@ export function frameResize(start: FrameResizeStart): (move: { dx: number; dy: n
   const content = size.height === undefined ? drawn : undefined
   const height = size.height ?? drawn
   return ({ dx, dy }) => {
-    const next: FrameSize = { ...design.frames?.[mode.viewport] }
+    const next: FrameSize = { ...(design.kind === "frame" ? design.size : design.frames?.[mode.viewport]) }
     if (axes.width) {
       const width = Math.round(size.width + dx / scale)
       if (Math.abs(width - mode.width) * scale < fillDistance) delete next.width
@@ -506,8 +507,12 @@ export function frameSizeReset(frame: FrameSize | undefined, edge: Edge): FrameS
   return next
 }
 
-/** The design with `size` for a viewport's frame, keeping no entry for a frame that takes its viewport's size. */
+/**
+ * The design with `size` for a viewport's frame, keeping no entry for a frame that takes its viewport's size. A frame
+ * (the kind) has one size whatever the viewport, which this sets (see `withFrameSize`).
+ */
 export function withFrame(container: ContainerSpec, viewport: string, size: FrameSize): ContainerSpec {
+  if (container.kind === "frame") return withFrameSize(container, size)
   const frames = { ...container.frames }
   if (size.width === undefined && size.height === undefined) delete frames[viewport]
   else frames[viewport] = size
@@ -602,7 +607,7 @@ const deltas: Record<Arrow, { x: number; y: number }> = {
   down: { x: 0, y: 1 }
 }
 
-/** How far an arrow moves something along its direction: one, or ten with Shift. */
+/** How far an arrow moves something along its direction, in pixels: one, or ten with Shift. */
 function nudgeBy(arrow: Arrow, big: boolean): { x: number; y: number } {
   const steps = big ? 10 : 1
   const { x, y } = deltas[arrow]
@@ -635,8 +640,9 @@ export interface Drawn {
 
 /**
  * Nudges layers of one design, as the board shows them in the state being edited and the frame's viewport. Absolutely
- * placed ones move by their insets, in that state; the rest move among their siblings, in the layout each sits in, as
- * the frame draws it (or as the design says, when it isn't drawn). Layers inside instances don't move.
+ * placed ones move by their insets, in that state, 1px or 10px with Shift (PAR-194), so an inset can leave the spacing
+ * scale, `unit` pixels a step; the rest move among their siblings, in the layout each sits in, as the frame draws it (or
+ * as the design says, when it isn't drawn). Layers inside instances don't move.
  */
 export function nudgeLayers(
   container: ContainerSpec,
@@ -644,6 +650,7 @@ export function nudgeLayers(
   state: StateSpec,
   arrow: Arrow,
   big: boolean,
+  unit: number,
   drawn: Drawn,
   viewport?: string
 ): LayersNudge {
@@ -660,10 +667,17 @@ export function nudgeLayers(
       flowing.push(node)
       continue
     }
-    const shift = shiftInsets(style, by.x, by.y, drawn.insets(node.id))
+    const shift = shiftInsets(style, by.x / unit, by.y / unit, drawn.insets(node.id))
     if (shift.blocked) blocked ??= { layer: node.id, side: shift.blocked, token: style[shift.blocked]! }
     if (Object.keys(shift.change).length > 0) {
-      next = editNode(next, boardTarget(next, state.id), node.id, { style: shift.change })
+      // To the hundredth of a pixel, so a run of presses with a 6px unit doesn't drift.
+      const change = Object.fromEntries(
+        Object.entries(shift.change).map(([side, steps]) => [
+          side,
+          Math.round((steps as number) * unit * 100) / (unit * 100)
+        ])
+      )
+      next = editNode(next, boardTarget(next, state.id), node.id, { style: change })
     }
   }
 

@@ -19,6 +19,7 @@ import {
   builderProcessOptions,
   type BuilderProcessSession,
   type BuilderStartOptions,
+  type CodeChange,
   type ComponentInfo,
   type ComponentSource,
   libraryManifestExtension,
@@ -81,6 +82,8 @@ export interface ProjectListeners {
   fileChanged: (change: WindowMethods["project.fileChanged"]["params"]) => void
   /** A project's component list or props changed. */
   componentsChanged: (change: WindowMethods["project.componentsChanged"]["params"]) => void
+  /** The code of some of a project's components changed on disk, by its builder's account. */
+  codeChanged: (change: WindowMethods["project.codeChanged"]["params"]) => void
   /** A builder started again on a new port; resolves whether the windows now draw the guest from there. */
   guestMoved: (change: GuestMoved) => Promise<boolean>
 }
@@ -109,7 +112,13 @@ export interface ProjectAdapters {
   /** The builder link: starts a project's builder in a process of its own (see builders.ts). */
   startBuilder: (
     options: BuilderProcessOptions,
-    about: { builder: string; project: string; onCrash: (error: string) => void }
+    about: {
+      builder: string
+      project: string
+      onCrash: (error: string) => void
+      /** The builder found project files whose code changed (PAR-165). */
+      onCodeChange?: (change: CodeChange) => void
+    }
   ) => StartedBuilder
   /** Watches the project folder, and folders outside it holding its config. `fs.watch` unless given. */
   watch?: WatchFolder
@@ -120,7 +129,12 @@ export interface ProjectAdapters {
   listeners: ProjectListeners
   /** What the service's environment says of opening projects. The service's own (`environment()`) unless given. */
   environment?: Pick<ServiceEnvironment, "PARITY_ALLOWED_ORIGINS" | "PARITY_PROJECT" | "PARITY_DEV_RUNNER">
+  /** Told why a project can't be opened, for telemetry's `project.unsupported` (PAR-633). */
+  unsupported?: (reason: UnsupportedReason, detail: string) => void
 }
+
+/** Why Parity can't open a project: no package.json, no renderer for its framework, or no builder for its bundler. */
+export type UnsupportedReason = "no_package" | "no_renderer" | "no_builder"
 
 /** An open project, as the service's other modules use it. */
 export interface OpenProject {
@@ -227,11 +241,17 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     return !devRunner && existsSync(bundled) ? bundled : require.resolve(renderer.guestModule)
   }
 
+  /** Tells telemetry why the project can't be opened, and returns the error that says so. */
+  function unsupported(reason: UnsupportedReason, detail: string): Error {
+    adapters.unsupported?.(reason, detail)
+    return new Error(detail)
+  }
+
   async function start(root: string): Promise<ProjectInfo> {
     const pkg = (await readPackage(root))?.manifest
-    if (!pkg) throw new Error(`There's no package.json in ${root}`)
+    if (!pkg) throw unsupported("no_package", `There's no package.json in ${root}`)
     const renderer = adapters.renderers.find((adapter) => adapter.detect(pkg))
-    if (!renderer) throw new Error(`No renderer supports ${pkg.name ?? root}`)
+    if (!renderer) throw unsupported("no_renderer", `No renderer supports ${pkg.name ?? root}`)
     const found = await findBuilder(adapters.builders, root)
     const detection = await detectProject(
       root,
@@ -240,7 +260,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     )
     // An untested version may be why something below fails, so any error ends with the note naming it.
     const explain = (problem: string) => (detection.notice ? `${problem}\n\n${detection.notice}` : problem)
-    if (!found.builder) throw new Error(explain(`No builder supports ${root}.\n${found.misses.join("\n")}`))
+    if (!found.builder) {
+      throw unsupported("no_builder", explain(`No builder supports ${root}.\n${found.misses.join("\n")}`))
+    }
     const { builder } = found
     const name = pkg.name ?? basename(root)
     const config = await discoverProject(root, renderer, pkg)
@@ -370,6 +392,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       onCrash: (error) => {
         console.warn(`[service] ${name}: ${error}`)
         tracking.set("failed", { error })
+      },
+      onCodeChange: (change) => {
+        const project = projects.get(root)
+        if (project) listeners.codeChanged({ projectId: project.info.id, ...change })
       }
     })
     if (started.pid) tracking.set("starting", { pid: started.pid })

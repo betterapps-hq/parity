@@ -25,6 +25,9 @@ import {
 } from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
 import { inlinePortalSheet, inlinePortals } from "./inline-portals.ts"
+import { startTelemetry } from "./telemetry.ts"
+
+startTelemetry()
 
 declare global {
   interface Window {
@@ -83,6 +86,8 @@ window.canvasRender = async (job) => {
     document.body.append(host)
     currentHost = host
     const errors: string[] = []
+    // The first error's stack, which telemetry records with the messages (PAR-638).
+    let stack: string | undefined
     // The window the frame stands for, resolved with the frame, so it's the live frame's even when the frame grows.
     const { viewport } = job.mode
     const attributes = frameAttributes(job.mode, loaded.themeAttributes)
@@ -98,7 +103,10 @@ window.canvasRender = async (job) => {
     }
     const handle = loaded.guest.mount(target, tree, {
       viewport,
-      onError: (error) => errors.push(error instanceof Error ? error.message : String(error)),
+      onError: (error) => {
+        errors.push(error instanceof Error ? error.message : String(error))
+        if (error instanceof Error) stack ??= error.stack
+      },
       ...(job.mode.globals ? { globals: job.mode.globals } : {})
     })
     setDrawnNodes(host, handle.drawnNodes?.bind(handle))
@@ -148,7 +156,8 @@ window.canvasRender = async (job) => {
       unknownComponents: [
         ...new Set(renderedComponents(tree).filter((name) => !known.has(name) && !loaded.guest.hasComponent(name)))
       ],
-      ...(errors.length > 0 ? { error: errors.join("\n") } : {})
+      ...(errors.length > 0 ? { error: errors.join("\n") } : {}),
+      ...(stack ? { errorStack: stack } : {})
     }
   } catch (error) {
     return {
@@ -157,7 +166,8 @@ window.canvasRender = async (job) => {
       nodes: [],
       overflowsX: false,
       unknownComponents: [],
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      ...(error instanceof Error && error.stack ? { errorStack: error.stack } : {})
     }
   }
 }

@@ -5,7 +5,6 @@ import {
   type Atom,
   atom,
   Box,
-  type Computed,
   computed,
   HTMLContainer,
   Rectangle2d,
@@ -13,7 +12,6 @@ import {
   react,
   ShapeUtil,
   T,
-  type Editor,
   type TLShape,
   unsafe__withoutCapture,
   useEditor,
@@ -22,7 +20,7 @@ import {
 import { moveDesigns } from "../chrome/arrange.ts"
 import { getPreferences } from "../chrome/preferences.ts"
 import { useContainerEntry } from "../design-store.ts"
-import { isRestingFar, isTabHidden, shapeIdFor } from "./CanvasEditor.tsx"
+import { isRestingFar, isTabHidden, isZoomSettled, shapeIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
 import { type BoardRest, boardDormant } from "./frame-sleep.ts"
@@ -91,25 +89,20 @@ export class ContainerShapeUtil extends ShapeUtil<ContainerShape> {
     )
   }
 
-  /** The board's outline, round its corners, which follow the zoom as its gutter does. */
+  /**
+   * The board's outline, round its corners, which follow the zoom as its gutter does. A frame has no board, so its
+   * outline is square, as the frame is.
+   */
   override getIndicatorPath(shape: ContainerShape) {
     const path = new Path2D()
-    path.roundRect(0, 0, shape.props.w, shape.props.h, boardLayoutAt(this.editor.getZoomLevel()).radius)
+    const radius = frameShapes.has(shape.id) ? 0 : boardLayoutAt(this.editor.getZoomLevel()).radius
+    path.roundRect(0, 0, shape.props.w, shape.props.h, radius)
     return path
   }
 }
 
-/** Whether the camera is still, by editor, which every board's size waits for (see `ContainerContent`). */
-const cameraStill = new WeakMap<Editor, Computed<boolean>>()
-
-function isCameraStill(editor: Editor): boolean {
-  let still = cameraStill.get(editor)
-  if (!still) {
-    still = computed("camera still", () => editor.getCameraState() === "idle")
-    cameraStill.set(editor, still)
-  }
-  return still.get()
-}
+/** The shapes that draw frames, the kind with no board, for their square outlines. */
+const frameShapes = new Set<string>()
 
 function ContainerContent({ shape }: { shape: ContainerShape }) {
   const editor = useEditor()
@@ -122,6 +115,13 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   const x = useValue("board x", () => editor.getShape(shape.id)?.x ?? 0, [editor, shape.id])
   const y = useValue("board y", () => editor.getShape(shape.id)?.y ?? 0, [editor, shape.id])
   const titleLayer = useTitleLayer(editor)
+
+  const frame = entry?.container.kind === "frame"
+  useLayoutEffect(() => {
+    if (!frame) return undefined
+    frameShapes.add(shape.id)
+    return () => void frameShapes.delete(shape.id)
+  }, [frame, shape.id])
 
   const [drawn, setDrawn] = useState(false)
   // Its frames sleep zoomed far out, except on the selected board, and in a tab hidden a while once they've been drawn;
@@ -144,8 +144,9 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   // Layout sizes are unaffected by the camera's scale, so they can be written straight to the shape. A board that isn't
   // drawn at all, in a tab that isn't showing, has no size to give, rather than a size of nothing. Once it has given
   // one, it says so, for a pasted design brought into view at its real size. Its gutter follows the zoom (PAR-602), so
-  // a board changes size as the camera zooms; the shape takes its new size once the camera stops, rather than every
-  // board drawing again on every frame of a zoom.
+  // a board changes size as the camera zooms; the shape takes its new size once the zoom settles, rather than every
+  // board measuring itself and drawing again on every frame of a zoom. tldraw's camera state isn't enough: on a busy
+  // machine, frames slower than its timeout had the camera stop on almost every frame (PAR-655).
   useLayoutEffect(() => {
     const element = ref.current
     if (!element) return undefined
@@ -163,11 +164,11 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       setBoardSized(editor, shape.id, true)
     }
     const observer = new ResizeObserver(() => {
-      if (isCameraStill(editor)) measure()
+      if (isZoomSettled(editor)) measure()
     })
     observer.observe(element)
-    const stop = react("board size once the camera stops", () => {
-      if (isCameraStill(editor)) unsafe__withoutCapture(measure)
+    const stop = react("board size once the zoom settles", () => {
+      if (isZoomSettled(editor)) unsafe__withoutCapture(measure)
     })
     return () => {
       stop()
@@ -206,11 +207,15 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
    * puts the designs back where they were and saves nothing (see `gestures.titleDrag`).
    */
   const dragByTitle = (event: ReactPointerEvent) => {
+    // A locked design's title is left to the canvas, as its board is: it's selected and moved only from Layers.
+    if (session.store.getEntry(shape.props.key)?.container.locked) return
     event.stopPropagation()
     if (event.button !== 0) return
     const key = shape.props.key
     const current = selection.get()
-    const group = selectedDesigns(current)
+    const group = selectedDesigns(current).filter(
+      (candidate) => candidate === key || !session.store.getEntry(candidate)?.container.locked
+    )
     if (event.shiftKey) {
       const next = group.includes(key) ? group.filter((candidate) => candidate !== key) : [...group, key]
       selection.set(designsSelection(next))

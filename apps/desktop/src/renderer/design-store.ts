@@ -43,6 +43,7 @@ import {
   mergeAgentChanges,
   type Picked,
   reloadFile,
+  reorderDesign,
   replaceDocuments,
   revertTo,
   type SaveState,
@@ -63,6 +64,7 @@ import {
   writeSucceeded
 } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
+import { keepTrace } from "./tracing.ts"
 
 export interface ContainerEntry {
   /** Stable across the session: `<document path>#<container id>`. */
@@ -306,6 +308,15 @@ export class DesignStore {
     return containerKey(path, container.id)
   }
 
+  /** Moves a design just before or after another in their file, which is the Layers panel's order (PAR-187). */
+  reorderContainer(key: string, target: string, place: "before" | "after"): void {
+    const design = this.designOf(key)
+    const beside = this.designOf(target)
+    if (!design || !beside) return
+    const label = `Reorder ${kindsName([this.getEntry(key)?.container.kind])}`
+    this.change(label, (snapshot) => reorderDesign(snapshot, design, beside, place))
+  }
+
   removeContainer(key: string, label?: string): void {
     const design = this.designOf(key)
     if (!design) return
@@ -419,11 +430,13 @@ export class DesignStore {
 
   private schedule(path: string): void {
     clearTimeout(this.timers.get(path))
+    // The write is in the trace of the edit that asked for it, the latest when edits come together (PAR-629).
+    const inTrace = keepTrace()
     this.timers.set(
       path,
       setTimeout(() => {
         this.timers.delete(path)
-        this.write(path)
+        inTrace(() => this.write(path))
       }, saveDelay)
     )
   }

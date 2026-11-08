@@ -1,11 +1,11 @@
 import { Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { House, LoaderCircle, Plus, TriangleAlert, X } from "lucide-react"
-import { useEffect, useRef, useSyncExternalStore } from "react"
+import { type ReactNode, useEffect, useRef, useSyncExternalStore } from "react"
 import { AccountMenu } from "../account/AccountMenu.tsx"
 import type { DesignStore } from "../design-store.ts"
 import { homeTab, type Tab, useActiveTabId, useHomeActive, useTabs, workspace } from "../workspace.ts"
+import { actions } from "./actions.ts"
 import { AppMenu } from "./AppMenu.tsx"
-import { openNewTab } from "./commands.ts"
 import { Hint } from "./Hint.tsx"
 import { formatKeys } from "./keys.ts"
 
@@ -118,9 +118,9 @@ function HomeTab() {
 
 /**
  * The app's menus, then Home and the open tabs, and your account at the end. The strip doubles as the window's title
- * bar; the system's window buttons sit after it.
+ * bar; the system's window buttons sit after it. `account` replaces the account menu, as an exploration does.
  */
-export function TabBar() {
+export function TabBar({ account = <AccountMenu /> }: { account?: ReactNode }) {
   const tabs = useTabs()
   const active = useActiveTabId()
   const strip = useRef<HTMLDivElement>(null)
@@ -158,7 +158,7 @@ export function TabBar() {
           render={
             <button
               type="button"
-              onClick={openNewTab}
+              onClick={() => void actions.newTab.run("panel")}
               aria-label="New tab"
               className="mb-1 ml-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground [-webkit-app-region:no-drag]"
             >
@@ -170,7 +170,7 @@ export function TabBar() {
           New tab <Kbd>{formatKeys("Ctrl T")}</Kbd>
         </TooltipContent>
       </Tooltip>
-      <AccountMenu />
+      {account}
     </div>
   )
 }

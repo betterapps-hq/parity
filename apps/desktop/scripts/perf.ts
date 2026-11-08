@@ -5,7 +5,7 @@
 // same window; and starting the app again on the same profile, as someone does each day.
 // Results go to .inspect/perf/<label>.json; --compare prints another run's numbers beside them.
 // Usage: pnpm perf [--label name] [--compare name] [--project root] [--seconds 4] [--viewport 1439x901] [--css "rules"]
-//                  [--profile] [--keep] [--open-only] [--react development]
+//                  [--profile] [--keep] [--open-only] [--runs "zoom, pan"] [--react development]
 //   --react     the window's React build: production, as `pnpm dev:prod` runs it, unless this says development, as
 //               `pnpm dev` runs it; each result says which it ran
 //   --viewport  the page's size in CSS pixels, the same every run (the default is the first runs' window)
@@ -13,6 +13,7 @@
 //   --profile   samples the page's JavaScript too, and lists the functions that took the most time in each run
 //   --keep      leaves the app running afterwards, until the script is stopped
 //   --open-only times opening the project and nothing else
+//   --runs      only these camera runs, by name (see `motions`), and nothing else once the project has opened
 // PARITY_PERF_UI_PORT and PARITY_PERF_DEBUG_PORT choose the copy's ports (5320 and 9340), so two sessions can measure at
 // once.
 import { type ChildProcess, spawn } from "node:child_process"
@@ -26,6 +27,9 @@ import { type ReactBuild, reactBuild } from "./react-build.ts"
 /** What the page holds for these measurements: the open tab's session. */
 interface PerfWindow {
   perfSession: ProjectSession
+  /** The layer a zoom over a layer outlines, and where the pointer rests on it (see `pointAtLayer`). */
+  perfLayer?: { design: string; node: string; mode: string; state: string; point: { x: number; y: number } }
+  perfNodeBox: (host: Element, node: string) => DOMRect | undefined
 }
 
 const appDir = resolve(import.meta.dirname, "..")
@@ -34,6 +38,7 @@ const outDir = join(repoDir, ".inspect/perf")
 // Others can be given, for a second run alongside, such as another session's.
 const uiPort = Number(process.env.PARITY_PERF_UI_PORT ?? 5320)
 const debugPort = Number(process.env.PARITY_PERF_DEBUG_PORT ?? 9340)
+const testRun = `perf-${new Date().toISOString()}`
 
 const args = process.argv.slice(2)
 const option = (name: string) => {
@@ -59,12 +64,36 @@ interface Hot {
   ms: number
 }
 
-type Motion = "zoom" | "pan" | "hover" | "idle" | "pan at 100%"
+const motions = [
+  "zoom",
+  "pan",
+  "hover",
+  "idle",
+  "pan at 100%",
+  "zoom at 100%",
+  "zoom hovering a layer",
+  "zoom with a layer selected"
+] as const
+type Motion = (typeof motions)[number]
+// Only these camera runs, by name, with nothing else measured once the project has opened, for a quick look at one.
+const only = option("runs")
+  ?.split(",")
+  .map((name) => name.trim())
+  .map((name) => {
+    const motion = motions.find((candidate) => candidate === name)
+    if (!motion) throw new Error(`--runs takes these, separated by commas: ${motions.join(", ")}`)
+    return motion
+  })
 
 interface Run {
   name: string
   fps: number
   frameMs: { p50: number; p90: number; max: number }
+  /**
+   * Zooming over a layer: the frames whose outline was drawn somewhere other than its layer when the frame was painted,
+   * of those checked. Missing from other runs, and from runs made before it was measured.
+   */
+  outlineOff?: { frames: number; checked: number; maxPx: number }
   /** Main-thread milliseconds per frame. */
   perFrame: Record<string, number>
   /** Elements whose style was recalculated, per frame. */
@@ -143,13 +172,15 @@ try {
   page = await connect()
   const open: NonNullable<Result["open"]> = { launch: await opened(page) }
   const measured = openOnly ? {} : await measure(page)
-  open.reopen = await opened(page, project)
-  // Started again on the same profile, it restores the tab and finds the bitmaps it kept.
-  console.log("Starting the copy again on the same profile")
-  await quit(page, runner)
-  runner = launch()
-  page = await connect()
-  open.restart = await opened(page)
+  if (!only) {
+    open.reopen = await opened(page, project)
+    // Started again on the same profile, it restores the tab and finds the bitmaps it kept.
+    console.log("Starting the copy again on the same profile")
+    await quit(page, runner)
+    runner = launch()
+    page = await connect()
+    open.restart = await opened(page)
+  }
   const result: Result = {
     label,
     date: new Date().toISOString(),
@@ -176,6 +207,8 @@ function launch(): ChildProcess {
     cwd: appDir,
     env: {
       ...process.env,
+      // One measuring pass's events group together in Sentry, unless the agent running it named its own (PAR-630).
+      PARITY_TEST_RUN: process.env.PARITY_TEST_RUN || testRun,
       PARITY_UI_PORT: String(uiPort),
       PARITY_UI_FROZEN: "1",
       PARITY_DEBUG_PORT: String(debugPort),
@@ -232,7 +265,7 @@ async function connect(): Promise<Page> {
   throw new Error("The app's window didn't appear")
 }
 
-async function measure(page: Page): Promise<Measured> {
+async function measure(page: Page): Promise<Partial<Measured>> {
   // The same size every run, since a larger window draws more. The window opens at it, give or take the few pixels
   // Windows rounds by, which the census reports; one that didn't, such as on a screen too small for it, is held at it.
   // Sizes come from the protocol, which reads the window itself.
@@ -326,7 +359,7 @@ async function measure(page: Page): Promise<Measured> {
     })
   await hiddenSince()
   const runs: Run[] = []
-  for (const motion of ["zoom", "pan", "hover", "idle", "pan at 100%"] as const) {
+  for (const motion of only ?? motions) {
     const run = await moveCamera(page, cdp, motion)
     if (await hiddenSince()) {
       console.warn(`The window was hidden during ${motion}, so its numbers don't count`)
@@ -335,8 +368,12 @@ async function measure(page: Page): Promise<Measured> {
     runs.push(run)
     // What the camera rests on afterwards, to check by eye that the canvas still draws as it should.
     await page.waitForTimeout(1500)
-    if (motion === "zoom" || motion === "pan at 100%")
+    if (motion !== "pan" && motion !== "hover" && motion !== "idle")
       await page.screenshot({ path: join(outDir, `${label}-${motion.replace(/\W+/g, "-")}.png`) })
+  }
+  if (only) {
+    await cdp.detach()
+    return { census, runs }
   }
   const select = await timeChanges(page, cdp, "select")
   const edit = await timeChanges(page, cdp, "edit")
@@ -408,42 +445,83 @@ async function opened(page: Page, reopen?: string): Promise<Opening> {
  * still.
  */
 async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<Run> {
+  const overLayer = motion.startsWith("zoom ")
   await page.evaluate((motion) => {
     const editor = perfEditor()
-    if (motion === "pan at 100%") {
+    if (motion !== "zoom" && motion !== "pan" && motion !== "hover" && motion !== "idle") {
       const first = editor.getCurrentPageShapesSorted()[0]
       const bounds = first && editor.getShapePageBounds(first)
       if (bounds) editor.centerOnPoint(bounds.center, { animation: { duration: 0 } })
       editor.setCamera({ ...editor.getCamera(), z: 1 }, { immediate: true })
       if (bounds) editor.centerOnPoint(bounds.center, { animation: { duration: 0 } })
     } else editor.zoomToFit({ animation: { duration: 0 } })
-    if (motion === "hover" || motion === "idle") (window as unknown as PerfWindow).perfSession.selection.set({})
+    if (motion !== "zoom" && motion !== "pan" && motion !== "pan at 100%")
+      (window as unknown as PerfWindow).perfSession.selection.set({})
 
     function perfEditor() {
       return (window as unknown as PerfWindow).perfSession.editor!
     }
   }, motion)
+  if (overLayer) {
+    // The design draws at 100% before a layer in it is picked.
+    await page.waitForTimeout(1500)
+    const outlines = { "zoom at 100%": "none", "zoom hovering a layer": "hover" } as const
+    await pointAtLayer(page, motion in outlines ? outlines[motion as keyof typeof outlines] : "select")
+  }
   // Whatever waits for the camera to stop, such as debounced styles, catches up first.
   await page.waitForTimeout(1500)
 
-  const { trace, metrics, frames, hot } = await recorded(cdp, () =>
+  const {
+    trace,
+    metrics,
+    frames: run,
+    hot
+  } = await recorded(cdp, () =>
     page.evaluate(
       ([motion, seconds]) =>
-        new Promise<number[]>((resolve) => {
-          const editor = (window as unknown as PerfWindow).perfSession.editor!
+        new Promise<{ times: number[]; off?: Run["outlineOff"] }>((resolve, reject) => {
+          const perf = window as unknown as PerfWindow
+          const editor = perf.perfSession.editor!
           const start = editor.getCamera()
           const viewport = editor.getViewportScreenBounds()
           const center = { x: viewport.w / 2, y: viewport.h / 2 }
           const pageCenter = { x: center.x / start.z - start.x, y: center.y / start.z - start.y }
           const times: number[] = []
+          const layer = motion.startsWith("zoom ") ? perf.perfLayer : undefined
+          const stopWatching = layer && motion !== "zoom at 100%" ? watchOutline(layer) : undefined
+          // What the pointer is over, as for the wheel of a mouse held still.
+          const wheeled = layer && (document.elementFromPoint(layer.point.x, layer.point.y) ?? document.body)
           let first: number | undefined
+          let last: number | undefined
+          let farthest = 0
           const step = (now: number) => {
             first ??= now
             times.push(now)
             const t = (now - first) / 1000
-            if (t >= seconds) return resolve(times)
+            const elapsed = now - (last ?? now)
+            last = now
+            if (t >= seconds) {
+              const off = stopWatching?.()
+              if (layer && farthest < 0.1) return reject(new Error("The wheel didn't zoom the canvas"))
+              return resolve({ times, ...(off ? { off } : {}) })
+            }
             const wave = Math.sin(t * Math.PI)
-            if (motion === "hover") {
+            if (layer && wheeled) {
+              // Ctrl and the wheel, as a mouse zooms, in and out about the layer: to about 3x and back, then to a third.
+              // Each event's step follows the time since the last frame, so a slow run zooms as far as a quick one.
+              farthest = Math.max(farthest, Math.abs(editor.getCamera().z - start.z))
+              wheeled.dispatchEvent(
+                new WheelEvent("wheel", {
+                  clientX: layer.point.x,
+                  clientY: layer.point.y,
+                  deltaY: -Math.max(-10, Math.min(10, 2 * Math.cos(t * Math.PI) * (elapsed / (1000 / 60)))),
+                  ctrlKey: true,
+                  bubbles: true,
+                  cancelable: true,
+                  composed: true
+                })
+              )
+            } else if (motion === "hover") {
               const x = viewport.x + viewport.w * (0.5 + 0.45 * wave)
               const y = viewport.y + viewport.h * 0.5
               document.elementFromPoint(x, y)?.dispatchEvent(
@@ -473,10 +551,66 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
             requestAnimationFrame(step)
           }
           requestAnimationFrame(step)
+
+          /**
+           * Checks each frame, as it's about to be painted, that an outline the overlay draws lies on the layer, and
+           * returns how many were off. A ResizeObserver's callbacks run after the frame's animation frame callbacks and
+           * its layout, just before paint, so what they find is what the frame shows. A 1px element changes width each
+           * frame to call them.
+           */
+          function watchOutline(watched: NonNullable<PerfWindow["perfLayer"]>) {
+            const host = [...document.querySelectorAll<HTMLElement>("[data-frame]")].find(
+              (candidate) =>
+                candidate.dataset.design === watched.design &&
+                candidate.dataset.mode === watched.mode &&
+                candidate.dataset.state === watched.state
+            )
+            const ticker = document.body.appendChild(document.createElement("div"))
+            ticker.style.cssText = "position: fixed; left: 0; top: 0; height: 1px; width: 1px; pointer-events: none"
+            let frames = 0
+            let checked = 0
+            let maxPx = 0
+            let done = false
+            const observer = new ResizeObserver(() => {
+              const box = host && perf.perfNodeBox(host, watched.node)
+              if (!box) return
+              checked++
+              const outlines = [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")]
+                .filter((element) => element.style.outline !== "")
+                .map((element) => element.getBoundingClientRect())
+              const distance = Math.min(
+                Infinity,
+                ...outlines.map((rect) =>
+                  Math.max(
+                    Math.abs(rect.left - box.left),
+                    Math.abs(rect.top - box.top),
+                    Math.abs(rect.width - box.width),
+                    Math.abs(rect.height - box.height)
+                  )
+                )
+              )
+              if (distance <= 1) return
+              frames++
+              if (Number.isFinite(distance)) maxPx = Math.max(maxPx, distance)
+            })
+            observer.observe(ticker)
+            const tick = () => {
+              ticker.style.width = ticker.style.width === "1px" ? "2px" : "1px"
+              if (!done) requestAnimationFrame(tick)
+            }
+            requestAnimationFrame(tick)
+            return () => {
+              done = true
+              observer.disconnect()
+              ticker.remove()
+              return { frames, checked, maxPx: Math.round(maxPx) }
+            }
+          }
         }),
       [motion, seconds] as const
     )
   )
+  const { times: frames, off } = run
   const intervals = frames
     .slice(1)
     .map((time, index) => time - frames[index]!)
@@ -504,8 +638,72 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
     frameMs: { p50: percentile(0.5), p90: percentile(0.9), max: round(intervals.at(-1) ?? 0) },
     perFrame,
     styledPerFrame: Math.round(trace.styledElements / count),
+    ...(off ? { outlineOff: off } : {}),
     ...(hot ? { hot } : {})
   }
+}
+
+/**
+ * Points at a layer near the middle of the first design, at 100%: the pointer moves over it, so the canvas outlines what
+ * a click there would select; with `select`, that's selected and the pointer stays on it, and with `none`, nothing is
+ * outlined, for a zoom to compare with. What's outlined, and where the pointer is, are kept on the window for the zoom
+ * that follows.
+ */
+async function pointAtLayer(page: Page, outline: "none" | "hover" | "select"): Promise<void> {
+  const found = await page.evaluate(
+    async ([url, outline]) => {
+      const perf = window as unknown as PerfWindow
+      const { nodeBox } = (await import(url)) as { nodeBox: PerfWindow["perfNodeBox"] }
+      perf.perfNodeBox = nodeBox
+      const { editor, selection } = perf.perfSession
+      const first = editor!.getCurrentPageShapesSorted()[0]
+      const key = first && (first.props as { key?: string }).key
+      const view = editor!.getViewportScreenBounds()
+      const middle = { x: view.x + view.w / 2, y: view.y + view.h / 2 }
+      const onScreen = (rect: DOMRect) =>
+        rect.left >= view.x && rect.top >= view.y && rect.right <= view.x + view.w && rect.bottom <= view.y + view.h
+      // A layer of a frame of the first design, wholly in view, neither tiny nor most of its frame, nearest the middle.
+      const hosts = [...document.querySelectorAll<HTMLElement>("[data-frame]")].filter(
+        (host) => host.dataset.design === key
+      )
+      const candidates = hosts.flatMap((host) => {
+        const frame = host.getBoundingClientRect()
+        return [...(host.shadowRoot?.querySelectorAll<HTMLElement>("[data-canvas-node]") ?? [])].flatMap((element) => {
+          const rect = element.getBoundingClientRect()
+          const area = rect.width * rect.height
+          return area > 1500 && area < frame.width * frame.height * 0.3 && onScreen(rect) ? [rect] : []
+        })
+      })
+      const distance = (rect: DOMRect) =>
+        Math.hypot(rect.left + rect.width / 2 - middle.x, rect.top + rect.height / 2 - middle.y)
+      const best = candidates.sort((a, b) => distance(a) - distance(b))[0]
+      if (!best) return `no layer in view in ${key ?? "the first design"}`
+      const point = { x: best.left + best.width / 2, y: best.top + best.height / 2 }
+      const move = () =>
+        document.elementFromPoint(point.x, point.y)?.dispatchEvent(
+          new PointerEvent("pointermove", {
+            clientX: point.x,
+            clientY: point.y,
+            bubbles: true,
+            composed: true,
+            pointerType: "mouse"
+          })
+        )
+      move()
+      const hover = selection.getHover()
+      if (!hover?.node || hover.mode === undefined || hover.state === undefined)
+        return "nothing outlined under the pointer"
+      if (outline === "select") {
+        selection.set({ design: hover.design, node: hover.node, mode: hover.mode, state: hover.state })
+        move()
+      }
+      if (outline === "none") selection.setHover(undefined)
+      perf.perfLayer = { design: hover.design, node: hover.node, mode: hover.mode, state: hover.state, point }
+      return undefined
+    },
+    ["/frame.ts", outline] as const
+  )
+  if (found) throw new Error(`No layer to zoom over: ${found}`)
 }
 
 /**
@@ -739,19 +937,32 @@ async function recorded<T>(
   return { frames, metrics, trace: { durations, styledElements }, ...(hot ? { hot } : {}) }
 }
 
-/** The functions that spent the most time themselves in a sampled profile, by name and place in the source. */
+/**
+ * The functions that spent the most time themselves in a sampled profile, by name and place in the source. A function of
+ * the browser's own, such as `getBoundingClientRect`, is named with the script that called it.
+ */
 function hottest(profile: {
-  nodes: { id: number; callFrame: { functionName: string; url: string; lineNumber: number } }[]
+  nodes: { id: number; callFrame: { functionName: string; url: string; lineNumber: number }; children?: number[] }[]
   samples?: number[]
   timeDeltas?: number[]
 }): Hot[] {
   const byNode = new Map(profile.nodes.map((node) => [node.id, node.callFrame]))
+  const parents = new Map(profile.nodes.flatMap((node) => (node.children ?? []).map((child) => [child, node.id])))
+  const place = (frame: { functionName: string; url: string; lineNumber: number }) =>
+    `${frame.functionName || "(anonymous)"} ${frame.url.replace(/^.*\/\/[^/]+/, "").replace(/\?.*$/, "")}:${frame.lineNumber + 1}`
+  const caller = (id: number) => {
+    for (let parent = parents.get(id); parent !== undefined; parent = parents.get(parent)) {
+      const frame = byNode.get(parent)
+      if (frame?.url) return frame
+    }
+    return undefined
+  }
   const totals = new Map<string, number>()
   for (const [index, id] of (profile.samples ?? []).entries()) {
     const frame = byNode.get(id)
     if (!frame || ["(idle)", "(program)", "(root)"].includes(frame.functionName)) continue
-    const file = frame.url.replace(/^.*\/\/[^/]+/, "").replace(/\?.*$/, "")
-    const at = `${frame.functionName || "(anonymous)"} ${file}:${frame.lineNumber + 1}`
+    const from = frame.url ? undefined : caller(id)
+    const at = from ? `${frame.functionName} ← ${place(from)}` : place(frame)
     totals.set(at, (totals.get(at) ?? 0) + (profile.timeDeltas?.[index] ?? 0) / 1000)
   }
   return [...totals]
@@ -802,6 +1013,11 @@ function report(result: Result, previous: Result | undefined): void {
       console.log(`  ${`${key} ms/frame`.padEnd(18)}${column(value, before?.perFrame[key])}`)
     }
     console.log(`  styled/frame      ${column(run.styledPerFrame, before?.styledPerFrame)}`)
+    if (run.outlineOff) {
+      const { frames, checked, maxPx } = run.outlineOff
+      const was = before?.outlineOff ? ` (was ${before.outlineOff.frames} of ${before.outlineOff.checked})` : ""
+      console.log(`  outline off       ${frames} of ${checked} frames, by up to ${maxPx}px${was}`)
+    }
     printHot(run.hot)
   }
   for (const [name, now, before] of [

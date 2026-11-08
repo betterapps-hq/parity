@@ -1,6 +1,13 @@
 import { codeEditors } from "@parity-app/core"
 import { describe, expect, it, vi } from "vite-plus/test"
-import { checked, openInEditorRequest, shownItem, themeSource } from "./ipc-checks.ts"
+import {
+  checked,
+  consoleAnnouncement,
+  consoleOrigin,
+  openInEditorRequest,
+  shownItem,
+  themeSource
+} from "./ipc-checks.ts"
 
 const file = process.platform === "win32" ? "C:\\work\\app\\src\\Button.tsx" : "/work/app/src/Button.tsx"
 
@@ -38,5 +45,19 @@ describe("the other arguments", () => {
     expect(themeSource.safeParse("sepia").success).toBe(false)
     expect(shownItem.safeParse("relative/folder").success).toBe(false)
     expect(shownItem.safeParse(file).success).toBe(true)
+  })
+
+  it("takes a console announcement for a design at a level, and a builder's address (PAR-147)", () => {
+    const pricing = { level: "warning", design: "app.par#pricing", state: "default", mode: "desktop" }
+    expect(consoleAnnouncement.safeParse(pricing).success).toBe(true)
+    expect(consoleAnnouncement.safeParse({ ...pricing, level: "log" }).success).toBe(false)
+    expect(consoleAnnouncement.safeParse({ ...pricing, design: " " }).success).toBe(false)
+    expect(consoleAnnouncement.safeParse({ ...pricing, text: "Picked" }).success).toBe(false)
+    // Where the frame's code called the console.
+    const call = { source: "http://127.0.0.1:5173/src/member-row.tsx", line: 9 }
+    expect(consoleAnnouncement.safeParse({ ...pricing, ...call }).success).toBe(true)
+    expect(consoleAnnouncement.safeParse({ ...pricing, ...call, line: -1 }).success).toBe(false)
+    expect(consoleOrigin.safeParse("http://127.0.0.1:5173/").success).toBe(true)
+    expect(consoleOrigin.safeParse("not an address").success).toBe(false)
   })
 })

@@ -2,6 +2,7 @@ import { defaultModeSettings } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ProjectInfo } from "../shared/protocol.ts"
 import { preloadAnswers } from "./service.ts"
+import type { ProjectSession } from "./workspace.ts"
 
 // docs/editor.md, Opening and closing projects: a tab closed while its project opens, as tabs restored at launch can
 // be, closes the project once the service has it, so its builder doesn't run on with no tab (PAR-427).
@@ -42,11 +43,16 @@ let opens: Array<(value: ProjectInfo) => void>
 let closes: string[]
 /** The projects whose pictures the service was told to keep, each time it was told. */
 let picturesKept: string[][]
+/** The projects whose folders the start page asked about, each time, and what the service answers. */
+let checked: string[][]
+let folders: { missing: string[]; example?: string }
 
 beforeEach(() => {
   opens = []
   closes = []
   picturesKept = []
+  checked = []
+  folders = { missing: [] }
   guest.loads.length = 0
   guest.failures.length = 0
   guest.released.length = 0
@@ -62,6 +68,10 @@ beforeEach(() => {
         if (method === "pictures.keepOnly") {
           picturesKept.push(params.roots!)
           return Promise.resolve(undefined)
+        }
+        if (method === "start.check") {
+          checked.push(params.roots!)
+          return Promise.resolve(folders)
         }
         // Nothing else the tab asks for answers, as nothing the test checks waits on it.
         return new Promise(() => undefined)
@@ -114,6 +124,59 @@ describe("starting the workspace", () => {
     workspace.restore()
     expect(opens).toHaveLength(1)
     expect(workspace.getTabs()[0]?.id).toBe(info.root)
+  })
+})
+
+describe("checking the start page's folders (PAR-188)", () => {
+  it("flags listed projects whose folders are gone, and keeps the example's folder", async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => (key === "parity.recent" ? JSON.stringify(["/apps/site", "/apps/gone"]) : null),
+      setItem: () => undefined
+    })
+    folders = { missing: ["/apps/gone"], example: "/parity/examples/shadcn-vite" }
+    const workspace = new Workspace()
+    workspace.restore()
+    await settle()
+    expect(checked).toEqual([["/apps/site", "/apps/gone"]])
+    expect(workspace.getProjects().map(({ root, missing }) => ({ root, missing }))).toEqual([
+      { root: "/apps/site", missing: undefined },
+      { root: "/apps/gone", missing: true }
+    ])
+    expect(workspace.getExample()).toBe("/parity/examples/shadcn-vite")
+  })
+
+  it("checks again when Home shows, as a folder may come back", async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => (key === "parity.recent" ? JSON.stringify(["/apps/drive"]) : null),
+      setItem: () => undefined
+    })
+    folders = { missing: ["/apps/drive"] }
+    const workspace = new Workspace()
+    workspace.restore()
+    await settle()
+    expect(workspace.getProjects()[0]?.missing).toBe(true)
+    workspace.activate("somewhere")
+    folders = { missing: [] }
+    workspace.activate(homeTab)
+    await settle()
+    expect(workspace.getProjects()[0]?.missing).toBeUndefined()
+  })
+})
+
+describe("a closed tab", () => {
+  it("lets go of its editor, so tabs React still holds keep no canvas", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    const editor = {} as NonNullable<ProjectSession["editor"]>
+    workspace.setEditor(info.id, editor)
+    const held = workspace.getTabs()
+    expect(held[0]?.session?.editor).toBe(editor)
+    await workspace.close(info.id)
+    expect(held[0]?.session?.editor).toBeUndefined()
   })
 })
 

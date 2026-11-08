@@ -140,6 +140,13 @@ describe("drawnComponents", () => {
       "src/cards.tsx#Card"
     ])
   })
+
+  it("names the version of a component whose code changed since its guest loaded (PAR-165)", () => {
+    expect(drawnComponents(tree, served, { Card: { path: "src/card.tsx", export: "Card", version: 42 } })[1]).toEqual([
+      "Card",
+      "src/card.tsx#Card@42"
+    ])
+  })
 })
 
 const guest: JobGuest = {
@@ -170,7 +177,15 @@ describe("renderJob", () => {
   it("passes the service's check whole, so each process draws the job it was given", () => {
     const job = renderJob(
       { ...guest, components: { Card: { path: "src/card.tsx", export: "Card" } } },
-      { ...drawsText, tokens: [token], audit: true, colorTokens: ["--x"], inlinePortals: true }
+      {
+        ...drawsText,
+        tokens: [token],
+        audit: true,
+        colorTokens: ["--x"],
+        inlinePortals: true,
+        // What the frame writes to the console is the design's (PAR-147).
+        design: { key: "app.par#pricing", state: "default", mode: "desktop" }
+      }
     )
     expect(serviceChecks["frames.capture"]({ job }).job).toEqual(job)
     expect(
@@ -181,7 +196,7 @@ describe("renderJob", () => {
 
 describe("a job's names", () => {
   const job = renderJob(guest, drawsText)
-  const drawing = { id: 1, code: 3 }
+  const drawing = { id: 1 }
   const names = (named: RenderJob) => ({
     memory: frameKeys(named, drawing),
     bitmap: bitmapName(named, {}),
@@ -204,6 +219,11 @@ describe("a job's names", () => {
   it("leave out a frame's check, which changes nothing drawn", () => {
     const audited = { ...job, audit: true, colorTokens: ["--x"] }
     expect(names(audited)).toEqual(names(job))
+  })
+
+  it("leave out the design drawn, which is only for the console, so two designs drawing alike share a bitmap", () => {
+    const pricing = { ...job, design: { key: "app.par#pricing", state: "default", mode: "desktop" } }
+    expect(names(pricing)).toEqual(names(job))
   })
 
   it("change with what's drawn: the tree, the mode, the size and the scale", () => {
@@ -237,9 +257,23 @@ describe("a job's names", () => {
     expect(previewName(previewing)).toEqual(previewName(job))
   })
 
-  it("name the guest and its code in memory, which the disk names have in the code the stores add", () => {
-    expect(frameKeys(job, { id: 2, code: 3 }).drawn).not.toBe(frameKeys(job, drawing).drawn)
-    expect(frameKeys(job, { id: 1, code: 4 }).drawn).not.toBe(frameKeys(job, drawing).drawn)
+  it("name the guest in memory, which the disk names have in the code the stores add", () => {
+    expect(frameKeys(job, { id: 2 }).drawn).not.toBe(frameKeys(job, drawing).drawn)
+  })
+
+  it("name in memory the code of the components a frame draws, so a change to one redraws only its frames", () => {
+    const drawsCard = { ...job, tree: [{ kind: "component", nodeId: "a", component: "Card", props: {}, slots: {} }] }
+    const card = { path: "src/card.tsx", export: "Card" }
+    const drawn = (named: RenderJob) => frameKeys(named, drawing).drawn
+    // Given since the guest loaded, moved, or with its code changed on disk (PAR-165).
+    expect(drawn({ ...drawsCard, components: { Card: card } })).not.toBe(drawn(drawsCard))
+    expect(drawn({ ...drawsCard, components: { Card: { ...card, version: 2 } } })).not.toBe(
+      drawn({ ...drawsCard, components: { Card: { ...card, version: 1 } } })
+    )
+    // A component the frame doesn't draw leaves it as it is.
+    expect(drawn({ ...drawsCard, components: { Badge: { path: "src/badge.tsx", export: "Badge", version: 3 } } })).toBe(
+      drawn(drawsCard)
+    )
   })
 
   it("name a bitmap by where the components it draws come from, however they reached the guest", () => {

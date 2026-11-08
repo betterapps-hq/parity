@@ -17,6 +17,7 @@ import {
   deleteDesign,
   mergeAgentChanges,
   moveDesign,
+  reorderDesign,
   replaceDocuments
 } from "./design-changes.ts"
 import type { DesignSnapshot } from "./history.ts"
@@ -69,6 +70,18 @@ describe("changing designs", () => {
     expect(added.documents.get("new.par")).toEqual({ version: 3, containers: [design("pricing")] })
     expect(names(deleteDesign(start, home))).toEqual(["about"])
     expect(deleteDesign(start, { path: "other.par", id: "home" })).toBe(start)
+  })
+
+  it("moves a design before or after another in its file, and leaves the order alone when nothing would move", () => {
+    const three = snapshot({ version: 3, containers: [design("home"), design("about"), design("pricing")] })
+    const pricing = { path: "app.par", id: "pricing" }
+    expect(names(reorderDesign(three, pricing, home, "before"))).toEqual(["pricing", "home", "about"])
+    expect(names(reorderDesign(three, home, about, "after"))).toEqual(["about", "home", "pricing"])
+    expect(names(reorderDesign(three, home, pricing, "after"))).toEqual(["about", "pricing", "home"])
+    expect(reorderDesign(three, home, about, "before")).toBe(three)
+    expect(reorderDesign(three, home, home, "after")).toBe(three)
+    expect(reorderDesign(three, home, { path: "other.par", id: "about" }, "before")).toBe(three)
+    expect(reorderDesign(three, { path: "app.par", id: "missing" }, home, "before")).toBe(three)
   })
 })
 

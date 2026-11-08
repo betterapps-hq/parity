@@ -6,10 +6,13 @@ import {
   type BuilderProcessOptions,
   type BuilderProcessReply,
   type BuilderProcessSession,
+  type CodeChange,
   connectBuilderProcess
 } from "@parity-app/core"
 import type { BuilderReading } from "../shared/service.ts"
+import { inSpan } from "../shared/tracing.ts"
 import { killTree } from "./processes.ts"
+import { reportBuilderCrash } from "./telemetry.ts"
 
 /*
  * Each open project's builder runs in a process of its own, so closing the project gives the system back everything
@@ -41,7 +44,12 @@ export interface StartedBuilder {
  */
 export function startBuilder(
   options: BuilderProcessOptions,
-  { builder, project, onCrash }: { builder: string; project: string; onCrash: (error: string) => void }
+  {
+    builder,
+    project,
+    onCrash,
+    onCodeChange
+  }: { builder: string; project: string; onCrash: (error: string) => void; onCodeChange?: (change: CodeChange) => void }
 ): StartedBuilder {
   const child = fork(script, [], {
     // Electron runs as plain Node here.
@@ -67,8 +75,20 @@ export function startBuilder(
       }
     },
     options,
-    { onCrash, cores: availableParallelism() }
+    {
+      // Only a builder that stopped by itself crashes: one the project's closing stopped doesn't.
+      onCrash: (error) => {
+        reportBuilderCrash(builder, error.split("\n")[0] ?? error, log)
+        onCrash(error)
+      },
+      ...(onCodeChange ? { onCodeChange } : {}),
+      cores: availableParallelism()
+    }
   )
+  // A builder's start is a span in the trace that asked for it, until its session is up (PAR-629).
+  void inSpan("builder.started", { builder }, () => client.session).catch(() => {
+    // Its crash or exit is reported on its own.
+  })
   const item: Running = { child, name: `${builder} for ${project}`, client }
   running.add(item)
   let ended = false

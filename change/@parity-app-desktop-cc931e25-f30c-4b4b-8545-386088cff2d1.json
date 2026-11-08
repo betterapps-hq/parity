@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "In development, each element a project's JSX writes carries its file, line and column: the inspector's Code tab shows and opens it, parity components gives each component's file, and Measure each node's source",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -92,7 +92,21 @@ still need your call.
   call: linked is the default because it's what keeps an app following the library, and a copy is Detach done at once,
   with the same rules. A linked copy can't go to its main component or push overrides to it, as the main is the
   library's. The agent's edit API doesn't see library designs yet.
-- **Open:** Buildkit's nova `tokens.json`, which isn't DTCG yet.
+- **Buildkit's styles ship their tokens as DTCG (PAR-139).** Each style's `tokens.json` is a 2025.10 resolver: one set
+  with the light values and a `theme` modifier whose `dark` context holds what changes. Every token has a type and a
+  description, written once in Buildkit's generator for all eight styles, and `parity lib` copies the file into each
+  registry `.lib.par`. A token's path is its CSS variable's name split at each hyphen (`card.foreground`), with a
+  group's own token in `$root`, so it matches its custom property by its whole path. You chose on 2026-11-06 to replace
+  the old format in place rather than ship two files, as only Buildkit's own release check read it. My call: the eight
+  registry files were regenerated from 0.5.0 with `--only new`, which changed only their tokens and version, and cover
+  `^0.4.0 || ^0.5.0`, since 0.4's components are the same and its projects would otherwise lose their file. They list
+  the 39 tokens Buildkit describes instead of the 119 libgen read from the stylesheet, which the Tokens panel still
+  shows from the project's own CSS.
+- **Parity's own reader is the one DTCG parser and validator.** You asked for one, not two, on 2026-11-06. Terrazzo
+  (`@terrazzo/parser` 2.10) was tried as the replacement and rejected: it treats the CSS strings libgen writes for
+  values DTCG has no form for as errors, keeps a malformed token with a broken value instead of leaving it out, throws
+  on a broken alias when told to carry on, and drops a plain token file's descriptions. Buildkit checks its file's shape
+  when it releases, and Parity's tests read each registry copy with this reader.
 - **Saving is explicit, as in a document editor.** Edits stay unsaved until Save (Ctrl+S). The tab shows a dot (it turns
   into the close button on hover). The status bar only says when a save failed, and clicking that tries again: you asked
   to remove its "Saved" and "Unsaved changes", as the tab's dot already shows them. A file that's the same as what was
@@ -138,13 +152,21 @@ still need your call.
     Figma), developer tools and About Parity.
   - **No Check for updates yet.** Parity has no releases, so there's nothing to check; About says so and shows the
     version, Electron and Chromium, with a button to copy them. Updating comes with packaging (PAR-9, PAR-160).
+  - **Search actions finds anything in the project, and Ctrl+Alt+P repeats the last action** (PAR-180). My calls: a
+    picked component is inserted at the selection, as the insert picker and the Components panel do, rather than shown
+    in its panel; a token opens Tokens searched for it. Ctrl+Alt+P is Figma's key for running the last plugin again, the
+    nearest Figma has; Ctrl+D (Illustrator's Transform again) and Ctrl+Y (Word's Repeat) were already Duplicate and
+    Redo. Repeat covers the commands that change or add layers and designs, not undoing, copying, selecting or moving
+    around, which do nothing new a second time. Recent picks are kept per computer, six at most, as the search's job is
+    getting back to things quickly.
   - **Exit is in File on Windows and Linux only;** on a Mac, Quit is in the Parity menu, as every app's is.
 - **Every shortcut is in one keymap,** `chrome/keymap.ts`. The menus, tooltips, the Keyboard shortcuts dialog and the
   key handlers all read it, so what's shown is what works, and a test fails if two commands share keys. Keys are written
   as on Windows, with spaces, and shown joined by `+` on Windows and Linux (`Ctrl+Shift+Z`, and `Ctrl+Plus` for zoom)
   and with the Mac's symbols on a Mac (`⇧⌘Z`). You found the spaced form unclear about whether a `+` was needed
-  (2026-10-29). Menus keep shadcn's plain-text shortcuts, as Figma's and the system's menus do; tooltips, the toolbar
-  and the Keyboard shortcuts dialog use keycaps (`Kbd`).
+  (2026-10-29). **Keys show as keycaps (`Kbd`) wherever they can,** your call on 2026-11-08: tooltips, the toolbar,
+  Search actions, buttons, hints and the Keyboard shortcuts dialog. Only a menu keeps the kit's own shortcut part (the
+  menubar's, context menus' and dropdowns'), which shows them as plain text, as Figma's and the system's menus do.
 - **tldraw's own shortcuts are off.** Its tool keys (E, D, R, A, L, F, N, K) switched to drawing tools behind Parity's
   toolbar, Ctrl+/ flipped the canvas to light mode, and Ctrl+. and Ctrl+' turned on modes Parity doesn't use. Space to
   pan stays, as it isn't a shortcut, and the arrows nudge through the keymap (CAN-39).
@@ -171,7 +193,8 @@ still need your call.
     (Ctrl+Alt+A) selects, within the design, layers that are the same component, the same main component, or text with
     the same tag, and styled the same apart from place and size. Content doesn't count. With designs selected, it
     selects designs of the same kind (CAN-39).
-  - Figma keys for things Parity doesn't do yet are Copy as PNG, find and lock (PAR-190 to PAR-192).
+  - Figma keys for things Parity doesn't do yet are Copy as PNG and find (PAR-190, PAR-191). Lock (Ctrl+Shift+L) came
+    with PAR-192.
 - **Enter, Tab and the arrows on a focused control are the control's** (found by the editor audit, 2026-10-29): a
   button, tab, Layers row or toggle presses, moves focus or moves within itself, so Tab moves through the inspector's
   fields instead of selecting the next layer. They act on the canvas when it, or nothing, has focus. A key the canvas
@@ -191,9 +214,9 @@ still need your call.
 - **Recent projects:** the last 10 that opened successfully.
 - **The canvas's right-click menu follows Figma's order** (PAR-168): Select layer, then copying and pasting, ordering,
   Wrap, Make component and Go to the main component, then Hide. Items that don't apply to what's selected are left out;
-  items that apply but can't act right now are greyed. Lock joins it with PAR-192, and Open in editor and Copy as JSX
-  with PAR-166. The empty canvas gets Paste here, Select all and Zoom to fit, a text note over a board gets the empty
-  canvas's menu, and Interact gets none.
+  items that apply but can't act right now are greyed. Lock joined it, under Hide, with PAR-192, and Open in editor and
+  Copy as JSX with PAR-166. The empty canvas gets Paste here, Select all and Zoom to fit, a text note over a board gets
+  the empty canvas's menu, and Interact gets none.
 - **A right-click selects what a click would** (PAR-168), unless it lands inside the selection or on a selected layer's
   resize handle. The menu reads the selection and its target when the right button goes down, because tldraw selects the
   board on release.
@@ -221,8 +244,9 @@ still need your call.
   right-click on a row selects it first unless it's in the selection. My calls: Rename still renames the row in place
   rather than going through Edit > Rename, which renames a design on its title on the canvas, out of sight from Layers;
   a design's row gains Duplicate, since the command duplicates designs; the root's row keeps only Rename, as the
-  commands can't duplicate, hide or delete a design's root, where the old menu could hide it; and Hide keeps naming
-  where the change lands (Hide in Default, PAR-497), read from the state the selection was picked in.
+  commands can't duplicate, hide or delete a design's root, where the old menu could hide it; and Hide is read from the
+  state the selection was picked in. It named where the change lands (Hide in Default, PAR-497) until you asked on
+  2026-11-06 for the menu to say just Hide and Lock (PAR-192).
 
 ## Canvas
 
@@ -241,6 +265,16 @@ still need your call.
   their state, time, address and Portless name, and stops, restarts or dismisses each. My calls: stopping asks first,
   and each kind has an icon and a hue at least 25° from the others, using the canvas's own colours for the build server
   and formatting.
+- **Locking is Figma's** (PAR-192). Ctrl+Shift+L locks the selection, which can't then be selected or moved on the
+  canvas, with everything inside it, and is still selected from Layers. It's saved as `locked` on the layer or design,
+  the same in every state and screen size, since it's about editing rather than what the design shows. My calls:
+  - **A click on a locked layer goes to the layer around it,** and a locked design is left to tldraw, as a locked shape,
+    so a press on it draws a box rather than selecting its board.
+  - **Selected from Layers, a locked layer still changes from the inspector and the keys,** nudging included, but takes
+    no resize or spacing handles on the canvas. You approved the controls on 2026-11-06 with nudging left in.
+  - **The page has no lock,** since locking it is locking the design, and layers inside an instance have none, as they
+    have no eye. A layer locked by one around it shows a faded lock while hovered, saying what locks it, rather than a
+    lock of its own to press.
 - **Snapping is on by default.** Designs lock to each other's edges and centres within 8 screen pixels, and absolutely
   placed layers to their siblings' and their parent's, and to even spacing among their siblings (PAR-174). Hold Ctrl to
   move or resize freely, or turn it off under View.
@@ -520,6 +554,10 @@ still need your call.
   - The bars show whenever a single layout is selected, over its hatching, rather than only on hover as in Figma, so
     padding of 0 can be dragged out of nothing. A side's press target starts 4px inside its edge, clear of the resize
     strip there.
+  - No press target covers a child, so a click inside a selected layout still selects what's under it, as before. A
+    target is cut back to the free space and dropped under 4px, so padding of 0 drags out only where no child is against
+    that edge. This narrows the No padding story Andrew approved, whose children fill their row: clicks on children
+    opening the box broke selecting layers by clicking, in the end-to-end tests on #266.
   - Dragging a padding bar away from the content makes that padding bigger on every side, as an edge dragged out makes a
     layer bigger. A gap grows as its bar goes right or down. Both go in whole steps of the spacing scale.
   - Alt gives the opposite side the dragged side's value, and Alt+Shift every side, re-read at each move, so letting go
@@ -657,6 +695,14 @@ section has the details. The user asked for "variants, instance overrides and th
     undoable design edit, so the override works in code. You asked: "Why not just do? This is part of the design
     process."
 - **Layers inside an instance can't be moved, resized on the canvas or deleted.**
+- **Layers lists an instance's layers below it, read-only apart from the eye** (PAR-92). The eye hides or shows the
+  layer in that copy. Rename joins Duplicate, Hide, Lock and Delete as unavailable in the row's menu, since the name is
+  the component's. The menu's Hide stays unavailable, as the menubar's is (PAR-419), so the eye is the tree's one way to
+  hide them (my call: making Hide work inside instances would change the canvas and the menubar too). What the copy
+  changes isn't marked in the tree: you chose that on 2026-11-07 ("Remove the purple pen"), leaving it to the inspector.
+  Search goes inside instances (my call), unlike Select same. A slot the instance fills shows its fills in place of the
+  placeholder, as the canvas draws them (my call, replacing PAR-83's rule that nothing shows under an instance, which
+  came before instances had rows under them).
 - **Swap keeps args, state and overrides that still match** by id or layer name. **Detach bakes everything into plain
   layers** with fresh ids, the root keeping the instance's id.
 
@@ -2070,6 +2116,9 @@ to PAR-209 build it.
   transformer. A new install opens the welcome page; development can still request its default project. The builder
   warms the guest graph and waits for dependency optimization before exposing its URL, avoiding cold-start outdated
   dependency imports cached by the browser. CI alone starts isolated production copies against Vite 7 and Vite 8.
+- **Every build is a Sentry release, and its source maps stay out of the installer** (PAR-625). The build writes hidden
+  maps and moves them to `apps/desktop/sourcemaps/`; CI and the release workflow upload them. The calls are in
+  [Every build is a Sentry release](#every-build-is-a-sentry-release-with-its-source-maps-par-625).
 
 How Parity goes public and ships. The proposal is [proposals/repository.md](proposals/repository.md), and the work is
 the Repository, CI and releases stream in Linear.
@@ -2137,6 +2186,10 @@ the Repository, CI and releases stream in Linear.
     working tree, so in the folder sessions share it blocked commits on other sessions' unfinished edits. The commit
     hook runs `scripts/changes.ts check` on what's staged, the push hook `--committed` on the branch's commits, and CI
     both that and `beachball check` on its clean checkout.
+  - **A change file added where a release consumed another counts, and a renamed one doesn't (PAR-671).** Git paired a
+    consumed change file with a new one for the same package as a rename, so a branch that merged `main` was told its
+    package needed one. The check reads change files with `--no-renames`, and skips an added file whose content matches
+    one the diff deletes.
   - **npm gets the packages whose package.json has a `publishConfig`,** which the CLI gets with its npm name,
     `@parity-app/cli` (PAR-13).
 - **The CLI is packed for npm with `vp pack` (PAR-13).** My calls:
@@ -2892,7 +2945,7 @@ My calls in the run-time reading (`extractTokens`):
 - A `prefers-color-scheme: dark` block isn't read as the dark theme. A theme reaches a frame by a class the Modes panel
   adds, and `previewToken` and `writeTokenChanges` write a theme's values to that class's block, so a "dark" read from a
   media query couldn't be shown in a frame or edited where it lives. Reading it as a theme is the gap `docs/support.md`
-  already lists; the facts it needs are now in the collected declarations.
+  already lists; the facts it needs are now in the collected declarations. PAR-138, at the end, closed it.
 - `themeFallbackCss` still counts a property declared anywhere as defined, conditional or not, as before.
 - Libgen's own token collecting (`libgen/src/tokens.ts`), which reads `prefers-color-scheme: dark` blocks as dark, is
   unchanged. Sharing one policy between the two is PAR-468.
@@ -2924,9 +2977,10 @@ cycle), and libgen reads CSS with core's `collectCustomProperties` instead of it
 The differences that stay are explicit options, both for libgen: `tailwindTheme` reads `@theme` as the default, which
 only source CSS has (the app takes Tailwind's resolved theme from its styles adapter), and `colorScheme` reads a
 `prefers-color-scheme` block as its theme, because a library's themes reach frames as the class blocks
-`describedTokenCss` writes, where the app's would never show (PAR-485). With it, a theme's own selector beats the media
-query wherever it sits, so a library with both `.dark` and a dark media query no longer has whichever comes last. The
-app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only what the CSS declares.
+`describedTokenCss` writes, where the app's would never show (PAR-485; PAR-138, at the end, made it the app's too). With
+it, a theme's own selector beats the media query wherever it sits, so a library with both `.dark` and a dark media query
+no longer has whichever comes last. The app's derived spacing steps (`spacing-4`) stay the app's, as libgen writes only
+what the CSS declares.
 
 The detection snapshots changed with it: `chakra`'s `--app-gap` is spacing, `mantine`'s `--app-radius` a radius, and
 `vite7-js` has its `[data-theme="dark"]` theme.
@@ -3276,6 +3330,30 @@ frames several times over, which the 2026-11-04 speed audit found the most expen
 - **What it doesn't see** is layout that moves with no input, DOM change, resize, image or font load or animation it
   hears of, such as a video in a frame taking its size once its data arrives. The outline catches up at the next change,
   such as the pointer moving.
+
+## The selection overlay follows the camera in the frame it moves (PAR-653)
+
+With a layer hovered or selected, zooming dropped the window to a few frames a second, and outlines and redlines trailed
+the zoom until it stopped (see editor.md, Outlines follow the camera in the frame it moves). The camera and the wheel no
+longer wake the measuring PAR-522 set up; the overlay follows the camera on its own. My calls:
+
+- **Measured once in each frame the camera moves, once that frame is laid out.** A reaction to tldraw's camera changes
+  the width of a hidden element in the overlay, and a ResizeObserver on it measures and commits with `flushSync`.
+  ResizeObserver callbacks run after every animation frame callback and the frame's layout, and before it's painted, so
+  the boxes read are the ones about to be painted, and reading them lays nothing out. Before, the overlay measured in an
+  animation frame of its own. Whether that ran before or after tldraw's decided whether outlines were drawn from the old
+  camera or the new one, its reads laid the page out mid-frame, and React drew the result after the frame was painted.
+- **Not in a microtask after tldraw's frame.** Tried second: outlines landed, but frames came 25 to 33% slower while
+  hovering, since animation frame callbacks after tldraw's wrote to the page again after the overlay had laid it out.
+- **Not kept in page units.** Measuring once and placing boxes from the camera would avoid measuring during a zoom, and
+  was tried first: outlines were still off by up to 18 px, since a board's gutter is in screen pixels (PAR-602), so a
+  frame's place in the page changes with the zoom.
+- **A change to tldraw's store that only moves the view doesn't wake per-frame measuring:** the camera, the pointer, or
+  the instance's `cameraState` alone (`movesOnlyTheView`). Nor does the wheel. Anything else in the store, such as a
+  board moving or resizing once the camera stops, still does.
+- **The element inspector's overlay (PAR-167) reads the canvas area's box only when it has a mark to place.** It
+  measures every animation frame, and read that box each frame even with nothing to mark, laying the page out mid-frame
+  through every zoom.
 
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
@@ -4362,10 +4440,10 @@ page), with whatever Parity can't do yet stubbed. My calls:
   on Home and in a new tab, and last in a project.
 - **What can't work yet is in place and says so.** Each project's picture is a placeholder, a board and a phone in a
   color of its own with its initial, until Parity keeps a render of each project. For you says nothing needs you, and
-  Shared with you is empty. New project and New project from this wait on the scaffolder (PAR-284) and offer to open a
-  folder instead; cloning, Copy link, Invite people and New organization say they aren't ready yet. The organization
-  switcher shows Personal alone. The exploration's inbox and account in the title bar, and people working in a project
-  right now, are left out until they exist.
+  Shared with you is empty. New project waits on the scaffolder (PAR-284) and offers to open a folder instead (a
+  project's menu has no New project from this until then, PAR-188); cloning, Copy link, Invite people and New
+  organization say they aren't ready yet. The organization switcher shows Personal alone. The exploration's inbox and
+  account in the title bar, and people working in a project right now, are left out until they exist.
 - **Home names the page and, in a project, its first screen.** A project with no `.par` file still opens on a Home
   screen (PAR-561). The two don't meet: the page is a tab in the window's strip, and the screen is on a project's
   canvas.
@@ -4527,6 +4605,12 @@ My calls:
   A copy that gets a link it didn't start passes it, through the agent registry, to the copy whose `state` it is.
 - **Only `safeStorage` keeps the refresh token,** and the window never sees a token.
 - **The client IDs go in the code,** since they're public. The API key never ships in the app.
+- **Better Apps checks the desktop's access token with the WorkOS SDK, not a new JWT library** (PAR-615). Its WorkOS
+  identity takes the token as a bearer, checks the signature against WorkOS's JWKS, and checks the issuer against the
+  one WorkOS publishes. A dev copy's real Staging token, decoded in main on 2026-11-06, has the published issuer,
+  `https://api.workos.com/user_management/client_01M6Q2PGV0Z2R7CXZBFRJH150R`. It names Staging's own client, not
+  Parity's (`client_01M6Q30XB58AF2CEHTE79ACMWS`), so the expected issuer comes from WorkOS's
+  `/.well-known/openid-configuration`, never from Parity's client ID.
 
 ## Signing in is data in and data out in `@parity-app/account` (PAR-613)
 
@@ -4569,6 +4653,164 @@ address issues with actual context."
 - **The CLI sends too, at the same level, read from the same setting.** My call, since agents drive Parity through it
   and their calls are half of each trace.
 - **All of this is revisited before the first public release,** in its own Backlog issue.
+
+## Sentry is set up in better-apps, by hand (PAR-617)
+
+What's there and how it was done is in [sentry.md](sentry.md). You chose on 2026-11-05 to have a project for every
+surface now, "parity-web, and parity-dashboard" beside the app and CLI, and that it all belongs to
+`admin@betterapps.io`: "I can't have it in my personal account." My calls:
+
+- **Five projects, one team:** `parity-desktop`, `parity-cli`, `parity-web`, `parity-dashboard` and `parity-api`, all
+  owned by the `parity` team. The proposal's two are the first two; the others wait for their surfaces.
+- **The DSNs are in the repository,** in [sentry.md](sentry.md) for now. PAR-620 and PAR-642 put them in the app's and
+  CLI's build config as they add the SDKs that read them.
+- **Not in Terraform yet,** although cloud services come from Terraform. The pipelines' templates can't pass a Sentry
+  token, so the module waits for that change; sentry.md lists what was done by hand so it can be imported.
+- **The organisation is on a Business trial until 2026-11-19,** which you had started so the free plan's one-member
+  limit didn't block the handover. Whether to pay for a plan is yours: the Team plan adds alerts that file Linear issues
+  and a larger replay quota, which the agent loop relies on.
+
+## Sentry files Linear bugs (PAR-622)
+
+Two alerts turn what Sentry sees in the app and the CLI into bugs in PAR's Todo, as the plan's "Agents in the loop" sets
+out. What they are and how they behave is in [sentry.md](sentry.md#alerts). My calls:
+
+- **Two alerts, each covering both projects:** one for new issues and regressions, one for user feedback. Feedback gets
+  its own so it can file every report with no interval, since each report is its own Sentry issue.
+- **Every environment files,** `development` and `ci` included, as PAR-622 asked: agents' test passes are where most
+  bugs are found now.
+- **Filed bugs have no priority.** Sentry can't tell how much a bug matters, so whoever picks it up from Todo sets it.
+- **Spikes don't file.** Every Sentry issue already has its bug from its first event, and a spike would only file a
+  second one for it. Rate alerts, such as crash-free sessions and failing agent operations, are PAR-643's.
+- **A regression keeps its bug.** Linear reopens the linked issue when Sentry marks a regression, and the alert's action
+  doesn't file a second one, so the regression trigger only matters for an issue with no bug yet. It reopens in Backlog,
+  not Todo. PAR-668 will fix that, and add the release, environment and `test_run` Linear's action leaves out.
+- **At most once in 30 minutes for errors,** Sentry's default, so an issue going in and out of resolved doesn't churn.
+- **Written down, not in Terraform,** like the rest of Sentry's setup until the pipelines can pass a Sentry token.
+- **They depend on the plan.** If the trial ends on 2026-11-19 without an upgrade, these alerts may stop filing, as
+  PAR-617 noted above.
+
+Tried on 2026-11-06 by sending an error and two reports to `parity-desktop`'s DSN: each became a bug (PAR-663, PAR-664,
+PAR-666). Closing PAR-663 resolved its Sentry issue, resolving that closed PAR-663 again, and the error from a later
+release reopened it without a second bug. PAR-620's own check in a development build filed its errors too (PAR-659 to
+PAR-661 and PAR-665), along with a real one it hit (PAR-662).
+
+## Sessions read Sentry through its MCP server (PAR-628)
+
+Agents picking up a bug Sentry filed read its events, trace and replay first, as the plan's "Agents in the loop" sets
+out and [work.md](work.md#bugs-from-sentry) says how. My calls, which you approved on 2026-11-06:
+
+- **Configured in the repository, for both tools,** so a fresh worktree has it: `.mcp.json` for Claude Code, with
+  `.claude/settings.json` turning it on without a prompt, and `.codex/config.toml` for Codex.
+- **Sentry's hosted server, scoped to `better-apps`** by its URL (`https://mcp.sentry.dev/mcp/better-apps`), so tools
+  don't ask which organisation, and nothing runs locally.
+- **Each session signs in with OAuth** as `admin@betterapps.io`, the organisation's only member. No token is kept in the
+  repository.
+- **`PARITY_TEST_RUN` and `parity report` are in the guidance before they exist,** since work.md is where a test pass
+  looks. `parity report` is PAR-646's.
+
+Tried on 2026-11-06 by picking up PAR-662 through Sentry's MCP server: its Sentry issue (PARITY-DESKTOP-3) gave the
+stack, tags, release and environment, its breadcrumbs showed the clicks and the window loads before it, and its trace
+held the event's two errors. The trace had no spans and there were no replays yet, since those are PAR-627's and
+PAR-624's. Both Claude Code (`claude mcp get sentry`) and Codex (`codex mcp get sentry`) load the server from a fresh
+worktree.
+
+## The app records its own startup, quitting, updates, memory and slow work (PAR-631)
+
+The events are in [telemetry.md](telemetry.md#events), from `app-events.ts` in `@parity-app/telemetry`, which also holds
+the rules for when each is sent. My calls:
+
+- **`app.started` waits for the first paint and the service,** and leaves out the first project shown: nothing records a
+  project opening yet. That time joins it once `project.opened` exists.
+- **`app.quit` says `window closed`, `update` or `other`.** Parity doesn't restart itself after a crash, so the
+  proposal's "crash restart" has nothing to report.
+- **`update.installed` is recorded as the app quits to install,** since the new version can't tell it was just
+  installed.
+- **The long-task event is `renderer.long_task`,** not the proposal's `renderer.longTask`, since event names are
+  lowercase. Its `action` is the input in the 100 ms before or during the task, from `PerformanceObserver`'s `longtask`
+  entries.
+- **Main's own hangs still come from the late-timer check** (PAR-620); `service.lag` uses the same check at 200 ms.
+
+## Errors, crashes and hangs go to Sentry from every process (PAR-620)
+
+`@sentry/electron` 8.3.0 starts in main, the editor window, the offscreen renderers and the service, and sends to
+`parity-desktop`. My calls:
+
+- **Main decides what leaves the computer.** Windows and the service always start Sentry and send through main, whose
+  client is off when `PARITY_TELEMETRY=off` or `DO_NOT_TRACK=1` is set, or under Vitest. The decision is
+  `telemetryLevel` and `telemetryEnvironment` in `@parity-app/telemetry`, so the CLI can share it (PAR-642). A
+  `PARITY_TELEMETRY` value that isn't `all`, `errors` or `off` stops the app, rather than sending what someone meant to
+  turn off. The Telemetry setting is PAR-626.
+- **Environments:** `ci` wherever `CI` is set, `tester` for an installed build, and `development` otherwise.
+- **The `process` tag uses the telemetry envelope's names** (`main`, `renderer`, `render`, `service`, `worker`,
+  `builder`), set on each event. Sentry copies a window's scope into main's, so a scope tag would have labelled main's
+  own errors as the window's.
+- **Windows report only errors thrown from Parity's own pages** (`allowUrls` is the page's origin). A project's
+  components run in the same page, and their errors are the project's to show, not Parity's bugs.
+- **React errors go through the root's `onUncaughtError` and `onCaughtError`,** with their component stack. Boundaries
+  around the canvas, panels and dialogs need a fallback UI designed first, so they're PAR-667.
+- **Main's hangs are measured by a late timer, not Sentry's native hang detection,** which needs a module built for
+  Electron's ABI that the build doesn't ship. It reports how long main was stuck, though not where; PAR-631 can bring in
+  the native module. Windows' hangs come from their `unresponsive` and `responsive` events.
+- **Exits:** a window or child process that exits abnormally, fails to launch or runs out of memory is reported, along
+  with crashes' minidumps. The service's restarts are breadcrumbs. A builder that stops by itself is reported with its
+  last 50 lines of output, and the props worker's failures from the service.
+
+## Every build is a Sentry release, with its source maps (PAR-625)
+
+How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
+
+- **Published builds are named by version, as `parity-desktop@0.21.0`, and every other build by its full commit hash,**
+  as the plan says for installed, development and CI builds. My call: "published" means the release workflow built it,
+  which marks it beta, so a pull request's preview installer, which also runs as `tester`, doesn't join a version's
+  release with code that isn't in it. `telemetryRelease` in `@parity-app/telemetry` decides, so the CLI can share it. A
+  build whose commit isn't known is `parity-desktop@<version>+unreleased`. `dist` is the platform and architecture, such
+  as `win32-x64`, and an installed build tags its events with `update_channel`, stable or beta, the update preference,
+  which changes as the person changes it.
+- **Maps are matched by debug ID, not by file name and release.** `sentry-cli sourcemaps inject` gives each bundle an ID
+  from its contents, so the same code gets the same ID on every system and every run. One upload then covers all three
+  installers, and a renamed or moved file still resolves.
+- **The release workflow builds the published version again to upload its maps.** The shared release template builds the
+  installers with one secret, the tldraw key, and changing it was out of scope, so a job after it checks out the
+  version's tag, builds it on Ubuntu with the same key and channel, and uploads. Its bundles match the installers'
+  because the build is the same on every system. Events that arrive in the minutes before the upload stay unresolved.
+- **CI uploads the Windows build's maps,** the build it installs and starts, as the commit's release. Only main's
+  commits are tied to their release, since a pull request's merge commit isn't kept. A failed upload doesn't fail CI's
+  run, which releases wait on.
+- **Development builds resolve without an upload.** `pnpm dev` starts Electron with `--enable-source-maps`, so main's
+  and the service's stacks name the source files and lines before Sentry sees them; the window's modules are already the
+  source files Vite serves. A frozen copy, which `pnpm perf` measures, leaves it off.
+- **Electron's own native symbols come from Sentry's built-in Electron symbol server,** a project setting, not an
+  upload. Parity ships no native code of its own yet; sharp's prebuilt binaries come without debug files.
+- **`@sentry/cli` 3.8.2 is a devDependency of the app** (your call, 2026-11-06), run from `scripts/build.ts` and
+  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it.
+
+## Sentry watches agent failures and crash-free sessions (PAR-643)
+
+The plan's "Releases, dashboards and alerts" asks for two rate alerts and one set of dashboards. What exists and their
+links are in [sentry.md](sentry.md#alerts). My calls:
+
+- **Thresholds are the plan's:** a crash-free session rate under 99% in `tester`, and agent calls failing more than 5%
+  of the time. Each is measured over the last hour, so one bad minute doesn't file a bug and a test pass's failures
+  still count together. Both resolve once the rate is back past the line.
+- **One monitor for every agent operation,** not one per `method`. Sentry's metric monitors watch one number each, and a
+  monitor per method would need a new one for every method agents gain. The dashboard's "Agent error codes by operation"
+  says which method is failing once the alert fires.
+- **Agent failures count in every environment,** `development` and `ci` included, as PAR-622's alerts do: agents' test
+  passes are where agent calls happen now. A cancelled call isn't a failure, as Sentry's `failure_rate()` counts it.
+- **Crash-free counts only `tester`.** CI and development builds are stopped by their tests and by people restarting
+  them, which would read as crashes.
+- **Monitor breaches file Linear bugs through their own alert,** "File monitor breaches in Linear", with the same action
+  as PAR-622's. PAR-622's alert watches issue streams, so a monitor's issue doesn't reach it. One monitor issue is one
+  bug, reopened if the rate goes past the line again.
+- **One dashboard,** "Parity", for both projects, filtered by environment and release, rather than a dashboard per view:
+  every view is a few widgets, and one page with shared filters is quicker to read a test pass or a release from.
+- **Still by hand, not in Terraform.** PAR-658 brings Sentry into Terraform once the pipelines pass a Sentry token. The
+  dashboard waits for someone to make it in Sentry's UI (PAR-716), since Sentry's MCP server can't create dashboards and
+  agents have no token that can. The crash-free monitor waits for the first `tester` event (PAR-714).
+- **Nothing here needs Business on purpose,** but it was made during the Business trial and Sentry's docs don't say
+  which plan limits custom dashboards and metric monitors. After the trial ends on 2026-11-19, check that the monitors
+  are still on and the dashboard still opens.
 
 ## The rest of signing in is designed (PAR-614)
 
@@ -4715,10 +4957,10 @@ gutter. My calls:
 - **A board stays where its top left corner is,** so its frames shift on the canvas as the gutter changes with the zoom,
   as they do in the exploration: from 40% to 400% the first frame moves 81 canvas pixels up, nearer the corner.
   Anchoring the frames instead would have meant moving a design's position with the zoom.
-- **The shape takes a board's new size once the camera stops.** Taking it on every frame of a zoom would draw every
-  board's title and menus again each frame. While the camera moves, the outline of a selected board is off by the change
-  in its gutter. The gutter itself follows the zoom live, as labels do, through each part's own style, not a custom
-  property that every frame's elements would inherit (PAR-556).
+- **The shape takes a board's new size once the camera stops** (once the zoom settles, since PAR-655). Taking it on
+  every frame of a zoom would draw every board's title and menus again each frame. While the camera moves, the outline
+  of a selected board is off by the change in its gutter. The gutter itself follows the zoom live, as labels do, through
+  each part's own style, not a custom property that every frame's elements would inherit (PAR-556).
 - **The agent's estimate takes the gutter at 40%,** where it's widest on the canvas, so it's never smaller than the
   board drawn at any zoom. A drawn board's bounds are still as the canvas has them at its zoom, so `Overlaps()` sees
   drawn boards as they are now: boards set close together up close grow towards each other as the canvas zooms out to
@@ -4920,6 +5162,18 @@ You asked on 2026-11-05 for the main process's side of signing in and the window
   PAR-616 can switch organizations from the app, once its service lists them.
 - **The access token names the organization by ID only.** Until Parity's service can look one up (PAR-616), the app
   calls it Your organization.
+- **Finishing with a pending token needs the client secret.** The organization-selection grant
+  (`urn:workos:oauth:grant-type:organization-selection`) and the email-verification grant
+  (`urn:workos:oauth:grant-type:email-verification:code`) both answered 400 `invalid_client`, "Invalid client secret.",
+  with the client ID alone. So Parity can't finish either itself; whatever needs the secret stays in AuthKit's pages
+  until Parity has a server.
+- **Choosing an organization happens in Parity, and AuthKit finishes it.** WorkOS's 403
+  `organization_selection_required` names the user and their organizations (ID and name), so the app lists them.
+  Choosing one opens AuthKit with `organization_id`, whose page loads and keeps it, to sign in to that organization.
+  `organization_id` with a provider such as `GoogleOAuth` fails instead, with `organization_invalid` "No Connection
+  associated with Organization", since there it names the organization's single sign-on.
+- **Email verification stays in AuthKit.** Its grant needs the secret, and AuthKit verifies on its own page, which
+  Staging never asked for while signing in with Google.
 - **The token's `iss` is the environment's client** (`client_01M6Q2PGV0Z2R7CXZBFRJH150R`), as its OpenID configuration
   says, which the PAR-615 adapter reads.
 
@@ -4930,6 +5184,11 @@ Your calls, from trying it in `pnpm dev`:
 - **The account menu keeps Settings and Sign in or Sign out,** and leaves Keyboard shortcuts and the keys to the app's
   menus. It has no agents yet, since connecting one isn't built.
 - **Under the ways in, one short line,** "Parity never sees your password", with a shield.
+- **Waiting for the browser shows one button at a time:** Cancel, then Open it again once it's slow, with the other ways
+  round a page that didn't show as a line of links under it.
+- **The browser's hand-back page badges the mark** with a green check or an amber warning, so a failure reads at a
+  glance. Choosing an organization or single sign-on isn't a failure, so it says Continue in Parity, with a purple
+  arrow.
 
 My calls:
 
@@ -4949,6 +5208,42 @@ My calls:
   and an error otherwise. `@parity-app/account` now passes on the email WorkOS's refusal names.
 - **Signing in is checked in an installed build later.** The scheme and passing links between copies only work in an
   installed app, which wasn't tried here.
+
+## Several accounts are built (PAR-669)
+
+You asked on 2026-11-06 to stay signed in to several accounts, such as your own and your company's, and switch between
+them as Figma does. You approved the design in Parity/Explorations/Home: Home's workspace menu at the top left, and your
+accounts in a panel from your picture at the end of the title bar, each with its own Sign out. Your calls:
+
+- **Accounts and organizations are separate controls.** The title bar's panel is who you are; Home's workspace menu is
+  where you're working in the account you're in.
+- **People and Settings leave the menus.** Settings stays in the app's menu, and an organization's people wait for
+  organization settings.
+- **Any account can be signed out of**, not only the one you're in, from its own row, with no menu under Sign out.
+
+My calls:
+
+- **Main keeps a session for each account,** each with its own refresh token and refresh timer, in the one encrypted
+  `account` file, with the account Parity was last in. Switching accounts doesn't ask WorkOS, so it's instant, and
+  Parity starts in the same account next launch.
+- **An account is its email.** Signing in again as an account that's listed takes its place rather than listing it
+  twice.
+- **Signing out of the account you're in moves you to the one you used last** whose session is still going; with none
+  left, you're signed out. Signing out of another leaves you where you are.
+- **An account whose session WorkOS ends stays listed,** dimmed, with who it was and how they signed in but no token, so
+  one click signs in again as it and Remove forgets it. That's kept across launches. Session ended shows over what's
+  open only for the account you're in, and you're moved to another meanwhile; another account's ending doesn't
+  interrupt.
+- **Adding an account asks the provider which one.** Google, GitHub and Microsoft get `prompt=select_account` through
+  WorkOS's `provider_query_params`, written as WorkOS's own SDK writes it,
+  `provider_query_params[prompt]=select_account`, so a browser signed in to one Google account still offers the others.
+  Signing in again as an account names it with `login_hint` instead, and a work email goes to AuthKit with `login_hint`
+  as before. Whether WorkOS passes the prompt on hasn't been tried yet: its reference documents `provider_query_params`
+  without saying how it's written.
+- **A file from a build that kept one account isn't read,** since it's prototype data: anyone signed in then signs in
+  once more.
+- **Copies of Parity still share accounts.** Each change reads the newest file and replaces only its own account, since
+  every refresh replaces a token.
 
 ## Telemetry's event model is data in and data out in `@parity-app/telemetry` (PAR-618)
 
@@ -4996,6 +5291,21 @@ project already has its icon library's icons in code, so writing them out again 
 - **The icon set dialog is kept as an exploration,** Parity/Explorations/Icon export, in case it comes back.
 - **File > Export all stays as it was:** every design in every state and mode it shows, at Settings' export scale.
 
+## A selection copies as one PNG at 2x (PAR-190)
+
+Called on 2026-11-06. PAR-190 asked for Ctrl+Shift+C to copy the selected layers or designs as a PNG at 2x, drawn as
+they show, with PAR-185's exports drawn the same way. My calls:
+
+- **It draws through the export's own path,** the same offscreen frames and cuts, so one layer or design copies exactly
+  the PNG exporting it at 2x writes. There's no second renderer.
+- **The clipboard holds one picture, so a selection copies as one.** Several layers of one design are the box around
+  them all, with what's between them, as Figma copies them; several designs sit where they are on the canvas, with
+  see-through between them.
+- **A picture over 16,384 pixels wide or tall isn't copied,** with a toast saying to select less or export it. Selecting
+  every design spread over the canvas made one too big for sharp to make, and mostly see-through.
+- **Always 2x PNG,** whatever the Export section's sizes or Settings' export scale, as the issue asked.
+- **Through the keymap only for now,** with no menu item, since a menu item is a design change for Storybook first.
+
 ## Each element's source line, in a Code tab and for agents (PAR-167)
 
 Called on 2026-11-05, with your approval in Storybook. PAR-167 asked for a development-only transform that tags each JSX
@@ -5020,3 +5330,749 @@ own Code tab, before Accessibility, and asked for real syntax highlighting. My c
   component is written in, and `Measure`, the layout snapshot, gives each node's `source`, the element it draws
   outermost. Listing every element inside every instance would make `Measure` much longer for little more: the node's
   line leads to its file, which has the rest.
+
+## The designs' console reads main's log, by the design that wrote each message (PAR-147)
+
+Called on 2026-11-05. PAR-147 asked for errors and warnings with a count in the status bar and by design in a panel,
+during interaction and after offscreen renders, from the same log as `parity console`. You saw the design in Storybook
+and didn't object. My calls:
+
+- **Main's log is the one log.** Main already kept what every window's projects write, for agents. It now gives each
+  message an id and sends what's new or counted again to the editor windows, batched 100 ms after the first, and Clear
+  empties it there, so the panel and `parity console` never disagree.
+- **Offscreen, the job names its design.** A render job carries the design, state and mode it draws, and a message the
+  window writes while it draws is that design's. No stored name has the field, so bitmaps and previews keep theirs.
+- **On the canvas, the window announces the frame.** Frames share one window, so main can't tell them apart. While a
+  frame handles a person's event, and through the rest of that task, the window wraps the console so each call first
+  sends main the frame's design, state and mode, then writes the message. Electron then reports the wrapper, in Parity's
+  own code, as where the message was written, which main would drop as Parity's own, so the announcement also carries
+  the frame code's call: the stack's first frame from another origin than the wrapper's. Main gives the announcement to
+  the next message of that level from the window, within a second. The announcement is sent before the message is
+  written, and `e2e/console.e2e.ts` checks it reaches main first. The console is wrapped only during those tasks, so the
+  window's developer tools point at the real lines the rest of the time, and a wrapper something else adds meanwhile is
+  left in place.
+- **What isn't known stays unknown.** What a frame writes on its own, after a timer or a fetch, or as it first draws on
+  the canvas, is the project's rather than a guess at a design. Its offscreen draw usually writes the same message as
+  the design's.
+- **A message is one row however many frames wrote it.** Main counts repeats per frame, and the panel merges a design's
+  same message across frames, with each frame as a chip.
+- **The place is the project's line.** A message's own line when it's in the project's files, else its stack's first
+  call that is, since React's warnings come from react-dom and name the component in their stack.
+- **Agents get the design too:** each console entry has its design's key, state and mode when known, and their frames
+  name their state.
+
+## The Layers panel draws only the rows in view (PAR-187)
+
+Called on 2026-11-05. The editor audit's Layers panel drew a row for every open layer and kept every row it had opened,
+so selecting around a large design made each later change slower. My calls:
+
+- **Only the rows in view are drawn,** with `@tanstack/react-virtual`, which the insert picker, the icons and the tokens
+  already use, and each drawn row is drawn again only when what it shows changes. Rows are a fixed 28 pixels, so the
+  list needs no measuring.
+- **Rows opened to show a selection close once a selection made elsewhere no longer needs them,** as in Figma. Rows
+  opened by hand stay open. A selection made in the tree itself, by a click or the arrow keys, closes nothing, so no row
+  moves under the pointer.
+- **Search finds designs and layers by the name the panel shows,** ignoring case, and shows each match with the rows
+  above it open and the match's own layers closed. A search opens what it finds itself, so its rows have no arrows.
+- **A layer's eye hides it in the state its board shows, without selecting it.** It's the row's own control, so it acts
+  on that row rather than the selection, as Figma's does; Ctrl+Shift+H still hides the selection. It shows while the
+  layer is hovered, here or on the canvas, and always on a hidden layer. It stays out of the tab order, as the arrow
+  does.
+- **A design is dragged among the designs of its group, in its own file.** The panel lists designs in their file's
+  order, so dragging one moves it in the file. A design isn't moved to another file, which would change its key, or
+  between components, screens and frames, which the panel lists apart.
+- **The lock toggle waits for PAR-192,** which adds locking, and highlighting a layer selected inside an instance waits
+  for PAR-92, which lists an instance's layers.
+
+## Frames are built in the app (PAR-545)
+
+PAR-545 builds the frames exploration you approved in PAR-540, on PAR-539's model. My calls, where the build differs
+from the stories or they left something open:
+
+- **A frame that hugs what's in it keeps its size in the file as drawn.** Text from the text tool, and anything that
+  lands on the empty canvas, goes in a frame whose root layout hugs its width. The file's `size` stays a number, since
+  bitmaps, agents' renders and exports need one, so the canvas measures the root at its content's width and writes that
+  width as the frame's size. Writing it isn't an undo step of its own: the size follows from the layers, undo puts back
+  the size they had, and the root is measured again. A width of its own, from the handles, the frame tool's sizes or the
+  inspector, stops it hugging.
+- **Whatever lands on the empty canvas makes a frame, text too.** Pasted layers, images, a component or a layout from
+  the insert picker or the Components panel, and now pasted text, which used to make a note. They're padded as before,
+  filled with the project's background, as a new frame is, and named after what's in them.
+- **The text tool makes a text frame, not a note.** T and a click in empty space makes "Text" in a frame with 2 steps of
+  padding, edited at once, and the frame takes the text's name as it's typed until it's renamed. Notes in a file still
+  show and edit as before; nothing makes a new one, since you dropped the Note tool in PAR-540.
+- **The empty canvas's start doesn't gain Draw a frame,** as PAR-545's issue asked, because PAR-560 dropped the start.
+  The frame tool's menu has New screen and New component instead, so every kind starts from one place.
+- **A frame's size is its root layout's size in the inspector.** Selecting a frame shows its root's layout, spacing,
+  size and fill straight after its name. The width and height rows show the frame's own size, and a fixed length there
+  resizes the frame, as the exploration's inspector does.
+- **Converting from a frame shows a toast with Undo; converting to one asks only when something would go.** A screen or
+  component that drops nothing, such as a screen made from a frame a moment ago, becomes a frame at once. Converting a
+  component also makes its instances in other designs plain layers, in the same step, as the dialog says.
+- **Layers lists Frames after Components and Screens, once there are any,** and its + picks the frame tool, since a
+  frame is drawn rather than made right of everything. The app's Layers keeps Components first, where the exploration
+  had Screens first.
+- **A frame's handles are its previews':** the right side, the bottom and the corner, resizing its own size. Its name
+  runs past a narrow frame rather than being cut off, since there's no board to fit.
+
+## Previews in the Components panel and the insert picker (PAR-208)
+
+Built to the Previews exploration's Components stories (Parity/Explorations/Previews) and PAR-515's card. My calls:
+
+- **The view is a preference, the same in every project.** Names, List or Grid is how a person likes to browse, not a
+  property of a project, so it's kept with the app's other preferences, List until they pick another.
+- **A row says what's wrong in words, not what's in progress.** Fails to draw, Needs props, Needs a provider, Server
+  only and Draws nothing go under the name in List and Grid, colored as the exploration has them. Waiting, drawing and
+  updating show in the picture only (an empty box, a shimmer, the last picture dimmed with a mark), and the card says
+  them in words: on a first open a list of "Waiting" under every name would say nothing anyone can act on.
+- **Why there's no picture comes from what's already known.** Needs a provider and Server only come from the preview's
+  error, as the canvas reads its errors (`renderProblem`). Needs props is a preview that failed or drew nothing whose
+  component requires a prop inserting can't fill: inserting gives a required text, number, yes-or-no or option prop a
+  value of its own, so these are lists, objects and other nodes. A component that draws can still be missing one, and
+  isn't marked.
+- **The card's variants are one prop's options:** the component's first style variant (cva) with more than one option,
+  else its first own prop with a few named options, as a size. Five show as small pictures and the rest are counted.
+  They're made only when the card first opens, before anything off screen, and kept in the project's index beside the
+  component's own, as `Button?variant=outline`, so a card opened again shows them at once. Pointing at one, or tabbing
+  to it, shows it large.
+- **The picker's card has no Insert,** since Enter inserts the highlighted row; it keeps Open file and Open in
+  Storybook, which close the picker first. In a window too narrow for both, the picker is the list alone.
+- **Component designs keep their icon for now.** The proposal pictures a design by its board's bitmap, which the canvas
+  keys by its own frame jobs; reading those for the panel is work of its own, so a design shows its icon where a
+  component shows its picture.
+
+## `prefers-color-scheme` blocks are themes, drawn for each frame's mode (PAR-138)
+
+My call: the app reads `@media (prefers-color-scheme: dark)` around the root as the `dark` theme, and a `light` one as
+the default, as `parity lib` already did, and frames draw such a block for their own mode instead of Parity's window.
+PAR-485 kept the block out because a frame gets its theme from a class the Modes panel adds, never a media query, so a
+dark read from one couldn't be shown or edited. mantine's dark values were left out, and since frames are shadow roots
+in Parity's window, a mantine frame in the Light mode turned dark whenever Parity's window did.
+
+- **One policy.** `ThemeOptions.colorScheme` is gone: `themeOfSelector` always reads a whole
+  `(prefers-color-scheme: dark)` query as `dark` and `light` as the default, with a theme's own selector still beating
+  the block, so libgen and the app read the same CSS alike. The query is read by core's `colorSchemeQuery`, which
+  `prepareCanvasCss` uses too. A query that asks for more (`screen and (prefers-color-scheme: dark)`, or a width as
+  well) stays conditional and no theme's, as before.
+- **Frames draw the block as an attribute theme on their body.** `prepareCanvasCss` rewrites the block's root rules to
+  `:where([data-canvas-body][data-canvas-color-scheme="dark"])`, `body` rules to the body with that attribute, and any
+  other rule to elements inside that body. A block nested in a rule, as Tailwind's `dark:` variant writes, becomes
+  `:where(…) & { … }`, and one nested in the root's own rule is moved after it, where it can reach the body.
+  `frameAttributes` gives every frame body `data-canvas-color-scheme`: `dark` when its mode's classes include `dark`, as
+  the default Dark option's do, and `light` otherwise; an attribute the mode sets itself still wins. The alternatives
+  were a container style query, which can't reach the frame's root, where the block's values live, or an iframe per
+  frame, which the canvas doesn't use.
+- **No specificity is added**, as a media query adds none. The root's values move to the body, so the body's own rules
+  and a theme's class on it (`.dark`) win over them, matching the policy's "a theme's own selector beats the block".
+- **Previews and saves find the block by its theme.** The drawn rule reads as an attribute theme, `dark` or (for
+  `light`) the default, so `previewToken` edits it with no change of its own. `writeTokenChanges` now edits blocks under
+  a colour-scheme query when the query picks the block's theme, adds a value the dark theme lacks to the block, and
+  never adds a new default value to a colour-scheme block's `:root`.
+- **Tokens are read from the blocks as written.** `prepareCanvasCss` takes `colorSchemes: false` where tokens are read
+  (the guest, detection, libgen's comparison test), so the policy sees the media query, and `themeAttributes` reads the
+  same CSS.
+
+Gaps: a frame's root (its shadow host) never gets the colour scheme, so a custom property the root defines from another
+(`--alias: var(--surface)`) keeps its light value in a dark frame, as with a `.dark` class theme. A custom property a
+`body` rule declares inside the block reads as a dark value in the preview but not in the Tokens tab.
+
+## A layout of a component design can be a slot (PAR-83)
+
+Called on 2026-11-06, with your approval in Storybook. [proposals/components.md](proposals/components.md) set out slots;
+PAR-83 marks them in a component design, and PAR-84 fills them from instances. My calls, with yours:
+
+- **A slot is `slot` on a layout node,** a prop's name, and the layout's own layers are its placeholder, as Vue's and
+  Web Components' fallback content is. The outermost layout can be one.
+- **No Children or Named to choose.** A slot is only a name; the difference between a slot and `children` is how code
+  writes it, so code decides. It nests the slot holding the most layers between the tags, as React's `children` and
+  Vue's default slot, the first in layer order on a tie, and passes the others as props that take layers. The biggest
+  part going between the tags keeps code from drilling whole layouts through props. The panel doesn't mark which one it
+  is; In code shows it. `children` is reserved as a name, so the rule's choice never clashes with a slot's.
+- **A slot is a kind of prop.** It's listed in the component's Props after the params, with the layout it fills where a
+  param has its default, and Props' Add offers a slot from a layout. A separate Slots section was tried and dropped, as
+  was editing slots in the code itself. In code sits below Modes. Make slot sits beside Make component on the layer.
+- **Props doesn't list where the component is used.** The Components panel's card already counts its uses, and a list of
+  every instance doesn't scale.
+- **An empty section says nothing,** past its description: Variants and Props drop "None yet". Variants' hint about the
+  title bar shows once there's a variant to pick.
+- **The file is strict about names, the editor about the rest.** The file refuses a name that couldn't be a prop (`key`,
+  `ref`, `style`, `className`, `children`, or not an identifier) and two layouts with one name. A slot named like a
+  param, or inside another slot, is refused by `setSlot` but tolerated in a file, and `designSlots` skips a nested one.
+- **Copies drop the mark.** Duplicate, paste, moving to another design, Make component and Detach make a plain layout,
+  keeping its layers, since a component has one slot by each name. A component turned into a screen keeps its marks,
+  which do nothing until it's a component again.
+- **Names are camelCased,** so `Side actions` is `sideActions`, and a new slot takes its layout's name.
+- **Filling a slot is the instance's (PAR-84).** It keeps what fills each slot as layers of the design it sits in, so
+  they're picked, selected and edited as the design's own, drawn in place of the placeholder and baked in by Detach.
+  Layers doesn't list them under the instance: an instance's insides are never shown inline. Its panel has each slot
+  after the params, filled with its layer count or Empty, with a picture of what shows there on hover, drawn by itself;
+  a selected slot has a panel of its own, and a click in Components adds into it.
+- **Props' Add makes value props too.** Text, Number and Toggle, each named in a row as it's added, beside slots from a
+  layout. A prop no layer uses still does nothing on the canvas, so a layer's text and visibility can use a prop, or
+  make one from what they show, with the field showing the prop's name until it stops using it.
+
+## The first run offers the example, and gone folders are flagged (PAR-188)
+
+Called on 2026-11-06, with your approval in Storybook. PAR-188 asked for the first run to open the example with three
+dismissible tasks to try, and for the start page to show thumbnails, remove a recent project and flag missing folders.
+Thumbnails and removing came with PAR-607 and PAR-605. Your calls and mine:
+
+- **The three tasks are kept as an exploration,** Parity/Explorations/First steps, not shipped: you didn't want them
+  yet. A card over the example's canvas with Change a prop, Wrap in a layout and Check accessibility is there if they
+  come back.
+- **Home offers the example rather than opening it.** The first time, Acme sits where Continue will be, with Open Acme,
+  and Bring your own app beside it, so nothing moves once there's a project. Without the example, that place says what
+  Parity does with your app and offers Open a folder and Open a project file.
+- **Only a copy run from the repository has the example for now.** The service looks for `examples/shadcn-vite` above
+  where Parity runs, with its packages installed. Shipping it in the installer means copying it somewhere you can write
+  and installing its packages on first run, which needs its own progress and error states: that's a follow-up. Its first
+  two screens ship as its picture until its own is kept, about 26 KB.
+- **For you shows only once you're signed in,** since what needs you comes through an organization; signed out there's
+  no section and no Sign in in it. The account control at the top left (PAR-612) is where you sign in.
+- **Empty lists say what will show up there,** in a dashed box a row of cards tall, with an icon, rather than a line of
+  grey text.
+- **A gone folder stays listed, greyed,** with Folder not found, until you remove it: a drive that isn't plugged in
+  comes back. Opening it says where it was and offers Remove; Continue skips it. A folder Parity can't read for another
+  reason, such as permissions, isn't counted as gone.
+- **New project from this is out of a project's menu** until projects can be made (PAR-284), rather than a toast saying
+  it isn't ready.
+- **A frame's edge in a project's picture is mid-grey,** not the theme's text color, so a phone over a desktop frame
+  shows against it whether the screens are light or dark.
+
+## Sizes and insets can leave the spacing scale, flagged (PAR-194)
+
+Lengths were kept on the spacing scale: a typed length landed on the nearest half step, and nudging moved a step. The
+editor audit (CAN-48) asked for lengths off the scale to be kept and flagged, since a sidebar 280px wide is a fact of
+real apps and engineers already write `w-[280px]`. This loosens the tokens-only model for lengths. My calls:
+
+- **Only sizes and insets leave it.** Width, Height, Min, Max and an absolutely placed layer's insets keep what's typed.
+  Padding, Margin and Gap still land on the nearest half step with a note, since spacing inside a layout is what the
+  scale is for. Colours, type, radius and shadows stay tokens.
+- **A length off the scale is kept in steps,** 281px as 70.25 with a 4px unit, not as pixels. The file format doesn't
+  change, every place that reads a length keeps working, and a value off the scale already opened as it was. If a
+  project's spacing unit changes, such a length scales with it, as lengths on the scale do. Writing it as code is
+  PAR-265's to decide: `w-[281px]`, or `w-70.25` where Tailwind's scale takes it.
+- **It's kept to the hundredth of a pixel,** so 281 stays 281px rather than 280.99999, and a run of 1px nudges with a
+  unit 1px doesn't divide doesn't drift.
+- **The scale is whole and half steps,** as before and as the canvas's distance labels already say "off scale". A
+  quarter step with a 4px unit, 1px, is off it.
+- **The flag is under the row, in amber, with the nearest step as a button:** "281px is off the scale" and "Use 280px".
+  It shows for any length off the scale, whether typed, nudged or already in the file, padding from an older file
+  included. Amber, not the destructive colour, since the value is allowed. Halfway between a whole step and a half step
+  the button offers the whole step, so 281px offers 280px rather than 282px. The wording was checked against the writing
+  style guide, which allows px in design content where space is short.
+- **Nudging moves 1px, or 10px with Shift,** as Figma's does, which CAN-39 waited on. The field's Up and Down still move
+  a step, so they're the way back onto the scale; a length off it goes to the step beside it.
+
+## Boards take their size once the zoom settles, not when tldraw's camera stops (PAR-655)
+
+Called on 2026-11-06. Profiling PAR-653 on a busy machine, frames took 150 to 300 ms, longer than tldraw's camera
+timeout, so tldraw counted the camera as stopped between the wheel's moves. Every board then measured itself and updated
+its shape on almost every frame of a zoom: 190 to 280 ms of `getClientRects` in a 4-second zoom. My calls:
+
+- **Boards wait for the zoom to settle, the same settling `--tl-zoom` already waited for.** The zoom settles once it has
+  held for 3 animation frames and 150 ms, both: frames alone would settle between a mouse wheel's notches when frames
+  are quick, and time alone would settle between slow frames. The rule moved to `zoomSettle` in
+  `packages/editor/src/zoom-settle.ts`, with tests, and `settleZoom` and the boards both use it, so the styles and the
+  boards' sizes change at the same moment rather than by two timers that could disagree.
+- **Panning no longer holds a board's size back.** A board's size changes with the zoom, not with the camera's place, so
+  a board that resizes while the canvas pans, such as one whose frames wake as it comes into view, takes its size then
+  rather than once the pan ends.
+- **The zoom passing back through where it settled counts as settled for that frame.** A board might measure itself once
+  mid-zoom then; checking it apart from the zoom wasn't worth a second clock.
+
+## docs/telemetry.md lists the events from their schemas (PAR-623)
+
+[telemetry.md](telemetry.md) says what Parity sends Sentry and lists every event, as principle 9 of
+[proposals/product-telemetry.md](proposals/product-telemetry.md) asks. My calls:
+
+- **An event says which processes send it and when,** as `sentBy` and `when` in `defineEvent`, and each attribute says
+  what it means with zod's `.describe()`. All three are required: the catalog throws when one is missing, so an event
+  can't reach the page half described.
+- **`registeredEvents` in `packages/telemetry/src/registry.ts` is the one list,** the page's source. Each process still
+  passes `createTelemetry` only the events it sends.
+- **Only the Events section is generated,** between two comments; the prose around it is written by hand. Types are
+  written as TypeScript writes them, from zod's JSON Schema of what `track()` takes, and a nested object's fields are
+  listed by their dotted path.
+- **Regenerating is `pnpm exec vp test run packages/telemetry -u`,** through Vitest's file snapshots, as the fixtures'
+  `expected.json` files are, so no script was added. The test that fails says so.
+- **The tables are padded as `vp fmt` writes them,** so formatting the page on commit leaves the generated part alone.
+
+## Secrets are scrubbed before any event leaves a process (PAR-621)
+
+`@parity-app/telemetry`'s `createScrubber({ secrets })` replaces secrets with `[redacted]` and leaves everything else as
+written, as "Parity's own telemetry goes to Sentry, on by default" decided. `createTelemetry` runs it on every event's
+attributes before its sinks and the kept events. Main, the windows and the service run one in their Sentry `beforeSend`,
+`beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb` hooks, and the CLI will once it sends (PAR-642).
+Sentry's server-side scrubbing stays on as a second net. My calls:
+
+- **Keys and tokens with a known shape are replaced whole:** OpenAI and Anthropic `sk-…`, Stripe `sk_live_`/`rk_live_`,
+  GitHub `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and `github_pat_`, Slack `xox…-`, AWS access key IDs, Google `AIza…`,
+  npm `npm_`, Sentry `sntrys_`, JWTs and private key blocks. After `Bearer` and in a URL's `user:password@`, only the
+  secret goes: the word, scheme, user and host stay.
+- **A field whose name says it's secret loses its whole value,** in objects and in text (`.env` lines, query strings,
+  JSON, `password: …` in a message): names with password, passphrase, secret, API key, access key, private key,
+  credential, authorization or cookie in them, `auth`, environment names ending in `_TOKEN`, `_KEY`, `_SECRET` or
+  `_PASSWORD`, and tokens with a credential's prefix, as `accessToken` or `refresh_token`. **A bare `token` isn't
+  secret,** nor `designToken` or `key`: in Parity those are design tokens and design keys, which make a bug findable.
+  Their values are still read for keys and random strings.
+- **Long random strings are replaced even with no known shape:** 32 characters or more of base64 or hex characters, with
+  upper and lower case letters and digits, under 40% of it in lowercase words of 4 letters or more, and at least 3.5
+  bits per character. Paths and identifiers are half words or more, so they stay. Hex alone stays (hashes, commit SHAs,
+  UUIDs, trace IDs), as does a run in a file name before its extension or in a `data:` URL's base64. About 1 in 100
+  random 32-character keys slips past this, which the known shapes and Sentry's own scrubbing cover.
+- **`.env` values are scrubbed when the caller passes them.** `envSecrets(file)` reads a `.env` file's values, and the
+  ones 8 characters or longer that aren't a number or `true`/`false` are replaced wherever they appear. `setSecrets`
+  swaps them when another project opens. Shorter values would hide words and port numbers everywhere they appear. No
+  process passes a project's values yet: that's PAR-672.
+- **Only attributes are scrubbed in `createTelemetry`.** The envelope's own fields are Parity's IDs, names and paths. An
+  `Error` is copied as its own class with its message, stack, fields and cause scrubbed; dates, byte arrays and other
+  objects that aren't plain go as they are.
+
+## Events go to Sentry through main, and to a local copy at every level (PAR-627)
+
+Every process records its events with `createTelemetry` and the app's Sentry sink, `shared/sentry-sink.ts`, which maps
+envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My calls:
+
+- **Each process keeps its own breadcrumbs and errors; main sends logs and spans.** In a window, a render window and the
+  service, each event and span becomes a breadcrumb in that process's Sentry scope, and a failure becomes a Sentry error
+  there, so an error carries the events before it in the process it happened in. Every event then goes to main, which
+  writes the local copy and sends it as a structured log, and each span as a Sentry span. Main needs every event for the
+  local copy anyway, and this leaves it the one place that decides what leaves, as PAR-620 has it.
+- **A failure is any `error.*` event, or any event at the `error` or `fatal` level** (`isErrorEvent`). The issue named
+  the first and docs/telemetry.md the second, so both count.
+- **The last 100 events are Sentry's breadcrumbs,** which it keeps 100 of by default, not a copy of the ring buffer laid
+  on each error. That way an uncaught exception or a native crash carries them too, not only an `error.*` event.
+  Sentry's own breadcrumbs (console, clicks, requests) share those 100.
+- **A span is sent as a transaction of its own, with Parity's trace, span and parent IDs,** built by hand and sent with
+  `captureEvent`. Sentry's span API makes its own IDs, which would break the trace the CLI and other processes continue.
+  Sentry joins the transactions into one trace by their parents. A log in a trace is captured in a scope that continues
+  it, so Sentry links the two.
+- **A log's message is the event's name, and its attributes are the event's own, as they are,** so they're searchable by
+  the names in docs/telemetry.md. The envelope's fields go beside them under `parity.` (`parity.process`,
+  `parity.session_id`, `parity.duration_ms`).
+- **The level gate is in main's `beforeSend`, `beforeSendTransaction` and `beforeSendLog`,** through `sendsToSentry` in
+  the package: All sends everything, Errors only errors (with their breadcrumbs), Off nothing. Reading the level there,
+  rather than only at `Sentry.init`, lets PAR-626 change it without a restart. PAR-626 has since dropped the Errors
+  level and `sendsToSentry` with it; see "Diagnostics are on or off" below.
+- **The local copy is `<userData>/logs/parity-<date>.jsonl`,** one envelope per line, written at every level. A file
+  that would pass 5 MB continues in `parity-<date>.2.jsonl` and on, a new day starts a new file, and only the newest 10
+  are kept. Lines are written together once a second, synchronously; a `fatal` event writes at once, with what's
+  waiting, and so does quitting. A write that fails loses the local copy, never the app.
+- **Other processes reach main by the routes they already have.** A window sends over IPC (`canvas:telemetry`) from its
+  preload. Render windows got a preload of their own that gives the page only that, since a project's components run in
+  them. The service asks main's channel (`record`), and the props worker posts to the service beside its channel's
+  messages; the service adds its events to its own Sentry scope, since the worker has none. Main checks each envelope
+  with `envelopeSchema`, and names a window's events by the window that sent them.
+- **Main makes the install ID and the session ID, and passes them on** with whether to check events against their
+  schemas (outside installed builds): to windows as a command-line argument, to the service and its worker in an
+  environment variable. The install ID was kept in `<userData>/install-id`; PAR-626 moved it into `telemetry.json`.
+- **No process exports its telemetry yet.** `startTelemetry` and `startEvents` return it; the issues that record the
+  first events (PAR-629 onwards) decide how code reaches it.
+
+## Diagnostics are on or off (PAR-626)
+
+Settings has one switch for Parity's own telemetry, and About shows whether it's on and the install ID. You chose its
+shape on 2026-11-06. After a first design with an All, Errors and Off choice, an install ID row and a Reset button, you
+said it "smacks of leaking internal implementation details. Users don't need to see some of this. Users don't need to
+know we're using Sentry," then "Either send or don't, that's all." My calls within that:
+
+- **No Errors level anywhere,** not only in Settings: `TelemetryLevel` is `all` or `off`, `PARITY_TELEMETRY` takes only
+  those, and `sendsToSentry` is gone. Main turns Sentry's client on or off (`applyTelemetry` in `main/telemetry.ts`),
+  which every send checks, so the switch works without a restart. Sentry starts enabled and is turned off at once when
+  it should be, since a client started disabled never sets up its integrations.
+- **Settings > Privacy > Share diagnostics,** a switch. Its line says what's shared and who it's for, not which service
+  takes it, and reads the same on and off, so turning the switch doesn't move the dialog. It leaves out the window
+  recording, which won't ship (PAR-703).
+- **A variable decides the run and disables the switch:** `PARITY_TELEMETRY` over the setting, `DO_NOT_TRACK` and Vitest
+  over both. The switch shows what's sent, and its line names the variable.
+- **The setting and the install ID are one file, `<userData>/telemetry.json`,** which the CLI can read through
+  `desktopDataFolder` (PAR-642). It replaces PAR-627's `install-id` file; an ID there isn't carried over, as stale
+  prototype data.
+- **Turning it off is the reset:** it makes a new install ID, so what's sent after turning it back on isn't linked to
+  what came before. There's no Reset button. Windows and the service keep the ID they started with until Parity
+  restarts, so their events' envelopes carry the old one until then; Sentry's user is the new one at once.
+- **About lists Diagnostics (On or Off, with the variable if one decided it) and the Install ID** with the versions, so
+  Copy details includes them.
+- **Settings scrolls** when it's taller than the window. The new section pushed it past the bottom of a short one.
+
+## Session Replay records the editor window (PAR-624)
+
+`@sentry/electron`'s renderer SDK brings Session Replay and its canvas recording, so no package was added. The editor
+window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `replayCanvasIntegration` on, as
+"Parity's own telemetry goes to Sentry, on by default" decided. My calls:
+
+- **Every session is recorded while diagnostics are on** (`replaySessionRate` is 1, in `renderer/replay.ts`). **While
+  they're off the recorder isn't added,** so it costs no memory, as well as main sending nothing.
+- **The window asks main whether they're on** (`canvasHost.telemetry.get()`, PAR-626) as it starts, and adds the
+  recorder once they are. Turning them off in Settings stops it, and on again starts it, through `receiveTelemetry`.
+- **Only the editor window records.** `followTelemetry` is called from the editor window alone, so the offscreen
+  renderers, which share `startTelemetry`, neither record nor load the recorder.
+- **Frames are left out of replays,** as boxes their size (`block: ["[data-frame]"]`). The proposal took them for
+  cross-origin iframes, but a frame on the canvas is an open shadow root in the editor page, which Sentry's recorder can
+  record. Recording them, a closed project's canvas stayed in memory: about 26,000 DOM nodes against 6,000 with
+  telemetry off, and `reopening.e2e` failed in CI on 49,000 nodes where it allows 27,600.
+- **The recorder never sees frames' and project icons' shadow roots.** Blocking alone left about 13,800 nodes in some
+  runs: rrweb patches `attachShadow` and keeps every shadow root attached while it records, blocked host or not, until
+  it starts over, and a frame's host kept the closed canvas. `renderer/shadow.ts` takes the browser's own `attachShadow`
+  before recording starts, and frames and icons attach theirs with it (icons are blocked too). A closed tab's session
+  also lets go of its editor, which React kept with the tabs a component last read. Closing the example project now
+  leaves about 510 nodes with replay on and 170 with it off, steady over three reopens.
+- **Failures carry the frames instead,** since replays leave them out, the offscreen windows that draw bitmaps aren't
+  recorded, and a buffer keeps only a minute: every error from the editor window attaches `frames.json`, the frames on
+  the canvas without their bitmaps or render keys, which hold the whole design and made it 3 MB. A frame's failed
+  offscreen capture is reported once for what it shows, tagged `render: failed`, with the bitmap the frame last showed
+  as `frame.webp`.
+- **What it costs:** the editor window's bundle grows by 153 kB (49 kB gzipped); `render.js` doesn't change. On the
+  example project, a minute of selecting after opening left the JS heap within 0 to 6 MB of the 110 MB it holds with
+  telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
+  nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
+  its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
+- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. A render failure
+  thrown in the page arrives as Electron's "Script failed to execute", without the page's message; that's PAR-680.
+
+## sharp isn't loaded in the app on Linux (PAR-688)
+
+On Linux, the project service segfaulted the first time sharp encoded a picture, in a libuv worker with libvips's
+threads running (Sentry's PARITY-DESKTOP-G, in CI's installed update check). Electron's Linux binaries link the system's
+glib and leak its symbols into the process, which clashes with the glib sharp's libvips brings: sharp's docs list it as
+a known conflict, and electron/electron#46323 is still open. My calls:
+
+- **Under Electron on Linux, sharp is treated as unable to load** (`sharpRefusal` in `utility/webp.ts`), so frame
+  bitmaps and component previews show the PNG and aren't kept, as on any system sharp can't load on. Exports and copying
+  as PNG fail there with that message, where they crashed the service before.
+- **The build's check didn't catch it,** since it runs Electron as plain Node (`ELECTRON_RUN_AS_NODE`), where Chromium
+  and its glib never load.
+- **It went unseen because installed renders were failing:** the offscreen `render.html` ran the editor's `index`
+  bundle, which stopped at `setTheme` (PAR-662) before `canvasRender` was defined (PAR-670), so nothing reached sharp.
+  PAR-624 moved shared code into a chunk of its own, so `render.html` stopped loading `index`, renders worked, and the
+  update check crashed.
+- **Bringing WebP back on Linux** means sharp's WebAssembly build there, or encoding outside Electron. Either is a new
+  dependency or process, so it's PAR-691, along with a build check that loads sharp in a real utility process.
+
+## Every error notification is recorded, with saves, exports and project edits (PAR-632)
+
+The editor window records what the proposal's "Errors" and "Files and saving" list, as [telemetry.md](telemetry.md)
+catalogs. My calls:
+
+- **One helper shows an error and records it.** `reportError(error, { operation, title, ...toast })` in
+  `renderer/report-error.ts` shows the notification as before and records `error.caught` with the `CodedError` code, the
+  operation and what it acted on. No window code calls `toast.error` itself. The field is `operation`, not `action`,
+  since a notification's `action` is its button; the event still calls it `action`.
+- **`ipc.failed` is recorded in `request`,** the one way the window asks the service, by method and code. It's a
+  warning, not an error, so a failure the window also shows isn't two Sentry issues.
+- **Events are recorded where the window asks for the work:** saves in `saveDocument`, token writes in `saveTokens`,
+  edits as `announceEdit` shows them and as Undo puts them back, exports in `commands.ts`, libraries in the Assets
+  panel. `document.saved`'s size is the document as JSON. `library.added` names the catalog ID, since the window doesn't
+  know the version installed; `styles.imported` has the package and version.
+- **A recording mistake never stops the work.** `track` logs what the development build's checks throw rather than
+  throwing it, and nothing is recorded where no telemetry was started, as in stories and tests.
+- **Event names can be camelCase,** as the proposal names them (`document.saveFailed`, `projectEdit.applied`).
+
+## Failed data checks and unsupported projects are recorded (PAR-633)
+
+The product telemetry plan called for `data.invalid` and `project.unsupported`. My calls:
+
+- **Core's checks tell one listener.** `checkData`, `parseData` and `parseInput` call `onInvalidData`'s listener with
+  each failure: the schema's name, every zod issue and the data. Core doesn't import telemetry; each process's telemetry
+  (main, the windows, the service and the props worker) sets the listener as it starts, through `recordInvalidData` in
+  `shared/invalid-data.ts`. A listener that throws doesn't change what the check returns.
+- **A schema is named by its `.meta({ id })`, its description, or the function that ran the check,** read from the stack
+  only when a check fails. Most schemas have neither, so the function names most failures; a bundle that renames it
+  gives "unnamed".
+- **Only those three helpers are watched.** Direct `safeParse(value).data` reads, as caches and saved preferences do,
+  fall back to a default by design, so they aren't recorded.
+- **The event carries the first 20 issues and up to 2,000 characters of the data as JSON,** scrubbed like every event's
+  attributes (PAR-621). It's at the `warn` level, so it's a Sentry log and breadcrumb, not an error.
+- **`project.unsupported` is the service refusing to open a project**: no package.json (`no_package`), no renderer for
+  its framework (`no_renderer`), or no builder for its bundler (`no_builder`), with the message the person sees.
+  `openProjects` takes an `unsupported` callback rather than the telemetry, so its tests record through a test sink
+  without Sentry.
+
+## Every event says who was driving, and in which test pass (PAR-630)
+
+Events are tagged with `environment`, `release`, `test_run`, `driver`, `agent` and `agent_client`, and Sentry's user is
+the install. docs/telemetry.md, "Who's driving", lists them. My calls:
+
+- **Main tracks who's driving, since every agent call and every event reaches it.** The service tells main about each
+  agent call (`agentCalled`); a key pressed in the editor window (`before-input-event`) hands back to the person. Main
+  puts the tags on its scope and on each error as it's sent.
+- **An agent drives for 10 seconds after its last call** unless the person acts first. Main doesn't see a person's
+  pointer, and listening to every input event would count the clicks `drive.ts` sends over the DevTools protocol as a
+  person's.
+- **The client is MCP's `clientInfo.name`,** which the CLI now sends with each call as `client`. The CLI on its own
+  names none, since nothing declares it.
+- **CI's run is read from GitHub's own variables in the suite's launcher** (`e2e/launch.ts`), since the workflow calls a
+  shared pipeline that takes no environment.
+- **The agent's session names Sentry's user** only when no `PARITY_TESTER` is set; the install ID stays its id.
+
+## One action is one trace across processes (PAR-629)
+
+The window starts a trace for each action and gesture, and the requests it causes carry it through the service, main,
+the offscreen renderers and builders. An agent's call starts its trace in the CLI. My calls:
+
+- **`ChannelMessage` requests gained an optional `trace` field,** `sentry-trace` and `baggage` as `traceHeaders` in
+  `@parity-app/telemetry` writes them. The channel passes it on without reading it: `trace` reads what to send, and
+  `around` runs each handler with what came. A request without one, from an older sender, is answered as before and
+  starts a trace of its own. The window's `ask` through its preload takes it as a third argument.
+- **Handlers are wrapped by the channel, not edited.** The service's window channel and both ends of the service-main
+  channel run each handler in a `request.handled` span (`shared/tracing.ts`), timed, with the error code on failure.
+  Main's `record` isn't a span, since every span would record another.
+- **Node follows the span across `await`s with `AsyncLocalStorage`;** a page has no async context, so the window's trace
+  is the latest action or gesture that hasn't ended (`renderer/tracing.ts`). An async action stays the window's trace
+  until it settles, so a save's requests after its first `await` still carry it. Two at once give the later one.
+- **Queued work keeps the trace it was queued under.** An offscreen job takes the trace when it's queued and draws in a
+  `frame.drawn` span with how long it waited (`queuedMs`), and a builder's start is a `builder.started` span until its
+  session is up. A file write the design store schedules after an edit is sent in that edit's trace (`keepTrace`).
+- **The CLI makes the trace's IDs with `node:crypto`,** not `@parity-app/telemetry`, which it doesn't depend on yet, and
+  sends them as headers; the agent server's `agent.called` span continues them. Until the CLI records spans of its own,
+  the trace's root span isn't in Sentry, but every span in the app shares its trace ID.
+- **Code reaches its process's telemetry through `traceWith`,** which each entry calls with what `startTelemetry` or
+  `startEvents` returns. Until then, as in unit tests and stories, nothing is traced.
+
+## A layer can use its own values, not only tokens, if they're valid (PAR-652)
+
+Call 1 of the Design panel proposal ([design-options.md](proposals/design-options.md)) asked whether a layer can use a
+value that isn't a token. PAR-194 let lengths leave the spacing scale but kept colours, type, radius and shadows as
+tokens, and PAR-186's colour picker edited tokens rather than layers. Andrew's answer: you should be able to add custom
+values, not just be locked to the design tokens, and the value should be checked against its type and verified to be
+valid.
+
+- **Every field takes a value of its own** as well as a token: a colour, a gradient, a shadow, a font size or a radius,
+  not just a length. It's marked as off the system, with the nearest token one click away.
+- **A value is checked before it's stored.** A typed value must parse as the field's value type (a length, a colour, an
+  angle and so on) and be one `CSS.supports` accepts for the property. One that isn't stays in the field, outlined in
+  the error colour with the reason under it, and nothing is stored (Invalid as typed in
+  [design-options-fields.md](proposals/design-options-fields.md)). Values read from code or a file are checked the same
+  way and marked if invalid.
+- **How strict a project is stays its own setting,** per kind, in its `.lib.par`: Any value, Marked (the default),
+  Tokens only, and Semantic only for colours, with Allow here for an exception
+  ([design-options-tokens.md](proposals/design-options-tokens.md), Levels).
+- This widens PAR-194's "colours, type, radius and shadows stay tokens"; its flag for lengths off the scale becomes this
+  mark.
+
+## Every action is recorded by the action list's one wrapper (PAR-639)
+
+`command.ran` records each action in `chrome/actions.ts`, whatever asked for it. My calls:
+
+- **It's the action's trace, not a second event.** PAR-629's `action.ran` span is now `command.ran`, with what ran it
+  (`from`), whether it applied (`enabled`), and how many layers and designs were selected. The span gives the outcome
+  and duration, and the work the action causes joins its trace.
+- **The wrapper is `run(from)`.** `recordActions` (`chrome/record-actions.ts`) wraps every entry, and the window runs an
+  action only through it: keys, the menubar, the canvas and Layers menus, Search actions, the toolbar and panel buttons.
+  An action bound to where it was asked for passes `instead`. New screen where the canvas menu opened, or Save for the
+  Tokens panel's project, runs that in the action's place, still recorded under the action's ID.
+- **One tried while it doesn't apply is recorded as cancelled and doesn't run.** That's a Ctrl shortcut on the canvas or
+  any app shortcut. A plain key that doesn't apply still does what it would anyway, such as Tab moving focus, so it
+  isn't recorded. The wrapper asks `available` itself, so every caller gets the same answer.
+- **Selection is counts, not IDs or names.** That's enough to tell an empty selection from many layers. It stays cheap
+  for PAR-647's budget: one `available` call and one count per command.
+- **A test fails if window code calls an action's command directly** (`record-actions.test.ts`). It reads the source and
+  flags any file that imports a function the actions run from `commands.ts`, `layout.ts`, `create.ts` or
+  `QuickInsert.tsx` and calls it anywhere except through `instead`. Search actions' extras with no shortcut (Export all,
+  Snap, Performance stats, Clear bitmap cache, About) aren't in the action list, so they aren't recorded.
+
+## Interface events are recorded by the stores that own them (PAR-634)
+
+`tab.*`, `panel.shown`, `dialog.opened`, `mode.switched`, `setting.changed` and `start.action` are recorded where the
+state changes, not at each control: the workspace's tab list is watched and compared (`tabEvents`), and the layout,
+preferences, dialog and selection stores and the start page's actions record their own changes through
+`recordInterface`. A tab is sent as what it shows (Home, a project or a new tab), never by its folder, and a tab that
+takes a new id as its project opens isn't an open, a close or a switch. Mode means designing or Interact, the canvas's
+one switch between editing and using the designs.
+
+## `parity logs` reads the local copy (PAR-636)
+
+`parity logs` and the MCP tool `get_logs` read Parity's own events from the local copy main writes at every level
+(PAR-627), so an agent debugging Parity reads them as it reads a project's console. My calls:
+
+- **It reads the files, not the app,** so it works when the app has quit or crashed, and with diagnostics off. The
+  folder is `desktopDataFolder`'s `logs`, so `PARITY_USER_DATA` points it at another copy.
+- **Without a session, it shows the last run,** the newest event's `sessionId`. A trace or test run can span runs, so
+  `--trace` and `--test-run` search them all, as `--session all` does.
+- **`--level` is the lowest shown,** since asking for warnings means wanting errors too. `--trace` takes the start of an
+  ID, as the text form prints its first 8 digits. `--since` takes an ISO time or `30s`, `10m`, `2h` or `1d`.
+- **The newest 100, oldest first,** with `total`, `truncated` and `limit` (up to 1000), as `console` and `tokens` say
+  them. Lines a crash cut short are skipped.
+- **Main writes the test run on each line as `testRun`,** from `PARITY_TEST_RUN`, since PAR-630's `test_run` tag goes to
+  Sentry's scope and not into the envelope.
+
+## Report a problem sends from main, built from the local copy (PAR-635)
+
+Help > Report a problem and `parity diagnostics` share `@parity-app/telemetry`'s `diagnosticFiles`, so the report and
+the zip hold the same things. My calls:
+
+- **Main sends the feedback,** with the screenshot it took and the files it reads from the local copy, scrubbed. The
+  window flushes its replay first and passes the replay and trace IDs, so Sentry shows the replay beside it.
+- **It's sent even with Share diagnostics off.** The person asked, and the dialog lists what goes. Sentry is switched on
+  only while it's sent.
+- **The person never sees Sentry:** no link, no Sentry wording, and a failure says to check the connection. The
+  feedback's ID goes into the local log as `report.sent`, for the team.
+- **A crash is a run that didn't quit:** main records `app.quit` as it quits, so a run of main's with none crashed or
+  was killed. It's offered only in installed builds, since agents and CI stop development copies all the time.
+- **`parity diagnostics` takes the latest run that didn't quit,** which is the one open now if Parity is running, and
+  says so. It writes the zip with Node's own zlib, with no dependency.
+
+## Frame renders, previews and the bitmap cache are recorded (PAR-638)
+
+Main records each offscreen frame and its failures, and the service records previews and the cache's hit rate, as
+docs/telemetry.md lists. My calls:
+
+- **`frame.drawn` became `frame.rendered`,** one span for every offscreen draw, frames and previews alike, with the
+  timings and size PAR-638 asked for added to the queue wait it had. The design is the job's `design.key`, which a
+  component preview has none of; its priority (`visible` or `idle`) says it's one.
+- **`frame.failed` is a warning, not a Sentry error.** Sentry's alert files a Linear bug for every new issue, and most
+  guest failures are a project's own component throwing, as the first run showed (`TabsList` must be used within
+  `Tabs`). It goes as a log and a breadcrumb, with the guest's message and stack.
+- **The failed frame's picture goes with the errors after it.** A log can't carry an attachment, so main captures what
+  the offscreen window shows when a frame fails and adds it to the Sentry errors in the next 10 minutes as
+  `failed-frame.png`, in `beforeSend`, until another frame fails. Not on Sentry's scope, which would attach it to every
+  span's transaction too.
+- **Why it failed is read from the message:** a module that didn't load, in Chromium's, Vite's and Node's words, or else
+  `render threw` (`frameFailure`). **`timed out` is recorded without stopping the frame:** a draw still going 30 seconds
+  after its turn came is recorded once and left to finish, since giving up on it would leave the window drawing under
+  the next job.
+- **The guest's stack reaches main as the frame's `errorStack`,** the first error's, and main takes it off before the
+  frame goes on, so agents' results are as they were.
+- **The hit rate counts lookups, in the service.** A frame bitmap is a hit when `frames.stored` finds one. A preview is
+  a hit when `previews.lookup` finds anything kept for its code, a picture or that it failed or drew nothing, since none
+  of those is drawn again; `previews.make` checking again isn't counted. The session's totals go each minute there was a
+  lookup, so a short drive still sends them.
+- **Nothing is sampled.** Opening `examples/shadcn-vite` with an empty cache drew 642 frames and made 372 previews, with
+  151 failed or empty and 16 frames failing, in two minutes; `request.handled` sent 1,471 in that time. Opening it again
+  drew no frames and made no previews. Spans go to Sentry as transactions, not logs, so `frame.rendered` doesn't reach
+  Sentry's logs at all. If a busy project's frames prove too many, they'd need a Sentry-only share, since `sample` drops
+  an event from the local copy too.
+
+## Failing components show in the console, and saved code reaches the canvas live (PAR-165)
+
+Called on 2026-11-07. PAR-165 asked for a failing component's error box and a badge on its frame without covering what
+drew, failing layers marked in Layers and the inspector with the reason and the fix, and the canvas updating within a
+second of a component file being edited or broken, without reopening the project. You approved the design in Storybook
+(`Parity/Canvas/Boards` FailingLayer, `Parity/Chrome/Console`) after reworking it. Your calls:
+
+- **The reason goes in the console, not the inspector.** A failing layer is an error in the console for as long as it
+  fails, with why, the fix and a button selecting the layer, so the board's console badge and the status bar count it,
+  rather than a badge of its own and a notice above the layer's fields. The Layers mark opens the console on the design.
+- **The box reads as broken, without text.** A thin dashed red outline over fine red hatching with an icon, as light as
+  a missing component's, since the text inside was unreadable at the zooms people work at.
+- **The console filters levels as DevTools do:** a menu whose button says what shows, with a checkbox and count for each
+  level, in place of a segmented All and three levels, with the errors and warnings counted on the header's right. The
+  design filter, the group's Select button, each message's time and the empty console's line about agents are gone; a
+  badge opens its design's group, in view, with the others closed.
+
+My calls:
+
+- **The frame keeps what it drew.** A component's boundary already drew its error in its place. The sheet laid over the
+  whole frame for any error now shows only for an error that stopped the frame drawing, and across its top, so whatever
+  drew stays in view.
+- **Failures are counted per frame, by its boundaries.** Each frame's root gives its boundaries a context they report
+  failing and drawing again to, so the canvas knows which layer fails in which frame, beside the guest-wide status the
+  Components panel reads. The console lists a layer once, however many of its frames it fails in, with each frame.
+- **Failures stay through Clear.** They're how the canvas is now, not a record, so Clear empties what was logged and
+  leaves them, and they go when the component draws again. Agents read failing components from `parity components` and
+  Problems, so they aren't added to `parity console`.
+- **The fix is read from the error.** A missing provider names the provider a decorator should add, taken from the error
+  when it names one, or from what routers, query clients, Redux, React Intl and Apollo are known to say. An error naming
+  a parent it must be used within, as Radix's parts do, asks for a parent layer, not a decorator. Nothing is guessed for
+  the rest; the error shows as thrown.
+- **Live edits go through the builder, not an HMR client.** The guest has no HMR client and React Fast Refresh needs
+  React's development build, which frames don't run (PAR-198). Instead the builder stamps the changed modules and their
+  importers as Vite's HMR would, and the window imports the affected components again at `?t=` addresses, which Vite
+  rewrites the imports beneath them for. The page never reloads, components that didn't change keep their state, and a
+  component that failed starts over. Reopening still takes a new port (PAR-422).
+- **Frames are keyed by the components they draw.** One revision for the guest's code redrew every frame and retook
+  every bitmap whenever any component moved, which PAR-439 accepted as rare; with a save doing it, a widely used
+  component's edit would retake most of a project's bitmaps. A frame's key now names the source and version of each
+  component its tree draws that the guest was given since it loaded.
+- **A board keeps its last picture while the new one comes.** Before, a frame whose key changed showed nothing until its
+  new bitmap was taken, which after a save blanked every board drawing the component for seconds. It now shows its last
+  bitmap, drawing live behind it, and only sleeps on a bitmap of what it shows now.
+- **Left for later:** a board drawn only from a bitmap kept from an earlier session has no console error until its
+  frames draw, since offscreen captures don't report failures; and a class new to the project has no CSS until the
+  project opens again, since the guest's stylesheet isn't reloaded.
+
+## Support can sign in as someone's account, through WorkOS (PAR-693)
+
+The design is in [proposals/impersonation.md](proposals/impersonation.md), and the work is PAR-695 to PAR-697. Your
+calls on 2026-11-06:
+
+- **Only Better Apps' WorkOS team can impersonate,** from WorkOS's dashboard with a reason, since WorkOS has no API to
+  start it. Organization admins can't.
+- **Nothing is blocked while impersonating.** Changes are attributed to the support person as well as the user.
+- **The user isn't told.** WorkOS's `session.created` event and Parity's own records keep it.
+
+My calls:
+
+- **Parity asks before switching,** naming the account, who started it and why, since a link from the browser shouldn't
+  swap accounts by itself.
+- **An amber band under the tabs, on every tab,** with no border around the window (your call), that can't be hidden,
+  shows whose account it is and a small End session button. Above the menus isn't possible: the system draws its window
+  buttons over that row. There's no countdown (your call), since WorkOS doesn't say when the session ends.
+- **It ends signed out,** whether ended from the band, by Sign out, by WorkOS's 60 minutes or by quitting. The
+  impersonated refresh token never goes to `safeStorage`, and the support person's own session isn't kept aside.
+- **Telemetry tags every event in it** with `impersonated: true` and the support person's email.
+
+## The Design panel's calls (PAR-652)
+
+[design-options.md](proposals/design-options.md) asked ten calls about how the Design panel covers CSS. Call 1 is above,
+under "A layer can use its own values". Andrew answered all but 6 on 2026-11-07, accepting the recommendations for 2, 4,
+5, 8, 9 and 10 as written, and adding to 3 and 7:
+
+- **Stroke's position (2):** Stroke owns `border` and `outline`, and Effects alone owns `box-shadow`. Include in layout,
+  on for a new stroke, writes `border`. With it off, Inside, Center and Outside write `outline` with an offset of minus
+  the width, minus half or 0. Per-side and gradient strokes need Include in layout.
+- **Chromium-only properties (3):** offered, marked. Andrew added that the marks should come from Can I use against the
+  project's own browserslist query (synced with the one it has, or added), which needs planning of its own: PAR-706.
+- **One stored key per property (4):** each CSS property is stored in one place, so the CSS row can't hold a value that
+  fights a control, and a list shown in two sections is still one declaration.
+- **Section order (5):** Position, Size, Layout, Spacing, Appearance, then Text, Image or Icon, then Fill, Stroke,
+  Effects, Selection colors, Transform, Text inside, Interaction, Motion, CSS.
+- **What a state writes (7):** in Tailwind projects, pseudo-classes and attributes by default, a prop only when the
+  component's code has one, written as variants, with `group-*`, `peer-*` and `has-*` for other layers' states. Andrew
+  added that not every project uses Tailwind and the panel mustn't overfit to one framework: PAR-708 maps the overlaps
+  between frameworks and picks which concepts become first-class panel features, with Tailwind's output as one
+  adapter's.
+- **Viewports (8):** code is written mobile-first, each wider viewport adding its prefix only where its value differs
+  from the one below (`p-4 md:p-6 lg:p-8`), and the frame draws a viewport's values from its width up to the next, as
+  the code does.
+- **A typed % (10):** in a field whose CSS takes a percentage, `%` is CSS's percentage, written as a fraction where
+  Tailwind has one (50% → `w-1/2`). Figma's share of the current value is typed as maths (`*0.5`), and the hint says so.
+  This replaces CAN-48's reading; PAR-194 decides the stored form.
+- **A class Parity can't read back (9):** when a component's class list holds a class no control covers, such as
+  `[&_svg]:size-4`, an edit no longer has to freeze the component as code or drop the class. A third answer, offered
+  first, keeps the class on the layer, written back unchanged on every later write (`flex gap-2 px-6 [&_svg]:size-4`
+  after Padding changes `px-4` to `px-6`), and shows it in the CSS section as a read-only From the code row. Freezing
+  and overwriting stay as the other two answers.
+
+Andrew answered **6, what a typography preset is,** on 2026-11-08, after trying PAR-707's exploration in Storybook
+(`Parity/Explorations/Typography preset`). A typography preset is a design language's bundle of type values, such as
+Fluent's typography styles, each of which sets font, size, weight and line height. A layer syncs to it and is locked by
+it, something other design tools don't offer. Whatever a framework calls them, Parity calls them **typography presets**
+everywhere, in the panel, the Tokens panel, the CLI and the agent API, so the words don't change between projects. The
+design language's name shows only where the picker says where a preset came from ("From Fluent"), never the code it's
+read from. Andrew chose "preset" over "text style": in a panel where every value is a style, "style" could mean any of
+them, while a preset says what it does, filling in the fields it covers and locking them while it's applied.
+
+The exploration showed the rows a preset covers three ways: folded into a summary, shown locked in place, and both.
+Andrew chose **folded and locked**, the combination he asked for after liking the other two. Folding hides rows that
+someone sticking to presets doesn't need, and locking shows that the preset holds them.
+
+- **Picking:** the Text section's first row picks a preset. The picker lists each on one line, drawn in its own font,
+  size and weight with its size and line height, under where it comes from. Choosing one fills in the rows it covers.
+- **The rows it covers** fold into a summary under the preset's row, "Segoe UI 20/28 Semibold" with a lock beside it.
+  Opened, they're locked to the preset's values, each with an Unlock button. Rows it doesn't cover stay ordinary rows:
+  color, alignment and decoration always, and font and weight for a preset such as Chakra's `lg`.
+- **Overriding:** changing an unlocked row keeps the preset. The value shows in the override color with a reset arrow,
+  the row stays shown while the summary is closed, and the preset's chip gets a dot. Picking the preset again takes back
+  every override.
+- **Detach** is an icon button beside the picker, not a menu, since each override already has its own reset. The layer
+  keeps every value the preset gave it, per viewport.
+- **A layer with no preset** whose type matches one says "Matches subtitle1" under the preset's row, or "Near subtitle1"
+  when a preset's size is within 2px, with Use one click away, as a value off the system offers the nearest token.
+- **Per viewport:** a preset that changes with the viewport, such as Material UI's responsive `h4`, has a dot on its
+  row, and changing one of its rows writes that viewport's patch.
+- **What it stores and writes:** the layer stores the preset's name and its own values, the same in every framework
+  (`typePreset: { token: "subtitle1" }`). Tailwind's adapter writes the preset as one class, a `--text-*` size
+  (`text-xl`) or, when the preset names a font or sets case, a project utility (`type-subtitle1`), with each override as
+  a class after it (`leading-6`). PAR-708 maps the other frameworks, and PAR-135 reads the presets.

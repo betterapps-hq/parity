@@ -11,6 +11,7 @@ import { cpSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { type BuildContext, type BuildOptions, context, type Plugin } from "esbuild"
 import { createServer } from "vite"
+import { currentCommit } from "./commit.ts"
 import { parityElectron } from "./parity-electron.ts"
 import { reactFlag, reactProductionMode } from "./react-build.ts"
 
@@ -108,7 +109,10 @@ const builds: BuildContext[] = [
   }),
   await context({
     ...shared,
-    entryPoints: { preload: join(appDir, "src/preload/index.ts") },
+    entryPoints: {
+      preload: join(appDir, "src/preload/index.ts"),
+      "render-preload": join(appDir, "src/preload/render.ts")
+    },
     format: "cjs",
     outExtension: { ".js": ".cjs" },
     plugins: [externalizeDependencies, onBuilt(true)]
@@ -121,7 +125,15 @@ function startElectron(): void {
     PARITY_RENDERER_URL: rendererUrl,
     PARITY_PROJECT: project,
     PARITY_DEBUG_PORT: debugPort,
-    PARITY_DEV_RUNNER: String(process.pid)
+    PARITY_DEV_RUNNER: String(process.pid),
+    // Names this copy's Sentry release by the commit it runs (PAR-625).
+    PARITY_COMMIT: currentCommit(appDir),
+    // Stacks name the source files and lines, read from the bundles' source maps, so a development copy's errors reach
+    // Sentry resolved without uploading anything. A frozen copy, which `pnpm perf` measures, skips the cost of reading
+    // every map as its modules load.
+    NODE_OPTIONS: frozen
+      ? process.env.NODE_OPTIONS
+      : [process.env.NODE_OPTIONS, "--enable-source-maps"].filter(Boolean).join(" ")
   }
   delete env.ELECTRON_RUN_AS_NODE
   console.log(`[dev] canvas UI ${rendererUrl}`)

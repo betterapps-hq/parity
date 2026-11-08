@@ -1,10 +1,13 @@
 import { type FrameGeometry, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
 import { frameAttributes } from "@parity-app/tokens"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { reportFrameFailures } from "./failures-store.ts"
 import { prepareFrame, registerFrame, setDrawnNodes, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
 
 interface ModeViewProps {
+  /** The project, by id, whose console lists the frame's failing layers. */
+  project: string
   loaded: LoadedGuest
   tree: RenderNode[]
   mode: ResolvedMode
@@ -58,6 +61,7 @@ const designEvents = [
  * `zoom`, which shrinks the drawing without changing the width the content lays out in.
  */
 export function ModeView({
+  project,
   loaded,
   tree,
   mode,
@@ -86,6 +90,18 @@ export function ModeView({
   const [error, setError] = useState<{ key: string; message: string }>()
 
   const currentKey = useRef(renderKey)
+
+  // The frame's failing layers show in the console and mark Layers. Asleep, it keeps the ones it last drew with; gone, it
+  // takes them back.
+  const [failuresKey] = useState(() => ({}))
+  const placeRef = useRef({ project, design, state, mode: mode.id })
+  useLayoutEffect(() => {
+    placeRef.current = { project, design, state, mode: mode.id }
+  }, [project, design, state, mode.id])
+  useEffect(
+    () => () => reportFrameFailures(project, design, failuresKey, { state, mode: mode.id }, []),
+    [project, design, state, mode.id, failuresKey]
+  )
 
   // Selecting, outlining and agents find a design's frames from an index, not by searching the canvas. It's a layout
   // effect, so the frame is in it as soon as it's on the page.
@@ -147,8 +163,22 @@ export function ModeView({
     const handle = loaded.guest.mount(target, [], {
       globals,
       viewport,
-      onError: (reason) =>
+      // A component's boundary draws its own error in its place, and the layer is marked, so only an error that stopped
+      // the frame drawing is shown over it.
+      onError: (reason, layer) => {
+        if (layer) return
         setError({ key: currentKey.current, message: reason instanceof Error ? reason.message : String(reason) })
+      },
+      onFailures: (failures) => {
+        const place = placeRef.current
+        reportFrameFailures(
+          place.project,
+          place.design,
+          failuresKey,
+          { state: place.state, mode: place.mode },
+          failures
+        )
+      }
     })
     handleRef.current = handle
     // Selecting, outlining and measuring find the design's nodes through the guest, which reads them from React's tree.
@@ -168,7 +198,7 @@ export function ModeView({
       // Just after, as the guest renders, so never inside one of the canvas's commits, should the two share a React.
       queueMicrotask(() => handle.unmount())
     }
-  }, [loaded, environmentKey, interactions, asleep])
+  }, [loaded, environmentKey, interactions, asleep, failuresKey])
 
   useEffect(() => {
     currentKey.current = renderKey
@@ -200,8 +230,12 @@ export function ModeView({
         inert={!interactive}
         style={{ width, height, zoom: scale }}
       />
+      {/* Across the top, so whatever the frame still drew, as when a decorator failed, stays in view below it. */}
       {message && (
-        <div className="mode-error absolute inset-0 overflow-auto bg-destructive/90 p-3 font-mono text-xs whitespace-pre-wrap text-white">
+        <div
+          role="alert"
+          className="mode-error absolute inset-x-0 top-0 max-h-1/2 overflow-auto bg-destructive/90 p-3 font-mono text-xs whitespace-pre-wrap text-white"
+        >
           {message}
         </div>
       )}

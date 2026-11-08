@@ -1,17 +1,18 @@
 import { finiteNumber, jsonText } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
 import { z } from "zod"
+import { recordInterface } from "../interface-events.ts"
 
 const storageKey = "parity.layout"
-export const panelLimits = { left: [232, 480], right: [260, 520] } as const
+export const panelLimits = { left: [232, 480], right: [260, 520], console: [120, 640] } as const
 
-/** A panel's saved width, kept to its limits. */
+/** A panel's saved width, or the console's height, kept to its limits. */
 const width = (side: keyof typeof panelLimits, fallback: number) =>
   finiteNumber.min(panelLimits[side][0]).max(panelLimits[side][1]).catch(fallback)
 
 /**
- * Which side panels are open and how wide they are. Shared by every tab, and remembered between runs. A saved value
- * that doesn't read falls back to its default without resetting the rest.
+ * Which side panels are open and how wide they are, and the console under the canvas (PAR-147). Shared by every tab,
+ * and remembered between runs. A saved value that doesn't read falls back to its default without resetting the rest.
  */
 const savedLayout = z.object({
   left: z.boolean().catch(true),
@@ -20,7 +21,9 @@ const savedLayout = z.object({
   rightWidth: width("right", 320),
   /** The tab each panel has open. */
   leftTab: z.string().optional().catch(undefined),
-  rightTab: z.string().optional().catch(undefined)
+  rightTab: z.string().optional().catch(undefined),
+  console: z.boolean().catch(false),
+  consoleHeight: width("console", 240)
 })
 
 export type PanelLayout = z.infer<typeof savedLayout>
@@ -45,6 +48,7 @@ function load(): PanelLayout {
 }
 
 export function setLayout(change: Partial<PanelLayout>): void {
+  recordShownPanels(layout, { ...layout, ...change })
   layout = { ...layout, ...change }
   try {
     localStorage.setItem(storageKey, JSON.stringify(layout))
@@ -52,6 +56,22 @@ export function setLayout(change: Partial<PanelLayout>): void {
     // Storage can be unavailable; the layout then just isn't remembered.
   }
   for (const listener of listeners) listener()
+}
+
+/** Records each side panel, or the console, that opens or shows another tab (PAR-634). */
+function recordShownPanels(before: PanelLayout, after: PanelLayout): void {
+  for (const side of ["left", "right"] as const) {
+    const tab = after[side === "left" ? "leftTab" : "rightTab"]
+    const opened = after[side] && !before[side]
+    const switched = after[side] && tab !== before[side === "left" ? "leftTab" : "rightTab"]
+    if (opened || switched) recordInterface("panel.shown", { panel: side, ...(tab ? { tab } : {}) })
+  }
+  if (after.console && !before.console) recordInterface("panel.shown", { panel: "console" })
+}
+
+/** Opens the console under the canvas, or closes it. */
+export function toggleConsole(): void {
+  setLayout({ console: !layout.console })
 }
 
 /** Hides both panels, or shows them again, like Figma's Ctrl+\. */

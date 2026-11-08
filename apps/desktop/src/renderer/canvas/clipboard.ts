@@ -30,12 +30,13 @@ import {
 } from "@parity-app/editor"
 import { toast } from "sonner"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
+import { errorMessage, reportError } from "../report-error.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
 import { bringIntoView, bringIntoViewOnceSized, takenBounds } from "./free-space.ts"
 import type { Point } from "./hit.ts"
-import { addScreenOfLayers, viewCenter } from "./new-screen.ts"
+import { addFrameOfLayers, addFrameOfText, viewCenter } from "./new-screen.ts"
 import { placeAtPoint } from "./paste-here.ts"
 
 /**
@@ -79,7 +80,7 @@ export async function pasteClipboard(session: ProjectSession): Promise<void> {
   }
   if (content.kind === "image") return pasteImage(session, content.blob, content.name)
   if (content.kind === "text") pasteText(session, content.text)
-  if (content.kind === "unreadable") toast.error(unreadableCopy)
+  if (content.kind === "unreadable") reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
 }
 
 type ClipboardContent =
@@ -149,7 +150,7 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
   if (selected.length === 0) return
   const content = await readClipboard()
   if (content.kind === "unreadable") {
-    toast.error(unreadableCopy)
+    reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
     return
   }
   if (content.kind !== "envelope" || content.envelope.payload.kind !== "designs") {
@@ -209,8 +210,8 @@ export async function pasteToReplace(session: ProjectSession): Promise<void> {
  * coordinates), whatever's selected. Copied designs go there on the canvas, their top left at the pointer, sitting as
  * they sat together, as do copied notes. Layers, text and images go into the layout or component's slot under the
  * pointer, in the frame there, at the place under it, or at the pointer when the layout is absolutely placed (see
- * `placeAtPoint` and `pasteHere`). Over no design,
- * text is a note there and layers a new screen there. One undo step, and the copies end up selected.
+ * `placeAtPoint` and `pasteHere`). Over no design, text makes a text frame there and layers a frame of them there.
+ * One undo step, and the copies end up selected.
  */
 export async function pasteAtPointer(session: ProjectSession, point: Point): Promise<void> {
   const { store, selection, editor } = session
@@ -226,7 +227,7 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
     return
   }
   if (content.kind === "unreadable") {
-    toast.error(unreadableCopy)
+    reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
     return
   }
   if (content.kind === "envelope" && content.envelope.payload.kind === "designs") {
@@ -249,7 +250,7 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
     return
   }
   if (place.kind === "canvas" && content.kind === "text") {
-    pasteNotes(session, [{ id: "pasted", text: content.text, position: at }], at)
+    addFrameOfText(session, content.text, at, "Paste text")
     return
   }
   if (place.kind === "none") {
@@ -298,7 +299,7 @@ async function clipboardLayers(
     return undefined
   }
   if (content.kind === "unreadable") {
-    toast.error(unreadableCopy)
+    reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
     return undefined
   }
   const progress = toast.loading("Adding the image…")
@@ -307,9 +308,11 @@ async function clipboardLayers(
     toast.dismiss(progress)
     return [node]
   } catch (error) {
-    toast.error("Couldn't paste the image", {
+    reportError(error, {
+      operation: "images.import",
+      title: "Couldn't paste the image",
       id: progress,
-      description: error instanceof Error ? error.message : String(error)
+      description: errorMessage(error)
     })
     return undefined
   }
@@ -335,9 +338,11 @@ async function pasteImage(session: ProjectSession, blob: Blob, name: string): Pr
     placeLayers(session, [await importImage(session, blob, name)], "Paste image")
     toast.dismiss(progress)
   } catch (error) {
-    toast.error("Couldn't paste the image", {
+    reportError(error, {
+      operation: "images.import",
+      title: "Couldn't paste the image",
       id: progress,
-      description: error instanceof Error ? error.message : String(error)
+      description: errorMessage(error)
     })
   }
 }
@@ -450,7 +455,7 @@ function selectedPasteTarget(
 
 /**
  * Puts layers where a paste would: into a selected layout, after the selected layers, into the selected design, or
- * into a new screen when nothing is selected. They get fresh ids, and end up selected. Returns where they went.
+ * into a new frame when nothing is selected. They get fresh ids, and end up selected. Returns where they went.
  */
 export function placeLayers(
   session: ProjectSession,
@@ -480,7 +485,7 @@ export function placeLayers(
 }
 
 /**
- * Layers pasted with nothing to paste them into land on the canvas, so they make a new screen named after them, in the
+ * Layers pasted with nothing to paste them into land on the canvas, so they make a new frame named after them, in the
  * middle of the view unless placed `at` (PAR-546).
  */
 function pasteAsNewDesign(
@@ -489,7 +494,7 @@ function pasteAsNewDesign(
   at = viewCenter(session),
   label?: string
 ): void {
-  addScreenOfLayers(session, nodes, at, label ?? (nodes.length === 1 ? "Paste layer" : `Paste ${nodes.length} layers`))
+  addFrameOfLayers(session, nodes, at, label ?? (nodes.length === 1 ? "Paste layer" : `Paste ${nodes.length} layers`))
 }
 
 function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], sameProject: boolean): void {
@@ -532,11 +537,13 @@ function pasteNotes(session: ProjectSession, notes: NoteSpec[], at?: { x: number
   if (last) selection.set({ note: last })
 }
 
-/** Text from outside the app becomes a text layer where layers would paste, or a note on the canvas. */
+/**
+ * Text from outside the app becomes a text layer where layers would paste, or with nothing to paste into, a text frame
+ * in the middle of the view, as the text tool makes one on the empty canvas.
+ */
 function pasteText(session: ProjectSession, text: string): void {
   if (!selectedPasteTarget(session)) {
-    const at = viewCenter(session)
-    pasteNotes(session, [{ id: "pasted", text, position: at }], at)
+    addFrameOfText(session, text, viewCenter(session), "Paste text")
     return
   }
   placeLayers(session, [textLayer(text)])

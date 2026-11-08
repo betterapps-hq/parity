@@ -1,15 +1,26 @@
-import { finiteNumber, guestChanges, jsonText, parseData } from "@parity-app/core"
+import {
+  type CanvasDocument,
+  codeChangeVersions,
+  finiteNumber,
+  type GuestComponentSource,
+  guestChanges,
+  jsonText,
+  parseData,
+  versionedSources
+} from "@parity-app/core"
 import { openingDesigns } from "@parity-app/editor"
+import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { z } from "zod"
-import type { ProjectInfo, TabSummary } from "../shared/protocol.ts"
+import type { ProjectEditResult, ProjectInfo, TabSummary } from "../shared/protocol.ts"
 import { getPreferences } from "./chrome/preferences.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
+import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
 import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
@@ -25,8 +36,13 @@ export interface ProjectSession {
   tokens: TokenStore
   /** Components and their props, inferred from source after the tab opens. */
   components: ComponentStore
-  /** Components the type checker found after the guest loaded, which offscreen renders add to theirs. */
-  added?: ProjectInfo["sources"]
+  /**
+   * Components the type checker found after the guest loaded, and ones whose code changed since (with a `version`),
+   * which offscreen renders add to theirs.
+   */
+  added?: Record<string, GuestComponentSource & ProjectInfo["sources"][string]>
+  /** When each component's code last changed on disk, by its builder's stamp, while the tab is open (PAR-165). */
+  versions?: Record<string, number>
   /** Design files that couldn't be read. */
   errors: { path: string; error: string }[]
   /** The tab's canvas, once mounted. */
@@ -75,6 +91,10 @@ export class Workspace {
   private recent: readonly string[] = loadRecent()
   /** When each project last opened and whether it's starred, by folder. */
   private notes: Readonly<Record<string, ProjectNote>> = loadNotes()
+  /** Listed projects whose folders weren't there when last checked (PAR-188). */
+  private missing: ReadonlySet<string> = new Set()
+  /** The example project's folder, when this copy of Parity has it. */
+  private example: string | undefined
   private projects: readonly KnownProject[] = knownProjects(this.recent, this.notes)
   private activeId: string | undefined
   private nextPlaceholder = 1
@@ -105,6 +125,8 @@ export class Workspace {
   getRecent = () => this.recent
   /** The projects the start page lists: the recent ones, then starred ones that aren't. */
   getProjects = () => this.projects
+  /** The example project's folder, once the service has found it. */
+  getExample = () => this.example
   /** Whether Home is showing: it's chosen, or no tab is. */
   isHomeActive = () => this.activeId === homeTab || !this.getTab(this.activeId)
 
@@ -120,6 +142,7 @@ export class Workspace {
       // Storage can be unavailable, which means starting fresh.
     }
     const roots = saved.roots
+    void this.checkFolders()
     // Set first, so the projects reopening behind it don't take its place.
     if (saved.active === homeTab) this.activeId = homeTab
     if (roots.length === 0) {
@@ -133,6 +156,7 @@ export class Workspace {
   /** Opens a new tab at the end of the strip, showing the start page until a project opens in it. */
   newTab(): void {
     const tab: Tab = { id: `new-${this.nextBlank++}`, title: "New tab", status: "ready", blank: true }
+    void this.checkFolders()
     this.update([...this.tabs, tab])
     this.activate(tab.id)
   }
@@ -250,6 +274,9 @@ export class Workspace {
       this.settleDrops()
     }
     if (tab.session) {
+      // React keeps the tabs a component last read until it renders again, so this tab can outlive its closing. Without
+      // its editor it holds no canvas: a closed project's whole canvas stayed while frames were still awake (PAR-624).
+      tab.session.editor = undefined
       void request("project.close", { projectId: tab.session.id })
       releaseGuest(tab.session.info.guestUrl)
     }
@@ -332,8 +359,10 @@ export class Workspace {
           current.session.tokens.dispose()
           if (before !== info.guestUrl) releaseGuest(before)
         } catch (error) {
-          toast.error(`Couldn't reopen ${session.info.name}`, {
-            description: error instanceof Error ? error.message : String(error)
+          reportError(error, {
+            operation: "project.reopen",
+            title: `Couldn't reopen ${session.info.name}`,
+            description: errorMessage(error)
           })
         }
       })
@@ -382,8 +411,10 @@ export class Workspace {
       return true
     } catch (error) {
       if (!latest()) return false
-      toast.error(`Couldn't load ${tab.session.info.name} from its restarted builder`, {
-        description: error instanceof Error ? error.message : String(error)
+      reportError(error, {
+        operation: "project.reload",
+        title: `Couldn't load ${tab.session.info.name} from its restarted builder`,
+        description: errorMessage(error)
       })
       return false
     }
@@ -425,6 +456,28 @@ export class Workspace {
     this.activeId = id
     this.save()
     this.notify()
+    // A folder may have gone, or come back, since Home last showed.
+    if (this.isHomeActive()) void this.checkFolders()
+  }
+
+  /**
+   * Asks the service which listed projects' folders aren't there any more, and where the example is, for the start
+   * page (PAR-188). A service that can't say leaves things as they were.
+   */
+  async checkFolders(): Promise<void> {
+    const roots = this.projects.map(({ root }) => root)
+    const checked = await request("start.check", { roots }).catch(() => undefined)
+    if (!checked) return
+    const missing = new Set(checked.missing)
+    const same =
+      checked.example === this.example &&
+      missing.size === this.missing.size &&
+      [...missing].every((root) => this.missing.has(root))
+    if (same) return
+    this.missing = missing
+    this.example = checked.example
+    this.projects = knownProjects(this.recent, this.notes, this.missing)
+    this.notify()
   }
 
   /**
@@ -435,7 +488,11 @@ export class Workspace {
   setSources(id: string, sources: ProjectInfo["sources"], leftOut?: ProjectInfo["leftOut"]): void {
     const tab = this.getTab(id)
     if (!tab?.session) return
-    const { add, drop } = guestChanges(tab.session.info.sources, sources)
+    const versions = tab.session.versions ?? {}
+    const { add, drop } = guestChanges(
+      versionedSources(tab.session.info.sources, versions),
+      versionedSources(sources, versions)
+    )
     const { guest } = tab.session.loaded
     guest.addComponents?.(add)
     // The guest takes back the ones it was given, as the offscreen renderer does once a job no longer carries them.
@@ -449,6 +506,23 @@ export class Workspace {
       ...(leftOut ? { leftOut } : {})
     }
     this.replace(id, { ...tab, session: { ...tab.session, info, added } })
+  }
+
+  /**
+   * Component files whose code changed on disk, or that import a file that did, at `stamp` (PAR-165). Their components
+   * load again from a new address, so frames and bitmaps draw the code as it is now, within a moment of a save.
+   */
+  codeChanged(id: string, paths: readonly string[], stamp: number): void {
+    const tab = this.getTab(id)
+    if (!tab?.session) return
+    const { sources } = tab.session.info
+    const before = tab.session.versions ?? {}
+    const versions = codeChangeVersions(sources, paths, stamp, before)
+    const { add } = guestChanges(versionedSources(sources, before), versionedSources(sources, versions))
+    if (Object.keys(add).length === 0) return
+    tab.session.loaded.guest.addComponents?.(add)
+    const added = { ...tab.session.added, ...add }
+    this.replace(id, { ...tab, session: { ...tab.session, versions, added } })
   }
 
   setEditor(id: string, editor: Editor | undefined): void {
@@ -576,7 +650,7 @@ export class Workspace {
     } catch {
       // Storage can be unavailable; the notes then just aren't remembered.
     }
-    this.projects = knownProjects(this.recent, this.notes)
+    this.projects = knownProjects(this.recent, this.notes, this.missing)
     // A project's picture goes with it (PAR-607).
     void request("pictures.keepOnly", { roots: this.projects.map(({ root }) => root) }).catch(() => undefined)
     this.notify()
@@ -643,9 +717,11 @@ async function saveOrSay(session: ProjectSession): Promise<boolean> {
     await session.store.flush()
     return true
   } catch (error) {
-    toast.error(`Couldn't save ${session.info.name}`, {
+    reportError(error, {
+      operation: "project.save",
+      title: `Couldn't save ${session.info.name}`,
       id: saveFailureToast(session.id),
-      description: error instanceof Error ? error.message : String(error)
+      description: errorMessage(error)
     })
     return false
   }
@@ -672,7 +748,9 @@ function sayWhenSavesFail(session: ProjectSession): void {
     }
     if (state.status !== "failed" || said) return
     said = true
-    toast.error(`Couldn't save ${session.info.name}`, {
+    reportError(state.error, {
+      operation: "project.autosave",
+      title: `Couldn't save ${session.info.name}`,
       id,
       description: state.error,
       duration: Infinity,
@@ -688,7 +766,7 @@ async function createSession(info: ProjectInfo): Promise<ProjectSession> {
     info.modes.settings,
     info.mainDocument,
     {
-      saveDocument: (path, document) => request("document.save", { projectId: info.id, path, document }),
+      saveDocument: (path, document) => saveDocument(info.id, path, document),
       autosave: () => getPreferences().autosave
     },
     info.libraries.flatMap((library) => library.designs ?? [])
@@ -735,12 +813,40 @@ function inferComponents(info: ProjectInfo, components: ComponentStore): void {
     .catch((error: unknown) => console.warn("Component props couldn't be inferred", error))
 }
 
+/** Writes a design file, recording how long it took and how big it was. */
+async function saveDocument(projectId: string, path: string, document: CanvasDocument): Promise<void> {
+  const start = performance.now()
+  const bytes = JSON.stringify(document).length
+  const measured = () => ({ file: path, durationMs: Math.round(performance.now() - start), bytes })
+  try {
+    await request("document.save", { projectId, path, document })
+    track("document.saved", measured())
+  } catch (error) {
+    const code = errorCode(error)
+    track("document.saveFailed", { ...measured(), ...(code ? { code } : {}) })
+    throw error
+  }
+}
+
+/** Writes token changes to the project's stylesheet, recording what it changed. */
+async function saveTokens(projectId: string, changes: TokenWrite[]): Promise<ProjectEditResult> {
+  try {
+    const edit = await request("tokens.save", { projectId, changes })
+    track("tokens.saved", { changes: changes.length, files: edit.files.map((file) => file.path), outcome: "ok" })
+    return edit
+  } catch (error) {
+    const code = errorCode(error)
+    track("tokens.saved", { changes: changes.length, files: [], outcome: "error", ...(code ? { code } : {}) })
+    throw error
+  }
+}
+
 /** A project's tokens, edited through its design store's history and written to its stylesheet when it's saved. */
 function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore): TokenStore {
   return new TokenStore(
     loaded.tokens,
     loaded.sheet,
-    (changes) => request("tokens.save", { projectId: info.id, changes }),
+    (changes) => saveTokens(info.id, changes),
     store,
     info.styles?.stylesheet,
     info.describedTokens
@@ -771,4 +877,9 @@ export function useKnownProjects(): readonly KnownProject[] {
 
 export function useHomeActive(): boolean {
   return useSyncExternalStore(workspace.subscribe, workspace.isHomeActive)
+}
+
+/** The example project's folder, when this copy of Parity has it (PAR-188). */
+export function useExampleFolder(): string | undefined {
+  return useSyncExternalStore(workspace.subscribe, workspace.getExample)
 }

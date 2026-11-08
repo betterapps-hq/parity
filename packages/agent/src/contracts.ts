@@ -226,7 +226,8 @@ export const rpcRequest = jsonText(
       method: z.string("method must be a string"),
       params: z.unknown().optional(),
       agent: z.unknown().optional(),
-      agentId: z.unknown().optional()
+      agentId: z.unknown().optional(),
+      client: z.unknown().optional()
     },
     "The request must be a JSON object"
   )
@@ -547,7 +548,10 @@ const consoleReply = z.looseObject({
       where: z.enum(["canvas", "offscreen"]),
       count: z.int(),
       first: number,
-      last: number
+      last: number,
+      design: z.string().optional().describe("The design that wrote it, by key (path#id), when known."),
+      state: z.string().optional(),
+      mode: z.string().optional()
     })
   )
 })

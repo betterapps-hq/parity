@@ -151,6 +151,31 @@ describe("authenticate", () => {
     })
   })
 
+  it("names the organizations to choose from, and whose account it is", async () => {
+    const code = codeRequest({ clientId: "client_01TEST", code: "01CODE", verifier: "verifier" })
+    const choose = answering(403, {
+      code: "organization_selection_required",
+      message: "The user must choose an organization to sign in to.",
+      pending_authentication_token: "pending_01",
+      user: { object: "user", id: "user_01", email: "ana@acme.test" },
+      organizations: [
+        { id: "org_01ACME", name: "Acme" },
+        { id: "org_01GLOBEX", name: "Globex", object: "organization" }
+      ]
+    })
+    expect(await authenticate(choose.fetch, code)).toEqual({
+      kind: "refused",
+      status: 403,
+      code: "organization_selection_required",
+      message: "The user must choose an organization to sign in to.",
+      email: "ana@acme.test",
+      organizations: [
+        { id: "org_01ACME", name: "Acme" },
+        { id: "org_01GLOBEX", name: "Globex" }
+      ]
+    })
+  })
+
   it("is unavailable when WorkOS is busy or down, or the network fails", async () => {
     const refresh = refreshRequest({ clientId: "client_01TEST", refreshToken: "refresh_01" })
     for (const status of [408, 429, 500, 503])

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import type { PictureFrame, PictureScreen } from "../../shared/protocol.ts"
+import type { PictureFrame, PictureScreen, ProjectPicture } from "../../shared/protocol.ts"
 import { usePicture } from "./pictures.ts"
 import { type KnownProject, projectHue } from "./projects.ts"
 
@@ -15,13 +15,16 @@ const artRatio = 16 / 10
 export function ProjectArt({
   project,
   screen = 0,
-  labels = false
+  labels = false,
+  fallback
 }: {
   project: KnownProject
   screen?: number
   labels?: boolean
+  /** A picture to show until the project's own is kept, as the example has. */
+  fallback?: ProjectPicture | undefined
 }) {
-  const picture = usePicture(project.root)
+  const picture = usePicture(project.root) ?? fallback
   const shown = picture?.screens[screen] ?? picture?.screens[0]
   return (
     <Backdrop hue={projectHue(project.root)}>
@@ -53,6 +56,13 @@ function Backdrop({ hue, children }: { hue: number; children: ReactNode }) {
     </div>
   )
 }
+
+/**
+ * A phone frame's drop shadow, which lifts it off the main frame it overlaps: a tight one where it meets the screen
+ * below and a soft one further out, in shares of the picture's width so it's the same at every size.
+ */
+const phoneShadow =
+  "shadow-[0_0.4cqw_1cqw_rgb(0_0_0/0.12),0_2cqw_5cqw_-1cqw_rgb(0_0_0/0.3)] dark:shadow-[0_0.4cqw_1cqw_rgb(0_0_0/0.4),0_2cqw_5cqw_-1cqw_rgb(0_0_0/0.65)]"
 
 /** Where a frame goes in the picture, as shares of its width and height: the box it may fill, and whether it's a phone. */
 interface Slot {
@@ -119,7 +129,7 @@ function Frame({ frame, slot, label }: { frame: PictureFrame; slot: Slot; label?
         </span>
       )}
       <div
-        className={`overflow-hidden bg-background shadow-lg ring-1 ring-foreground/10 ${slot.phone ? "rounded-[7px]" : "rounded-[5px]"}`}
+        className={`overflow-hidden bg-background ring-1 ring-neutral-500/60 ${slot.phone ? `rounded-[7px] ${phoneShadow}` : "rounded-[5px] shadow-lg"}`}
         // Its window's height, as a share of the picture's, which is a size container.
         style={{ maxHeight: `${((width * artRatio) / ratio) * 100}cqh` }}
       >
@@ -136,7 +146,7 @@ function Placeholder({ project }: { project: KnownProject }) {
   const initial = /[\p{L}\p{N}]/u.exec(project.name)?.[0]?.toUpperCase() ?? "?"
   return (
     <>
-      <div className="absolute top-[13%] left-[7%] flex aspect-[16/10] w-[66%] flex-col overflow-hidden rounded-[5px] bg-background shadow-lg ring-1 ring-foreground/10">
+      <div className="absolute top-[13%] left-[7%] flex aspect-[16/10] w-[66%] flex-col overflow-hidden rounded-[5px] bg-background shadow-lg ring-1 ring-neutral-500/60">
         <span className="flex h-[12%] shrink-0 items-center gap-[3%] border-b px-[4%]">
           <span className="aspect-square h-2/5 rounded-full" style={{ background: ink }} />
           <span className="h-1/4 w-1/4 rounded-full bg-muted" />
@@ -148,7 +158,9 @@ function Placeholder({ project }: { project: KnownProject }) {
           {initial}
         </span>
       </div>
-      <div className="absolute top-[24%] right-[8%] flex aspect-[9/19] w-[16%] flex-col overflow-hidden rounded-[6px] bg-background shadow-lg ring-1 ring-foreground/10">
+      <div
+        className={`absolute top-[24%] right-[8%] flex aspect-[9/19] w-[16%] flex-col overflow-hidden rounded-[6px] bg-background ring-1 ring-neutral-500/60 ${phoneShadow}`}
+      >
         <span className="h-[8%] shrink-0 border-b" />
         <span className="m-[14%] h-[6%] rounded-full" style={{ background: ink }} />
       </div>

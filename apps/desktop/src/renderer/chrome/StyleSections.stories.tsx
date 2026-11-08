@@ -177,3 +177,37 @@ export const PickingASizing: Story = {
     await within(document.body).findByRole("listbox", undefined, slowly)
   }
 }
+
+/**
+ * A width off the spacing scale, the brand mark at 281px: kept as it is, and flagged under the row with a button for
+ * the nearest step, 280px (PAR-194). Using it puts the width on the scale and the flag goes.
+ */
+export const OffScaleSize: Story = {
+  loaders: [pick("Pricing", "Brand mark", { width: 70.25, height: 12 })],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    await expect(panel.getByRole("textbox", { name: "Width" })).toHaveValue("281")
+    await expect(panel.getByText("281px is off the scale")).toBeInTheDocument()
+    await userEvent.click(panel.getByRole("button", { name: "Use 280px for width" }))
+    await expect(panel.getByRole("textbox", { name: "Width" })).toHaveValue("280")
+    await expect(panel.queryByText(/off the scale/)).toBeNull()
+  }
+}
+
+/** Insets off the scale on an absolutely placed layer, 3px from the top and 281px from the left: each flagged. */
+export const OffScaleInsets: Story = {
+  loaders: [pick("Pricing", "Billing period", { position: "absolute", top: 0.75, left: 70.25 })]
+}
+
+/** 281 typed into Width stays 281px rather than landing on a step, and the row flags it. */
+export const TypingOffScale: Story = {
+  loaders: [pick("Pricing", "Brand mark")],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    const width = panel.getByRole("textbox", { name: "Width" })
+    await userEvent.clear(width)
+    await userEvent.type(width, "281{Enter}")
+    await expect(width).toHaveValue("281")
+    await expect(await panel.findByText("281px is off the scale", undefined, slowly)).toBeInTheDocument()
+  }
+}
