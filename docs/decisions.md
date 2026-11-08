@@ -6209,3 +6209,19 @@ default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My 
   in the app, not Sentry, as PAR-626 asked, reviewed with the writing-style-guide skill, and stays off stdout, which
   agents parse. `~/.parity/telemetry-notice` says it was shown.
 - **The CLI scrubs keys, tokens and passwords, not `.env` values,** which only the service reads.
+
+## The interface is set in Inter (PAR-709)
+
+- **Parity's own interface is set in Inter, not Geist,** Andrew's call on 2026-11-08, after seeing the proposed type
+  ([interface-type.md](proposals/interface-type.md)) set in both at the same sizes and weights. Inter was drawn for
+  interfaces at small sizes. Its optical sizes run from 14px, so they tighten names and headings; the chrome's 11 to
+  13px all use the 14px cut.
+- **It's Inter's own release, bundled with the app,** 4.1 from github.com/rsms/inter, in
+  `apps/desktop/src/renderer/fonts/inter` with its licence (SIL OFL 1.1). Andrew agreed on 2026-11-08: it's a desktop
+  app, so shipping the font is no problem. The npm builds come from Google Fonts and leave out the alternates that tell
+  I, l and 1 apart, which a design tool needs for layer names, token names and values. Until PAR-710 builds the type
+  into the app, only Storybook loads it, as the proposed type's typeface.
+- **The rest of the proposed type is approved,** Andrew's call on 2026-11-08: its sizes, roles, sentence-case section
+  titles and monospace, as [interface-type.md](proposals/interface-type.md) sets them. Its weights, 450, 550 and 650,
+  stay provisional until the check on a Mac and on Windows at 150% that the proposal sets out. PAR-710 builds it into
+  the app.

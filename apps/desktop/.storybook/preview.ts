@@ -8,6 +8,8 @@ import { startTheme } from "../src/renderer/theme.ts"
 // The app's own stylesheets, in the order its entry loads them.
 import "tldraw/tldraw.css"
 import "../src/renderer/styles.css"
+// The proposed interface type, which the Type control below turns on, until it's built into styles.css (PAR-709).
+import "../src/renderer/explorations/interface-type/proposed-type.css"
 
 // Stories run against a stand-in for the desktop host, and follow the app's theme as the app does.
 installHost()
@@ -28,15 +30,30 @@ const preview: Preview = {
         ],
         dynamicTitle: true
       }
+    },
+    interfaceType: {
+      description: "The app's interface type, as it is or as proposed (PAR-709)",
+      toolbar: {
+        title: "Type",
+        icon: "paragraph",
+        items: [
+          { value: "current", title: "Current type" },
+          { value: "proposed", title: "Proposed type" }
+        ],
+        dynamicTitle: true
+      }
     }
   },
-  initialGlobals: { theme: "dark" },
+  initialGlobals: { theme: "dark", interfaceType: "current" },
   // Whatever a story changed for itself is put back when it ends.
   beforeEach: () => restore,
   decorators: [
     (Story, context) => {
       // Set as the person would in Preferences, so everything that follows the theme, toasts among them, does here too.
       setPreferences({ theme: context.globals.theme === "light" ? "light" : "dark" })
+      // On the page, so menus, dialogs and toasts, which open over the page, take it too.
+      document.documentElement.dataset.interfaceType =
+        context.globals.interfaceType === "proposed" ? "proposed" : "current"
       // Tooltips need a provider, which the app puts around everything.
       return createElement(TooltipProvider, null, Story())
     }
