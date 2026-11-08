@@ -152,13 +152,21 @@ still need your call.
     Figma), developer tools and About Parity.
   - **No Check for updates yet.** Parity has no releases, so there's nothing to check; About says so and shows the
     version, Electron and Chromium, with a button to copy them. Updating comes with packaging (PAR-9, PAR-160).
+  - **Search actions finds anything in the project, and Ctrl+Alt+P repeats the last action** (PAR-180). My calls: a
+    picked component is inserted at the selection, as the insert picker and the Components panel do, rather than shown
+    in its panel; a token opens Tokens searched for it. Ctrl+Alt+P is Figma's key for running the last plugin again, the
+    nearest Figma has; Ctrl+D (Illustrator's Transform again) and Ctrl+Y (Word's Repeat) were already Duplicate and
+    Redo. Repeat covers the commands that change or add layers and designs, not undoing, copying, selecting or moving
+    around, which do nothing new a second time. Recent picks are kept per computer, six at most, as the search's job is
+    getting back to things quickly.
   - **Exit is in File on Windows and Linux only;** on a Mac, Quit is in the Parity menu, as every app's is.
 - **Every shortcut is in one keymap,** `chrome/keymap.ts`. The menus, tooltips, the Keyboard shortcuts dialog and the
   key handlers all read it, so what's shown is what works, and a test fails if two commands share keys. Keys are written
   as on Windows, with spaces, and shown joined by `+` on Windows and Linux (`Ctrl+Shift+Z`, and `Ctrl+Plus` for zoom)
   and with the Mac's symbols on a Mac (`⇧⌘Z`). You found the spaced form unclear about whether a `+` was needed
-  (2026-10-29). Menus keep shadcn's plain-text shortcuts, as Figma's and the system's menus do; tooltips, the toolbar
-  and the Keyboard shortcuts dialog use keycaps (`Kbd`).
+  (2026-10-29). **Keys show as keycaps (`Kbd`) wherever they can,** your call on 2026-11-08: tooltips, the toolbar,
+  Search actions, buttons, hints and the Keyboard shortcuts dialog. Only a menu keeps the kit's own shortcut part (the
+  menubar's, context menus' and dropdowns'), which shows them as plain text, as Figma's and the system's menus do.
 - **tldraw's own shortcuts are off.** Its tool keys (E, D, R, A, L, F, N, K) switched to drawing tools behind Parity's
   toolbar, Ctrl+/ flipped the canvas to light mode, and Ctrl+. and Ctrl+' turned on modes Parity doesn't use. Space to
   pan stays, as it isn't a shortcut, and the arrows nudge through the keymap (CAN-39).
@@ -4777,6 +4785,33 @@ How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
 - **`@sentry/cli` 3.8.2 is a devDependency of the app** (your call, 2026-11-06), run from `scripts/build.ts` and
   `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it.
 
+## Sentry watches agent failures and crash-free sessions (PAR-643)
+
+The plan's "Releases, dashboards and alerts" asks for two rate alerts and one set of dashboards. What exists and their
+links are in [sentry.md](sentry.md#alerts). My calls:
+
+- **Thresholds are the plan's:** a crash-free session rate under 99% in `tester`, and agent calls failing more than 5%
+  of the time. Each is measured over the last hour, so one bad minute doesn't file a bug and a test pass's failures
+  still count together. Both resolve once the rate is back past the line.
+- **One monitor for every agent operation,** not one per `method`. Sentry's metric monitors watch one number each, and a
+  monitor per method would need a new one for every method agents gain. The dashboard's "Agent error codes by operation"
+  says which method is failing once the alert fires.
+- **Agent failures count in every environment,** `development` and `ci` included, as PAR-622's alerts do: agents' test
+  passes are where agent calls happen now. A cancelled call isn't a failure, as Sentry's `failure_rate()` counts it.
+- **Crash-free counts only `tester`.** CI and development builds are stopped by their tests and by people restarting
+  them, which would read as crashes.
+- **Monitor breaches file Linear bugs through their own alert,** "File monitor breaches in Linear", with the same action
+  as PAR-622's. PAR-622's alert watches issue streams, so a monitor's issue doesn't reach it. One monitor issue is one
+  bug, reopened if the rate goes past the line again.
+- **One dashboard,** "Parity", for both projects, filtered by environment and release, rather than a dashboard per view:
+  every view is a few widgets, and one page with shared filters is quicker to read a test pass or a release from.
+- **Still by hand, not in Terraform.** PAR-658 brings Sentry into Terraform once the pipelines pass a Sentry token. The
+  dashboard waits for someone to make it in Sentry's UI (PAR-716), since Sentry's MCP server can't create dashboards and
+  agents have no token that can. The crash-free monitor waits for the first `tester` event (PAR-714).
+- **Nothing here needs Business on purpose,** but it was made during the Business trial and Sentry's docs don't say
+  which plan limits custom dashboards and metric monitors. After the trial ends on 2026-11-19, check that the monitors
+  are still on and the dashboard still opens.
+
 ## The rest of signing in is designed (PAR-614)
 
 You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
@@ -5816,6 +5851,27 @@ valid.
 - This widens PAR-194's "colours, type, radius and shadows stay tokens"; its flag for lengths off the scale becomes this
   mark.
 
+## Every action is recorded by the action list's one wrapper (PAR-639)
+
+`command.ran` records each action in `chrome/actions.ts`, whatever asked for it. My calls:
+
+- **It's the action's trace, not a second event.** PAR-629's `action.ran` span is now `command.ran`, with what ran it
+  (`from`), whether it applied (`enabled`), and how many layers and designs were selected. The span gives the outcome
+  and duration, and the work the action causes joins its trace.
+- **The wrapper is `run(from)`.** `recordActions` (`chrome/record-actions.ts`) wraps every entry, and the window runs an
+  action only through it: keys, the menubar, the canvas and Layers menus, Search actions, the toolbar and panel buttons.
+  An action bound to where it was asked for passes `instead`. New screen where the canvas menu opened, or Save for the
+  Tokens panel's project, runs that in the action's place, still recorded under the action's ID.
+- **One tried while it doesn't apply is recorded as cancelled and doesn't run.** That's a Ctrl shortcut on the canvas or
+  any app shortcut. A plain key that doesn't apply still does what it would anyway, such as Tab moving focus, so it
+  isn't recorded. The wrapper asks `available` itself, so every caller gets the same answer.
+- **Selection is counts, not IDs or names.** That's enough to tell an empty selection from many layers. It stays cheap
+  for PAR-647's budget: one `available` call and one count per command.
+- **A test fails if window code calls an action's command directly** (`record-actions.test.ts`). It reads the source and
+  flags any file that imports a function the actions run from `commands.ts`, `layout.ts`, `create.ts` or
+  `QuickInsert.tsx` and calls it anywhere except through `instead`. Search actions' extras with no shortcut (Export all,
+  Snap, Performance stats, Clear bitmap cache, About) aren't in the action list, so they aren't recorded.
+
 ## Interface events are recorded by the stores that own them (PAR-634)
 
 `tab.*`, `panel.shown`, `dialog.opened`, `mode.switched`, `setting.changed` and `start.action` are recorded where the
@@ -5856,6 +5912,37 @@ the zip hold the same things. My calls:
   was killed. It's offered only in installed builds, since agents and CI stop development copies all the time.
 - **`parity diagnostics` takes the latest run that didn't quit,** which is the one open now if Parity is running, and
   says so. It writes the zip with Node's own zlib, with no dependency.
+
+## Frame renders, previews and the bitmap cache are recorded (PAR-638)
+
+Main records each offscreen frame and its failures, and the service records previews and the cache's hit rate, as
+docs/telemetry.md lists. My calls:
+
+- **`frame.drawn` became `frame.rendered`,** one span for every offscreen draw, frames and previews alike, with the
+  timings and size PAR-638 asked for added to the queue wait it had. The design is the job's `design.key`, which a
+  component preview has none of; its priority (`visible` or `idle`) says it's one.
+- **`frame.failed` is a warning, not a Sentry error.** Sentry's alert files a Linear bug for every new issue, and most
+  guest failures are a project's own component throwing, as the first run showed (`TabsList` must be used within
+  `Tabs`). It goes as a log and a breadcrumb, with the guest's message and stack.
+- **The failed frame's picture goes with the errors after it.** A log can't carry an attachment, so main captures what
+  the offscreen window shows when a frame fails and adds it to the Sentry errors in the next 10 minutes as
+  `failed-frame.png`, in `beforeSend`, until another frame fails. Not on Sentry's scope, which would attach it to every
+  span's transaction too.
+- **Why it failed is read from the message:** a module that didn't load, in Chromium's, Vite's and Node's words, or else
+  `render threw` (`frameFailure`). **`timed out` is recorded without stopping the frame:** a draw still going 30 seconds
+  after its turn came is recorded once and left to finish, since giving up on it would leave the window drawing under
+  the next job.
+- **The guest's stack reaches main as the frame's `errorStack`,** the first error's, and main takes it off before the
+  frame goes on, so agents' results are as they were.
+- **The hit rate counts lookups, in the service.** A frame bitmap is a hit when `frames.stored` finds one. A preview is
+  a hit when `previews.lookup` finds anything kept for its code, a picture or that it failed or drew nothing, since none
+  of those is drawn again; `previews.make` checking again isn't counted. The session's totals go each minute there was a
+  lookup, so a short drive still sends them.
+- **Nothing is sampled.** Opening `examples/shadcn-vite` with an empty cache drew 642 frames and made 372 previews, with
+  151 failed or empty and 16 frames failing, in two minutes; `request.handled` sent 1,471 in that time. Opening it again
+  drew no frames and made no previews. Spans go to Sentry as transactions, not logs, so `frame.rendered` doesn't reach
+  Sentry's logs at all. If a busy project's frames prove too many, they'd need a Sentry-only share, since `sample` drops
+  an event from the local copy too.
 
 ## Failing components show in the console, and saved code reaches the canvas live (PAR-165)
 
@@ -5929,7 +6016,7 @@ My calls:
 ## The Design panel's calls (PAR-652)
 
 [design-options.md](proposals/design-options.md) asked ten calls about how the Design panel covers CSS. Call 1 is above,
-under "A layer can use its own values". Andrew answered the rest on 2026-11-07, accepting the recommendations for 2, 4,
+under "A layer can use its own values". Andrew answered all but 6 on 2026-11-07, accepting the recommendations for 2, 4,
 5, 8, 9 and 10 as written, and adding to 3 and 7:
 
 - **Stroke's position (2):** Stroke owns `border` and `outline`, and Effects alone owns `box-shadow`. Include in layout,
@@ -5958,14 +6045,37 @@ under "A layer can use its own values". Andrew answered the rest on 2026-11-07, 
   after Padding changes `px-4` to `px-6`), and shows it in the CSS section as a read-only From the code row. Freezing
   and overwriting stay as the other two answers.
 
-Still open: **6, what a typography preset is.** Andrew sees it as a design language's typography preset, such as
-Fluent's typography styles, which bundle font, size, weight and line height, that a layer syncs to and is locked by,
-something other design tools don't offer. PAR-707 explores picking one and how the fields it sets are hidden or
-disabled; PAR-135 reads the presets. Whatever a framework calls them, Parity calls them **typography presets**
-everywhere, in the panel, the Tokens panel, the CLI and the agent API, so the words don't change between projects. A
-framework's own name shows only where it says where a preset came from ("From Fluent's typographyStyles"). Andrew chose
-"preset" over "text style" for now: in a panel where every value is a style, "style" could mean any of them, while a
-preset says what it does, filling in the fields it covers and locking them while it's applied.
+Andrew answered **6, what a typography preset is,** on 2026-11-08, after trying PAR-707's exploration in Storybook
+(`Parity/Explorations/Typography preset`). A typography preset is a design language's bundle of type values, such as
+Fluent's typography styles, each of which sets font, size, weight and line height. A layer syncs to it and is locked by
+it, something other design tools don't offer. Whatever a framework calls them, Parity calls them **typography presets**
+everywhere, in the panel, the Tokens panel, the CLI and the agent API, so the words don't change between projects. The
+design language's name shows only where the picker says where a preset came from ("From Fluent"), never the code it's
+read from. Andrew chose "preset" over "text style": in a panel where every value is a style, "style" could mean any of
+them, while a preset says what it does, filling in the fields it covers and locking them while it's applied.
+
+The exploration showed the rows a preset covers three ways: folded into a summary, shown locked in place, and both.
+Andrew chose **folded and locked**, the combination he asked for after liking the other two. Folding hides rows that
+someone sticking to presets doesn't need, and locking shows that the preset holds them.
+
+- **Picking:** the Text section's first row picks a preset. The picker lists each on one line, drawn in its own font,
+  size and weight with its size and line height, under where it comes from. Choosing one fills in the rows it covers.
+- **The rows it covers** fold into a summary under the preset's row, "Segoe UI 20/28 Semibold" with a lock beside it.
+  Opened, they're locked to the preset's values, each with an Unlock button. Rows it doesn't cover stay ordinary rows:
+  color, alignment and decoration always, and font and weight for a preset such as Chakra's `lg`.
+- **Overriding:** changing an unlocked row keeps the preset. The value shows in the override color with a reset arrow,
+  the row stays shown while the summary is closed, and the preset's chip gets a dot. Picking the preset again takes back
+  every override.
+- **Detach** is an icon button beside the picker, not a menu, since each override already has its own reset. The layer
+  keeps every value the preset gave it, per viewport.
+- **A layer with no preset** whose type matches one says "Matches subtitle1" under the preset's row, or "Near subtitle1"
+  when a preset's size is within 2px, with Use one click away, as a value off the system offers the nearest token.
+- **Per viewport:** a preset that changes with the viewport, such as Material UI's responsive `h4`, has a dot on its
+  row, and changing one of its rows writes that viewport's patch.
+- **What it stores and writes:** the layer stores the preset's name and its own values, the same in every framework
+  (`typePreset: { token: "subtitle1" }`). Tailwind's adapter writes the preset as one class, a `--text-*` size
+  (`text-xl`) or, when the preset names a font or sets case, a project utility (`type-subtitle1`), with each override as
+  a class after it (`leading-6`). PAR-708 maps the other frameworks, and PAR-135 reads the presets.
 
 ## The interface is set in Inter (PAR-709)
 

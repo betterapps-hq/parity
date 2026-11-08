@@ -4,8 +4,8 @@ import { type ReactNode, useEffect, useRef, useSyncExternalStore } from "react"
 import { AccountMenu } from "../account/AccountMenu.tsx"
 import type { DesignStore } from "../design-store.ts"
 import { homeTab, type Tab, useActiveTabId, useHomeActive, useTabs, workspace } from "../workspace.ts"
+import { actions } from "./actions.ts"
 import { AppMenu } from "./AppMenu.tsx"
-import { openNewTab } from "./commands.ts"
 import { Hint } from "./Hint.tsx"
 import { formatKeys } from "./keys.ts"
 
@@ -158,7 +158,7 @@ export function TabBar({ account = <AccountMenu /> }: { account?: ReactNode }) {
           render={
             <button
               type="button"
-              onClick={openNewTab}
+              onClick={() => void actions.newTab.run("panel")}
               aria-label="New tab"
               className="mb-1 ml-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground [-webkit-app-region:no-drag]"
             >

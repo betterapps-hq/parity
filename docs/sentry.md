@@ -69,14 +69,29 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
 
 ## Alerts
 
-Two alerts file Linear bugs from `parity-desktop` and `parity-cli`, in every environment. Each has one action, Linear's
-"Create a Linear issue": team Parity, project Parity, status Todo, label Bug, no priority. The calls behind them are in
-[decisions.md](decisions.md#sentry-files-linear-bugs-par-622).
+Three alerts file Linear bugs. Each has one action, Linear's "Create a Linear issue": team Parity, project Parity,
+status Todo, label Bug, no priority. The calls behind them are in
+[decisions.md](decisions.md#sentry-files-linear-bugs-par-622) and
+[decisions.md](decisions.md#sentry-watches-agent-failures-and-crash-free-sessions-par-643).
 
-| Alert                                                                                               | Fires on                                   | For                           | At most        |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------- | -------------- |
-| [File new issues and regressions in Linear](https://better-apps.sentry.io/monitors/alerts/6301645/) | A new issue, or a resolved one coming back | Every issue but user feedback | Once in 30 min |
-| [File user feedback in Linear](https://better-apps.sentry.io/monitors/alerts/6301647/)              | A new issue                                | User feedback                 | Every time     |
+| Alert                                                                                               | Fires on                                   | For                                                 | At most        |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------- | -------------- |
+| [File new issues and regressions in Linear](https://better-apps.sentry.io/monitors/alerts/6301645/) | A new issue, or a resolved one coming back | Every issue but user feedback, from desktop and CLI | Once in 30 min |
+| [File user feedback in Linear](https://better-apps.sentry.io/monitors/alerts/6301647/)              | A new issue                                | User feedback, from desktop and CLI                 | Every time     |
+| [File monitor breaches in Linear](https://better-apps.sentry.io/monitors/alerts/6310188/)           | A monitor's issue opening, or coming back  | The metric monitors below that are connected to it  | Once in 30 min |
+
+### Metric monitors
+
+A metric monitor opens a Sentry issue while its number is past its threshold and resolves it once it's back, and the
+alert above files that issue in Linear.
+
+| Monitor                                                                         | Project          | Watches                                                                                                 | Opens when |
+| ------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------- | ---------- |
+| [Agent calls failing over 5%](https://better-apps.sentry.io/monitors/10889795/) | `parity-desktop` | `failure_rate()` of spans with `span.op:agent.called`, every environment, over the last hour            | Over 0.05  |
+| Crash-free sessions under 99% in tester, not made yet (PAR-714)                 | `parity-desktop` | `percentage(sessions_crashed, sessions)` as a crash-free rate, environment `tester`, over the last hour | Under 99%  |
+
+The crash-free monitor waits for `tester` to exist: Sentry refuses a monitor on an environment it hasn't seen, and
+installed builds haven't sent an event since PAR-625 named them `tester`.
 
 What a filed issue carries:
 
@@ -95,6 +110,41 @@ one when the check is done, and say in it that it was a test.
 
 Sentry's own defaults stay as they are: each project's "Send a notification for high priority issues" and the
 organisation's "Send a notification when pull requests are ready" email `admin@betterapps.io`.
+
+## Dashboards
+
+One dashboard, **Parity**, holds the views the telemetry plan asks for. It isn't made yet (PAR-716): Sentry's MCP server
+can't create dashboards, so it's made by hand from this list. Every widget covers `parity-desktop` and `parity-cli`, and
+the dashboard's environment and release filters narrow all of them at once.
+
+Where events land decides each widget's dataset: errors are Sentry errors, spans are Sentry spans with `span.op` the
+span's name and its attributes as they are, and other events are Sentry logs with `message` the event's name. A numeric
+attribute in a logs widget is picked as a number, as `durationMs`, which the API writes as `tags[durationMs,number]`.
+
+| Widget                                | Dataset  | Display | Query                                               | Shows                                                | Grouped by                                 |
+| ------------------------------------- | -------- | ------- | --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ |
+| Crash-free sessions by release        | Releases | Line    | (none)                                              | `crash_free_rate(session)`                           | `release`                                  |
+| Top errors by release and environment | Errors   | Table   | (none)                                              | `count()`, `count_unique(user)`, sorted by `count()` | `issue`, `title`, `release`, `environment` |
+| Test passes and their errors          | Errors   | Table   | `has:test_run`                                      | `count()`, `count_unique(issue)`, `last_seen()`      | `test_run`, `environment`                  |
+| Project open failures                 | Logs     | Table   | `message:project.openFailed`                        | `count()`                                            | `framework`, `builder`, `step`, `code`     |
+| p95 of rendering and agent calls      | Spans    | Line    | `span.op:[frame.rendered,frame.drawn,agent.called]` | `p95(span.duration)`                                 | `span.op`                                  |
+| p95 of opening and saving             | Logs     | Line    | `message:[project.loaded,document.saved]`           | `p95(durationMs)`                                    | `message`                                  |
+| Agent error codes by operation        | Spans    | Table   | `span.op:agent.called has:code`                     | `count()`                                            | `method`, `code`, `transport`              |
+| Gestures interrupted or cancelled     | Logs     | Bar     | `message:gesture.ended how:[interrupted,cancelled]` | `count()`                                            | `kind`, `how`                              |
+
+- **Four widgets wait for events that aren't on main yet.** `project.openFailed` and `project.loaded` come with PAR-637
+  (betterapps-hq/parity#319), `gesture.ended` with PAR-640 (#324) and `frame.rendered` with PAR-638 (#323). Builds from
+  those branches have already sent them, and the queries were checked against what they sent, but builds from main send
+  none of them, so Project open failures, Gestures interrupted or cancelled and the opening half of p95 of opening and
+  saving stay empty until those land. Rendering reads `frame.drawn` until then.
+- **Opening is `project.loaded`,** from asking to open a project until its tab is ready, the time a person waits.
+  `project.opened`'s `durationMs` stops at the service, and `project.detected` is one step of it.
+- **Rendering is `frame.rendered`,** which PAR-638 renames from `frame.drawn`; the query takes both until no build sends
+  the old name.
+- **Project open failures have no tool versions yet.** `project.openFailed` carries `framework` and `builder`, but the
+  React and Vite versions are only on `project.opened`. PAR-715 adds them, and then `react` and `vite` join the group.
+- **Test passes with no errors don't show in the table,** since it counts errors. A pass's spans and logs are found by
+  searching either for its `test_run`.
 
 ## Secrets
 
@@ -115,3 +165,16 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
 7. Created the two alerts above with Sentry's MCP server, signed in as `admin@betterapps.io`. Linear's action takes
    Linear's ids: team `ffa6e3c4-91d5-4501-868e-a7a7a797e256`, project `84f1963b-e7c0-4ee8-9f3b-0a23cddd3714`, Todo
    `141b0d67-7506-4a2a-91b9-c77117d7204f` and Bug `a6475d27-8132-4225-88de-b7f0c2d09177`.
+8. Created the monitor "Agent calls failing over 5%" and the alert "File monitor breaches in Linear" with Sentry's MCP
+   server, on 2026-11-08, with the same Linear action.
+
+PAR-658 brings all of this into Terraform in `infra/sentry`, which the Sentry provider supports for monitors, alerts and
+dashboards.
+
+## Still to do
+
+1. **Make the Parity dashboard (PAR-716).** In Sentry, signed in as `admin@betterapps.io`, open Dashboards > Create
+   Dashboard, name it "Parity", pick `parity-desktop` and `parity-cli`, and add each widget in [Dashboards](#dashboards)
+   with Add Widget, choosing its dataset, display, query, what it shows and its group. Save it, and link it here.
+2. **Make the crash-free monitor (PAR-714)** once a published build has sent an event from `tester`, with Sentry's MCP
+   server, and connect it to "File monitor breaches in Linear".

@@ -1,8 +1,7 @@
 import { createContext, useContext } from "react"
 import { toast } from "sonner"
 import type { ProjectPicture } from "../../shared/protocol.ts"
-import { openDialog } from "../chrome/app-dialogs.ts"
-import { openProjectFile, openProjectFolder } from "../chrome/commands.ts"
+import { actions } from "../chrome/actions.ts"
 import { recordInterface } from "../interface-events.ts"
 import { workspace } from "../workspace.ts"
 
@@ -45,15 +44,15 @@ export const workspaceActions: StartActions = {
   },
   openFolder: () => {
     recordStart("open-folder")
-    void openProjectFolder()
+    void actions.openFolder.run("panel")
   },
   openFile: () => {
     recordStart("open-file")
-    void openProjectFile()
+    void actions.openFile.run("panel")
   },
   search: () => {
     recordStart("search")
-    openDialog("actions")
+    void actions.actions.run("panel")
   }
 }
 

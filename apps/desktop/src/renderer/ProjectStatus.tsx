@@ -1,7 +1,7 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, Circle, Copy, FolderOpen, LoaderCircle, RotateCw, TriangleAlert } from "lucide-react"
 import { useEffect, useState } from "react"
-import { openProjectFolder } from "./chrome/commands.ts"
+import { actions } from "./chrome/actions.ts"
 import { useLayout } from "./chrome/layout.ts"
 import { isPlaceholder, type Tab, workspace } from "./workspace.ts"
 
@@ -152,7 +152,7 @@ export function ProjectFailed({ tab }: { tab: Tab }) {
               <RotateCw /> Try again
             </Button>
           )}
-          <Button variant={folder ? "outline" : "default"} onClick={() => void openProjectFolder()}>
+          <Button variant={folder ? "outline" : "default"} onClick={() => void actions.openFolder.run("panel")}>
             <FolderOpen /> {folder ? "Open another project…" : "Open a project…"}
           </Button>
           <Button variant="ghost" onClick={() => void workspace.close(tab.id)}>
