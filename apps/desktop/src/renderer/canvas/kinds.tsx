@@ -6,6 +6,7 @@ import {
   Component,
   Diamond,
   Frame,
+  Grid3x3,
   Image as ImageIcon,
   type LucideProps,
   Rows3,
@@ -66,10 +67,15 @@ export function nodeColor(node: DesignNode): string {
  * library's design, which isn't one of the `entries`, is found in `library` when it's given.
  */
 export function layerLabel(node: DesignNode, entries: readonly ContainerEntry[], library?: ComponentLibrary): string {
-  return nodeLabel(
-    node,
-    (id) => entries.find((entry) => entry.container.id === id)?.container.name ?? library?.get(id)?.name
-  )
+  return nodeLabel(node, designNamer(entries, library))
+}
+
+/** Finds a design's name by its id: one of the project's `entries`, else one of `library`'s designs. */
+export function designNamer(
+  entries: readonly ContainerEntry[],
+  library?: ComponentLibrary
+): (id: string) => string | undefined {
+  return (id) => entries.find((entry) => entry.container.id === id)?.container.name ?? library?.get(id)?.name
 }
 
 /** Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. */
@@ -85,6 +91,7 @@ export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode })
   if (node.type === "instance") return <Diamond {...props} />
   // A slot is a hole each instance fills.
   if (node.slot !== undefined) return <SquareDashed {...props} />
+  if (node.style?.display === "grid") return <Grid3x3 {...props} />
   return node.style?.direction === "row" ? <Columns3 {...props} /> : <Rows3 {...props} />
 }
 

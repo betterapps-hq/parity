@@ -2591,6 +2591,30 @@ Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the r
 Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Instance Changed In A State; Fields: Changed
 In A State; Design: Screen Selected), in light and dark.
 
+### What's selected, above its name (PAR-723)
+
+The Design tab starts with what's selected: its icon and kind together in the kind's color, then its name on a line of
+its own, to rename it. The kind is a word or two that never repeats the name: Screen, Component or Frame for a design;
+Text, Image, Horizontal layout, Vertical layout, Grid layout, Slot, Component, Icon or Instance for a layer. Hovering
+the kind says more, and screen readers hear that instead of the kind:
+
+- **Which component.** An instance says which design it's of ("Instance of Plan card"), a component its name ("Button
+  component"), and a library's component or icon which library, without its prefix ("Check icon from Lucide").
+- **Which slot,** as "The features slot, a vertical layout".
+- **Where a design is saved,** as "Screen, saved in shadcn-vite.par".
+
+Where a layer sits isn't said, since Layers shows it, nor a text layer's tag. A layout's word follows its direction, as
+the insert picker names it, so it agrees with the icon; a grid gets the Layout section's grid icon, in Layers too. A
+layer inside an instance says the same, in the component color.
+
+Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
+headers in `LayerPanel.tsx`; `layerKind` in `chrome/layer-kind.ts`; `NodeIcon` in `canvas/kinds.tsx`.
+
+Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (5: text whatever its tag; layouts by direction and grids;
+a slot; an instance's component only in full; a library's components and icons named by the library). The header itself
+is checked in the Inspector stories (Layer/Kinds, Layer/Instances: Layer Inside An Instance, Layer/Basics: Unnamed
+Layer, Design: Screen Selected), in light and dark.
+
 ## Component props
 
 What the Props section of a component layer lists, and how each kind of prop is set there.

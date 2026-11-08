@@ -3,7 +3,6 @@ import {
   type BindableField,
   boardTarget,
   changesField,
-  type ComponentLibrary,
   type ContainerSpec,
   type DesignNode,
   detachInstance,
@@ -38,7 +37,7 @@ import { type ReactNode, useMemo, useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
-import { focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import { designNamer, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
@@ -62,11 +61,13 @@ import {
 import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
+import { layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
+import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
@@ -100,6 +101,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
   const target = boardTarget(container, state.id)
   const node = nodeOnBoard(container, location.node, state)
   const override = targetPatches(container, target)?.[nodeId]
+  const kind = layerKind(location.node, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
 
   const change: LayerChange = (label, value, gesture, shown = node) => {
     store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
@@ -136,38 +138,39 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex items-center gap-2">
-          <NodeIcon node={location.node} className="size-4 shrink-0" style={{ color: nodeColor(location.node) }} />
-          {/* The selection's title, at 15px semibold on every tab; md:text-base replaces the kit's md:text-sm. */}
-          <NameInput
-            key={`${nodeId}:${location.node.name ?? ""}`}
-            defaultValue={location.node.name ?? ""}
-            placeholder={layerLabel(location.node, entries, store.getComponentLibrary())}
-            aria-label="Layer name"
-            className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input md:text-base dark:bg-transparent"
-            onBlur={(event) => {
-              const name = event.currentTarget.value.trim()
-              if (name === (location.node.name ?? "")) return
-              updateAndRecord(
-                store,
-                key,
-                "Rename layer",
-                (current) => renameLayer(current, nodeId, name || undefined),
-                {
-                  field: "name",
-                  layers: [nodeId],
-                  read: (current) => findNode(current.root, nodeId)?.name
-                }
-              )
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") event.currentTarget.blur()
-            }}
-          />
-        </div>
-        <p className="mt-0.5 pl-6 text-xs text-muted-foreground">
-          {describeNode(location.node, entries, store.getComponentLibrary())} in {container.name}
-        </p>
+        <SelectionHeading
+          icon={<NodeIcon node={location.node} className={headingIcon} style={{ color: nodeColor(location.node) }} />}
+          color={nodeColor(location.node)}
+          name={
+            <NameInput
+              key={`${nodeId}:${location.node.name ?? ""}`}
+              defaultValue={location.node.name ?? ""}
+              placeholder={layerLabel(location.node, entries, store.getComponentLibrary())}
+              aria-label="Layer name"
+              className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
+              onBlur={(event) => {
+                const name = event.currentTarget.value.trim()
+                if (name === (location.node.name ?? "")) return
+                updateAndRecord(
+                  store,
+                  key,
+                  "Rename layer",
+                  (current) => renameLayer(current, nodeId, name || undefined),
+                  {
+                    field: "name",
+                    layers: [nodeId],
+                    read: (current) => findNode(current.root, nodeId)?.name
+                  }
+                )
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur()
+              }}
+            />
+          }
+          kind={kind.label}
+          detail={kind.description}
+        />
         <StateTarget entry={entry} state={state} target={target} />
         {location.ancestors.length > 0 && location.node.type !== "instance" && (
           <MakeComponent
@@ -267,20 +270,22 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
   }
   // The component this layer belongs to: the nested one for a layer inside a nested instance.
   const owner = entries.find((candidate) => candidate.container.id === inner.component.id)
+  const kind = layerKind(inner.node, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
 
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex h-7 items-center gap-2">
-          <NodeIcon node={inner.node} className="size-4 shrink-0" style={{ color: kindColors.component }} />
-          <Name className="px-1.5 text-base font-semibold">
-            {layerLabel(inner.node, entries, store.getComponentLibrary())}
-          </Name>
-        </div>
-        <p className="mt-0.5 pl-6 text-xs text-muted-foreground">
-          {describeNode(inner.node, entries, store.getComponentLibrary())} in{" "}
-          {layerLabel(inner.instance, entries, store.getComponentLibrary())}
-        </p>
+        <SelectionHeading
+          icon={<NodeIcon node={inner.node} className={headingIcon} style={{ color: kindColors.component }} />}
+          color={kindColors.component}
+          name={
+            <Name className={`px-1.5 ${headingName}`}>
+              {layerLabel(inner.node, entries, store.getComponentLibrary())}
+            </Name>
+          }
+          kind={kind.label}
+          detail={kind.description}
+        />
         {editsDesign(container, target) ? (
           <div
             className="mt-3 rounded-md border px-2.5 py-2 text-xs"
@@ -835,19 +840,6 @@ export function measureNode(
   if (!host || !rect || !session.editor) return undefined
   const scale = session.editor.getZoomLevel() * frameScale(host)
   return { width: rect.width / scale, height: rect.height / scale }
-}
-
-function describeNode(node: DesignNode, entries: readonly ContainerEntry[], library: ComponentLibrary): string {
-  if (node.type === "component") return `${node.component} component`
-  if (node.type === "instance") {
-    const name =
-      entries.find((entry) => entry.container.id === node.design)?.container.name ?? library.get(node.design)?.name
-    return `Instance of ${name ?? node.design}`
-  }
-  if (node.type === "text") return `Text${node.tag ? `, ${node.tag}` : ""}`
-  if (node.type === "image") return "Image"
-  const layout = node.style?.direction === "row" ? "Row layout" : "Column layout"
-  return node.slot === undefined ? layout : `${layout}, the ${node.slot} slot`
 }
 
 /**

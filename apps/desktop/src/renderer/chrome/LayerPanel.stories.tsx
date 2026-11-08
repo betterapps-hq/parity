@@ -54,12 +54,15 @@ export const ComponentWithoutStyle: Story = {
     const panel = within(canvasElement)
     await panel.findByText(/doesn't take a/, undefined, slowly)
     await userEvent.click(panel.getByRole("button", { name: /Wrap in layout/ }))
-    await panel.findByText(/layout in Pricing/, undefined, slowly)
+    await panel.findByText(/^(Horizontal|Vertical) layout$/, undefined, slowly)
   }
 }
 
 /** A layout, Pricing's hero: no content section, and a Layout section first among its styles. */
 export const LayoutLayer: Story = { loaders: [pick("Pricing", "Hero")] }
+
+/** A grid, Pricing's plans: its header says Grid layout, with the grid icon the Layout section uses. */
+export const GridLayer: Story = { loaders: [pick("Pricing", "Plans")] }
 
 /** An image layer: its file, alt text for screen readers, how it fills its box, and who took it. */
 export const ImageLayer: Story = {
