@@ -33,7 +33,8 @@ export function Playground({
   return (
     <TooltipProvider>
       <ProjectTokens tokens={tokens}>
-        <div className="flex min-h-screen flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+        {/* It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't. */}
+        <div className="flex h-screen flex-wrap content-start items-start gap-6 overflow-y-auto bg-background p-6 text-foreground">
           {/* The inspector's width, so the control lays out as it will there. */}
           <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1 rounded-lg border p-3">
             {children}

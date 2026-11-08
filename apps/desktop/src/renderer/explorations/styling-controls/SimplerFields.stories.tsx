@@ -153,7 +153,8 @@ function Page({
 }) {
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen flex-col gap-8 bg-background p-6 text-foreground">
+      {/* It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't. */}
+      <div className="flex h-screen flex-col gap-8 overflow-y-auto bg-background p-6 text-foreground">
         {(now || simpler) && (
           <div className="flex flex-wrap items-start gap-6">
             {now && <Panel title="Now">{now}</Panel>}
