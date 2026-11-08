@@ -331,7 +331,7 @@ Motion's Transitions.
 
 ## Composite token
 
-A text style, border, shadow, transition or animation token.
+A typography preset, border, shadow, transition or animation token.
 
 - **At rest:** the token's chip with a one-line summary of its parts (`heading-1 · Inter 20/28 Semibold`,
   `card · 1px solid`, `md · 0 4 6 −1`, `colors · 150ms ease`), in the row or list entry that holds it.
@@ -340,8 +340,8 @@ A text style, border, shadow, transition or animation token.
   ([design-options-code.md](design-options-code.md), Overrides in classes), editing it offers Detach. Detach, Edit token
   and Go to definition are in the field's menu, as for any token.
 - **Tokens:** those Fields and token kinds in [design-options-tokens.md](design-options-tokens.md) offers for the row
-  that holds it: Text style's (type-style and the others that table lists), border, shadow and inset-shadow, transition
-  tokens (which have no kind) and animation.
+  that holds it: Typography preset's (type-style and the others that table lists), border, shadow and inset-shadow,
+  transition tokens (which have no kind) and animation.
 - **Writes:** the token's class, then one class per overridden part.
 
 ## Keyword sets

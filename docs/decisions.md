@@ -5958,9 +5958,11 @@ under "A layer can use its own values". Andrew answered the rest on 2026-11-07, 
   after Padding changes `px-4` to `px-6`), and shows it in the CSS section as a read-only From the code row. Freezing
   and overwriting stay as the other two answers.
 
-Still open: **6, what a text style is.** Andrew sees it as a design language's typography preset, such as Fluent's
-typography styles, which bundle font, size, weight and line height, that a layer syncs to and is locked by, something
-other design tools don't offer. PAR-707 explores picking one and how the fields it sets are hidden or disabled; PAR-135
-reads the presets. Whatever a framework calls them, Parity calls them **text styles** everywhere, in the panel, the
-Tokens panel, the CLI and the agent API, so the words don't change between projects. A framework's own name shows only
-where it says where a style came from ("From Fluent's typographyStyles").
+Still open: **6, what a typography preset is.** Andrew sees it as a design language's typography preset, such as
+Fluent's typography styles, which bundle font, size, weight and line height, that a layer syncs to and is locked by,
+something other design tools don't offer. PAR-707 explores picking one and how the fields it sets are hidden or
+disabled; PAR-135 reads the presets. Whatever a framework calls them, Parity calls them **typography presets**
+everywhere, in the panel, the Tokens panel, the CLI and the agent API, so the words don't change between projects. A
+framework's own name shows only where it says where a preset came from ("From Fluent's typographyStyles"). Andrew chose
+"preset" over "text style" for now: in a panel where every value is a style, "style" could mean any of them, while a
+preset says what it does, filling in the fields it covers and locking them while it's applied.

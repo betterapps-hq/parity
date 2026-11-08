@@ -2,7 +2,7 @@
 
 Part of [design-options.md](design-options.md) (PAR-652). Which tokens each field offers, how a value off the system is
 marked, which framework steps count as on it, the levels a project sets, Semantic and Primitive, overriding part of a
-token, and what a text style is. How a token is shown and picked in a field is in
+token, and what a typography preset is. How a token is shown and picked in a field is in
 [design-options-fields.md](design-options-fields.md).
 
 ## Fields and token kinds
@@ -26,9 +26,9 @@ used as soon as it's in the stylesheet.
 | Shadows                                                                                                                                                                                                  | shadow, inset-shadow                                                                                                                                                                                 |
 | Drop shadow that follows the shape (`filter`)                                                                                                                                                            | drop-shadow                                                                                                                                                                                          |
 | Text shadow (Drop shadow on a text layer)                                                                                                                                                                | text-shadow                                                                                                                                                                                          |
-| Text style (size with its line height, letter spacing and weight; font, OpenType features or case where the style sets them)                                                                             | type-style tokens, project utilities that set only type (`@utility type-heading`), and font-size tokens that pair a weight or letter spacing (`--text-xl--font-weight`, `--text-xl--letter-spacing`) |
+| Typography preset (size with its line height, letter spacing and weight; font, OpenType features or case where the style sets them)                                                                      | type-style tokens, project utilities that set only type (`@utility type-heading`), and font-size tokens that pair a weight or letter spacing (`--text-xl--font-weight`, `--text-xl--letter-spacing`) |
 | Font                                                                                                                                                                                                     | font                                                                                                                                                                                                 |
-| Font size                                                                                                                                                                                                | font-size tokens that pair nothing or only a line height (all of Tailwind's defaults); one that pairs a weight or letter spacing is offered in Text style                                            |
+| Font size                                                                                                                                                                                                | font-size tokens that pair nothing or only a line height (all of Tailwind's defaults); one that pairs a weight or letter spacing is offered in Typography preset                                     |
 | Weight                                                                                                                                                                                                   | font-weight                                                                                                                                                                                          |
 | Line height                                                                                                                                                                                              | leading, spacing (Tailwind v4's `leading-6` is a spacing step)                                                                                                                                       |
 | Letter spacing, word spacing                                                                                                                                                                             | tracking                                                                                                                                                                                             |
@@ -47,9 +47,9 @@ used as soon as it's in the stylesheet.
 | Any other number (flex grow, iterations)                                                                                                                                                                 | number tokens whose value is a plain number: the number kind is `previewKind`'s catch-all for any token it can't place, keywords included                                                            |
 | A shadow's offsets, blur and spread (a Ring's width aside); gradient stop positions; filter amounts; scale; grid lines and spans; origins and object positions                                           | none: values or steps only (`brightness-125`, `scale-105`). These fields have no token button                                                                                                        |
 
-A token is offered in Text style or in Size, never both, so a class reads back into one key. A size token whose only
-pair is its line height is a size. It's chosen in Size, and its line height shows as From size. In a project with no
-text styles, the Text style row is hidden, and Font is the section's first row.
+A token is offered in Typography preset or in Size, never both, so a class reads back into one key. A size token whose
+only pair is its line height is a size. It's chosen in Size, and its line height shows as From size. In a project with
+no typography presets, the Typography preset row is hidden, and Font is the section's first row.
 
 One kind doesn't exist yet: angles, for a gradient's angle, a rotation and a hue rotation. It's worth adding once a
 project has angle tokens; until then those fields take values, and steps where Framework steps lists them, with no token
@@ -180,12 +180,12 @@ writes a value for each theme as that theme's patch (States, Set for a theme, in
 
 ## A token can be overridden in part
 
-A token that stands for several values (a text style, a shadow, a border, a transition, an animation) stays applied when
-one of its parts is changed. The changed part is marked as an override on that row, with a reset arrow back to the
-token's value, as Figma marks an override on a component instance (Figma itself detaches a text or effect style when one
-of its values changes). It's written the way the framework overrides one: `text-xl leading-7` for a line height,
-`shadow-lg shadow-black/20` for a shadow's color, `drop-shadow-md drop-shadow-primary/40`, and a border token's width by
-replacing its width class ([design-options-code.md](design-options-code.md), Overrides in classes).
+A token that stands for several values (a typography preset, a shadow, a border, a transition, an animation) stays
+applied when one of its parts is changed. The changed part is marked as an override on that row, with a reset arrow back
+to the token's value, as Figma marks an override on a component instance (Figma itself detaches a text or effect style
+when one of its values changes). It's written the way the framework overrides one: `text-xl leading-7` for a line
+height, `shadow-lg shadow-black/20` for a shadow's color, `drop-shadow-md drop-shadow-primary/40`, and a border token's
+width by replacing its width class ([design-options-code.md](design-options-code.md), Overrides in classes).
 
 A part can be overridden only where the framework can do it. A token outside a Tailwind namespace
 (`shadow-(--mantine-shadow-md)`, a gradient token as `bg-(image:--brand-gradient)`) is one variable, so changing one of
@@ -195,18 +195,19 @@ A color's alpha, which can be an opacity token, is part of the color (Percentage
 [design-options-values.md](design-options-values.md)); under Tokens only it must be an opacity token, or a step while
 the project has none (Framework steps).
 
-## What a text style is
+## What a typography preset is
 
-A text style is written the way the project's styling framework writes one. In Tailwind v4, that's a `--text-*` size
-that pairs a weight or letter spacing, usually with a line height (call 6), so `text-xl` sets all four, and a font is a
-separate `font-*` class. A DTCG typography token compiles to that same set of variables. A `font` shorthand token is
-read as a style but never written as `font:`, since `font` can't hold letter spacing and resets the OpenType settings.
+A typography preset is written the way the project's styling framework writes one. In Tailwind v4, that's a `--text-*`
+size that pairs a weight or letter spacing, usually with a line height (call 6), so `text-xl` sets all four, and a font
+is a separate `font-*` class. A DTCG typography token compiles to that same set of variables. A `font` shorthand token
+is read as a style but never written as `font:`, since `font` can't hold letter spacing and resets the OpenType
+settings.
 
 A style that names a font, or sets anything a `--text-*` size can't pair (OpenType features, case), is a project utility
 (`@utility heading-1 { … }`, or a class in `@layer components`), which is how many Tailwind teams write a style with a
-font. It's offered in the Text style picker, written as its one class, and reads back as one style. A DTCG typography
-token that names a font is compiled to one (`@utility type-heading { … }`). A `font-*` class beside a style is an
-override.
+font. It's offered in the Typography preset picker, written as its one class, and reads back as one style. A DTCG
+typography token that names a font is compiled to one (`@utility type-heading { … }`). A `font-*` class beside a style
+is an override.
 
 A style can differ per breakpoint, as Framer's do. Its variables are redefined in a breakpoint's `@media (width >= …)`
 block in the project's CSS, which Parity reads as that viewport's value, so the layer keeps one class. Changing the size

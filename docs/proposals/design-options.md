@@ -21,7 +21,8 @@ the kinds the Tokens panel already draws, a value of its own, or a CSS expressio
 - [design-options-values.md](design-options-values.md): how each type of value is shown, edited and written, type by
   type.
 - [design-options-tokens.md](design-options-tokens.md): which tokens each field offers, how a value off the system is
-  marked, which framework steps are on it, the levels a project sets, Semantic and Primitive, and what a text style is.
+  marked, which framework steps are on it, the levels a project sets, Semantic and Primitive, and what a typography
+  preset is.
 - [design-options-code.md](design-options-code.md): what the design model stores, how frames draw it, and the classes
   Parity writes and reads back.
 - [design-options-css.md](design-options-css.md): every CSS property Chromium 156 draws (562 of them) and where each one
@@ -158,15 +159,17 @@ Call 6 is still open, and 3 and 7 have follow-up issues.
    Spacing, Appearance, then the content section the layer has (Text, Image or Icon), then Fill, Stroke, Effects,
    Selection colors, Transform, Text inside for layouts, components and instances, Interaction, Motion, CSS. Size comes
    before Layout as Figma's W and H come before auto layout, and Spacing follows Layout so padding sits next to gap.
-6. **What is a text style?** Open: Andrew sees it as a design language's typography preset (Fluent's typography styles
-   bundle font, size, weight and line height), which a layer syncs to and is locked by. Parity calls it a text style in
-   every project, whatever the framework names it (Fluent's typography styles, MUI's typography variants, Chakra's
-   textStyles), so the panel reads the same across projects. PAR-707 explores picking one and how the fields it sets are
-   hidden or disabled. The recommendation it starts from: in Tailwind projects, a `--text-*` size that pairs a weight or
-   letter spacing, usually with a line height (Tailwind v4's own), or a project utility that sets only type when the
-   style names a font or sets what a size can't pair (OpenType features, case); a DTCG typography token compiles to the
-   same. Overriding one row keeps the style and marks the override, and a style can differ per breakpoint. PAR-135 waits
-   on this. [design-options-tokens.md](design-options-tokens.md), What a text style is, has the detail.
+6. **What is a typography preset?** Open. Andrew sees it as a design language's bundle of type values (Fluent's
+   typography styles bundle font, size, weight and line height): choosing one fills in the fields it covers and locks
+   them, and the layer stays synced to it. Parity calls it a typography preset in every project, whatever the framework
+   names it (Fluent's typography styles, MUI's typography variants, Chakra's textStyles), so the panel reads the same
+   across projects; "style" alone would be ambiguous in a panel where every value is style. PAR-707 explores picking one
+   and how the locked fields are shown. The recommendation it starts from: in Tailwind projects, a `--text-*` size that
+   pairs a weight or letter spacing, usually with a line height (Tailwind v4's own), or a project utility that sets only
+   type when the style names a font or sets what a size can't pair (OpenType features, case); a DTCG typography token
+   compiles to the same. Overriding one row keeps the style and marks the override, and a style can differ per
+   breakpoint. PAR-135 waits on this. [design-options-tokens.md](design-options-tokens.md), What a typography preset is,
+   has the detail.
 7. **What a state writes.** Each state names its trigger: a pseudo-class (`:hover`), an attribute (`[data-state=open]`)
    or a prop. Decided for Tailwind projects: pseudo-classes and attributes by default, as Webflow's and Plasmic's states
    are, with a prop only when the component's code has one, written as Tailwind variants. A component's state reaches
@@ -208,7 +211,7 @@ Storybook as clickable explorations first, for Andrew's approval, before any goe
 6. Position: sticky and fixed, the pin box, and layer order. Fixed and Sticky previewed against the frame's window
    (CAN-25).
 7. Layout: grid tracks of any size, areas, flow, baseline and reversed direction, and the box-model widget.
-8. Text: decoration details, wrapping and truncation, vertical trim, OpenType and variable axes, and text styles
+8. Text: decoration details, wrapping and truncation, vertical trim, OpenType and variable axes, and typography presets
    (PAR-135).
 9. Transform, Image, Interaction and Motion.
 10. The CSS row, with completion and checks, and Copy as CSS and Tailwind from each section.
