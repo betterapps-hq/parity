@@ -3,7 +3,6 @@ import {
   addVariant,
   addVariantOption,
   findNode,
-  findRepeats,
   type ParamSpec,
   removeParam,
   removeVariantOption,
@@ -12,7 +11,7 @@ import {
 } from "@parity-app/core"
 import { instancesOf } from "@parity-app/editor"
 import { Diamond, Plus, ScanSearch, Sparkles, Trash2, X } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
@@ -21,6 +20,7 @@ import { ChoiceInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
+import { clearRepeatedParts, findRepeatedParts, useRepeatedParts } from "./repeated-parts.ts"
 import { revealSelection } from "./reveal.ts"
 
 /**
@@ -29,11 +29,12 @@ import { revealSelection } from "./reveal.ts"
  * Naming parts and finding the ones used once is an agent's job (the decompose skill).
  */
 export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
-  const [candidates, setCandidates] = useState<RepeatCandidate[]>()
+  const candidates = useRepeatedParts(entry.key)
+  useEffect(() => () => clearRepeatedParts(entry.key), [entry.key])
   let content: ReactNode
   if (candidates === undefined) {
     content = (
-      <Button variant="outline" size="sm" onClick={() => setCandidates(findRepeats(entry.container.root))}>
+      <Button variant="outline" size="sm" onClick={() => findRepeatedParts(entry)}>
         <ScanSearch /> Find repeated parts
       </Button>
     )
@@ -51,7 +52,7 @@ export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
             key={candidate.nodes.join()}
             entry={entry}
             candidate={candidate}
-            onDone={() => setCandidates(undefined)}
+            onDone={() => clearRepeatedParts(entry.key)}
           />
         ))}
       </ul>

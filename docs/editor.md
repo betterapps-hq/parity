@@ -1665,9 +1665,9 @@ empty space on the canvas makes a frame there (PAR-545; see Frames, below).
 
 Code: the commands are `newScreen` and `newComponent` in `chrome/keymap.ts` and `chrome/actions.ts`, run through
 `createDesign` in `chrome/create.ts`, which takes a point for the canvas menu. `AppMenu.tsx` (`NewItems`),
-`canvas-menu.ts` (`canvasMenu`, around the designs) and `CanvasMenu.tsx` (`run`) show them; `chrome/word-match.ts`
-(`matchWords`) is Search actions' filter in `ActionsSearch.tsx`; the headings and empty rows are in
-`chrome/LayerTree.tsx`, and the inspector's prompt in `DesignPanel.tsx`. The rule and the names are
+`canvas-menu.ts` (`canvasMenu`, around the designs) and `CanvasMenu.tsx` (`run`) show them; `matchWords` in
+`packages/editor/src/find-anything.ts` is Search actions' matching (see Search actions, below); the headings and empty
+rows are in `chrome/LayerTree.tsx`, and the inspector's prompt in `DesignPanel.tsx`. The rule and the names are
 `packages/editor/src/new-screen.ts` (`layersName`, `designOfLayers`, `designOfItem`); the app's `canvas/new-screen.ts`
 finds the empty canvas (`emptyCanvasAt`) and the middle of the view and adds a frame of layers, `canvas/insert.ts` adds
 one of an item (`addFrameOfItem`, from `insertAtSelection` and drops), and `canvas/clipboard.ts` and
@@ -1680,10 +1680,11 @@ Tests:
   a frame of layers at the point, named after them, hugging them, with a free id, fresh ids and no bindings; and a frame
   of a component with its props, a design's instance, an image by its alt text, and a library part inside its parents,
   named after the part.
-- `chrome/keymap.test.ts`: Ctrl+Alt+N, Ctrl+Alt+Shift+N and Cmd+Alt+N, and Ctrl+N left free; `chrome/word-match.test.ts`
-  (4): "new" finding New screen and New component only, a word inside a name ranked after a name that starts with it,
-  typed words in any order and case, and everything before anything's typed; `chrome/canvas-menu.test.ts`: the menu
-  around the designs with its labels and keys, and Select all and Zoom to fit unavailable on an empty canvas.
+- `chrome/keymap.test.ts`: Ctrl+Alt+N, Ctrl+Alt+Shift+N and Cmd+Alt+N, and Ctrl+N left free;
+  `packages/editor/src/find-anything.test.ts`: "new" finding New screen and not names with n, e and w scattered through
+  them, a word inside a name ranked after a name that starts with it, typed words in any order and case, and everything
+  before anything's typed; `chrome/canvas-menu.test.ts`: the menu around the designs with its labels and keys, and
+  Select all and Zoom to fit unavailable on an empty canvas.
 - Stories, which replace the exploration Parity / Explorations / Starting on the canvas, deleted with this build: Parity
   / Left panel / Layers (Designs, EmptyProject, NewScreenHovered, FirstScreenMade), Parity / Chrome / App menu (File,
   ObjectWithNothingSelected, SearchActionsForNew), Parity / Chrome / Canvas menu (EmptyCanvas, NewScreenHere), Parity /
@@ -1800,9 +1801,10 @@ through `formatKeys` so it reads as one chord:
   single key stays as it is (`+`, `Del`).
 - **On a Mac** they're the Mac's symbols, modifiers first in the Mac's order, with nothing between: `⇧⌘Z`.
 - **Text that isn't keys,** such as `Hold Space`, is shown as written.
-- **Menus show shortcuts as plain text** at the end of each item (the menubar's, context menus' and Search actions'
-  Shortcut components), as Figma's and the system's menus do. Tooltips, the toolbar, the start screen and the Keyboard
-  shortcuts dialog show them as keycaps (`Kbd`). Both go through `formatKeys`.
+- **Keys show as keycaps (`Kbd`)** in tooltips, the toolbar, the start screen, Search actions, the Wrap in layout
+  buttons, the resize handles' hint and the Keyboard shortcuts dialog. Menus keep the kit's own shortcut parts (the
+  menubar's, context menus' and dropdowns'), which show them as plain text, as Figma's and the system's menus do. Both
+  go through `formatKeys`.
 
 Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`. The kit's `Kbd` and its menus' and Search actions'
 `*Shortcut` parts show what they're given, so each place that shows keys passes them through `formatKeys` itself, as
@@ -1814,6 +1816,53 @@ Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `
 and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)
 reads the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard
 shortcuts dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
+
+### Search actions finds anything, and Repeat last action (PAR-180)
+
+One search finds what Parity can do and what's in the open project, and one key does the last change again on what's
+selected now.
+
+- **Search actions (Ctrl+K or Ctrl+/, or Help > Search actions)** lists, under a heading each: what was picked lately
+  (Recent), the project's screens and components (Designs), their layers, the actions of each menu, the components the
+  project can insert, its tokens, and the projects the window remembers. Layers, components and tokens show once
+  something's typed, at most eight layers and six of the others, best first; with nothing typed the designs and actions
+  are listed in full. Projects come first on Home and in a new tab, and last in a project.
+- **What's typed matches the start of words,** in any order, a name starting with everything typed first; a layer
+  matches by its design's name too, and a token by each part of its name, so "primary" finds `--color-primary`.
+- **Picking one:** a design is selected and zoomed to; a layer is selected and scrolled into view; a component is
+  inserted at the selection, as the insert picker does; a token opens the Tokens tab searched for it; a project opens.
+- **Panel actions are actions too:** Find repeated parts, for the selected screen, opens the inspector's Repeated parts
+  with what it found, as the section's own button does. Show Icons, Show Images and Show Tokens open those tabs.
+- **Recent** holds the last six picks of any kind, latest first, and keeps them between runs. One that's gone, as a
+  layer that was deleted, isn't listed; one that matches a search leads it, and isn't listed again below.
+- **The dialog is 512 pixels wide.** Keys show as keycaps; a row's design, source or value shows as plain text. Rows
+  scrolled part out of view fade at the list's edge, so a highlighted one doesn't look tucked under the field.
+- **Repeat last action (Ctrl+Alt+P)** runs the last change again, on what's selected now, however it was run: by its
+  keys, a menu or the search. Edit lists it after Redo, named for what it repeats ("Repeat wrap in layout"), and it's
+  unavailable until something's been done or when the last action doesn't apply to the selection. It repeats pasting,
+  duplicating, deleting, pasting a style, making a screen or component, wrapping and unwrapping, making a component,
+  detaching, ordering, hiding, aligning and distributing, inserting a component from the search and Find repeated parts;
+  it doesn't repeat undoing, copying, renaming, selecting, nudging or moving around.
+
+Code: `packages/editor/src/find-anything.ts` matches (`matchWords`), ranks, caps and groups (`findAnything`) and keeps
+the recent picks (`rememberPick`). `chrome/ActionsSearch.tsx` gathers the items and runs the one picked, remembering
+picks in `localStorage` (`parity.recentSearches`). Components come from the insert picker's offer (`offerOf` and
+`insertOption` in `QuickInsert.tsx`); `chrome/shown-token.ts` hands a token to the Tokens panel and
+`chrome/repeated-parts.ts` keeps each screen's repeated parts for `ComponentsSection.tsx`. Repeat is `repeat` in
+`chrome/keymap.ts`; `chrome/actions.ts` wraps each repeatable command so it remembers itself in `chrome/repeat.ts`.
+
+Tests:
+
+- `packages/editor/src/find-anything.test.ts` (11): matching by the start of words, in any order, by a token name's
+  parts, and everything before anything's typed; designs and actions listed with nothing typed and layers and tokens
+  left for a search; each kind under its heading, best first, a heading with no match left out, a layer found by its
+  design, a group capped keeping its best; recent picks first, latest first, not listed again, kept while they match and
+  dropped once gone; and at most six picks, the latest first.
+- Stories, Parity / Chrome / App menu: SearchEverything ("card" finds designs, layers, components and tokens),
+  SearchRecent (Zoom to fit and Plan card picked, then listed under Recent), EditAfterWrapping (Repeat wrap in layout
+  with its keys, available), and SearchActionsForNew.
+
+Gaps: no end-to-end test runs Repeat or picks a layer, component or token from the search.
 
 ### Keys stay out of designs outside Interact (CAN-54)
 

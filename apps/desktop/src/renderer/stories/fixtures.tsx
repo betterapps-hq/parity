@@ -8,8 +8,10 @@ import type { ProjectInfo, ServiceMethods } from "../../shared/protocol.ts"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { ProjectContext } from "../canvas/context.ts"
 import { setTabOrderShown } from "../canvas/tab-order.ts"
+import { forgetRecentPicks } from "../chrome/ActionsSearch.tsx"
 import { setLayout } from "../chrome/layout.ts"
 import { getPreferences, type Preferences, setPreferences } from "../chrome/preferences.ts"
+import { forgetLastAction } from "../chrome/repeat.ts"
 import { startPreviews } from "../component-previews.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { useResolvedTheme } from "../theme.ts"
@@ -34,7 +36,14 @@ export type ProjectName = keyof typeof roots
 export async function openProjects(...names: ProjectName[]): Promise<void> {
   toast.dismiss()
   // Panels and preferences are remembered between runs, so a story that changed them would change the next one.
-  setLayout({ left: true, right: true, leftWidth: 256, rightWidth: 320, leftTab: undefined, rightTab: undefined })
+  setLayout({
+    left: true,
+    right: true,
+    leftWidth: 256,
+    rightWidth: 320,
+    leftTab: undefined,
+    rightTab: undefined
+  })
   setPreferences({
     snapping: true,
     exportScale: 2,
@@ -44,6 +53,9 @@ export async function openProjects(...names: ProjectName[]): Promise<void> {
     componentsView: "list"
   })
   setTabOrderShown(false)
+  // Nothing done or picked yet, as in a new window.
+  forgetLastAction()
+  forgetRecentPicks()
   await workspace.flush().catch(() => undefined)
   for (const tab of workspace.getTabs()) await workspace.close(tab.id)
   const opening = names.map((name, index) => workspace.open(roots[name], index === 0))

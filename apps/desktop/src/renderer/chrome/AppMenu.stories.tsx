@@ -14,6 +14,7 @@ import {
   preferring
 } from "../stories/fixtures.tsx"
 import { workspace } from "../workspace.ts"
+import { actions } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { AppMenu } from "./AppMenu.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
@@ -225,7 +226,10 @@ export const ObjectWithNothingSelected: Story = {
     await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
     await openMenu("Object")
     await expectNewItemsFirst()
-    await expect(unavailable(["Insert…", "Wrap in layout"])).toEqual({ "Insert…": false, "Wrap in layout": true })
+    await expect(unavailable(["Insert…", "Wrap in layout"])).toEqual({
+      "Insert…": false,
+      "Wrap in layout": true
+    })
   }
 }
 
@@ -440,6 +444,88 @@ export const SearchActionsForNew: Story = {
         `New tab${formatKeys("Ctrl T")}`
       ])
     )
+  }
+}
+
+/** The search's rows under each heading, as the headings and the rows' text. */
+const searchRows = (dialog: HTMLElement) =>
+  [...dialog.querySelectorAll<HTMLElement>("[cmdk-group]")].map((group) => ({
+    heading: group.querySelector("[cmdk-group-heading]")?.textContent,
+    rows: within(group)
+      .getAllByRole("option")
+      .map((option) => option.textContent)
+  }))
+
+/**
+ * Search actions finds anything in the project (PAR-180): searched for "card", the designs named for it, then their
+ * layers, each with its design, the components to insert, with where each is from, and the tokens. Picking a design
+ * selects it and zooms to it, a layer selects it, a component inserts it at the selection, and a token opens Tokens
+ * searched for it.
+ */
+export const SearchEverything: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    openDialog("actions")
+    await enter(await body().findByRole("combobox"), "card")
+    const dialog = await body().findByRole("dialog", { name: "Search" })
+    await waitFor(() =>
+      expect(searchRows(dialog).map((group) => group.heading)).toEqual(["Designs", "Layers", "Components", "Tokens"])
+    )
+    await expect(searchRows(dialog)[0]!.rows).toEqual(["Plan card", "Stat card", "Project card"])
+  }
+}
+
+/**
+ * What was picked lately leads the list, latest first (PAR-180): after zooming to fit and picking the Plan card design,
+ * Search actions opens with those two under Recent, and doesn't list them again below.
+ */
+export const SearchRecent: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    for (const [search, pick] of [
+      ["fit", "Zoom to fit"],
+      ["plan", "Plan card"]
+    ] as const) {
+      openDialog("actions")
+      await enter(await body().findByRole("combobox"), search)
+      // The first row of that name: the design rather than the component that inserts it.
+      const [row] = await within(await body().findByRole("dialog")).findAllByRole("option", {
+        name: new RegExp(`^${pick}`)
+      })
+      await userEvent.click(row!)
+      await waitFor(() => expect(body().queryByRole("dialog")).not.toBeInTheDocument())
+    }
+    await expect(example().selection.get().design).toBe(design("Plan card"))
+    openDialog("actions")
+    const dialog = await body().findByRole("dialog", { name: "Search" })
+    await waitFor(() =>
+      expect(searchRows(dialog)[0]).toEqual({
+        heading: "Recent",
+        rows: ["Plan card", `Zoom to fit${formatKeys("Shift 1")}`]
+      })
+    )
+  }
+}
+
+/**
+ * Edit after wrapping a layer in a layout: Repeat names what it would do again, with its keys (PAR-180). With another
+ * layer selected, it wraps that one too.
+ */
+export const EditAfterWrapping: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const pricing = design("Pricing")
+      example().selection.set(layersSelection(pricing, [node("Pricing", "Hero")]))
+      actions.wrap.run()
+    }
+  ],
+  play: async () => {
+    await frameDesigns("Pricing")
+    await openMenu("Edit")
+    await expect(body().getByRole("menuitem", { name: /^Repeat wrap in layout/ })).toBeEnabled()
   }
 }
 

@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { isBaseState } from "@parity-app/core"
 import { type Alignment, kindsName } from "@parity-app/editor"
 import {
@@ -140,8 +140,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         <div className="flex flex-col gap-2">
           <AlignButtons />
           <Button variant="outline" size="sm" onClick={() => wrapSelection()}>
-            <Group /> {keymap.wrap.label}{" "}
-            <span className="ml-auto text-xs text-muted-foreground">{formatKeys(keymap.wrap.keys[0])}</span>
+            <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
           </Button>
         </div>
       </PanelSection>

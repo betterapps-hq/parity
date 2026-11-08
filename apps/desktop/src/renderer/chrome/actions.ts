@@ -57,9 +57,10 @@ import {
   zoomToSelection
 } from "./commands.ts"
 import { createDesign } from "./create.ts"
-import type { Command } from "./keymap.ts"
+import { type Command, keymap } from "./keymap.ts"
 import { toggleConsole, togglePanels } from "./layout.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
+import { lastAction, rememberAction, repeatLastAction } from "./repeat.ts"
 
 /**
  * What each shortcut in the keymap runs, for the key handlers and the actions search. `app` ones work anywhere in the
@@ -109,7 +110,7 @@ const tool = (name: Tool): Action => ({
   available: hasSession
 })
 
-export const actions: Record<Command, Action> = {
+const commandActions: Record<Command, Action> = {
   select: tool("select"),
   hand: tool("hand"),
   frame: tool("frame"),
@@ -129,6 +130,7 @@ export const actions: Record<Command, Action> = {
 
   undo: { run: () => undo(), available: () => !!activeSession()?.store.getHistory().canUndo },
   redo: { run: () => redo(), available: () => !!activeSession()?.store.getHistory().canRedo },
+  repeat: { run: repeatLastAction, available: () => !!lastAction() && lastAction()?.available?.() !== false },
   cut: { run: () => cut(), available: hasSomething },
   copy: { run: () => copy(), available: () => (hasLayer() ? can("copy") : hasSomething()) },
   paste: { run: () => paste(), available: hasSession },
@@ -192,4 +194,49 @@ export const actions: Record<Command, Action> = {
   actions: { run: () => openDialog("actions"), scope: "app" },
   shortcuts: { run: () => openDialog("shortcuts"), scope: "app" },
   developerTools: { run: toggleDeveloperTools, scope: "app" }
+}
+
+/**
+ * What Repeat last action runs again (PAR-180): what changes the selected layers or designs, or adds one. Undo, the
+ * clipboard's copying, renaming, selecting, nudging and moving around aren't, as repeating them does nothing new.
+ */
+const repeatable: readonly Command[] = [
+  "paste",
+  "pasteOver",
+  "pasteReplace",
+  "duplicate",
+  "delete",
+  "pasteStyle",
+  "newScreen",
+  "newComponent",
+  "wrap",
+  "unwrap",
+  "makeComponent",
+  "detach",
+  "bringForward",
+  "sendBackward",
+  "bringToFront",
+  "sendToBack",
+  "hide",
+  "alignLeft",
+  "alignCenter",
+  "alignRight",
+  "alignTop",
+  "alignMiddle",
+  "alignBottom",
+  "distributeHorizontal",
+  "distributeVertical"
+]
+
+/** Each command's action, the repeatable ones remembering themselves each time they run, however they're run. */
+export const actions: Record<Command, Action> = { ...commandActions }
+for (const command of repeatable) {
+  const action = commandActions[command]
+  actions[command] = {
+    ...action,
+    run: (event) => {
+      rememberAction({ label: keymap[command].label, run: () => action.run(), available: action.available })
+      return action.run(event)
+    }
+  }
 }

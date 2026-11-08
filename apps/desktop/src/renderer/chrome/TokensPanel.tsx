@@ -17,6 +17,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -32,6 +33,7 @@ import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
+import { onShowToken, takeShownToken } from "./shown-token.ts"
 import {
   Keyframes,
   type PreviewToken,
@@ -132,7 +134,8 @@ export function TokensPanel() {
   const tokens = useTokenList(store)
   const failure = useTokenFailure(store)
   const unwritten = new Set(failure?.tokens.map((change) => change.name))
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(() => takeShownToken() ?? "")
+  useEffect(() => onShowToken(setQuery), [])
   const [source, setSource] = useState<Source>("all")
   const [view, setView] = useState<View>("list")
   // The sections folded closed, by title. Starting or clearing a search unfolds them, so matches always show.

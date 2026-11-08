@@ -138,13 +138,21 @@ still need your call.
     Figma), developer tools and About Parity.
   - **No Check for updates yet.** Parity has no releases, so there's nothing to check; About says so and shows the
     version, Electron and Chromium, with a button to copy them. Updating comes with packaging (PAR-9, PAR-160).
+  - **Search actions finds anything in the project, and Ctrl+Alt+P repeats the last action** (PAR-180). My calls: a
+    picked component is inserted at the selection, as the insert picker and the Components panel do, rather than shown
+    in its panel; a token opens Tokens searched for it. Ctrl+Alt+P is Figma's key for running the last plugin again, the
+    nearest Figma has; Ctrl+D (Illustrator's Transform again) and Ctrl+Y (Word's Repeat) were already Duplicate and
+    Redo. Repeat covers the commands that change or add layers and designs, not undoing, copying, selecting or moving
+    around, which do nothing new a second time. Recent picks are kept per computer, six at most, as the search's job is
+    getting back to things quickly.
   - **Exit is in File on Windows and Linux only;** on a Mac, Quit is in the Parity menu, as every app's is.
 - **Every shortcut is in one keymap,** `chrome/keymap.ts`. The menus, tooltips, the Keyboard shortcuts dialog and the
   key handlers all read it, so what's shown is what works, and a test fails if two commands share keys. Keys are written
   as on Windows, with spaces, and shown joined by `+` on Windows and Linux (`Ctrl+Shift+Z`, and `Ctrl+Plus` for zoom)
   and with the Mac's symbols on a Mac (`⇧⌘Z`). You found the spaced form unclear about whether a `+` was needed
-  (2026-10-29). Menus keep shadcn's plain-text shortcuts, as Figma's and the system's menus do; tooltips, the toolbar
-  and the Keyboard shortcuts dialog use keycaps (`Kbd`).
+  (2026-10-29). **Keys show as keycaps (`Kbd`) wherever they can,** your call on 2026-11-08: tooltips, the toolbar,
+  Search actions, buttons, hints and the Keyboard shortcuts dialog. Only a menu keeps the kit's own shortcut part (the
+  menubar's, context menus' and dropdowns'), which shows them as plain text, as Figma's and the system's menus do.
 - **tldraw's own shortcuts are off.** Its tool keys (E, D, R, A, L, F, N, K) switched to drawing tools behind Parity's
   toolbar, Ctrl+/ flipped the canvas to light mode, and Ctrl+. and Ctrl+' turned on modes Parity doesn't use. Space to
   pan stays, as it isn't a shortcut, and the arrows nudge through the keymap (CAN-39).

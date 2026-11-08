@@ -92,7 +92,7 @@ const basics: { id: string; label: string; icon: typeof Type; node: () => Design
 type Action = { kind: "basic"; basic: (typeof basics)[number] } | { kind: "item"; item: InsertItem }
 
 /** Everything the picker offers a project, built once for what the project lists now. */
-interface Offer {
+export interface Offer {
   options: InsertOption[]
   actions: Map<string, Action>
 }
@@ -105,7 +105,7 @@ interface Offer {
  */
 const offers = new WeakMap<ProjectSession["info"], { designs: string; offer: Offer }>()
 
-function offerOf(session: ProjectSession, entries: readonly ContainerEntry[]): Offer {
+export function offerOf(session: ProjectSession, entries: readonly ContainerEntry[]): Offer {
   const designs = entries
     .map(({ key, container }) => `${key} ${container.id} ${container.kind ?? ""} ${container.name}`)
     .join("\n")
@@ -303,11 +303,7 @@ function InsertList({ session }: { session: ProjectSession }) {
   const component = action?.kind === "item" && action.item.kind === "component" ? action.item.component : undefined
   const uses = useMemo(() => componentUses(entries.map((entry) => entry.container.root)), [entries])
 
-  const run = (key: string) => {
-    const action = offer.actions.get(key)
-    if (action?.kind === "basic") insertBasic(session, action.basic)
-    else if (action) insert(session, action.item)
-  }
+  const run = (key: string) => insertOption(session, offer, key)
   const pick = (line: Line | undefined) => {
     if (line?.type === "row") run(line.row.key)
     else if (line?.type === "icon") insert(session, line.entry.item)
@@ -574,6 +570,13 @@ function RowContent({
       {detail}
     </>
   )
+}
+
+/** Inserts one of the offer's options at the selection, as picking it here does: Search actions picks them too. */
+export function insertOption(session: ProjectSession, offer: Offer, key: string): void {
+  const action = offer.actions.get(key)
+  if (action?.kind === "basic") insertBasic(session, action.basic)
+  else if (action) insert(session, action.item)
 }
 
 function insert(session: ProjectSession, item: InsertItem): void {

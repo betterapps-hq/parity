@@ -1,6 +1,7 @@
 import {
   Button,
   Input,
+  Kbd,
   Select,
   SelectContent,
   SelectItem,
@@ -393,8 +394,7 @@ function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) 
       </p>
       {wrap && (
         <Button variant="outline" size="sm" onClick={() => wrapSelection(session)}>
-          <Group /> {keymap.wrap.label}{" "}
-          <span className="ml-auto text-xs text-muted-foreground">{formatKeys(keymap.wrap.keys[0])}</span>
+          <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
         </Button>
       )}
     </div>

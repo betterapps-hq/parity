@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Search actions (Ctrl+K) finds designs, layers, components, tokens and panel actions, with recent picks first, and Repeat last action (Ctrl+Alt+P) runs the last change again on the selection",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
