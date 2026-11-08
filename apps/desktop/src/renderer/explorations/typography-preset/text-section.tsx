@@ -76,7 +76,6 @@ import {
   type TypeField,
   typeFields,
   type TypeValue,
-  valuesByViewport,
   viewports,
   type ViewportId,
   weights,
@@ -375,14 +374,8 @@ function PresetRow({
   const preset = presetByName(project, layer.preset)
   const overrides = overrideCount(project, layer)
   const changesByViewport = preset ? [...coveredBy(preset)].filter((field) => presetVaries(preset, field)) : []
-  const hint = [
-    "Typography preset",
-    preset && `${preset.name}: ${summary(project, presetAt(preset, viewport))}`,
-    changesByViewport.length > 0 &&
-      `Its ${changesByViewport.map((field) => fieldLabel(field).toLowerCase()).join(" and ")} changes with the viewport`
-  ]
-    .filter(Boolean)
-    .join("\n")
+  // One short line at most: the label names the row, and the dot says it changes with the viewport.
+  const hint = changesByViewport.length > 0 ? "Changes with the viewport" : undefined
   const closest = closestPreset(project, layer, viewport)
   return (
     <>
@@ -738,16 +731,14 @@ function TypeRow({
   const differs = differsByViewport(project, layer, field)
   const fromPatch = (source.kind === "override" || source.kind === "own") && source.from !== "mobile"
   const viewportName = fromPatch ? viewports.find((entry) => entry.id === source.from)!.name : undefined
-  const hint = [
-    preset && source.kind === "preset" && `From ${preset.name}`,
-    source.kind === "override" &&
-      `Overrides ${formatValue(field, presetAt(preset!, viewport)[field])} from ${preset?.name}`,
-    source.kind === "inherited" && "Inherited",
-    viewportName && `Set for ${viewportName} and wider`,
-    differs && valuesByViewport(project, layer, field)
-  ]
-    .filter(Boolean)
-    .join("\n")
+  // One short line at most, the first that applies: where a wider viewport sets it, else where its value comes from.
+  // The dot says it changes with the viewport; each viewport's value belongs in the label's menu, not here.
+  const hint =
+    (viewportName && `Set for ${viewportName} and wider`) ||
+    (source.kind === "override" && `Overrides ${preset?.name}`) ||
+    (source.kind === "preset" && `From ${preset?.name}`) ||
+    (source.kind === "inherited" && "Inherited") ||
+    undefined
   const row = (control: ReactNode, action?: ReactNode) => (
     <Row field={field} label={label} hint={hint} dot={differs} tone={fromPatch ? modeColor : undefined} action={action}>
       {control}

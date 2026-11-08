@@ -391,13 +391,6 @@ export function differsByViewport(project: PresetProject, layer: TextLayer, fiel
   return new Set(values).size > 1
 }
 
-/** Each viewport's value for a row, for its hint: "Mobile 25, Tablet 29.15, Laptop 32.39, Desktop 34". */
-export function valuesByViewport(project: PresetProject, layer: TextLayer, field: TypeField): string {
-  return viewports
-    .map((viewport) => `${viewport.name} ${formatValue(field, shownAt(project, layer, viewport.id, field).value)}`)
-    .join(", ")
-}
-
 /** How many of the layer's own values override its preset, across viewports. */
 export function overrideCount(project: PresetProject, layer: TextLayer): number {
   const covered = coveredBy(presetByName(project, layer.preset))
