@@ -31,6 +31,7 @@ import {
 import { type Token } from "@parity-app/tokens"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
 import {
+  type ComponentProps,
   createContext,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -47,6 +48,7 @@ import { ProjectContext } from "../canvas/context.ts"
 import { GestureRun } from "../canvas/gesture.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { Hint } from "./Hint.tsx"
+import { NameInput } from "./Name.tsx"
 import {
   type FieldEffect,
   type FieldEvent,
@@ -220,7 +222,7 @@ function FieldMessageLine({ id, message }: { id: string; message: FieldMessage }
     <p
       id={id}
       role={message.tone === "error" ? "alert" : "status"}
-      className={`min-w-0 text-[11px] leading-snug ${messageTones[message.tone]}`}
+      className={`type-message min-w-0 ${messageTones[message.tone]}`}
     >
       {message.text}
     </p>
@@ -234,7 +236,7 @@ function FieldMessageLine({ id, message }: { id: string; message: FieldMessage }
         type="button"
         onClick={action.run}
         aria-label={action.name}
-        className="shrink-0 rounded-sm text-[11px] leading-snug font-medium whitespace-nowrap text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="type-message shrink-0 rounded-sm font-medium whitespace-nowrap text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         {action.label}
       </button>
@@ -242,19 +244,25 @@ function FieldMessageLine({ id, message }: { id: string; message: FieldMessage }
   )
 }
 
-/** A text input that commits on blur or Enter, so typing doesn't write a file per keystroke. */
+/**
+ * A text input that commits on blur or Enter, so typing doesn't write a file per keystroke. One that edits a name
+ * (`name`) shows it in a name's letters, through `NameInput` (docs/typography.md: Names keep their letters).
+ */
 export function TextInput({
   value,
   onCommit,
   placeholder,
   multiline = false,
-  mono = false
+  mono = false,
+  name = false
 }: {
   value: string
   onCommit: (value: string) => void
   placeholder?: string
   multiline?: boolean
   mono?: boolean
+  /** It edits a name, which a single-line field shows in a name's letters. */
+  name?: boolean
 }) {
   const mixed = useMixed()
   const className = `h-7 px-2 text-xs ${mono ? "font-mono" : ""}`
@@ -276,8 +284,9 @@ export function TextInput({
       />
     )
   }
+  const Control = name ? NameInput : Input
   return (
-    <Input
+    <Control
       key={value}
       defaultValue={value}
       placeholder={mixed ? "Mixed" : placeholder}
@@ -368,7 +377,7 @@ export function NumberField({
    * run lasts while only Up and Down are pressed on one target: typing, Enter, Escape, leaving the field, scrubbing or
    * the target changing ends it.
    */
-  const presses = useMemo(() => (store ? new GestureRun(store) : undefined), [store])
+  const presses = useMemo(() => (store ? new GestureRun(store, "fieldNudge") : undefined), [store])
   const endGesture = () => presses?.end()
   const beginGesture = () => presses?.gesture(target)
   const input = useRef<HTMLInputElement>(null)
@@ -571,7 +580,7 @@ export function NumberField({
     >
       {inner && (
         <span
-          className="shrink-0 cursor-ew-resize touch-none pl-1.5 text-[10px] text-muted-foreground select-none"
+          className="shrink-0 cursor-ew-resize touch-none pl-1.5 text-2xs text-muted-foreground select-none"
           onPointerDown={scrub}
         >
           {inner}
@@ -606,7 +615,7 @@ export function NumberField({
         }}
       />
       {suffix && (
-        <span className="pointer-events-none shrink-0 pr-1.5 text-[10px] text-muted-foreground group-focus-within:hidden">
+        <span className="pointer-events-none shrink-0 pr-1.5 text-2xs text-muted-foreground group-focus-within:hidden">
           {suffix}
         </span>
       )}
@@ -687,15 +696,27 @@ export function ChoiceInput<T extends string>({
       <SelectTrigger size="sm" className="h-7 w-full text-xs">
         <SelectValue placeholder="Mixed" />
       </SelectTrigger>
-      <SelectContent>
+      <PanelSelectContent>
         {items.map((item) => (
           <SelectItem key={item.value} value={item.value}>
             {item.label}
           </SelectItem>
         ))}
-      </SelectContent>
+      </PanelSelectContent>
     </Select>
   )
+}
+
+/**
+ * A panel's select opens over its 12px field with the chosen item where the value was, so its items are the field's
+ * 12px, not a menu's 13px (docs/typography.md: Select in a panel). The kit's items set their own size, so it's set on
+ * them here. Dialogs' selects keep the kit's `SelectContent` and 13px.
+ */
+export function PanelSelectContent({
+  className = "",
+  ...props
+}: Omit<ComponentProps<typeof SelectContent>, "className"> & { className?: string }) {
+  return <SelectContent {...props} className={`[&_[data-slot=select-item]]:text-xs ${className}`} />
 }
 
 export function SwitchInput({
@@ -848,7 +869,7 @@ function ParsedInput({
         }}
       />
       {error && (
-        <p id={id} role="alert" className="text-[11px] leading-snug text-destructive">
+        <p id={id} role="alert" className="type-message text-destructive">
           {error}
         </p>
       )}
@@ -858,13 +879,19 @@ function ParsedInput({
 
 const groupTitles: Record<string, string> = { semantic: "Semantic", theme: "Primitive" }
 
-/** Picks a token by name, searching the project's tokens of the given categories. Colors show swatches. */
+/**
+ * Picks a token by name, searching the project's tokens of the given categories. Colors show swatches. The button is
+ * named for its property and what it shows ("Fill, primary", "Text color, None"), since its text alone is the value.
+ */
 export function TokenInput({
+  label,
   value,
   tokens,
   categories,
   onChange
 }: {
+  /** The property it sets, as a screen reader names it: "Fill", or "Text color" where the row says only Color. */
+  label: string
   value: string | undefined
   tokens: Token[]
   categories: TokenCategory[]
@@ -875,16 +902,21 @@ export function TokenInput({
   const choices = tokens.filter((token) => categories.includes(token.category))
   const current = choices.find((token) => token.name === value)
   const groups = Map.groupBy(choices, (token) => token.source)
+  const shown = value ?? (mixed ? "Mixed" : "None")
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <Button variant="outline" size="sm" className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={`${label}, ${shown}`}
+            className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal"
+          >
             <span className="flex min-w-0 items-center gap-1.5">
               {value && categories.includes("color") && <Swatch value={current?.values.default ?? `var(--${value})`} />}
-              <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>
-                {value ?? (mixed ? "Mixed" : "None")}
-              </span>
+              {/* A token's name is code; None and Mixed are words, so they keep the panel's font. */}
+              <span className={`truncate ${value ? "font-mono" : "text-muted-foreground"}`}>{shown}</span>
             </span>
             <ChevronsUpDown className="size-3 opacity-50" />
           </Button>

@@ -5,6 +5,7 @@ import { keepFilesFromOpening } from "./canvas/drop-files.ts"
 import { setBoundaryReporter } from "./chrome/ErrorBoundary.tsx"
 import { openReport } from "./chrome/ReportProblemDialog.tsx"
 import { receiveTelemetry } from "./chrome/telemetry-setting.ts"
+import { installClassMerger } from "./class-merger.ts"
 import { setInterfaceTelemetry, watchTabs } from "./interface-events.ts"
 import { watchLongTasks } from "./long-tasks.ts"
 import { replaySampling } from "./replay.ts"
@@ -34,6 +35,8 @@ watchTabs({
 })
 void window.canvasHost.telemetry.get().then(receiveTelemetry, () => undefined)
 startTheme()
+// The kit's components merge classes knowing the app's type roles (docs/typography.md).
+installClassMerger()
 keepFilesFromOpening(window)
 
 createRoot(document.getElementById("root")!, reactErrorHandlers).render(

@@ -3,6 +3,8 @@ import { ArrowRight, FileInput, FolderOpen, Inbox } from "lucide-react"
 import { useEffect, useId, useMemo } from "react"
 import { useAccount } from "../account/account.ts"
 import { formatKeys } from "../chrome/keys.ts"
+import { Name } from "../chrome/Name.tsx"
+import { PanelSectionTitle } from "../chrome/PanelSection.tsx"
 import { useExampleFolder, useKnownProjects } from "../workspace.ts"
 import { examplePicture } from "./example-picture.ts"
 import { ProjectArt } from "./ProjectArt.tsx"
@@ -103,9 +105,11 @@ export function ContinueCard({ project, active }: { project: KnownProject; activ
       <div className="flex min-w-0 flex-col items-start gap-3">
         <div className="flex max-w-full flex-col gap-1">
           <span className="text-xs text-muted-foreground">Continue where you left off</span>
-          <h2 className="max-w-full truncate text-lg font-semibold tracking-tight">{project.name}</h2>
+          <h2 className="max-w-full truncate text-lg font-semibold tracking-tight">
+            <Name>{project.name}</Name>
+          </h2>
         </div>
-        <p className="max-w-full text-sm text-pretty wrap-anywhere text-muted-foreground">
+        <p className="max-w-full type-body wrap-anywhere text-muted-foreground">
           {project.opened === undefined ? project.root : `You last opened it ${whenLabel(project.opened, now)}.`}
         </p>
         <Button onClick={resume} aria-label={`Resume ${project.name}`} className="mt-1 gap-2">
@@ -137,7 +141,7 @@ export function FirstTime() {
               Open your React app
             </h2>
           </div>
-          <p className="text-sm text-pretty text-muted-foreground">
+          <p className="type-body text-muted-foreground">
             Parity puts your app&apos;s screens and components on a canvas, drawn by your own code. Changes you make on
             the canvas are written back to it.
           </p>
@@ -178,7 +182,7 @@ export function FirstTime() {
             {example.name}, an example app
           </h2>
         </div>
-        <p className="text-sm text-pretty text-muted-foreground">
+        <p className="type-body text-muted-foreground">
           See its screens in desktop and mobile, drawn by its own code. Then pick another variant for a button, put two
           layers in a row, or see what the accessibility checks find.
         </p>
@@ -248,9 +252,7 @@ function BringYourOwn() {
   ]
   return (
     <section aria-labelledby="bring-your-own" className="flex flex-col gap-1.5">
-      <h2 id="bring-your-own" className="text-sm font-semibold">
-        Bring your own app
-      </h2>
+      <SectionTitle id="bring-your-own" title="Bring your own app" />
       <ul className="-mx-2 flex flex-col">
         {ways.map((way, index) => (
           <li key={way.name}>
@@ -265,7 +267,7 @@ function BringYourOwn() {
                 <way.icon className="size-4" />
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-[13px] font-medium">{way.name}</span>
+                <span className="text-sm font-medium">{way.name}</span>
                 <span id={`${detail}-${index}`} className="truncate text-xs text-muted-foreground">
                   {way.detail}
                 </span>
@@ -286,20 +288,27 @@ function BringYourOwn() {
 function ForYou() {
   return (
     <section aria-labelledby="for-you" className="flex flex-col gap-2.5">
-      <h2 id="for-you" className="text-sm font-semibold">
-        For you
-      </h2>
+      <SectionTitle id="for-you" title="For you" />
       <div className="flex items-start gap-3 rounded-xl border border-dashed p-4">
         <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
           <Inbox className="size-4" />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-[13px] font-medium">Nothing needs you</p>
-          <p className="text-xs text-pretty text-muted-foreground">
+          <p className="text-sm font-medium">Nothing needs you</p>
+          <p className="type-description text-muted-foreground">
             Comments, mentions and reviews that need you show up here.
           </p>
         </div>
       </div>
     </section>
   )
+}
+
+/**
+ * A section's title on Home: the inspector's section title, which leads what it heads, as Bring your own app and For
+ * you lead their rows. It carries the id the section is labelled by, and sits at its rows' edge, without the indent and
+ * margin a title keeps over a panel's fields.
+ */
+function SectionTitle({ id, title }: { id: string; title: string }) {
+  return <PanelSectionTitle id={id} title={title} as="h2" spacing="-ml-1" />
 }

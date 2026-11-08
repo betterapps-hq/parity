@@ -54,6 +54,8 @@ import {
   iconStyles,
   iconsOf
 } from "./icons.tsx"
+import { Name } from "./Name.tsx"
+import { GroupLabel } from "./PanelSection.tsx"
 
 let open = false
 const listeners = new Set<() => void>()
@@ -383,10 +385,10 @@ function InsertList({ session }: { session: ProjectSession }) {
                     <div
                       key={line.key}
                       role="presentation"
-                      className={cn(place, "flex items-end px-2 pb-1.5 text-xs font-medium text-muted-foreground")}
+                      className={cn(place, "flex items-end px-2 pb-1.5")}
                       style={style}
                     >
-                      {line.label}
+                      <GroupLabel>{line.label}</GroupLabel>
                     </div>
                   )
                 }
@@ -571,7 +573,8 @@ function RowContent({
         // As wide as a picture, so every row's name starts in one place.
         <div className="grid w-11 shrink-0 place-items-center">{originIcon(first!.origin, first!.key)}</div>
       )}
-      <span className="truncate">{row.name}</span>
+      {/* A component's name, in the letters names take everywhere; a basic layer's is a label. */}
+      {first!.origin === "basic" ? <span className="truncate">{row.name}</span> : <Name>{row.name}</Name>}
       {detail}
     </>
   )
@@ -586,7 +589,7 @@ export function insertOption(session: ProjectSession, offer: Offer, key: string)
 
 function insert(session: ProjectSession, item: InsertItem): void {
   setOpen(false)
-  if (!insertAtSelection(session, item)) toast.info("Select a layout, or a layer to add it after")
+  if (!insertAtSelection(session, item, "quickInsert")) toast.info("Select a layout, or a layer to add it after")
 }
 
 function insertBasic(session: ProjectSession, { node: make, label }: (typeof basics)[number]): void {

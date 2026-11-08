@@ -4720,8 +4720,11 @@ worktree.
 The events are in [telemetry.md](telemetry.md#events), from `app-events.ts` in `@parity-app/telemetry`, which also holds
 the rules for when each is sent. My calls:
 
-- **`app.started` waits for the first paint and the service,** and leaves out the first project shown: nothing records a
-  project opening yet. That time joins it once `project.opened` exists.
+- **`app.started` waits for the first paint and the service,** and leaves out the first project shown, which has an
+  event of its own (PAR-694): `app.first_project`, from the process starting to the first project's tab being ready to
+  draw, as its `project.loaded` reaches main. It's apart because a window can stay on Home, and holding `app.started`
+  for a project would lose it, and the run it starts, whenever none opens. `restored` says whether the window opened the
+  project as it started, from last time's tabs, so a person's time choosing one can be told apart.
 - **`app.quit` says `window closed`, `update` or `other`.** Parity doesn't restart itself after a crash, so the
   proposal's "crash restart" has nothing to report.
 - **`update.installed` is recorded as the app quits to install,** since the new version can't tell it was just
@@ -5632,7 +5635,8 @@ Sentry's server-side scrubbing stays on as a second net. My calls:
 ## Events go to Sentry through main, and to a local copy at every level (PAR-627)
 
 Every process records its events with `createTelemetry` and the app's Sentry sink, `shared/sentry-sink.ts`, which maps
-envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My calls:
+envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. PAR-642 has since moved it there, for the CLI;
+see "The CLI sends to Sentry from a process of its own" below. My calls:
 
 - **Each process keeps its own breadcrumbs and errors; main sends logs and spans.** In a window, a render window and the
   service, each event and span becomes a breadcrumb in that process's Sentry scope, and a failure becomes a Sentry error
@@ -5769,6 +5773,17 @@ catalogs. My calls:
   throwing it, and nothing is recorded where no telemetry was started, as in stories and tests.
 - **Event names can be camelCase,** as the proposal names them (`document.saveFailed`, `projectEdit.applied`).
 
+## Lint refuses `toast.error` outside `reportError` (PAR-644)
+
+So no new error notification skips the record PAR-632 added, `eslint/no-restricted-properties` in `vite.config.ts`
+refuses `toast.error` anywhere, with a message saying to use `reportError`. My calls:
+
+- **`report-error.ts` is the one exception,** a `lint.overrides` entry with a comment, as exceptions are made here.
+- **Only `toast.error` is refused.** Other notifications (`toast.success`, `toast(...)`) aren't failures, so they don't
+  go through `reportError`.
+- **`scripts/lint.test.ts` lints a probe file** to show the rule refuses `toast.error` and names `reportError`, and that
+  `report-error.ts` still passes.
+
 ## Failed data checks and unsupported projects are recorded (PAR-633)
 
 The product telemetry plan called for `data.invalid` and `project.unsupported`. My calls:
@@ -5880,6 +5895,33 @@ preferences, dialog and selection stores and the start page's actions record the
 `recordInterface`. A tab is sent as what it shows (Home, a project or a new tab), never by its folder, and a tab that
 takes a new id as its project opens isn't an open, a close or a switch. Mode means designing or Interact, the canvas's
 one switch between editing and using the designs.
+
+## Editing is recorded once per thing done (PAR-640)
+
+`gesture.ended`, `edit.undone`, `edit.redone`, `inspector.changed`, `insert.done`, `clipboard.pasted`,
+`clipboard.failed` and `text.edited` are in [telemetry.md](telemetry.md#editing), from `editing-events.ts` in
+`@parity-app/telemetry`. My calls:
+
+- **Nothing is recorded per pointer move or per frame, so nothing is sampled.** Each event is one gesture, step, field
+  change, insert, paste or edit. A frame rate is a count kept while the gesture lasts and sent with its end. PAR-647 can
+  sample them if their volume needs it.
+- **Gesture kinds are the names `canvas/gesture.ts` already gives them** (`resize`, `layerDrag`, `absoluteDrag`,
+  `titleDrag`, `boxSelect`, `frameDraw`), with `move` for boards and notes tldraw moves, `nudge` and `fieldNudge` for
+  runs of presses, `insertDrag`, `pan` and `zoom`, rather than the proposal's coarser list, so a kind matches the code
+  and its `gesture.ran` trace.
+- **A pan or zoom is one gesture until the camera has been still for 300 ms,** as the camera has no press and release of
+  its own. It includes the camera's own moves, such as zooming to fit.
+- **`undoStep` comes from the design store:** `endGesture` now says whether the gesture made a step, so a drag taken
+  back, or one that changed nothing, says no.
+- **Undo and redo are recorded in the design store,** so the toolbar, the keys, the menus and the toasts' Undo all
+  count, with the designs whose entries changed and the files the step writes.
+- **Inspector values go as JSON,** with `mixed` for a row whose layers differed, and a change that leaves the value as
+  it was isn't recorded. The style rows and a layer's text, visibility and props are covered; the rest of the inspector
+  (names, images, tokens, states) isn't yet.
+- **A paste is an insert too,** so `insert.done` covers everything that puts something on the canvas, and
+  `clipboard.pasted` says which paste and what was on the clipboard.
+- **A text edit closed by Escape is committed,** as Escape keeps the edit. It's `unchanged` when the text is as it was
+  and `cancelled` when the editor closes before it could write, as when the layer goes.
 
 ## `parity logs` reads the local copy (PAR-636)
 
@@ -6076,3 +6118,161 @@ someone sticking to presets doesn't need, and locking shows that the preset hold
   (`typePreset: { token: "subtitle1" }`). Tailwind's adapter writes the preset as one class, a `--text-*` size
   (`text-xl`) or, when the preset names a font or sets case, a project utility (`type-subtitle1`), with each override as
   a class after it (`leading-6`). PAR-708 maps the other frameworks, and PAR-135 reads the presets.
+
+## The Design panel has no kind switch (PAR-721)
+
+Andrew found the Frame, Component and Screen toggle under a design's name "very ugly" on 2026-11-08, and asked why
+changing a design's kind should be so easy from there. It repeated the title menu's Convert to items, and the icon
+beside the name already shows the kind, so he asked to remove it. This replaces "The inspector's kind switch is Frame,
+Component, Screen" under PAR-545: converting is in each design's title menu, and as Make component's Convert to in the
+canvas and Object menus, with the same toast, Undo and dialog as before. The panel keeps the design's path and, for a
+frame, where it's drawn.
+
+## Agent calls are recorded where they're answered, and the CLI keeps its own log (PAR-641)
+
+The agent server records every call as its `agent.called` span, and the CLI records its own runs, connection failures,
+version mismatches and MCP sessions. My calls:
+
+- **One place for each.** A call is recorded in the service's agent handler, not by each CLI command or MCP tool, so
+  both transports are covered by one span. The CLI now says which it is, as `transport` in the body it posts; a body
+  from an older CLI counts as MCP when it names an MCP client.
+- **The inputs go as JSON, cut short, with an `exec` snippet apart.** `input` is the params without the snippet, up to
+  2,000 characters, and `snippet` the code, up to 10,000, both scrubbed like every attribute. Warnings are recorded by
+  category with their counts (`overlap:2 unknown_prop:1`), not their messages, and alternatives by how many.
+- **A snippet that fails without throwing ends its span as `error`.** `exec` and `screenshot` answer `ok: false` rather
+  than throwing, so `endWhenSettled` takes an optional `settled` that says how a span ends, and `inSpan` passes it on.
+- **The CLI's events go to `~/.parity/logs/parity-cli-<date>.jsonl` until PAR-642 sends them,** written as they happen,
+  since a command is short, with the newest 10 days kept. The install ID is the app's, from `telemetry.json`. Nothing is
+  recorded until `bin.ts` starts it, so code that imports the client records nothing, and under Vitest only a folder
+  `PARITY_CLI_LOGS` names is written to.
+- **A command's calls carry its `cli.ran` span,** so its trace has a root in the local log. `parity mcp` ends its span
+  once it's listening, and each MCP call starts its own trace, as before.
+- **`cli.ran` records flags by name only,** since their values can name files, projects and snippets.
+
+## Opening projects, builders and servers are recorded (PAR-637)
+
+The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` in `@parity-app/telemetry`. My calls:
+
+- **`project.opened` and `project.openFailed` are events, not spans,** since a span keeps the name it started with and
+  the outcome decides the name. Each carries its total and per-step times as attributes (`detectionMs`, `builderMs`),
+  and the steps are spans in the open's trace: `project.detected` for reading the package, tools, files and components,
+  and `builder.started` (PAR-629) for the builder.
+- **`project.openFailed` names the step that failed,** `detection` or `builder`, with the message the tab shows and the
+  `CodedError` code when there is one. An unsupported project is still `project.unsupported` too.
+- **The window's part is `project.loaded`,** recorded once the tab's guest and components have loaded, with the time
+  from asking to open it. It names the project by `name` and `root`, as `project.opened` does, so the two can be paired
+  when several projects open in one session. The first frame drawn is `project.drawn` (PAR-711), below.
+- **TypeScript's version comes from its installed package,** since detection doesn't list it; React, Vite, Tailwind and
+  Storybook come from detection.
+- **A reopen is one the service makes as it starts** (PAR-179), and `cached` means the components and props came from
+  detection's cache.
+- **`builder.crashed` is a `warn` with the builder's exit code or signal and its last 50 lines,** next to the Sentry
+  error the service already sends for a crash, so the crash shows in the trace's logs as well as in Issues.
+- **`server.started` and `server.failed` come from the process manager,** with `exited` or `timeout`. Builders run in
+  processes of their own, outside it, so they have their own events.
+- **Node code records through `track` in `shared/tracing.ts`,** which puts the event under the span the process is
+  working in, as `inSpan` does for spans.
+
+## The first frame drawn when a project opens is recorded (PAR-711)
+
+The events are in [telemetry.md](telemetry.md#events), from `project-events.ts`. My calls:
+
+- **The window starts the open's trace, as `project.opening`.** It's a span from asking to open a project until its tab
+  is ready, the open fails (with its code) or the tab is closed (cancelled). It continues the trace of the action that
+  asked, such as Open project, and starts one of its own otherwise, as at startup or from the start page. The
+  `project.open` request is asked in it, so the service's `project.detected`, `builder.started` and `project.opened` are
+  in the same trace, and so is `project.loaded`. Before this, an open from the start page had no trace in the window.
+- **The first frame is `project.drawn`, an event in that trace,** since it comes after the span ends, when the canvas
+  has mounted. Its `durationMs` runs from asking to open, the same start as `project.loaded`, so the two compare. `from`
+  says whether the frame drew its design (`live`) or showed a bitmap kept from an earlier session or captured offscreen
+  (`bitmap`).
+- **A frame counts once it's seen on screen, not once it's ready.** Frames offer a bitmap once it's decoded, and a live
+  frame once the guest has put its design in it (a `MutationObserver` on the element it mounts in). Then, each animation
+  frame, `canvas/first-frame.ts` checks whether what was offered is rendered (`checkVisibility`, which leaves out a live
+  frame that `content-visibility` skips while its bitmap stands in) and in the window. Whether a bitmap shows depends on
+  styles (the zoom, sleep, the selected board), so a decoded bitmap that stays hidden at the zoom a project opens at
+  isn't counted. The check stops at the first frame seen, or when nothing is offered.
+- **Only the first frame of a newly opened or reopened tab is recorded.** A tab opened in the background, as at startup,
+  records it when it's first shown, so its time includes the wait. A project with no designs draws no frame, so it has
+  no `project.drawn`.
+
+## The CLI sends to Sentry from a process of its own (PAR-642)
+
+The CLI's events, its `cli.ran` spans and the errors it hits go to Sentry's `parity-cli` project through `@sentry/node`
+11.8.0, the version `@sentry/electron` 8.3.0 already brings, approved with "Parity's own telemetry goes to Sentry, on by
+default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My calls:
+
+- **A command never loads `@sentry/node`.** Loading it took about 300 ms here, against about 150 ms for a whole
+  `parity tabs`, which would break "It never slows a command". A command keeps what it would send, writes it to
+  `~/.parity/outbox` as it exits, and starts a detached `node send.mjs`, which sends every batch waiting and exits.
+  `parity tabs` took about 20 ms longer with diagnostics on. This replaces the issue's in-process flush with a short cap
+  on exit, which would still have waited on the load or the network.
+- **One sender at a time, and nothing left behind.** The sender holds `.sending` in the outbox while it sends, takes a
+  lock two minutes old as a dead sender's, removes each batch before sending it, and reads the folder again after
+  letting go. A batch a day old is dropped unsent, as from a computer that was offline.
+- **The Sentry mapping is shared, in `@parity-app/telemetry`.** `createSentrySink`, `breadcrumbOf`, `errorOf`, `logOf`
+  and `transactionOf` moved there from `apps/desktop/src/shared/sentry-sink.ts`, typed with the parts of Sentry's types
+  they fill in, so the package still never imports Sentry. The CLI uses the same sink with `upload`, as main does:
+  events as logs and breadcrumbs, spans as transactions with Parity's own IDs, so `cli.ran` is the root the app's
+  `agent.called` continues.
+- **Errors that are bugs, not answers.** A command's failure goes to Sentry only when it isn't one of Parity's coded
+  errors: invalid input or an app that isn't running is the command's answer, on `cli.ran`. An error nothing caught is
+  sent as unhandled. Both carry the command's trace.
+- **The same setting, read each run.** `cliTelemetrySetting` reads the app's `telemetry.json` and the variables through
+  `resolveTelemetry`, so `PARITY_TELEMETRY`, `DO_NOT_TRACK` and Vitest decide as they do for the app, and a
+  `PARITY_TELEMETRY` that isn't a level fails the command. Before the app has run, the CLI sends, as install `none`.
+- **Every CLI call counts as an agent's,** as the app counts them: `driver` is `agent`, `agent` the caller's name
+  (`Terminal` unless `PARITY_AGENT_NAME` or MCP names it) and `agent_client` the MCP client.
+- **Installed means installed from npm.** A CLI under `node_modules` reports as `tester` and names its release
+  `parity-cli@<version>`; one run from a checkout, from source or its own `dist`, reports as `development`, named by the
+  checkout's commit, which the sender reads with Git. A pkg.pr.new preview is installed too, so it reports as its
+  version.
+- **The notice is one line on stderr, once:** "Parity shares diagnostics to help fix bugs. To stop sharing them, turn
+  off Settings > Privacy > Share diagnostics in the app, or set PARITY_TELEMETRY=off." It names the switch by its path
+  in the app, not Sentry, as PAR-626 asked, reviewed with the writing-style-guide skill, and stays off stdout, which
+  agents parse. `~/.parity/telemetry-notice` says it was shown.
+- **The CLI scrubs keys, tokens and passwords, not `.env` values,** which only the service reads.
+
+## The interface is set in Inter (PAR-709)
+
+- **Parity's own interface is set in Inter, not Geist,** Andrew's call on 2026-11-08, after seeing the proposed type
+  ([interface-type.md](proposals/interface-type.md)) set in both at the same sizes and weights. Inter was drawn for
+  interfaces at small sizes. Its optical sizes run from 14px, so they tighten names and headings; the chrome's 11 to
+  13px all use the 14px cut.
+- **It's Inter's own release, bundled with the app,** 4.1 from github.com/rsms/inter, in
+  `apps/desktop/src/renderer/fonts/inter` with its licence (SIL OFL 1.1). Andrew agreed on 2026-11-08: it's a desktop
+  app, so shipping the font is no problem. The npm builds come from Google Fonts and leave out the alternates that tell
+  I, l and 1 apart, which a design tool needs for layer names, token names and values. `styles.css` loads it with
+  `font-display: block`, since the file is local.
+- **The rest of the proposed type is approved,** Andrew's call on 2026-11-08: its sizes, roles, sentence-case section
+  titles and monospace, as [interface-type.md](proposals/interface-type.md) sets them. Its weights, 450, 550 and 650,
+  stay provisional until the check on a Mac and on Windows at 150% that the proposal sets out.
+
+## The interface type is built into the app (PAR-710)
+
+The approved type from [interface-type.md](proposals/interface-type.md) is the app's, and [typography.md](typography.md)
+describes its roles and their classes. My calls, and Andrew's where named:
+
+- **Four chrome sizes in the theme:** 11/14 (`text-2xs`, with 0.01em), 12/16, 13/18 and 15/20, with headings at 18/24
+  and 24/32, set in a plain `@theme` in `styles.css` so the kit's components read them. Line heights are ratios. Wrapped
+  text has its own utilities, `type-description`, `type-message`, `type-body`, `type-empty` and `type-code`.
+- **Weights at 450, 550 and 650, still provisional,** through `font-normal`, `font-medium` and `font-semibold`, with
+  Inter's medium and semibold held once as `--weight-sans-medium` and `--weight-sans-semibold`. Font smoothing isn't set
+  yet: the proposal pairs it with the weights, so both wait for the check on a Mac.
+- **Code is set in each system's monospace,** Cascadia Mono, Menlo or Consolas, at 400 with Cascadia's lowercase height
+  through `font-size-adjust`, never medium.
+- **The kit's overrides stay in the app,** Andrew's call on 2026-11-08: the type is Parity's, not something every app
+  built on Buildkit should take. Each is a rule in `styles.css` keyed on the kit class it replaces, and
+  `kit-type.test.ts` fails when a kit upgrade adds or changes one of the kit's own type classes.
+- **The app depends on `cn` directly,** 0.5.1, the merger the kit's runtime already uses, Andrew's go-ahead on
+  2026-11-08. `class-merger.ts` registers `text-2xs` as a size and the `type-*` roles as sizes with line heights, and
+  installs it with the kit's `setCn`, so a caller's role replaces the kit's size rather than sitting beside it. Without
+  it, `cn` read `text-2xs` as a color and dropped it beside one.
+- **Names have their own letters:** `<Name>` and `NameInput` (`chrome/Name.tsx`) carry `name-text`, Inter's `ss04` with
+  contextual alternates off, wherever a name stands on its own or is edited.
+- **The 12px titles are components:** `PanelSectionTitle` with a `lead` or `quiet` tone, `GroupLabel` and
+  `DialogGroupTitle`, so the three styles can't drift apart again.
+- **Geist's package is gone,** and with it the Storybook Type control and the exploration's stylesheet. The Scale story
+  stays as Parity/Type/Scale.
+- **The lint rule lands on its own,** as PAR-729: it can only pass once every class is on a role, and it's a plugin with
+  tests of its own, so it follows this build rather than holding it up.

@@ -173,6 +173,9 @@ catalogs:
     '@sentry/electron':
       specifier: 8.3.0
       version: 8.3.0
+    '@sentry/node':
+      specifier: 11.8.0
+      version: 11.8.0
     beachball:
       specifier: 2.66.0
       version: 2.66.0
@@ -246,9 +249,6 @@ importers:
       '@buildkitgg/shadcn-baseui-kit':
         specifier: 'catalog:'
         version: '@buildkitgg/shadcn-baseui-nova@0.5.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)'
-      '@fontsource-variable/geist':
-        specifier: ^5.3.0
-        version: 5.3.0
       '@sentry/electron':
         specifier: 'catalog:'
         version: 8.3.0(@babel/core@7.29.7(supports-color@7.2.0))
@@ -258,6 +258,9 @@ importers:
       axe-core:
         specifier: 4.14.0
         version: 4.14.0
+      cn:
+        specifier: ^0.5.1
+        version: 0.5.1
       lucide-react:
         specifier: ^1.66.0
         version: 1.66.0(@types/react@19.3.0)(react@19.3.1)
@@ -518,6 +521,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@sentry/node':
+        specifier: 'catalog:'
+        version: 11.8.0(@babel/core@7.29.7(supports-color@7.2.0))
       semver:
         specifier: ^7.8.5
         version: 7.8.5

@@ -15,11 +15,13 @@ import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { z } from "zod"
 import type { ProjectEditResult, ProjectInfo, TabSummary } from "../shared/protocol.ts"
+import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
 import { getPreferences } from "./chrome/preferences.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
+import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
 import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
@@ -47,6 +49,11 @@ export interface ProjectSession {
   errors: { path: string; error: string }[]
   /** The tab's canvas, once mounted. */
   editor?: Editor
+  /**
+   * Watches for the first frame its canvas draws on screen, live or from a bitmap, recorded with how long opening took
+   * (PAR-711). Gone once one has.
+   */
+  firstFrame?: FirstFrameWatch
 }
 
 export interface Tab {
@@ -146,9 +153,9 @@ export class Workspace {
     // Set first, so the projects reopening behind it don't take its place.
     if (saved.active === homeTab) this.activeId = homeTab
     if (roots.length === 0) {
-      if (window.canvasHost.initialProject) void this.open(window.canvasHost.initialProject)
+      if (window.canvasHost.initialProject) void this.open(window.canvasHost.initialProject, true, true)
     } else {
-      for (const root of roots) void this.open(root, root === saved.active)
+      for (const root of roots) void this.open(root, root === saved.active, true)
       if (saved.active !== homeTab && !roots.includes(saved.active ?? "")) this.activate(this.tabs[0]?.id)
     }
   }
@@ -163,9 +170,10 @@ export class Workspace {
 
   /**
    * Opens a project in a new tab, or switches to its tab when it's already open. Opened from a new tab, it opens in
-   * that tab instead; one that's already open elsewhere closes the new tab it was picked from.
+   * that tab instead; one that's already open elsewhere closes the new tab it was picked from. `restored` when the
+   * window opens it as it starts, rather than the person choosing it.
    */
-  async open(root: string | undefined, activate = true): Promise<Tab> {
+  async open(root: string | undefined, activate = true, restored = false): Promise<Tab> {
     const active = this.getActive()
     const into = activate && active?.blank ? active.id : undefined
     const existing = root ? this.getTab(root) : undefined
@@ -188,16 +196,19 @@ export class Workspace {
 
     let current = placeholder
     let opened: string | undefined
+    const asked = startOpening(root, false)
     try {
-      const info = await request("project.open", { root })
+      const info = await asked.ask(() => request("project.open", { root }))
       opened = info.id
       attempt.projectId = info.id
       if (attempt.abandoned) {
+        asked.dropped()
         this.dropAbandoned(info.id)
         return opening
       }
       const duplicate = info.id !== placeholder ? this.getTab(info.id) : undefined
       if (duplicate) {
+        asked.dropped()
         this.endAttempt(attempt, placeholder)
         this.remove(placeholder)
         if (activate) this.activate(duplicate.id)
@@ -208,13 +219,16 @@ export class Workspace {
       current = info.id
       const builder = info.builder.name
       this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
-      const session = await createSession(info)
+      const { session, recordLoaded } = await createSession(info, asked, restored)
       if (attempt.abandoned) {
+        asked.dropped()
         this.dropAbandoned(info.id, info.guestUrl)
         return opening
       }
       this.endAttempt(attempt, info.id)
+      firstFrameOf(session, asked.ready(info))
       this.replace(info.id, { id: info.id, title: info.name, status: "ready", session })
+      recordLoaded()
       this.settleMove(info.id)
       this.remember(info.root)
       return this.getTab(info.id)!
@@ -222,9 +236,11 @@ export class Workspace {
       const message = error instanceof Error ? error.message : String(error)
       this.endAttempt(attempt, current)
       if (attempt.abandoned) {
+        asked.dropped()
         if (opened) this.dropAbandoned(opened)
         return { ...opening, status: "error", message }
       }
+      asked.failed(error)
       this.replace(current, { ...this.getTab(current)!, status: "error", message })
       return this.getTab(current)!
     }
@@ -312,22 +328,33 @@ export class Workspace {
     if (tab.session) releaseGuest(tab.session.info.guestUrl)
     if (attempt.abandoned) return
     let opened: string | undefined
+    const asked = startOpening(id, true)
     try {
-      const info = await request("project.open", { root: id })
+      const info = await asked.ask(() => request("project.open", { root: id }))
       opened = info.id
-      if (attempt.abandoned) return this.dropAbandoned(info.id)
+      if (attempt.abandoned) {
+        asked.dropped()
+        return this.dropAbandoned(info.id)
+      }
       this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
-      const session = await createSession(info)
-      if (attempt.abandoned) return this.dropAbandoned(info.id, info.guestUrl)
+      const { session, recordLoaded } = await createSession(info, asked)
+      if (attempt.abandoned) {
+        asked.dropped()
+        return this.dropAbandoned(info.id, info.guestUrl)
+      }
       this.endAttempt(attempt, id)
+      firstFrameOf(session, asked.ready(info))
       this.replace(id, { id, title: info.name, status: "ready", session })
+      recordLoaded()
       this.settleMove(id)
     } catch (error) {
       this.endAttempt(attempt, id)
       if (attempt.abandoned) {
+        asked.dropped()
         if (opened) this.dropAbandoned(opened)
         return
       }
+      asked.failed(error)
       this.replace(id, {
         id,
         title: tab.title,
@@ -759,7 +786,17 @@ function sayWhenSavesFail(session: ProjectSession): void {
   })
 }
 
-async function createSession(info: ProjectInfo): Promise<ProjectSession> {
+/**
+ * Loads an opened project's guest and components into a session. `recordLoaded` records how long that and the whole
+ * open took (PAR-637), in the open's trace (PAR-711), and whether the window `restored` it as it started (PAR-694);
+ * it's for once the tab has the session, so an open its tab abandoned isn't counted as ready.
+ */
+async function createSession(
+  info: ProjectInfo,
+  asked: Opening,
+  restored = false
+): Promise<{ session: ProjectSession; recordLoaded: () => void }> {
+  const loading = performance.now()
   const loaded = await loadGuest(info.guestUrl, info.theme)
   const store = new DesignStore(
     openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
@@ -785,7 +822,25 @@ async function createSession(info: ProjectInfo): Promise<ProjectSession> {
   }
   sayWhenSavesFail(session)
   followCorrections(session)
-  return session
+  const now = performance.now()
+  const recordLoaded = () =>
+    asked.loaded({
+      name: info.name,
+      root: info.root,
+      durationMs: Math.round(now - asked.began),
+      componentsMs: Math.round(now - loading),
+      components: info.componentCount,
+      restored
+    })
+  return { session, recordLoaded }
+}
+
+/** Gives the session what records its canvas's first frame, which it lets go of once it has. */
+function firstFrameOf(session: ProjectSession, record: (from: FirstFrame) => void): void {
+  session.firstFrame = watchFirstFrame((from) => {
+    session.firstFrame = undefined
+    record(from)
+  })
 }
 
 /**

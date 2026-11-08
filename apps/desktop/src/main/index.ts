@@ -730,7 +730,9 @@ ipcMain.handle(
 // Windows and render windows send the events they record, named by the window that sent them (PAR-627).
 ipcMain.on(ipc.telemetry, (event, envelope: unknown) => {
   const window = BrowserWindow.fromWebContents(event.sender)
-  recordForwarded(envelope, window && isRenderWindow(window) ? "render" : "renderer")
+  const render = window && isRenderWindow(window)
+  recordForwarded(envelope, render ? "render" : "renderer")
+  if (!render) appLife.forwarded(envelope)
 })
 
 // The editor says which frame's event it's handling just before a console message is written there (PAR-147). Word

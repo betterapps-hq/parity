@@ -1,8 +1,56 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 08 Nov 2026 11:33:58 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 23:45:46 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.26.0
+
+Sun, 08 Nov 2026 23:45:46 GMT
+
+### Minor changes
+
+- Record the first frame a newly opened project's canvas draws, and put the whole open in one trace (PAR-711)
+  (ajcraswell@gmail.com)
+- Record app.first_project, the time from the app starting to the first project's tab being ready to draw, and whether
+  the window restored it (ajcraswell@gmail.com)
+- Record the rest of the inspector's changes as inspector.changed: names, images, an instance's state and component,
+  prop bindings, slots, states, a component's props and variants, resets, and token edits (ajcraswell@gmail.com)
+
+## 0.25.0
+
+Sun, 08 Nov 2026 22:43:39 GMT
+
+### Minor changes
+
+- Record gestures, undo and redo, inspector changes, inserts, pastes and text edits as telemetry events (PAR-640)
+  (ajcraswell@gmail.com)
+
+## 0.24.0
+
+Sun, 08 Nov 2026 21:40:54 GMT
+
+### Minor changes
+
+- The CLI sends its errors, traces and events to Sentry's parity-cli project, without slowing a command
+  (ajcraswell@gmail.com)
+
+## 0.23.0
+
+Sun, 08 Nov 2026 21:21:05 GMT
+
+### Minor changes
+
+- Record project opening, detection, builders and servers (PAR-637) (ajcraswell@gmail.com)
+
+## 0.22.0
+
+Sun, 08 Nov 2026 12:58:30 GMT
+
+### Minor changes
+
+- Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures,
+  version mismatches and MCP sessions in ~/.parity/logs (ajcraswell@gmail.com)
 
 ## 0.21.0
 

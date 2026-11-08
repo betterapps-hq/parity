@@ -1,15 +1,4 @@
-import {
-  Badge,
-  Button,
-  Input,
-  Label,
-  RadioGroup,
-  RadioGroupItem,
-  Switch,
-  ToggleGroup,
-  ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
-import type { ContainerKind } from "@parity-app/core"
+import { Badge, Button, Label, RadioGroup, RadioGroupItem, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import { kindName, kindTitle, selectionKey } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
@@ -18,12 +7,13 @@ import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { ComponentsSection, InCodeSection, ParamsSection } from "./ComponentsSection.tsx"
-import { setDesignKind } from "./designs.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { updateAndRecord } from "./inspector-events.ts"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
+import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { StatesSection } from "./StatesSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
@@ -54,10 +44,11 @@ function SelectedPanel() {
   if (selected.note) return <NotePanel noteKey={selected.note} />
   if (!entry) {
     return (
-      <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
+      <div className="type-empty flex flex-col items-center gap-2 px-6 py-12 text-center text-muted-foreground">
         <MousePointerClick className="size-5" />
         Select a screen, component or frame on the canvas or in Layers.
-        <span className="text-xs">Click inside one to select a layer, and double-click to go deeper.</span>
+        {/* A non-breaking hyphen, so the balanced hint never breaks "double-click" across its lines. */}
+        <span className="text-xs">Click inside one to select a layer, and double‑click to go deeper.</span>
       </div>
     )
   }
@@ -70,12 +61,8 @@ function SelectedPanel() {
   return <DesignPanel entry={entry} />
 }
 
-/** The kinds a design can be, lightest first, as the kind switch lists them. */
-const kinds: readonly ContainerKind[] = ["frame", "component", "screen"]
-
 function DesignPanel({ entry }: { entry: ContainerEntry }) {
-  const session = useProject()
-  const { store } = session
+  const { store } = useProject()
   const settings = useModeSettings(store)
   const { container, key } = entry
   const { primary } = containerModes(settings, container)
@@ -90,15 +77,19 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
             className="size-4 shrink-0"
             style={{ color: designColor(container.kind) }}
           />
-          <Input
+          {/* The selection's title, at 15px semibold on every tab; md:text-base replaces the kit's md:text-sm. */}
+          <NameInput
             key={container.name}
             defaultValue={container.name}
             aria-label={`${kindTitle(container.kind)} name`}
-            className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input dark:bg-transparent"
+            className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input md:text-base dark:bg-transparent"
             onBlur={(event) => {
               const name = event.currentTarget.value.trim()
               if (name && name !== container.name) {
-                store.updateContainer(key, `Rename ${kind}`, (current) => ({ ...current, name }))
+                updateAndRecord(store, key, `Rename ${kind}`, (current) => ({ ...current, name }), {
+                  field: "name",
+                  read: (current) => current.name
+                })
               }
             }}
             onKeyDown={(event) => {
@@ -107,23 +98,6 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
           />
         </div>
         <div className="mt-2 flex items-center gap-2 pl-6">
-          <ToggleGroup
-            variant="outline"
-            size="sm"
-            spacing={0}
-            value={[container.kind ?? "screen"]}
-            aria-label="Kind"
-            onValueChange={([value]) => {
-              const picked = kinds.find((each) => each === value)
-              if (picked) setDesignKind(session, entry, picked)
-            }}
-          >
-            {kinds.map((each) => (
-              <ToggleGroupItem key={each} value={each} className="h-6 px-2 text-xs">
-                {kindTitle(each)}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
           <Hint label={entry.path} wait>
             <Badge variant="outline" className="min-w-0 shrink justify-start font-normal">
               <span className="truncate">{entry.path}</span>
@@ -139,7 +113,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
                 Drawn in {primary.name}
               </span>
             </Hint>
-            <p className="text-xs text-muted-foreground">
+            <p className="type-description text-muted-foreground">
               A frame isn&apos;t written to code. Convert it to a component or a screen to use it in your app.
             </p>
           </div>
@@ -208,7 +182,7 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
                 >
                   <span className="flex items-center gap-1.5 text-sm">
                     <ModeViewportIcon of={mode} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                    <span className="truncate">{mode.name}</span>
+                    <Name>{mode.name}</Name>
                     {index === 0 && <Crown className="size-3 shrink-0 text-amber-400" aria-label="Project primary" />}
                   </span>
                   <span className="flex flex-wrap gap-1 pt-0.5">
@@ -260,8 +234,9 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
   )
 }
 
+/** A tag on a mode's row, its width or a variable's option: a Caption. */
 function OptionChip({ children }: { children: React.ReactNode }) {
-  return <span className="rounded bg-muted px-1.5 py-px text-[11px] text-muted-foreground">{children}</span>
+  return <span className="rounded bg-muted px-1.5 py-px text-2xs text-muted-foreground">{children}</span>
 }
 
 function NotePanel({ noteKey }: { noteKey: string }) {
@@ -284,7 +259,7 @@ function NotePanel({ noteKey }: { noteKey: string }) {
         }}
         className="w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
       />
-      <p className="mt-2 px-1 text-xs text-muted-foreground">
+      <p className="type-description mt-2 px-1 text-muted-foreground">
         Saved in {note.path}. Double-click it on the canvas to edit in place.
       </p>
     </PanelSection>

@@ -7,6 +7,7 @@ import {
   type registeredEvents,
   type Span,
   type Telemetry,
+  type TraceContext,
   type TraceHeaders,
   traceHeaders
 } from "@parity-app/telemetry"
@@ -47,6 +48,36 @@ export function startTrace<Name extends TraceName>(name: Name, attributes: Event
     end(outcome, learned) {
       span.end(outcome, learned)
       if (current === span) current = previous
+    }
+  }
+}
+
+/** A span the window started in the trace it's in, which `within` makes the trace work runs in. */
+export interface Step extends Trace {
+  /** Where it sits in its trace, for events recorded in it, even after it ends. None before telemetry starts. */
+  readonly context: TraceContext | undefined
+  /** Runs work in the span, so the requests it asks before it first waits carry it. */
+  within<T>(work: () => T): T
+}
+
+/**
+ * Starts a span under the trace the window is in, or as a trace of its own outside one, for work that outlasts what
+ * started it, such as opening a project. Unlike `startTrace`, it isn't the trace the window is in until `within` says.
+ */
+export function startStep<Name extends TraceName>(name: Name, attributes: EventAttributes<Events, Name>): Step {
+  if (!telemetry) return { context: undefined, end: () => undefined, within: (work) => work() }
+  const span = telemetry.startSpan(name, attributes, current ? { parent: current } : undefined)
+  return {
+    context: { traceId: span.traceId, spanId: span.spanId },
+    end: (outcome, learned) => span.end(outcome, learned),
+    within(work) {
+      const previous = current
+      current = span
+      try {
+        return work()
+      } finally {
+        current = previous
+      }
     }
   }
 }

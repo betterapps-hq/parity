@@ -11,7 +11,7 @@ export function PanelError({ title, children, action }: { title: string; childre
       <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
       <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
         <p className="text-sm font-medium">{title}</p>
-        {children && <p className="text-xs break-words text-muted-foreground select-text">{children}</p>}
+        {children && <p className="type-message break-words text-muted-foreground select-text">{children}</p>}
         {action && <div className="mt-1.5">{action}</div>}
       </div>
     </div>

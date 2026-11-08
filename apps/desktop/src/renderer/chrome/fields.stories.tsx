@@ -170,6 +170,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
           "color",
           "Color",
           <TokenInput
+            label="Color"
             value={values.color}
             tokens={tokens}
             categories={["color"]}
@@ -180,6 +181,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
           "radius",
           "Token",
           <TokenInput
+            label="Token"
             value={values.radius}
             tokens={tokens}
             categories={["radius"]}
@@ -257,7 +259,7 @@ export const ChoiceOpen: Story = {
 /** A token picker open and searched: matching colors with swatches, grouped by where they come from. */
 export const SearchingTokens: Story = {
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /primary/ }))
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Color, / }))
     await search(await within(document.body).findByPlaceholderText("Search tokens", undefined, slowly), "muted")
   }
 }
@@ -265,7 +267,7 @@ export const SearchingTokens: Story = {
 /** A token search that matches nothing. */
 export const NoTokenMatches: Story = {
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /radius-lg/ }))
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Token, / }))
     await search(await within(document.body).findByPlaceholderText("Search tokens", undefined, slowly), "huge")
   }
 }

@@ -24,8 +24,9 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
+import { Name } from "../chrome/Name.tsx"
 import { followPress, gestures, type GestureStore } from "./gesture.ts"
-import { kindColors } from "./kinds.tsx"
+import { chipColors, kindColors } from "./kinds.tsx"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { sidesHeld, spacingKey, SpacingHandles } from "./SpacingHandles.tsx"
 
@@ -533,14 +534,14 @@ function SizeLabel({ rect, name }: { rect: Rect; name: string }) {
   return (
     <>
       <div
-        className="absolute -translate-y-full rounded-t px-1.5 py-px text-[11px] font-medium text-white"
-        style={{ left: rect.left - 1, top: rect.top - 1, background: kindColors.layer }}
+        className="absolute -translate-y-full rounded-t px-1.5 py-px text-2xs font-medium tabular-nums"
+        style={{ left: rect.left - 1, top: rect.top - 1, ...chipColors.layer }}
       >
-        {name}
+        <Name>{name}</Name>
       </div>
       <div
-        className="absolute -translate-x-1/2 rounded px-1.5 py-px text-[11px] text-white tabular-nums"
-        style={{ left: (rect.left + rect.right) / 2, top: rect.bottom + 6, background: kindColors.layer }}
+        className="absolute -translate-x-1/2 rounded px-1.5 py-px text-2xs font-medium tabular-nums"
+        style={{ left: (rect.left + rect.right) / 2, top: rect.bottom + 6, ...chipColors.layer }}
       >
         {Math.round(rect.right - rect.left)} × {Math.round(rect.bottom - rect.top)}
       </div>
@@ -588,7 +589,7 @@ function Written({ scene, selected, note }: { scene: Scene; selected: "layout" |
     ["Escape mid-drag", "takes it back"]
   ]
   return (
-    <div className="flex w-80 flex-col gap-4 text-[12px]">
+    <div className="flex w-80 flex-col gap-4 text-xs">
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
         {keys.map(([key, does]) => (
           <div key={key} className="contents">
@@ -603,7 +604,7 @@ function Written({ scene, selected, note }: { scene: Scene; selected: "layout" |
         </div>
         <pre
           aria-label="The style written"
-          className="rounded bg-white p-2 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap shadow-sm"
+          className="rounded bg-white p-2 font-mono text-2xs/4 break-all whitespace-pre-wrap shadow-sm"
         >
           {[
             `Stats${selected === "layout" ? " (selected)" : ""}: ${JSON.stringify(scene.layout)}`,

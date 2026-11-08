@@ -12,16 +12,22 @@ const errors: string[] = []
  * What the page loads: a Width row holding 8 steps (32px) of a 4px spacing scale, and a Mixed row standing for two
  * selected layers of 8 and 75 steps. What the fields ask for is logged; commits change the values, as the store would.
  * The project's store gives the fields their gestures, logged as they begin and end, with the gesture of each commit.
- * What the fields edit can change under them, as the selection does in the inspector.
+ * What the fields edit can change under them, as the selection does in the inspector. Below them are token pickers for a
+ * fill set to primary, an unset text color and radii that differ across the selection.
  */
 const entry = `
 import { createElement as h, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { ProjectContext } from "../canvas/context.ts"
-import { Field, FieldTarget, NumberField, NumberValueInput } from "./fields.tsx"
+import { Field, FieldTarget, NumberField, NumberValueInput, TokenInput } from "./fields.tsx"
 
 const rules = { kind: "length", unit: 4, min: 0, label: "Width" }
+const tokens = [
+  { name: "primary", category: "color", source: "semantic", values: { default: "oklch(0.5 0.2 260)" } },
+  { name: "muted", category: "color", source: "semantic", values: { default: "oklch(0.95 0 0)" } },
+  { name: "radius-lg", category: "radius", source: "theme", values: { default: "10px" } }
+]
 window.log = []
 window.gestures = []
 let gestures = 0
@@ -40,6 +46,7 @@ function Harness() {
   const [target, setTarget] = useState("first layer")
   // A number prop of 70, whose preview is made in the design while it shows, as ChangePreview makes it.
   const [prop, setProp] = useState(70)
+  const [textColor, setTextColor] = useState(undefined)
   window.setOutside = setValue
   window.setTarget = setTarget
   window.layers = layers
@@ -76,6 +83,16 @@ function Harness() {
         window.log.push(["prop commit", next])
         setProp(next)
       }
+    })),
+    // Token pickers, named for their property and what they show, as the Design tab's Fill, Color and Radius rows are.
+    h(Field, { label: "Fill" }, h(TokenInput, {
+      label: "Fill", value: "primary", tokens, categories: ["color"], onChange: () => {}
+    })),
+    h(Field, { label: "Color" }, h(TokenInput, {
+      label: "Text color", value: textColor, tokens, categories: ["color"], onChange: setTextColor
+    })),
+    h(Field, { label: "Radius", mixed: true }, h(TokenInput, {
+      label: "Radius", value: undefined, tokens, categories: ["radius"], onChange: () => {}
     }))
   )))
 }
@@ -353,5 +370,21 @@ describe("number props (PAR-203)", () => {
       ["prop preview", 80],
       ["prop commit", 80]
     ])
+  })
+})
+
+describe("token pickers (PAR-722)", () => {
+  const picker = (name: string) => page.getByRole("button", { name, exact: true })
+
+  it("names each for its property and the token, None or Mixed it shows", async () => {
+    expect(await picker("Fill, primary").count()).toBe(1)
+    expect(await picker("Text color, None").count()).toBe(1)
+    expect(await picker("Radius, Mixed").count()).toBe(1)
+  })
+
+  it("renames the picker for the token picked in it", async () => {
+    await picker("Text color, None").click()
+    await page.getByRole("option", { name: "primary" }).click()
+    await expect.poll(() => picker("Text color, primary").count()).toBe(1)
   })
 })

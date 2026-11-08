@@ -18,7 +18,8 @@ import {
   removeState,
   renameState,
   resetOverride,
-  type StateSpec
+  type StateSpec,
+  targetPatches
 } from "@parity-app/core"
 import { activeState } from "@parity-app/editor"
 import { Copy, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react"
@@ -27,7 +28,9 @@ import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors, layerLabel, NodeIcon } from "../canvas/kinds.tsx"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
-import { PanelSection } from "./PanelSection.tsx"
+import { statesValue, updateAndRecord } from "./inspector-events.ts"
+import { Name } from "./Name.tsx"
+import { GroupLabel, PanelSection } from "./PanelSection.tsx"
 
 /**
  * A design's states, like a Storybook file's stories. The first is the base: the design itself. Every other state
@@ -40,15 +43,23 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
   const allStates = container.view?.allStates ?? false
   const [renaming, setRenaming] = useState<string>()
 
+  // A change to the states records them all, by id and name, before and after (PAR-713).
+  const states = { field: "states", read: statesValue }
   const view = (state: string, name = container.states.find(({ id }) => id === state)?.name ?? state) =>
     store.updateView(key, `Show ${name}`, (current) => ({ ...current, state, allStates: false }))
   const add = () => {
     let id = ""
-    store.updateContainer(key, "Add state", (current) => {
-      const result = addState(current, "New state")
-      id = result.id
-      return result.container
-    })
+    updateAndRecord(
+      store,
+      key,
+      "Add state",
+      (current) => {
+        const result = addState(current, "New state")
+        id = result.id
+        return result.container
+      },
+      states
+    )
     view(id)
     setRenaming(id)
   }
@@ -75,22 +86,28 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
             onRenamed={(name) => {
               setRenaming(undefined)
               if (name && name !== state.name) {
-                store.updateContainer(key, "Rename state", (current) => renameState(current, state.id, name))
+                updateAndRecord(store, key, "Rename state", (current) => renameState(current, state.id, name), states)
               }
             }}
             onDuplicate={() => {
               let id = ""
-              store.updateContainer(key, "Duplicate state", (current) => {
-                const result = duplicateState(current, state.id)
-                id = result.id
-                return result.container
-              })
+              updateAndRecord(
+                store,
+                key,
+                "Duplicate state",
+                (current) => {
+                  const result = duplicateState(current, state.id)
+                  id = result.id
+                  return result.container
+                },
+                states
+              )
               view(id)
             }}
             onDelete={
               index === 0
                 ? undefined
-                : () => store.updateContainer(key, "Delete state", (current) => removeState(current, state.id))
+                : () => updateAndRecord(store, key, "Delete state", (current) => removeState(current, state.id), states)
             }
           />
         ))}
@@ -171,7 +188,7 @@ function StateRow({
           className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-2 text-left"
         >
           <RadioMark active={active} />
-          <span className="min-w-0 flex-1 truncate">{state.name}</span>
+          <Name className="min-w-0 flex-1">{state.name}</Name>
         </button>
       )}
       {summary && <span className="shrink-0 px-1 text-xs text-muted-foreground">{summary}</span>}
@@ -223,9 +240,11 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
   const overrides = Object.entries(state.overrides ?? {})
   return (
     <div className="mt-4">
-      <div className="mb-2 px-1 text-xs font-medium text-muted-foreground">Changes in {state.name}</div>
+      <GroupLabel as="div" className="mb-2 px-1">
+        Changes in {state.name}
+      </GroupLabel>
       {overrides.length === 0 ? (
-        <p className="px-1 text-xs text-muted-foreground">
+        <p className="type-description px-1 text-muted-foreground">
           Nothing yet. Select a layer and edit it while this state is shown.
         </p>
       ) : (
@@ -245,9 +264,7 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
                     ) : (
                       <Pencil className="size-3.5 shrink-0" />
                     )}
-                    <span className="truncate">
-                      {node ? layerLabel(node, entries, store.getComponentLibrary()) : nodeId}
-                    </span>
+                    <Name>{node ? layerLabel(node, entries, store.getComponentLibrary()) : nodeId}</Name>
                   </button>
                   <Hint label="Reset every change to this layer">
                     <Button
@@ -255,8 +272,17 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
                       size="icon-xs"
                       aria-label="Reset every change to this layer"
                       onClick={() =>
-                        store.updateContainer(entry.key, "Reset layer", (current) =>
-                          resetOverride(current, state.id, nodeId)
+                        updateAndRecord(
+                          store,
+                          entry.key,
+                          "Reset layer",
+                          (current) => resetOverride(current, state.id, nodeId),
+                          {
+                            field: "overrides",
+                            layers: [nodeId],
+                            state: state.id,
+                            read: (current) => targetPatches(current, state.id)?.[nodeId]
+                          }
                         )
                       }
                     >

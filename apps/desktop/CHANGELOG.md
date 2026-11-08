@@ -1,8 +1,61 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 08 Nov 2026 11:33:42 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 23:45:38 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.38.0
+
+Sun, 08 Nov 2026 23:45:38 GMT
+
+### Minor changes
+
+- Record the rest of the inspector's changes as inspector.changed: names, images, an instance's state and component,
+  prop bindings, slots, states, a component's props and variants, resets, and token edits (ajcraswell@gmail.com)
+- Record the first frame a newly opened project's canvas draws, and put the whole open in one trace (PAR-711)
+  (ajcraswell@gmail.com)
+- Record app.first_project, the time from the app starting to the first project's tab being ready to draw, and whether
+  the window restored it (ajcraswell@gmail.com)
+
+## 0.37.0
+
+Sun, 08 Nov 2026 22:43:32 GMT
+
+### Minor changes
+
+- Record gestures, undo and redo, inspector changes, inserts, pastes and text edits as telemetry events (PAR-640)
+  (ajcraswell@gmail.com)
+
+## 0.36.1
+
+Sun, 08 Nov 2026 21:40:38 GMT
+
+### Patches
+
+- Name the Design tab's token pickers for their property and value, such as Fill, primary, so a screen reader says which
+  row each sets (ajcraswell@gmail.com)
+
+## 0.36.0
+
+Sun, 08 Nov 2026 21:20:53 GMT
+
+### Minor changes
+
+- Record project opening, detection, builders and servers (PAR-637) (ajcraswell@gmail.com)
+
+## 0.35.0
+
+Sun, 08 Nov 2026 12:58:18 GMT
+
+### Minor changes
+
+- Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures,
+  version mismatches and MCP sessions in ~/.parity/logs (ajcraswell@gmail.com)
+
+### Patches
+
+- The Design panel no longer has a Frame, Component and Screen switch; convert a design from its title menu
+  (ajcraswell@gmail.com)
 
 ## 0.34.0
 

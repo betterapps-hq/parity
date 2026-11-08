@@ -41,7 +41,7 @@ export function RedlineView({ line }: { line: Redline }) {
     <>
       <div className="absolute" style={{ ...box, background: color }} />
       <div
-        className="pointer-events-none absolute z-20 flex items-center gap-1 rounded bg-neutral-950 px-1.5 py-px text-[11px] whitespace-nowrap text-white tabular-nums shadow-md ring-1 ring-white/10"
+        className="pointer-events-none absolute z-20 flex items-center gap-1 rounded bg-neutral-950 px-1.5 py-px text-2xs font-medium whitespace-nowrap text-white tabular-nums shadow-md ring-1 ring-white/10"
         style={redlineLabel(line)}
       >
         <span className="font-semibold">{formatPx(line.px)}px</span>

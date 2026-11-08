@@ -6,10 +6,10 @@ import {
   type Sink,
   type Telemetry
 } from "@parity-app/telemetry"
+import { createSentrySink } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/utility"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
-import { createSentrySink } from "../shared/sentry-sink.ts"
 import { readTelemetryRun, telemetryRunVariable } from "../shared/telemetry-run.ts"
 import { mainProcess } from "./main-process.ts"
 import { workerTelemetryKey } from "./worker-telemetry.ts"
@@ -49,6 +49,11 @@ export function startTelemetry(): Telemetry<typeof registeredEvents> {
  * values included (PAR-672).
  */
 const scrubber = secretScrubbing()
+
+/** A copy of the value with secrets replaced, the open projects' `.env` values included, as `Scrubber.value`. */
+export function scrubSecrets<T>(value: T): T {
+  return scrubber.value(value)
+}
 
 /** Scrubs the open projects' `.env` values from now on, here and in main, which passes them to every window. */
 export function useProjectSecrets(secrets: string[]): void {

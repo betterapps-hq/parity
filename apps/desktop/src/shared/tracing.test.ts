@@ -1,4 +1,11 @@
-import { createTelemetry, createTestSink, registeredEvents, traceHeaders } from "@parity-app/telemetry"
+import {
+  agentCallAnswered,
+  agentCallStart,
+  createTelemetry,
+  createTestSink,
+  registeredEvents,
+  traceHeaders
+} from "@parity-app/telemetry"
 import { describe, expect, it } from "vite-plus/test"
 import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } from "./tracing.ts"
 
@@ -57,7 +64,7 @@ describe("handleInSpan", () => {
 describe("inSpan", () => {
   it("nests under the span this process is working in, or a parent given for work queued earlier", async () => {
     sink.clear()
-    await inSpan("agent.called", { method: "screenshot" }, () =>
+    await inSpan("agent.called", { method: "screenshot", transport: "cli" }, () =>
       inSpan("frame.rendered", { priority: "render", queuedMs: 3, whole: true }, () => undefined)
     )
     const [drawn, called] = sink.spans
@@ -65,5 +72,20 @@ describe("inSpan", () => {
     expect(drawn?.traceId).toBe(called?.traceId)
     await inSpan("builder.started", { builder: "vite" }, () => undefined, sent)
     expect(sink.spans[2]).toMatchObject({ traceId: sent.traceId, parentSpanId: sent.spanId })
+  })
+
+  it("ends as it's told, with what the work learned", async () => {
+    sink.clear()
+    const answer = { ok: false, details: { code: "conflict", retryable: true } }
+    const body = JSON.stringify({ method: "exec", params: { code: "Print(1)" }, transport: "mcp" })
+    expect(
+      await inSpan("agent.called", agentCallStart(body), () => answer, sent, {
+        result: (result) => agentCallAnswered(result, 64)
+      })
+    ).toBe(answer)
+    expect(sink.spans[0]).toMatchObject({
+      outcome: "error",
+      attributes: { method: "exec", transport: "mcp", snippet: "Print(1)", resultBytes: 64, code: "conflict" }
+    })
   })
 })

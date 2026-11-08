@@ -25,6 +25,19 @@ function frameOf(key: string) {
   }, key)
 }
 
+/** Picks `item` from the title menu of the design named `name`, which a right-click on its title opens. */
+async function convertFromTitle(name: string, item: string) {
+  // Selecting it first waits for the title to settle where the zoom puts it.
+  await app.selectDesign(name)
+  const box = await app.page
+    .locator(".design-title > div > button")
+    .filter({ hasText: new RegExp(`^${name}$`) })
+    .boundingBox()
+  if (!box) throw new Error(`${name}'s title isn't drawn`)
+  await app.rightClick({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
+  await app.page.getByRole("menuitem", { name: item }).click()
+}
+
 describe("the frame tool", () => {
   it("draws a frame by dragging, named Frame 1, selected, with the move tool back, as one step", async () => {
     const { screen, page } = await app.showEmptyCanvas()
@@ -100,7 +113,7 @@ describe("converting a frame", () => {
     await app.page.keyboard.press("f")
     await app.click(screen)
     const frame = await added(before)
-    await app.page.getByRole("group", { name: "Kind" }).getByRole("button", { name: "Component" }).click()
+    await convertFromTitle(frame.name, "Convert to component")
     await expect.poll(async () => (await frameOf(frame.key)).kind).toBe("component")
     expect(await app.undoLabel()).toBe("Convert to component")
     await app.page.locator("[data-sonner-toast]").getByRole("button", { name: "Undo" }).click()
@@ -109,8 +122,7 @@ describe("converting a frame", () => {
 
   it("asks before a screen with states becomes a frame, saying what it drops", async () => {
     await app.show("Pricing", 0.3)
-    await app.selectDesign("Pricing")
-    await app.page.getByRole("group", { name: "Kind" }).getByRole("button", { name: "Frame" }).click()
+    await convertFromTitle("Pricing", "Convert to frame")
     const dialog = app.page.getByRole("dialog")
     await expect.poll(() => dialog.innerText()).toContain("Convert Pricing to a frame?")
     await dialog.getByRole("button", { name: "Cancel" }).click()

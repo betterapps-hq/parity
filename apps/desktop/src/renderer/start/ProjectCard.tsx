@@ -10,6 +10,7 @@ import { AppWindow, Ellipsis, FolderX, Link, Star, X } from "lucide-react"
 import { type CSSProperties, useId, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Hint } from "../chrome/Hint.tsx"
+import { Name } from "../chrome/Name.tsx"
 import { ProjectArt, useScreenCount, useScreenName } from "./ProjectArt.tsx"
 import { type KnownProject, whenLabel } from "./projects.ts"
 import { notReady, useStartActions } from "./start-actions.ts"
@@ -117,7 +118,7 @@ export function ProjectCard({
           <ProjectArt project={project} screen={screen} />
         </div>
         {project.missing && (
-          <span className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-0.5 text-[11px] font-medium shadow-sm">
+          <span className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-0.5 text-2xs font-medium shadow-sm">
             <FolderX className="size-3" /> Folder not found
           </span>
         )}
@@ -126,7 +127,7 @@ export function ProjectCard({
             aria-hidden
             className={`pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-linear-to-t from-black/70 to-transparent px-3 pt-6 pb-2.5 transition-opacity duration-150 ${hovered ? "opacity-100" : "opacity-0"}`}
           >
-            <span className="truncate text-[11px] font-medium text-white">{name}</span>
+            <Name className="text-2xs font-medium text-white">{name}</Name>
             <span className="flex gap-1">
               {Array.from({ length: count }, (_, position) => (
                 <span
@@ -148,7 +149,7 @@ export function ProjectCard({
                 aria-describedby={project.missing ? line : undefined}
                 className="block max-w-full truncate text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
               >
-                {project.name}
+                <Name>{project.name}</Name>
               </button>
             </Hint>
           </h3>

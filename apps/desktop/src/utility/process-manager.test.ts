@@ -1,7 +1,9 @@
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import { traceWith } from "../shared/tracing.ts"
 import {
   adoptServer,
   freePort,
@@ -14,8 +16,18 @@ import {
 import { listProcesses } from "./processes.ts"
 
 let state: string
+let sink: TestSink
 
 beforeEach(async () => {
+  sink = createTestSink()
+  traceWith(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "service", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+  )
   // No Portless routes, so the list names nothing.
   state = await mkdtemp(join(tmpdir(), "parity-portless-"))
   process.env.PORTLESS_STATE_DIR = state
@@ -72,6 +84,9 @@ describe("startServer", { timeout: 60_000 }, () => {
       }
     ])
     expect(serverLog("storybook:shop")).toContain(`listening on ${server.port}`)
+    expect(sink.named("server.started").map((event) => event.attributes)).toEqual([
+      { kind: "storybook", name: "Storybook", durationMs: expect.any(Number) }
+    ])
   })
 
   it("stops everything it started for a project when the project closes", async () => {
@@ -105,6 +120,15 @@ describe("startServer", { timeout: 60_000 }, () => {
     expect(listed?.status).toBe("failed")
     expect(listed?.error).toMatch(/exit code 2[\s\S]*Port 6006 is in use/)
     expect(knownServers()).toEqual([])
+    expect(sink.named("server.failed").map((event) => event.attributes)).toEqual([
+      {
+        kind: "storybook",
+        name: "Storybook",
+        durationMs: expect.any(Number),
+        reason: "exited",
+        output: "Port 6006 is in use"
+      }
+    ])
   })
 
   it("stops a server that doesn't answer in time", async () => {
@@ -116,6 +140,7 @@ describe("startServer", { timeout: 60_000 }, () => {
       status: "failed",
       error: expect.stringContaining("didn't start")
     })
+    expect(sink.named("server.failed").map((event) => event.attributes)).toMatchObject([{ reason: "timeout" }])
   })
 })
 

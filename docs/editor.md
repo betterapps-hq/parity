@@ -1824,18 +1824,18 @@ mode, with one state, and isn't written to code.
   undo step of its own. A width of its own, from the handles, the menu's sizes or the inspector, stops it hugging.
 - **Whatever lands on the empty canvas makes a frame,** as "New screen, New component and the empty canvas" above says,
   hugging what's in it and named after it. Pasted text makes a text frame, as the text tool does.
-- **The inspector for a frame:** its name; its kind, Frame, Component or Screen, lightest first; where it's drawn
-  ("Drawn in Desktop Light", with the primary mode's crown) and that it isn't written to code; then its root layout's
-  layout, spacing, size and fill straight away, with no states, modes or params. The size rows are the frame's own size:
-  a fixed width or height resizes it, Hug makes it hug its content, and Fill or Auto puts back the primary mode's width
-  or the content's height. Export is at the foot, as for any design.
+- **The inspector for a frame:** its name, with the kind's icon beside it; where it's drawn ("Drawn in Desktop Light",
+  with the primary mode's crown) and that it isn't written to code; then its root layout's layout, spacing, size and
+  fill straight away, with no states, modes or params. The size rows are the frame's own size: a fixed width or height
+  resizes it, Hug makes it hug its content, and Fill or Auto puts back the primary mode's width or the content's height.
+  Export is at the foot, as for any design.
 - **Convert to,** in every design's title menu ("Convert to component", "Convert to screen", "Convert to frame", with
-  each kind's icon), in the inspector's kind switch, and as Make component's Convert to component in the canvas and
-  Object menus. A frame becomes a screen or a component at once, keeping its size as its preview's, with a toast ("Plan
-  card is a component") whose Undo makes it a frame again. A screen or component becomes a frame at once when it drops
-  nothing; otherwise a dialog lists what goes (states after the first, previews beside the main one, params, and each
-  design's instances, which become plain layers), with Cancel and Convert to frame. Each is one undo step, and
-  converting a component detaches its instances in the same step.
+  each kind's icon), and as Make component's Convert to component in the canvas and Object menus. A frame becomes a
+  screen or a component at once, keeping its size as its preview's, with a toast ("Plan card is a component") whose Undo
+  makes it a frame again. A screen or component becomes a frame at once when it drops nothing; otherwise a dialog lists
+  what goes (states after the first, previews beside the main one, params, and each design's instances, which become
+  plain layers), with Cancel and Convert to frame. Each is one undo step, and converting a component detaches its
+  instances in the same step.
 - **Layers lists Frames** after Components and Screens once there are any; its + picks the frame tool.
 
 Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
@@ -1861,9 +1861,9 @@ Tests:
   previews, params and instances, and none for a screen that drops nothing.
 - End to end (PAR-202), `apps/desktop/e2e/frames.e2e.ts`: F and a drag draws Frame 1, selected, with the move tool back,
   as "Draw frame", which Undo takes out; A and a click makes 100 × 100; the menu resizes the selected frame to Mobile; T
-  and typing makes a frame named after the text that hugs it on one line; Component in the kind switch converts at once
-  and the toast's Undo makes it a frame; and Frame for Pricing asks, and Cancel leaves it a screen.
-  `e2e/dropping.e2e.ts`: an image and Badge dropped on the empty canvas make frames.
+  and typing makes a frame named after the text that hugs it on one line; the title menu's Convert to component converts
+  at once and the toast's Undo makes it a frame; and Convert to frame on Pricing's title asks, and Cancel leaves it a
+  screen. `e2e/dropping.e2e.ts`: an image and Badge dropped on the empty canvas make frames.
 
 Checked in the app on 2026-11-05, on a copy of the example started as the end-to-end suite starts it and driven over the
 DevTools protocol: F and a drag, A and a click, the menu's sizes, T and typing, Ctrl+V of a copied layer with nothing
@@ -2556,6 +2556,25 @@ each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and sc
 functions weren't run in Storybook. A number prop's preview wasn't timed: it draws the component again, as a commit
 does. Params' number fields don't preview yet. Padding, Margin, Min, Max and an absolutely placed layer's insets, two
 lengths to a row, can still clip a value in an inspector narrower than its usual 320 pixels.
+
+### Token pickers' names (PAR-722)
+
+A token picker's button shows only its value, the token's name, None or Mixed, so a screen reader heard just that, with
+no word of which row it sets. Each is now named for its property and what it shows: "Fill, primary", "Text color, None",
+"Radius, Mixed". The name follows the value as a token is picked. Where the row's label alone would be ambiguous, the
+name says more: Stroke's Color is "Stroke color" and Text's Color and Size are "Text color" and "Text size". Fill,
+Radius, Shadow, Font, Line height and Letter spacing keep their rows' labels. The comma follows the panel's other names,
+such as an instance's slot ("sideActions slot, Empty").
+
+Code: `TokenInput` in `apps/desktop/src/renderer/chrome/fields.tsx` takes the `label`, which every caller passes:
+`chrome/StyleSections.tsx`, `chrome/fields.stories.tsx` and the typography preset exploration's Text section.
+
+Tests:
+
+- `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: pickers set to a token, unset and mixed found by their
+  names, and the name following a token picked in the picker. Both fail without the change.
+- `chrome/StyleSections.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and NoTokenMatches
+  open their pickers by name.
 
 ### One right edge in the inspector (PAR-552)
 
@@ -4707,6 +4726,19 @@ recorded), reading the local log's lines, and the files a report takes: the last
 the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The CLI's `diagnostics.test.ts` covers the
 zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, sending,
 sent and failed, with Send moving from one to the next.
+
+### What the inspector's changes record (PAR-640, PAR-713)
+
+Each change made in the inspector or the Tokens panel is recorded once, as `inspector.changed`, with the field, the
+design, the layers and the value before and after: style rows, a layer's text, visibility, props and name, an image, an
+instance's state and component, prop bindings, slots, states, a component's props and variants, and tokens. A preview
+records nothing, and nor does a change that leaves a value as it was. Which field each control records is in
+[telemetry.md](telemetry.md), "Editing".
+
+`chrome/inspector-events.test.ts` covers, through the test sink: a style row on layers whose values differ; a number
+prop previewed, then made or taken back; and, for changes read back from the design store, a design's and a layer's
+name, a rename to the same name, a variant the design refuses and one added, a state added, a layout made a slot, a
+state's change reset, and a token's values by theme.
 
 ### A part that fails keeps the rest working (PAR-667)
 

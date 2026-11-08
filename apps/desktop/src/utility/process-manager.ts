@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process"
 import { createServer } from "node:net"
 import type { ProjectProcess, ServerKind } from "../shared/protocol.ts"
+import { track } from "../shared/tracing.ts"
 import { forgetProject, killTree, type ProcessHandle, trackProcess } from "./processes.ts"
 
 /**
@@ -131,7 +132,15 @@ async function waitUntilReady(
 ): Promise<string> {
   const { child } = item
   const timeout = spec.startTimeout ?? defaultStartTimeout
+  const began = performance.now()
+  const server = () => ({
+    kind: spec.kind,
+    name: spec.name,
+    durationMs: Math.round((performance.now() - began) * 10) / 10
+  })
+  let stoppedFirst = false
   const exited = ended.then((how) => {
+    stoppedFirst = true
     throw new Error(`${spec.name} stopped (${how}):\n${tail(item)}`)
   })
   exited.catch(() => undefined)
@@ -147,9 +156,15 @@ async function waitUntilReady(
   try {
     const url = await Promise.race([answering, exited])
     tracking.set("running")
+    track("server.started", server())
     return url
   } catch (error) {
     if (!item.stopping) {
+      track("server.failed", {
+        ...server(),
+        reason: stoppedFirst ? "exited" : "timeout",
+        output: item.output.join("").trimEnd().split(/\r?\n/).slice(-50).join("\n")
+      })
       item.failed = true
       tracking.set("failed", { error: error instanceof Error ? error.message : String(error) })
       if (managed.get(spec.id) === item) managed.delete(spec.id)

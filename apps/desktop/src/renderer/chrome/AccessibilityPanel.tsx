@@ -28,6 +28,7 @@ import type { ProjectSession } from "../workspace.ts"
 import { ruleWords } from "./accessibility-rules.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
+import { Name } from "./Name.tsx"
 import { PanelError } from "./PanelError.tsx"
 
 /** A check of one design, kept with what it checked so a later change shows it's out of date. */
@@ -159,7 +160,7 @@ export function AccessibilityPanel() {
   const entry = useContainerEntry(store, selected.design)
   if (!entry) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto px-6 py-12 text-center text-sm text-muted-foreground">
+      <div className="type-empty flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto px-6 py-12 text-center text-muted-foreground">
         <MousePointerClick className="size-5" />
         Select a screen or component to check it.
         <span className="text-xs">Every state and mode is checked.</span>
@@ -200,7 +201,8 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
             className="size-4 shrink-0"
             style={{ color: designColor(container.kind) }}
           />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{container.name}</span>
+          {/* The selection's title, as the Design and Code tabs show it, so switching tabs doesn't resize it. */}
+          <Name className="min-w-0 flex-1 text-base font-semibold">{container.name}</Name>
           {shown && shown.findings.length > 0 && (
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
               {shown.frames === 1 ? "1 preview" : `${shown.frames} previews`}
@@ -228,7 +230,7 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
           </div>
         )}
         {checking && !shown && (
-          <div className="flex flex-col items-center gap-2 px-6 py-10 text-center text-sm text-muted-foreground">
+          <div className="type-empty flex flex-col items-center gap-2 px-6 py-10 text-center text-muted-foreground">
             <LoaderCircle className="size-5 animate-spin" />
             Checking every state and mode
           </div>
@@ -254,7 +256,7 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
         )}
       </div>
       {shown && (
-        <p className="flex shrink-0 items-start gap-2 border-t px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+        <p className="type-description flex shrink-0 items-start gap-2 border-t px-4 py-3 text-muted-foreground">
           <Info className="mt-0.5 size-3.5 shrink-0" />
           <span>Automated checks miss some issues. Try a keyboard and a screen reader too.</span>
         </p>
@@ -321,11 +323,11 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
   return (
     <div className="text-sm">
       {groups.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+        <div className="type-empty flex flex-col items-center gap-2 px-6 py-10 text-center text-muted-foreground">
           <span className="grid size-9 place-items-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             <CircleCheck className="size-5" />
           </span>
-          <span className="font-medium">No issues found</span>
+          <span className="font-medium text-foreground">No issues found</span>
           <span className="text-xs text-muted-foreground">{frames} checked, in every state and mode.</span>
         </div>
       ) : (
@@ -345,7 +347,7 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
         />
       ))}
       {check.warnings.map((warning) => (
-        <p key={warning} className="flex items-start gap-2 px-4 py-2 text-xs text-destructive">
+        <p key={warning} className="type-message flex items-start gap-2 px-4 py-2 text-destructive">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
           {warning}
         </p>
@@ -369,11 +371,12 @@ function ImpactTally({ groups }: { groups: RuleGroup[] }) {
             key={impact}
             className={`flex flex-col items-center gap-0.5 py-2.5 ${count === 0 ? "text-muted-foreground/50" : tone}`}
           >
-            <span className="flex items-center gap-1 text-base leading-none font-semibold tabular-nums">
+            {/* A Figure: a number read at a glance. */}
+            <span className="flex items-center gap-1 text-base font-semibold tabular-nums">
               <Icon className="size-3.5" aria-hidden />
               {count}
             </span>
-            <span className={`text-[11px] ${count === 0 ? "" : "text-muted-foreground"}`}>{label}</span>
+            <span className={`text-2xs ${count === 0 ? "" : "text-muted-foreground"}`}>{label}</span>
           </li>
         )
       })}
@@ -413,19 +416,23 @@ function RuleSection({
         onClick={onToggle}
       >
         <ChevronRight
-          className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+          className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
         />
-        <Icon className={`mt-0.5 size-4 shrink-0 ${tone}`} aria-label={label} />
-        <span className="min-w-0 flex-1 pl-0.5 text-[13px] leading-snug font-medium">{group.title}</span>
+        <Icon className={`size-4 shrink-0 ${tone}`} aria-label={label} />
+        {/*
+         * Each rule is one of the panel's sections, so its title is a section title's lead tone, semibold in the text
+         * color. PanelSectionTitle can't hold the impact's icon in its fold, so its classes are matched here.
+         */}
+        <span className="min-w-0 flex-1 pl-0.5 text-xs font-semibold">{group.title}</span>
         {!open && (
-          <span className="mt-px shrink-0 text-xs text-muted-foreground tabular-nums">
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
             {layers === 1 ? "1 layer" : `${layers} layers`}
           </span>
         )}
       </button>
       {open && (
         <div className="pr-4 pb-3 pl-[46px]">
-          {group.why && <p className="text-xs leading-normal text-muted-foreground">{group.why}</p>}
+          {group.why && <p className="type-description text-muted-foreground">{group.why}</p>}
           <ul className="mt-2 flex flex-col gap-0.5">
             {group.layers.map((layer) => (
               <LayerRow
@@ -505,7 +512,7 @@ function LayerRow({
         className="absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => select(layer.frames.find((frame) => frame.state === shownState) ?? layer.frames[0]!)}
       />
-      <div className="pointer-events-none relative flex min-w-0 items-center gap-1.5 text-[13px]">
+      <div className="pointer-events-none relative flex min-w-0 items-center gap-1.5 text-sm">
         {node ? (
           <NodeIcon node={node} className="size-3.5 shrink-0" style={{ color: nodeColor(node) }} />
         ) : (
@@ -515,7 +522,7 @@ function LayerRow({
             style={{ color: designColor(container.kind) }}
           />
         )}
-        <span className="min-w-0 flex-1 truncate">{name}</span>
+        <Name className="min-w-0 flex-1">{name}</Name>
         {layer.nodes.length > 1 && (
           <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{layer.nodes.length} layers</span>
         )}
@@ -528,15 +535,13 @@ function LayerRow({
       )}
       <div className="pointer-events-none relative mt-1.5 flex flex-wrap gap-1">
         {inEvery ? (
-          <span className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-[11px] text-muted-foreground">
-            {every}
-          </span>
+          <span className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-2xs text-muted-foreground">{every}</span>
         ) : (
           layer.frames.map((frame) => (
             <Hint key={`${frame.state}:${frame.mode}`} label={`Select it in ${frameName(frame)}`} wait>
               <button
                 type="button"
-                className="pointer-events-auto rounded-sm bg-foreground/[0.07] px-1.5 py-px text-[11px] text-muted-foreground hover:bg-foreground/15 hover:text-foreground"
+                className="pointer-events-auto rounded-sm bg-foreground/[0.07] px-1.5 py-px text-2xs text-muted-foreground hover:bg-foreground/15 hover:text-foreground"
                 onClick={() => select(frame)}
               >
                 {frameName(frame)}
@@ -552,13 +557,10 @@ function LayerRow({
 /** What's wrong, with code in backticks set as code. */
 function Detail({ text }: { text: string }) {
   return (
-    <p className="mt-0.5 text-xs leading-normal break-words text-muted-foreground">
+    <p className="type-description mt-0.5 break-words text-muted-foreground">
       {text.split("`").map((part, index) =>
         index % 2 === 1 ? (
-          <code
-            key={index}
-            className="rounded-sm bg-foreground/[0.07] px-1 py-px font-mono text-[11px] text-foreground"
-          >
+          <code key={index} className="rounded-sm bg-foreground/[0.07] px-1 py-px font-mono text-2xs text-foreground">
             {part}
           </code>
         ) : (
@@ -575,7 +577,7 @@ function ContrastSample({ contrast }: { contrast: ContrastDetail }) {
   return (
     <div className="mt-1.5 flex items-center gap-2.5">
       <span
-        className="grid h-9 w-12 shrink-0 place-items-center rounded-md border text-[15px]"
+        className="grid h-9 w-12 shrink-0 place-items-center rounded-md border text-base"
         style={{ color: foreground, background, fontWeight: bold ? 700 : 500 }}
         aria-hidden
       >
@@ -588,7 +590,7 @@ function ContrastSample({ contrast }: { contrast: ContrastDetail }) {
             needs {required}:1 for {fontSize}px{bold ? " bold" : ""} text
           </span>
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-1 font-mono text-[11px] text-muted-foreground">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1 font-mono text-2xs/4 text-muted-foreground">
           <Swatch color={foreground} />
           {foreground}
           <span className="px-0.5 font-sans">on</span>
@@ -620,7 +622,7 @@ function ContrastFixRow({
   const [appliedHere, setAppliedHere] = useState(false)
   if (fix === "none") {
     return (
-      <p className="relative mt-1.5 text-xs leading-normal text-muted-foreground">
+      <p className="type-description relative mt-1.5 text-muted-foreground">
         None of the project&apos;s colors pass on this background. Try a different background.
       </p>
     )
@@ -647,7 +649,7 @@ function ContrastFixRow({
   return (
     <div className="relative mt-1.5 flex items-center gap-2.5">
       <span
-        className="grid h-7 w-12 shrink-0 place-items-center rounded-md border text-[13px]"
+        className="grid h-7 w-12 shrink-0 place-items-center rounded-md border text-sm"
         style={{ color: fix.color, background: contrast.background, fontWeight: contrast.bold ? 700 : 500 }}
         aria-hidden
       >
@@ -656,7 +658,7 @@ function ContrastFixRow({
       <div className="min-w-0 flex-1 text-xs">
         <div className="flex min-w-0 items-baseline gap-1 text-foreground">
           Use
-          <code className="truncate rounded-sm bg-foreground/[0.07] px-1 py-px font-mono text-[11px]">{fix.token}</code>
+          <code className="truncate rounded-sm bg-foreground/[0.07] px-1 py-px font-mono text-2xs">{fix.token}</code>
         </div>
         <div className="mt-0.5 text-muted-foreground tabular-nums">Reaches {fix.ratio}:1</div>
       </div>

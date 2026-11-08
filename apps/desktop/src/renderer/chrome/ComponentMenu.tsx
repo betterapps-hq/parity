@@ -13,7 +13,7 @@ export interface ComponentMenuProps {
 /** Why an item can't act, or what it does first, on the right of the item. */
 function Aside({ children }: { children: string }) {
   return (
-    <ContextMenuShortcut className="pl-4 tracking-normal whitespace-nowrap">
+    <ContextMenuShortcut data-words className="pl-4 whitespace-nowrap">
       <span>{children}</span>
     </ContextMenuShortcut>
   )

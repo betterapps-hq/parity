@@ -2,6 +2,117 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 23:45:38 GMT",
+      "version": "0.38.0",
+      "tag": "@parity-app/desktop_v0.38.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "33c9cb09ea9ffd42430caf5c62cc8662e6258778",
+            "comment": "Compare Geist and Inter with the proposed interface type in Storybook"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "052a16e64db477d0681c52ec460943074f36ab95",
+            "comment": "Record the rest of the inspector's changes as inspector.changed: names, images, an instance's state and component, prop bindings, slots, states, a component's props and variants, resets, and token edits"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9f5303f843c898486ddb88ee7054e5b7b880d114",
+            "comment": "Record the first frame a newly opened project's canvas draws, and put the whole open in one trace (PAR-711)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "79c1ef4deb630f083a531818dd09127653a04a75",
+            "comment": "Record app.first_project, the time from the app starting to the first project's tab being ready to draw, and whether the window restored it"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 22:43:32 GMT",
+      "version": "0.37.0",
+      "tag": "@parity-app/desktop_v0.37.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "428c71dec222b959873a83c4695dcad819116979",
+            "comment": "Record gestures, undo and redo, inspector changes, inserts, pastes and text edits as telemetry events (PAR-640)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 21:40:38 GMT",
+      "version": "0.36.1",
+      "tag": "@parity-app/desktop_v0.36.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "52f57178bab32bb8c340404a9d8ccdffa4a78429",
+            "comment": "Name the Design tab's token pickers for their property and value, such as Fill, primary, so a screen reader says which row each sets"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7ebd84f261601b994d281004ca594af9c5c19aa4",
+            "comment": "Import the Sentry sink from @parity-app/telemetry, where it moved for the CLI"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 21:20:53 GMT",
+      "version": "0.36.0",
+      "tag": "@parity-app/desktop_v0.36.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b3c94953765bc8f79871077ff396e28595cda9ef",
+            "comment": "Record project opening, detection, builders and servers (PAR-637)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 12:58:18 GMT",
+      "version": "0.35.0",
+      "tag": "@parity-app/desktop_v0.35.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "395b70bdf130b0adbc0bd5d06fca78231fb88820",
+            "comment": "Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures, version mismatches and MCP sessions in ~/.parity/logs"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2d98fd60215f52cdec5c23cabcb7f989074bc319",
+            "comment": "The Design panel no longer has a Frame, Component and Screen switch; convert a design from its title menu"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 11:33:42 GMT",
       "version": "0.34.0",
       "tag": "@parity-app/desktop_v0.34.0",

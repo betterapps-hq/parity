@@ -2,6 +2,7 @@ import { portFree, viteBuilder } from "@parity-app/builder-vite"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
+import { errorCode } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import type { ConnectMessage } from "../shared/service.ts"
@@ -71,7 +72,7 @@ const previews = componentPreviews(projects)
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
   file: environment().PARITY_REOPEN_FILE,
-  open: (root) => projects.open(root).finally(rememberOpen),
+  open: (root) => projects.open(root, { reopen: true }).finally(rememberOpen),
   close: (root) => projects.close(root).finally(rememberOpen)
 })
 
@@ -180,6 +181,11 @@ mainProcess.connect(nodePort(process.parentPort, { wrapped: true }))
 // Kept bitmaps past their limits go when the service starts, so a session never begins over them.
 void sweepBitmaps()
 reportCacheUse()
-void startAgentServer(editorWindow).catch((error: unknown) =>
+void startAgentServer(editorWindow).catch((error: unknown) => {
   console.error("[service] agent server failed to start", error)
-)
+  const code = errorCode(error)
+  telemetry.track("agent.serverFailed", {
+    message: error instanceof Error ? error.message : String(error),
+    ...(code === undefined ? {} : { code })
+  })
+})

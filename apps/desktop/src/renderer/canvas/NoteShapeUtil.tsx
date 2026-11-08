@@ -100,8 +100,14 @@ function NoteContent({ shape }: { shape: NoteShape }) {
   }
 
   const style = { width: note?.width, maxWidth: note?.width ? undefined : 720 }
+  // A note is people's own text, so it's the font's own regular rather than the interface's 450, and its editor keeps
+  // the letters the note shows in rather than a field's (docs/typography.md).
   return (
-    <div ref={ref} className="canvas-note w-max font-sans text-2xl leading-snug text-foreground" style={style}>
+    <div
+      ref={ref}
+      className="canvas-note w-max font-sans text-2xl leading-snug font-[400] text-foreground"
+      style={style}
+    >
       {editing ? (
         <textarea
           ref={focusOnMount}
@@ -120,7 +126,7 @@ function NoteContent({ shape }: { shape: NoteShape }) {
             const area = event.currentTarget
             area.rows = Math.max(1, area.value.split("\n").length)
           }}
-          className="pointer-events-auto block w-full min-w-48 resize-none bg-transparent outline-none field-sizing-content"
+          className="pointer-events-auto block w-full min-w-48 resize-none bg-transparent [font-feature-settings:normal] outline-none field-sizing-content"
         />
       ) : (
         <p className="m-0 min-h-[1lh] min-w-12 whitespace-pre-wrap">{note?.text}</p>

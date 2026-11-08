@@ -4,7 +4,6 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -70,6 +69,7 @@ import {
 import { toast } from "sonner"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
+import { insertDrag } from "../canvas/gesture.ts"
 import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
@@ -83,6 +83,8 @@ import { ComponentMenu } from "./ComponentMenu.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
+import { Name, NameInput } from "./Name.tsx"
+import { GroupLabel } from "./PanelSection.tsx"
 import { type Preferences, setPreferences, usePreferences } from "./preferences.ts"
 import { type PreviewStatus, previewStatus } from "./preview-status.ts"
 import { useProcesses } from "./process-store.ts"
@@ -128,11 +130,13 @@ function dragItem(item: InsertItem) {
     onDragStart: (event: DragEvent) => {
       event.dataTransfer.setData(insertMime, JSON.stringify(item))
       event.dataTransfer.effectAllowed = "copy"
-    }
+      insertDrag.start()
+    },
+    onDragEnd: () => insertDrag.end()
   }
 }
 
-/** A panel's search field, with a magnifier; the Layers panel's too. */
+/** A panel's search field, with a magnifier; the Layers panel's too. It matches names, so it shows their letters. */
 export function SearchField({
   value,
   onChange,
@@ -147,7 +151,7 @@ export function SearchField({
   return (
     <div className="relative px-2 pt-2">
       <Search className="pointer-events-none absolute top-1/2 left-4 mt-1 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <Input
+      <NameInput
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}
         onKeyDown={onKeyDown}
@@ -384,7 +388,7 @@ export function ComponentsPanel() {
           ))}
         </ToggleGroup>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto py-2 text-[13px]">
+      <div className="min-h-0 flex-1 overflow-y-auto py-2 text-sm">
         {shown.map((source) => (
           <SourceSection
             // Starting or clearing a search resets what was collapsed by hand, so matches always show.
@@ -420,7 +424,9 @@ function NotListed({ entries }: { entries: LeftOutExport[] }) {
   const session = useProject()
   return (
     <section className="mt-2 border-t pt-2" aria-label="Not listed as components">
-      <div className="flex h-7 items-center px-4 text-xs font-medium text-muted-foreground">Not listed</div>
+      <GroupLabel as="div" className="flex h-7 items-center px-4">
+        Not listed
+      </GroupLabel>
       {entries.map((entry) => (
         <div
           key={`${entry.path} ${entry.export}`}
@@ -428,9 +434,12 @@ function NotListed({ entries }: { entries: LeftOutExport[] }) {
         >
           <div className="min-w-0 flex-1">
             <Hint label={entry.path} wait>
-              <div className="truncate">{entry.name}</div>
+              {/* The hint's trigger, so it's an element that takes the hint's ref. */}
+              <div className="truncate">
+                <Name>{entry.name}</Name>
+              </div>
             </Hint>
-            <div className="text-[11px] leading-snug">
+            <div className="type-message">
               {entry.undecided
                 ? `Can't tell: ${entry.reason}`
                 : `${entry.reason.charAt(0).toUpperCase()}${entry.reason.slice(1)}`}
@@ -440,7 +449,7 @@ function NotListed({ entries }: { entries: LeftOutExport[] }) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 shrink-0 px-2 text-[11px]"
+              className="h-6 shrink-0 px-2"
               onClick={() => listByHand(session, entry, entry.name)}
             >
               List it
@@ -478,20 +487,22 @@ function SourceSection({
         type="button"
         onClick={() => setExpanded(!isOpen)}
         aria-expanded={isOpen}
-        className="flex h-7 w-full items-center gap-1.5 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+        className="group/source flex h-7 w-full items-center gap-1.5 px-2 text-muted-foreground hover:text-foreground"
       >
         <ChevronRight className={`size-3.5 transition-transform ${isOpen ? "rotate-90" : ""}`} />
         {source.icon}
-        <span className="min-w-0 flex-1 truncate text-left">{source.title}</span>
-        <span className="tabular-nums">{count}</span>
+        <GroupLabel className="flex min-w-0 flex-1 items-center gap-1.5 group-hover/source:text-foreground">
+          <span className="min-w-0 flex-1 truncate text-left">{source.title}</span>
+          <span className="tabular-nums">{count}</span>
+        </GroupLabel>
       </button>
       {source.library && !source.library.stylesImported && <ImportStyles library={source.library} />}
       {isOpen &&
         source.families.map((family) => (
           <div key={family.name} className="mb-1">
             {family.name && (family.items.length > 1 || family.heading) && (
-              <div className={`${view === "names" ? "px-8" : "px-3"} pt-1 text-[11px] text-muted-foreground`}>
-                {family.name}
+              <div className={`${view === "names" ? "px-8" : "px-3"} pt-1 text-2xs text-muted-foreground`}>
+                <Name className="block">{family.name}</Name>
               </div>
             )}
             <div className={view === "grid" ? "grid grid-cols-2 gap-1 px-2 pt-1" : undefined}>
@@ -578,11 +589,11 @@ function AssetEntry({
       <>
         {picture(thumbSizes.grid, true)}
         <span className="flex w-full min-w-0 flex-col px-0.5">
-          <span className="flex min-w-0 items-center gap-1 text-[11px]">
-            <span className="truncate">{entry.label}</span>
+          <span className="flex min-w-0 items-center gap-1 text-xs">
+            <Name>{entry.label}</Name>
             {failingMark}
           </span>
-          <StatusLine status={pictured} />
+          <StatusLine status={pictured} size="text-2xs" />
         </span>
       </>
     )
@@ -593,7 +604,7 @@ function AssetEntry({
         {picture(thumbSizes.list)}
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-center gap-1">
-            <span className="truncate">{entry.label}</span>
+            <Name>{entry.label}</Name>
             {failingMark}
           </span>
           <StatusLine status={pictured} />
@@ -605,7 +616,7 @@ function AssetEntry({
     content = (
       <>
         {icon}
-        <span className="truncate">{entry.label}</span>
+        <Name>{entry.label}</Name>
         {failingMark}
       </>
     )
@@ -832,7 +843,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
         }
       />
       <PopoverContent align="end" className="w-80 p-2">
-        <p className="px-1 pb-2 text-xs text-muted-foreground">
+        <p className="type-description px-1 pb-2 text-muted-foreground">
           Libraries install into the project with its package manager. Any package with a <code>.lib.par</code> file is
           picked up on its own.
         </p>
@@ -844,7 +855,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
               <li key={library.id} className="flex items-start gap-2 rounded-md p-2 hover:bg-accent/50">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{library.name}</div>
-                  <div className="text-xs text-muted-foreground">{library.description}</div>
+                  <div className="type-description text-muted-foreground">{library.description}</div>
                 </div>
                 <Button
                   size="sm"
@@ -868,7 +879,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
 function ImportStyles({ library }: { library: LibraryInfo }) {
   const session = useProject()
   return (
-    <div className="mx-2 mb-1 rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+    <div className="type-message mx-2 mb-1 rounded-md border border-dashed p-2 text-muted-foreground">
       Its styles aren&apos;t imported yet, so its components render unstyled.{" "}
       <button
         type="button"
@@ -964,7 +975,7 @@ export function IconsPanel() {
 
   if (!library) {
     return (
-      <div className="flex flex-col items-center gap-3 px-6 py-10 text-center text-sm text-muted-foreground">
+      <div className="type-empty flex flex-col items-center gap-3 px-6 py-10 text-center text-muted-foreground">
         <Smile className="size-6" />
         <p>
           Add an icon library to drop icons into screens and components. They render with the project&apos;s own copy.
@@ -1077,7 +1088,7 @@ export function IconsPanel() {
 /** Stock photos aren't offered yet; images come in by pasting them onto the canvas. */
 export function ImagesPanel() {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-10 text-center text-sm text-muted-foreground">
+    <div className="type-empty flex flex-col items-center gap-3 px-6 py-10 text-center text-muted-foreground">
       <ImageIcon className="size-6" />
       <p className="font-medium text-foreground">Stock photos are coming soon</p>
       <p>Until then, paste an image onto the canvas to add it. It&apos;s saved into the project.</p>

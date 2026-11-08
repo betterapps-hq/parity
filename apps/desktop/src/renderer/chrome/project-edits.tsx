@@ -92,7 +92,7 @@ export function EditDetails({ edit, open, toggle }: { edit: ProjectEditResult; o
 /** A unified diff, with what was taken out and put in told apart by color. */
 function Diff({ diff }: { diff: string }) {
   return (
-    <pre className="max-h-48 w-full overflow-auto rounded-sm bg-muted p-2 font-mono text-[11px] leading-4 text-foreground">
+    <pre className="type-code max-h-48 w-full overflow-auto rounded-sm bg-muted p-2 font-mono text-foreground">
       {diff.split("\n").map((line, index) => (
         <div key={index} className={lineClass(line)}>
           {line || " "}

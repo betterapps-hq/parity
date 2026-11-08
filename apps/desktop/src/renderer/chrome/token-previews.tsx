@@ -715,10 +715,12 @@ export function TokenArt({
       )
     }
     case "font":
+      // At the font's own regular: at the interface's 450 a variable font would show a weight nobody chose, and a
+      // static face its 500.
       return (
         <span
           className="grid size-full place-items-center leading-none"
-          style={{ fontFamily: value, color: paper.ink, fontSize: large ? 34 : 15 }}
+          style={{ fontFamily: value, fontWeight: 400, color: paper.ink, fontSize: large ? 34 : 15 }}
         >
           Ag
         </span>

@@ -8,10 +8,12 @@ import {
   parseCanvasDocument
 } from "@parity-app/core"
 import { reactRenderer } from "@parity-app/renderer-react"
-import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
+import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { WindowMethods } from "../shared/protocol.ts"
+import { traceWith } from "../shared/tracing.ts"
 import type { SavedDetection } from "./detection-cache.ts"
+import { restartProcess } from "./processes.ts"
 import { type DetectionCache, openProjects, type ProjectAdapters, type WatchFolder } from "./projects.ts"
 import type { TypeChecker } from "./props.ts"
 
@@ -42,15 +44,17 @@ async function write(path: string, contents: string): Promise<void> {
 function fakeBuilder() {
   const started: number[] = []
   const closed: string[] = []
+  const crashes: Parameters<ProjectAdapters["startBuilder"]>[1]["onCrash"][] = []
   const builder: BuilderAdapter = {
     id: "fake",
     name: "Fake builder",
     detect: () => Promise.resolve({ found: true, version: "1.0.0", summary: "Fake builder 1.0.0" }),
     start: () => Promise.reject(new Error("started in its own process"))
   }
-  const startBuilder: ProjectAdapters["startBuilder"] = (options) => {
+  const startBuilder: ProjectAdapters["startBuilder"] = (options, { onCrash }) => {
     const port = options.port!
     started.push(port)
+    crashes.push(onCrash)
     const session: BuilderProcessSession = {
       guestUrl: `http://localhost:${port}/@parity/guest.js`,
       toolVersion: "1.0.0",
@@ -63,7 +67,10 @@ function fakeBuilder() {
     }
     return { pid: 1, session: Promise.resolve(session) }
   }
-  return { builder, startBuilder, started, closed }
+  /** Crashes the builder started last, as its process stopping by itself does. */
+  const crash = (exitCode: number, output: string) =>
+    crashes.at(-1)?.(`Fake builder stopped by itself, with exit code ${exitCode}`, { exitCode, output })
+  return { builder, startBuilder, started, closed, crash }
 }
 
 /** A watcher whose changes the test reports, as `fs.watch` reports them: names relative to the folder. */
@@ -178,6 +185,102 @@ describe("opening a project", () => {
     const { projects } = setUp({ PARITY_PROJECT: root })
     expect(projects.rootFor(undefined)).toBe(root)
     expect(projects.rootFor(join(root, "designs", "shop.par"))).toBe(root)
+  })
+})
+
+describe("what opening a project records", () => {
+  let sink: TestSink
+
+  beforeEach(() => {
+    sink = createTestSink()
+    traceWith(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "service", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+  })
+
+  const attributes = (name: string) => sink.named(name).map((event) => event.attributes)
+
+  it("records the project, how long each step took and what it found, and detection as a span", async () => {
+    await write("node_modules/react/package.json", JSON.stringify({ name: "react", version: "19.1.0" }))
+    await write("node_modules/typescript/package.json", JSON.stringify({ name: "typescript", version: "5.9.2" }))
+    const { projects } = setUp()
+    await projects.open(root)
+
+    expect(attributes("project.opened")).toEqual([
+      {
+        name: "shop",
+        root,
+        reopen: false,
+        cached: false,
+        framework: "react",
+        builder: "fake",
+        durationMs: expect.any(Number),
+        detectionMs: expect.any(Number),
+        builderMs: expect.any(Number),
+        react: "19.1.0",
+        typescript: "5.9.2",
+        components: 1,
+        designs: 1,
+        tokens: 0,
+        libraries: 0
+      }
+    ])
+    expect(attributes("project.detected")).toEqual([{ root }])
+    expect(attributes("builder.ready")).toEqual([
+      { builder: "Fake builder", durationMs: expect.any(Number), restart: false }
+    ])
+  })
+
+  it("records a reopen as Parity starts, and one that took the last detection", async () => {
+    const { projects, detections } = setUp()
+    await projects.open(root)
+    await vi.waitFor(() => expect(detections.kept.has(root)).toBe(true))
+    await projects.close(root)
+    await projects.open(root, { reopen: true })
+
+    expect(attributes("project.opened").map(({ reopen, cached }) => ({ reopen, cached }))).toEqual([
+      { reopen: false, cached: false },
+      { reopen: true, cached: true }
+    ])
+    expect(attributes("project.closed")).toEqual([{ name: "shop", root, openMs: expect.any(Number) }])
+  })
+
+  it("records a project that can't open, with the step that failed", async () => {
+    const { projects } = setUp()
+    await rm(join(root, "package.json"))
+    await expect(projects.open(root)).rejects.toThrow("There's no package.json")
+
+    expect(attributes("project.openFailed")).toEqual([
+      {
+        name: "shop",
+        root,
+        reopen: false,
+        durationMs: expect.any(Number),
+        step: "detection",
+        message: `There's no package.json in ${root}`
+      }
+    ])
+    expect(sink.named("project.opened")).toEqual([])
+  })
+
+  it("records a builder that crashed, with its exit code and output, and starting it again", async () => {
+    const { projects, builder } = setUp()
+    await projects.open(root)
+    builder.crash(1, "Starting\nError: out of memory\n")
+    await restartProcess({ id: `builder:${root}` })
+
+    expect(attributes("builder.crashed")).toEqual([
+      { builder: "Fake builder", exitCode: 1, output: "Starting\nError: out of memory" }
+    ])
+    expect(attributes("builder.restarted")).toEqual([
+      { builder: "Fake builder", durationMs: expect.any(Number), outcome: "ok" }
+    ])
+    expect(attributes("builder.ready").map(({ restart }) => restart)).toEqual([false, true])
   })
 })
 

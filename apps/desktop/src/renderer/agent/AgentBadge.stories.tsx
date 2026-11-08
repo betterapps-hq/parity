@@ -88,7 +88,7 @@ export const ActionIcons: Story = {
         <div key={kind} className="grid grid-cols-[14rem_1fr] items-center gap-6">
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-foreground">{kind}</span>
-            <span className="text-[11px] text-muted-foreground">{note}</span>
+            <span className="text-2xs text-muted-foreground">{note}</span>
           </div>
           <div className="relative">
             <AgentPointer palette={agentPalettes[7]} />

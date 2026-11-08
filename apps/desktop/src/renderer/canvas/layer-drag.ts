@@ -99,9 +99,12 @@ export function pressLayers(
   // Targets are found in the layouts as they were when the drag began, not as the preview reflows them.
   const layouts = new DragLayouts()
   let placed: ReturnType<typeof followAbsolute>
+  // Dropped into another design, the layers change that one too.
+  const moves = { designs: [entry.key], layers: ids }
 
   followPress(absolute ? gestures.absoluteDrag : gestures.layerDrag, session.store, start, {
     design: absolute ? entry.key : undefined,
+    moves,
     cursor: "grabbing",
     start(drag) {
       if (absolute) placed = followAbsolute(session, area, entry, ids[0]!, host, drag)
@@ -139,7 +142,10 @@ export function pressLayers(
       preview?.end()
       view = undefined
       placed?.end(kept)
-      if (kept && !absolute && target) moveLayers(session, entry, ids, target, drag.gesture)
+      if (!kept || absolute || !target) return
+      if (moveLayers(session, entry, ids, target, drag.gesture) && target.design !== entry.key) {
+        moves.designs.push(target.design)
+      }
     },
     click: onClick
   })
@@ -225,7 +231,8 @@ class DropPreview {
 
 /**
  * Moves layers to a target as one undo step, in the drag's gesture when given. Within a design they keep their ids,
- * and every state's changes to them; into another design they go as they're shown, with fresh ids.
+ * and every state's changes to them; into another design they go as they're shown, with fresh ids. Returns whether
+ * they moved.
  */
 export function moveLayers(
   session: ProjectSession,
@@ -233,20 +240,20 @@ export function moveLayers(
   ids: readonly string[],
   target: MoveTarget,
   gesture?: string
-): void {
+): boolean {
   const { store, selection } = session
   const frame = { mode: selection.get().mode, state: selection.get().state }
   const label = ids.length === 1 ? "Move layer" : `Move ${ids.length} layers`
   if (target.design === source.key) {
-    if (moveLayersWithin(source.container, ids, target) === source.container) return
+    if (moveLayersWithin(source.container, ids, target) === source.container) return false
     store.updateContainer(source.key, label, (container) => moveLayersWithin(container, ids, target), { gesture })
     selection.set(layersSelection(source.key, [...ids], frame))
-    return
+    return true
   }
   const destination = store.getEntry(target.design)
-  if (!destination) return
+  if (!destination) return false
   const edited = store.editFrame({ design: source.key, ...frame })
-  if (!edited) return
+  if (!edited) return false
   const { state, viewport } = edited
   let copies: string[] = []
   store.updateContainers(
@@ -259,8 +266,9 @@ export function moveLayers(
     },
     { gesture }
   )
-  if (copies.length === 0) return
+  if (copies.length === 0) return false
   selection.set(layersSelection(containerKey(destination.path, destination.container.id), copies))
+  return true
 }
 
 /**

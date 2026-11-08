@@ -34,7 +34,10 @@ import { holds } from "../chrome/keys.ts"
 import { SpacingBar } from "../chrome/token-previews.tsx"
 import { KeyHints } from "./KeyHints.tsx"
 
-/** The pink padding and gaps are shaded in, as the hatching around a selected layout is. */
+/**
+ * The pink padding and gaps are shaded in, as the hatching around a selected layout is. A value's chip takes a darker
+ * step of it, `--canvas-spacing-chip`, so its white text is 4.5:1 on the fill (see styles.css).
+ */
 export const spacingColor = "oklch(0.66 0.22 350)"
 
 /** A handle's key among a layout's: its side, or which gap. */
@@ -220,11 +223,11 @@ export function SpacingHandles({
             ) : (
               active && (
                 <div
-                  className="absolute z-20 rounded px-1.5 py-px text-[11px] whitespace-nowrap text-white tabular-nums"
-                  style={{ ...labelPlace(handle), background: spacingColor }}
+                  className="absolute z-20 rounded px-1.5 py-px text-2xs font-medium whitespace-nowrap text-white tabular-nums"
+                  style={{ ...labelPlace(handle), background: "var(--canvas-spacing-chip)" }}
                 >
                   {px(value.px)}
-                  {scaleName && <span className="ml-1 font-mono text-white/75">{scaleName}</span>}
+                  {scaleName && <span className="ml-1 font-mono">{scaleName}</span>}
                 </div>
               )
             )}
@@ -296,7 +299,7 @@ function TypeBox(props: {
       <div
         // As the inspector's fields draw: a plain border, the ring while it has focus, red when it can't read a value.
         data-invalid={props.reason ? "" : undefined}
-        className="pointer-events-auto flex h-6 items-center rounded-md border border-input bg-background text-[11px] text-foreground shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 data-[invalid]:border-destructive data-[invalid]:ring-destructive/20"
+        className="pointer-events-auto flex h-6 items-center rounded-md border border-input bg-background text-xs text-foreground shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 data-[invalid]:border-destructive data-[invalid]:ring-destructive/20"
       >
         <input
           ref={ref}
@@ -402,7 +405,7 @@ function TypeBox(props: {
         <div
           id={props.id}
           role="alert"
-          className="mt-1 w-max max-w-56 rounded bg-destructive px-1.5 py-0.5 text-[11px] text-white"
+          className="type-message mt-1 w-max max-w-56 rounded bg-destructive px-1.5 py-0.5 text-white"
         >
           {props.reason}
         </div>
