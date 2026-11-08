@@ -144,6 +144,14 @@ and works with diagnostics off. It shows the last run unless `--session` names o
 `--test-run` search every run. `--level` is the lowest shown, and `--since` takes an ISO time or `30s`, `10m`, `2h` or
 `1d`. `PARITY_USER_DATA` points it at another copy's folder. `tabs` is `{ "tabs": [...] }`.
 
+## What the CLI records
+
+Each run writes a few events to `~/.parity/logs/parity-cli-<date>.jsonl`, one per line, keeping the newest 10 days: the
+command and the names of the flags you gave (never their values), when it can't reach the app, when it and the app are
+versions apart, and each MCP client's name and version. `PARITY_CLI_LOGS` names another folder. Nothing leaves your
+computer yet. The app records each call it answers in its own telemetry, as
+[docs/telemetry.md](https://github.com/betterapps-hq/parity/blob/main/docs/telemetry.md) describes.
+
 ## Licence
 
 MIT. See [LICENSE](https://github.com/betterapps-hq/parity/blob/main/LICENSE).

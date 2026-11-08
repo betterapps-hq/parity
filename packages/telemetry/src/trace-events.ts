@@ -49,13 +49,3 @@ export const builderStarted = defineEvent(
   z.object({ builder: z.string().describe("The builder's name") }),
   { level: "info", sentBy: ["service"], when: "The service starts a project's builder, until it's spawned." }
 )
-
-export const agentCalled = defineEvent(
-  "agent.called",
-  z.object({
-    method: z.string().describe("The agent method called"),
-    agent: z.string().optional().describe("The caller's name"),
-    code: z.string().optional().describe("The error code, when it failed")
-  }),
-  { level: "info", sentBy: ["service"], when: "The agent server answers a call from the CLI." }
-)
