@@ -39,7 +39,6 @@ import { placeFrame } from "../canvas/frame-tool.ts"
 import { useContainerEntry, useHistory, useModeSettings } from "../design-store.ts"
 import { type Tool, useSelection, useTool } from "../selection.ts"
 import { actions } from "./actions.ts"
-import { createDesign } from "./create.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
@@ -167,18 +166,12 @@ function FrameMenu() {
           <p className="px-2 pt-1 pb-1.5 text-xs text-muted-foreground">Or drag on the canvas for any size.</p>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => void actions.newScreen.run("toolbar", { instead: () => createDesign(session, "screen") })}
-        >
+        <DropdownMenuItem onClick={() => void actions.newScreen.run("toolbar")}>
           <AppWindow />
           {keymap.newScreen.label}
           <DropdownMenuShortcut>{formatKeys(keymap.newScreen.keys[0])}</DropdownMenuShortcut>
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() =>
-            void actions.newComponent.run("toolbar", { instead: () => createDesign(session, "component") })
-          }
-        >
+        <DropdownMenuItem onClick={() => void actions.newComponent.run("toolbar")}>
           <Component />
           {keymap.newComponent.label}
           <DropdownMenuShortcut>{formatKeys(keymap.newComponent.keys[0])}</DropdownMenuShortcut>

@@ -31,11 +31,13 @@ export interface SelectedCount {
 
 /**
  * Wraps each action so it's recorded by its ID however it's run: the one place commands are recorded (PAR-639). What
- * an action returns or throws passes through unchanged.
+ * an action returns or throws passes through unchanged. `ran` hears of each one that applies as it starts, however it's
+ * run, as Repeat last action remembers it.
  */
 export function recordActions<Id extends string>(
   definitions: Record<Id, Action>,
-  selected: () => SelectedCount
+  selected: () => SelectedCount,
+  ran?: (id: Id) => void
 ): Record<Id, RecordedAction> {
   const recorded = {} as Record<Id, RecordedAction>
   for (const id of Object.keys(definitions) as Id[]) {
@@ -49,7 +51,10 @@ export function recordActions<Id extends string>(
           startTrace("command.ran", attributes).end("cancelled")
           return undefined
         }
-        return tracedCommand(attributes, () => (instead ? instead() : action.run(event)))
+        return tracedCommand(attributes, () => {
+          ran?.(id)
+          return instead ? instead() : action.run(event)
+        })
       }
     }
   }

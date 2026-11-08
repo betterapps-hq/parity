@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { isBaseState } from "@parity-app/core"
 import { kindsName } from "@parity-app/editor"
 import {
@@ -27,6 +27,7 @@ import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 
+/** Each button, by its command, so it runs as its keys do and Repeat last action can run it again. */
 const alignments: { command: Command; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
   { command: "alignLeft", label: "Align left", shortcut: keymap.alignLeft.keys[0], icon: AlignStartVertical },
   {
@@ -145,8 +146,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         <div className="flex flex-col gap-2">
           <AlignButtons />
           <Button variant="outline" size="sm" onClick={() => void actions.wrap.run("panel")}>
-            <Group /> {keymap.wrap.label}{" "}
-            <span className="ml-auto text-xs text-muted-foreground">{formatKeys(keymap.wrap.keys[0])}</span>
+            <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
           </Button>
         </div>
       </PanelSection>

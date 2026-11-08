@@ -1,3 +1,4 @@
+import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { type Edge, handleBoxes } from "@parity-app/editor"
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, useState } from "react"
 import { Hint } from "../chrome/Hint.tsx"
@@ -55,7 +56,9 @@ export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps)
           ) : (
             <>
               <KeyHints rows={[{ keys: held.fromMiddle.keys, does: "From the middle" }]} />
-              <span className="mt-1 block">Double-click to hug, {formatKeys(held.fill.keys)}+double-click to fill</span>
+              <span className="mt-1 block">
+                Double-click to hug, <Kbd>{formatKeys(held.fill.keys)}</Kbd>+double-click to fill
+              </span>
             </>
           )
         }

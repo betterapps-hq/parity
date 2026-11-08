@@ -62,21 +62,30 @@ describe("recordActions", () => {
     ])
   })
 
-  it("runs what the caller binds in the action's place, and records a failure's code", async () => {
+  it("runs what the caller binds in the action's place, tells of each run that applies, and records a failure's code", async () => {
     sink.clear()
     const failed = Object.assign(new Error("Locked"), { details: { code: "locked" } })
+    const heard: string[] = []
     const actions = recordActions(
-      { newScreen: { run: () => "the active tab's" }, save: { run: () => Promise.reject(failed) } },
-      () => ({ layers: 0, designs: 1 })
+      {
+        newScreen: { run: () => "the active tab's" },
+        save: { run: () => Promise.reject(failed) },
+        undo: { run: () => undefined, available: () => false }
+      },
+      () => ({ layers: 0, designs: 1 }),
+      (id) => heard.push(id)
     )
     expect(actions.newScreen.run("canvasMenu", { instead: () => "where the menu opened" })).toBe(
       "where the menu opened"
     )
     await expect(actions.save.run("menu")).rejects.toBe(failed)
+    actions.undo.run("key")
+    expect(heard).toEqual(["newScreen", "save"])
     await Promise.resolve()
     expect(recorded().map(({ outcome, attributes }) => ({ outcome, ...attributes }))).toEqual([
       { outcome: "ok", action: "newScreen", from: "canvasMenu", enabled: true, layers: 0, designs: 1 },
-      { outcome: "error", action: "save", from: "menu", enabled: true, layers: 0, designs: 1, code: "locked" }
+      { outcome: "error", action: "save", from: "menu", enabled: true, layers: 0, designs: 1, code: "locked" },
+      { outcome: "cancelled", action: "undo", from: "key", enabled: false, layers: 0, designs: 1 }
     ])
   })
 })
