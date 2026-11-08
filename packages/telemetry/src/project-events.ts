@@ -63,6 +63,8 @@ export const projectOpenFailed = defineEvent(
 export const projectLoaded = defineEvent(
   "project.loaded",
   z.object({
+    name,
+    root,
     durationMs: z.number().nonnegative().describe("From asking to open it until its tab is ready, in milliseconds"),
     componentsMs: z.number().nonnegative().describe("How long its guest and components took to load in the window"),
     components: count("The components it has")

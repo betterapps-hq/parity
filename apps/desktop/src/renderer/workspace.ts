@@ -794,6 +794,8 @@ async function createSession(info: ProjectInfo, began: number): Promise<ProjectS
   followCorrections(session)
   const now = performance.now()
   track("project.loaded", {
+    name: info.name,
+    root: info.root,
     durationMs: Math.round(now - began),
     componentsMs: Math.round(now - loading),
     components: info.componentCount

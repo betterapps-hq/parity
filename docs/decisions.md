@@ -6077,6 +6077,15 @@ someone sticking to presets doesn't need, and locking shows that the preset hold
   (`text-xl`) or, when the preset names a font or sets case, a project utility (`type-subtitle1`), with each override as
   a class after it (`leading-6`). PAR-708 maps the other frameworks, and PAR-135 reads the presets.
 
+## The Design panel has no kind switch (PAR-721)
+
+Andrew found the Frame, Component and Screen toggle under a design's name "very ugly" on 2026-11-08, and asked why
+changing a design's kind should be so easy from there. It repeated the title menu's Convert to items, and the icon
+beside the name already shows the kind, so he asked to remove it. This replaces "The inspector's kind switch is Frame,
+Component, Screen" under PAR-545: converting is in each design's title menu, and as Make component's Convert to in the
+canvas and Object menus, with the same toast, Undo and dialog as before. The panel keeps the design's path and, for a
+frame, where it's drawn.
+
 ## Opening projects, builders and servers are recorded (PAR-637)
 
 The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` in `@parity-app/telemetry`. My calls:
@@ -6088,7 +6097,8 @@ The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` 
 - **`project.openFailed` names the step that failed,** `detection` or `builder`, with the message the tab shows and the
   `CodedError` code when there is one. An unsupported project is still `project.unsupported` too.
 - **The window's part is `project.loaded`,** recorded once the tab's guest and components have loaded, with the time
-  from asking to open it. The first frame drawn isn't recorded yet: PAR-711.
+  from asking to open it. It names the project by `name` and `root`, as `project.opened` does, so the two can be paired
+  when several projects open in one session. The first frame drawn isn't recorded yet: PAR-711.
 - **TypeScript's version comes from its installed package,** since detection doesn't list it; React, Vite, Tailwind and
   Storybook come from detection.
 - **A reopen is one the service makes as it starts** (PAR-179), and `cached` means the components and props came from

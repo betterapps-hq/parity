@@ -505,6 +505,8 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 | Attribute      | Type      | Meaning                                                        |
 | -------------- | --------- | -------------------------------------------------------------- |
+| `name`         | `string`  | The project's name, from its package.json or its folder        |
+| `root`         | `string`  | The project's folder                                           |
 | `durationMs`   | `number`  | From asking to open it until its tab is ready, in milliseconds |
 | `componentsMs` | `number`  | How long its guest and components took to load in the window   |
 | `components`   | `integer` | The components it has                                          |
