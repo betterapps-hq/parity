@@ -1,4 +1,15 @@
-import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@buildkitgg/shadcn-baseui-kit"
+import {
+  Badge,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
@@ -61,6 +72,17 @@ const roles: Role[] = [
     )
   },
   {
+    name: "Group title",
+    where: "Groups in dialogs: Settings, Shortcuts",
+    sample: (
+      <div data-slot="dialog-content">
+        <h3 data-sample className="pb-1 text-xs font-medium text-muted-foreground">
+          Appearance
+        </h3>
+      </div>
+    )
+  },
+  {
     name: "Label",
     where: "Field labels and secondary text in panels",
     sample: (
@@ -104,6 +126,18 @@ const roles: Role[] = [
     )
   },
   {
+    name: "Compact row",
+    where: "Tokens and Processes: a 12px name, a caption under it",
+    sample: (
+      <div className="flex flex-col text-xs">
+        <code data-sample className="font-mono text-xs">
+          card-foreground
+        </code>
+        <span className="text-[11px] text-muted-foreground">Text on cards.</span>
+      </div>
+    )
+  },
+  {
     name: "Menu item and tab",
     where: "The kit's menus, tabs, selects and buttons",
     sample: (
@@ -122,11 +156,33 @@ const roles: Role[] = [
     )
   },
   {
+    name: "Control and chip",
+    where: "The kit's segmented controls and badges",
+    sample: (
+      <span className="flex items-center gap-2">
+        <ToggleGroup data-sample variant="outline" size="sm" defaultValue={["layout"]}>
+          <ToggleGroupItem value="layout">In layout</ToggleGroupItem>
+          <ToggleGroupItem value="absolute">Absolute</ToggleGroupItem>
+        </ToggleGroup>
+        <Badge variant="secondary">Screen</Badge>
+      </span>
+    )
+  },
+  {
     name: "Description",
     where: "A section's or setting's description, which wraps",
     sample: (
       <p data-sample className="mb-3 max-w-56 px-1 text-xs text-muted-foreground">
         Find parts that repeat and turn them into components. Each copy becomes an instance.
+      </p>
+    )
+  },
+  {
+    name: "Message",
+    where: "Messages and errors that are read: a field's, a token's",
+    sample: (
+      <p data-sample className="max-w-56 text-[11px] leading-snug text-destructive">
+        That isn’t a color. Try oklch(0.6 0.2 250) or #2563eb.
       </p>
     )
   },
@@ -158,6 +214,15 @@ const roles: Role[] = [
     )
   },
   {
+    name: "Dialog description",
+    where: "What a dialog is for, under its title",
+    sample: (
+      <p data-sample data-slot="dialog-description" className="max-w-56 text-sm text-muted-foreground">
+        For every project, and remembered between runs.
+      </p>
+    )
+  },
+  {
     name: "Heading",
     where: "The start page and sign-in",
     sample: (
@@ -173,6 +238,15 @@ const roles: Role[] = [
       <code data-sample className="font-mono text-xs">
         text-5xl tracking-tight
       </code>
+    )
+  },
+  {
+    name: "Code block",
+    where: "Code over many lines: the Code tab, stack traces",
+    sample: (
+      <pre data-sample className="font-mono text-xs whitespace-pre-wrap">
+        {'<Button size="sm">\n  Find repeated parts\n</Button>'}
+      </pre>
     )
   },
   {

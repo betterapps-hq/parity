@@ -153,11 +153,10 @@
      */
     font-size-adjust: ex-height 0.52;
     /*
-     * Menlo and Consolas have only regular and bold, so Inter's 550 medium would pick bold; mono keeps 500 and 600,
-     * which pick regular and bold there as they do today. Windows gives Cascadia its named weights, so both draw its
-     * SemiBold: a mono heading still stands clear of code at 400.
+     * Code is never medium: Menlo and Consolas have only regular and bold, and Cascadia only named weights, so a medium
+     * would come out regular on one system and semibold on another. Emphasis in code is semibold, at 600, which every
+     * one of them draws as its bold or SemiBold.
      */
-    --font-weight-medium: 500;
     --font-weight-semibold: 600;
   }
 
@@ -169,9 +168,9 @@
     --font-weight-semibold: var(--weight-sans-semibold);
   }
 
-  /* Mono headings that set medium keep it, as they will once these rules are in the base layer. */
+  /* The build takes `font-medium` off code (a token's heading, slot names); this stands in for that. */
   .font-mono.font-medium {
-    font-weight: var(--font-weight-medium);
+    font-weight: 400;
   }
 
   /* Notes on the canvas are people's own text: the font's own regular, not the interface's 450. */
@@ -187,19 +186,24 @@
   }
 
   /*
-   * Names and values tell I, l and 1 apart, with Inter's set for it (ss04: I with serifs, l with a tail), where a
-   * layer or token is named, a value is typed, and a design's name shows over its board on the canvas (the last
-   * selector stands in for a class on that title). Labels and titles keep Inter's plain letters.
+   * Names tell I, l and 1 apart, with Inter's set for it (ss04: I with serifs, l with a tail), where one stands on its
+   * own: a layer's row, a design's name and its field, a board's title on the canvas. The selectors stand in for
+   * `<Name>` and `NameInput`. Labels, titles and other fields keep Inter's plain letters.
    */
-  :is([role="treeitem"], input, .cursor-default.rounded-md.px-1.py-0\.5 > .truncate) {
+  :is(
+    [role="treeitem"],
+    input.text-base.font-semibold,
+    [role="treeitem"] input,
+    .cursor-default.rounded-md.px-1.py-0\.5 > .truncate
+  ) {
     /* Without Inter's contextual alternates, which draw a typed -> as an arrow: a name shows what was typed. */
     font-feature-settings:
       "ss04",
       "calt" 0;
   }
 
-  /* A textarea holds prose, so it keeps the plain letters, but still shows a typed -> as typed. */
-  textarea {
+  /* Every field shows a typed -> as typed, but keeps the plain letters unless it edits a name. */
+  :is(input, textarea):not(.text-base.font-semibold, [role="treeitem"] input) {
     font-feature-settings: "calt" 0;
   }
 
@@ -231,7 +235,7 @@
    * These stand in for a leading class on each.
    */
   p.text-xs:not([class*="leading-"]),
-  [data-slot="dialog-content"] .text-xs.text-muted-foreground {
+  [data-slot="dialog-content"] .text-xs.text-muted-foreground:not(h3) {
     line-height: var(--tw-leading, 1.125rem);
     /* No word left alone on the last line. */
     text-wrap: pretty;
@@ -271,6 +275,41 @@
     }
   }
 
+  /*
+   * The kit sets its tabs, toggles and badges medium, which at 550 sat one step under the section titles. They're
+   * controls and chips, so they're regular, and the active tab medium; buttons, which act, stay medium.
+   */
+  :is(
+    [data-slot="tabs-trigger"]:not([data-active]),
+    [data-slot="toggle"],
+    [data-slot="toggle-group-item"],
+    [data-slot="badge"],
+    [data-slot="kbd"]
+  ) {
+    --font-weight-medium: var(--font-weight-normal);
+  }
+
+  /*
+   * The kit's own descriptions carry their own size and line, which a caller's role can't beat, so they're set here:
+   * a field's and an item's at the description role, an empty state's at the empty-panel role.
+   */
+  :is([data-slot="field-description"], [data-slot="item-description"], [data-slot="alert-description"]) {
+    font-size: var(--text-xs);
+    line-height: 1.125rem;
+    text-wrap: pretty;
+  }
+
+  [data-slot="empty-description"] {
+    font-size: var(--text-sm);
+    line-height: 1.25rem;
+    text-wrap: balance;
+  }
+
+  /* Code over many lines sits on 18px, as editors set it. This stands in for `type-code` on code blocks. */
+  pre.font-mono.text-xs {
+    line-height: var(--tw-leading, 1.125rem);
+  }
+
   [data-slot="dialog-description"],
   [data-slot="dialog-title"],
   [data-slot="alert-dialog-title"] {
@@ -280,7 +319,7 @@
   /* 15px is a name or a title, at semibold either way, so a dialog's title outranks its own group titles. */
   [data-slot="dialog-title"],
   [data-slot="alert-dialog-title"] {
-    font-weight: var(--font-weight-semibold);
+    --font-weight-medium: var(--font-weight-semibold);
   }
 
   .text-center.text-sm.text-muted-foreground {
