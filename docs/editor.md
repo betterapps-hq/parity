@@ -1927,18 +1927,21 @@ selected now.
 - **The dialog is 512 pixels wide.** Keys show as keycaps; a row's design, source or value shows as plain text. Rows
   scrolled part out of view fade at the list's edge, so a highlighted one doesn't look tucked under the field.
 - **Repeat last action (Ctrl+Alt+P)** runs the last change again, on what's selected now, however it was run: by its
-  keys, a menu or the search. Edit lists it after Redo, named for what it repeats ("Repeat wrap in layout"), and it's
-  unavailable until something's been done or when the last action doesn't apply to the selection. It repeats pasting,
-  duplicating, deleting, pasting a style, making a screen or component, wrapping and unwrapping, making a component,
-  detaching, ordering, hiding, aligning and distributing, inserting a component from the search and Find repeated parts;
-  it doesn't repeat undoing, copying, renaming, selecting, nudging or moving around.
+  keys, a menu, the search, or a button in the inspector, the toolbar or Layers. Edit lists it after Redo, named for
+  what it repeats ("Repeat wrap in layout"), and it's unavailable until something's been done or when the last action
+  doesn't apply to the selection. It repeats pasting, duplicating, deleting, pasting a style, making a screen or
+  component, wrapping and unwrapping, making a component, detaching, ordering, hiding, aligning and distributing,
+  inserting a component from the search and Find repeated parts; it doesn't repeat undoing, copying, renaming,
+  selecting, nudging or moving around.
 
 Code: `packages/editor/src/find-anything.ts` matches (`matchWords`), ranks, caps and groups (`findAnything`) and keeps
 the recent picks (`rememberPick`). `chrome/ActionsSearch.tsx` gathers the items and runs the one picked, remembering
 picks in `localStorage` (`parity.recentSearches`). Components come from the insert picker's offer (`offerOf` and
 `insertOption` in `QuickInsert.tsx`); `chrome/shown-token.ts` hands a token to the Tokens panel and
 `chrome/repeated-parts.ts` keeps each screen's repeated parts for `ComponentsSection.tsx`. Repeat is `repeat` in
-`chrome/keymap.ts`; `chrome/actions.ts` wraps each repeatable command so it remembers itself in `chrome/repeat.ts`.
+`chrome/keymap.ts`; `chrome/actions.ts` wraps each repeatable command so it remembers itself in `chrome/repeat.ts`, and
+`rememberCommand` records one made another way, as New screen where the canvas was right-clicked. The inspector's and
+toolbar's buttons run the actions themselves.
 
 Tests:
 
