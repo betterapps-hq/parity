@@ -4,7 +4,8 @@ import { reportSent } from "./diagnostics.ts"
 import type { EventDefinition } from "./events.ts"
 import { filesEvents } from "./files-events.ts"
 import { interfaceEvents } from "./interface-events.ts"
-import { agentCalled, builderStarted, commandRan, frameDrawn, gestureRan, requestHandled } from "./trace-events.ts"
+import { renderEvents } from "./render-events.ts"
+import { agentCalled, builderStarted, commandRan, gestureRan, requestHandled } from "./trace-events.ts"
 
 /**
  * Every event Parity records, from any process. Each process passes `createTelemetry` the ones it sends, and
@@ -15,10 +16,10 @@ export const registeredEvents = [
   commandRan,
   gestureRan,
   requestHandled,
-  frameDrawn,
   builderStarted,
   agentCalled,
   ...appEvents,
+  ...renderEvents,
   ...interfaceEvents,
   ...filesEvents,
   dataInvalid,

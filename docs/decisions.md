@@ -5886,6 +5886,37 @@ the zip hold the same things. My calls:
 - **`parity diagnostics` takes the latest run that didn't quit,** which is the one open now if Parity is running, and
   says so. It writes the zip with Node's own zlib, with no dependency.
 
+## Frame renders, previews and the bitmap cache are recorded (PAR-638)
+
+Main records each offscreen frame and its failures, and the service records previews and the cache's hit rate, as
+docs/telemetry.md lists. My calls:
+
+- **`frame.drawn` became `frame.rendered`,** one span for every offscreen draw, frames and previews alike, with the
+  timings and size PAR-638 asked for added to the queue wait it had. The design is the job's `design.key`, which a
+  component preview has none of; its priority (`visible` or `idle`) says it's one.
+- **`frame.failed` is a warning, not a Sentry error.** Sentry's alert files a Linear bug for every new issue, and most
+  guest failures are a project's own component throwing, as the first run showed (`TabsList` must be used within
+  `Tabs`). It goes as a log and a breadcrumb, with the guest's message and stack.
+- **The failed frame's picture goes with the errors after it.** A log can't carry an attachment, so main captures what
+  the offscreen window shows when a frame fails and adds it to the Sentry errors in the next 10 minutes as
+  `failed-frame.png`, in `beforeSend`, until another frame fails. Not on Sentry's scope, which would attach it to every
+  span's transaction too.
+- **Why it failed is read from the message:** a module that didn't load, in Chromium's, Vite's and Node's words, or else
+  `render threw` (`frameFailure`). **`timed out` is recorded without stopping the frame:** a draw still going 30 seconds
+  after its turn came is recorded once and left to finish, since giving up on it would leave the window drawing under
+  the next job.
+- **The guest's stack reaches main as the frame's `errorStack`,** the first error's, and main takes it off before the
+  frame goes on, so agents' results are as they were.
+- **The hit rate counts lookups, in the service.** A frame bitmap is a hit when `frames.stored` finds one. A preview is
+  a hit when `previews.lookup` finds anything kept for its code, a picture or that it failed or drew nothing, since none
+  of those is drawn again; `previews.make` checking again isn't counted. The session's totals go each minute there was a
+  lookup, so a short drive still sends them.
+- **Nothing is sampled.** Opening `examples/shadcn-vite` with an empty cache drew 642 frames and made 372 previews, with
+  151 failed or empty and 16 frames failing, in two minutes; `request.handled` sent 1,471 in that time. Opening it again
+  drew no frames and made no previews. Spans go to Sentry as transactions, not logs, so `frame.rendered` doesn't reach
+  Sentry's logs at all. If a busy project's frames prove too many, they'd need a Sentry-only share, since `sample` drops
+  an event from the local copy too.
+
 ## Failing components show in the console, and saved code reaches the canvas live (PAR-165)
 
 Called on 2026-11-07. PAR-165 asked for a failing component's error box and a badge on its frame without covering what

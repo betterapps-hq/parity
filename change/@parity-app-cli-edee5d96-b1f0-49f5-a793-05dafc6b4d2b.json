@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Record frame renders, frame failures, component previews and the bitmap cache's hit rate in telemetry",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

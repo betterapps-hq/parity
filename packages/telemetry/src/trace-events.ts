@@ -44,20 +44,6 @@ export const requestHandled = defineEvent(
   { level: "debug", sentBy: ["service", "main"], when: "The service or main answers another process's request." }
 )
 
-export const frameDrawn = defineEvent(
-  "frame.drawn",
-  z.object({
-    priority: z.string().describe("The queue it waited in: render, visible or background"),
-    queuedMs: z.number().describe("How long it waited for an offscreen window, in milliseconds"),
-    whole: z.boolean().describe("Whether it was drawn whole, to capture or check it")
-  }),
-  {
-    level: "debug",
-    sentBy: ["main"],
-    when: "An offscreen window draws a frame or a preview, from its turn to the end."
-  }
-)
-
 export const builderStarted = defineEvent(
   "builder.started",
   z.object({ builder: z.string().describe("The builder's name") }),

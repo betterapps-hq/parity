@@ -630,6 +630,8 @@ export interface RenderedFrame {
   overflowsX: boolean
   unknownComponents: string[]
   error?: string
+  /** The stack of the first error `error` gives, when it had one, for telemetry (PAR-638). */
+  errorStack?: string
   issues?: AccessibilityIssue[]
   contrast?: FrameContrast
 }

@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { type CodeSnapshot, codeSnapshot } from "@parity-app/project"
+import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import sharp from "sharp"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { PreviewJob, RenderJob } from "../shared/protocol.ts"
@@ -44,8 +45,20 @@ let previews: ReturnType<typeof componentPreviews>
 /** The previews as the service makes them when it starts, reading where the store is from the environment. */
 async function startService(): Promise<ReturnType<typeof componentPreviews>> {
   vi.resetModules()
+  // The service's telemetry, recording into `sink`, as `start-telemetry.ts` starts it.
+  sink.clear()
+  ;(await import("../shared/tracing.ts")).traceWith(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "service", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+  )
   return (await import("./previews.ts")).componentPreviews(project)
 }
+
+const sink = createTestSink()
 
 /** A PNG the offscreen window gives, of a size, as base64; the store keeps it as a WebP. */
 async function picture(width: number, height: number): Promise<string> {
@@ -189,5 +202,34 @@ describe("component previews", () => {
 
   it("leave out a preview whose code the project hasn't served", async () => {
     expect(await previews.lookupPreviews([preview("Button", "http://localhost:5999")])).toEqual([])
+  })
+})
+
+describe("component previews' telemetry", () => {
+  it("records each preview made, with its size and how long it took", async () => {
+    await previews.makePreview(preview("Button"), "visible")
+    expect(sink.named("preview.made")[0]?.attributes).toMatchObject({ component: "Button", width: 600, height: 100 })
+    expect(sink.named("preview.made")[0]?.attributes["bytes"]).toBeGreaterThan(0)
+  })
+
+  it("records why one couldn't be made", async () => {
+    open.draw = () => Promise.resolve({ error: "Button needs a ThemeProvider" })
+    await previews.makePreview(preview("Button"), "idle")
+    open.draw = () => Promise.resolve({ empty: true })
+    await previews.makePreview(preview("Badge"), "idle")
+    expect(sink.named("preview.failed").map(({ attributes }) => attributes)).toMatchObject([
+      { component: "Button", reason: "render threw", message: "Button needs a ThemeProvider" },
+      { component: "Badge", reason: "drew nothing" }
+    ])
+  })
+
+  it("counts the previews found kept and not, once for each lookup, a kept failure as found", async () => {
+    const { cacheUse } = await import("./cache-use.ts")
+    await previews.lookupPreviews([preview("Button")])
+    await previews.makePreview(preview("Button"), "idle")
+    open.draw = () => Promise.resolve({ empty: true })
+    await previews.makePreview(preview("Badge"), "idle")
+    await previews.lookupPreviews([preview("Button"), preview("Badge")])
+    expect(cacheUse.report()?.previews).toEqual({ hits: 2, misses: 1, hitRate: 0.667 })
   })
 })

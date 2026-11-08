@@ -35,6 +35,29 @@ const dsn = "https://1367d69a56a94bcd328db394a4a5a2d4@o4512381874274304.ingest.u
 /** How long a window or main may be stuck before it's reported, in milliseconds. */
 const hangThreshold = 2000
 
+/** A picture of the frame that last failed to draw offscreen, and when, for the errors that follow it. */
+let lastFailedFrame: { attachment: { filename: string; data: Uint8Array; contentType: string }; at: number } | undefined
+
+/** How long a failed frame's picture goes with errors, in milliseconds. */
+const failedFrameKeptMs = 10 * 60_000
+
+/**
+ * Keeps a picture of a frame that failed to draw offscreen, as a PNG, which the Sentry errors that follow carry as
+ * `failed-frame.png` for 10 minutes or until another frame fails (PAR-638). `frame.failed` itself is a log, not an
+ * error, since a project's own code failing isn't Parity's bug.
+ */
+export function keepFailedFrame(png: Uint8Array): void {
+  lastFailedFrame = {
+    attachment: { filename: "failed-frame.png", data: png, contentType: "image/png" },
+    at: Date.now()
+  }
+}
+
+function failedFrame(): { filename: string; data: Uint8Array; contentType: string } | undefined {
+  if (lastFailedFrame && Date.now() - lastFailedFrame.at > failedFrameKeptMs) lastFailedFrame = undefined
+  return lastFailedFrame?.attachment
+}
+
 export interface TelemetryStart {
   level: TelemetryLevel
   environment: TelemetryEnvironment
@@ -121,7 +144,12 @@ export function startTelemetry(
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
     // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
-    beforeSend: (event) => scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } })),
+    beforeSend: (event, hint) => {
+      // An error carries the frame that last failed to draw offscreen, while it's recent (PAR-638).
+      const frame = failedFrame()
+      if (frame) hint.attachments = [...(hint.attachments ?? []), frame]
+      return scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } }))
+    },
     beforeSendTransaction: (event) => scrubber.value(withDriver(event)),
     beforeSendLog: (log) => scrubber.value(log),
     beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb),
