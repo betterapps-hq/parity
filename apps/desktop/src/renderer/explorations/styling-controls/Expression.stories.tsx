@@ -8,8 +8,9 @@ import { TextSample } from "./text-preview.tsx"
 
 /**
  * Expression (PAR-186, design-options-values.md's Expression). `=` in any field opens an expression, widened to the
- * row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and tokens inside `var()`, each `var()`
- * drawn as a token chip and what it comes to beside it. At rest it's the function's name and what it comes to
+ * row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and tokens inside `var()`, those the
+ * field can take listed before anything's typed, each `var()` drawn as a token chip and what it comes to beside it.
+ * Backspace with nothing typed takes the `=` away. At rest it's the function's name and what it comes to
  * (`clamp 25.6`), or `ƒ` in a field under 96px; focusing it, clicking it or pressing Enter in it opens it again. A
  * `clamp()` opens its three fields: least, preferred and most, from the field or the button after it. Enter checks it
  * with `CSS.supports` and stores it in its simplest form, so `calc(var(--spacing) * 18)` is a step. Enter and Escape put
@@ -125,6 +126,29 @@ export const TypingAnExpression: Story = {
     const editor = await canvas.findByRole("textbox", { name: "Width expression" })
     await userEvent.type(editor, "min(100%, 40rem){Enter}")
     await expect(canvas.getByRole("textbox", { name: "Width" })).toHaveFocus()
+  }
+}
+
+/**
+ * `=` alone: the functions a length can take are listed before anything's typed, to arrow through. Backspace with
+ * nothing typed takes the `=` away, closing the editor with Width still 320, and focus back on the field.
+ */
+export const JustEquals: Story = {
+  render: () => <Expr label="Width" property="width" prefix="w" start="320px" />,
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
+    await expect(await canvas.findByRole("option", { name: /calc\(\)/ })).toBeVisible()
+    // A length can't be a color, so color-mix() isn't offered.
+    await expect(canvas.queryByRole("option", { name: /color-mix\(\)/ })).toBeNull()
+    await step("Backspace takes the = away", async () => {
+      await userEvent.keyboard("{Backspace}")
+      await expect(canvas.queryByRole("textbox", { name: "Width expression" })).toBeNull()
+      await expect(canvas.getByRole("textbox", { name: "Width" })).toHaveFocus()
+      await expect(canvas.getByRole("textbox", { name: "Width" })).toHaveValue("320")
+    })
+    // Shown open, as the story is about the list.
+    await userEvent.keyboard("=")
   }
 }
 

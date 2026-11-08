@@ -282,13 +282,14 @@ export function expressionWrites(property: string, prefix: string, text: string 
   return { stored: form, css: [`${property}: ${form.value}`], tailwind: [`${prefix}-[${arbitrary(form.value)}]`] }
 }
 
-const functions = [
-  { name: "calc(", detail: "Maths that mixes units: calc(100% - 2rem)" },
-  { name: "min(", detail: "The smallest: min(100%, 40rem)" },
-  { name: "max(", detail: "The largest: max(16rem, 30vw)" },
-  { name: "clamp(", detail: "Least, preferred, most: clamp(1rem, 2vw, 2rem)" },
-  { name: "color-mix(", detail: "Two colors mixed: color-mix(in oklab, red 50%, blue)" },
-  { name: "var(--", detail: "A token" }
+// The functions offered, each with the kinds of field it gives a value for, so a field lists only what it can take.
+const functions: { name: string; detail: string; kinds: readonly ("length" | "color")[] }[] = [
+  { name: "calc(", detail: "Maths that mixes units: calc(100% - 2rem)", kinds: ["length"] },
+  { name: "min(", detail: "The smallest: min(100%, 40rem)", kinds: ["length"] },
+  { name: "max(", detail: "The largest: max(16rem, 30vw)", kinds: ["length"] },
+  { name: "clamp(", detail: "Least, preferred, most: clamp(1rem, 2vw, 2rem)", kinds: ["length"] },
+  { name: "color-mix(", detail: "Two colors mixed: color-mix(in oklab, red 50%, blue)", kinds: ["color"] },
+  { name: "var(--", detail: "A token", kinds: ["length", "color"] }
 ]
 
 /** A completion: what it puts in, how it's named, the token it names, and what it is. */
@@ -320,10 +321,13 @@ function completionsFor(
         })
     }
   }
-  const word = /(?:^|[^\w-])([a-z][\w-]*)$/i.exec(before)?.[1]
+  // Where a value can start, at the start or an argument's, every function is offered before anything's typed, so `=`
+  // shows what an expression can be.
+  const starting = /(?:^|[(,])\s*$/.test(before)
+  const word = starting ? "" : /(?:^|[^\w-])([a-z][\w-]*)$/i.exec(before)?.[1]
   if (word === undefined) return undefined
   const items = functions
-    .filter((fn) => fn.name.startsWith(word.toLowerCase()) && fn.name !== `${word}(`)
+    .filter((fn) => fn.kinds.includes(kind) && fn.name.startsWith(word.toLowerCase()) && fn.name !== `${word}(`)
     .map((fn) => ({ text: fn.name, label: fn.name.replace("(", "()").replace("var()--", "var(--"), detail: fn.detail }))
   return items.length > 0 ? { replace: word.length, items } : undefined
 }
@@ -374,8 +378,9 @@ function clampParts(text: string): [string, string, string] | undefined {
 /**
  * A field whose value can be an expression, on ValueField. A plain length types as any length field does; `=` opens
  * the expression, widened to the row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and
- * tokens inside `var()`. Enter checks it with `CSS.supports` and stores it in its simplest form; Escape puts it back.
- * Either one puts focus back on the field. At rest an expression shows its function and what it comes to, and focusing
+ * tokens inside `var()`, those the field can take listed where a value starts, before anything's typed. Enter checks it with
+ * `CSS.supports` and stores it in its simplest form; Escape, or Backspace with nothing typed, puts it back. Each puts
+ * focus back on the field. At rest an expression shows its function and what it comes to, and focusing
  * it, clicking it or pressing Enter in it opens it again; a `clamp()` opens its three fields instead.
  */
 export function ExpressionField({
@@ -488,7 +493,10 @@ export function ExpressionField({
       event.preventDefault()
       if (commit(false)) backToField()
     }
-    if (event.key === "Escape") {
+    // Backspace with nothing typed takes the `=` away too: the editor closes and the value stays as it was.
+    const emptied = event.key === "Backspace" && editing === ""
+    if (emptied) event.preventDefault()
+    if (event.key === "Escape" || emptied) {
       event.stopPropagation()
       setEditing(undefined)
       setMessage(
