@@ -1,0 +1,134 @@
+/*
+ * The proposed interface type (PAR-709), for comparing with the app's type in Storybook before it's built. It applies
+ * inside an element marked `data-interface-type="proposed"`: the page, when the toolbar's Type control says Proposed,
+ * or one column of a comparison. A part marked "current" inside it keeps the type the app has now.
+ *
+ * Most of it is the theme's own variables, which the kit's components and the app's classes both read, so the build
+ * changes them once in styles.css. The rest stands in for class changes the build makes in the components: the odd
+ * pixel sizes onto the scale, and section titles in sentence case.
+ */
+@scope ([data-interface-type="proposed"]) to ([data-interface-type="current"]) {
+  :scope {
+    /* Four sizes for the chrome, 11, 12, 13 and 15px, where there were nine between 10 and 16px. */
+    --text-xs: 0.75rem;
+    --text-xs--line-height: 1rem;
+    --text-sm: 0.8125rem;
+    --text-sm--line-height: 1.125rem;
+    --text-base: 0.9375rem;
+    --text-base--line-height: 1.25rem;
+    --text-lg: 1.125rem;
+    --text-lg--line-height: 1.5rem;
+    --text-xl: 1.25rem;
+    --text-xl--line-height: 1.75rem;
+    --text-2xl: 1.5rem;
+    --text-2xl--line-height: 2rem;
+
+    /*
+     * Geist is variable, so regular text sits a step above 400, which reads thin at 12px on a dark panel, with medium
+     * and semibold moved up to keep their distance from it.
+     */
+    --font-weight-normal: 450;
+    --font-weight-medium: 540;
+    --font-weight-semibold: 620;
+    font-weight: var(--font-weight-normal);
+
+    /*
+     * Code in a monospace that matches Geist's x-height. `ui-monospace` only works in Safari, so in Chromium code fell
+     * through to Consolas on Windows, whose lowercase is 8% shorter than Geist's.
+     */
+    --font-mono: "Cascadia Mono", Menlo, Consolas, monospace;
+
+    /* macOS draws light text on a dark panel heavier with subpixel smoothing; Windows ignores this. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Nothing under 11px: units, counts, captions and the chips on the canvas, with a little room between letters. */
+  :is(.text-\[9px\], .text-\[10px\], .text-\[10\.5px\], .text-\[11px\]) {
+    font-size: 0.6875rem;
+    line-height: var(--tw-leading, 0.875rem);
+    letter-spacing: var(--tw-tracking, 0.01em);
+  }
+
+  .text-\[12px\] {
+    font-size: var(--text-xs);
+    line-height: var(--tw-leading, var(--text-xs--line-height));
+  }
+
+  /* The kit's small button was 12.8px, between two steps; it takes the panel's 12px, as the text around it. */
+  .text-\[0\.8rem\] {
+    font-size: var(--text-xs);
+    line-height: var(--tw-leading, var(--text-xs--line-height));
+  }
+
+  .text-\[13px\] {
+    font-size: var(--text-sm);
+    line-height: var(--tw-leading, var(--text-sm--line-height));
+  }
+
+  .text-\[15px\] {
+    font-size: var(--text-base);
+    line-height: var(--tw-leading, var(--text-base--line-height));
+  }
+
+  /* Section titles in sentence case and the text color, so they lead their section instead of matching its labels. */
+  .uppercase.tracking-wide {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--foreground);
+
+    /* A section's count stays quiet beside it. */
+    & .tabular-nums {
+      color: var(--muted-foreground);
+    }
+  }
+
+  /*
+   * Group labels in lists and dialogs (Layers' Components and Screens, Settings' and Shortcuts' groups) are medium,
+   * as Settings' and Shortcuts' already are. This stands in for the class Layers' group heading gets.
+   */
+  .relative.h-7.pl-3.text-xs.text-muted-foreground > .flex-1 {
+    font-weight: var(--font-weight-medium);
+  }
+
+  /* Shortcuts in menus are read as keys, not spaced out like a label: the kit sets them at its widest tracking. */
+  [data-slot$="-shortcut"] {
+    letter-spacing: 0;
+  }
+
+  /* Headings close up a little as they grow. Notes on the canvas are people's own text, so they're left alone. */
+  .text-lg {
+    letter-spacing: var(--tw-tracking, -0.01em);
+  }
+
+  .text-xl {
+    letter-spacing: var(--tw-tracking, -0.015em);
+  }
+
+  :is(.text-2xl, .text-3xl):not(.canvas-note) {
+    letter-spacing: var(--tw-tracking, -0.02em);
+  }
+}
+
+/* The type the app has now, Tailwind's defaults, for a part marked "current" inside a proposed one. */
+[data-interface-type="current"] {
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: calc(1.5 / 1);
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 400;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+}
