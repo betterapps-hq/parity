@@ -1,5 +1,5 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import { type CSSProperties, type ReactNode, useState } from "react"
+import { createContext, type CSSProperties, type ReactNode, useContext, useState } from "react"
 import { mixColor } from "./css-values.ts"
 import { type Draft, usedColors } from "./data.ts"
 import { ProjectTokens, useTokenSets } from "./field-parts.tsx"
@@ -18,6 +18,12 @@ export function useDraft(start: Draft) {
   return [draft, (change: Partial<Draft>) => setDraft((current) => ({ ...current, ...change }))] as const
 }
 
+/**
+ * Set around stories shown together, as Every control does, so each Playground inside shows its control alone, without
+ * what it writes or its preview.
+ */
+export const ControlOnly = createContext(false)
+
 export function Playground({
   writes,
   preview,
@@ -30,25 +36,33 @@ export function Playground({
   tokens?: Partial<TokenSets>
   children: ReactNode
 }) {
+  const only = useContext(ControlOnly)
+  // The inspector's width, so the control lays out as it will there.
+  const control = (
+    <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1 rounded-lg border p-3">
+      {children}
+    </section>
+  )
   return (
     <TooltipProvider>
       <ProjectTokens tokens={tokens}>
-        {/* It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't. */}
-        <div className="flex h-screen flex-wrap content-start items-start gap-6 overflow-y-auto bg-background p-6 text-foreground">
-          {/* The inspector's width, so the control lays out as it will there. */}
-          <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1 rounded-lg border p-3">
-            {children}
-          </section>
-          <Readout writes={writes} />
-          {preview && (
-            <section
-              aria-label="Preview"
-              className="grid shrink-0 place-items-center rounded-lg border bg-muted/40 p-6"
-            >
-              {preview}
-            </section>
-          )}
-        </div>
+        {only ? (
+          control
+        ) : (
+          // It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't.
+          <div className="flex h-screen flex-wrap content-start items-start gap-6 overflow-y-auto bg-background p-6 text-foreground">
+            {control}
+            <Readout writes={writes} />
+            {preview && (
+              <section
+                aria-label="Preview"
+                className="grid shrink-0 place-items-center rounded-lg border bg-muted/40 p-6"
+              >
+                {preview}
+              </section>
+            )}
+          </div>
+        )}
       </ProjectTokens>
     </TooltipProvider>
   )
