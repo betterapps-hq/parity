@@ -99,6 +99,12 @@ const selectedScreen = () => {
   return entry && entry.container.kind !== "component" && !activeSession()?.selection.get().node ? entry : undefined
 }
 
+/** Inserts a component again in the active tab's project, through its offer as it stands now. */
+function repeatInsert(key: string): void {
+  const session = activeSession()
+  if (session) insertOption(session, offerOf(session, session.store.getEntries()), key)
+}
+
 /** Finds the repeated parts in the selected screen and shows them in the inspector. */
 function findInSelectedScreen(): void {
   const entry = selectedScreen()
@@ -206,7 +212,6 @@ function projectItems(session: ProjectSession): Item[] {
   const offer = offerOf(session, entries)
   for (const option of offer.options) {
     if (option.origin === "basic" || option.hidden) continue
-    const insert = () => insertOption(session, offer, option.key)
     items.push({
       id: `component:${option.key}`,
       group: "Components",
@@ -215,8 +220,13 @@ function projectItems(session: ProjectSession): Item[] {
       detail: option.sourceName,
       searchOnly: true,
       run: () => {
-        rememberAction({ label: `Insert ${option.name}`, run: insert })
-        insert()
+        rememberAction({
+          label: `Insert ${option.name}`,
+          run: () => repeatInsert(option.key),
+          // Only in this project's tab: another project has its own selection, and may not have the component.
+          available: () => activeSession()?.info.root === session.info.root
+        })
+        insertOption(session, offer, option.key)
       }
     })
   }
@@ -229,7 +239,7 @@ function projectItems(session: ProjectSession): Item[] {
       detail: token.values.default,
       searchOnly: true,
       icon: <Palette className="text-muted-foreground" />,
-      run: () => showToken(token.name)
+      run: () => showToken(session.info.root, token.name)
     })
   }
   return items

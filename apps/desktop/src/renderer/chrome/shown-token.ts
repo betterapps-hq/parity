@@ -1,26 +1,30 @@
 import { setLayout } from "./layout.ts"
 
-// A token picked in Search actions (PAR-180): the Tokens tab opens searched for its name.
+// A token picked in Search actions (PAR-180): the Tokens tab opens searched for its name, in that token's project only.
+// Every open project keeps its panels mounted, so each request names the project, by its folder, whose panel takes it.
 
-let pending: string | undefined
-const listeners = new Set<(name: string) => void>()
+const pending = new Map<string, string>()
+const listeners = new Map<string, (name: string) => void>()
 
-/** Opens the Tokens tab searched for a token's name. */
-export function showToken(name: string): void {
+/** Opens the Tokens tab searched for a token's name, in the project at `root`. */
+export function showToken(root: string, name: string): void {
   setLayout({ left: true, leftTab: "tokens" })
-  if (listeners.size === 0) pending = name
-  else listeners.forEach((listener) => listener(name))
+  const listener = listeners.get(root)
+  if (listener) listener(name)
+  else pending.set(root, name)
 }
 
-/** The token waiting to be shown by a Tokens panel that's just opening, taken so it's shown once. */
-export function takeShownToken(): string | undefined {
-  const name = pending
-  pending = undefined
+/** The token waiting for the project at `root`'s Tokens panel, which is just opening, taken so it's shown once. */
+export function takeShownToken(root: string): string | undefined {
+  const name = pending.get(root)
+  pending.delete(root)
   return name
 }
 
-/** Calls `listener` with each token shown while the Tokens panel is open. */
-export function onShowToken(listener: (name: string) => void): () => void {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
+/** Calls `listener` with each token shown in the project at `root` while its Tokens panel is open. */
+export function onShowToken(root: string, listener: (name: string) => void): () => void {
+  listeners.set(root, listener)
+  return () => {
+    if (listeners.get(root) === listener) listeners.delete(root)
+  }
 }

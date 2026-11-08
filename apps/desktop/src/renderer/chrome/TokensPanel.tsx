@@ -134,8 +134,8 @@ export function TokensPanel() {
   const tokens = useTokenList(store)
   const failure = useTokenFailure(store)
   const unwritten = new Set(failure?.tokens.map((change) => change.name))
-  const [query, setQuery] = useState(() => takeShownToken() ?? "")
-  useEffect(() => onShowToken(setQuery), [])
+  const [query, setQuery] = useState(() => takeShownToken(info.root) ?? "")
+  useEffect(() => onShowToken(info.root, setQuery), [info.root])
   const [source, setSource] = useState<Source>("all")
   const [view, setView] = useState<View>("list")
   // The sections folded closed, by title. Starting or clearing a search unfolds them, so matches always show.
