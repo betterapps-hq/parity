@@ -12,7 +12,7 @@ import {
 import { walkNodes } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
 import { FolderOpen, Palette } from "lucide-react"
-import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import {
   type ProjectSession,
@@ -245,6 +245,24 @@ function projectItems(session: ProjectSession): Item[] {
   return items
 }
 
+/** Everything the search can find now: the actions, the active project's contents and the remembered projects. */
+function gatherItems(session: ProjectSession | undefined, projects: readonly { root: string; name: string }[]): Item[] {
+  return [
+    ...commandItems(),
+    ...extras,
+    ...(session ? projectItems(session) : []),
+    ...projects.map((project): Item => ({
+      id: `project:${project.root}`,
+      group: "Projects",
+      label: project.name,
+      keywords: project.root,
+      detail: project.root,
+      icon: <FolderOpen className="text-muted-foreground" />,
+      run: () => void workspace.open(project.root)
+    }))
+  ]
+}
+
 /**
  * Finds anything from one search (PAR-180): Ctrl+K or Ctrl+/, or Help > Search actions. It lists every action by name,
  * as Figma's actions menu, and the projects the window remembers; with a project open, its designs, and once something's
@@ -263,32 +281,17 @@ export function ActionsSearch() {
   const [scrolled, setScrolled] = useState<Edges>({ top: false, bottom: false })
   // Each time it opens it starts empty, even if keys reached the search while it was closing.
   const [wasOpen, setWasOpen] = useState(open)
+  // Gathered once each time it opens, as what's in the project can't change while it's open, and kept while it closes
+  // so its rows stay put as it fades.
+  const [items, setItems] = useState(() => (open ? gatherItems(activeSession(), projects) : []))
   if (open !== wasOpen) {
     setWasOpen(open)
     if (open) {
       setQuery("")
       setRecent(readRecent())
+      setItems(gatherItems(activeSession(), projects))
     }
   }
-  const session = open ? activeSession() : undefined
-  // Gathered once each time it opens, as what's in the project can't change while it's open.
-  const items = useMemo((): Item[] => {
-    if (!open) return []
-    return [
-      ...commandItems(),
-      ...extras,
-      ...(session ? projectItems(session) : []),
-      ...projects.map((project): Item => ({
-        id: `project:${project.root}`,
-        group: "Projects",
-        label: project.name,
-        keywords: project.root,
-        detail: project.root,
-        icon: <FolderOpen className="text-muted-foreground" />,
-        run: () => void workspace.open(project.root)
-      }))
-    ]
-  }, [open, session, projects])
   const order: Heading[] = starting
     ? ["Projects", "Designs", "Layers", ...groups, "Components", "Tokens"]
     : ["Designs", "Layers", ...groups, "Components", "Tokens", "Projects"]

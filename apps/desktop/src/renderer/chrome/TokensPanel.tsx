@@ -135,12 +135,21 @@ export function TokensPanel() {
   const failure = useTokenFailure(store)
   const unwritten = new Set(failure?.tokens.map((change) => change.name))
   const [query, setQuery] = useState(() => takeShownToken(info.root) ?? "")
-  useEffect(() => onShowToken(info.root, setQuery), [info.root])
   const [source, setSource] = useState<Source>("all")
   const [view, setView] = useState<View>("list")
   // The sections folded closed, by title. Starting or clearing a search unfolds them, so matches always show.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const needle = query.trim().toLowerCase()
+  // A token picked in Search actions shows however the panel was filtered: every source, every section open.
+  useEffect(
+    () =>
+      onShowToken(info.root, (name) => {
+        setQuery(name)
+        setSource("all")
+        setCollapsed(new Set())
+      }),
+    [info.root]
+  )
   const toggle = (title: string) =>
     setCollapsed((current) => {
       const next = new Set(current)
