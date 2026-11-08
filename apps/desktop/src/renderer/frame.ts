@@ -248,24 +248,21 @@ export function setDrawnNodes(host: Element, drawnNodes: (() => DrawnNodes | und
 }
 
 /**
- * Calls `drawn` at the first animation frame after the guest put its design in `target`, the element `prepareFrame`
- * gave it to mount in. Gives back what stops waiting.
+ * Calls `drawn` once the guest has put its design in `target`, the element `prepareFrame` gave it to mount in. Gives
+ * back what stops waiting.
  */
 export function whenDrawn(target: HTMLElement, drawn: () => void): () => void {
-  let frame = 0
-  const draw = () => {
-    observer.disconnect()
-    frame = requestAnimationFrame(drawn)
+  if (target.firstChild) {
+    drawn()
+    return () => undefined
   }
   const observer = new MutationObserver(() => {
-    if (target.firstChild) draw()
-  })
-  if (target.firstChild) draw()
-  else observer.observe(target, { childList: true })
-  return () => {
+    if (!target.firstChild) return
     observer.disconnect()
-    cancelAnimationFrame(frame)
-  }
+    drawn()
+  })
+  observer.observe(target, { childList: true })
+  return () => observer.disconnect()
 }
 
 function drawnNodes(host: Element): DrawnNodes | undefined {

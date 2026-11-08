@@ -41,8 +41,11 @@ interface ModeViewProps {
    * mode key it.
    */
   shows?: string
-  /** Hears when the frame next draws its design, at the animation frame after the guest put it on the page. */
-  onDrawn?: () => void
+  /**
+   * Hears when the frame has drawn its design, with the element it's drawn in, each time it's mounted. What it gives
+   * back is called when the frame is taken apart.
+   */
+  onDrawn?: (drawn: HTMLElement) => (() => void) | undefined
 }
 
 /** What the canvas and tldraw would otherwise act on too, when the pointer or keys are the design's. */
@@ -188,7 +191,8 @@ export function ModeView({
       }
     })
     handleRef.current = handle
-    const waiting = onDrawnRef.current ? whenDrawn(target, () => onDrawnRef.current?.()) : undefined
+    let undraw: (() => void) | undefined
+    const waiting = onDrawnRef.current ? whenDrawn(target, () => (undraw = onDrawnRef.current?.(target))) : undefined
     // Selecting, outlining and measuring find the design's nodes through the guest, which reads them from React's tree.
     setDrawnNodes(host, handle.drawnNodes?.bind(handle))
     // Until it's drawn again, the frame keeps the height it had, so its board doesn't shrink and grow back. The design
@@ -198,6 +202,7 @@ export function ModeView({
     return () => {
       cancelAnimationFrame(held)
       waiting?.()
+      undraw?.()
       // In a tab that isn't showing, nothing is laid out: the frame keeps the height it last had when drawn (see the
       // `contain-intrinsic-size` rule on `[data-frame]`), rather than holding none.
       if (outer.getClientRects().length > 0) outer.style.minHeight = `${outer.offsetHeight}px`

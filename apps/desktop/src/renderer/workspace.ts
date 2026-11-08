@@ -15,6 +15,7 @@ import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { z } from "zod"
 import type { ProjectEditResult, ProjectInfo, TabSummary } from "../shared/protocol.ts"
+import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
 import { getPreferences } from "./chrome/preferences.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
@@ -48,8 +49,11 @@ export interface ProjectSession {
   errors: { path: string; error: string }[]
   /** The tab's canvas, once mounted. */
   editor?: Editor
-  /** Records the first frame its canvas draws, live or from a bitmap, with how long opening took (PAR-711). */
-  firstFrame?: (from: FirstFrame) => void
+  /**
+   * Watches for the first frame its canvas draws on screen, live or from a bitmap, recorded with how long opening took
+   * (PAR-711). Gone once one has.
+   */
+  firstFrame?: FirstFrameWatch
 }
 
 export interface Tab {
@@ -833,10 +837,10 @@ async function createSession(
 
 /** Gives the session what records its canvas's first frame, which it lets go of once it has. */
 function firstFrameOf(session: ProjectSession, record: (from: FirstFrame) => void): void {
-  session.firstFrame = (from) => {
+  session.firstFrame = watchFirstFrame((from) => {
     session.firstFrame = undefined
     record(from)
-  }
+  })
 }
 
 /**

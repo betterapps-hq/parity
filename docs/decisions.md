@@ -6186,10 +6186,15 @@ The events are in [telemetry.md](telemetry.md#events), from `project-events.ts`.
   has mounted. Its `durationMs` runs from asking to open, the same start as `project.loaded`, so the two compare. `from`
   says whether the frame drew its design (`live`) or showed a bitmap kept from an earlier session or captured offscreen
   (`bitmap`).
-- **A live frame has drawn at the animation frame after the guest puts anything in it,** watched with a
-  `MutationObserver` on the element it mounts in, and a bitmap at the animation frame after it's decoded and on the
-  page. Only the first frame of a newly opened or reopened tab is recorded. A project with no designs draws no frame, so
-  it has no `project.drawn`.
+- **A frame counts once it's seen on screen, not once it's ready.** Frames offer a bitmap once it's decoded, and a live
+  frame once the guest has put its design in it (a `MutationObserver` on the element it mounts in). Then, each animation
+  frame, `canvas/first-frame.ts` checks whether what was offered is rendered (`checkVisibility`, which leaves out a live
+  frame that `content-visibility` skips while its bitmap stands in) and in the window. Whether a bitmap shows depends on
+  styles (the zoom, sleep, the selected board), so a decoded bitmap that stays hidden at the zoom a project opens at
+  isn't counted. The check stops at the first frame seen, or when nothing is offered.
+- **Only the first frame of a newly opened or reopened tab is recorded.** A tab opened in the background, as at startup,
+  records it when it's first shown, so its time includes the wait. A project with no designs draws no frame, so it has
+  no `project.drawn`.
 
 ## The CLI sends to Sentry from a process of its own (PAR-642)
 
