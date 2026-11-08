@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 08 Nov 2026 21:20:53 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 21:40:38 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.36.1
+
+Sun, 08 Nov 2026 21:40:38 GMT
+
+### Patches
+
+- Name the Design tab's token pickers for their property and value, such as Fill, primary, so a screen reader says which
+  row each sets (ajcraswell@gmail.com)
 
 ## 0.36.0
 

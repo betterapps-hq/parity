@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Name the Design tab's token pickers for their property and value, such as Fill, primary, so a screen reader says which row each sets",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

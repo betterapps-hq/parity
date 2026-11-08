@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 21:40:38 GMT",
+      "version": "0.36.1",
+      "tag": "@parity-app/desktop_v0.36.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "52f57178bab32bb8c340404a9d8ccdffa4a78429",
+            "comment": "Name the Design tab's token pickers for their property and value, such as Fill, primary, so a screen reader says which row each sets"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7ebd84f261601b994d281004ca594af9c5c19aa4",
+            "comment": "Import the Sentry sink from @parity-app/telemetry, where it moved for the CLI"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 21:20:53 GMT",
       "version": "0.36.0",
       "tag": "@parity-app/desktop_v0.36.0",
