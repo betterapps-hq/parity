@@ -858,13 +858,19 @@ function ParsedInput({
 
 const groupTitles: Record<string, string> = { semantic: "Semantic", theme: "Primitive" }
 
-/** Picks a token by name, searching the project's tokens of the given categories. Colors show swatches. */
+/**
+ * Picks a token by name, searching the project's tokens of the given categories. Colors show swatches. The button is
+ * named for its property and what it shows ("Fill, primary", "Text color, None"), since its text alone is the value.
+ */
 export function TokenInput({
+  label,
   value,
   tokens,
   categories,
   onChange
 }: {
+  /** The property it sets, as a screen reader names it: "Fill", or "Text color" where the row says only Color. */
+  label: string
   value: string | undefined
   tokens: Token[]
   categories: TokenCategory[]
@@ -875,16 +881,20 @@ export function TokenInput({
   const choices = tokens.filter((token) => categories.includes(token.category))
   const current = choices.find((token) => token.name === value)
   const groups = Map.groupBy(choices, (token) => token.source)
+  const shown = value ?? (mixed ? "Mixed" : "None")
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <Button variant="outline" size="sm" className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={`${label}, ${shown}`}
+            className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal"
+          >
             <span className="flex min-w-0 items-center gap-1.5">
               {value && categories.includes("color") && <Swatch value={current?.values.default ?? `var(--${value})`} />}
-              <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>
-                {value ?? (mixed ? "Mixed" : "None")}
-              </span>
+              <span className={`truncate font-mono ${value ? "" : "text-muted-foreground"}`}>{shown}</span>
             </span>
             <ChevronsUpDown className="size-3 opacity-50" />
           </Button>
