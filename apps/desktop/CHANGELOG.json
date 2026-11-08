@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 21:20:53 GMT",
+      "version": "0.36.0",
+      "tag": "@parity-app/desktop_v0.36.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b3c94953765bc8f79871077ff396e28595cda9ef",
+            "comment": "Record project opening, detection, builders and servers (PAR-637)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 12:58:18 GMT",
       "version": "0.35.0",
       "tag": "@parity-app/desktop_v0.35.0",

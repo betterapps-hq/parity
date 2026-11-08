@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 08 Nov 2026 12:58:18 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 21:20:53 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.36.0
+
+Sun, 08 Nov 2026 21:20:53 GMT
+
+### Minor changes
+
+- Record project opening, detection, builders and servers (PAR-637) (ajcraswell@gmail.com)
 
 ## 0.35.0
 

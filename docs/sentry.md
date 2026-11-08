@@ -54,6 +54,8 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
   which `parity-desktop`'s Settings > Debug Files had on from the start, as Sentry does for an Electron project.
 - **Other installed builds,** such as pull requests' preview installers, are named by their commit, so they stay out of
   a published version's release. Their maps aren't uploaded yet.
+- **The CLI's releases** are `parity-cli@<version>` when it's installed from npm, and the commit when it runs from a
+  checkout. Its source maps aren't uploaded yet; a stack from the published CLI names its bundled files.
 - **Each event's `dist`** is the platform and architecture, such as `win32-x64`, and an installed build's events carry
   `update_channel`, `stable` or `beta`.
 

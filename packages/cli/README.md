@@ -148,9 +148,14 @@ and works with diagnostics off. It shows the last run unless `--session` names o
 
 Each run writes a few events to `~/.parity/logs/parity-cli-<date>.jsonl`, one per line, keeping the newest 10 days: the
 command and the names of the flags you gave (never their values), when it can't reach the app, when it and the app are
-versions apart, and each MCP client's name and version. `PARITY_CLI_LOGS` names another folder. Nothing leaves your
-computer yet. The app records each call it answers in its own telemetry, as
+versions apart, and each MCP client's name and version. `PARITY_CLI_LOGS` names another folder. The app records each
+call it answers in its own telemetry, as
 [docs/telemetry.md](https://github.com/betterapps-hq/parity/blob/main/docs/telemetry.md) describes.
+
+The CLI also shares these diagnostics with Parity, with any error it hits, to help fix bugs. It follows the app: it
+shares them unless you turn off Share diagnostics in Parity's Settings, or set `PARITY_TELEMETRY=off` or
+`DO_NOT_TRACK=1`. The first run that shares them says so on stderr, once. Sending never holds up a command: what a
+command would send waits in `~/.parity/outbox`, and a separate `parity` process sends it after the command exits.
 
 ## Licence
 

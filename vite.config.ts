@@ -166,7 +166,16 @@ export default defineConfig({
       "typescript/ban-ts-comment": "error",
       "typescript/consistent-type-imports": "error",
       "eslint/no-console": "off",
-      "vite-plus/prefer-vite-plus-imports": "error"
+      "vite-plus/prefer-vite-plus-imports": "error",
+      // An error notification goes through `reportError`, which records it as well as showing it (PAR-632, PAR-644).
+      "eslint/no-restricted-properties": [
+        "error",
+        {
+          object: "toast",
+          property: "error",
+          message: "Use reportError from renderer/report-error.ts, which records the error as well as showing it."
+        }
+      ]
     },
     overrides: [
       {
@@ -248,6 +257,11 @@ export default defineConfig({
         // rule would fail `vp check`, which lints without types and so reports it unused.
         files: ["packages/builder-vite/src/index.test.ts"],
         rules: { "typescript/no-implied-eval": "off" }
+      },
+      {
+        // reportError is the one place that shows an error notification itself; everything else calls it.
+        files: ["apps/desktop/src/renderer/report-error.ts"],
+        rules: { "eslint/no-restricted-properties": "off" }
       },
       {
         // Tests may use Node to set up files and folders.

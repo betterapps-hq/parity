@@ -143,8 +143,7 @@ export const ChangedInAState: Story = {
 export const PickingAColor: Story = {
   loaders: [pick("Pricing", "Brand mark")],
   play: async ({ canvasElement }) => {
-    // Fill comes before the text color, which names a primary token too.
-    await userEvent.click(within(canvasElement).getAllByRole("button", { name: /primary/ })[0]!)
+    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Fill, / }))
     await within(document.body).findByPlaceholderText("Search tokens", undefined, slowly)
   }
 }

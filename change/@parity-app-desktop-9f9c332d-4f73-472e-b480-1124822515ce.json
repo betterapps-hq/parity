@@ -1,6 +1,6 @@
 {
-  "type": "minor",
-  "comment": "Record project opening, detection, builders and servers (PAR-637)",
+  "type": "none",
+  "comment": "Import the Sentry sink from @parity-app/telemetry, where it moved for the CLI",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

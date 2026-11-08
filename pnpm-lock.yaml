@@ -173,6 +173,9 @@ catalogs:
     '@sentry/electron':
       specifier: 8.3.0
       version: 8.3.0
+    '@sentry/node':
+      specifier: 11.8.0
+      version: 11.8.0
     beachball:
       specifier: 2.66.0
       version: 2.66.0
@@ -518,6 +521,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@sentry/node':
+        specifier: 'catalog:'
+        version: 11.8.0(@babel/core@7.29.7(supports-color@7.2.0))
       semver:
         specifier: ^7.8.5
         version: 7.8.5

@@ -205,6 +205,7 @@ export function PresetTextSection({
         {beforeColor.filter(visible).map(rowFor)}
         <Field label="Color">
           <TokenInput
+            label="Text color"
             value={layer.color}
             tokens={project.colors}
             categories={["color"]}

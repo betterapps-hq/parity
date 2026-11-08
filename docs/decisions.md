@@ -5632,7 +5632,8 @@ Sentry's server-side scrubbing stays on as a second net. My calls:
 ## Events go to Sentry through main, and to a local copy at every level (PAR-627)
 
 Every process records its events with `createTelemetry` and the app's Sentry sink, `shared/sentry-sink.ts`, which maps
-envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. My calls:
+envelopes to Sentry's shapes and never lives in `@parity-app/telemetry`. PAR-642 has since moved it there, for the CLI;
+see "The CLI sends to Sentry from a process of its own" below. My calls:
 
 - **Each process keeps its own breadcrumbs and errors; main sends logs and spans.** In a window, a render window and the
   service, each event and span becomes a breadcrumb in that process's Sentry scope, and a failure becomes a Sentry error
@@ -5768,6 +5769,17 @@ catalogs. My calls:
 - **A recording mistake never stops the work.** `track` logs what the development build's checks throw rather than
   throwing it, and nothing is recorded where no telemetry was started, as in stories and tests.
 - **Event names can be camelCase,** as the proposal names them (`document.saveFailed`, `projectEdit.applied`).
+
+## Lint refuses `toast.error` outside `reportError` (PAR-644)
+
+So no new error notification skips the record PAR-632 added, `eslint/no-restricted-properties` in `vite.config.ts`
+refuses `toast.error` anywhere, with a message saying to use `reportError`. My calls:
+
+- **`report-error.ts` is the one exception,** a `lint.overrides` entry with a comment, as exceptions are made here.
+- **Only `toast.error` is refused.** Other notifications (`toast.success`, `toast(...)`) aren't failures, so they don't
+  go through `reportError`.
+- **`scripts/lint.test.ts` lints a probe file** to show the rule refuses `toast.error` and names `reportError`, and that
+  `report-error.ts` still passes.
 
 ## Failed data checks and unsupported projects are recorded (PAR-633)
 
@@ -6130,6 +6142,43 @@ The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` 
   processes of their own, outside it, so they have their own events.
 - **Node code records through `track` in `shared/tracing.ts`,** which puts the event under the span the process is
   working in, as `inSpan` does for spans.
+
+## The CLI sends to Sentry from a process of its own (PAR-642)
+
+The CLI's events, its `cli.ran` spans and the errors it hits go to Sentry's `parity-cli` project through `@sentry/node`
+11.8.0, the version `@sentry/electron` 8.3.0 already brings, approved with "Parity's own telemetry goes to Sentry, on by
+default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My calls:
+
+- **A command never loads `@sentry/node`.** Loading it took about 300 ms here, against about 150 ms for a whole
+  `parity tabs`, which would break "It never slows a command". A command keeps what it would send, writes it to
+  `~/.parity/outbox` as it exits, and starts a detached `node send.mjs`, which sends every batch waiting and exits.
+  `parity tabs` took about 20 ms longer with diagnostics on. This replaces the issue's in-process flush with a short cap
+  on exit, which would still have waited on the load or the network.
+- **One sender at a time, and nothing left behind.** The sender holds `.sending` in the outbox while it sends, takes a
+  lock two minutes old as a dead sender's, removes each batch before sending it, and reads the folder again after
+  letting go. A batch a day old is dropped unsent, as from a computer that was offline.
+- **The Sentry mapping is shared, in `@parity-app/telemetry`.** `createSentrySink`, `breadcrumbOf`, `errorOf`, `logOf`
+  and `transactionOf` moved there from `apps/desktop/src/shared/sentry-sink.ts`, typed with the parts of Sentry's types
+  they fill in, so the package still never imports Sentry. The CLI uses the same sink with `upload`, as main does:
+  events as logs and breadcrumbs, spans as transactions with Parity's own IDs, so `cli.ran` is the root the app's
+  `agent.called` continues.
+- **Errors that are bugs, not answers.** A command's failure goes to Sentry only when it isn't one of Parity's coded
+  errors: invalid input or an app that isn't running is the command's answer, on `cli.ran`. An error nothing caught is
+  sent as unhandled. Both carry the command's trace.
+- **The same setting, read each run.** `cliTelemetrySetting` reads the app's `telemetry.json` and the variables through
+  `resolveTelemetry`, so `PARITY_TELEMETRY`, `DO_NOT_TRACK` and Vitest decide as they do for the app, and a
+  `PARITY_TELEMETRY` that isn't a level fails the command. Before the app has run, the CLI sends, as install `none`.
+- **Every CLI call counts as an agent's,** as the app counts them: `driver` is `agent`, `agent` the caller's name
+  (`Terminal` unless `PARITY_AGENT_NAME` or MCP names it) and `agent_client` the MCP client.
+- **Installed means installed from npm.** A CLI under `node_modules` reports as `tester` and names its release
+  `parity-cli@<version>`; one run from a checkout, from source or its own `dist`, reports as `development`, named by the
+  checkout's commit, which the sender reads with Git. A pkg.pr.new preview is installed too, so it reports as its
+  version.
+- **The notice is one line on stderr, once:** "Parity shares diagnostics to help fix bugs. To stop sharing them, turn
+  off Settings > Privacy > Share diagnostics in the app, or set PARITY_TELEMETRY=off." It names the switch by its path
+  in the app, not Sentry, as PAR-626 asked, reviewed with the writing-style-guide skill, and stays off stdout, which
+  agents parse. `~/.parity/telemetry-notice` says it was shown.
+- **The CLI scrubs keys, tokens and passwords, not `.env` values,** which only the service reads.
 
 ## The interface is set in Inter (PAR-709)
 
