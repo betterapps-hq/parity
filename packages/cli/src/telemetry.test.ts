@@ -3,7 +3,18 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { cliEvents, createTelemetry, createTestSink } from "@parity-app/telemetry"
 import { afterEach, describe, expect, it } from "vite-plus/test"
-import { cliLogFolder, fileSink, inCliRun, recordCli, runTraceHeaders, setCliTelemetry } from "./telemetry.ts"
+import {
+  batchRun,
+  cliCallerChanged,
+  cliLogFolder,
+  cliTelemetrySetting,
+  fileSink,
+  inCliRun,
+  recordCli,
+  runTraceHeaders,
+  setCliTelemetry,
+  telemetryNotice
+} from "./telemetry.ts"
 
 function testTelemetry() {
   const sink = createTestSink()
@@ -98,5 +109,75 @@ describe("cliLogFolder", () => {
     expect(cliLogFolder({ PARITY_CLI_LOGS: "/tmp/logs", VITEST: "true" })).toBe("/tmp/logs")
     expect(cliLogFolder({ VITEST: "true" })).toBeUndefined()
     expect(cliLogFolder({})).toMatch(/\.parity[\\/]logs$/)
+  })
+})
+
+describe("cliTelemetrySetting", () => {
+  const installId = "0b6f7c1e-3c55-4d5e-9a1f-6f2d9c8b7a10"
+  const saved = (level: string) => JSON.stringify({ level, installId })
+
+  it("sends what the app's Settings saved, as the app's install", () => {
+    expect(cliTelemetrySetting({}, saved("off"))).toEqual({ level: "off", setting: "off", installId })
+    expect(cliTelemetrySetting({}, saved("all"))).toEqual({ level: "all", setting: "all", installId })
+  })
+
+  it("sends everything before the app has run, as no install", () => {
+    expect(cliTelemetrySetting({}, undefined)).toEqual({ level: "all", setting: "all", installId: "none" })
+    expect(cliTelemetrySetting({}, "not json")).toMatchObject({ level: "all", installId: "none" })
+  })
+
+  it("lets the variables decide over the setting, as the app does", () => {
+    expect(cliTelemetrySetting({ PARITY_TELEMETRY: "off" }, saved("all"))).toMatchObject({
+      level: "off",
+      overriddenBy: "PARITY_TELEMETRY"
+    })
+    expect(cliTelemetrySetting({ PARITY_TELEMETRY: "all" }, saved("off"))).toMatchObject({ level: "all" })
+    expect(cliTelemetrySetting({ DO_NOT_TRACK: "1", PARITY_TELEMETRY: "all" }, saved("all"))).toMatchObject({
+      level: "off",
+      overriddenBy: "DO_NOT_TRACK"
+    })
+    expect(cliTelemetrySetting({ VITEST: "true" }, saved("all"))).toMatchObject({ level: "off" })
+  })
+
+  it("refuses a PARITY_TELEMETRY that isn't a level, rather than sending what was meant to be off", () => {
+    expect(() => cliTelemetrySetting({ PARITY_TELEMETRY: "of" }, undefined)).toThrow(/PARITY_TELEMETRY is "of"/)
+  })
+})
+
+describe("telemetryNotice", () => {
+  it("says once, on one line, that diagnostics are shared and how to stop it", () => {
+    const notice = telemetryNotice("all", false)
+    expect(notice).toContain("PARITY_TELEMETRY=off")
+    expect(notice).toContain("Share diagnostics")
+    expect(notice).not.toContain("\n")
+    expect(telemetryNotice("all", true)).toBeUndefined()
+  })
+
+  it("says nothing while diagnostics are off", () => {
+    expect(telemetryNotice("off", false)).toBeUndefined()
+  })
+})
+
+describe("batchRun", () => {
+  afterEach(() => cliCallerChanged({ name: "Terminal", id: "Terminal" }))
+
+  it("tags a batch as the app tags its events: environment, test pass, and the agent calling", () => {
+    cliCallerChanged({ name: "Claude", id: "Claude#1a2b3c4d", client: "claude-code" })
+    const run = batchRun({ CI: "true", PARITY_TEST_RUN: "ci-7" }, "install", true)
+    expect(run).toMatchObject({
+      environment: "ci",
+      installed: true,
+      tags: { test_run: "ci-7", driver: "agent", agent: "Claude", agent_client: "claude-code" },
+      user: { id: "install", username: "Claude#1a2b3c4d" }
+    })
+    expect(run.version).toMatch(/^\d+\.\d+\.\d+/)
+    expect(run.source).toBeUndefined()
+  })
+
+  it("names a checkout's folder, whose commit names its release, and the tester as the user", () => {
+    const run = batchRun({ PARITY_TESTER: "Andrew" }, "install", false)
+    expect(run).toMatchObject({ environment: "development", user: { id: "install", username: "Andrew" } })
+    expect(run.tags).toEqual({ driver: "agent", agent: "Terminal" })
+    expect(run.source).toBeDefined()
   })
 })

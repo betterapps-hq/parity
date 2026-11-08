@@ -18,11 +18,11 @@ import {
   telemetryRelease,
   telemetryUser
 } from "@parity-app/telemetry"
+import { createSentrySink, type SentryTarget } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
-import { createSentrySink, type SentryTarget } from "../shared/sentry-sink.ts"
 import type { TelemetryRun } from "../shared/telemetry-run.ts"
 import { createLogFileSink, createLogFiles } from "./log-files.ts"
 

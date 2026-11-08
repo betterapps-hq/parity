@@ -6,10 +6,10 @@ import {
   type Sink,
   type Telemetry
 } from "@parity-app/telemetry"
+import { createSentrySink } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/utility"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
-import { createSentrySink } from "../shared/sentry-sink.ts"
 import { readTelemetryRun, telemetryRunVariable } from "../shared/telemetry-run.ts"
 import { mainProcess } from "./main-process.ts"
 import { workerTelemetryKey } from "./worker-telemetry.ts"

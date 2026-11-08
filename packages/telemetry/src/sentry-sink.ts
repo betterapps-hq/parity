@@ -1,5 +1,45 @@
-import { type Envelope, isErrorEvent, type Level, type Sink, type SpanEnvelope } from "@parity-app/telemetry"
-import type { Breadcrumb, Event, SeverityLevel } from "@sentry/electron/main"
+import type { Envelope, Level, SpanEnvelope } from "./envelope.ts"
+import { isErrorEvent, type Sink } from "./sink.ts"
+
+/*
+ * How envelopes become Sentry's breadcrumbs, errors, logs and transactions, shared by the app and the CLI (PAR-642).
+ * The package still never imports Sentry: these are the parts of Sentry's own types the mapping fills in, which each
+ * process's Sentry module accepts as they are.
+ */
+
+export type SeverityLevel = "debug" | "info" | "warning" | "error" | "fatal"
+
+export interface Breadcrumb {
+  type: "default"
+  category: string
+  level: SeverityLevel
+  timestamp: number
+  data: Record<string, unknown>
+}
+
+export interface Event {
+  type?: "transaction"
+  level: SeverityLevel
+  message?: string
+  timestamp: number
+  start_timestamp?: number
+  transaction?: string
+  transaction_info?: { source: "custom" }
+  tags: Record<string, string>
+  contexts: {
+    parity?: Record<string, unknown>
+    trace?: {
+      trace_id: string
+      span_id: string
+      parent_span_id?: string
+      op?: string
+      status?: string
+      origin?: "manual"
+      data?: Record<string, unknown>
+    }
+  }
+  spans?: []
+}
 
 /** A Sentry structured log: its level, its message, the attributes it's searched by, and the trace it belongs to. */
 export interface SentryLog {

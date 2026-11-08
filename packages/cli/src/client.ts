@@ -17,7 +17,7 @@ import { checkData, jsonText, type SchemaProblem } from "@parity-app/core/schema
 import type { z } from "zod"
 import { cliCallerName, sessionCallerId } from "./caller.ts"
 import type { ExecResponse } from "./execute.ts"
-import { recordCli, runTraceHeaders } from "./telemetry.ts"
+import { cliCallerChanged, recordCli, runTraceHeaders } from "./telemetry.ts"
 
 /**
  * Where running copies of the app say how to reach them: `~/.parity/agents`, or the one file `PARITY_AGENT_FILE` names
@@ -70,7 +70,14 @@ export function setCaller(name: string | undefined, session = false, client?: st
   callerClient = client
   callerId = session ? sessionCallerId(caller, randomUUID()) : explicitCallerId
   transport = session ? "mcp" : "cli"
+  tagCaller()
 }
+
+/** Tags the CLI's own events with who's calling, as the app tags the calls (PAR-642). */
+function tagCaller(): void {
+  cliCallerChanged({ name: caller, id: callerId ?? caller, ...(callerClient ? { client: callerClient } : {}) })
+}
+tagCaller()
 
 /**
  * How a call finds its copy of the app (PAR-514): `tab` goes to the copy that has the tab's project open, `open` to the
