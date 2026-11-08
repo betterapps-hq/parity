@@ -245,7 +245,7 @@ final state (wrapped in `@supports`), so content is never left hidden.
 
 ## Classes Parity can't read back
 
-decisions.md says Parity asks whether to freeze the component as code or overwrite the edit. Call 9 recommends a third
-answer, offered first, that keeps the class on the layer as a From the code row in the CSS section, not editable there,
-written back unchanged on every later write. This is how `[&_svg]:size-4` or a developer's `has-[…]:` variant survives,
-without freezing a whole component over one class. Freeze and Overwrite stay in the menu.
+Parity used to ask only whether to freeze the component as code or overwrite the edit. Call 9 decided a third answer,
+offered first, that keeps the class on the layer as a From the code row in the CSS section, not editable there, written
+back unchanged on every later write. This is how `[&_svg]:size-4` or a developer's `has-[…]:` variant survives, without
+freezing a whole component over one class. Freeze and Overwrite stay in the menu.

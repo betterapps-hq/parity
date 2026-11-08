@@ -135,7 +135,7 @@ from. [design-options-code.md](design-options-code.md) has the details.
 ## Calls to make
 
 Andrew answered these on 2026-11-06 and 2026-11-07 ([decisions.md](../decisions.md#the-design-panels-calls-par-652)).
-Calls 6 and 9 are still open, and 3 and 7 have follow-up issues.
+Call 6 is still open, and 3 and 7 have follow-up issues.
 
 1. **Can a layer use a value that isn't a token?** Decided: yes, if it's valid
    ([decisions.md](../decisions.md#a-layer-can-use-its-own-values-not-only-tokens-if-theyre-valid-par-652)). Every field
@@ -159,13 +159,14 @@ Calls 6 and 9 are still open, and 3 and 7 have follow-up issues.
    Selection colors, Transform, Text inside for layouts, components and instances, Interaction, Motion, CSS. Size comes
    before Layout as Figma's W and H come before auto layout, and Spacing follows Layout so padding sits next to gap.
 6. **What is a text style?** Open: Andrew sees it as a design language's typography preset (Fluent's typography styles
-   bundle font, size, weight and line height), which a layer syncs to and is locked by. PAR-707 explores picking one and
-   how the fields it sets are hidden or disabled. The recommendation it starts from: in Tailwind projects, a `--text-*`
-   size that pairs a weight or letter spacing, usually with a line height (Tailwind v4's own), or a project utility that
-   sets only type when the style names a font or sets what a size can't pair (OpenType features, case); a DTCG
-   typography token compiles to the same. Overriding one row keeps the style and marks the override, and a style can
-   differ per breakpoint. PAR-135 waits on this. [design-options-tokens.md](design-options-tokens.md), What a text style
-   is, has the detail.
+   bundle font, size, weight and line height), which a layer syncs to and is locked by. Parity calls it a text style in
+   every project, whatever the framework names it (Fluent's typography styles, MUI's typography variants, Chakra's
+   textStyles), so the panel reads the same across projects. PAR-707 explores picking one and how the fields it sets are
+   hidden or disabled. The recommendation it starts from: in Tailwind projects, a `--text-*` size that pairs a weight or
+   letter spacing, usually with a line height (Tailwind v4's own), or a project utility that sets only type when the
+   style names a font or sets what a size can't pair (OpenType features, case); a DTCG typography token compiles to the
+   same. Overriding one row keeps the style and marks the override, and a style can differ per breakpoint. PAR-135 waits
+   on this. [design-options-tokens.md](design-options-tokens.md), What a text style is, has the detail.
 7. **What a state writes.** Each state names its trigger: a pseudo-class (`:hover`), an attribute (`[data-state=open]`)
    or a prop. Decided for Tailwind projects: pseudo-classes and attributes by default, as Webflow's and Plasmic's states
    are, with a prop only when the component's code has one, written as Tailwind variants. A component's state reaches
@@ -177,10 +178,10 @@ Calls 6 and 9 are still open, and 3 and 7 have follow-up issues.
    only where its value differs from the one below (`p-4 md:p-6 lg:p-8`). The frame draws a viewport's values from its
    prefix up to the next one, so it draws what the code does ([design-options-code.md](design-options-code.md),
    Viewports).
-9. **A class Parity can't read back.** Open, waiting on an example for Andrew. decisions.md says Parity asks whether to
-   freeze the component as code or overwrite the edit. Recommended: a third answer, offered first, keeps the class on
-   the layer as a From the code row, written back unchanged on every later write. It saves a whole component from being
-   frozen over one class ([design-options-code.md](design-options-code.md)).
+9. **A class Parity can't read back.** decisions.md says Parity asks whether to freeze the component as code or
+   overwrite the edit. Decided: a third answer, offered first, keeps the class on the layer as a From the code row,
+   written back unchanged on every later write. It saves a whole component from being frozen over one class
+   ([design-options-code.md](design-options-code.md)).
 10. **What does a typed % mean in a length?** Today it's a share of the value there, as in Figma's dimension fields
     (editor.md, CAN-48). Decided: in a field whose CSS takes a percentage, `%` is CSS's percentage, as Webflow, Framer's
     Relative size and DevTools read it, written as a fraction step where one exists (50% → `w-1/2`); Figma's share is

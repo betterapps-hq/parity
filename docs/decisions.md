@@ -5930,7 +5930,7 @@ My calls:
 
 [design-options.md](proposals/design-options.md) asked ten calls about how the Design panel covers CSS. Call 1 is above,
 under "A layer can use its own values". Andrew answered the rest on 2026-11-07, accepting the recommendations for 2, 4,
-5, 8 and 10 as written, and adding to 3 and 7:
+5, 8, 9 and 10 as written, and adding to 3 and 7:
 
 - **Stroke's position (2):** Stroke owns `border` and `outline`, and Effects alone owns `box-shadow`. Include in layout,
   on for a new stroke, writes `border`. With it off, Inside, Center and Outside write `outline` with an offset of minus
@@ -5952,8 +5952,15 @@ under "A layer can use its own values". Andrew answered the rest on 2026-11-07, 
 - **A typed % (10):** in a field whose CSS takes a percentage, `%` is CSS's percentage, written as a fraction where
   Tailwind has one (50% → `w-1/2`). Figma's share of the current value is typed as maths (`*0.5`), and the hint says so.
   This replaces CAN-48's reading; PAR-194 decides the stored form.
+- **A class Parity can't read back (9):** when a component's class list holds a class no control covers, such as
+  `[&_svg]:size-4`, an edit no longer has to freeze the component as code or drop the class. A third answer, offered
+  first, keeps the class on the layer, written back unchanged on every later write (`flex gap-2 px-6 [&_svg]:size-4`
+  after Padding changes `px-4` to `px-6`), and shows it in the CSS section as a read-only From the code row. Freezing
+  and overwriting stay as the other two answers.
 
 Still open: **6, what a text style is.** Andrew sees it as a design language's typography preset, such as Fluent's
 typography styles, which bundle font, size, weight and line height, that a layer syncs to and is locked by, something
 other design tools don't offer. PAR-707 explores picking one and how the fields it sets are hidden or disabled; PAR-135
-reads the presets. **9, a class Parity can't read back,** waits on a worked example.
+reads the presets. Whatever a framework calls them, Parity calls them **text styles** everywhere, in the panel, the
+Tokens panel, the CLI and the agent API, so the words don't change between projects. A framework's own name shows only
+where it says where a style came from ("From Fluent's typographyStyles").
