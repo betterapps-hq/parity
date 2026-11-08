@@ -4777,6 +4777,33 @@ How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
 - **`@sentry/cli` 3.8.2 is a devDependency of the app** (your call, 2026-11-06), run from `scripts/build.ts` and
   `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it.
 
+## Sentry watches agent failures and crash-free sessions (PAR-643)
+
+The plan's "Releases, dashboards and alerts" asks for two rate alerts and one set of dashboards. What exists and their
+links are in [sentry.md](sentry.md#alerts). My calls:
+
+- **Thresholds are the plan's:** a crash-free session rate under 99% in `tester`, and agent calls failing more than 5%
+  of the time. Each is measured over the last hour, so one bad minute doesn't file a bug and a test pass's failures
+  still count together. Both resolve once the rate is back past the line.
+- **One monitor for every agent operation,** not one per `method`. Sentry's metric monitors watch one number each, and a
+  monitor per method would need a new one for every method agents gain. The dashboard's "Agent error codes by operation"
+  says which method is failing once the alert fires.
+- **Agent failures count in every environment,** `development` and `ci` included, as PAR-622's alerts do: agents' test
+  passes are where agent calls happen now. A cancelled call isn't a failure, as Sentry's `failure_rate()` counts it.
+- **Crash-free counts only `tester`.** CI and development builds are stopped by their tests and by people restarting
+  them, which would read as crashes.
+- **Monitor breaches file Linear bugs through their own alert,** "File monitor breaches in Linear", with the same action
+  as PAR-622's. PAR-622's alert watches issue streams, so a monitor's issue doesn't reach it. One monitor issue is one
+  bug, reopened if the rate goes past the line again.
+- **One dashboard,** "Parity", for both projects, filtered by environment and release, rather than a dashboard per view:
+  every view is a few widgets, and one page with shared filters is quicker to read a test pass or a release from.
+- **Still by hand, not in Terraform.** PAR-658 brings Sentry into Terraform once the pipelines pass a Sentry token. The
+  dashboard waits for someone to make it in Sentry's UI (PAR-716), since Sentry's MCP server can't create dashboards and
+  agents have no token that can. The crash-free monitor waits for the first `tester` event (PAR-714).
+- **Nothing here needs Business on purpose,** but it was made during the Business trial and Sentry's docs don't say
+  which plan limits custom dashboards and metric monitors. After the trial ends on 2026-11-19, check that the monitors
+  are still on and the dashboard still opens.
+
 ## The rest of signing in is designed (PAR-614)
 
 You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
