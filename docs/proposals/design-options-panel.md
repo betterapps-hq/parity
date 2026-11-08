@@ -272,15 +272,15 @@ layer's text is one string (`document.ts`). Styling part of it (a bold word, a l
 selected characters with Mixed in each row, needs inline ranges in the model and gets its own issue; until then, Text
 has no Mixed state for part of a text.
 
-Text style, the section's first row, shows when the project has one
-([design-options-tokens.md](design-options-tokens.md), What a text style is); in a stock Tailwind project, whose sizes
-pair only a line height, Size's token shows its line height as From size. With a style applied, the rows it sets fold
-into its row as a summary ("Inter 20/28 Semibold"), as Figma's Typography does, with a disclosure to show them. An
+Typography preset, the section's first row, shows when the project has one
+([design-options-tokens.md](design-options-tokens.md), What a typography preset is); in a stock Tailwind project, whose
+sizes pair only a line height, Size's token shows its line height as From size. With a style applied, the rows it sets
+fold into its row as a summary ("Inter 20/28 Semibold"), as Figma's Typography does, with a disclosure to show them. An
 overridden row stays shown, marked, with its reset arrow. Detach is in the style row's menu.
 
 | Row                 | Control                                                                                                                 | Writes                                                                              | Figma                                                      |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Text style          | Picker of the project's text styles (PAR-135); the rows it sets fold into it while it's applied                         | the style's class (`text-xl`), or those rows' properties; never `font`              | Text styles                                                |
+| Typography preset   | Picker of the project's typography presets (PAR-135); the rows it sets fold into it while it's applied                  | the style's class (`text-xl`), or those rows' properties; never `font`              | Text styles                                                |
 | Font                | Searchable list in each font, the project's fonts first, then Google Fonts (today: a token)                             | `font-family`                                                                       | Font family                                                |
 | Weight and style    | Menu of the weights the font has (Semibold 600), a slider for a variable font; italics (today: nine weights and Italic) | `font-weight`, `font-style`                                                         | Font style                                                 |
 | Size                | Length field with font size tokens, px, rem and `clamp()` (today: a token)                                              | `font-size`, and what the size token pairs, unless those rows are set               | Size                                                       |
@@ -304,8 +304,8 @@ Decoration's popover has style (solid, double, dotted, dashed, wavy), color, thi
 spaces, underline position and inset. Case is As typed, Uppercase, Lowercase, Title case or Small caps (today: the first
 four). Max lines of one writes `text-overflow: ellipsis` with the `overflow` and `white-space` it needs.
 
-On a layout, Text inside shows only properties that inherit: Text style, Font, Weight and style, Size, Line height,
-Letter spacing, solid Color, horizontal Align, Case, Wrap and the inheriting More entries; the rest would write
+On a layout, Text inside shows only properties that inherit: Typography preset, Font, Weight and style, Size, Line
+height, Letter spacing, solid Color, horizontal Align, Case, Wrap and the inheriting More entries; the rest would write
 `background-image` and `align-content`, which the layout's own Fill and Lines own. Truncate on Auto width text switches
 it to Fixed, and Wrap is hidden there, since text as wide as its line never wraps or truncates. With a gradient Color,
 Decoration's color needs a value of its own, since `currentColor` would be transparent, and the row says so.

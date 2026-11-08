@@ -60,12 +60,12 @@ render.ts gives each element a `style` object today, which can't hold a state's 
 `::selection`, `@starting-style`, a `@container` query or a `group-hover:` rule. Each frame draws each layer with the
 classes Parity will write for it, compiled by the project's own Tailwind (the design system
 `@parity-app/styles-tailwind` already loads through `@tailwindcss/node`) into the shadow root's stylesheet, in
-Tailwind's own layers. So the frame has the code's cascade: `hover:` inside `@media (hover: hover)`, a text style's
-`--tw-leading`, `group-hover:`, `divide-y`'s child selector, a component's own classes against the layer's, and `!`. A
-project without Tailwind gets one rule set per layer, keyed by its node id (`[data-node="…"]`), in `@layer utilities`,
-with states, theme variants and container queries as its selectors and at-rules. Showing a state on the canvas still
-applies its patch, as today. Play draws the real `:hover`, `:focus-visible` and `:active`, so a transition plays as it
-will in the app.
+Tailwind's own layers. So the frame has the code's cascade: `hover:` inside `@media (hover: hover)`, a typography
+preset's `--tw-leading`, `group-hover:`, `divide-y`'s child selector, a component's own classes against the layer's, and
+`!`. A project without Tailwind gets one rule set per layer, keyed by its node id (`[data-node="…"]`), in
+`@layer utilities`, with states, theme variants and container queries as its selectors and at-rules. Showing a state on
+the canvas still applies its patch, as today. Play draws the real `:hover`, `:focus-visible` and `:active`, so a
+transition plays as it will in the app.
 
 ## Frames add only what code writes
 
@@ -144,7 +144,7 @@ tokens of their own (a DTCG border token's width, style and color, or `--card-bo
 replaces one of the three classes. A border token that's a single variable offers Detach, as a token outside a Tailwind
 namespace does.
 
-A text style written as a project utility (`@utility heading-1`) sets `line-height` and the rest directly, so an
+A typography preset written as a project utility (`@utility heading-1`) sets `line-height` and the rest directly, so an
 override such as `leading-7` holds only if Tailwind sorts the utility before single-property utilities. That compiler
 test checks this too; if it fails, the override is written with `!`.
 
@@ -245,7 +245,7 @@ final state (wrapped in `@supports`), so content is never left hidden.
 
 ## Classes Parity can't read back
 
-decisions.md says Parity asks whether to freeze the component as code or overwrite the edit. Call 9 recommends a third
-answer, offered first, that keeps the class on the layer as a From the code row in the CSS section, not editable there,
-written back unchanged on every later write. This is how `[&_svg]:size-4` or a developer's `has-[…]:` variant survives,
-without freezing a whole component over one class. Freeze and Overwrite stay in the menu.
+Parity used to ask only whether to freeze the component as code or overwrite the edit. Call 9 decided a third answer,
+offered first, that keeps the class on the layer as a From the code row in the CSS section, not editable there, written
+back unchanged on every later write. This is how `[&_svg]:size-4` or a developer's `has-[…]:` variant survives, without
+freezing a whole component over one class. Freeze and Overwrite stay in the menu.

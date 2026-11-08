@@ -5925,3 +5925,44 @@ My calls:
 - **It ends signed out,** whether ended from the band, by Sign out, by WorkOS's 60 minutes or by quitting. The
   impersonated refresh token never goes to `safeStorage`, and the support person's own session isn't kept aside.
 - **Telemetry tags every event in it** with `impersonated: true` and the support person's email.
+
+## The Design panel's calls (PAR-652)
+
+[design-options.md](proposals/design-options.md) asked ten calls about how the Design panel covers CSS. Call 1 is above,
+under "A layer can use its own values". Andrew answered the rest on 2026-11-07, accepting the recommendations for 2, 4,
+5, 8, 9 and 10 as written, and adding to 3 and 7:
+
+- **Stroke's position (2):** Stroke owns `border` and `outline`, and Effects alone owns `box-shadow`. Include in layout,
+  on for a new stroke, writes `border`. With it off, Inside, Center and Outside write `outline` with an offset of minus
+  the width, minus half or 0. Per-side and gradient strokes need Include in layout.
+- **Chromium-only properties (3):** offered, marked. Andrew added that the marks should come from Can I use against the
+  project's own browserslist query (synced with the one it has, or added), which needs planning of its own: PAR-706.
+- **One stored key per property (4):** each CSS property is stored in one place, so the CSS row can't hold a value that
+  fights a control, and a list shown in two sections is still one declaration.
+- **Section order (5):** Position, Size, Layout, Spacing, Appearance, then Text, Image or Icon, then Fill, Stroke,
+  Effects, Selection colors, Transform, Text inside, Interaction, Motion, CSS.
+- **What a state writes (7):** in Tailwind projects, pseudo-classes and attributes by default, a prop only when the
+  component's code has one, written as variants, with `group-*`, `peer-*` and `has-*` for other layers' states. Andrew
+  added that not every project uses Tailwind and the panel mustn't overfit to one framework: PAR-708 maps the overlaps
+  between frameworks and picks which concepts become first-class panel features, with Tailwind's output as one
+  adapter's.
+- **Viewports (8):** code is written mobile-first, each wider viewport adding its prefix only where its value differs
+  from the one below (`p-4 md:p-6 lg:p-8`), and the frame draws a viewport's values from its width up to the next, as
+  the code does.
+- **A typed % (10):** in a field whose CSS takes a percentage, `%` is CSS's percentage, written as a fraction where
+  Tailwind has one (50% → `w-1/2`). Figma's share of the current value is typed as maths (`*0.5`), and the hint says so.
+  This replaces CAN-48's reading; PAR-194 decides the stored form.
+- **A class Parity can't read back (9):** when a component's class list holds a class no control covers, such as
+  `[&_svg]:size-4`, an edit no longer has to freeze the component as code or drop the class. A third answer, offered
+  first, keeps the class on the layer, written back unchanged on every later write (`flex gap-2 px-6 [&_svg]:size-4`
+  after Padding changes `px-4` to `px-6`), and shows it in the CSS section as a read-only From the code row. Freezing
+  and overwriting stay as the other two answers.
+
+Still open: **6, what a typography preset is.** Andrew sees it as a design language's typography preset, such as
+Fluent's typography styles, which bundle font, size, weight and line height, that a layer syncs to and is locked by,
+something other design tools don't offer. PAR-707 explores picking one and how the fields it sets are hidden or
+disabled; PAR-135 reads the presets. Whatever a framework calls them, Parity calls them **typography presets**
+everywhere, in the panel, the Tokens panel, the CLI and the agent API, so the words don't change between projects. A
+framework's own name shows only where it says where a preset came from ("From Fluent's typographyStyles"). Andrew chose
+"preset" over "text style" for now: in a panel where every value is a style, "style" could mean any of them, while a
+preset says what it does, filling in the fields it covers and locking them while it's applied.
