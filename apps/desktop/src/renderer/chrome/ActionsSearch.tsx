@@ -110,9 +110,10 @@ function repeatInsert(key: string): void {
 /** Finds the repeated parts in the selected screen and shows them in the inspector. */
 function findInSelectedScreen(): void {
   const entry = selectedScreen()
-  if (!entry) return
+  const session = activeSession()
+  if (!entry || !session) return
   setLayout({ right: true, rightTab: "design" })
-  findRepeatedParts(entry)
+  findRepeatedParts(session.info.root, entry)
 }
 
 /** Whether there's more of the list above and below what shows. */

@@ -29,12 +29,13 @@ import { AddProp, CodeLines, NewPropRow, PropTile, SlotPropRow } from "./slot-pr
  * Naming parts and finding the ones used once is an agent's job (the decompose skill).
  */
 export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
-  const candidates = useRepeatedParts(entry.key)
-  useEffect(() => () => clearRepeatedParts(entry.key), [entry.key])
+  const { root } = useProject().info
+  const candidates = useRepeatedParts(root, entry.key)
+  useEffect(() => () => clearRepeatedParts(root, entry.key), [root, entry.key])
   let content: ReactNode
   if (candidates === undefined) {
     content = (
-      <Button variant="outline" size="sm" onClick={() => findRepeatedParts(entry)}>
+      <Button variant="outline" size="sm" onClick={() => findRepeatedParts(root, entry)}>
         <ScanSearch /> Find repeated parts
       </Button>
     )
@@ -52,7 +53,7 @@ export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
             key={candidate.nodes.join()}
             entry={entry}
             candidate={candidate}
-            onDone={() => clearRepeatedParts(entry.key)}
+            onDone={() => clearRepeatedParts(root, entry.key)}
           />
         ))}
       </ul>
