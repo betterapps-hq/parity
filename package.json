@@ -40,7 +40,7 @@
     "vite-plus": "catalog:",
     "vitest": "catalog:",
     "@betterapps/playbook": "github:betterapps-hq/playbook",
-    "rulesync": "43.5.0",
+    "rulesync": "43.6.2",
     "skills": "1.7.6"
   }
 }
