@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Record every action in the action list as command.ran, with where it came from, whether it applied, and the selection (PAR-639)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

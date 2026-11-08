@@ -6016,7 +6016,7 @@ My calls:
 ## The Design panel's calls (PAR-652)
 
 [design-options.md](proposals/design-options.md) asked ten calls about how the Design panel covers CSS. Call 1 is above,
-under "A layer can use its own values". Andrew answered the rest on 2026-11-07, accepting the recommendations for 2, 4,
+under "A layer can use its own values". Andrew answered all but 6 on 2026-11-07, accepting the recommendations for 2, 4,
 5, 8, 9 and 10 as written, and adding to 3 and 7:
 
 - **Stroke's position (2):** Stroke owns `border` and `outline`, and Effects alone owns `box-shadow`. Include in layout,
@@ -6045,14 +6045,37 @@ under "A layer can use its own values". Andrew answered the rest on 2026-11-07, 
   after Padding changes `px-4` to `px-6`), and shows it in the CSS section as a read-only From the code row. Freezing
   and overwriting stay as the other two answers.
 
-Still open: **6, what a typography preset is.** Andrew sees it as a design language's typography preset, such as
-Fluent's typography styles, which bundle font, size, weight and line height, that a layer syncs to and is locked by,
-something other design tools don't offer. PAR-707 explores picking one and how the fields it sets are hidden or
-disabled; PAR-135 reads the presets. Whatever a framework calls them, Parity calls them **typography presets**
-everywhere, in the panel, the Tokens panel, the CLI and the agent API, so the words don't change between projects. A
-framework's own name shows only where it says where a preset came from ("From Fluent's typographyStyles"). Andrew chose
-"preset" over "text style" for now: in a panel where every value is a style, "style" could mean any of them, while a
-preset says what it does, filling in the fields it covers and locking them while it's applied.
+Andrew answered **6, what a typography preset is,** on 2026-11-08, after trying PAR-707's exploration in Storybook
+(`Parity/Explorations/Typography preset`). A typography preset is a design language's bundle of type values, such as
+Fluent's typography styles, each of which sets font, size, weight and line height. A layer syncs to it and is locked by
+it, something other design tools don't offer. Whatever a framework calls them, Parity calls them **typography presets**
+everywhere, in the panel, the Tokens panel, the CLI and the agent API, so the words don't change between projects. The
+design language's name shows only where the picker says where a preset came from ("From Fluent"), never the code it's
+read from. Andrew chose "preset" over "text style": in a panel where every value is a style, "style" could mean any of
+them, while a preset says what it does, filling in the fields it covers and locking them while it's applied.
+
+The exploration showed the rows a preset covers three ways: folded into a summary, shown locked in place, and both.
+Andrew chose **folded and locked**, the combination he asked for after liking the other two. Folding hides rows that
+someone sticking to presets doesn't need, and locking shows that the preset holds them.
+
+- **Picking:** the Text section's first row picks a preset. The picker lists each on one line, drawn in its own font,
+  size and weight with its size and line height, under where it comes from. Choosing one fills in the rows it covers.
+- **The rows it covers** fold into a summary under the preset's row, "Segoe UI 20/28 Semibold" with a lock beside it.
+  Opened, they're locked to the preset's values, each with an Unlock button. Rows it doesn't cover stay ordinary rows:
+  color, alignment and decoration always, and font and weight for a preset such as Chakra's `lg`.
+- **Overriding:** changing an unlocked row keeps the preset. The value shows in the override color with a reset arrow,
+  the row stays shown while the summary is closed, and the preset's chip gets a dot. Picking the preset again takes back
+  every override.
+- **Detach** is an icon button beside the picker, not a menu, since each override already has its own reset. The layer
+  keeps every value the preset gave it, per viewport.
+- **A layer with no preset** whose type matches one says "Matches subtitle1" under the preset's row, or "Near subtitle1"
+  when a preset's size is within 2px, with Use one click away, as a value off the system offers the nearest token.
+- **Per viewport:** a preset that changes with the viewport, such as Material UI's responsive `h4`, has a dot on its
+  row, and changing one of its rows writes that viewport's patch.
+- **What it stores and writes:** the layer stores the preset's name and its own values, the same in every framework
+  (`typePreset: { token: "subtitle1" }`). Tailwind's adapter writes the preset as one class, a `--text-*` size
+  (`text-xl`) or, when the preset names a font or sets case, a project utility (`type-subtitle1`), with each override as
+  a class after it (`leading-6`). PAR-708 maps the other frameworks, and PAR-135 reads the presets.
 
 ## Agent calls are recorded where they're answered, and the CLI keeps its own log (PAR-641)
 

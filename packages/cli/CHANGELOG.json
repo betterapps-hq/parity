@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 11:33:58 GMT",
+      "version": "0.21.0",
+      "tag": "@parity-app/cli_v0.21.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1370341b0ba204ba201eec13a35bad0527117735",
+            "comment": "Record every action in the action list as command.ran, with where it came from, whether it applied, and the selection (PAR-639)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 11:14:21 GMT",
       "version": "0.20.0",
       "tag": "@parity-app/cli_v0.20.0",
