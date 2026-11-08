@@ -1,8 +1,9 @@
 # Proposal: easier-to-read interface type
 
-Status: draft, 2026-11-08 (PAR-709). Andrew chose Inter over Geist that day
-([decisions.md](../decisions.md#the-interface-is-set-in-inter-par-709)); the rest waits for his approval. The comparison
-is in Storybook under Parity/Explorations/ Interface type
+Status: approved, 2026-11-08 (PAR-709). Andrew chose Inter over Geist that day and approved the rest the same day
+([decisions.md](../decisions.md#the-interface-is-set-in-inter-par-709)), but for the weights, which wait for the check
+in [Open: the weights](#open-the-weights). PAR-710 builds it into the app. The comparison is in Storybook under
+Parity/Explorations/ Interface type
 ([InterfaceType.stories.tsx](../../apps/desktop/src/renderer/explorations/InterfaceType.stories.tsx)), and the toolbar's
 Type control turns the proposed type on for every story: Parity/Chrome/App menu's stories, such as Edit and Settings,
 show menus with shortcuts and a dialog with descriptions and a select open in either type, and Parity/Left panel/Tokens'

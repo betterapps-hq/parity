@@ -6191,4 +6191,7 @@ default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My 
   app, so shipping the font is no problem. The npm builds come from Google Fonts and leave out the alternates that tell
   I, l and 1 apart, which a design tool needs for layer names, token names and values. Until PAR-710 builds the type
   into the app, only Storybook loads it, as the proposed type's typeface.
-- **The rest of the proposed type waits for Andrew's approval:** the scale, weights, section titles and monospace.
+- **The rest of the proposed type is approved,** Andrew's call on 2026-11-08: its sizes, roles, sentence-case section
+  titles and monospace, as [interface-type.md](proposals/interface-type.md) sets them. Its weights, 450, 550 and 650,
+  stay provisional until the check on a Mac and on Windows at 150% that the proposal sets out. PAR-710 builds it into
+  the app.
