@@ -334,7 +334,7 @@
     --font-weight-medium: var(--font-weight-normal);
 
     /* The variable inherits, so a name or a count inside one of them gets the medium back. */
-    & > * {
+    & > :not([data-slot]) {
       --font-weight-medium: var(--weight-sans-medium);
     }
   }
@@ -381,9 +381,10 @@
     line-height: var(--text-xs--line-height);
   }
 
-  [data-slot="dialog-description"],
-  [data-slot="dialog-title"],
-  [data-slot="alert-dialog-title"] {
+  /* Keyed on the kit's own classes, so a heading with its own size and line, such as sign-in's, keeps them. */
+  [data-slot="dialog-description"].text-sm,
+  [data-slot="dialog-title"].leading-none,
+  [data-slot="alert-dialog-title"].leading-none {
     line-height: 1.25rem;
   }
 

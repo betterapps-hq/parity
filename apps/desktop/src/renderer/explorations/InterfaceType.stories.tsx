@@ -1,6 +1,7 @@
 import {
   Badge,
   Button,
+  Label,
   Table,
   TableBody,
   TableCell,
@@ -207,6 +208,24 @@ const roles: Role[] = [
       <p data-sample className="mb-3 max-w-56 px-1 text-xs text-muted-foreground">
         Find parts that repeat and turn them into components. Each copy becomes an instance.
       </p>
+    )
+  },
+  {
+    name: "Body",
+    where: "A paragraph on a page: the start page's intros",
+    sample: (
+      <p data-sample className="max-w-72 text-sm text-pretty text-muted-foreground">
+        Open a project folder to see its screens and components, and change them on the canvas.
+      </p>
+    )
+  },
+  {
+    name: "Field label",
+    where: "A label tied to its control: a switch's in a panel",
+    sample: (
+      <Label data-sample className="text-xs font-normal">
+        Show every state on the canvas
+      </Label>
     )
   },
   {
