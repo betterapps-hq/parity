@@ -247,6 +247,27 @@ export function setDrawnNodes(host: Element, drawnNodes: (() => DrawnNodes | und
   if (host instanceof HTMLElement && isRegistered(host)) tellFrameListeners(host, true)
 }
 
+/**
+ * Calls `drawn` at the first animation frame after the guest put its design in `target`, the element `prepareFrame`
+ * gave it to mount in. Gives back what stops waiting.
+ */
+export function whenDrawn(target: HTMLElement, drawn: () => void): () => void {
+  let frame = 0
+  const draw = () => {
+    observer.disconnect()
+    frame = requestAnimationFrame(drawn)
+  }
+  const observer = new MutationObserver(() => {
+    if (target.firstChild) draw()
+  })
+  if (target.firstChild) draw()
+  else observer.observe(target, { childList: true })
+  return () => {
+    observer.disconnect()
+    cancelAnimationFrame(frame)
+  }
+}
+
 function drawnNodes(host: Element): DrawnNodes | undefined {
   return drawnBy.get(host)?.()
 }

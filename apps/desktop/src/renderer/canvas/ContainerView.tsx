@@ -35,6 +35,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -854,6 +855,14 @@ const FrameTile = memo(function FrameTile({
   }, [bitmap])
   const showing = bitmap ? decoded : undefined
   const shown = !!showing && decoded === bitmap
+  // A newly opened project's first frame drawn, from its bitmap or live, is recorded with how long opening took.
+  const { firstFrame } = session
+  useEffect(() => {
+    if (!showing || !firstFrame) return undefined
+    const drawn = requestAnimationFrame(() => firstFrame("bitmap"))
+    return () => cancelAnimationFrame(drawn)
+  }, [showing, firstFrame])
+  const drawnLive = useCallback(() => session.firstFrame?.("live"), [session])
   // Interacting, frames are the real thing at any zoom. A stale bitmap stands in while the frame draws what it shows now,
   // and its new bitmap is taken, so it doesn't sleep on it.
   const awake = useAwake(shown && !kept.stale && !interactive, rest, key)
@@ -927,6 +936,7 @@ const FrameTile = memo(function FrameTile({
           interactive={interactive}
           asleep={!awake || waiting}
           shows={shows.drawn}
+          {...(firstFrame ? { onDrawn: drawnLive } : {})}
         />
         {skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
         {placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
