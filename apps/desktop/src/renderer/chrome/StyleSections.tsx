@@ -704,6 +704,7 @@ function AppearanceSection({ editor }: SectionProps) {
       <div className="flex flex-col gap-1">
         <Field label="Fill" {...rowOf(editor, "fill")}>
           <TokenInput
+            label="Fill"
             value={style.background}
             tokens={tokens}
             categories={["color"]}
@@ -712,6 +713,7 @@ function AppearanceSection({ editor }: SectionProps) {
         </Field>
         <Field label="Radius" {...rowOf(editor, "radius")}>
           <TokenInput
+            label="Radius"
             value={style.radius}
             tokens={tokens}
             categories={["radius"]}
@@ -720,6 +722,7 @@ function AppearanceSection({ editor }: SectionProps) {
         </Field>
         <Field label="Shadow" {...rowOf(editor, "shadow")}>
           <TokenInput
+            label="Shadow"
             value={style.shadow}
             tokens={tokens}
             categories={["shadow"]}
@@ -781,6 +784,7 @@ function StrokeSection({ editor }: SectionProps) {
         <div className="flex flex-col gap-1">
           <Field label="Color" {...rowOf(editor, "strokeColor")}>
             <TokenInput
+              label="Stroke color"
               value={style.border}
               tokens={tokens}
               categories={["color"]}
@@ -841,6 +845,7 @@ function TextSection({ editor, node }: SectionProps) {
       <div className="flex flex-col gap-1">
         <Field label="Color" {...rowOf(editor, "textColor")}>
           <TokenInput
+            label="Text color"
             value={style.foreground}
             tokens={tokens}
             categories={["color"]}
@@ -849,6 +854,7 @@ function TextSection({ editor, node }: SectionProps) {
         </Field>
         <Field label="Font" {...rowOf(editor, "font")}>
           <TokenInput
+            label="Font"
             value={style.font}
             tokens={tokens}
             categories={["font"]}
@@ -857,6 +863,7 @@ function TextSection({ editor, node }: SectionProps) {
         </Field>
         <Field label="Size" {...rowOf(editor, "textSize")}>
           <TokenInput
+            label="Text size"
             value={style.size}
             tokens={tokens}
             categories={["font-size"]}
@@ -875,6 +882,7 @@ function TextSection({ editor, node }: SectionProps) {
         </Field>
         <Field label="Line height" {...rowOf(editor, "lineHeight")}>
           <TokenInput
+            label="Line height"
             value={style.leading}
             tokens={tokens}
             categories={["leading"]}
@@ -883,6 +891,7 @@ function TextSection({ editor, node }: SectionProps) {
         </Field>
         <Field label="Letter spacing" {...rowOf(editor, "letterSpacing")}>
           <TokenInput
+            label="Letter spacing"
             value={style.tracking}
             tokens={tokens}
             categories={["tracking"]}

@@ -2557,6 +2557,25 @@ functions weren't run in Storybook. A number prop's preview wasn't timed: it dra
 does. Params' number fields don't preview yet. Padding, Margin, Min, Max and an absolutely placed layer's insets, two
 lengths to a row, can still clip a value in an inspector narrower than its usual 320 pixels.
 
+### Token pickers' names (PAR-722)
+
+A token picker's button shows only its value, the token's name, None or Mixed, so a screen reader heard just that, with
+no word of which row it sets. Each is now named for its property and what it shows: "Fill, primary", "Text color, None",
+"Radius, Mixed". The name follows the value as a token is picked. Where the row's label alone would be ambiguous, the
+name says more: Stroke's Color is "Stroke color" and Text's Color and Size are "Text color" and "Text size". Fill,
+Radius, Shadow, Font, Line height and Letter spacing keep their rows' labels. The comma follows the panel's other names,
+such as an instance's slot ("sideActions slot, Empty").
+
+Code: `TokenInput` in `apps/desktop/src/renderer/chrome/fields.tsx` takes the `label`, which every caller passes:
+`chrome/StyleSections.tsx`, `chrome/fields.stories.tsx` and the typography preset exploration's Text section.
+
+Tests:
+
+- `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: pickers set to a token, unset and mixed found by their
+  names, and the name following a token picked in the picker. Both fail without the change.
+- `chrome/StyleSections.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and NoTokenMatches
+  open their pickers by name.
+
 ### One right edge in the inspector (PAR-552)
 
 Everything in the inspector's Design tab runs to one right edge, 12px from the panel's side: inputs, the Editing bar,
