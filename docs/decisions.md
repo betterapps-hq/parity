@@ -6077,6 +6077,15 @@ someone sticking to presets doesn't need, and locking shows that the preset hold
   (`text-xl`) or, when the preset names a font or sets case, a project utility (`type-subtitle1`), with each override as
   a class after it (`leading-6`). PAR-708 maps the other frameworks, and PAR-135 reads the presets.
 
+## The Design panel has no kind switch (PAR-721)
+
+Andrew found the Frame, Component and Screen toggle under a design's name "very ugly" on 2026-11-08, and asked why
+changing a design's kind should be so easy from there. It repeated the title menu's Convert to items, and the icon
+beside the name already shows the kind, so he asked to remove it. This replaces "The inspector's kind switch is Frame,
+Component, Screen" under PAR-545: converting is in each design's title menu, and as Make component's Convert to in the
+canvas and Object menus, with the same toast, Undo and dialog as before. The panel keeps the design's path and, for a
+frame, where it's drawn.
+
 ## The interface is set in Inter (PAR-709)
 
 - **Parity's own interface is set in Inter, not Geist,** Andrew's call on 2026-11-08, after seeing the proposed type
