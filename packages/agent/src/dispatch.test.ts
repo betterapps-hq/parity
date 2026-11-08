@@ -2,7 +2,7 @@ import { CodedError, defaultModeSettings, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { type AgentMethod, replies } from "./contracts.ts"
 import { type AgentHost, answerRequest, dispatch, exportPictures } from "./dispatch.ts"
-import type { AgentChangeSet, FrameRequest, PresenceEvent, TabSnapshot } from "./types.ts"
+import type { AgentChangeSet, AgentReport, FrameRequest, PresenceEvent, TabSnapshot } from "./types.ts"
 
 /** A tab with one screen, Sign up, holding a title and a Button, in the default modes. */
 function snapshot(): TabSnapshot {
@@ -74,7 +74,8 @@ function fixtureHost() {
     frames: [] as FrameRequest[],
     applied: [] as { tab: string; label: string; changes: AgentChangeSet }[],
     saved: 0,
-    console: [] as boolean[]
+    console: [] as boolean[],
+    reports: [] as AgentReport[]
   }
   const host: AgentHost = {
     tabs: async () => [tab.tab],
@@ -121,7 +122,16 @@ function fixtureHost() {
         { level: "error", text: "Boom", source: "app.tsx", line: 3, where: "canvas", count: 1, first: 1, last: 2 }
       ]
     },
-    saveScreenshots: async (shots) => shots.map((_shot, index) => `D:/shots/${++asked.saved}-${index}.png`)
+    saveScreenshots: async (shots) => shots.map((_shot, index) => `D:/shots/${++asked.saved}-${index}.png`),
+    report: async (report) => {
+      asked.reports.push(report)
+      return {
+        feedbackId: "f1",
+        link: "https://sentry.example/f1",
+        traceId: "t1",
+        attachments: ["screenshot.png", ...report.frames.map((frame) => frame.name)]
+      }
+    }
   }
   return { host, asked, tab }
 }
@@ -153,7 +163,8 @@ describe("dispatch", () => {
       ["problems", { design: "signup" }],
       ["accessibility", { design: "signup" }],
       ["screenshot", { design: "signup", scale: 1 }],
-      ["exec", { label: "Read", code: "Print(Designs().length)" }]
+      ["exec", { label: "Read", code: "Print(Designs().length)" }],
+      ["report", { message: "The title is cut off" }]
     ]
     const answered: string[] = []
     for (const [method, params] of methods) {
@@ -272,6 +283,56 @@ describe("dispatch", () => {
     await expect(refused).rejects.toBeInstanceOf(CodedError)
     await expect(refused).rejects.toMatchObject({ details: { code: "invalid_input", field: "method" } })
     await expect(refused).rejects.toThrow(/Methods: tabs, copy, open, state/)
+  })
+})
+
+describe("report", () => {
+  it("sends the message tagged with the tab, without drawing or showing a cursor when it names no design", async () => {
+    const { asked, answer } = await ask("report", { message: "The title is cut off", node: "title" })
+    expect(asked.frames).toEqual([])
+    expect(asked.presence).toEqual([])
+    expect(asked.reports).toEqual([
+      { message: "The title is cut off", tags: { tab: "App", node: "title" }, frames: [] }
+    ])
+    expect(answer).toEqual({
+      feedbackId: "f1",
+      link: "https://sentry.example/f1",
+      traceId: "t1",
+      attachments: ["screenshot.png"],
+      tags: { tab: "App", node: "title" }
+    })
+  })
+
+  it("sends the named design's frames in the state it shows, tagged with its id, the state and the test pass", async () => {
+    const { asked } = await ask("report", { message: "Wrong button", design: "Sign up", testRun: "pass-7" })
+    const [sent] = asked.reports
+    expect(sent?.tags).toEqual({ tab: "App", design: "signup", state: "default", test_run: "pass-7" })
+    expect(sent?.frames.length).toBeGreaterThan(0)
+    expect(sent?.frames.length).toBe(asked.frames.length)
+    expect(sent?.frames[0]).toEqual({ name: expect.stringMatching(/^signup default .+\.png$/), png: "iVBOR" })
+    expect(asked.presence).toEqual([])
+  })
+
+  it("works with no project open, as long as it names no tab or design", async () => {
+    const { host, asked } = fixtureHost()
+    host.tabs = async () => []
+    const answer = await dispatch("report", { message: "Nothing opens" }, host)
+    expect(asked.snapshots).toEqual([])
+    expect(asked.reports).toEqual([{ message: "Nothing opens", tags: {}, frames: [] }])
+    expect(answer).toMatchObject({ feedbackId: "f1", tags: {} })
+  })
+
+  it("fails as a screenshot would for a design that isn't there, and sends nothing", async () => {
+    const { host, asked } = fixtureHost()
+    const refused = dispatch("report", { message: "Off", design: "Checkout" }, host)
+    await expect(refused).rejects.toMatchObject({ details: { code: "unknown_design" } })
+    expect(asked.reports).toEqual([])
+  })
+
+  it("needs a message", async () => {
+    const { host } = fixtureHost()
+    const refused = dispatch("report", { message: " " }, host)
+    await expect(refused).rejects.toMatchObject({ details: { code: "invalid_input", field: "message" } })
   })
 })
 

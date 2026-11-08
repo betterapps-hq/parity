@@ -206,6 +206,14 @@ export const requests = {
     component: text("component", "Component id or name."),
     all: flag("all", "Include passed-through attributes.")
   }),
+  report: fields({
+    tab,
+    message: text("message", "What you did, expected and saw."),
+    design: text("design", "Design id or name; its frames go with it.").optional(),
+    state: text("state", "State id. Defaults to the shown one.").optional(),
+    node: text("node", "Node id.").optional(),
+    testRun: text("testRun", "Test pass. Defaults to PARITY_TEST_RUN.").optional()
+  }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
     executeKind({ tab: execute.tab, label: execute.label, editId: execute.editId, edits: execute.edits })
@@ -637,6 +645,22 @@ const propsReply = z.looseObject({
   composition: composition.optional()
 })
 
+/** A problem an agent reported (PAR-646): the Sentry user feedback it became, and what went with it. */
+const reportReply = z.looseObject({
+  feedbackId: z.string().describe("The Sentry event ID of the feedback."),
+  link: z
+    .string()
+    .describe(
+      "The feedback in Sentry, beside its replay and trace. Sentry files it in Linear and links the issue there."
+    ),
+  traceId: z.string().optional().describe("The trace it's tied to: the call's, from the command on."),
+  replayId: z.string().optional().describe("The window's replay, when it records one."),
+  tags: z
+    .record(z.string(), z.string())
+    .describe("What it's about, as Sentry tags: tab, design, state, node, test_run."),
+  attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
+})
+
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
@@ -656,7 +680,8 @@ export const replies = {
   console: consoleReply,
   tokens: z.array(tokenInfo),
   components: componentsReply,
-  props: propsReply
+  props: propsReply,
+  report: reportReply
 }
 
 /**

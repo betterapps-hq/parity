@@ -10,11 +10,13 @@ import type {
   AgentChangeSet,
   AgentEvent,
   AgentHooks,
+  AgentReport,
   ConsoleEntry,
   FrameRequest,
   FrameResult,
   IconNames,
   PresenceEvent,
+  ReportSent,
   Screenshot,
   TabSnapshot,
   TabSummary
@@ -55,6 +57,11 @@ export interface AgentHost {
   console(snapshot: TabSnapshot, clear: boolean): Promise<ConsoleEntry[]>
   /** Keeps a call's screenshots as PNG files, and says where each went, in order. */
   saveScreenshots(screenshots: Screenshot[]): Promise<string[]>
+  /**
+   * Sends an agent's report as a Sentry user feedback, with the window's screenshot and replay, tied to the call's trace
+   * (PAR-646).
+   */
+  report(report: AgentReport): Promise<ReportSent>
 }
 
 /** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
@@ -164,7 +171,8 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
   async props(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
     return readOnly(snapshot).Props(params.component, { all: params.all }) as Answer<"props">
-  }
+  },
+  report: (params, { host }) => report(host, params)
 }
 
 /** Each method's params schema. `copy` takes none, as `tabs` doesn't. */
@@ -389,6 +397,50 @@ export async function exportPictures(
     return { name, png: shot.png }
   })
   return { files, warnings: result.warnings }
+}
+
+/** The longest a Sentry tag's value may be. */
+const tagLength = 200
+
+/**
+ * Sends a problem an agent saw (PAR-646): its message, tagged with what it's about, with the frames of the design it
+ * names in the state it names (else the one it shows), drawn offscreen without the caller's cursor. It works with no project open, as long as
+ * it names no tab or design. A design or state that isn't there fails as a screenshot of it would, so the tags only
+ * name real ones.
+ */
+async function report(host: AgentHost, params: Params<"report">): Promise<Answer<"report">> {
+  const needsTab = params.tab !== undefined || params.design !== undefined
+  const snapshot = needsTab || (await host.tabs()).length > 0 ? await host.snapshot(params.tab) : undefined
+  const frames: AgentReport["frames"] = []
+  let design: string | undefined
+  let state = params.state
+  if (snapshot && params.design !== undefined) {
+    const options = { mode: "shown", ...(params.state === undefined ? {} : { state: params.state }) }
+    const result = await execute(
+      { label: "Report", code: `await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)})` },
+      workspaceSnapshot(snapshot),
+      { presence: () => undefined, render: renderFor(host, snapshot) }
+    )
+    if (!result.ok) {
+      throw new CodedError(result.error ?? "The design couldn't be drawn", result.details ?? { code: "app_error" })
+    }
+    for (const shot of result.screenshots) {
+      design = shot.design
+      state ??= shot.state
+      frames.push({ name: fileName(`${shot.design} ${shot.state} ${shot.mode}`) + ".png", png: shot.png })
+    }
+  }
+  const named: Record<string, string | undefined> = {
+    tab: snapshot?.tab.name,
+    design: design ?? params.design,
+    state,
+    node: params.node,
+    test_run: params.testRun
+  }
+  const tags: Record<string, string> = {}
+  for (const [key, value] of Object.entries(named)) if (value !== undefined) tags[key] = value.slice(0, tagLength)
+  const sent = await host.report({ message: params.message, tags, frames })
+  return { ...sent, tags }
 }
 
 /**

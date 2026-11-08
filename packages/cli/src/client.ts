@@ -51,6 +51,7 @@ export type PropsResponse = z.output<typeof replies.props>
 /** A component's composition, as `@parity-app/editor`'s `componentComposition` reads it. */
 export type Composition = NonNullable<PropsResponse["composition"]>
 export type ConsoleEntry = z.output<typeof replies.console>["entries"][number]
+export type ReportResponse = z.output<typeof replies.report>
 
 let caller = cliCallerName(process.env)
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
@@ -601,6 +602,22 @@ function frameList(frames: { state: string; mode: string }[]): string {
   const modes = [...new Set(frames.map((frame) => frame.mode))]
   if (modes.length === 1) return `${frames.map((frame) => frame.state).join(", ")} in ${modes[0]}`
   return frames.map((frame) => `${frame.state} in ${frame.mode}`).join(", ")
+}
+
+/** Where a report went, what it's tied to and tagged with, and what went with it (PAR-646). */
+export function describeReport(result: ReportResponse): string {
+  const tied = [
+    ...(result.traceId ? [`trace ${result.traceId}`] : []),
+    ...(result.replayId ? [`replay ${result.replayId}`] : [])
+  ]
+  const tags = Object.entries(result.tags).map(([key, value]) => `${key} ${value}`)
+  return [
+    `Reported to Sentry: ${result.link}`,
+    ...(tied.length > 0 ? [`Tied to ${tied.join(" and ")}.`] : []),
+    ...(tags.length > 0 ? [`Tagged ${tags.join(", ")}.`] : []),
+    `Sent with ${result.attachments.join(", ")}.`,
+    "Sentry files it in Linear and links the issue from the feedback."
+  ].join("\n")
 }
 
 /** A readable account of what a project's code wrote to the console, oldest first, with where each came from. */

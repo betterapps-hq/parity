@@ -1,22 +1,29 @@
 import { arch, release } from "node:os"
+import type { ReportSent } from "@parity-app/agent"
+import { CodedError } from "@parity-app/core"
 import {
   type Crash,
   diagnosticFiles,
   type LoggedEvent,
   lastRunCrash,
   type registeredEvents,
-  type Telemetry
+  type Telemetry,
+  type TelemetryLevel
 } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow } from "electron"
 import type { ProblemReport } from "../shared/ipc-checks.ts"
 import type { ReportCrash } from "../shared/protocol.ts"
+import type { MainMethods } from "../shared/service.ts"
 import { scrubber } from "./telemetry.ts"
 
 /**
  * Help > Report a problem (PAR-635): a Sentry user feedback with what the person wrote, a screenshot of the window, the
  * last hour of the local copy, the versions and the open projects, tied to the window's replay and trace. Sentry files
  * it in Linear. When the last run crashed, the window offers the same report as it starts, with the crash.
+ *
+ * Agents send the same report with `parity report` and MCP's `report_problem` (PAR-646), through the project service:
+ * tied to their call's trace, tagged with what it's about, and with the frames of the design they name.
  */
 
 /** A file that goes with the feedback, as Sentry takes it. */
@@ -29,11 +36,41 @@ interface Attachment {
 /** How long a report may take to reach Sentry before it's said to have failed, in milliseconds. */
 const sendTimeoutMs = 15_000
 
+/** An agent's report, as the service sends it on. */
+export type AgentProblem = MainMethods["report"]["params"]
+
+/** What a report tells Sentry besides its files: who sent it, what it's about, and the trace and replay it's tied to. */
+interface Feedback {
+  message: string
+  /** Sentry's feedback source, which tells a person's report from an agent's. */
+  source: "report-a-problem" | "parity-report"
+  tags: Record<string, string>
+  traceId?: string | undefined
+  replayId?: string | undefined
+}
+
+/**
+ * Where a feedback is in Sentry, by its event ID. Sentry finds the event's issue from it once it's processed, a few
+ * seconds after it's sent.
+ */
+export function feedbackLink(feedbackId: string): string {
+  return `https://sentry.io/organizations/better-apps/projects/parity-desktop/events/${feedbackId}/`
+}
+
+/** Why an agent's report isn't sent while Telemetry is off. */
+export const reportsOff =
+  "Share diagnostics is off in Parity's settings, so agents' reports aren't sent. Tell the person what's wrong instead, or run parity diagnostics for a zip they can attach to a bug."
+
 export interface Reports {
   /** Takes the window's screenshot as the dialog opens, so the dialog isn't in it. */
   prepare(window: BrowserWindow): Promise<{ screenshot?: string }>
   /** Sends the report, giving its feedback ID. Throws when it can't be sent. */
   send(window: BrowserWindow, report: ProblemReport): Promise<string>
+  /**
+   * Sends an agent's report with the window's screenshot as it is now, the frames it drew and the diagnostics. Refused
+   * while Telemetry is off: unlike the person's own report, nobody chose to send this one.
+   */
+  sendForAgent(window: BrowserWindow, problem: AgentProblem): Promise<ReportSent>
   /** The last run's crash, once: a window asks as it starts, and only the first one is told. */
   takeLastCrash(): ReportCrash | undefined
 }
@@ -48,7 +85,8 @@ export function createReports({
   flushLogs,
   sessionId,
   offerCrash,
-  telemetry
+  telemetry,
+  level
 }: {
   /** The local copy's events, oldest first. */
   readEvents: () => LoggedEvent[]
@@ -57,11 +95,28 @@ export function createReports({
   sessionId: string
   offerCrash: boolean
   telemetry: Telemetry<typeof registeredEvents>
+  /** This run's Telemetry level, which the person can change while it runs. */
+  level: () => TelemetryLevel
 }): Reports {
   const screenshots = new WeakMap<BrowserWindow, Electron.NativeImage>()
   // Read once, as the app starts, before this run's own events could be mistaken for it.
   let crash: Crash | undefined = offerCrash ? lastRunCrash(readEvents(), sessionId) : undefined
   let offered = false
+  /** The last hour of the local copy, the versions and the open projects, with the crash when one goes with them. */
+  const diagnostics = (withCrash: Crash | undefined): Attachment[] => {
+    flushLogs()
+    const files = diagnosticFiles({
+      events: readEvents(),
+      now: Date.now(),
+      versions: versions(),
+      ...(withCrash ? { crash: withCrash } : {})
+    })
+    return files.map((file) => ({
+      filename: file.name,
+      contentType: file.contentType,
+      data: scrubber.value(file.text)
+    }))
+  }
   return {
     async prepare(window) {
       const image = await window.webContents.capturePage()
@@ -69,31 +124,58 @@ export function createReports({
       return image.isEmpty() ? {} : { screenshot: image.toDataURL() }
     },
     async send(window, report) {
-      flushLogs()
-      const files = diagnosticFiles({
-        events: readEvents(),
-        now: Date.now(),
-        versions: versions(),
-        ...(report.afterCrash && crash ? { crash } : {})
-      })
-      const attachments: Attachment[] = files.map((file) => ({
-        filename: file.name,
-        contentType: file.contentType,
-        data: scrubber.value(file.text)
-      }))
+      const attachments = diagnostics(report.afterCrash ? crash : undefined)
       const image = screenshots.get(window)
-      if (report.screenshot && image && !image.isEmpty()) {
-        attachments.unshift({ filename: "screenshot.png", contentType: "image/png", data: image.toPNG() })
-      }
+      if (report.screenshot && image && !image.isEmpty()) attachments.unshift(screenshotFile(image))
       screenshots.delete(window)
-      const feedbackId = await sendFeedback(report, attachments)
+      const feedbackId = await sendFeedback(
+        {
+          message: report.message,
+          source: "report-a-problem",
+          tags: { report: report.afterCrash ? "after crash" : "help menu" },
+          traceId: report.traceId,
+          replayId: report.replayId
+        },
+        attachments
+      )
       if (report.afterCrash) crash = undefined
       telemetry.track("report.sent", {
         feedbackId,
         screenshot: attachments.some((attachment) => attachment.filename === "screenshot.png"),
-        afterCrash: report.afterCrash
+        afterCrash: report.afterCrash,
+        by: "person"
       })
       return feedbackId
+    },
+    async sendForAgent(window, problem) {
+      if (level() === "off") throw new CodedError(reportsOff, { code: "app_error" })
+      const attachments = diagnostics(undefined)
+      const frames = problem.frames.map((frame) => ({
+        filename: frame.name,
+        contentType: "image/png",
+        data: Buffer.from(frame.png, "base64")
+      }))
+      attachments.unshift(...frames)
+      const image = await window.webContents.capturePage()
+      if (!image.isEmpty()) attachments.unshift(screenshotFile(image))
+      const feedbackId = await sendFeedback(
+        {
+          message: problem.message,
+          source: "parity-report",
+          tags: { ...problem.tags, report: "agent" },
+          traceId: problem.traceId,
+          replayId: problem.replayId
+        },
+        attachments
+      )
+      telemetry.track("report.sent", { feedbackId, screenshot: !image.isEmpty(), afterCrash: false, by: "agent" })
+      return {
+        feedbackId,
+        link: feedbackLink(feedbackId),
+        ...(problem.traceId ? { traceId: problem.traceId } : {}),
+        ...(problem.replayId ? { replayId: problem.replayId } : {}),
+        attachments: attachments.map((attachment) => attachment.filename)
+      }
     },
     takeLastCrash() {
       if (!crash || offered) return undefined
@@ -107,15 +189,15 @@ export function createReports({
  * Sends the feedback, even with Telemetry set to Off: the person asked to send it, and sees what goes with it. Sentry
  * is switched on only while it's sent.
  */
-async function sendFeedback(report: ProblemReport, attachments: Attachment[]): Promise<string> {
+async function sendFeedback(report: Feedback, attachments: Attachment[]): Promise<string> {
   const options = Sentry.getClient()?.getOptions()
-  if (!options) throw new Error("Sentry isn't running")
+  if (!options) throw new CodedError("Sentry isn't running, so the report can't be sent", { code: "app_error" })
   const wasEnabled = options.enabled
   options.enabled = true
   try {
     const feedbackId = Sentry.withScope((scope) => {
       if (report.traceId) scope.setPropagationContext({ traceId: report.traceId, sampleRand: Math.random() })
-      scope.setTag("report", report.afterCrash ? "after crash" : "help menu")
+      scope.setTags(report.tags)
       if (report.replayId) {
         const replayId = report.replayId
         scope.addEventProcessor((event) => {
@@ -125,13 +207,19 @@ async function sendFeedback(report: ProblemReport, attachments: Attachment[]): P
           return event
         })
       }
-      return Sentry.captureFeedback({ message: report.message, source: "report-a-problem" }, { attachments }, scope)
+      return Sentry.captureFeedback({ message: report.message, source: report.source }, { attachments }, scope)
     })
-    if (!(await Sentry.flush(sendTimeoutMs))) throw new Error("The report didn't reach Sentry in time")
+    if (!(await Sentry.flush(sendTimeoutMs))) {
+      throw new CodedError("The report didn't reach Sentry in time", { code: "app_error", retryable: true })
+    }
     return feedbackId
   } finally {
     options.enabled = wasEnabled
   }
+}
+
+function screenshotFile(image: Electron.NativeImage): Attachment {
+  return { filename: "screenshot.png", contentType: "image/png", data: image.toPNG() }
 }
 
 /** The versions a report names. */

@@ -6,6 +6,7 @@ import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
 import {
+  CodedError,
   drawsNothing,
   fitInside,
   offscreenWindows,
@@ -258,7 +259,9 @@ function startService(): UtilityProcess {
         }
         return undefined
       },
-      agentCalled: (caller) => agentCalled(caller)
+      agentCalled: (caller) => agentCalled(caller),
+      // An agent's report, with the editor window's screenshot (PAR-646).
+      report: (problem) => reports.sendForAgent(editorWindow(), problem)
     },
     disconnected: () => new Error("The project service stopped"),
     trace: currentTraceHeaders,
@@ -644,7 +647,8 @@ const reports = createReports({
   flushLogs: events.flushLogs,
   sessionId: events.run.sessionId,
   offerCrash: offersCrashReports(telemetryStart.environment),
-  telemetry: events.telemetry
+  telemetry: events.telemetry,
+  level: () => telemetrySetting.get().level
 })
 const reportRefusal = "Only the Parity window can send a report."
 ipcMain.handle(ipc.reportPrepare, (event) => reports.prepare(appWindowOf(event, reportRefusal)))
@@ -865,6 +869,15 @@ function consoleContextOf(design: NonNullable<RenderJob["design"]>): ConsoleCont
     ...(design.state ? { state: design.state } : {}),
     ...(design.mode ? { mode: design.mode } : {})
   }
+}
+
+/** The editor window, which agents' calls go through: Parity's own page, not an offscreen renderer. */
+function editorWindow(): BrowserWindow {
+  const window = BrowserWindow.getAllWindows().find(
+    (candidate) => !isRenderWindow(candidate) && candidate.webContents.getURL() === rendererUrl
+  )
+  if (!window) throw new CodedError("Parity's window isn't open", { code: "not_answering", retryable: true })
+  return window
 }
 
 function isRenderWindow(window: BrowserWindow): boolean {

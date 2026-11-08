@@ -7,6 +7,7 @@ import {
   requests,
   skillRequest
 } from "@parity-app/agent/contracts"
+import { plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
 import type { Routing } from "./client.ts"
 import { type ExecResponse, execResponse, executionFailed, structuredExec } from "./execute.ts"
@@ -136,7 +137,24 @@ export const operations = {
     return { tokens: items, total, truncated }
   }),
   components: operation("components"),
-  props: operation("props")
+  props: operation("props"),
+  report: withTestRun(operation("report"))
+}
+
+/**
+ * A report names the test pass `PARITY_TEST_RUN` names, unless the agent says another, so it groups with the pass's
+ * events in Sentry (PAR-646).
+ */
+function withTestRun<Result>(operation: Operation<Result>, env: NodeJS.ProcessEnv = process.env): Operation<Result> {
+  return {
+    ...operation,
+    run(input, send) {
+      const testRun = env.PARITY_TEST_RUN?.trim()
+      const fields = plainObject.safeParse(input).data
+      if (!testRun || !fields || fields.testRun !== undefined) return operation.run(input, send)
+      return operation.run({ ...fields, testRun }, send)
+    }
+  }
 }
 
 export const skillOperation = {

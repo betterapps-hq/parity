@@ -12,6 +12,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeReport,
   describeStatus,
   describeTokens,
   setCaller
@@ -171,6 +172,12 @@ const tools: Tool[] = [
     "Read a component's props from source, and its composition: the parents or provider it goes inside, the parts it holds, its slots and an example node to insert. all includes attributes it passes through.",
     operations.props,
     (result) => [text(describeProps(result))]
+  ),
+  operationTool(
+    "report_problem",
+    "Report a problem in Parity itself, not the project, even when nothing failed: a wrong result or render. Sends Sentry the window's screenshot and replay, this call's trace and the design's frames; returns the link.",
+    operations.report,
+    (result) => [text(describeReport(result))]
   ),
   {
     name: "get_logs",

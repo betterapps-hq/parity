@@ -207,7 +207,8 @@ describe("each operation's routing", () => {
       console: "tab",
       tokens: "tab",
       components: "tab",
-      props: "tab"
+      props: "tab",
+      report: "tab"
     })
   })
 })

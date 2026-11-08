@@ -6206,3 +6206,25 @@ default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My 
   in the app, not Sentry, as PAR-626 asked, reviewed with the writing-style-guide skill, and stays off stdout, which
   agents parse. `~/.parity/telemetry-notice` says it was shown.
 - **The CLI scrubs keys, tokens and passwords, not `.env` values,** which only the service reads.
+
+## Agents report problems through the app, as user feedback (PAR-646)
+
+`parity report` and MCP's `report_problem` send what an agent saw as a Sentry user feedback, the same kind as Help >
+Report a problem. My calls:
+
+- **The app sends it, not the CLI.** The report needs the window's screenshot and replay, which only the app has, and
+  has to arrive before the command returns its link, which the CLI's outbox (PAR-642) doesn't. So `report` is an agent
+  method like the others: the service draws the frames, the window flushes its replay, and main sends the feedback to
+  `parity-desktop` with `report.sent` marking it `by: agent`.
+- **It's tied to the call's trace,** the CLI's `cli.ran`, not the window's, so the trace shows the command, the call and
+  the report's own request together. The window's replay goes beside it.
+- **The tags are what the agent names, checked:** a design or state that isn't there fails as a screenshot of it would
+  (`unknown_design`, `unknown_state`), so a tag always names a real one. A node is passed through, since an agent
+  reporting a wrong node may name one that's gone. With no tab or design named, it works with no project open.
+- **It isn't sent while Telemetry is off.** The person's own report goes regardless, since they chose to send it and see
+  what goes; an agent's would override their setting. It fails with `app_error`, saying to tell the person instead or
+  run `parity diagnostics`.
+- **The link is the feedback's, by event ID,** in the `sentry.io/organizations/...` form, which Sentry redirects to the
+  issue; the subdomain form of the same path doesn't. The Linear issue isn't known when the command returns, since
+  Sentry's alert files it afterwards; the feedback links it.
+- **The MCP tool list grew to 13.6 KB,** and its budget to 14 KB, for a tool agents are meant to reach for unprompted.
