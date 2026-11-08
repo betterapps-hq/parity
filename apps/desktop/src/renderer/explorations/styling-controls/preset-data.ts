@@ -4,8 +4,8 @@
  * The rows a preset sets fold into its row, locked; an unlocked row changed on the layer overrides the preset there;
  * picking the preset again takes back every override; Detach keeps every value it gave. This file holds the stand-in
  * project's presets in PAR-186's value forms (tokens where the project has them), a layer's own values over them, and
- * what the Text section shows and writes. PAR-707's `typography-preset/presets.ts` models the same for Fluent, MUI and
- * Chakra projects in plain values.
+ * what the Text section shows and writes. PAR-707's exploration, removed once this story carried its chosen design,
+ * modeled Fluent, MUI, Chakra and Tailwind projects' presets and their code (`typography-preset/presets.ts` in edcde46e).
  */
 import { formatNumber } from "./css-values.ts"
 import { resolveFont, sizePx } from "./font-fields.tsx"

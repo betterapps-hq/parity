@@ -13,7 +13,8 @@ import { Playground } from "./playground.tsx"
  * preview, a swatch, curve or shadow card, which opens that type's editor. Classes, at the top, shows the layer's classes
  * as Copy as Tailwind writes them: typing classes, or pasting classes or declarations into a row, gives each to the
  * control that owns it and keeps the rest as rows. A class Parity can't read stays as From the code; what can't be read
- * is listed, not dropped.
+ * is listed, not dropped. Nothing is cut off: a long value wraps onto more lines, as DevTools' Styles pane does, and
+ * Classes grows with its classes, with a handle to drag it taller.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Raw CSS value",
@@ -172,7 +173,7 @@ export const PastingDeclarations: Story = {
   render: () => <Css start={cssModel([{ property: "scroll-margin-top", value: "4rem" }])} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("combobox", { name: "scroll-margin-top value" }))
+    await userEvent.click(canvas.getByRole("textbox", { name: "scroll-margin-top value" }))
     await userEvent.paste("padding: 16px; interpolate-size: allow-keywords; colour: red;")
   }
 }

@@ -11,7 +11,7 @@ import {
   useTokens,
   ValueField
 } from "./field-parts.tsx"
-import { Field } from "./field-row.tsx"
+import { EachToggle, Field, PairGlyph, SideGlyph } from "./field-row.tsx"
 import {
   onStep,
   readSide,
@@ -22,7 +22,6 @@ import {
   sideNumber,
   stepSide
 } from "./sides-writes.ts"
-import { EachToggle, PairGlyph, SideGlyph } from "./simpler.tsx"
 import { lengthToken } from "./tokens.ts"
 
 /*

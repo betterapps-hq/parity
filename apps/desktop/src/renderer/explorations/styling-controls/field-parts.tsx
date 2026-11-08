@@ -220,6 +220,29 @@ export function useTyped<T>({
   }
 }
 
+/**
+ * Why a value is allowed here, typed as Allow here asks: a sentence, so it wraps and grows, with a handle to drag it
+ * taller. Enter submits its form; Shift+Enter starts a line.
+ */
+function ReasonBox({ reason, onReason }: { reason: string; onReason: (reason: string) => void }) {
+  return (
+    <textarea
+      ref={(node) => node?.focus()}
+      aria-label="Why it's allowed here"
+      placeholder="Photo backdrop"
+      rows={1}
+      value={reason}
+      onChange={(event) => onReason(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" || event.shiftKey) return
+        event.preventDefault()
+        event.currentTarget.form?.requestSubmit()
+      }}
+      className={`${wrappingText} min-h-7 resize-y rounded-md border border-input bg-transparent px-2 py-1 text-xs leading-snug outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30`}
+    />
+  )
+}
+
 /** What a field says under its row, with its answer button when it asks something. It spans a grid's row. */
 export function MessageLine({ message }: { message: Message | undefined }) {
   if (!message) return null
@@ -414,6 +437,13 @@ export function fieldBox(error: boolean, extra = ""): string {
  */
 export const fieldEndButton =
   "absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 outline-none group-focus-within/field:opacity-100 group-hover/field:opacity-100 hover:bg-background/70 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:opacity-100"
+
+/**
+ * Text longer than a field's line holds, as a CSS row's value or an expression: it wraps and grows with its text, a
+ * line at a time, so none of it is cut off. A box for free text (Classes, a reason) adds `resize-y`, a handle to drag
+ * it taller.
+ */
+export const wrappingText = "field-sizing-content resize-none [overflow-wrap:anywhere]"
 
 /** A bare field's box (ValueField's `bare`): no border until hovered or focused, or while it's in error. */
 function bareBox(error: boolean, extra: string): string {
@@ -721,14 +751,7 @@ export function OffSystemMark({
               setOpen(false)
             }}
           >
-            <Input
-              ref={(input) => input?.focus()}
-              aria-label="Why it's allowed here"
-              placeholder="Photo backdrop"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              className="h-7 text-xs"
-            />
+            <ReasonBox reason={reason} onReason={setReason} />
             <Button type="submit" size="sm" className="h-7 text-xs" disabled={!reason.trim()}>
               Allow here
             </Button>
@@ -1206,14 +1229,7 @@ export function TokenMenu<T extends FieldToken>({
                 if (reason.trim() !== "") onAllow(reason.trim())
               }}
             >
-              <Input
-                ref={(node) => node?.focus()}
-                aria-label="Why it's allowed here"
-                placeholder="Photo backdrop"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                className="h-7 text-xs"
-              />
+              <ReasonBox reason={reason} onReason={setReason} />
               <Button type="submit" size="sm" className="h-7 text-xs" disabled={reason.trim() === ""}>
                 Allow here
               </Button>

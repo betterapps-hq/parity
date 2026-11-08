@@ -3,6 +3,7 @@ import {
   createContext,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type Ref,
   useCallback,
   useContext,
   useEffect,
@@ -200,4 +201,85 @@ export function Field({
  */
 export function FieldGrid({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`grid grid-cols-2 gap-x-2 gap-y-2.5 ${className}`}>{children}</div>
+}
+
+/* The glyphs and toggle a row's fields and name use */
+
+/** A corner drawn as a field's glyph: the arc at that corner, from the top left, clockwise. */
+export function CornerGlyph({ corner = 0 }: { corner?: 0 | 1 | 2 | 3 }) {
+  return (
+    <svg aria-hidden viewBox="0 0 12 12" className="size-3" style={{ transform: `rotate(${corner * 90}deg)` }}>
+      <path d="M1.5 11 V6 A4.5 4.5 0 0 1 6 1.5 H11" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  )
+}
+
+/** The pair of sides a field sets, drawn as a double arrow: up and down, or left and right. */
+export function PairGlyph({ across = false }: { across?: boolean }) {
+  return (
+    <svg aria-hidden viewBox="0 0 12 12" className="size-3" style={across ? { transform: "rotate(90deg)" } : undefined}>
+      <path
+        d="M6 1.5 V10.5 M3.5 4 L6 1.5 L8.5 4 M3.5 8 L6 10.5 L8.5 8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+/** One side's letter as a field's glyph: T, R, B or L. */
+export function SideGlyph({ letter }: { letter: string }) {
+  return <span className="text-[11px] leading-none font-medium">{letter}</span>
+}
+
+/**
+ * What a group's parts are, which its toggle draws: a rounded square's four corners, or its four sides, each drawn
+ * apart from the rest.
+ */
+type Parts = "corners" | "sides"
+
+const partsIcons: Record<Parts, string> = {
+  corners:
+    "M1.5 4.5 V3.5 A2 2 0 0 1 3.5 1.5 H4.5 M7.5 1.5 H8.5 A2 2 0 0 1 10.5 3.5 V4.5 M10.5 7.5 V8.5 A2 2 0 0 1 8.5 10.5 H7.5 M4.5 10.5 H3.5 A2 2 0 0 1 1.5 8.5 V7.5",
+  sides: "M3.5 1.5 H8.5 M10.5 3.5 V8.5 M3.5 10.5 H8.5 M1.5 3.5 V8.5"
+}
+
+/**
+ * The toggle at the end of a group's name row that opens every part, as Figma's and Penpot's do: an icon drawn as the
+ * fields' own glyphs are, named in its hint (Each corner, Each side), and filled while every part is open. It's a
+ * toggle, so its name stays the same and it says whether it's pressed.
+ */
+export function EachToggle({
+  label,
+  parts,
+  pressed,
+  onClick,
+  ref
+}: {
+  /** Its name, in its hint and for screen readers: Each corner, Each side. */
+  label: string
+  parts: Parts
+  pressed: boolean
+  onClick: () => void
+  ref?: Ref<HTMLButtonElement>
+}) {
+  return (
+    <Hint label={label}>
+      <button
+        ref={ref}
+        type="button"
+        aria-label={label}
+        aria-pressed={pressed}
+        onClick={onClick}
+        className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:text-foreground dark:hover:bg-input/40 dark:aria-pressed:bg-input/60"
+      >
+        <svg aria-hidden viewBox="0 0 12 12" className="size-3">
+          <path d={partsIcons[parts]} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      </button>
+    </Hint>
+  )
 }

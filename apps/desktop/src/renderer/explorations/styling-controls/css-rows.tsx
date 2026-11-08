@@ -1,6 +1,6 @@
 import { Checkbox, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { Minus, Plus } from "lucide-react"
-import { type ReactNode, useEffect, useId, useRef, useState } from "react"
+import { type ChangeEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { swatch } from "../../chrome/token-previews.tsx"
@@ -17,7 +17,8 @@ import {
   readNumber,
   SearchList,
   TokenMark,
-  ValueField
+  ValueField,
+  wrappingText
 } from "./field-parts.tsx"
 import { type Bezier, bezierCss, type EasingShape, readEasingValue } from "./motion-data.ts"
 import { colorTokens, lengthVars } from "./tokens.ts"
@@ -308,6 +309,7 @@ function Completing({
   className = "",
   sizeToContent = false,
   focusOnMount = false,
+  wrap = false,
   onCommit
 }: {
   label: string
@@ -319,12 +321,17 @@ function Completing({
   sizeToContent?: boolean
   /** Focused once it's drawn, as a row added with + is typed into at once. */
   focusOnMount?: boolean
+  /**
+   * Wraps onto more lines as it grows, as a declaration's value does (`box-shadow` with two layers), rather than
+   * scrolling out of sight: a text box whose completions are announced through `aria-activedescendant`.
+   */
+  wrap?: boolean
   onCommit: (text: string) => void
 }) {
   const [typed, setTyped] = useState<string>()
   const [highlight, setHighlight] = useState(0)
   const listId = useId()
-  const input = useRef<HTMLInputElement>(null)
+  const input = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
   useEffect(() => {
     if (focusOnMount) input.current?.focus()
   }, [focusOnMount])
@@ -334,40 +341,58 @@ function Completing({
     setTyped(undefined)
     onCommit(text)
   }
+  const shared = {
+    "aria-label": label,
+    "aria-activedescendant": open ? `${listId}-${highlight}` : undefined,
+    ref: input,
+    value: typed ?? value,
+    placeholder,
+    spellCheck: false,
+    onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setTyped(event.target.value)
+      setHighlight(0)
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+        event.preventDefault()
+        setHighlight((current) => (current + (event.key === "ArrowDown" ? 1 : -1) + list.length) % list.length)
+      }
+      if (open && (event.key === "Tab" || event.key === "Enter")) {
+        event.preventDefault()
+        finish(list[highlight]!.label)
+        return
+      }
+      if (event.key === "Enter") {
+        // A value is one line of CSS, so Enter commits it rather than starting another.
+        event.preventDefault()
+        if (typed !== undefined) finish(typed)
+      }
+      if (event.key === "Escape") setTyped(undefined)
+    },
+    onBlur: () => {
+      if (typed !== undefined) finish(typed)
+    }
+  }
+  const text = "bg-transparent font-mono text-[11px] outline-none placeholder:text-muted-foreground"
   return (
     <div className={`relative min-w-0 ${className}`}>
-      <input
-        role="combobox"
-        aria-label={label}
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-activedescendant={open ? `${listId}-${highlight}` : undefined}
-        ref={input}
-        value={typed ?? value}
-        placeholder={placeholder}
-        spellCheck={false}
-        onChange={(event) => {
-          setTyped(event.target.value)
-          setHighlight(0)
-        }}
-        onKeyDown={(event) => {
-          if (open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
-            event.preventDefault()
-            setHighlight((current) => (current + (event.key === "ArrowDown" ? 1 : -1) + list.length) % list.length)
-          }
-          if (open && (event.key === "Tab" || event.key === "Enter")) {
-            event.preventDefault()
-            finish(list[highlight]!.label)
-            return
-          }
-          if (event.key === "Enter" && typed !== undefined) finish(typed)
-          if (event.key === "Escape") setTyped(undefined)
-        }}
-        onBlur={() => {
-          if (typed !== undefined) finish(typed)
-        }}
-        className={`${sizeToContent ? "field-sizing-content max-w-full min-w-[8ch]" : "w-full min-w-0"} bg-transparent font-mono text-[11px] outline-none placeholder:text-muted-foreground`}
-      />
+      {wrap ? (
+        <textarea
+          {...shared}
+          rows={1}
+          aria-autocomplete="list"
+          aria-controls={listId}
+          className={`${wrappingText} block w-full ${text}`}
+        />
+      ) : (
+        <input
+          {...shared}
+          role="combobox"
+          aria-controls={listId}
+          aria-expanded={open}
+          className={`${sizeToContent ? "field-sizing-content max-w-full min-w-[8ch]" : "w-full min-w-0"} ${text}`}
+        />
+      )}
       {open && (
         <SearchList
           id={listId}
@@ -563,7 +588,7 @@ function Row({
               value={row.value}
               placeholder="value"
               className="grow"
-              sizeToContent
+              wrap
               candidates={(text) =>
                 valueCandidates(row.property)
                   .filter((each) => each.label.startsWith(text))
@@ -640,13 +665,14 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
       <div
         className="flex flex-col gap-1.5"
         onPaste={(event) => {
-          if (event.target instanceof HTMLTextAreaElement) return
+          if (event.target instanceof HTMLElement && event.target.closest("[data-classes]")) return
           if (paste(event.clipboardData.getData("text"))) event.preventDefault()
         }}
       >
         <label className="flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">Classes</span>
           <textarea
+            data-classes
             aria-label="Classes"
             rows={2}
             spellCheck={false}
@@ -664,7 +690,7 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
               if (classes !== undefined && classes !== written) readClasses(classes)
               setClasses(undefined)
             }}
-            className="field-sizing-content min-h-12 resize-none rounded-md border bg-transparent px-1.5 py-1 font-mono text-[11px] leading-relaxed outline-none focus:ring-2 focus:ring-ring dark:bg-input/30"
+            className="field-sizing-content min-h-12 resize-y rounded-md border bg-transparent px-1.5 py-1 font-mono text-[11px] leading-relaxed outline-none focus:ring-2 focus:ring-ring dark:bg-input/30"
           />
         </label>
         {model.rows.map((row) => (
@@ -690,8 +716,8 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
             label="From the code"
             detail="A class Parity can't read into a control. It's kept as written"
           >
-            <div className="flex h-7 items-center justify-between gap-2 rounded-md border border-dashed px-1.5">
-              <span className="truncate font-mono text-[11px]">{name}</span>
+            <div className="flex min-h-7 items-center justify-between gap-2 rounded-md border border-dashed px-1.5 py-1">
+              <span className="min-w-0 font-mono text-[11px] [overflow-wrap:anywhere]">{name}</span>
               <span className="shrink-0 text-[10px] text-muted-foreground">From the code</span>
             </div>
           </Hint>
@@ -700,8 +726,8 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
           <div className="flex flex-col gap-0.5 pt-1">
             <span className="text-[11px] font-medium text-muted-foreground">In their controls</span>
             {model.owned.map((each) => (
-              <div key={each.tailwind} className="flex items-center justify-between gap-2 px-0.5 text-[11px]">
-                <span className="truncate font-mono">{each.tailwind}</span>
+              <div key={each.tailwind} className="flex items-start justify-between gap-2 px-0.5 text-[11px]">
+                <span className="min-w-0 font-mono [overflow-wrap:anywhere]">{each.tailwind}</span>
                 <span className="shrink-0 text-muted-foreground">
                   {stateOf(each.tailwind) ? `${each.control}, ${stateName(stateOf(each.tailwind)!)}` : each.control}
                 </span>

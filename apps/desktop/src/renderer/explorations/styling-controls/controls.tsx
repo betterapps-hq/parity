@@ -70,10 +70,9 @@ import {
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
-import { Field } from "./field-row.tsx"
+import { CornerGlyph, EachToggle, Field, SideGlyph } from "./field-row.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { NineSpots } from "./position-box.tsx"
-import { CornerGlyph, EachToggle, SideGlyph } from "./simpler.tsx"
 import { lengthToken } from "./tokens.ts"
 import { readLength } from "./typing.ts"
 import type { StrokePosition } from "./writes.ts"

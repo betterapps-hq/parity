@@ -17,7 +17,8 @@ import {
   SearchList,
   TokenChip,
   TokenMark,
-  ValueField
+  ValueField,
+  wrappingText
 } from "./field-parts.tsx"
 import { colorTokens, type FieldToken, lengthToken, lengthVars } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
@@ -25,9 +26,9 @@ import type { Writes } from "./writes.ts"
 /*
  * Expression (PAR-186, design-options-values.md's Expression): `=` in any field opens an expression, which keeps
  * `calc()`, `min()`, `max()`, `clamp()`, `var()` and `color-mix()` as written. At rest it's a ValueField showing the
- * function's name and what it comes to (`clamp 24`), or `ƒ` in a field under 96px. Focused, it widens to the row, with
- * completion and each `var()` drawn as a token chip; a `clamp()` opens its three fields. What comes to a step or one
- * token is stored as that, so `calc(var(--spacing) * 18)` is `{ step: 18 }`.
+ * function's name and what it comes to (`clamp 24`), or `ƒ` in a field under 96px. Focused, it opens over its row and
+ * wraps a long expression, with completion and each `var()` drawn as a token chip; a `clamp()` opens its three fields.
+ * What comes to a step or one token is stored as that, so `calc(var(--spacing) * 18)` is `{ step: 18 }`.
  */
 
 /** The kind of preview a length token draws with: a spacing bar, a container's width, a size of text, a corner. */
@@ -401,7 +402,7 @@ export function ExpressionField({
   const [highlight, setHighlight] = useState(0)
   const [message, setMessage] = useState<Message>()
   const [clampOpen, setClampOpen] = useState(false)
-  const editor = useRef<HTMLInputElement>(null)
+  const editor = useRef<HTMLTextAreaElement>(null)
   const listId = useId()
   const form = value === undefined ? undefined : simplest(value)
   const isExpression = form !== undefined && "value" in form && !/^\d/.test(form.value)
@@ -459,7 +460,7 @@ export function ExpressionField({
     setHighlight(0)
     requestAnimationFrame(() => editor.current?.setSelectionRange(at, at))
   }
-  const onEditorKey = (event: KeyboardEvent<HTMLInputElement>) => {
+  const onEditorKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     const listOpen = completions !== undefined && completions.items.length > 0
     if (listOpen && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
       event.preventDefault()
@@ -574,17 +575,17 @@ export function ExpressionField({
         onCommit={onChange}
       />
       {editing !== undefined && (
-        // Focused, it widens to the row, label and all, as Webflow's = editor opens wide.
-        <div className="absolute top-0 -left-24 z-30 flex w-[calc(100%+6rem)] flex-col gap-1.5 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-md">
-          <label className={fieldBox(error, "bg-background")}>
-            <span aria-hidden className="shrink-0 font-mono text-muted-foreground">
+        // Focused, it opens over its row, at least 15rem wide, as Webflow's = editor opens wide.
+        <div className="absolute top-0 left-0 z-30 flex w-full min-w-60 flex-col gap-1.5 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-md">
+          <label className={fieldBox(error, "h-auto! min-h-7 items-start! bg-background py-1.5")}>
+            <span aria-hidden className="shrink-0 font-mono leading-4 text-muted-foreground">
               =
             </span>
-            <input
+            <textarea
               ref={editor}
-              role="combobox"
+              rows={1}
               aria-label={`${label} expression`}
-              aria-expanded={showList}
+              aria-autocomplete="list"
               aria-controls={listId}
               aria-activedescendant={showList ? `${listId}-${highlight}` : undefined}
               aria-invalid={error || undefined}
@@ -598,7 +599,7 @@ export function ExpressionField({
               onSelect={(event) => setCaret(event.currentTarget.selectionStart ?? 0)}
               onKeyDown={onEditorKey}
               onBlur={() => commit(true)}
-              className={`${fieldInput} font-mono`}
+              className={`${fieldInput} ${wrappingText} font-mono leading-4`}
             />
             {error && <InvalidMark />}
           </label>

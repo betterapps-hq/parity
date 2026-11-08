@@ -121,7 +121,7 @@ export const TypingAnExpression: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
-    const editor = await canvas.findByRole("combobox", { name: "Width expression" })
+    const editor = await canvas.findByRole("textbox", { name: "Width expression" })
     await userEvent.type(editor, "min(100%, 40rem){Enter}")
   }
 }
@@ -132,7 +132,7 @@ export const Completion: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
-    const editor = await canvas.findByRole("combobox", { name: "Width expression" })
+    const editor = await canvas.findByRole("textbox", { name: "Width expression" })
     await userEvent.type(editor, "cl")
   }
 }
@@ -143,7 +143,7 @@ export const SimplestForm: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
-    const editor = await canvas.findByRole("combobox", { name: "Width expression" })
+    const editor = await canvas.findByRole("textbox", { name: "Width expression" })
     await userEvent.type(editor, "calc(var(--spacing) * 18){Enter}")
   }
 }
@@ -167,7 +167,7 @@ export const InvalidAsTyped: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole("textbox", { name: "Width" }))
-    const editor = await canvas.findByRole("combobox", { name: "Width expression" })
+    const editor = await canvas.findByRole("textbox", { name: "Width expression" })
     await userEvent.clear(editor)
     await userEvent.type(editor, "calc(100% - ){Enter}")
   }
