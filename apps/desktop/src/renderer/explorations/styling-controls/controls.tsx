@@ -16,8 +16,7 @@ import {
   PopoverTrigger,
   Toggle,
   ToggleGroup,
-  ToggleGroupItem,
-  TooltipProvider
+  ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   ArrowDown,
@@ -29,6 +28,7 @@ import {
   Ellipsis,
   Grid3x3,
   Hexagon,
+  LayoutTemplate,
   Lock,
   LockOpen,
   Minus,
@@ -42,6 +42,8 @@ import {
   Square,
   SquareDashed,
   SquareRoundCorner,
+  Squircle,
+  TriangleAlert,
   WrapText,
   X
 } from "lucide-react"
@@ -57,6 +59,7 @@ import {
   type Draft,
   hexOf,
   type Length,
+  type LengthToken,
   radiusPx,
   radiusTokens,
   type SelfAlign,
@@ -69,72 +72,24 @@ import {
   trackLabel,
   usedColors
 } from "./data.ts"
+import { readLength, scrubbing } from "./typing.ts"
+import type { StrokePosition } from "./writes.ts"
 
-/** What the exploration starts on: the layer, which child is selected, and any picker open. */
-export interface Start {
-  draft: Draft
-  /** The panel shows a grid child's placement, with that child selected on the canvas. */
-  child?: boolean
-  /** Opens the fill picker on a tab. */
-  fillPicker?: "tokens" | "custom"
-  /** The design's frame row instead of a layer. */
-  frame?: boolean
-  /** The project's Tokens only setting, which refuses plain colors. */
-  tokensOnly?: boolean
-}
+/*
+ * The styling controls for PAR-186, each tried on its own in its story (Parity/Explorations/Design panel controls),
+ * as PAR-652's design options pages specify them. A section here is one control with its rows; LayerPreview is the
+ * canvas's stand-in, which measures what Hug and Fill come to.
+ */
 
-/** The canvas's stand-in for a layer and the inspector beside it, both on one draft style. */
-export function StylingPrototype({ start }: { start: Start }) {
-  const [draft, setDraft] = useState(start.draft)
-  const [child, setChild] = useState(start.child ?? false)
-  const [frame, setFrame] = useState({ width: 1280, height: undefined as number | undefined })
-  const set = (change: Partial<Draft>) => setDraft((current) => ({ ...current, ...change }))
-  let selected = "Plans"
-  let panel = (
-    <>
-      {/* Call 5's order: Size, Layout, Appearance, Fill, Stroke, Effects, then Text inside for a layout. */}
-      <SizeSection draft={draft} set={set} />
-      <LayoutSection draft={draft} set={set} />
-      <AppearanceSection draft={draft} set={set} tokensOnly={start.tokensOnly} />
-      <FillSection draft={draft} set={set} tokensOnly={start.tokensOnly} fillPicker={start.fillPicker} />
-      <StrokeSection draft={draft} set={set} tokensOnly={start.tokensOnly} />
-      <EffectsSection draft={draft} set={set} tokensOnly={start.tokensOnly} />
-      <TextSection draft={draft} set={set} />
-    </>
-  )
-  if (start.frame) {
-    selected = "Pricing"
-    panel = <FrameSection frame={frame} onChange={setFrame} />
-  } else if (child) {
-    selected = "Pro plan"
-    panel = <ChildSizeSection draft={draft} set={set} />
-  }
-  return (
-    <TooltipProvider>
-      <div className="flex h-screen bg-background text-foreground">
-        <main className="flex min-w-0 flex-1 items-center justify-center overflow-auto bg-muted/40 p-8">
-          {start.frame ? (
-            <FramePreview width={frame.width} height={frame.height} />
-          ) : (
-            <LayerPreview draft={draft} childSelected={child} onSelectChild={setChild} />
-          )}
-        </main>
-        <aside aria-label="Inspector" className="flex w-80 shrink-0 flex-col overflow-y-auto border-l bg-background">
-          <p className="border-b px-4 py-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Prototype · {selected}
-            {start.tokensOnly && " · Tokens only"}
-          </p>
-          {panel}
-        </aside>
-      </div>
-    </TooltipProvider>
-  )
-}
-
-interface SectionProps {
+/** What a section's controls change: one style, and the project's Tokens only setting. */
+export interface SectionProps {
   draft: Draft
   set: (change: Partial<Draft>) => void
   tokensOnly?: boolean
+  /** The selected layers differ here, so an unset field shows Mixed. */
+  mixed?: boolean
+  /** Set in the state shown (Hover, say), with the way back to the first state's value. */
+  changed?: { onReset: () => void }
 }
 
 /**
@@ -142,7 +97,7 @@ interface SectionProps {
  * box, which stays physical when reversed, with Baseline under it in a row; and a grid's columns as a count until its
  * tracks are edited.
  */
-function LayoutSection({ draft, set }: SectionProps) {
+export function LayoutSection({ draft, set }: SectionProps) {
   const grid = draft.columns !== undefined
   const mode = grid ? "grid" : (draft.direction ?? "column")
   const baseline = isBaseline(draft.align)
@@ -341,7 +296,13 @@ const fr = (value: number): Track => ({ kind: "fr", value })
  * A grid's columns: a list of tracks, or with Repeat to fit, as many as fit the width, each at least the width given,
  * the responsive grid Webflow calls auto-fit.
  */
-function ColumnsField({ columns, onChange }: { columns: Columns | undefined; onChange: (columns: Columns) => void }) {
+export function ColumnsField({
+  columns,
+  onChange
+}: {
+  columns: Columns | undefined
+  onChange: (columns: Columns) => void
+}) {
   const fit = columns !== undefined && !Array.isArray(columns)
   const [editing, setEditing] = useState(false)
   const toggle = (
@@ -412,7 +373,7 @@ function ColumnsField({ columns, onChange }: { columns: Columns | undefined; onC
 }
 
 /** A grid's tracks as chips: each opens to its size, and the last button adds one. */
-function TracksField({
+export function TracksField({
   label,
   tracks,
   after,
@@ -575,7 +536,7 @@ const selfOptions = {
  * Size for a child of a grid, as PAR-652's panel adds its rows: W and H, Align self and Justify self, then Span with the
  * start lines beside it. End lines and an area are under More.
  */
-function ChildSizeSection({ draft, set }: SectionProps) {
+export function ChildSizeSection({ draft, set }: SectionProps) {
   const measured = useMeasured("[data-layer='Pro plan']")
   const endLines = draft.endLines ?? false
   return (
@@ -768,7 +729,7 @@ function AxisPlacement({
  * since a ratio is ignored when both sizes are set; the ratio then shows as its own row, with named ratios. Typing H
  * while locked changes W to keep the ratio.
  */
-function SizeSection({ draft, set }: SectionProps) {
+export function SizeSection({ draft, set }: SectionProps) {
   const measured = useMeasured("section[aria-label='Plans']")
   const width = draft.width ?? 520
   const height = draft.height ?? "hug"
@@ -901,7 +862,7 @@ const sizeModeNames = { hug: "Hug", fill: "Fill", min: "Min content", max: "Max 
  * length makes it Fixed, as in Figma, and Up or Down on a mode makes it Fixed at its measured size and steps from there,
  * a whole spacing step (4px) at a time.
  */
-function SizeField({
+export function SizeField({
   axis,
   value,
   measured,
@@ -944,29 +905,34 @@ function SizeField({
   if (setBy) comesTo = `set by ${setBy}`
   else if (!fixed && measured !== undefined) comesTo = String(measured)
   const reason = `${axis} takes a length, Hug or Fill`
-  const read = (text: string): Size | "unreadable" => {
+  /**
+   * What's typed: Hug or Fill by name; a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`),
+   * where a bare number is in the unit shown; or a percentage, CSS's (call 10).
+   */
+  const read = (text: string): Size | { reason: string } => {
     const word = text.trim().toLowerCase()
     if (word === "hug" || word === "fit") return "hug"
     if (word === "fill") return "fill"
-    const step = spacingStepPixels(word)
-    if (step !== undefined) return Math.max(1, step)
-    const match = /^(-?\d*\.?\d+)\s*(px|rem|%)?$/i.exec(word)
-    if (!match) return "unreadable"
-    const number = Number(match[1])
-    const typedUnit = match[2] ?? (percent ? "%" : unit)
-    if (typedUnit === "%") return { percent: Math.max(0, Math.round(number * 10) / 10) }
-    if (typedUnit === "rem") setUnit("rem")
-    else if (match[2]) setUnit("px")
-    return Math.max(1, Math.round(number * (typedUnit === "rem" ? remPixels : 1)))
+    const bare = /^-?(\d*\.?\d+)$/.test(word)
+    let input = word
+    if (bare && percent) input = `${word}%`
+    else if (bare && unit === "rem") input = `${word}rem`
+    const reading = readLength(input, { label: axis, current: fixed && !setBy ? value : measured, takesPercent: true })
+    if ("reason" in reading) return { reason: reading.reason.startsWith("Can't read") ? reason : reading.reason }
+    if ("clear" in reading) return { reason }
+    if ("percent" in reading) return { percent: Math.max(0, Math.round(reading.percent * 10) / 10) }
+    if (/rem\s*$/.test(word)) setUnit("rem")
+    else if (/px\s*$/.test(word)) setUnit("px")
+    return Math.max(1, reading.px)
   }
   const commit = (leaving: boolean): boolean => {
     if (typed === undefined) return true
     const next = typed.trim() === "" ? undefined : read(typed)
-    if (next === "unreadable") {
+    if (typeof next === "object" && "reason" in next) {
       if (leaving) {
-        setMessage({ tone: "note", text: `${axis} is back to ${shown}. It takes a length, Hug or Fill.` })
+        setMessage({ tone: "note", text: `${axis} is back to ${shown}. ${next.reason}.` })
         setTyped(undefined)
-      } else setMessage({ tone: "error", text: reason })
+      } else setMessage({ tone: "error", text: next.reason })
       return false
     }
     if (next !== undefined) onChange(next)
@@ -1078,7 +1044,16 @@ function SizeField({
         <div
           className={`flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent pl-1.5 text-xs focus-within:ring-2 dark:bg-input/30 ${error ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
         >
-          <span className="shrink-0 text-muted-foreground">{axis[0]}</span>
+          <span
+            // Dragging W or H scrubs the size a spacing step per 2 screen pixels, making a mode Fixed first.
+            onPointerDown={scrubbing(() => (fixed && !setBy ? value : (measured ?? 0)), onChange, {
+              spacing: true,
+              min: 1
+            })}
+            className="shrink-0 cursor-ew-resize touch-none text-muted-foreground select-none"
+          >
+            {axis[0]}
+          </span>
           <input
             aria-label={axis}
             aria-invalid={error || undefined}
@@ -1139,16 +1114,6 @@ function nextSpacingStep(pixels: number, up: boolean, shift: boolean): number {
 /** Pixels in a whole spacing step, at Tailwind's default `--spacing` of 0.25rem. */
 const spacingPixels = 4
 
-/**
- * A spacing step typed by name, `spacing-4` for step 4 (16px), as a length field reads it; a bare 4 stays 4 in the unit
- * shown. Steps go in quarters, as `p-3.25` does.
- */
-function spacingStepPixels(text: string): number | undefined {
-  const steps = /^\s*spacing-(\d*\.?\d+)\s*$/i.exec(text)?.[1]
-  if (steps === undefined || (Number(steps) * 4) % 1 !== 0) return undefined
-  return Math.round(Number(steps) * spacingPixels)
-}
-
 /** Named ratios, as Tailwind names two of them (`aspect-square`, `aspect-video`). */
 const namedRatios = [
   { value: "1 / 1", name: "Square" },
@@ -1172,7 +1137,7 @@ function readRatio(text: string): string | undefined {
  * The ratio, typed, with its name after it (Video) and the named ratios in its menu. A ratio it can't read stays, with
  * the reason under it; Enter keeps it, and Escape or leaving puts the ratio back and says so.
  */
-function RatioField({ aspect, onChange }: { aspect: string; onChange: (aspect: string) => void }) {
+export function RatioField({ aspect, onChange }: { aspect: string; onChange: (aspect: string) => void }) {
   const [typed, setTyped] = useState<string>()
   const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
   const name = namedRatios.find((option) => option.value === aspect)?.name
@@ -1266,13 +1231,13 @@ const corners = ["Top left", "Top right", "Bottom right", "Bottom left"] as cons
 /** The corners' indices in reading order across the two-by-two grid of fields. */
 const cornersAsLaidOut = [0, 1, 3, 2] as const
 
-function AppearanceSection({ draft, set, tokensOnly }: SectionProps) {
+export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: SectionProps) {
   const perCorner = Array.isArray(draft.radius)
   const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
   return (
     <PanelSection title="Appearance">
       <div className="flex flex-col gap-1">
-        <Field label="Radius">
+        <Field label="Radius" changed={changed !== undefined} onReset={changed?.onReset}>
           <div className="flex items-start gap-1">
             {perCorner ? (
               <div className="grid min-w-0 flex-1 grid-cols-2 gap-1">
@@ -1284,6 +1249,7 @@ function AppearanceSection({ draft, set, tokensOnly }: SectionProps) {
                     corner={index}
                     value={radii[index]}
                     tokensOnly={tokensOnly}
+                    mixed={mixed}
                     onChange={(value) => {
                       const next = [...radii] as [Length?, Length?, Length?, Length?]
                       next[index] = value
@@ -1298,25 +1264,91 @@ function AppearanceSection({ draft, set, tokensOnly }: SectionProps) {
                   label="Radius"
                   value={Array.isArray(draft.radius) ? undefined : draft.radius}
                   tokensOnly={tokensOnly}
+                  mixed={mixed}
                   onChange={(radius) => set({ radius })}
                 />
               </div>
             )}
-            <Hint label="Radius per corner">
-              <Toggle
-                size="sm"
-                className="size-7 min-w-7 shrink-0 p-0"
-                aria-label="Radius per corner"
-                pressed={perCorner}
-                onPressedChange={(on) => set({ radius: on ? ([...radii] as Draft["radius"]) : radii[0] })}
-              >
-                <SquareRoundCorner />
-              </Toggle>
-            </Hint>
+            <div className="flex shrink-0 flex-col gap-1">
+              <Hint label="Radius per corner">
+                <Toggle
+                  size="sm"
+                  className="size-7 min-w-7 shrink-0 p-0"
+                  aria-label="Radius per corner"
+                  pressed={perCorner}
+                  onPressedChange={(on) => set({ radius: on ? ([...radii] as Draft["radius"]) : radii[0] })}
+                >
+                  <SquareRoundCorner />
+                </Toggle>
+              </Hint>
+              <CornerShape value={draft.cornerShape} onChange={(cornerShape) => set({ cornerShape })} />
+            </div>
           </div>
         </Field>
       </div>
     </PanelSection>
+  )
+}
+
+const cornerShapes = [
+  { value: "round", label: "Round" },
+  { value: "squircle", label: "Squircle" },
+  { value: "bevel", label: "Bevel" },
+  { value: "scoop", label: "Scoop" },
+  { value: "notch", label: "Notch" },
+  { value: "square", label: "Square" }
+] as const
+
+/**
+ * Corner shape, in the corners' popover (PAR-652's Appearance): Round, as every browser draws, or Squircle, Bevel,
+ * Scoop, Notch or Square, which only Chromium draws (`corner-shape`), so it's marked †; elsewhere the radius still
+ * holds, drawn round.
+ */
+function CornerShape({
+  value,
+  onChange
+}: {
+  value: string | undefined
+  onChange: (value: string | undefined) => void
+}) {
+  const shape = value ?? "round"
+  return (
+    <Popover>
+      <Hint
+        label="Corner shape †"
+        detail="Chromium only. Other browsers draw round corners, so the radius still holds."
+      >
+        <PopoverTrigger
+          aria-label={`Corner shape: ${cornerShapes.find((option) => option.value === shape)?.label}`}
+          className={`grid size-7 place-items-center rounded-md text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent ${value && value !== "round" ? "bg-accent text-foreground" : "text-muted-foreground"}`}
+        >
+          <Squircle className="size-3.5" />
+        </PopoverTrigger>
+      </Hint>
+      <PopoverContent className="w-52 gap-2 p-2" align="end">
+        <p className="flex items-center gap-1 text-xs font-medium">
+          Corner shape
+          <Hint label="Not in every browser" detail="Chromium only. Other browsers draw round corners.">
+            <span className="text-muted-foreground">†</span>
+          </Hint>
+        </p>
+        <div className="grid grid-cols-3 gap-1">
+          {cornerShapes.map((option) => (
+            <Button
+              key={option.value}
+              variant={shape === option.value ? "secondary" : "ghost"}
+              size="sm"
+              aria-pressed={shape === option.value}
+              className="h-7 px-1 text-xs"
+              onClick={() => onChange(option.value === "round" ? undefined : option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground">Other browsers draw round corners, at the same radius.</p>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -1336,7 +1368,12 @@ function SectionButton({ adds, what, onClick }: { adds: boolean; what: string; o
  * Fill, a section of its own in call 5's order: the layer's fill, or a title with + until it has one, which adds
  * `bg-background`, the project's usual fill. The row stays while its token is taken off to type another.
  */
-function FillSection({ draft, set, tokensOnly, fillPicker }: SectionProps & { fillPicker?: "tokens" | "custom" }) {
+export function FillSection({
+  draft,
+  set,
+  tokensOnly,
+  fillPicker
+}: SectionProps & { fillPicker?: "tokens" | "custom" }) {
   const [shown, setShown] = useState(draft.background !== undefined)
   const filled = shown || draft.background !== undefined
   return (
@@ -1393,10 +1430,11 @@ const effects = [
  * Effects, a section of its own in call 5's order, with Layer blur and Background blur as PAR-652's panel names them.
  * It's a title with + until an effect is added; + offers each effect, and each row's − takes it off.
  */
-function EffectsSection({ draft, set, tokensOnly }: SectionProps) {
+export function EffectsSection({ draft, set, tokensOnly, mixed }: SectionProps) {
+  // Layers whose background blurs differ show its row, Mixed.
   const [added, setAdded] = useState(() => ({
     blur: draft.blur !== undefined,
-    backdropBlur: draft.backdropBlur !== undefined
+    backdropBlur: draft.backdropBlur !== undefined || (mixed ?? false)
   }))
   const shown = effects.filter((effect) => added[effect.key] || draft[effect.key] !== undefined)
   return (
@@ -1440,6 +1478,7 @@ function EffectsSection({ draft, set, tokensOnly }: SectionProps) {
                     label={effect.label}
                     value={draft[effect.key]}
                     tokensOnly={tokensOnly}
+                    mixed={mixed}
                     onChange={(value) => set({ [effect.key]: value })}
                   />
                 </div>
@@ -1467,13 +1506,15 @@ function EffectsSection({ draft, set, tokensOnly }: SectionProps) {
 }
 
 /** A radius, a token or a value of its own, with a corner mark inside when it's one corner's. */
-function RadiusChoice({
+export function RadiusChoice({
   label,
   corner,
   value,
   tokensOnly,
+  mixed,
   onChange
 }: {
+  mixed?: boolean
   label: string
   corner?: number
   value: Length | undefined
@@ -1508,18 +1549,21 @@ function RadiusChoice({
       value={value}
       tokens={radiusTokens}
       tokensOnly={tokensOnly}
+      mixed={mixed}
       cssTakes={(length) => CSS.supports("border-radius", length)}
       onChange={onChange}
     />
   )
 }
 
-function BlurChoice({
+export function BlurChoice({
   label,
   value,
   tokensOnly,
+  mixed,
   onChange
 }: {
+  mixed?: boolean
   label: string
   value: Length | undefined
   tokensOnly?: boolean
@@ -1532,6 +1576,7 @@ function BlurChoice({
       value={value}
       tokens={blurTokens}
       tokensOnly={tokensOnly}
+      mixed={mixed}
       placeholder="None"
       cssTakes={(length) => CSS.supports("filter", `blur(${length})`)}
       onChange={onChange}
@@ -1561,6 +1606,7 @@ function LengthField({
   tokens,
   tokensOnly = false,
   placeholder = "0",
+  mixed = false,
   cssTakes,
   onChange
 }: {
@@ -1571,9 +1617,11 @@ function LengthField({
   narrow?: boolean
   value: Length | undefined
   /** The project's tokens of the kind; Create token adds to them. */
-  tokens: { name: string; px: number }[]
+  tokens: LengthToken[]
   tokensOnly?: boolean
   placeholder?: string
+  /** The selected layers differ here: it shows Mixed, and typing replaces every one. */
+  mixed?: boolean
   /** Whether CSS takes a length here, as `CSS.supports` says for the property. */
   cssTakes: (length: string) => boolean
   onChange: (value: Length | undefined) => void
@@ -1584,24 +1632,33 @@ function LengthField({
   const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
   const input = useRef<HTMLInputElement>(null)
   const token = typeof value === "string" ? tokens.find((other) => other.name === value) : undefined
+  // A token the project no longer has: still named, struck through, until another is chosen.
+  const missing = typeof value === "string" && token === undefined
   const own = typeof value === "object" ? value : undefined
   const prefix = `${kind}-`
+  // Deprecated tokens are neither offered as the nearest nor stepped onto: they're on their way out.
+  const scale = tokens.filter((other) => other.deprecated === undefined)
   const nearestTo = (px: number) =>
-    tokens.reduce((best, other) => (Math.abs(other.px - px) < Math.abs(best.px - px) ? other : best))
+    scale.reduce((best, other) => (Math.abs(other.px - px) < Math.abs(best.px - px) ? other : best))
   const nearest = own ? nearestTo(own.px) : undefined
   const refused = own !== undefined && tokensOnly && own.allow === undefined
   const error = message?.tone === "error"
   let current = "none"
-  if (token) current = token.name
+  if (typeof value === "string") current = value
   else if (own) current = `${own.px}px`
   const read = (text: string): { value: Length | undefined } | { reason: string } => {
     const trimmed = text.trim()
     if (trimmed === "") return { value: undefined }
     const named = tokens.find((other) => other.name === trimmed || other.name === prefix + trimmed)
     if (named) return { value: named.name }
-    const match = /^(-?\d*\.?\d+)\s*(px|rem)?$/i.exec(trimmed)
-    if (!match) return { reason: `${label} takes a length, such as 6px, or a ${kind} token` }
-    const px = Number(match[1]) * (match[2]?.toLowerCase() === "rem" ? remPixels : 1)
+    // The app's maths and units: `6`, `6px`, `0.5rem`, `+2`, `*2`.
+    const reading = readLength(trimmed, { label, current: own?.px ?? token?.px })
+    if ("reason" in reading && reading.reason.startsWith("Can't read")) {
+      return { reason: `${label} takes a length, such as 6px, or a ${kind} token` }
+    }
+    if ("reason" in reading) return reading
+    if (!("px" in reading)) return { value: undefined }
+    const px = reading.px
     if (!cssTakes(`${px}px`)) return { reason: `${label} can't be ${trimmed}` }
     if (tokensOnly) {
       const near = nearestTo(px)
@@ -1627,13 +1684,13 @@ function LengthField({
   const step = (up: boolean, shift: boolean) => {
     setTyped(undefined)
     setMessage(undefined)
-    if (token) {
+    if (token && scale.includes(token)) {
       // A token steps to the next of its kind in scale order; Shift goes to the first or last.
-      const index = tokens.indexOf(token)
-      const last = tokens.length - 1
+      const index = scale.indexOf(token)
+      const last = scale.length - 1
       let next = Math.min(last, Math.max(0, index + (up ? 1 : -1)))
       if (shift) next = up ? last : 0
-      onChange(tokens[next]!.name)
+      onChange(scale[next]!.name)
       return
     }
     const from = own?.px ?? 0
@@ -1641,11 +1698,17 @@ function LengthField({
   }
   // A narrow field's hint carries what the value comes to and its status, which have no room in the field.
   let hintDetail: string | undefined
-  if (token) hintDetail = lengthDetail(token.px)
+  if (token?.deprecated) hintDetail = `${lengthDetail(token.px)}. Deprecated: use ${token.deprecated} instead`
+  else if (token) hintDetail = lengthDetail(token.px)
+  else if (missing) hintDetail = "Missing: the project has no token by this name now"
   else if (own?.allow !== undefined) hintDetail = `Allowed here: ${own.allow}`
   else if (own && nearest) hintDetail = `Not a token. Nearest: ${nearest.name} (${lengthDetail(nearest.px)})`
+  else if (mixed) hintDetail = "Mixed: the selected layers differ"
   else hintDetail = "Unset"
-  const showChip = token !== undefined && typed === undefined
+  const chipName = typeof value === "string" ? value : undefined
+  const showChip = chipName !== undefined && typed === undefined
+  let fieldPlaceholder = mixed ? "Mixed" : placeholder
+  if (showChip) fieldPlaceholder = ""
   const list = (
     <PopoverContent className="w-52 gap-0 p-1" align="start">
       {[{ name: undefined, px: 0 }, ...tokens].map((option) => (
@@ -1662,6 +1725,9 @@ function LengthField({
           <span className={`min-w-0 flex-1 truncate font-mono ${option.name ? "" : "text-muted-foreground"}`}>
             {option.name ?? "None"}
           </span>
+          {"deprecated" in option && option.deprecated && (
+            <TriangleAlert aria-label="Deprecated" className="size-3 shrink-0 text-amber-500" />
+          )}
           <span className="text-muted-foreground tabular-nums">{option.name ? lengthDetail(option.px) : ""}</span>
         </button>
       ))}
@@ -1683,7 +1749,7 @@ function LengthField({
               // The chip: clicking it opens the tokens, and its × takes the token off.
               <span className="flex min-w-0 shrink items-center rounded-sm bg-accent">
                 <PopoverTrigger
-                  aria-label={`${label}: ${token.name}`}
+                  aria-label={`${label}: ${chipName}${missing ? ", missing" : ""}`}
                   onKeyDown={(event) => {
                     // Typing on a focused chip replaces the token, as typing in the field after it does.
                     if (event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey) {
@@ -1702,11 +1768,25 @@ function LengthField({
                   className="flex min-w-0 items-center gap-1.5 rounded-sm px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {icon}
-                  <span className="truncate font-mono">{token.name.replace(prefix, "")}</span>
+                  <span className={`truncate font-mono ${missing ? "text-amber-600 line-through" : ""}`}>
+                    {chipName.replace(prefix, "")}
+                  </span>
                 </PopoverTrigger>
+                {token?.deprecated && (
+                  <Hint label={`${token.name} is deprecated`} detail={`Use ${token.deprecated} instead`}>
+                    <button
+                      type="button"
+                      aria-label={`${token.name} is deprecated. Use ${token.deprecated} instead`}
+                      onClick={() => onChange(token.deprecated)}
+                      className="grid size-4 shrink-0 place-items-center rounded-sm text-amber-500 outline-none hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <TriangleAlert className="size-3" />
+                    </button>
+                  </Hint>
+                )}
                 <button
                   type="button"
-                  aria-label={`Remove ${token.name} from ${label}`}
+                  aria-label={`Remove ${chipName} from ${label}`}
                   onClick={() => {
                     onChange(undefined)
                     input.current?.focus()
@@ -1719,7 +1799,7 @@ function LengthField({
             ) : (
               icon && <span className="shrink-0 pl-0.5">{icon}</span>
             )}
-            {showChip && !narrow && !focused && (
+            {showChip && token && !narrow && !focused && (
               <span className="truncate text-muted-foreground/70 tabular-nums">{lengthDetail(token.px)}</span>
             )}
             {/* Always there, after the chip, as in a text field: click beside the chip to type, and Backspace removes it. */}
@@ -1728,7 +1808,7 @@ function LengthField({
               aria-label={label}
               aria-invalid={error || refused || undefined}
               inputMode="decimal"
-              placeholder={showChip ? "" : placeholder}
+              placeholder={fieldPlaceholder}
               value={typed ?? (own ? String(own.px) : "")}
               onFocus={() => {
                 setFocused(true)
@@ -1881,10 +1961,13 @@ function SidesMenu({ mode, onChange }: { mode: SideMode; onChange: (mode: SideMo
  * Stroke, a title with + until it's set, as PAR-652's panel starts Fill, Stroke and Effects. + adds the project's usual
  * stroke, `border-border` at 1px, and − takes it off.
  */
-function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
+export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
   // Custom stays chosen while one side is stroked, which the widths alone would read as that side.
   const [custom, setCustom] = useState(false)
   const sideMode = custom ? "custom" : sideModeOf(draft.borderWidth)
+  // A new stroke is in layout (call 2): a border. Out of layout, it's an outline at its position.
+  const inLayout = draft.strokeInLayout ?? true
+  const position: StrokePosition = inLayout ? "inside" : (draft.strokePosition ?? "inside")
   const widths = Array.isArray(draft.borderWidth)
     ? draft.borderWidth
     : ([0, 0, 0, 0].map(() => (draft.borderWidth as number | undefined) ?? 1) as [number, number, number, number])
@@ -1897,7 +1980,14 @@ function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
         setCustom(false)
         set(
           stroked
-            ? { border: undefined, borderAlpha: undefined, borderAllowed: undefined, borderWidth: undefined }
+            ? {
+                border: undefined,
+                borderAlpha: undefined,
+                borderAllowed: undefined,
+                borderWidth: undefined,
+                strokeInLayout: undefined,
+                strokePosition: undefined
+              }
             : { border: "border", borderWidth: 1 }
         )
       }}
@@ -1963,15 +2053,71 @@ function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
               mode={sideMode}
               onChange={(mode) => {
                 setCustom(mode === "custom")
-                set({ borderWidth: widthsFor(mode, Math.max(...widths) || 1, widths) })
+                // Only a border strokes some sides and not others, so choosing sides puts the stroke in layout.
+                set({
+                  borderWidth: widthsFor(mode, Math.max(...widths) || 1, widths),
+                  ...(mode === "all" ? {} : { strokeInLayout: undefined, strokePosition: undefined })
+                })
               }}
             />
+          </div>
+        </Field>
+        <Field
+          label="Position"
+          hint="In layout, the stroke is a border, which takes up room. Out of it, it's an outline, drawn inside, centered on or outside the edge, and takes none."
+        >
+          <div className="flex items-center gap-1">
+            <div className="min-w-0 flex-1">
+              <ChoiceInput
+                value={position}
+                options={strokePositions}
+                onChange={(next) => {
+                  if (!next || next === position) return
+                  // Center and Outside are outlines, which stroke every side at one width.
+                  if (next !== "inside") {
+                    setCustom(false)
+                    set({ strokeInLayout: false, strokePosition: next, borderWidth: Math.max(...widths) || 1 })
+                  } else set({ strokePosition: inLayout ? undefined : "inside" })
+                }}
+              />
+            </div>
+            <Hint
+              label="Include in layout"
+              detail={
+                inLayout
+                  ? "On: a border, which takes up room in the layout"
+                  : "Off: an outline, which takes no room in the layout"
+              }
+            >
+              <Toggle
+                size="sm"
+                className="size-7 min-w-7 shrink-0 p-0"
+                aria-label="Include in layout"
+                pressed={inLayout}
+                onPressedChange={(on) => {
+                  setCustom(false)
+                  set(
+                    on
+                      ? { strokeInLayout: undefined, strokePosition: undefined }
+                      : { strokeInLayout: false, strokePosition: "inside", borderWidth: Math.max(...widths) || 1 }
+                  )
+                }}
+              >
+                <LayoutTemplate />
+              </Toggle>
+            </Hint>
           </div>
         </Field>
       </div>
     </PanelSection>
   )
 }
+
+const strokePositions = [
+  { value: "inside", label: "Inside" },
+  { value: "center", label: "Center" },
+  { value: "outside", label: "Outside" }
+] satisfies { value: StrokePosition; label: string }[]
 
 const tagOptions = [
   { value: "h1", label: "Heading 1" },
@@ -1985,7 +2131,7 @@ const tagOptions = [
   { value: "strong", label: "Strong" }
 ]
 
-function TextSection({ draft, set }: SectionProps) {
+export function TextSection({ draft, set }: SectionProps) {
   return (
     <PanelSection title="Text" description="The headline inside Plans.">
       <Field label="Tag" hint="The element the text is: what screen readers and search engines read it as">
@@ -1996,7 +2142,7 @@ function TextSection({ draft, set }: SectionProps) {
 }
 
 /** The design's frame, typed: its width and height in this viewport. */
-function FrameSection({
+export function FrameSection({
   frame,
   onChange
 }: {
@@ -2060,7 +2206,7 @@ const presets = [
  * stays, outlined in the error color with a mark in the status slot and the reason under it; Enter keeps it, and
  * Escape or leaving puts the value back and says so.
  */
-function Num({
+export function Num({
   label,
   inner,
   suffix,
@@ -2093,32 +2239,42 @@ function Num({
   const other = unit === "px" ? "rem" : "px"
   const switchable = pixels && value !== undefined
   const error = message?.tone === "error"
-  const takes = pixels ? "a length in px or rem" : "a number"
-  const read = (text: string): number | undefined | "unreadable" => {
-    if (text.trim() === "") return undefined
-    const step = spacing ? spacingStepPixels(text) : undefined
-    if (step !== undefined) return Math.max(min, step)
-    const match = /^\s*(-?\d*\.?\d+)\s*(px|rem)?\s*$/i.exec(text)
-    if (!match || (match[2] && !pixels)) return "unreadable"
-    const inRems = (match[2]?.toLowerCase() ?? unit) === "rem" && pixels
-    return Math.max(min, Math.round(Number(match[1]) * (inRems ? remPixels : 1)))
+  /**
+   * What's typed: a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`), a bare number in the
+   * unit shown; or, for a count, a whole number.
+   */
+  const read = (text: string): { value: number | undefined } | { reason: string } => {
+    if (pixels) {
+      const bare = /^\s*-?(\d*\.?\d+)\s*$/.test(text)
+      const reading = readLength(inRem && bare ? `${text}rem` : text, { label, current: value })
+      if ("clear" in reading) return { value: undefined }
+      if ("px" in reading) return { value: Math.max(min, reading.px) }
+      return { reason: "reason" in reading ? reading.reason : `${label} takes a length` }
+    }
+    if (text.trim() === "") return { value: undefined }
+    const number = Number(text)
+    return Number.isFinite(number)
+      ? { value: Math.max(min, Math.round(number)) }
+      : { reason: `${label} takes a whole number` }
   }
   const commit = (leaving: boolean): boolean => {
     if (typed === undefined) return true
     const next = read(typed)
-    if (next === "unreadable") {
+    if ("reason" in next) {
       if (!leaving) {
-        setMessage({ tone: "error", text: `${label} takes ${takes}` })
+        setMessage({ tone: "error", text: next.reason })
         return false
       }
-      setMessage({ tone: "note", text: `${label} is back to ${shown || placeholder}. It takes ${takes}.` })
+      setMessage({ tone: "note", text: `${label} is back to ${shown || placeholder}. ${next.reason}.` })
     } else {
-      onChange(next)
+      onChange(next.value)
       setMessage(undefined)
     }
     setTyped(undefined)
     return true
   }
+  // Dragging the letter inside the field scrubs it, as Figma's labels do.
+  const scrub = scrubbing(() => value ?? Math.max(min, 0), onChange, { spacing, min })
   let after: ReactNode
   if (error) after = <CircleAlert aria-hidden className="mr-1.5 size-3.5 shrink-0 text-destructive" />
   else if (focused) after = undefined
@@ -2144,7 +2300,14 @@ function Num({
       <label
         className={`group/num flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent pl-1.5 text-xs focus-within:ring-2 dark:bg-input/30 ${error ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"} ${switchable || error ? "" : "pr-1.5"}`}
       >
-        {inner && <span className="shrink-0 text-muted-foreground">{inner}</span>}
+        {inner && (
+          <span
+            onPointerDown={scrub}
+            className="shrink-0 cursor-ew-resize touch-none text-muted-foreground select-none"
+          >
+            {inner}
+          </span>
+        )}
         <input
           aria-label={label}
           aria-invalid={error || undefined}
@@ -2228,14 +2391,15 @@ function columnsCss(columns: Columns | undefined): string | undefined {
   return `repeat(auto-fit, minmax(${columns.fit}px, 1fr))`
 }
 
-function LayerPreview({
+export function LayerPreview({
   draft,
-  childSelected,
+  childSelected = false,
   onSelectChild
 }: {
   draft: Draft
-  childSelected: boolean
-  onSelectChild: (selected: boolean) => void
+  /** Whether Pro plan is selected, as a grid child; clicking it selects it where `onSelectChild` is given. */
+  childSelected?: boolean
+  onSelectChild?: (selected: boolean) => void
 }) {
   const grid = draft.columns !== undefined
   const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
@@ -2296,7 +2460,7 @@ function LayerPreview({
               type="button"
               data-layer={name}
               aria-pressed={pro && childSelected}
-              onClick={() => onSelectChild(pro ? !childSelected : false)}
+              onClick={() => onSelectChild?.(pro ? !childSelected : false)}
               className={`rounded-lg border border-black/10 bg-white/80 p-3 text-left text-sm ${pro && childSelected ? "outline-2 outline-[#0d99ff]" : ""}`}
               style={
                 grid && pro
@@ -2324,12 +2488,12 @@ function LayerPreview({
   )
 }
 
-function FramePreview({ width, height }: { width: number; height: number | undefined }) {
+export function FramePreview({ width, height }: { width: number; height: number | undefined }) {
   const scale = 0.4
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">
-        Pricing · Desktop · {width} × {height ?? "hug"}
+        Pricing in Desktop, {width} × {height ?? "Hug"}
       </span>
       <div
         className="flex flex-col gap-3 overflow-hidden border bg-white p-6 shadow-sm"

@@ -6,6 +6,8 @@
 export interface ColorToken {
   name: string
   hex: string
+  /** The token to use instead, when this one is deprecated (DTCG's `$deprecated`). */
+  deprecated?: string
 }
 
 export const colorTokens: ColorToken[] = [
@@ -31,7 +33,9 @@ export const colorTokens: ColorToken[] = [
   { name: "blue-600", hex: "#2563eb" },
   { name: "teal-600", hex: "#0d9488" },
   { name: "orange-600", hex: "#ea580c" },
-  { name: "amber-400", hex: "#fbbf24" }
+  { name: "amber-400", hex: "#fbbf24" },
+  // An old brand color the project has replaced, kept so layers still using it draw and say so.
+  { name: "brand-blue", hex: "#1d4ed8", deprecated: "blue-600" }
 ]
 
 /** A style's color as CSS: a token's color by its name, or a plain color (`#2563eb`, `oklch(…)`) as it's written. */
@@ -44,17 +48,26 @@ export const hexOf = (value: string | undefined): string | undefined => {
 /** Colors the stand-in design already uses: the shapes behind Plans, and a plain blue a layer was given. */
 export const usedColors = ["#f54900", "#009689", "#ffb900", "#2f6fed"]
 
-export const radiusTokens = [
+/** A length token: its name, what it comes to, and the token to use instead when it's deprecated. */
+export interface LengthToken {
+  name: string
+  px: number
+  deprecated?: string
+}
+
+export const radiusTokens: LengthToken[] = [
   { name: "radius-xs", px: 2 },
   { name: "radius-sm", px: 6 },
   { name: "radius-md", px: 8 },
   { name: "radius-lg", px: 10 },
   { name: "radius-xl", px: 14 },
   { name: "radius-2xl", px: 18 },
-  { name: "radius-full", px: 9999 }
+  { name: "radius-full", px: 9999 },
+  // An old card radius the project has replaced with radius-xl.
+  { name: "radius-card", px: 12, deprecated: "radius-xl" }
 ]
 
-export const blurTokens = [
+export const blurTokens: LengthToken[] = [
   { name: "blur-xs", px: 4 },
   { name: "blur-sm", px: 8 },
   { name: "blur-md", px: 12 },
@@ -146,6 +159,12 @@ export interface Draft {
   borderAllowed?: string
   /** One width, or each side from the top, clockwise. */
   borderWidth?: number | [number, number, number, number]
+  /** Whether the stroke counts in layout, as a border (on for a new stroke, call 2), or is drawn as an outline. */
+  strokeInLayout?: boolean
+  /** Where an outline is drawn against the edge: inside, centered on it, or outside. */
+  strokePosition?: "inside" | "center" | "outside"
+  /** The corners' shape (`corner-shape`), which only Chromium draws; others draw round corners. */
+  cornerShape?: string
   blur?: Length
   backdropBlur?: Length
   aspect?: string

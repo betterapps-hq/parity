@@ -32,7 +32,7 @@ import {
   rgbaToRgb255,
   sameColorDistance
 } from "@parity-app/tokens"
-import { Check, Circle, CircleAlert, CircleCheck, Pipette, X } from "lucide-react"
+import { Check, Circle, CircleAlert, CircleCheck, Moon, Pipette, TriangleAlert, X } from "lucide-react"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { type ColorToken, colorTokens } from "./data.ts"
@@ -51,7 +51,9 @@ const isPlainColor = (value: string | undefined): value is string =>
 /** The stand-in token whose color looks closest to `value`, and how far off it is. */
 function nearestToken(value: string): { token: ColorToken; distance: number } | undefined {
   const color = parseColor(value)
-  const nearest = color && nearestColor(color, Object.fromEntries(colorTokens.map((token) => [token.name, token.hex])))
+  // A deprecated token isn't offered as the nearest: it's on its way out.
+  const current = colorTokens.filter((token) => token.deprecated === undefined)
+  const nearest = color && nearestColor(color, Object.fromEntries(current.map((token) => [token.name, token.hex])))
   const token = colorTokens.find((other) => other.name === nearest?.name)
   return nearest && token && { token, distance: nearest.distance }
 }
@@ -563,12 +565,18 @@ export function ColorInput({
   used = [],
   open: openAtStart = false,
   tab: tabAtStart,
-  model
+  model,
+  mixed = false,
+  theme
 }: {
   label: string
   value: string | undefined
   alpha: number | undefined
   onChange: (value: string | undefined, alpha: number | undefined) => void
+  /** The selected layers have different colors here: it shows Mixed, and typing replaces every one. */
+  mixed?: boolean
+  /** Set for one theme: its name and the value it has there, shown as a mark with the value in its hint. */
+  theme?: { name: string; value: string }
   /** The project's Tokens only setting. */
   tokensOnly?: boolean
   /** Why this plain color is allowed here as an exception, kept with the value; set, it fills the mark. */
@@ -608,8 +616,14 @@ export function ColorInput({
   const [focused, setFocused] = useState(false)
   const [message, setMessage] = useState<FieldMessage>()
   const input = useRef<HTMLInputElement>(null)
-  const showChip = current !== undefined && typed === undefined
+  // A token the project no longer has: still named, struck through, until another is chosen.
+  const missing = value !== undefined && !plain && current === undefined
+  const chipName = current?.name ?? (missing ? value : undefined)
+  const showChip = chipName !== undefined && typed === undefined
   const error = message?.tone === "error"
+  // Unset shows what it comes to; with layers that differ, Mixed, which typing replaces.
+  let placeholder = mixed ? "Mixed" : "None"
+  if (showChip) placeholder = ""
   const shown = plain ? shortForm(value) : ""
   let currentText = "none"
   if (current) currentText = current.name
@@ -663,27 +677,50 @@ export function ColorInput({
               // A token is a chip on a tinted background, as Figma UI3's variable pill is: clicking it opens the
               // picker, and its × takes the token off.
               <span className="flex min-w-0 shrink items-center rounded-sm bg-accent">
-                <PopoverTrigger
-                  aria-label={`${label}: ${current.name}`}
-                  onKeyDown={(event) => {
-                    if (event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey) {
-                      event.preventDefault()
-                      setTyped(event.key)
-                      input.current?.focus()
-                    } else if (event.key === "Backspace" || event.key === "Delete") {
-                      event.preventDefault()
-                      onChange(undefined, alpha)
-                      input.current?.focus()
-                    }
-                  }}
-                  className="flex min-w-0 items-center gap-1.5 rounded-sm px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                <Hint
+                  label={missing ? `${chipName} is missing` : undefined}
+                  detail={missing ? "The project has no token by this name now. Choose another." : undefined}
                 >
-                  <Checker hex={current.hex} alpha={alpha} />
-                  <span className="truncate font-mono">{current.name}</span>
-                </PopoverTrigger>
+                  <PopoverTrigger
+                    aria-label={`${label}: ${chipName}${missing ? ", missing" : ""}`}
+                    onKeyDown={(event) => {
+                      if (event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey) {
+                        event.preventDefault()
+                        setTyped(event.key)
+                        input.current?.focus()
+                      } else if (event.key === "Backspace" || event.key === "Delete") {
+                        event.preventDefault()
+                        onChange(undefined, alpha)
+                        input.current?.focus()
+                      }
+                    }}
+                    className="flex min-w-0 items-center gap-1.5 rounded-sm px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {current ? (
+                      <Checker hex={current.hex} alpha={alpha} />
+                    ) : (
+                      <span className="block size-3.5 rounded-sm border border-dashed border-amber-500" />
+                    )}
+                    <span className={`truncate font-mono ${missing ? "text-amber-600 line-through" : ""}`}>
+                      {chipName}
+                    </span>
+                  </PopoverTrigger>
+                </Hint>
+                {current?.deprecated && (
+                  <Hint label={`${current.name} is deprecated`} detail={`Use ${current.deprecated} instead`}>
+                    <button
+                      type="button"
+                      aria-label={`${current.name} is deprecated. Use ${current.deprecated} instead`}
+                      onClick={() => onChange(current.deprecated, alpha)}
+                      className="grid size-4 shrink-0 place-items-center rounded-sm text-amber-500 outline-none hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <TriangleAlert className="size-3" />
+                    </button>
+                  </Hint>
+                )}
                 <button
                   type="button"
-                  aria-label={`Remove ${current.name} from ${label}`}
+                  aria-label={`Remove ${chipName} from ${label}`}
                   onClick={() => {
                     onChange(undefined, alpha)
                     input.current?.focus()
@@ -698,9 +735,15 @@ export function ColorInput({
                 aria-label={`${label} picker`}
                 className="grid size-5 shrink-0 place-items-center rounded-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {swatch ? (
-                  <Checker hex={swatch} alpha={alpha} />
-                ) : (
+                {swatch && <Checker hex={swatch} alpha={alpha} />}
+                {!swatch && mixed && (
+                  // Mixed: a swatch split diagonally, as Figma draws it.
+                  <span
+                    className="block size-3.5 rounded-sm border"
+                    style={{ background: "linear-gradient(135deg, #2563eb 50%, #f54900 50%)" }}
+                  />
+                )}
+                {!swatch && !mixed && (
                   <span className="block size-3.5 rounded-sm border border-dashed border-muted-foreground/60" />
                 )}
               </PopoverTrigger>
@@ -711,7 +754,7 @@ export function ColorInput({
               aria-label={label}
               aria-invalid={error || refused || undefined}
               spellCheck={false}
-              placeholder={showChip ? "" : "None"}
+              placeholder={placeholder}
               value={typed ?? shown}
               onFocus={() => {
                 setFocused(true)
@@ -759,6 +802,9 @@ export function ColorInput({
                   >
                     <Checker hex={token.hex} />
                     <span className="min-w-0 flex-1 truncate font-mono">{token.name}</span>
+                    {token.deprecated && (
+                      <TriangleAlert aria-label="Deprecated" className="size-3 shrink-0 text-amber-500" />
+                    )}
                     {token.name === value && <Check className="size-3.5" />}
                   </button>
                 ))}
@@ -818,6 +864,18 @@ export function ColorInput({
             </Tabs>
           </PopoverContent>
         </Popover>
+        {theme && (
+          // Set for one theme: a mark in the status slot, with the theme's value in its hint.
+          <Hint label={`Set for ${theme.name}`} detail={`${theme.name}: ${theme.value}`}>
+            <button
+              type="button"
+              aria-label={`${label} is set for ${theme.name}: ${theme.value}`}
+              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Moon className="size-3.5" />
+            </button>
+          </Hint>
+        )}
         {plain && nearestToValue && (
           <OffSystemMark
             label={label}
