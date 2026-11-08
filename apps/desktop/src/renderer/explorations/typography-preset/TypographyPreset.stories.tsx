@@ -95,7 +95,10 @@ export const OverridingOneRow: Story = {
   }
 }
 
-/** Overriding by unlocking a row: in place in Shown locked, and under the opened summary in Folded and locked. */
+/**
+ * Overriding by unlocking a row: in place in Shown locked, and under the opened summary in Folded and locked, where
+ * picking the preset again locks the row back.
+ */
 export const Overriding: Story = {
   play: async ({ canvasElement }) => {
     const locked = version(canvasElement, "Shown locked")
@@ -110,6 +113,11 @@ export const Overriding: Story = {
     await expect(both.getByRole("textbox", { name: "Line height, set by subtitle1" })).toBeDisabled()
     await userEvent.click(both.getByRole("button", { name: "Unlock Line height to override it" }))
     await expect(both.getByRole("textbox", { name: "Line height" })).toHaveFocus()
+
+    // Picking the preset again locks the row back.
+    await userEvent.click(both.getByRole("button", { name: "Typography preset: subtitle1" }))
+    await userEvent.click(within(await screen.findByRole("listbox")).getByRole("option", { name: /^subtitle1/ }))
+    await expect(both.getByRole("textbox", { name: "Line height, set by subtitle1" })).toBeDisabled()
   }
 }
 

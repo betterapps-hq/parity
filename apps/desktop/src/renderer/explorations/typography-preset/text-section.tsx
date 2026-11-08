@@ -113,9 +113,9 @@ export function PresetTextSection({
 }: TextSectionProps) {
   const preset = presetByName(project, layer.preset)
   const covered = coveredBy(preset)
-  // Rows a person has unlocked while they still follow the preset. Changing the preset locks them again.
-  const [opened, setOpened] = useState<{ preset?: string; fields: ReadonlySet<TypeField> }>({ fields: new Set() })
-  const shownFields = opened.preset === layer.preset ? opened.fields : new Set<TypeField>()
+  // Rows a person has unlocked while they still follow the preset. Picking a preset, the same one included, or
+  // detaching locks them all again.
+  const [shownFields, setShownFields] = useState<ReadonlySet<TypeField>>(new Set())
   const [expanded, setExpanded] = useState(initiallyOpen)
 
   // Unlocking a row moves focus into it; locking or resetting it leaves focus on its lock, or on the summary when the row
@@ -138,7 +138,7 @@ export function PresetTextSection({
     const fields = new Set(shownFields)
     if (on) fields.add(field)
     else fields.delete(field)
-    setOpened({ preset: layer.preset, fields })
+    setShownFields(fields)
     refocus.current = { field, to: on ? "control" : "action" }
   }
 
@@ -177,10 +177,14 @@ export function PresetTextSection({
             project={project}
             layer={layer}
             viewport={viewport}
-            onPick={(name) => onChange(applyPreset(project, layer, name))}
+            onPick={(name) => {
+              setShownFields(new Set())
+              onChange(applyPreset(project, layer, name))
+            }}
             onDetach={() => {
               // Detach goes with the preset, so focus stays on the row, on its picker.
               rows.current?.querySelector<HTMLElement>("button[aria-label^='Typography preset']")?.focus()
+              setShownFields(new Set())
               onChange(detach(project, layer))
             }}
           />
