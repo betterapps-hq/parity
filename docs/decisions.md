@@ -5769,6 +5769,17 @@ catalogs. My calls:
   throwing it, and nothing is recorded where no telemetry was started, as in stories and tests.
 - **Event names can be camelCase,** as the proposal names them (`document.saveFailed`, `projectEdit.applied`).
 
+## Lint refuses `toast.error` outside `reportError` (PAR-644)
+
+So no new error notification skips the record PAR-632 added, `eslint/no-restricted-properties` in `vite.config.ts`
+refuses `toast.error` anywhere, with a message saying to use `reportError`. My calls:
+
+- **`report-error.ts` is the one exception,** a `lint.overrides` entry with a comment, as exceptions are made here.
+- **Only `toast.error` is refused.** Other notifications (`toast.success`, `toast(...)`) aren't failures, so they don't
+  go through `reportError`.
+- **`scripts/lint.test.ts` lints a probe file** to show the rule refuses `toast.error` and names `reportError`, and that
+  `report-error.ts` still passes.
+
 ## Failed data checks and unsupported projects are recorded (PAR-633)
 
 The product telemetry plan called for `data.invalid` and `project.unsupported`. My calls:
