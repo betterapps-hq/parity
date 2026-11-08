@@ -60,9 +60,10 @@ import {
   zoomToSelection
 } from "./commands.ts"
 import { createDesign } from "./create.ts"
-import type { Command } from "./keymap.ts"
+import { type Command, keymap } from "./keymap.ts"
 import { toggleConsole, togglePanels } from "./layout.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
+import { lastAction, rememberAction, repeatLastAction } from "./repeat.ts"
 
 /**
  * What each shortcut in the keymap runs, for the key handlers and the actions search. `app` ones work anywhere in the
@@ -132,6 +133,7 @@ const keymapActions: Record<Command, Action> = {
 
   undo: { run: () => undo(), available: () => !!activeSession()?.store.getHistory().canUndo },
   redo: { run: () => redo(), available: () => !!activeSession()?.store.getHistory().canRedo },
+  repeat: { run: repeatLastAction, available: () => !!lastAction() && lastAction()?.available?.() !== false },
   cut: { run: () => cut(), available: hasSomething },
   copy: { run: () => copy(), available: () => (hasLayer() ? can("copy") : hasSomething()) },
   paste: { run: () => paste(), available: hasSession },
@@ -200,11 +202,70 @@ const keymapActions: Record<Command, Action> = {
 }
 
 /**
+ * What Repeat last action runs again (PAR-180): what changes the selected layers or designs, or adds one. Undo, the
+ * clipboard's copying, renaming, selecting, nudging and moving around aren't, as repeating them does nothing new.
+ */
+const repeatable: readonly Command[] = [
+  "paste",
+  "pasteOver",
+  "pasteReplace",
+  "duplicate",
+  "delete",
+  "pasteStyle",
+  "newScreen",
+  "newComponent",
+  "wrap",
+  "unwrap",
+  "makeComponent",
+  "detach",
+  "bringForward",
+  "sendBackward",
+  "bringToFront",
+  "sendToBack",
+  "hide",
+  "alignLeft",
+  "alignCenter",
+  "alignRight",
+  "alignTop",
+  "alignMiddle",
+  "alignBottom",
+  "distributeHorizontal",
+  "distributeVertical"
+]
+
+/**
+ * Remembers a repeatable command done some other way than its action, as New screen where the canvas was right-clicked,
+ * so Repeat follows the last change, however it was made.
+ */
+export function rememberCommand(command: Command): void {
+  if (!repeatable.includes(command)) return
+  const action = keymapActions[command]
+  rememberAction({
+    label: keymap[command].label,
+    run: () => action.run(),
+    available: () => action.available?.() !== false
+  })
+}
+
+/** The repeatable commands' actions remember themselves each time they run, however they're run. */
+const remembering: Record<Command, Action> = { ...keymapActions }
+for (const command of repeatable) {
+  const action = keymapActions[command]
+  remembering[command] = {
+    ...action,
+    run: (event) => {
+      rememberCommand(command)
+      return action.run(event)
+    }
+  }
+}
+
+/**
  * Each action, run in a trace of its own named by its ID, which the work it causes in the service and main joins
  * (PAR-629), whether a key, a menu or the actions search ran it.
  */
 export const actions = Object.fromEntries(
-  Object.entries<Action>(keymapActions).map(([id, action]) => [
+  Object.entries<Action>(remembering).map(([id, action]) => [
     id,
     { ...action, run: (event?: KeyboardEvent) => tracedAction(id, () => action.run(event)) }
   ])

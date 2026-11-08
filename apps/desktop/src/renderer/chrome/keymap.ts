@@ -38,6 +38,7 @@ export const keymap = {
 
   undo: { group: "Edit", label: "Undo", keys: ["Ctrl Z"] },
   redo: { group: "Edit", label: "Redo", keys: ["Ctrl Shift Z", "Ctrl Y"] },
+  repeat: { group: "Edit", label: "Repeat last action", keys: ["Ctrl Alt P"] },
   cut: { group: "Edit", label: "Cut", keys: ["Ctrl X"] },
   copy: { group: "Edit", label: "Copy", keys: ["Ctrl C"] },
   paste: { group: "Edit", label: "Paste", keys: ["Ctrl V"] },
