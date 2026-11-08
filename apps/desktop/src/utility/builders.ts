@@ -38,6 +38,13 @@ export interface StartedBuilder {
   session: Promise<BuilderProcessSession>
 }
 
+/** How a builder's process ended by itself: its exit code or signal, and the last of what it printed. */
+export interface BuilderExit {
+  exitCode?: number
+  signal?: string
+  output: string
+}
+
 /**
  * Starts a project's builder in a process of its own, run by Parity's own Node. What the process prints goes to the
  * service's output, and the end of it into the error when the process stops by itself.
@@ -49,7 +56,12 @@ export function startBuilder(
     project,
     onCrash,
     onCodeChange
-  }: { builder: string; project: string; onCrash: (error: string) => void; onCodeChange?: (change: CodeChange) => void }
+  }: {
+    builder: string
+    project: string
+    onCrash: (error: string, exit?: BuilderExit) => void
+    onCodeChange?: (change: CodeChange) => void
+  }
 ): StartedBuilder {
   const child = fork(script, [], {
     // Electron runs as plain Node here.
@@ -59,6 +71,7 @@ export function startBuilder(
     windowsHide: true
   })
   let log = ""
+  let exit: BuilderExit | undefined
   const forward = (to: NodeJS.WriteStream) => (chunk: Buffer) => {
     to.write(chunk)
     log = (log + chunk.toString()).slice(-4000)
@@ -79,7 +92,7 @@ export function startBuilder(
       // Only a builder that stopped by itself crashes: one the project's closing stopped doesn't.
       onCrash: (error) => {
         reportBuilderCrash(builder, error.split("\n")[0] ?? error, log)
-        onCrash(error)
+        onCrash(error, exit ?? { output: log })
       },
       ...(onCodeChange ? { onCodeChange } : {}),
       cores: availableParallelism()
@@ -92,9 +105,10 @@ export function startBuilder(
   const item: Running = { child, name: `${builder} for ${project}`, client }
   running.add(item)
   let ended = false
-  const end = (why: string) => {
+  const end = (why: string, code?: number | null, signal?: NodeJS.Signals | null) => {
     if (ended) return
     ended = true
+    exit = { ...(typeof code === "number" ? { exitCode: code } : {}), ...(signal ? { signal } : {}), output: log }
     running.delete(item)
     const tail = log.trim().slice(-1500)
     client.exited(tail ? `${why}:\n${tail}` : why)
@@ -103,8 +117,8 @@ export function startBuilder(
     `${builder} stopped by itself, ${signal ? `with signal ${signal}` : `with exit code ${code}`}`
   child.on("message", (reply: BuilderProcessReply) => client.receive(reply))
   // `close` comes once its output has been read too; a process it started could keep that open, so `exit` stands in.
-  child.on("close", (code, signal) => end(stopped(code, signal)))
-  child.on("exit", (code, signal) => setTimeout(() => end(stopped(code, signal)), 1000).unref())
+  child.on("close", (code, signal) => end(stopped(code, signal), code, signal))
+  child.on("exit", (code, signal) => setTimeout(() => end(stopped(code, signal), code, signal), 1000).unref())
   child.on("error", (error) => {
     // Also raised for a message it couldn't be sent, which its exit explains.
     if (child.pid === undefined) end(`${builder} couldn't start: ${error.message}`)

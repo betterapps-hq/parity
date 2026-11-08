@@ -72,7 +72,7 @@ const previews = componentPreviews(projects)
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
   file: environment().PARITY_REOPEN_FILE,
-  open: (root) => projects.open(root).finally(rememberOpen),
+  open: (root) => projects.open(root, { reopen: true }).finally(rememberOpen),
   close: (root) => projects.close(root).finally(rememberOpen)
 })
 

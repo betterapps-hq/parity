@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures, version mismatches and MCP sessions in ~/.parity/logs",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

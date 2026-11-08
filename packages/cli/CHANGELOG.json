@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 08 Nov 2026 12:58:30 GMT",
+      "version": "0.22.0",
+      "tag": "@parity-app/cli_v0.22.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "395b70bdf130b0adbc0bd5d06fca78231fb88820",
+            "comment": "Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures, version mismatches and MCP sessions in ~/.parity/logs"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 11:33:58 GMT",
       "version": "0.21.0",
       "tag": "@parity-app/cli_v0.21.0",

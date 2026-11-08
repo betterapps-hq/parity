@@ -5,6 +5,7 @@ import { reportSent } from "./diagnostics.ts"
 import type { EventDefinition } from "./events.ts"
 import { filesEvents } from "./files-events.ts"
 import { interfaceEvents } from "./interface-events.ts"
+import { projectEvents } from "./project-events.ts"
 import { renderEvents } from "./render-events.ts"
 import { builderStarted, commandRan, gestureRan, requestHandled } from "./trace-events.ts"
 
@@ -24,6 +25,7 @@ export const registeredEvents = [
   ...renderEvents,
   ...interfaceEvents,
   ...filesEvents,
+  ...projectEvents,
   dataInvalid,
   projectUnsupported,
   reportSent

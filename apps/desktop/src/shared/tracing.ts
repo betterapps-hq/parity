@@ -56,13 +56,22 @@ export function inSpan<Name extends EventName<Events>, T>(
   return current.run(span, () => endWhenSettled(span, () => work(span), settled))
 }
 
-/** Records an event under the span this process is working in, or `span` when given. Nothing until telemetry starts. */
+/**
+ * Records an event under the span this process is working in, or `span` when given. Until telemetry has started,
+ * nothing is recorded. A mistake the development build's checks catch is logged rather than thrown, so it never stops
+ * the work it describes.
+ */
 export function track<Name extends EventName<Events>>(
   name: Name,
   attributes: EventAttributes<Events, Name>,
   span: TraceContext | undefined = current.getStore()
 ): void {
-  telemetry?.track(name, attributes, span ? { span } : {})
+  if (!telemetry) return
+  try {
+    telemetry.track(name, attributes, span ? { span } : {})
+  } catch (error) {
+    console.error("[telemetry]", error)
+  }
 }
 
 /**

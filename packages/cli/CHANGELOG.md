@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 08 Nov 2026 11:33:58 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 08 Nov 2026 12:58:30 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.22.0
+
+Sun, 08 Nov 2026 12:58:30 GMT
+
+### Minor changes
+
+- Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures,
+  version mismatches and MCP sessions in ~/.parity/logs (ajcraswell@gmail.com)
 
 ## 0.21.0
 
