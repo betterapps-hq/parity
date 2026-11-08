@@ -6086,6 +6086,27 @@ Component, Screen" under PAR-545: converting is in each design's title menu, and
 canvas and Object menus, with the same toast, Undo and dialog as before. The panel keeps the design's path and, for a
 frame, where it's drawn.
 
+## Agent calls are recorded where they're answered, and the CLI keeps its own log (PAR-641)
+
+The agent server records every call as its `agent.called` span, and the CLI records its own runs, connection failures,
+version mismatches and MCP sessions. My calls:
+
+- **One place for each.** A call is recorded in the service's agent handler, not by each CLI command or MCP tool, so
+  both transports are covered by one span. The CLI now says which it is, as `transport` in the body it posts; a body
+  from an older CLI counts as MCP when it names an MCP client.
+- **The inputs go as JSON, cut short, with an `exec` snippet apart.** `input` is the params without the snippet, up to
+  2,000 characters, and `snippet` the code, up to 10,000, both scrubbed like every attribute. Warnings are recorded by
+  category with their counts (`overlap:2 unknown_prop:1`), not their messages, and alternatives by how many.
+- **A snippet that fails without throwing ends its span as `error`.** `exec` and `screenshot` answer `ok: false` rather
+  than throwing, so `endWhenSettled` takes an optional `settled` that says how a span ends, and `inSpan` passes it on.
+- **The CLI's events go to `~/.parity/logs/parity-cli-<date>.jsonl` until PAR-642 sends them,** written as they happen,
+  since a command is short, with the newest 10 days kept. The install ID is the app's, from `telemetry.json`. Nothing is
+  recorded until `bin.ts` starts it, so code that imports the client records nothing, and under Vitest only a folder
+  `PARITY_CLI_LOGS` names is written to.
+- **A command's calls carry its `cli.ran` span,** so its trace has a root in the local log. `parity mcp` ends its span
+  once it's listening, and each MCP call starts its own trace, as before.
+- **`cli.ran` records flags by name only,** since their values can name files, projects and snippets.
+
 ## Opening projects, builders and servers are recorded (PAR-637)
 
 The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` in `@parity-app/telemetry`. My calls:

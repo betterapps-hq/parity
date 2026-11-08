@@ -1,4 +1,4 @@
-import type { TraceContext } from "./envelope.ts"
+import type { Outcome, TraceContext } from "./envelope.ts"
 import type { Span } from "./telemetry.ts"
 
 /** Fills a buffer of the given length with random bytes. */
@@ -94,18 +94,45 @@ export function errorCode(error: unknown): string | undefined {
   return typeof code === "string" ? code : undefined
 }
 
+/** How a span ends: its outcome and the attributes learned on the way, such as a failure's code. */
+export interface SpanEnd {
+  outcome: Outcome
+  attributes?: Record<string, unknown>
+}
+
+/** How `endWhenSettled` ends a span, when its default doesn't say enough. */
+export interface SettledAs<T> {
+  /** How it ends when `work` returns: `ok` with nothing learned unless given. */
+  result?(value: T): SpanEnd
+  /** How it ends when `work` throws: `error` with the failure's code unless given. */
+  error?(error: unknown): SpanEnd
+}
+
 /**
- * Runs `work` and ends `span` when it settles: `ok`, or `error` with the failure's code. What `work` returns or throws
- * passes through unchanged.
+ * Runs `work` and ends `span` when it settles: `ok`, or `error` with the failure's code, unless `settled` says how.
+ * What `work` returns or throws passes through unchanged.
  */
-export async function endWhenSettled<T>(span: { end: Span["end"] }, work: () => T | Promise<T>): Promise<T> {
+export async function endWhenSettled<T>(
+  span: { end: Span["end"] },
+  work: () => T | Promise<T>,
+  settled: SettledAs<T> = {}
+): Promise<T> {
+  let result: T
   try {
-    const result = await work()
-    span.end("ok")
-    return result
+    result = await work()
   } catch (error) {
-    const code = errorCode(error)
-    span.end("error", code === undefined ? undefined : { code })
+    if (settled.error) {
+      const { outcome, attributes } = settled.error(error)
+      span.end(outcome, attributes)
+    } else {
+      const code = errorCode(error)
+      span.end("error", code === undefined ? undefined : { code })
+    }
     throw error
   }
+  if (settled.result) {
+    const { outcome, attributes } = settled.result(result)
+    span.end(outcome, attributes)
+  } else span.end("ok")
+  return result
 }

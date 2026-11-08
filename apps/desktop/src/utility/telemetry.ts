@@ -50,6 +50,11 @@ export function startTelemetry(): Telemetry<typeof registeredEvents> {
  */
 const scrubber = secretScrubbing()
 
+/** A copy of the value with secrets replaced, the open projects' `.env` values included, as `Scrubber.value`. */
+export function scrubSecrets<T>(value: T): T {
+  return scrubber.value(value)
+}
+
 /** Scrubs the open projects' `.env` values from now on, here and in main, which passes them to every window. */
 export function useProjectSecrets(secrets: string[]): void {
   scrubber.use(secrets)

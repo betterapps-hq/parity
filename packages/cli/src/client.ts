@@ -17,6 +17,7 @@ import { checkData, jsonText, type SchemaProblem } from "@parity-app/core/schema
 import type { z } from "zod"
 import { cliCallerName, sessionCallerId } from "./caller.ts"
 import type { ExecResponse } from "./execute.ts"
+import { recordCli, runTraceHeaders } from "./telemetry.ts"
 
 /**
  * Where running copies of the app say how to reach them: `~/.parity/agents`, or the one file `PARITY_AGENT_FILE` names
@@ -57,6 +58,8 @@ const explicitCallerId = process.env.PARITY_AGENT_ID?.trim() || undefined
 let callerId = explicitCallerId
 /** The program calling through MCP, such as `claude-code`, which the app's telemetry tags (PAR-630). */
 let callerClient: string | undefined
+/** Whether calls come from the `parity` command or its MCP server, for the app's telemetry (PAR-641). */
+let transport: "cli" | "mcp" = "cli"
 
 /**
  * Names who's calling in later calls, so the canvas can say who's at work. The MCP server learns the name from its
@@ -66,6 +69,7 @@ export function setCaller(name: string | undefined, session = false, client?: st
   caller = name ?? caller
   callerClient = client
   callerId = session ? sessionCallerId(caller, randomUUID()) : explicitCallerId
+  transport = session ? "mcp" : "cli"
 }
 
 /**
@@ -114,6 +118,7 @@ async function runningCopies(): Promise<Copy<TabSummary>[]> {
   const entries = readEntries(registry, homedir())
   const newer = entries.find((entry) => entry.version > registryVersion)
   if (newer) {
+    recordCli("cli.versionMismatch", { cause: "app_newer", cliRegistry: registryVersion, appRegistry: newer.version })
     throw new CodedError(`The Parity at ${newer.url} is newer than this CLI. Update @parity-app/cli, then try again.`, {
       code: "not_running",
       retryable: false
@@ -128,6 +133,7 @@ async function runningCopies(): Promise<Copy<TabSummary>[]> {
   )
   const copies = found.flat()
   if (entries.length > 0 && copies.length === 0) {
+    recordCli("cli.connectFailed", { code: "not_answering", copies: entries.length })
     const where = entries.map((entry) => entry.url).join(", ")
     throw new CodedError(`Parity isn't answering at ${where}. Is the app still running?`, {
       code: "not_answering",
@@ -135,6 +141,7 @@ async function runningCopies(): Promise<Copy<TabSummary>[]> {
     })
   }
   if (copies.length === 0) {
+    recordCli("cli.connectFailed", { code: "not_running", copies: 0 })
     throw new CodedError(`Parity isn't running (nothing in ${registry.path}). Start the app, then try again.`, {
       code: "not_running",
       retryable: true
@@ -169,7 +176,7 @@ async function send<M extends AgentMethod>(
     response = await fetch(`${entry.url}/rpc`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}`, ...traceHeaders() },
-      body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient }),
+      body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient, transport }),
       ...(timeout === undefined ? {} : { signal: AbortSignal.timeout(timeout) })
     })
   } catch {
@@ -186,10 +193,13 @@ async function send<M extends AgentMethod>(
 }
 
 /**
- * Starts a trace for one call, which the app continues, so the call and everything the app does for it, to the frame
- * it draws, are one trace in Sentry (PAR-629). Sampled, as the app's spans are.
+ * The trace a call carries, which the app continues, so the call and everything the app does for it, to the frame it
+ * draws, are one trace in Sentry (PAR-629): the running command's, or one of its own for an MCP call. Sampled, as the
+ * app's spans are.
  */
-function traceHeaders(): { "sentry-trace": string; baggage: string } {
+function traceHeaders(): { "sentry-trace": string; baggage?: string } {
+  const running = runTraceHeaders()
+  if (running) return running
   const traceId = randomBytes(16).toString("hex")
   return {
     "sentry-trace": `${traceId}-${randomBytes(8).toString("hex")}-1`,
@@ -201,6 +211,7 @@ function traceHeaders(): { "sentry-trace": string; baggage: string } {
 function answer<Schema extends z.ZodType>(schema: Schema, value: unknown, method: string): z.output<Schema> {
   const checked = checkData(schema, value)
   if (checked.success) return checked.data
+  recordCli("cli.versionMismatch", { cause: "unreadable_answer", cliRegistry: registryVersion, method })
   throw new CodedError(unreadable(method, checked.problem), { code: "app_error" })
 }
 

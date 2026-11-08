@@ -5,6 +5,7 @@ import {
   type EventName,
   readTraceHeaders,
   type registeredEvents,
+  type SettledAs,
   type Span,
   type Telemetry,
   type TraceContext,
@@ -40,18 +41,19 @@ export function currentTraceHeaders(): TraceHeaders | undefined {
 
 /**
  * Runs `work` in a span under `parent`, or under the span this process is working in, ended when it settles with the
- * failure's code. Requests `work` sends carry the span on. `work` is given the span, to end it first itself with what
- * it learned, and none when nothing is traced.
+ * failure's code, or as `settled` says. Requests `work` sends carry the span on. `work` is given the span, to end it
+ * first itself with what it learned, and none when nothing is traced.
  */
 export function inSpan<Name extends EventName<Events>, T>(
   name: Name,
   attributes: EventAttributes<Events, Name>,
   work: (span?: Span) => T | Promise<T>,
-  parent: TraceContext | undefined = current.getStore()
+  parent: TraceContext | undefined = current.getStore(),
+  settled?: SettledAs<Awaited<T>>
 ): Promise<T> {
   if (!telemetry) return Promise.resolve().then(() => work())
   const span = telemetry.startSpan(name, attributes, parent ? { parent } : {})
-  return current.run(span, () => endWhenSettled(span, () => work(span)))
+  return current.run(span, () => endWhenSettled(span, () => work(span), settled))
 }
 
 /**

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { readdirSync, readFileSync, rmSync } from "node:fs"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
@@ -64,6 +65,8 @@ export function transportFixture(defaultResult: unknown) {
     tabs: unknown[]
     directory: string
     requests: unknown[]
+    /** The CLI's own events from every process the tests started, oldest first (PAR-641). */
+    events(): Record<string, unknown>[]
     run: typeof run
     mcp: typeof mcp
   } = {
@@ -72,7 +75,8 @@ export function transportFixture(defaultResult: unknown) {
     directory: "",
     requests: [],
     run,
-    mcp
+    mcp,
+    events
   }
   const requests = fixture.requests
 
@@ -106,6 +110,7 @@ export function transportFixture(defaultResult: unknown) {
     await rm(directory, { recursive: true, force: true })
   })
   beforeEach(() => {
+    rmSync(join(directory, "logs"), { recursive: true, force: true })
     requests.length = 0
     fixture.response = { result: defaultResult }
     fixture.tabs = [fixtureTab]
@@ -118,6 +123,7 @@ export function transportFixture(defaultResult: unknown) {
           ...process.env,
           ...compileCache,
           PARITY_AGENT_FILE: agentFile,
+          PARITY_CLI_LOGS: join(directory, "logs"),
           PARITY_AGENT_NAME: "Contract Caller",
           PARITY_AGENT_ID: "cli-session",
           ...env
@@ -148,6 +154,20 @@ export function transportFixture(defaultResult: unknown) {
       child.stdin.on("error", () => undefined)
       child.stdin.end(input)
     })
+  }
+  function events(): Record<string, unknown>[] {
+    let names: string[]
+    try {
+      names = readdirSync(join(directory, "logs")).sort()
+    } catch {
+      return []
+    }
+    return names.flatMap((name) =>
+      readFileSync(join(directory, "logs", name), "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as Record<string, unknown>)
+    )
   }
   function mcp(input: Record<string, unknown>, name = "execute") {
     return run(

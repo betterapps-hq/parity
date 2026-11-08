@@ -77,10 +77,29 @@ One action is one trace in Sentry, across every process that works on it (PAR-62
   main answer each in a `request.handled` span, with the error code when it fails.
 - **Queued work keeps its trace:** an offscreen frame or preview is a `frame.rendered` span with how long it waited for
   a window, and a builder's start is `builder.started`.
-- **An agent's call starts its trace in the CLI,** which sends the headers with each request; the agent server's
-  `agent.called` span continues it, so the call and the frame it drew are one trace.
+- **An agent's call starts its trace in the CLI.** A `parity` command's calls carry its `cli.ran` span, and each MCP
+  call starts a trace of its own. The agent server's `agent.called` span continues it, so the call and the frame it drew
+  are one trace.
 
 To find one, open a span's trace in Sentry, or search spans by `trace` from an error.
+
+## Agents and the CLI
+
+Agents' calls are recorded where they're answered, once for every operation, whichever way they came (PAR-641):
+
+- **The agent server records each call as `agent.called`:** the operation, `cli` or `mcp`, the caller's declared name
+  and MCP client, the params as JSON, the answer's size, and how it ended. A failure adds its code, `retryable` and how
+  many alternatives it offered; a snippet or screenshot that failed without throwing counts as failed too. The answer's
+  warning groups are listed by category. An `exec` call's snippet goes on the span by itself, so a failed snippet reads
+  beside its error. `agentCallStart`, `agentCallAnswered` and `agentCallFailed` in `@parity-app/telemetry` read these
+  from the body and the answer, scrubbing the open projects' `.env` values before the params are serialized or cut,
+  since an escaped or shortened secret wouldn't match later. When the server can't start, the service records
+  `agent.serverFailed`.
+- **The CLI records its own runs** through `@parity-app/telemetry`: `cli.ran` for each command, with the flags' names
+  but not their values; `cli.connectFailed` when no copy of the app is registered (`not_running`) or none answers
+  (`not_answering`); `cli.versionMismatch` when the app is newer than the CLI reads, or its answer doesn't check; and
+  `mcp.session` with each MCP client's name and version. They're written to `~/.parity/logs/parity-cli-<date>.jsonl`,
+  the newest 10 days kept, and don't go to Sentry until PAR-642.
 
 ## Frames, previews and the bitmap cache
 
@@ -194,7 +213,8 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 | Event                 | Level | Kept | Sent by                                 | When                                                                                                         |
 | --------------------- | ----- | ---- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI.                                                                |
+| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer.                          |
+| `agent.serverFailed`  | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                                               |
 | `app.quit`            | info  | all  | main                                    | The app quits.                                                                                               |
 | `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                                             |
 | `bitmapCache.used`    | info  | all  | service                                 | Each minute in which bitmaps or previews were looked up, with this session's totals so far.                  |
@@ -202,6 +222,9 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `builder.ready`       | info  | all  | service                                 | A project's builder answers and serves the project.                                                          |
 | `builder.restarted`   | info  | all  | service                                 | A project's builder is started again from the processes list.                                                |
 | `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                                                  |
+| `cli.connectFailed`   | warn  | all  | cli                                     | The CLI can't reach a running copy of the app for a call.                                                    |
+| `cli.ran`             | info  | all  | cli                                     | A `parity` command runs, until it's done.                                                                    |
+| `cli.versionMismatch` | warn  | all  | cli                                     | The CLI and the app it calls are versions apart that don't fit.                                              |
 | `command.ran`         | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                               |
 | `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                      |
 | `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                          |
@@ -216,6 +239,7 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                                      |
 | `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                             |
 | `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                     |
+| `mcp.session`         | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                            |
 | `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                          |
 | `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                        |
 | `preview.failed`      | warn  | all  | service                                 | A component's preview can't be made.                                                                         |
@@ -249,11 +273,26 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 ### `agent.called`
 
-| Attribute | Type               | Meaning                        |
-| --------- | ------------------ | ------------------------------ |
-| `method`  | `string`           | The agent method called        |
-| `agent`   | `string`, optional | The caller's name              |
-| `code`    | `string`, optional | The error code, when it failed |
+| Attribute      | Type                | Meaning                                                                                                |
+| -------------- | ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `method`       | `string`            | The operation called, such as `exec` or `screenshot`, or `unreadable`                                  |
+| `transport`    | `"cli" \| "mcp"`    | How the agent called: `cli` for the parity command, `mcp` for MCP                                      |
+| `agent`        | `string`, optional  | The caller's declared name, as PAR-450 has it                                                          |
+| `client`       | `string`, optional  | The MCP client's program, such as `claude-code`                                                        |
+| `input`        | `string`, optional  | The call's params as JSON, without an exec call's snippet, cut at 2,000 characters                     |
+| `snippet`      | `string`, optional  | An exec call's snippet, cut at 10,000 characters                                                       |
+| `resultBytes`  | `integer`, optional | How long the answer was, as JSON, in characters                                                        |
+| `code`         | `string`, optional  | The error code, when it failed                                                                         |
+| `retryable`    | `boolean`, optional | Whether the failure says sending it again unchanged can succeed                                        |
+| `alternatives` | `integer`, optional | How many alternatives the failure offered instead of what was asked for                                |
+| `warnings`     | `string`, optional  | The answer's warning groups by category, with how many places each, such as `overlap:2 unknown_prop:1` |
+
+### `agent.serverFailed`
+
+| Attribute | Type               | Meaning                                   |
+| --------- | ------------------ | ----------------------------------------- |
+| `message` | `string`           | Why it couldn't start                     |
+| `code`    | `string`, optional | The error's code, such as Node's `EACCES` |
 
 ### `app.quit`
 
@@ -313,6 +352,31 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | Attribute | Type     | Meaning            |
 | --------- | -------- | ------------------ |
 | `builder` | `string` | The builder's name |
+
+### `cli.connectFailed`
+
+| Attribute | Type                               | Meaning                                                                                            |
+| --------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `code`    | `"not_running" \| "not_answering"` | `not_running` when no copy of the app is registered, `not_answering` when none registered answered |
+| `copies`  | `integer`                          | How many copies of the app were registered                                                         |
+
+### `cli.ran`
+
+| Attribute  | Type                | Meaning                                                                |
+| ---------- | ------------------- | ---------------------------------------------------------------------- |
+| `command`  | `string`            | The command, such as `exec` or `mcp`, or `help` with none              |
+| `flags`    | `string[]`          | The flags given, by name, without their values                         |
+| `exitCode` | `integer`, optional | What the command exited with: 0, or 1 when it failed or found problems |
+| `code`     | `string`, optional  | The error code, when it failed                                         |
+
+### `cli.versionMismatch`
+
+| Attribute     | Type                                 | Meaning                                                                                               |
+| ------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `cause`       | `"app_newer" \| "unreadable_answer"` | `app_newer` when the app's registry entry is newer, `unreadable_answer` when its answer doesn't check |
+| `cliRegistry` | `integer`                            | The registry version this CLI reads                                                                   |
+| `appRegistry` | `integer`, optional                  | The registry version the app wrote, for `app_newer`                                                   |
+| `method`      | `string`, optional                   | The method whose answer couldn't be read, for `unreadable_answer`                                     |
 
 ### `command.ran`
 
@@ -447,6 +511,14 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `package` | `string`           | The library, by its catalog ID or package name  |
 | `version` | `string`, optional | The version installed, when known               |
 | `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `mcp.session`
+
+| Attribute         | Type               | Meaning                                                        |
+| ----------------- | ------------------ | -------------------------------------------------------------- |
+| `client`          | `string`, optional | The MCP client's name from `initialize`, such as `claude-code` |
+| `clientVersion`   | `string`, optional | The MCP client's version from `initialize`                     |
+| `protocolVersion` | `string`, optional | The MCP protocol version the client asked for                  |
 
 ### `mode.switched`
 

@@ -103,6 +103,21 @@ describe("endWhenSettled", () => {
     expect(ended).toEqual([["ok"], ["error", { code: "locked" }], ["error", undefined]])
   })
 
+  it("ends the span as it's told, when told how", async () => {
+    const ended: unknown[] = []
+    const span = { end: (...args: unknown[]) => void ended.push(args) }
+    const settled = {
+      result: (value: number) => ({ outcome: value > 0 ? ("ok" as const) : ("error" as const), attributes: { value } }),
+      error: () => ({ outcome: "cancelled" as const })
+    }
+    expect(await endWhenSettled(span, () => -1, settled)).toBe(-1)
+    await expect(endWhenSettled(span, () => Promise.reject(new Error("Stopped")), settled)).rejects.toThrow("Stopped")
+    expect(ended).toEqual([
+      ["error", { value: -1 }],
+      ["cancelled", undefined]
+    ])
+  })
+
   it("reads a coded error's code, or a Node error's own", () => {
     expect(errorCode(Object.assign(new Error(), { details: { code: "not_found" } }))).toBe("not_found")
     expect(errorCode(Object.assign(new Error(), { code: "ENOENT" }))).toBe("ENOENT")
