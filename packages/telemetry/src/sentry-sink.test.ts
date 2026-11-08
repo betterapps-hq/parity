@@ -1,7 +1,8 @@
-import { createTelemetry, defineEvent } from "@parity-app/telemetry"
 import { describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
-import { createSentrySink, type SentryTarget } from "./sentry-sink.ts"
+import { defineEvent } from "./events.ts"
+import { createSentrySink, type Event, type SentryTarget } from "./sentry-sink.ts"
+import { createTelemetry } from "./telemetry.ts"
 
 const events = [
   defineEvent("project.opened", z.object({ root: z.string(), components: z.number() }), {
@@ -23,10 +24,10 @@ const events = [
 
 /** A Sentry that keeps what it's given. */
 function fakeSentry() {
-  const sent = { breadcrumbs: [] as unknown[], events: [] as Record<string, unknown>[], logs: [] as unknown[] }
+  const sent = { breadcrumbs: [] as unknown[], events: [] as Event[], logs: [] as unknown[] }
   const target: SentryTarget = {
     addBreadcrumb: (breadcrumb) => sent.breadcrumbs.push(breadcrumb),
-    captureEvent: (event) => sent.events.push(event as Record<string, unknown>),
+    captureEvent: (event) => sent.events.push(event),
     log: (log) => sent.logs.push(log)
   }
   return { sent, target }

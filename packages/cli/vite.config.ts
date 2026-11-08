@@ -8,7 +8,7 @@ import { defineConfig } from "vite-plus"
  */
 export default defineConfig({
   pack: {
-    entry: { bin: "src/bin.ts", index: "src/client.ts" },
+    entry: { bin: "src/bin.ts", index: "src/client.ts", send: "src/send.ts" },
     format: "esm",
     platform: "node",
     target: "node24",

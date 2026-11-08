@@ -34,7 +34,7 @@ function appVersion(folder: string): string {
 }
 
 /** This CLI's version, from its package.json, which sits beside both src and dist. */
-function cliVersion(): string {
+export function cliVersion(): string {
   try {
     const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
       version?: unknown

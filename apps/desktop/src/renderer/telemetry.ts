@@ -1,9 +1,9 @@
 import { createTelemetry, registeredEvents, type Sink, type Telemetry } from "@parity-app/telemetry"
+import { createSentrySink } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
 import type { Component, ErrorInfo } from "react"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
-import { createSentrySink } from "../shared/sentry-sink.ts"
 import { readTelemetryRun } from "../shared/telemetry-run.ts"
 import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } from "./canvas/frames-on-screen.ts"
 

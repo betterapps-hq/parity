@@ -23,7 +23,7 @@ import { describeLogs, logsFields, readLogs } from "./logs.ts"
 import { serveMcp } from "./mcp.ts"
 import { type Operation, operations, skillOperation } from "./operations.ts"
 import { readSkill } from "./skills.ts"
-import { inCliRun, startCliTelemetry } from "./telemetry.ts"
+import { inCliRun, reportCliFailure, startCliTelemetry } from "./telemetry.ts"
 
 const usage = `parity: drive the Parity app from a terminal or an agent
 
@@ -144,10 +144,11 @@ const [command, ...rest] = positionals
 let fields: readonly string[] | undefined
 
 // Each run is recorded with the flags it was given, by name, never their values (PAR-641).
-startCliTelemetry()
 try {
+  startCliTelemetry({ serving: command === "mcp" })
   await inCliRun(command ?? "help", Object.keys(values), main)
 } catch (error) {
+  reportCliFailure(error)
   const failure = operationError(error, fields)
   if (values.json) print({ error: failure })
   console.error(failure.message)

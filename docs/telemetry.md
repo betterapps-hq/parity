@@ -44,7 +44,8 @@ Main holds these on its Sentry scope, which the windows' and the service's event
 
 ## How events get there
 
-Each process records events with `createTelemetry` and the app's Sentry sink (`apps/desktop/src/shared/sentry-sink.ts`):
+Each process records events with `createTelemetry` and the Sentry sink, `createSentrySink` in `@parity-app/telemetry`,
+which the CLI shares:
 
 - **In the process that records it,** an event or span becomes a breadcrumb, so an error there carries the events before
   it (Sentry keeps the last 100). An `error.*` event, or one at the `error` or `fatal` level, becomes a Sentry error,
@@ -99,7 +100,18 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   but not their values; `cli.connectFailed` when no copy of the app is registered (`not_running`) or none answers
   (`not_answering`); `cli.versionMismatch` when the app is newer than the CLI reads, or its answer doesn't check; and
   `mcp.session` with each MCP client's name and version. They're written to `~/.parity/logs/parity-cli-<date>.jsonl`,
-  the newest 10 days kept, and don't go to Sentry until PAR-642.
+  the newest 10 days kept, at every level.
+- **The CLI sends to Sentry's `parity-cli` project** (PAR-642), with the same tags as the app: `environment`, `release`,
+  `test_run`, and `driver` with `agent` and `agent_client`, since every CLI call is an agent's as the app counts them.
+  Its events go as logs and breadcrumbs, `cli.ran` as a span, and an error the CLI throws that isn't one of Parity's
+  coded failures, or one nothing caught, as a Sentry error in the command's trace. A command's `cli.ran` span is the
+  root of the trace its calls carry, so the app's `agent.called` span in `parity-desktop` joins it.
+- **A command never waits for Sentry.** Loading `@sentry/node` takes about 300 ms, so a command keeps what it would
+  send, writes it to `~/.parity/outbox` as it exits (`PARITY_CLI_OUTBOX` names another folder), and starts a detached
+  `parity` process that sends it and exits. That costs a command about 20 ms. `parity mcp` hands over what's waiting
+  every 10 seconds as well. One sender runs at a time, and a batch a day old is dropped.
+- **The CLI's release** is `parity-cli@<version>` when it's installed from npm, reported as `tester`, and the commit
+  when it runs from a checkout, from source or its own `dist`, reported as `development`.
 
 ## Frames, previews and the bitmap cache
 
@@ -131,10 +143,13 @@ either sent or not: errors, crashes, traces, events, replays and failure bitmaps
 is written either way. Unit tests leave it off.
 
 - **Settings > Privacy > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
-  install ID in `<userData>/telemetry.json`, which the CLI reads too (`desktopDataFolder` in `@parity-app/telemetry`
-  finds the folder).
+  install ID in `<userData>/telemetry.json`, which the CLI reads too, as each command starts (`desktopDataFolder` in
+  `@parity-app/telemetry` finds the folder). Before the app has run, the CLI sends, as install `none`.
 - **`PARITY_TELEMETRY=all` or `off`** decides a run whatever the setting says, and **`DO_NOT_TRACK=1`** turns it off.
-  Settings then shows the variable and leaves the switch disabled. Any other `PARITY_TELEMETRY` value stops the app.
+  Settings then shows the variable and leaves the switch disabled. Any other `PARITY_TELEMETRY` value stops the app, and
+  fails a `parity` command.
+- **The CLI says so once.** The first time it runs with diagnostics on, it prints one line to stderr saying they're
+  shared and how to stop it, and keeps `~/.parity/telemetry-notice` so it doesn't again.
 - **The install ID** is a random UUID made on the first run and sent as Sentry's user. Turning sharing off makes a new
   one, so what's sent after turning it on again isn't linked to what came before. About shows it beside the versions.
 
@@ -171,8 +186,8 @@ replaced with `[redacted]` in every string and stack frame, in every process, be
 server-side scrubbing stays on as a second net.
 
 `createScrubber()` in `@parity-app/telemetry` does it. `createTelemetry` runs one on every event's attributes before its
-sinks, and each process's Sentry setup (`main/telemetry.ts`, `renderer/telemetry.ts`, `utility/telemetry.ts`) runs one
-in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`. It replaces:
+sinks, and each process's Sentry setup (`main/telemetry.ts`, `renderer/telemetry.ts`, `utility/telemetry.ts`, and the
+CLI's `send.ts`) runs one in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`. It replaces:
 
 - keys and tokens with a known shape: `sk-…`, Stripe, GitHub, Slack, AWS access key IDs, Google, npm and Sentry tokens,
   JWTs and private key blocks
@@ -185,7 +200,8 @@ in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`
 The values it's given are the open projects' `.env`, `.env.local` and other `.env.*` values. The service reads them with
 `envSecrets()` whenever a project opens or closes and sends them to main. Main scrubs them from every process's events
 and passes them to each window, which asks for them as its telemetry starts. Each process's telemetry gets them through
-`setSecrets()`. The CLI doesn't send to Sentry yet, so it reads none.
+`setSecrets()`. The CLI reads none: it scrubs keys, tokens and passwords, as every process does, but not a project's
+`.env` values, which only the service reads.
 
 What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
 
