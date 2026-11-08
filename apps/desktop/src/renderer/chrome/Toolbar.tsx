@@ -86,7 +86,7 @@ export function FloatingToolbar() {
         value={[tool]}
         onValueChange={([value]) => {
           const picked = toolGroups.flat().find((each) => each.id === value)
-          if (picked) selection.setTool(picked.id)
+          if (picked) void actions[picked.id].run("toolbar")
         }}
         aria-label="Tools"
         className="gap-0.5"
@@ -166,12 +166,12 @@ function FrameMenu() {
           <p className="px-2 pt-1 pb-1.5 text-xs text-muted-foreground">Or drag on the canvas for any size.</p>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void actions.newScreen.run()}>
+        <DropdownMenuItem onClick={() => void actions.newScreen.run("toolbar")}>
           <AppWindow />
           {keymap.newScreen.label}
           <DropdownMenuShortcut>{formatKeys(keymap.newScreen.keys[0])}</DropdownMenuShortcut>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => void actions.newComponent.run()}>
+        <DropdownMenuItem onClick={() => void actions.newComponent.run("toolbar")}>
           <Component />
           {keymap.newComponent.label}
           <DropdownMenuShortcut>{formatKeys(keymap.newComponent.keys[0])}</DropdownMenuShortcut>
@@ -192,7 +192,7 @@ export function ViewControls() {
         label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : keymap.undo.label}
         shortcut={keymap.undo.keys[0]}
         disabled={!history.canUndo}
-        onClick={() => store.undo()}
+        onClick={() => void actions.undo.run("toolbar", { instead: () => store.undo() })}
       >
         <Undo2 />
       </IconButton>
@@ -200,7 +200,7 @@ export function ViewControls() {
         label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : keymap.redo.label}
         shortcut={keymap.redo.keys[0]}
         disabled={!history.canRedo}
-        onClick={() => store.redo()}
+        onClick={() => void actions.redo.run("toolbar", { instead: () => store.redo() })}
       >
         <Redo2 />
       </IconButton>
@@ -209,7 +209,7 @@ export function ViewControls() {
         label={keymap.zoomOut.label}
         shortcut={keymap.zoomOut.keys[0]}
         disabled={!editor}
-        onClick={() => editor?.zoomOut()}
+        onClick={() => void actions.zoomOut.run("toolbar", { instead: () => editor?.zoomOut() })}
       >
         <Minus />
       </IconButton>
@@ -221,7 +221,7 @@ export function ViewControls() {
               size="sm"
               className="min-w-14 tabular-nums"
               disabled={!editor}
-              onClick={() => editor?.resetZoom()}
+              onClick={() => void actions.zoomTo100.run("toolbar", { instead: () => editor?.resetZoom() })}
             >
               {Math.round(zoom * 100)}%
             </Button>
@@ -235,7 +235,7 @@ export function ViewControls() {
         label={keymap.zoomIn.label}
         shortcut={keymap.zoomIn.keys[0]}
         disabled={!editor}
-        onClick={() => editor?.zoomIn()}
+        onClick={() => void actions.zoomIn.run("toolbar", { instead: () => editor?.zoomIn() })}
       >
         <Plus />
       </IconButton>
@@ -243,7 +243,7 @@ export function ViewControls() {
         label={keymap.zoomToFit.label}
         shortcut={keymap.zoomToFit.keys[0]}
         disabled={!editor}
-        onClick={() => editor?.zoomToFit()}
+        onClick={() => void actions.zoomToFit.run("toolbar", { instead: () => editor?.zoomToFit() })}
       >
         <Maximize />
       </IconButton>

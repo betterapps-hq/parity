@@ -429,7 +429,7 @@ function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) 
         {wrap ? " Wrap it in a layout and size that instead." : ""}
       </p>
       {wrap && (
-        <Button variant="outline" size="sm" onClick={() => void actions.wrap.run()}>
+        <Button variant="outline" size="sm" onClick={() => void actions.wrap.run("panel")}>
           <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
         </Button>
       )}

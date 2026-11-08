@@ -1,6 +1,6 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { isBaseState } from "@parity-app/core"
-import { type Alignment, kindsName } from "@parity-app/editor"
+import { kindsName } from "@parity-app/editor"
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -21,51 +21,37 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { actions } from "./actions.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { IconButton } from "./IconButton.tsx"
-import { keymap } from "./keymap.ts"
+import { type Command, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 
-const alignments: { value: Alignment; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
-  { value: "left", label: "Align left", shortcut: keymap.alignLeft.keys[0], icon: AlignStartVertical },
+/** Each button, by its command, so it runs as its keys do and Repeat last action can run it again. */
+const alignments: { command: Command; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
+  { command: "alignLeft", label: "Align left", shortcut: keymap.alignLeft.keys[0], icon: AlignStartVertical },
   {
-    value: "center",
+    command: "alignCenter",
     label: "Align horizontal centers",
     shortcut: keymap.alignCenter.keys[0],
     icon: AlignCenterVertical
   },
-  { value: "right", label: "Align right", shortcut: keymap.alignRight.keys[0], icon: AlignEndVertical },
-  { value: "top", label: "Align top", shortcut: keymap.alignTop.keys[0], icon: AlignStartHorizontal },
+  { command: "alignRight", label: "Align right", shortcut: keymap.alignRight.keys[0], icon: AlignEndVertical },
+  { command: "alignTop", label: "Align top", shortcut: keymap.alignTop.keys[0], icon: AlignStartHorizontal },
   {
-    value: "middle",
+    command: "alignMiddle",
     label: "Align vertical centers",
     shortcut: keymap.alignMiddle.keys[0],
     icon: AlignCenterHorizontal
   },
-  { value: "bottom", label: "Align bottom", shortcut: keymap.alignBottom.keys[0], icon: AlignEndHorizontal }
+  { command: "alignBottom", label: "Align bottom", shortcut: keymap.alignBottom.keys[0], icon: AlignEndHorizontal }
 ]
-
-/** Each button's command, so it runs as its keys do and Repeat last action can run it again. */
-const alignCommands = {
-  left: "alignLeft",
-  center: "alignCenter",
-  right: "alignRight",
-  top: "alignTop",
-  middle: "alignMiddle",
-  bottom: "alignBottom"
-} as const
 
 function AlignButtons({ distribute }: { distribute?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-0.5">
-      {alignments.map(({ value, label, shortcut, icon: Icon }) => (
-        <IconButton
-          key={value}
-          label={label}
-          shortcut={shortcut}
-          onClick={() => void actions[alignCommands[value]].run()}
-        >
+      {alignments.map(({ command, label, shortcut, icon: Icon }) => (
+        <IconButton key={command} label={label} shortcut={shortcut} onClick={() => void actions[command].run("panel")}>
           <Icon />
         </IconButton>
       ))}
@@ -75,14 +61,14 @@ function AlignButtons({ distribute }: { distribute?: boolean }) {
           <IconButton
             label="Distribute horizontal spacing"
             shortcut={keymap.distributeHorizontal.keys[0]}
-            onClick={() => void actions.distributeHorizontal.run()}
+            onClick={() => void actions.distributeHorizontal.run("panel")}
           >
             <AlignHorizontalSpaceAround />
           </IconButton>
           <IconButton
             label="Distribute vertical spacing"
             shortcut={keymap.distributeVertical.keys[0]}
-            onClick={() => void actions.distributeVertical.run()}
+            onClick={() => void actions.distributeVertical.run("panel")}
           >
             <AlignVerticalSpaceAround />
           </IconButton>
@@ -111,14 +97,14 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
         <AlignButtons distribute={entries.length > 2} />
       </PanelSection>
       <div className={`flex gap-2 py-3 pl-4 ${panelEnd}`}>
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => void actions.duplicate.run()}>
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => void actions.duplicate.run("panel")}>
           <Copy /> Duplicate
         </Button>
         <Button
           variant="outline"
           size="sm"
           className="flex-1 text-destructive"
-          onClick={() => void actions.delete.run()}
+          onClick={() => void actions.delete.run("panel")}
         >
           <Trash2 /> Delete
         </Button>
@@ -159,7 +145,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
       <PanelSection title="Arrange">
         <div className="flex flex-col gap-2">
           <AlignButtons />
-          <Button variant="outline" size="sm" onClick={() => void actions.wrap.run()}>
+          <Button variant="outline" size="sm" onClick={() => void actions.wrap.run("panel")}>
             <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
           </Button>
         </div>

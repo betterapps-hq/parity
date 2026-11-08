@@ -1939,9 +1939,10 @@ the recent picks (`rememberPick`). `chrome/ActionsSearch.tsx` gathers the items 
 picks in `localStorage` (`parity.recentSearches`). Components come from the insert picker's offer (`offerOf` and
 `insertOption` in `QuickInsert.tsx`); `chrome/shown-token.ts` hands a token to the Tokens panel and
 `chrome/repeated-parts.ts` keeps each screen's repeated parts for `ComponentsSection.tsx`. Repeat is `repeat` in
-`chrome/keymap.ts`; `chrome/actions.ts` wraps each repeatable command so it remembers itself in `chrome/repeat.ts`, and
-`rememberCommand` records one made another way, as New screen where the canvas was right-clicked. The inspector's and
-toolbar's buttons run the actions themselves.
+`chrome/keymap.ts`; the action list's one wrapper (`recordActions` in `chrome/record-actions.ts`) tells
+`rememberCommand` in `chrome/actions.ts` of each action that runs, and it remembers the repeatable ones in
+`chrome/repeat.ts`, even one run in a place of its own, as New screen where the canvas was right-clicked. The
+inspector's and toolbar's buttons run the actions themselves.
 
 Tests:
 

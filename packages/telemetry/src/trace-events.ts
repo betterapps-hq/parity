@@ -5,16 +5,24 @@ import { defineEvent } from "./events.ts"
  * The spans that make one trace of an action across processes (PAR-629): the window starts one for each action and
  * gesture, and the work it causes elsewhere continues it.
  */
-export const actionRan = defineEvent(
-  "action.ran",
+export const commandRan = defineEvent(
+  "command.ran",
   z.object({
     action: z.string().describe("The action's ID in the keymap, as `chrome/actions.ts` names it"),
+    from: z
+      .enum(["key", "menu", "canvasMenu", "layersMenu", "search", "toolbar", "panel"])
+      .describe(
+        "What ran it: a key, the menubar, the canvas's or a Layers row's menu, Search actions, the toolbar, or a button in a panel or page"
+      ),
+    enabled: z.boolean().describe("Whether it applied then. One that didn't is recorded as cancelled, without running"),
+    layers: z.int().min(0).describe("How many layers were selected"),
+    designs: z.int().min(0).describe("How many designs were selected, with no layer inside one"),
     code: z.string().optional().describe("The error code, when it failed")
   }),
   {
     level: "info",
     sentBy: ["renderer"],
-    when: "An action runs from a key, a menu or the actions search, until it's done."
+    when: "An action in `chrome/actions.ts` is asked for, from anywhere, until it's done."
   }
 )
 

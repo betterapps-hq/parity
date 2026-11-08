@@ -1,7 +1,6 @@
 import type { ContainerKind } from "@parity-app/core"
 import { selectedDesigns, selectedNodes } from "@parity-app/editor"
 import type { Tool } from "../selection.ts"
-import { tracedAction } from "../tracing.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {
@@ -63,6 +62,7 @@ import { createDesign } from "./create.ts"
 import { type Command, keymap } from "./keymap.ts"
 import { toggleConsole, togglePanels } from "./layout.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
+import { type RecordedAction, recordActions } from "./record-actions.ts"
 import { lastAction, rememberAction, repeatLastAction } from "./repeat.ts"
 
 /**
@@ -234,10 +234,10 @@ const repeatable: readonly Command[] = [
 ]
 
 /**
- * Remembers a repeatable command done some other way than its action, as New screen where the canvas was right-clicked,
- * so Repeat follows the last change, however it was made.
+ * Remembers a repeatable command as it runs, however it's run, even in a place of its own as New screen where the canvas
+ * was right-clicked, so Repeat follows the last change.
  */
-export function rememberCommand(command: Command): void {
+function rememberCommand(command: Command): void {
   if (!repeatable.includes(command)) return
   const action = keymapActions[command]
   rememberAction({
@@ -247,26 +247,9 @@ export function rememberCommand(command: Command): void {
   })
 }
 
-/** The repeatable commands' actions remember themselves each time they run, however they're run. */
-const remembering: Record<Command, Action> = { ...keymapActions }
-for (const command of repeatable) {
-  const action = keymapActions[command]
-  remembering[command] = {
-    ...action,
-    run: (event) => {
-      rememberCommand(command)
-      return action.run(event)
-    }
-  }
-}
-
-/**
- * Each action, run in a trace of its own named by its ID, which the work it causes in the service and main joins
- * (PAR-629), whether a key, a menu or the actions search ran it.
- */
-export const actions = Object.fromEntries(
-  Object.entries<Action>(remembering).map(([id, action]) => [
-    id,
-    { ...action, run: (event?: KeyboardEvent) => tracedAction(id, () => action.run(event)) }
-  ])
-) as Record<Command, Action>
+/** Each action in the keymap, recorded however it's run: a key, a menu, Search actions, the toolbar or a panel. */
+export const actions: Record<Command, RecordedAction> = recordActions(
+  keymapActions,
+  () => ({ layers: layers(), designs: designs() }),
+  rememberCommand
+)

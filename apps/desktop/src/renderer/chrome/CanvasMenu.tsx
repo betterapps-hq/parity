@@ -24,7 +24,7 @@ import { useContainerEntries, useNotes } from "../design-store.ts"
 import { allFrames } from "../frame.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { actions, rememberCommand } from "./actions.ts"
+import { actions } from "./actions.ts"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
 import { openSource } from "./code-editor.ts"
 import { createDesign } from "./create.ts"
@@ -257,9 +257,10 @@ function SelectLayer({ label, choices, target }: { label: string; choices: Layer
 function run(session: ProjectSession, action: MenuAction, point: Point): void {
   if (action === "pasteHere") void pasteAtPointer(session, point)
   else if ((action === "newScreen" || action === "newComponent") && session.editor) {
-    createDesign(session, action === "newScreen" ? "screen" : "component", session.editor.screenToPage(point))
-    rememberCommand(action)
-  } else void actions[action].run()
+    const { editor } = session
+    const kind = action === "newScreen" ? "screen" : "component"
+    void actions[action].run("canvasMenu", { instead: () => createDesign(session, kind, editor.screenToPage(point)) })
+  } else void actions[action].run("canvasMenu")
 }
 
 /**
