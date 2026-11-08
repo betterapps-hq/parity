@@ -6,19 +6,19 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger
+  Input
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ChevronDown, Eye, EyeOff, GripVertical, Minus, Plus } from "lucide-react"
+import { ChevronDown, Plus } from "lucide-react"
 import { useId, useState } from "react"
 import { Field } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { CurveThumb, EasingField, SaveAsToken } from "./easing.tsx"
+import { useTokens } from "./field-parts.tsx"
+import { ListRow, moved } from "./list-parts.tsx"
 import {
   defaultDuration,
+  drawnEasing,
   easingName,
   easingShape,
   springSettle,
@@ -26,17 +26,19 @@ import {
   type TransitionEntry,
   transitionLabel,
   type TransitionProperty,
+  transitionProperties,
   transitionSets
 } from "./motion-data.ts"
 import { transitionForm } from "./motion-writes.ts"
 import { TimeField } from "./time.tsx"
-import type { DurationToken } from "./tokens.ts"
+import type { TokenSets } from "./tokens.ts"
 
 /*
- * Motion's Transitions (PAR-652's Transition list): each entry says what changes, then its timing, with the eye and −.
- * An unset duration or easing shows Tailwind's default faintly, and + adds Colors at those defaults. The curve opens
- * the entry's details: what changes, Duration, Easing and Delay. Entries with different timings can't be written as
- * Tailwind's utilities, so the entry that causes it says so and offers Save as token.
+ * Motion's Transitions (PAR-652's Transition list): each entry is a list row, as every list's are: the handle, the
+ * curve that opens the entry's details (what changes, Duration, Easing and Delay), what changes, its timing, the eye
+ * and −. An unset duration or easing shows Tailwind's default faintly, and + adds Colors at those defaults. Entries
+ * with different timings can't be written as Tailwind's utilities, so the entry that causes it says so and offers Save
+ * as token.
  */
 
 let nextId = 0
@@ -44,13 +46,11 @@ export const newEntryId = () => `transition-${++nextId}`
 
 export function TransitionsSection({
   entries,
-  durationTokens,
   savedAs,
   onSaveToken,
   onChange
 }: {
   entries: readonly TransitionEntry[]
-  durationTokens: readonly DurationToken[]
   /** The transition token the list was saved as, which it now writes; Detach writes the entries again. */
   savedAs?: string
   onSaveToken: (name: string | undefined) => void
@@ -96,12 +96,15 @@ export function TransitionsSection({
               </Button>
             </div>
           )}
-          {entries.map((entry) => (
+          {entries.map((entry, index) => (
             <div key={entry.id} className="flex flex-col gap-1">
               <EntryRow
                 entry={entry}
-                durationTokens={durationTokens}
+                index={index}
                 onChange={(change) => update(entry.id, change)}
+                onMove={(from, to) => {
+                  if (to >= 0 && to < entries.length) onChange(moved(entries, from, to))
+                }}
                 onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
               />
               {cause?.id === entry.id && savedAs === undefined && (
@@ -125,80 +128,80 @@ export function TransitionsSection({
 const timingOf = (entry: TransitionEntry) =>
   JSON.stringify([entry.duration ?? null, entry.easing ?? null, entry.delay ?? null])
 
-/** One entry: drag handle on hover, the curve that opens its details, what changes, its timing, the eye and −. */
+/** One entry: the list's row, with the curve that opens its details, what changes and its timing. */
 function EntryRow({
   entry,
-  durationTokens,
+  index,
   onChange,
+  onMove,
   onRemove
 }: {
   entry: TransitionEntry
-  durationTokens: readonly DurationToken[]
+  index: number
   onChange: (change: Partial<TransitionEntry>) => void
+  onMove: (from: number, to: number) => void
   onRemove: () => void
 }) {
-  const name = transitionLabel(entry.property)
+  const { tokens: durations } = useTokens("duration")
+  const { tokens: easings } = useTokens("easing")
+  const label = transitionLabel(entry.property)
+  const name = `${label.toLowerCase()} transition`
   const spring = entry.easing !== undefined && "spring" in entry.easing ? entry.easing.spring : undefined
-  const ms = spring ? springSettle(spring) : timeMs(entry.duration, durationTokens)
-  const delay = timeMs(entry.delay, durationTokens)
+  const ms = spring ? springSettle(spring) : timeMs(entry.duration, durations)
+  const delay = timeMs(entry.delay, durations)
+  const details = (
+    <>
+      <p className="pb-1 text-xs font-medium">{label} transition</p>
+      <Field label="Changes">
+        <PropertyMenu property={entry.property} onChange={(property) => onChange({ property })} />
+      </Field>
+      <Field label="Duration">
+        <TimeField
+          label="Duration"
+          which="duration"
+          value={entry.duration}
+          defaultMs={defaultDuration}
+          setBy={
+            spring
+              ? {
+                  control: "Easing",
+                  ms: springSettle(spring),
+                  onChange: (duration) =>
+                    onChange({ easing: { spring: "duration" in spring ? { ...spring, duration } : spring } })
+                }
+              : undefined
+          }
+          onChange={(duration) => onChange({ duration })}
+        />
+      </Field>
+      <Field label="Easing">
+        <EasingField label="Easing" value={entry.easing} onChange={(easing) => onChange({ easing })} />
+      </Field>
+      <Field label="Delay">
+        <TimeField
+          label="Delay"
+          which="delay"
+          value={entry.delay}
+          defaultMs={0}
+          onChange={(next) => onChange({ delay: next })}
+        />
+      </Field>
+    </>
+  )
   return (
-    <div
-      className={`group/entry flex h-7 items-center gap-1 rounded-md pr-0.5 text-xs hover:bg-accent/50 ${entry.off ? "opacity-50" : ""}`}
+    <ListRow
+      name={name}
+      group="transitions"
+      index={index}
+      off={entry.off}
+      onMove={onMove}
+      onToggle={() => onChange({ off: !entry.off || undefined })}
+      onRemove={onRemove}
+      preview={<CurveThumb shape={easingShape(entry.easing, easings)} faint={entry.easing === undefined} />}
+      details={{ content: details, className: "w-80 gap-1 p-3" }}
+      // What changes keeps its name; the summary after it is cut first.
+      type={<span className="max-w-1/2 shrink-0 truncate">{label}</span>}
     >
-      <GripVertical
-        aria-hidden
-        className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover/entry:opacity-100"
-      />
-      <Popover>
-        <Hint label={`Edit the ${name.toLowerCase()} transition`}>
-          <PopoverTrigger
-            aria-label={`Edit the ${name.toLowerCase()} transition`}
-            className="grid size-6 shrink-0 place-items-center rounded outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-          >
-            <CurveThumb shape={easingShape(entry.easing)} faint={entry.easing === undefined} />
-          </PopoverTrigger>
-        </Hint>
-        <PopoverContent className="w-80 gap-1 p-3" align="start">
-          <p className="pb-1 text-xs font-medium">{name} transition</p>
-          <Field label="Changes">
-            <PropertyMenu property={entry.property} onChange={(property) => onChange({ property })} />
-          </Field>
-          <Field label="Duration">
-            <TimeField
-              label="Duration"
-              which="duration"
-              value={entry.duration}
-              defaultMs={defaultDuration}
-              tokens={durationTokens}
-              setBy={
-                spring
-                  ? {
-                      control: "Easing",
-                      ms: springSettle(spring),
-                      onChange: (duration) =>
-                        onChange({ easing: { spring: "duration" in spring ? { ...spring, duration } : spring } })
-                    }
-                  : undefined
-              }
-              onChange={(duration) => onChange({ duration })}
-            />
-          </Field>
-          <Field label="Easing">
-            <EasingField label="Easing" value={entry.easing} onChange={(easing) => onChange({ easing })} />
-          </Field>
-          <Field label="Delay">
-            <TimeField
-              label="Delay"
-              which="delay"
-              value={entry.delay}
-              defaultMs={0}
-              tokens={durationTokens}
-              onChange={(next) => onChange({ delay: next })}
-            />
-          </Field>
-        </PopoverContent>
-      </Popover>
-      <span className="min-w-0 shrink truncate">{name}</span>
       {/* Inline text, so the commas sit after each part and the whole summary is cut at its end. */}
       <span className="ml-auto min-w-0 shrink truncate text-muted-foreground tabular-nums">
         <span className={entry.duration === undefined && !spring ? "opacity-60" : ""}>{ms ?? defaultDuration}ms</span>
@@ -206,36 +209,7 @@ function EntryRow({
         <span className={entry.easing === undefined ? "opacity-60" : ""}>{easingName(entry.easing)}</span>
         {delay !== undefined && delay !== 0 && `, after ${delay}ms`}
       </span>
-      <Hint
-        label={
-          entry.off ? `Turn the ${name.toLowerCase()} transition on` : `Turn the ${name.toLowerCase()} transition off`
-        }
-      >
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="size-6 shrink-0"
-          aria-label={
-            entry.off ? `Turn the ${name.toLowerCase()} transition on` : `Turn the ${name.toLowerCase()} transition off`
-          }
-          aria-pressed={!entry.off}
-          onClick={() => onChange({ off: !entry.off || undefined })}
-        >
-          {entry.off ? <EyeOff /> : <Eye />}
-        </Button>
-      </Hint>
-      <Hint label={`Remove the ${name.toLowerCase()} transition`}>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="size-6 shrink-0"
-          aria-label={`Remove the ${name.toLowerCase()} transition`}
-          onClick={onRemove}
-        >
-          <Minus />
-        </Button>
-      </Hint>
-    </div>
+    </ListRow>
   )
 }
 
@@ -266,7 +240,8 @@ function PropertyMenu({
           <DropdownMenuRadioGroup
             value={typeof property === "string" ? property : "property"}
             onValueChange={(next) => {
-              if (next !== "property") onChange(next as (typeof sets)[number])
+              const set = sets.find((option) => option === next)
+              if (set) onChange(set)
             }}
           >
             {sets.map((set) => (
@@ -304,18 +279,20 @@ function PropertyMenu({
   )
 }
 
-/** The CSS `transition` a preview card takes from the entries, so it moves as the written classes would. */
-export function previewTransition(entries: readonly TransitionEntry[], easingCss: (entry: TransitionEntry) => string) {
+/**
+ * The CSS `transition` a preview card takes from the entries, so it moves as the written classes would, with the
+ * project's tokens resolved and each easing drawn from its own curve.
+ */
+export function previewTransition(entries: readonly TransitionEntry[], sets: TokenSets): string {
   return entries
     .filter((entry) => !entry.off)
     .flatMap((entry) => {
       const spring = entry.easing !== undefined && "spring" in entry.easing ? entry.easing.spring : undefined
-      const ms = spring ? springSettle(spring) : (timeMs(entry.duration) ?? defaultDuration)
-      const properties =
-        typeof entry.property === "string" ? transitionSets[entry.property].properties : [entry.property.property]
-      return properties
+      const ms = spring ? springSettle(spring) : (timeMs(entry.duration, sets.duration) ?? defaultDuration)
+      const easing = drawnEasing(entry.easing, sets.easing)
+      return transitionProperties(entry.property)
         .filter((property) => !property.startsWith("--"))
-        .map((property) => `${property} ${ms}ms ${easingCss(entry)} ${timeMs(entry.delay) ?? 0}ms`)
+        .map((property) => `${property} ${ms}ms ${easing} ${timeMs(entry.delay, sets.duration) ?? 0}ms`)
     })
     .join(", ")
 }

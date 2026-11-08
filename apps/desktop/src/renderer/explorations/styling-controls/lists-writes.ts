@@ -1,87 +1,49 @@
 /*
  * What the list fields store and write, for the readout beside each story: Fill's paint stack as `background-color` and
  * `background-image` layers, the shadow list in Tailwind's four box-shadow slots (or one arbitrary value when it
- * doesn't fit them), and the filter list in Tailwind's filter order.
+ * doesn't fit them), and the filter list in Tailwind's filter order. Colors, shadows, gradients, arbitrary values and
+ * the nine spots' keywords are written by css-values.ts, as every writer's are.
  */
+import { arbitrary, colorCss, formatNumber, gradientCss, isPlainColor, shadowCss, spotKeywords } from "./css-values.ts"
 import type { Length } from "./data.ts"
 import {
   type AdjustmentKey,
+  adjustmentFunctions,
+  boxLayersOf,
   type FilterEntry,
+  filterOrder,
   type GradientPaint,
   type ImagePaint,
+  isBehind,
   layersOf,
   type ListColor,
   type Paint,
   type PaintEntry,
-  type ShadowEntry,
-  type ShadowLayer
+  type ShadowEntry
 } from "./lists-data.ts"
-import { blurTokens, type GradientToken, gradientTokens, type ShadowToken } from "./tokens.ts"
+import { blurTokens, type GradientToken, gradientTokens, lengthPx, type ShadowToken } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 const nothing: Writes = { stored: undefined, css: [], tailwind: [] }
 
-const isPlain = (color: string) => color.startsWith("#") || color.startsWith("oklch")
-
-const alphaHex = (alpha: number) =>
-  Math.round((alpha / 100) * 255)
-    .toString(16)
-    .padStart(2, "0")
-
-/** A color as CSS: a token's variable, mixed toward transparent for its alpha, or a plain color with its alpha. */
-export function colorCss({ color, alpha }: ListColor): string {
-  if (isPlain(color)) {
-    if (alpha === undefined) return color
-    return color.startsWith("#") ? `${color.slice(0, 7)}${alphaHex(alpha)}` : color.replace(/\)$/, ` / ${alpha}%)`)
-  }
-  const variable = `var(--color-${color})`
-  return alpha === undefined ? variable : `color-mix(in oklab, ${variable} ${alpha}%, transparent)`
-}
+/** A list entry's color as CSS writes it: a token's variable, mixed toward transparent for its alpha, or a plain color. */
+const listColorCss = ({ color, alpha }: ListColor): string => colorCss(color, alpha)
 
 /** A color after a utility's prefix: `blue-500/50`, or `[#2563eb80]` for a plain color. */
 export function colorClass(value: ListColor): string {
-  if (isPlain(value.color)) return `[${colorCss(value).replaceAll(" ", "_")}]`
+  if (isPlainColor(value.color)) return `[${arbitrary(listColorCss(value))}]`
   return value.alpha === undefined ? value.color : `${value.color}/${value.alpha}`
 }
 
 /** A color as it's stored: `{ token, alpha }` or `{ value }` with its alpha in it. */
 export function colorStored(value: ListColor, allowed?: string): unknown {
-  if (isPlain(value.color)) return { value: colorCss(value), ...(allowed === undefined ? {} : { allow: allowed }) }
+  if (isPlainColor(value.color)) {
+    return { value: listColorCss(value), ...(allowed === undefined ? {} : { allow: allowed }) }
+  }
   return { token: value.color, ...(value.alpha === undefined ? {} : { alpha: { step: value.alpha } }) }
 }
 
-/** Underscores for spaces, as Tailwind's arbitrary values take them. */
-const arbitrary = (css: string) => css.replaceAll(", ", ",").replaceAll(" ", "_")
-
 /* Paint stack */
-
-/** The stops as CSS, with a color hint between two stops where it's set: `red 0%, 30%, blue 100%`. */
-function stopsCss(paint: GradientPaint, color: (value: ListColor) => string): string {
-  const stops = [...paint.stops].sort((a, b) => a.position - b.position)
-  return stops
-    .flatMap((stop, index) => {
-      const own = `${color(stop)} ${stop.position}%`
-      return stop.hint !== undefined && index < stops.length - 1 ? [own, `${stop.hint}%`] : [own]
-    })
-    .join(", ")
-}
-
-/** Where a gradient starts: the angle, or the center, then how it blends. */
-function gradientHead(paint: GradientPaint): string {
-  const blend = `in ${paint.interpolation ?? "oklab"}`
-  const [x, y] = paint.center ?? [50, 50]
-  if (paint.kind === "linear") return `${paint.angle}deg ${blend}`
-  if (paint.kind === "radial") return `at ${x}% ${y}% ${blend}`
-  return `from ${paint.angle}deg at ${x}% ${y}% ${blend}`
-}
-
-const gradientFunction = { linear: "linear-gradient", radial: "radial-gradient", angular: "conic-gradient" } as const
-
-/** A gradient as CSS, its colors as the given function writes them: variables for the readout, hex for drawing. */
-export function gradientCss(paint: GradientPaint, color: (value: ListColor) => string = colorCss): string {
-  const name = `${paint.repeat ? "repeating-" : ""}${gradientFunction[paint.kind]}`
-  return `${name}(${gradientHead(paint)}, ${stopsCss(paint, color)})`
-}
 
 /** A gradient token's paint, or the paint as it is. */
 export function resolveGradient(paint: GradientPaint, saved: GradientToken[] = []): GradientPaint {
@@ -101,14 +63,22 @@ export const simpleGradient = (paint: GradientPaint): boolean =>
   Number.isInteger(paint.angle) &&
   (paint.kind !== "angular" || paint.center === undefined || (paint.center[0] === 50 && paint.center[1] === 50))
 
+/**
+ * A gradient's arguments, as a gradient utility takes them inside its brackets: `25deg, red 5%, …`, with OKLab, which
+ * the utility blends in already, left unsaid.
+ */
+function gradientArguments(paint: GradientPaint): string {
+  const css = gradientCss(paint, listColorCss)
+  return css.slice(css.indexOf("(") + 1, -1).replace(/ in oklab(?=,)/, "")
+}
+
 function gradientClasses(paint: GradientPaint): string[] {
   if (paint.token !== undefined) return [`bg-(image:--${paint.token})`]
   const modifier = paint.interpolation && paint.interpolation !== "oklab" ? `/${paint.interpolation}` : ""
   if (!simpleGradient(paint)) {
-    if (paint.repeat) return [`bg-[${arbitrary(gradientCss(paint))}]`]
-    const head = gradientHead(paint).replace(/ in oklab$/, "")
+    if (paint.repeat) return [`bg-[${arbitrary(gradientCss(paint, listColorCss))}]`]
     const prefix = { linear: "bg-linear", radial: "bg-radial", angular: "bg-conic" }[paint.kind]
-    return [`${prefix}-[${arbitrary(`${head}, ${stopsCss(paint, colorCss)}`)}]`]
+    return [`${prefix}-[${arbitrary(gradientArguments(paint))}]`]
   }
   let direction: string
   if (paint.kind === "linear") {
@@ -139,35 +109,23 @@ function gradientClasses(paint: GradientPaint): string[] {
 
 const imageSize = { fill: "cover", fit: "contain", crop: "", tile: "auto" } as const
 
-const spotNames: Record<string, string> = {
-  "0 0": "top-left",
-  "50 0": "top",
-  "100 0": "top-right",
-  "0 50": "left",
-  "50 50": "center",
-  "100 50": "right",
-  "0 100": "bottom-left",
-  "50 100": "bottom",
-  "100 100": "bottom-right"
-}
-
 /** An image fill's size, as CSS. */
 export const imageSizeCss = (paint: ImagePaint): string =>
   paint.fit === "crop" ? `${paint.scale ?? 150}%` : imageSize[paint.fit]
 
 function imageClasses(paint: ImagePaint): string[] {
   const [x, y] = paint.position
-  const spot = spotNames[`${x} ${y}`]
+  const spot = spotKeywords({ x, y })
   return [
     `bg-[url(${paint.src})]`,
     paint.fit === "crop" ? `bg-size-[${paint.scale ?? 150}%]` : `bg-${imageSize[paint.fit]}`,
-    spot ? `bg-${spot}` : `bg-position-[${x}%_${y}%]`,
+    spot ? `bg-${spot.replace(" ", "-")}` : `bg-position-[${x}%_${y}%]`,
     paint.fit === "tile" ? "bg-repeat" : "bg-no-repeat"
   ]
 }
 
 /** A fill as a `background-image` layer: a solid above the bottom one is `linear-gradient(c, c)`. */
-export function layerCss(paint: Paint, color: (value: ListColor) => string = colorCss, src?: string): string {
+export function layerCss(paint: Paint, color: (value: ListColor) => string = listColorCss, src?: string): string {
   if (paint.kind === "solid") return `linear-gradient(${color(paint)}, ${color(paint)})`
   if (paint.kind === "image") return `url(${src ?? paint.src})`
   return gradientCss(paint, color)
@@ -235,7 +193,7 @@ export function paintWrites(entries: PaintEntry[], saved: GradientToken[] = []):
   const css: string[] = []
   const tailwind: string[] = []
   if (base) {
-    css.push(`background-color: ${colorCss(base)}`)
+    css.push(`background-color: ${listColorCss(base)}`)
     tailwind.push(`bg-${colorClass(base)}`)
   }
   if (images.length > 0) {
@@ -275,14 +233,6 @@ export function paintWrites(entries: PaintEntry[], saved: GradientToken[] = []):
 
 /* Shadow list */
 
-const px = (value: number) => (value === 0 ? "0" : `${value}px`)
-
-/** A box shadow's layer as CSS: `inset 0 4px 12px -2px color`. */
-function layerShadowCss(part: ShadowLayer, inset: boolean, spread = true): string {
-  const numbers = [part.x, part.y, part.blur, ...(spread ? [part.spread] : [])].map(px).join(" ")
-  return `${inset || part.inset ? "inset " : ""}${numbers} ${colorCss(part)}`
-}
-
 /** Which of Tailwind's box-shadow slots an entry takes, in the order they paint, top first. */
 const slotOf = (entry: ShadowEntry): number => {
   if (entry.kind === "inner") return 0
@@ -290,13 +240,9 @@ const slotOf = (entry: ShadowEntry): number => {
   return 3
 }
 
-/** An entry's box-shadow layers as CSS, top first. */
-function entryShadowCss(entry: ShadowEntry, saved: ShadowToken[]): string[] {
-  if (entry.kind === "ring") {
-    return [`${entry.inset ? "inset " : ""}0 0 0 ${entry.width ?? 1}px ${colorCss(entry.layer)}`]
-  }
-  return layersOf(entry, saved).map((part) => layerShadowCss(part, entry.kind === "inner"))
-}
+/** A custom entry's own layer as a utility's arbitrary value, which the utility draws inside where it's inner. */
+const ownLayerClass = (entry: ShadowEntry, spread = true) =>
+  arbitrary(shadowCss([{ ...entry.layer, inset: false }], listColorCss, { spread }))
 
 function entryShadowClasses(entry: ShadowEntry): string[] {
   if (entry.kind === "ring") {
@@ -307,7 +253,7 @@ function entryShadowClasses(entry: ShadowEntry): string[] {
   if (entry.token !== undefined) {
     return [entry.token, ...(entry.colorOverride ? [`${prefix}-${colorClass(entry.colorOverride)}`] : [])]
   }
-  return [`${prefix}-[${arbitrary(layerShadowCss(entry.layer, false))}]`]
+  return [`${prefix}-[${ownLayerClass(entry)}]`]
 }
 
 /** How an entry is written: in a box-shadow slot, as the text's shadow, or as a drop shadow that follows the shape. */
@@ -350,6 +296,11 @@ function shadowStored(entry: ShadowEntry): unknown {
   }
 }
 
+/** A drop shadow's layers as `drop-shadow()` functions, which take no spread. */
+function dropShadowFunctions(entry: ShadowEntry, color: (value: ListColor) => string, saved: ShadowToken[] = []) {
+  return layersOf(entry, saved).map((part) => `drop-shadow(${shadowCss([part], color, { spread: false })})`)
+}
+
 export function shadowWrites(
   entries: ShadowEntry[],
   { shadowOfText = false, saved = [] }: { shadowOfText?: boolean; saved?: ShadowToken[] } = {}
@@ -362,32 +313,31 @@ export function shadowWrites(
   const css: string[] = []
   const tailwind: string[] = []
   if (box.length > 0) {
-    css.push(`box-shadow: ${box.flatMap((entry) => entryShadowCss(entry, saved)).join(", ")}`)
+    css.push(
+      `box-shadow: ${shadowCss(
+        box.flatMap((entry) => boxLayersOf(entry, saved)),
+        listColorCss
+      )}`
+    )
     if (shadowsFitSlots(entries, shadowOfText)) tailwind.push(...box.flatMap(entryShadowClasses))
     else {
-      const parts = box.flatMap((entry) =>
-        entry.token !== undefined && !entry.colorOverride ? [`var(--${entry.token})`] : entryShadowCss(entry, saved)
+      const parts = box.map((entry) =>
+        entry.token !== undefined && !entry.colorOverride
+          ? `var(--${entry.token})`
+          : shadowCss(boxLayersOf(entry, saved), listColorCss)
       )
       tailwind.push(`shadow-[${arbitrary(parts.join(", "))}]`)
     }
   }
   for (const entry of text) {
-    css.push(
-      `text-shadow: ${layersOf(entry, saved)
-        .map((part) => layerShadowCss(part, false, false))
-        .join(", ")}`
-    )
+    css.push(`text-shadow: ${shadowCss(layersOf(entry, saved), listColorCss, { spread: false })}`)
     tailwind.push(
-      entry.token === undefined ? `text-shadow-[${arbitrary(layerShadowCss(entry.layer, false, false))}]` : entry.token,
+      entry.token === undefined ? `text-shadow-[${ownLayerClass(entry, false)}]` : entry.token,
       ...(entry.token !== undefined && entry.colorOverride ? [`text-shadow-${colorClass(entry.colorOverride)}`] : [])
     )
   }
   for (const entry of follow) {
-    css.push(
-      `filter: ${layersOf(entry, saved)
-        .map((part) => `drop-shadow(${layerShadowCss(part, false, false)})`)
-        .join(" ")}`
-    )
+    css.push(`filter: ${dropShadowFunctions(entry, listColorCss, saved).join(" ")}`)
     tailwind.push(...dropShadowClasses(entry))
   }
   const stored: Record<string, unknown> = {}
@@ -405,48 +355,41 @@ export function dropShadowClasses(entry: ShadowEntry): string[] {
   if (entry.token !== undefined) {
     return [entry.token, ...(entry.colorOverride ? [`drop-shadow-${colorClass(entry.colorOverride)}`] : [])]
   }
-  return [`drop-shadow-[${arbitrary(layerShadowCss(entry.layer, false, false))}]`]
+  return [`drop-shadow-[${ownLayerClass(entry, false)}]`]
 }
 
-/** The CSS a box-shadow list draws with, colors as hex, for a preview. */
+/** The CSS a shadow list draws with, colors as `draw` gives them, for a preview or an entry's card. */
 export function shadowDrawing(entries: ShadowEntry[], draw: (value: ListColor) => string, saved: ShadowToken[] = []) {
   const shown = entries.filter((entry) => !entry.off)
-  const layer = (part: ShadowLayer, inset: boolean, spread = true) =>
-    `${inset || part.inset ? "inset " : ""}${[part.x, part.y, part.blur, ...(spread ? [part.spread] : [])].map(px).join(" ")} ${draw(part)}`
   return {
-    boxShadow: shown
-      .filter((entry) => entry.kind !== "drop" || !entry.follow)
-      .flatMap((entry) =>
-        entry.kind === "ring"
-          ? [`${entry.inset ? "inset " : ""}0 0 0 ${entry.width ?? 1}px ${draw(entry.layer)}`]
-          : layersOf(entry, saved).map((part) => layer(part, entry.kind === "inner"))
-      )
-      .join(", "),
-    textShadow: shown
-      .filter((entry) => entry.kind === "drop" && !entry.follow)
-      .flatMap((entry) => layersOf(entry, saved).map((part) => layer(part, false, false)))
-      .join(", "),
+    boxShadow: shadowCss(
+      shown.filter((entry) => entry.kind !== "drop" || !entry.follow).flatMap((entry) => boxLayersOf(entry, saved)),
+      draw
+    ),
+    textShadow: shadowCss(
+      shown.filter((entry) => entry.kind === "drop" && !entry.follow).flatMap((entry) => layersOf(entry, saved)),
+      draw,
+      { spread: false }
+    ),
     dropShadow: shown
       .filter((entry) => entry.kind === "drop" && entry.follow)
-      .flatMap((entry) => layersOf(entry, saved).map((part) => `drop-shadow(${layer(part, false, false)})`))
+      .flatMap((entry) => dropShadowFunctions(entry, draw, saved))
       .join(" ")
   }
 }
 
 /* Filter list */
 
-/** Tailwind's filter order, which `filter` is composed in whatever order the panel shows. */
-const filterOrder: AdjustmentKey[] = ["brightness", "contrast", "grayscale", "hue", "invert", "saturate", "sepia"]
-
 /** An adjustment as a CSS function and a class: +25 brightness is `brightness(125%)` and `brightness-125`. */
 export function adjustmentWrites(key: AdjustmentKey, value: number): { css: string; className: string } {
+  const name = adjustmentFunctions[key]
   if (key === "hue") {
-    return { css: `hue-rotate(${value}deg)`, className: value < 0 ? `-hue-rotate-${-value}` : `hue-rotate-${value}` }
+    return { css: `${name}(${value}deg)`, className: value < 0 ? `-${name}-${-value}` : `${name}-${value}` }
   }
   if (key === "brightness" || key === "contrast" || key === "saturate") {
-    return { css: `${key}(${100 + value}%)`, className: `${key}-${100 + value}` }
+    return { css: `${name}(${100 + value}%)`, className: `${name}-${100 + value}` }
   }
-  return { css: `${key}(${value}%)`, className: value === 100 ? key : `${key}-${value}` }
+  return { css: `${name}(${value}%)`, className: value === 100 ? name : `${name}-${value}` }
 }
 
 /** An adjustment at its neutral value writes nothing. */
@@ -461,7 +404,8 @@ function blurWrite(value: Length, behind: boolean) {
       className: known ? `${prefix}-${value.replace("blur-", "")}` : `${prefix}-(--${value})`
     }
   }
-  return { css: `blur(${value.px}px)`, className: `${prefix}-[${value.px}px]` }
+  const px = `${formatNumber(value.px)}px`
+  return { css: `blur(${px})`, className: `${prefix}-[${px}]` }
 }
 
 function filterStored(entry: FilterEntry): unknown {
@@ -480,16 +424,19 @@ function filterStored(entry: FilterEntry): unknown {
   return { dropShadow: shadowStored(entry.shadow), ...off }
 }
 
-/** One property's functions and classes, in Tailwind's order, or the Custom text with the rest after it. */
-function propertyWrites(entries: FilterEntry[], behind: boolean) {
+/**
+ * One property's filter functions in Tailwind's order, with each function's class: blur, the adjustments, then the drop
+ * shadow. A Custom entry's text comes first, as it was read. Written, colors and blur tokens are variables; `drawn`
+ * gives a preview's colors and draws a blur token at its size, since the story's page doesn't define its variable.
+ */
+function filterFunctions(entries: FilterEntry[], behind: boolean, drawn?: (value: ListColor) => string) {
   const functions: string[] = []
   const classes: string[] = []
   const prefix = behind ? "backdrop-" : ""
-  const custom = entries.find((entry) => entry.kind === "custom")
   for (const entry of entries) {
     if ((entry.kind === "blur" || entry.kind === "backdropBlur") && entry.value !== undefined) {
       const write = blurWrite(entry.value, behind)
-      functions.push(write.css)
+      functions.push(drawn ? `blur(${formatNumber(lengthPx(entry.value, blurTokens))}px)` : write.css)
       classes.push(write.className)
     }
   }
@@ -505,13 +452,18 @@ function propertyWrites(entries: FilterEntry[], behind: boolean) {
   }
   for (const entry of entries) {
     if (entry.kind !== "dropShadow") continue
-    for (const part of layersOf(entry.shadow)) {
-      functions.push(`drop-shadow(${layerShadowCss(part, false, false)})`)
-    }
+    functions.push(...dropShadowFunctions(entry.shadow, drawn ?? listColorCss))
     classes.push(...dropShadowClasses(entry.shadow))
   }
-  if (custom?.kind === "custom") {
-    const all = [custom.text, ...functions].join(" ")
+  const custom = entries.find((entry) => entry.kind === "custom")
+  return { functions: custom?.kind === "custom" ? [custom.text, ...functions] : functions, classes, custom }
+}
+
+/** One property's functions and classes, in Tailwind's order, or the Custom text with the rest after it. */
+function propertyWrites(entries: FilterEntry[], behind: boolean) {
+  const { functions, classes, custom } = filterFunctions(entries, behind)
+  if (custom) {
+    const all = functions.join(" ")
     return { functions: [all], classes: [`${behind ? "backdrop-filter" : "filter"}-[${arbitrary(all)}]`] }
   }
   return { functions, classes }
@@ -520,55 +472,32 @@ function propertyWrites(entries: FilterEntry[], behind: boolean) {
 export function filterWrites(entries: FilterEntry[]): Writes {
   if (entries.length === 0) return nothing
   const shown = entries.filter((entry) => !entry.off)
-  const behind = (entry: FilterEntry) =>
-    entry.kind === "backdropBlur" || ((entry.kind === "adjust" || entry.kind === "custom") && entry.behind === true)
   const layer = propertyWrites(
-    shown.filter((entry) => !behind(entry)),
+    shown.filter((entry) => !isBehind(entry)),
     false
   )
-  const back = propertyWrites(shown.filter(behind), true)
+  const back = propertyWrites(shown.filter(isBehind), true)
   const css: string[] = []
   if (layer.functions.length > 0) css.push(`filter: ${layer.functions.join(" ")}`)
   if (back.functions.length > 0) css.push(`backdrop-filter: ${back.functions.join(" ")}`)
   const stored: Record<string, unknown> = {}
-  const layerEntries = entries.filter((entry) => !behind(entry))
-  const backEntries = entries.filter(behind)
+  const layerEntries = entries.filter((entry) => !isBehind(entry))
+  const backEntries = entries.filter(isBehind)
   if (layerEntries.length > 0) stored.filter = layerEntries.map(filterStored)
   if (backEntries.length > 0) stored.backdropFilter = backEntries.map(filterStored)
   return { stored, css, tailwind: [...layer.classes, ...back.classes] }
 }
 
-/** The CSS a filter list draws with, for a preview: hex colors in drop shadows. */
+/** The CSS a filter list draws with, for a preview: blur tokens at their size, colors as `draw` gives them. */
 export function filterDrawing(entries: FilterEntry[], draw: (value: ListColor) => string) {
   const shown = entries.filter((entry) => !entry.off)
-  const behind = (entry: FilterEntry) =>
-    entry.kind === "backdropBlur" || ((entry.kind === "adjust" || entry.kind === "custom") && entry.behind === true)
-  const functions = (list: FilterEntry[]) => {
-    const out: string[] = []
-    for (const entry of list) {
-      if ((entry.kind === "blur" || entry.kind === "backdropBlur") && entry.value !== undefined) {
-        const px =
-          typeof entry.value === "string"
-            ? (blurTokens.find((token) => token.name === entry.value)?.px ?? 0)
-            : entry.value.px
-        out.push(`blur(${px}px)`)
-      }
-    }
-    for (const entry of list) {
-      if (entry.kind === "custom") out.unshift(entry.text)
-      if (entry.kind !== "adjust") continue
-      for (const key of filterOrder) {
-        const value = entry.values[key]
-        if (!neutral(value)) out.push(adjustmentWrites(key, value!).css)
-      }
-    }
-    for (const entry of list) {
-      if (entry.kind !== "dropShadow") continue
-      for (const part of layersOf(entry.shadow)) {
-        out.push(`drop-shadow(${part.x}px ${part.y}px ${part.blur}px ${draw(part)})`)
-      }
-    }
-    return out.join(" ") || undefined
+  const drawn = (list: FilterEntry[], behind: boolean) =>
+    filterFunctions(list, behind, draw).functions.join(" ") || undefined
+  return {
+    filter: drawn(
+      shown.filter((entry) => !isBehind(entry)),
+      false
+    ),
+    backdropFilter: drawn(shown.filter(isBehind), true)
   }
-  return { filter: functions(shown.filter((entry) => !behind(entry))), backdropFilter: functions(shown.filter(behind)) }
 }

@@ -1,13 +1,14 @@
 /*
- * The list fields' models and stand-in tokens: Fill's paint stack, Effects' shadow list and the filter list, as PAR-652's
- * design-options-values.md specifies them, with Tailwind v4's shadow, inset shadow, drop shadow and text shadow scales,
- * two gradient tokens and the project's images.
+ * The list fields' models: Fill's paint stack, Effects' shadow list and the filter list, as PAR-652's
+ * design-options-values.md specifies them, with the project's images. Their tokens are tokens.ts's.
  */
+import { formatNumber } from "./css-values.ts"
 import type { Length } from "./data.ts"
 import {
   allShadowTokens,
+  type ColorToken,
+  drawnColor,
   dropShadowTokens,
-  hexOf,
   insetShadowTokens,
   type ShadowToken,
   shadowTokens,
@@ -20,12 +21,9 @@ export interface ListColor {
   alpha?: number
 }
 
-/** A color as the preview draws it. */
-export function drawColor({ color, alpha }: ListColor): string {
-  const hex = hexOf(color)
-  if (hex === undefined) return "transparent"
-  return alpha === undefined ? hex : `color-mix(in srgb, ${hex} ${alpha}%, transparent)`
-}
+/** A list entry's color as a preview draws it, with the project's color tokens (tokens.ts's `drawnColor`). */
+export const drawListColor = ({ color, alpha }: ListColor, tokens?: readonly ColorToken[]): string =>
+  drawnColor(color, alpha, tokens)
 
 /** A color in words for a summary: the token's name, or the hex without its #, with its alpha. */
 export function colorWords({ color, alpha }: ListColor): string {
@@ -45,6 +43,18 @@ export interface Stop extends ListColor {
 
 export type GradientKind = "linear" | "radial" | "angular"
 export type Interpolation = "oklab" | "oklch" | "srgb"
+
+/** The eight named directions a linear gradient's angle is also typed as: `to right` is 90°. */
+export const gradientDirections: Readonly<Record<string, number>> = {
+  "to top": 0,
+  "to top right": 45,
+  "to right": 90,
+  "to bottom right": 135,
+  "to bottom": 180,
+  "to bottom left": 225,
+  "to left": 270,
+  "to top left": 315
+}
 
 export interface GradientPaint {
   kind: GradientKind
@@ -166,8 +176,19 @@ export function layersOf(entry: ShadowEntry, saved: ShadowToken[] = []): ShadowL
 /** A layer's numbers in words: `0 4 12 −2`, with a real minus, as the panel writes negatives. */
 export const layerNumbers = (part: ShadowLayer, spread = true): string =>
   [part.x, part.y, part.blur, ...(spread ? [part.spread] : [])]
-    .map((value) => String(value).replace("-", "−"))
+    .map((value) => formatNumber(value).replace("-", "−"))
     .join(" ")
+
+/**
+ * The layers an entry adds to `box-shadow`, top first: a ring is one layer whose spread is its width, and an inner
+ * shadow's layers are drawn inside.
+ */
+export function boxLayersOf(entry: ShadowEntry, saved: ShadowToken[] = []): ShadowLayer[] {
+  if (entry.kind === "ring") {
+    return [{ ...entry.layer, x: 0, y: 0, blur: 0, spread: entry.width ?? 1, inset: entry.inset }]
+  }
+  return layersOf(entry, saved).map((part) => ({ ...part, inset: entry.kind === "inner" || part.inset }))
+}
 
 /* Filter list */
 
@@ -185,6 +206,28 @@ export const adjustments = [
 export type AdjustmentKey = (typeof adjustments)[number]["key"]
 export type Adjustments = Partial<Record<AdjustmentKey, number>>
 
+/** Tailwind's filter order, which `filter` is composed in whatever order the panel shows. */
+export const filterOrder: readonly AdjustmentKey[] = [
+  "brightness",
+  "contrast",
+  "grayscale",
+  "hue",
+  "invert",
+  "saturate",
+  "sepia"
+]
+
+/** Each adjustment's CSS filter function. */
+export const adjustmentFunctions: Readonly<Record<AdjustmentKey, string>> = {
+  brightness: "brightness",
+  contrast: "contrast",
+  saturate: "saturate",
+  hue: "hue-rotate",
+  grayscale: "grayscale",
+  sepia: "sepia",
+  invert: "invert"
+}
+
 /**
  * One entry of the filter list: Layer blur, Background blur, Adjustments (on the layer or behind it), a Drop shadow that
  * follows the shape, or Custom, a filter read from code in an order Tailwind can't write, kept as text.
@@ -196,6 +239,10 @@ export type FilterEntry = { id: string; off?: boolean } & (
   | { kind: "dropShadow"; shadow: ShadowEntry }
   | { kind: "custom"; behind?: boolean; text: string }
 )
+
+/** Whether an entry is the backdrop filter's, behind the layer, rather than the layer's own. */
+export const isBehind = (entry: FilterEntry): boolean =>
+  entry.kind === "backdropBlur" || ((entry.kind === "adjust" || entry.kind === "custom") && entry.behind === true)
 
 let next = 0
 /** An id for a new entry or stop, unique while the story is open. */

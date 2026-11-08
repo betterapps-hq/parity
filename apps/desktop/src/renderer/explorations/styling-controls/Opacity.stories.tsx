@@ -2,19 +2,19 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { Field } from "../../chrome/fields.tsx"
+import { useTokens } from "./field-parts.tsx"
 import { OpacityRow } from "./opacity-blend.tsx"
-import { Playground } from "./playground.tsx"
+import { Card, Playground, PreviewStage } from "./playground.tsx"
 import type { BlendMode } from "./text-data.ts"
-import { OverShapes } from "./text-preview.tsx"
+import { filledLayer } from "./text-preview.tsx"
 import { type Opacity, opacityWrites } from "./text-writes.ts"
-import { opacityTokens } from "./tokens.ts"
 
 /**
  * Opacity and blend mode (PAR-186, design-options-values.md's Percentage and opacity), Appearance's row on its own: a
  * percentage with opacity tokens, then the blend menu. Opacity on its steps, a quarter of a percent, is written bare
- * (`opacity-47.5`); finer, it's a value of its own in brackets and marked. Up and Down step 1%, Shift 10%, and the icon
- * scrubs. Hovering or moving through the blend menu previews each mode on the layer. A color's own alpha isn't here: it's
- * the % beside its swatch.
+ * (`opacity-47.5`); finer, it's a value of its own in brackets and marked. Up and Down step 1%, Shift 10%, Alt a
+ * quarter, and the icon scrubs. Hovering or moving through the blend menu previews each mode on the layer. A color's
+ * own alpha isn't here: it's the % beside its swatch.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Opacity and blend mode",
@@ -23,6 +23,20 @@ const meta = {
 
 export default meta
 type Story = StoryObj<typeof meta>
+
+/** The layer over the stage's shapes, at its opacity and blend, a token's included, one made here too. */
+function Layer({ opacity, blend }: { opacity: Opacity | undefined; blend: BlendMode | undefined }) {
+  const { tokens } = useTokens("opacity")
+  let percent = 100
+  if (opacity !== undefined && "token" in opacity)
+    percent = tokens.find((each) => each.name === opacity.token)?.percent ?? 100
+  else if (opacity !== undefined) percent = opacity.percent
+  return (
+    <PreviewStage>
+      <Card style={{ ...filledLayer, opacity: percent / 100, mixBlendMode: blend }} />
+    </PreviewStage>
+  )
+}
 
 function Appearance({
   opacity: start,
@@ -36,15 +50,8 @@ function Appearance({
   const [opacity, setOpacity] = useState(start)
   const [blend, setBlend] = useState(blendStart)
   const [preview, setPreview] = useState<BlendMode>()
-  let percent = 100
-  if (opacity !== undefined && "token" in opacity)
-    percent = opacityTokens.find((each) => each.name === opacity.token)!.percent
-  else if (opacity !== undefined) percent = opacity.percent
   return (
-    <Playground
-      writes={opacityWrites(opacity, blend)}
-      preview={<OverShapes style={{ opacity: percent / 100, mixBlendMode: preview ?? blend }} />}
-    >
+    <Playground writes={opacityWrites(opacity, blend)} preview={<Layer opacity={opacity} blend={preview ?? blend} />}>
       <Field label="Opacity" mixed={mixed && opacity === undefined}>
         <OpacityRow
           opacity={opacity}
@@ -71,7 +78,7 @@ export const OnAQuarterStep: Story = { render: () => <Appearance opacity={{ perc
 /** 47.3%, finer than the steps: `opacity-[.473]`, marked, with opacity-47.25 as the nearest step. */
 export const ValueOfItsOwn: Story = { render: () => <Appearance opacity={{ percent: 47.3 }} /> }
 
-/** An opacity token, `disabled`, as a chip showing 50%. Up steps to `muted`. */
+/** An opacity token, `disabled`, as a chip with 50% after it. Up steps to `muted`; the token button lists them. */
 export const Token: Story = { render: () => <Appearance opacity={{ token: "disabled" }} /> }
 
 /** Layers with different opacities and blends: Mixed in both. */

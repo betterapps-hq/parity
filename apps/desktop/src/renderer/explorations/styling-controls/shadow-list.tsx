@@ -6,30 +6,38 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Switch,
   Toggle,
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
+import type { PreviewKind } from "@parity-app/tokens"
 import { ChevronDown, ChevronRight, Ellipsis, Plus, RotateCcw, Unlink } from "lucide-react"
-import { type CSSProperties, type ReactNode, useState } from "react"
+import { useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
+import { Field } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { Num } from "./controls.tsx"
+import { shadowCss } from "./css-values.ts"
 import { usedColors } from "./data.ts"
-import { ListRow, moved, OffsetPad, RowMessage } from "./list-parts.tsx"
 import {
+  MessageLine,
+  MissingMark,
+  type Reading,
+  type ScrubKeys,
+  TokenChip,
+  TokenMark,
+  useTokens,
+  ValueField
+} from "./field-parts.tsx"
+import { ListRow, moved, OffsetPad, TypeMenu, type TypeOption } from "./list-parts.tsx"
+import {
+  boxLayersOf,
   colorWords,
-  drawColor,
+  drawListColor,
   layerNumbers,
   layersOf,
   type ListColor,
@@ -40,6 +48,7 @@ import {
   tokensFor
 } from "./lists-data.ts"
 import { shadowDrawing, shadowsFitSlots, shadowTarget } from "./lists-writes.ts"
+import { Card } from "./playground.tsx"
 import { allShadowTokens, type ShadowToken, shadowToken } from "./tokens.ts"
 
 /*
@@ -50,13 +59,14 @@ import { allShadowTokens, type ShadowToken, shadowToken } from "./tokens.ts"
  * only its color can be overridden, as Tailwind can (`shadow-lg shadow-black/20`), and the rest offers Detach.
  */
 
-/** The color a part changed on the layer is drawn in, beside the token it overrides. */
-const overrideColor = kindColors.component
+/** The color a part changed on the layer is drawn in: the token chip's override dot's, and a changed field label's. */
+const overrideColor = kindColors.agent
 
 const kindNames: Record<ShadowKind, string> = { drop: "Drop shadow", inner: "Inner shadow", ring: "Ring" }
+const shadowKinds: readonly ShadowKind[] = ["drop", "inner", "ring"]
 
-/** A token's name without the namespace the field implies: `md` for `shadow-md`. */
-const shortName = (token: string) => token.replace(/^(inset-shadow|drop-shadow|text-shadow|shadow)-/, "")
+/** The namespace a shadow token's name has, which its chip leaves off: `shadow-` in `shadow-md`. */
+const shadowNamespace = (name: string) => /^(inset-shadow|drop-shadow|text-shadow|shadow)-/.exec(name)?.[0]
 
 /** Which group an entry is listed and dragged in. */
 function groupOf(entry: ShadowEntry): "inside" | "outside" | "follow" {
@@ -140,13 +150,14 @@ export function ShadowList({
   const titles = { inside: "Inside", outside: onText ? "Outside, on the text" : "Outside", follow: "Follows the shape" }
   const saveAsToken = () => {
     const box = ordered.filter((entry) => !entry.off && shadowTarget(entry, onText) === "box")
-    const layers = box.flatMap((entry) =>
-      entry.kind === "ring"
-        ? [{ ...entry.layer, x: 0, y: 0, blur: 0, spread: entry.width ?? 1, inset: entry.inset }]
-        : layersOf(entry, saved).map((part) => ({ ...part, inset: entry.kind === "inner" }))
-    )
     const name = `shadow-saved-${saved.length + 1}`
-    onSave(shadowToken("shadow", name, layers))
+    onSave(
+      shadowToken(
+        "shadow",
+        name,
+        box.flatMap((entry) => boxLayersOf(entry, saved))
+      )
+    )
     onChange([
       { id: newId("shadow"), kind: "drop", token: name, layer: defaultLayer },
       ...ordered.filter((entry) => !box.includes(entry))
@@ -227,11 +238,12 @@ export function ShadowList({
             ))}
           {!fits && (
             <div className="flex flex-col items-start gap-1 px-4">
-              <RowMessage tone="note">
-                {
-                  "Tailwind's slots hold one inner shadow, inset ring, ring and drop shadow each, in that order, so these shadows are written as one arbitrary value."
-                }
-              </RowMessage>
+              <MessageLine
+                message={{
+                  tone: "note",
+                  text: "Tailwind's slots hold one inner shadow, inset ring, ring and drop shadow each, in that order, so these shadows are written as one arbitrary value."
+                }}
+              />
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={saveAsToken}>
                 Save as token
               </Button>
@@ -243,15 +255,59 @@ export function ShadowList({
   )
 }
 
-/** A small card with the entry's shadow on it, scaled down, so its color and spread show. */
-function ShadowCard({ entry, saved }: { entry: ShadowEntry; saved: ShadowToken[] }) {
-  const drawing = shadowDrawing([{ ...entry, off: false }], drawColor, saved)
-  const scaled = (css: string) => css.replace(/(-?\d+(?:\.\d+)?)px/g, (_, number: string) => `${Number(number) / 2}px`)
-  const style: CSSProperties = {
-    boxShadow: drawing.boxShadow ? scaled(drawing.boxShadow) : undefined,
-    filter: drawing.dropShadow ? scaled(drawing.dropShadow) : undefined
-  }
-  return <span aria-hidden className="block size-3 rounded-[3px] bg-white" style={style} />
+/** The preview kind an entry's card is drawn as: a shadow on a card, inside it, under a shape, or on letters. */
+function cardKind(entry: ShadowEntry, onText: boolean): PreviewKind {
+  if (entry.kind === "inner" || (entry.kind === "ring" && entry.inset)) return "inset-shadow"
+  if (entry.kind === "drop" && entry.follow) return "drop-shadow"
+  if (entry.kind === "drop" && onText) return "text-shadow"
+  return "shadow"
+}
+
+/**
+ * An entry's card: its shadow drawn by the Tokens panel's preview for its kind, on the design's sheet, as a shadow
+ * token's is in its list, with the entry's own color.
+ */
+export function ShadowCard({
+  entry,
+  onText = false,
+  saved = []
+}: {
+  entry: ShadowEntry
+  onText?: boolean
+  saved?: ShadowToken[]
+}) {
+  const { tokens: colors } = useTokens("color")
+  const draw = (value: ListColor) => drawListColor(value, colors)
+  const kind = cardKind(entry, onText)
+  let value = shadowCss(boxLayersOf(entry, saved), draw)
+  // A drop shadow's preview takes one `drop-shadow()`'s arguments, and a text shadow's has no spread either.
+  if (kind === "drop-shadow") value = shadowCss(layersOf(entry, saved).slice(0, 1), draw, { spread: false })
+  if (kind === "text-shadow") value = shadowCss(layersOf(entry, saved), draw, { spread: false })
+  return <TokenMark kind={kind} value={value} />
+}
+
+/**
+ * A shadow token in a row, as Composite token's summary has it (`md 0 4 6 −1`): its chip, with a dot where its color is
+ * changed here, then its first layer's numbers, faintly, cut where the row ends.
+ */
+function ShadowTokenSummary({ entry, saved, spread }: { entry: ShadowEntry; saved: ShadowToken[]; spread: boolean }) {
+  const name = entry.token ?? ""
+  const token = [...allShadowTokens, ...saved].find((option) => option.name === name)
+  const first = token?.layers[0]
+  return (
+    <>
+      <TokenChip
+        name={name}
+        token={token}
+        namespace={shadowNamespace(name)}
+        // The row's card is its preview, so the chip doesn't draw another.
+        preview={null}
+        struck={!token}
+        overridden={entry.colorOverride !== undefined}
+      />
+      {first && <span className="truncate text-muted-foreground tabular-nums">{layerNumbers(first, spread)}</span>}
+    </>
+  )
 }
 
 function ShadowRow({
@@ -277,29 +333,15 @@ function ShadowRow({
   onMove: (from: number, to: number) => void
   onRemove: () => void
 }) {
-  const [open, setOpen] = useState(startOpen)
   const onText = text !== undefined && text.shadowOf === "text"
   const name = `${kindNames[entry.kind]} ${index + 1}`
   const spread = entry.kind !== "drop" || (!entry.follow && !onText)
-  const layers = layersOf(entry, saved)
-  let summary: ReactNode
+  let summary = `${layerNumbers(entry.layer, spread)} ${colorWords(entry.layer)}`
   if (entry.kind === "ring") summary = `${entry.width ?? 1}px ${colorWords(entry.layer)}`
-  else if (entry.token === undefined) summary = `${layerNumbers(entry.layer, spread)} ${colorWords(entry.layer)}`
-  else {
-    summary = (
-      <span className="relative shrink-0 rounded-sm bg-accent px-1 py-0.5 font-mono">
-        {shortName(entry.token)}
-        {entry.colorOverride && (
-          <span
-            aria-label="Its color is overridden"
-            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full"
-            style={{ background: overrideColor }}
-          />
-        )}
-      </span>
-    )
-  }
-  const fullSummary = layers.map((part) => `${layerNumbers(part, spread)} ${colorWords(part)}`).join(", ")
+  const types: TypeOption<ShadowKind>[] = shadowKinds.map((kind) => ({
+    value: kind,
+    label: kind === "ring" && entry.kind === "ring" && entry.inset ? "Inset ring" : kindNames[kind]
+  }))
   return (
     <ListRow
       name={name}
@@ -309,55 +351,36 @@ function ShadowRow({
       onMove={onMove}
       onToggle={() => onChange({ off: !entry.off })}
       onRemove={onRemove}
+      preview={<ShadowCard entry={entry} onText={onText} saved={saved} />}
+      details={{
+        content: <ShadowEditor entry={entry} tokensOnly={tokensOnly} text={text} saved={saved} onChange={onChange} />,
+        defaultOpen: startOpen
+      }}
+      type={
+        <TypeMenu
+          label={name}
+          value={entry.kind}
+          options={types}
+          onChange={(kind) => {
+            const next = newEntry(kind, onText)
+            onChange({
+              kind: next.kind,
+              token: next.token,
+              width: next.width,
+              layer: next.kind === "ring" ? next.layer : entry.layer,
+              colorOverride: undefined,
+              follow: undefined,
+              inset: undefined
+            })
+          }}
+        />
+      }
     >
-      <Popover open={open} onOpenChange={setOpen}>
-        <div className="flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md border bg-transparent pl-1 text-xs dark:bg-input/30">
-          <PopoverTrigger
-            aria-label={`${name}: edit`}
-            className="grid size-5 shrink-0 place-items-center rounded-sm bg-neutral-200 outline-none hover:bg-neutral-300 focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ShadowCard entry={entry} saved={saved} />
-          </PopoverTrigger>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label={`${name} type: ${kindNames[entry.kind]}`}
-              className="flex shrink-0 items-center gap-0.5 rounded-sm px-0.5 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {entry.kind === "ring" && entry.inset ? "Inset ring" : kindNames[entry.kind]}
-              <ChevronDown className="size-3 text-muted-foreground" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-40">
-              <DropdownMenuRadioGroup
-                value={entry.kind}
-                onValueChange={(kind) => {
-                  const next = newEntry(kind as ShadowKind, onText)
-                  onChange({
-                    kind: next.kind,
-                    token: next.token,
-                    width: next.width,
-                    layer: next.kind === "ring" ? next.layer : entry.layer,
-                    colorOverride: undefined,
-                    follow: undefined,
-                    inset: undefined
-                  })
-                }}
-              >
-                {(Object.keys(kindNames) as ShadowKind[]).map((kind) => (
-                  <DropdownMenuRadioItem key={kind} value={kind} className="text-xs">
-                    {kindNames[kind]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Hint label={entry.token ?? kindNames[entry.kind]} detail={fullSummary}>
-            <span className="flex min-w-0 items-center gap-1 truncate pr-1.5 tabular-nums">{summary}</span>
-          </Hint>
-        </div>
-        <PopoverContent className="w-72 p-2" align="start">
-          <ShadowEditor entry={entry} tokensOnly={tokensOnly} text={text} saved={saved} onChange={onChange} />
-        </PopoverContent>
-      </Popover>
+      {entry.token === undefined || entry.kind === "ring" ? (
+        <span className="truncate tabular-nums">{summary}</span>
+      ) : (
+        <ShadowTokenSummary entry={entry} saved={saved} spread={spread} />
+      )}
     </ListRow>
   )
 }
@@ -391,7 +414,7 @@ export function ShadowEditor({
   if (entry.kind === "ring") {
     return (
       <div className="flex flex-col gap-2">
-        <EditorRow label="Width">
+        <Field label="Width">
           <Num
             label="Ring width"
             pixels
@@ -399,8 +422,8 @@ export function ShadowEditor({
             min={0}
             onChange={(width) => onChange({ width: Math.round(width ?? 1) })}
           />
-        </EditorRow>
-        <EditorRow label="Color">
+        </Field>
+        <Field label="Color">
           <ColorInput
             label="Ring color"
             value={layer.color}
@@ -409,8 +432,8 @@ export function ShadowEditor({
             used={usedColors}
             onChange={(color, alpha) => setLayer({ color: color ?? layer.color, alpha })}
           />
-        </EditorRow>
-        <EditorRow label="Inside">
+        </Field>
+        <Field label="Inside">
           <Hint label="Inset" detail="Draws the ring inside the edge: inset-ring">
             <Toggle
               variant="outline"
@@ -423,50 +446,16 @@ export function ShadowEditor({
               Inset
             </Toggle>
           </Hint>
-        </EditorRow>
+        </Field>
       </div>
     )
   }
   const token = entry.token
   return (
     <div className="flex flex-col gap-2">
-      <EditorRow label="Token">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label={`Shadow token: ${token ?? "Custom"}`}
-            className="flex h-7 items-center gap-1 rounded-md border px-1.5 text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent dark:bg-input/30"
-          >
-            <span className="font-mono">{token ?? "Custom"}</span>
-            <ChevronDown className="ml-auto size-3 text-muted-foreground" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-52">
-            <DropdownMenuRadioGroup
-              value={token ?? ""}
-              onValueChange={(next) => onChange({ token: next as string, colorOverride: undefined })}
-            >
-              {tokens.map((option) => (
-                <DropdownMenuRadioItem key={option.name} value={option.name} className="gap-2 text-xs">
-                  <span className="grid size-4 place-items-center rounded-sm bg-neutral-200">
-                    <ShadowCard entry={{ ...entry, token: option.name, colorOverride: undefined }} saved={saved} />
-                  </span>
-                  <span className="font-mono">{option.name}</span>
-                  <span className="ml-auto text-muted-foreground tabular-nums">
-                    {layerNumbers(option.layers[0]!, spread)}
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-            {token !== undefined && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2 text-xs" onClick={() => detach(entry, saved, onChange)}>
-                  <Unlink className="size-3.5" /> Detach
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </EditorRow>
+      <Field label="Token">
+        <ShadowTokenField entry={entry} tokens={tokens} saved={saved} onChange={onChange} />
+      </Field>
       {token !== undefined ? (
         <TokenParts entry={entry} tokensOnly={tokensOnly} saved={saved} spread={spread} onChange={onChange} />
       ) : (
@@ -513,7 +502,7 @@ export function ShadowEditor({
               )}
             </div>
           </div>
-          <EditorRow label="Color">
+          <Field label="Color">
             <ColorInput
               label="Shadow color"
               value={layer.color}
@@ -522,11 +511,11 @@ export function ShadowEditor({
               used={usedColors}
               onChange={(color, alpha) => setLayer({ color: color ?? layer.color, alpha })}
             />
-          </EditorRow>
+          </Field>
         </>
       )}
       {entry.kind === "drop" && !onText && !inFilter && (
-        <EditorRow label="Follow shape">
+        <Field label="Follow shape">
           <Hint
             label="Follow shape"
             detail="Shadows what's drawn rather than the box, with no spread: filter: drop-shadow(), the filter's last entry"
@@ -544,17 +533,19 @@ export function ShadowEditor({
               }}
             />
           </Hint>
-        </EditorRow>
+        </Field>
       )}
       {entry.kind === "drop" && text?.hasFill && (
-        <EditorRow label="Shadow of">
+        <Field label="Shadow of">
           <ToggleGroup
             variant="outline"
             size="sm"
             spacing={0}
             aria-label="Shadow of"
             value={[text.shadowOf]}
-            onValueChange={([shadowOf]) => shadowOf && text.onShadowOf(shadowOf as "text" | "box")}
+            onValueChange={([shadowOf]) => {
+              if (shadowOf === "text" || shadowOf === "box") text.onShadowOf(shadowOf)
+            }}
           >
             <Hint label="Text" detail="Shadows the letters: text-shadow">
               <ToggleGroupItem value="text" className="h-7 px-2 text-xs">
@@ -567,9 +558,74 @@ export function ShadowEditor({
               </ToggleGroupItem>
             </Hint>
           </ToggleGroup>
-        </EditorRow>
+        </Field>
       )}
     </div>
+  )
+}
+
+/**
+ * A shadow's token, on the shared field: the token as a chip, or Custom for the entry's own numbers. Its list draws
+ * each token with its preview; typing a token's name (`md`, `shadow-md`) takes it, Up and Down step through the scale,
+ * and Custom, the chip's ×, or Backspace on it detaches the token, keeping its first layer as the entry's own.
+ */
+function ShadowTokenField({
+  entry,
+  tokens,
+  saved,
+  onChange
+}: {
+  entry: ShadowEntry
+  tokens: ShadowToken[]
+  saved: ShadowToken[]
+  onChange: (change: Partial<ShadowEntry>) => void
+}) {
+  const name = entry.token
+  const token = tokens.find((option) => option.name === name)
+  const shortName = (option: ShadowToken) => option.name.slice(shadowNamespace(option.name)?.length ?? 0)
+  const pick = (next: string | undefined) => {
+    if (next === undefined) detach(entry, saved, onChange)
+    else if (next !== name) onChange({ token: next, colorOverride: undefined })
+  }
+  const read = (text: string): Reading<string | undefined> => {
+    const trimmed = text.trim()
+    if (trimmed === "") return { value: name }
+    const named = tokens.find((option) => option.name === trimmed || shortName(option) === trimmed)
+    if (named) return { value: named.name }
+    const example = tokens[0] ? `, such as ${shortName(tokens[0])}` : ""
+    return { reason: `Shadow token takes a token's name${example}` }
+  }
+  const step = (up: boolean, { shift }: ScrubKeys) => {
+    if (!token) return
+    // A token steps to the next of its kind in scale order; Shift goes to the first or last.
+    const last = tokens.length - 1
+    let next = Math.min(last, Math.max(0, tokens.indexOf(token) + (up ? 1 : -1)))
+    if (shift) next = up ? last : 0
+    pick(tokens[next]!.name)
+  }
+  return (
+    <ValueField
+      label="Shadow token"
+      shown={undefined}
+      placeholder="Custom"
+      chip={
+        name === undefined
+          ? undefined
+          : {
+              name,
+              token,
+              namespace: shadowNamespace(name),
+              overridden: entry.colorOverride !== undefined,
+              onRemove: () => pick(undefined)
+            }
+      }
+      status={{ missing: name !== undefined && !token ? <MissingMark name={name} /> : undefined }}
+      tokens={{ list: tokens, current: name, none: "Custom", onPick: pick }}
+      inputMode="text"
+      read={read}
+      onCommit={pick}
+      onStep={step}
+    />
   )
 }
 
@@ -577,15 +633,6 @@ export function ShadowEditor({
 function detach(entry: ShadowEntry, saved: ShadowToken[], onChange: (change: Partial<ShadowEntry>) => void) {
   const [first] = layersOf(entry, saved)
   onChange({ token: undefined, colorOverride: undefined, layer: first ?? entry.layer })
-}
-
-function EditorRow({ label, children }: { label: ReactNode; children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-[88px_1fr] items-center gap-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="min-w-0">{children}</div>
-    </div>
-  )
 }
 
 /**
@@ -654,9 +701,12 @@ function TokenParts({
             }
           />
         </div>
-        <RowMessage tone="note">
-          {"Tailwind overrides only a shadow token's color. To change its offsets, blur or spread, detach it."}
-        </RowMessage>
+        <MessageLine
+          message={{
+            tone: "note",
+            text: "Tailwind overrides only a shadow token's color. To change its offsets, blur or spread, detach it."
+          }}
+        />
         <Button
           variant="outline"
           size="sm"
@@ -670,7 +720,7 @@ function TokenParts({
   )
 }
 
-/** A card drawn with the shadows, over shapes, and a line of text for a text shadow. */
+/** The card drawn with the shadows, and a line of text for a text shadow. */
 export function ShadowPreview({
   entries,
   onText = false,
@@ -683,28 +733,27 @@ export function ShadowPreview({
   filled?: boolean
   saved?: ShadowToken[]
 }) {
-  const drawing = shadowDrawing(entries, drawColor, saved)
-  const textShadow = onText ? drawing.textShadow : undefined
+  const { tokens: colors } = useTokens("color")
+  const draw = (value: ListColor) => drawListColor(value, colors)
+  const drawing = shadowDrawing(entries, draw, saved)
   const boxShadow = onText
     ? shadowDrawing(
         entries.filter((entry) => entry.kind !== "drop"),
-        drawColor,
+        draw,
         saved
       ).boxShadow
     : drawing.boxShadow
   return (
-    <div
-      aria-label="The layer"
-      className={`relative grid place-items-center rounded-xl font-semibold text-neutral-900 ${onText ? "text-3xl" : "text-xs"} ${filled ? "bg-white" : ""}`}
+    <Card
       style={{
-        width: 200,
-        height: 120,
+        borderRadius: 12,
+        fontWeight: 600,
+        ...(onText ? { fontSize: 30, lineHeight: "36px" } : {}),
+        background: filled ? "white" : undefined,
         boxShadow: boxShadow || undefined,
         filter: drawing.dropShadow || undefined,
-        textShadow: textShadow || undefined
+        textShadow: onText ? drawing.textShadow || undefined : undefined
       }}
-    >
-      Plans
-    </div>
+    />
   )
 }

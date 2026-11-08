@@ -12,36 +12,10 @@ import {
   DropdownMenuTrigger,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
-import {
-  AlignCenter,
-  AlignJustify,
-  AlignLeft,
-  AlignRight,
-  Ban,
-  ChevronDown,
-  CircleHelp,
-  Copy,
-  Crop,
-  Crosshair,
-  Ellipsis,
-  EyeOff,
-  Hand,
-  HandGrab,
-  Loader,
-  LoaderCircle,
-  MousePointer2,
-  Move,
-  MoveHorizontal,
-  MoveVertical,
-  Pointer,
-  TextCursor,
-  ZoomIn,
-  ZoomOut
-} from "lucide-react"
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop, Ellipsis } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { TokenArt } from "../../chrome/token-previews.tsx"
-import { fieldBox, fieldInput, InvalidMark, MessageLine, NotBaseline, useTyped } from "./field-parts.tsx"
+import { fieldBox, NotBaseline, type Reading, TokenMark, ValueField } from "./field-parts.tsx"
 import type { KeywordOption, KeywordValue } from "./text-writes.ts"
 import { cursorTokens } from "./tokens.ts"
 
@@ -71,8 +45,9 @@ const globalKeywords: Record<string, string> = {
 }
 
 /**
- * A keyword outside the set, read from code or typed from the menu: a chip marked Custom, edited as text and checked
- * with `CSS.supports`. A keyword every field takes (`inherit`) shows in words.
+ * A keyword outside the set, read from code or typed from the menu: a ValueField marked Custom, edited as text and
+ * checked with `CSS.supports`. A keyword every field takes (`inherit`) shows in words, its CSS in the hint, and is
+ * typed over as written.
  */
 function CustomKeyword({
   property,
@@ -83,45 +58,33 @@ function CustomKeyword({
   value: string
   onChange: (value: KeywordValue | undefined) => void
 }) {
-  const typed = useTyped<string>({
-    label: property,
-    shown: value,
-    read: (text) => {
-      const trimmed = text.trim()
-      if (trimmed === "") return { reason: `Type a value for ${property}, or choose one` }
-      if (!CSS.supports(property, trimmed)) return { reason: `${property} can't be ${trimmed}` }
-      return { value: trimmed }
-    },
-    onCommit: (next) => onChange({ custom: next })
-  })
   const word = globalKeywords[value]
-  if (word !== undefined) {
-    return (
-      <Hint label={word} detail={`${property}: ${value}`}>
-        <span className="flex h-7 items-center gap-1 rounded-md bg-accent px-2 text-xs">
-          {word}
-          <button
-            type="button"
-            aria-label={`Remove ${word}`}
-            onClick={() => onChange(undefined)}
-            className="grid size-4 place-items-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
-          >
-            ×
-          </button>
-        </span>
-      </Hint>
-    )
-  }
   return (
     <div className="min-w-32 flex-1">
-      <label className={fieldBox(typed.error)}>
-        <Hint label="Custom" detail="A value outside this set, kept as it was written">
-          <span className="shrink-0 rounded bg-accent px-1 text-[10px] font-medium text-muted-foreground">Custom</span>
-        </Hint>
-        <input aria-label={`${property}, custom`} {...typed.input} className={`${fieldInput} font-mono`} />
-        {typed.error && <InvalidMark />}
-      </label>
-      <MessageLine message={typed.message} />
+      <ValueField
+        label={`${property}, custom`}
+        inner={
+          word === undefined ? (
+            <Hint label="Custom" detail="A value outside this set, kept as it was written">
+              <span className="shrink-0 rounded bg-accent px-1 text-[10px] font-medium text-muted-foreground">
+                Custom
+              </span>
+            </Hint>
+          ) : undefined
+        }
+        shown={word ?? value}
+        editText={word === undefined ? undefined : value}
+        hint={word === undefined ? undefined : { label: word, detail: `${property}: ${value}` }}
+        inputMode="text"
+        inputClassName={word === undefined ? "font-mono" : ""}
+        read={(text): Reading<string> => {
+          const trimmed = text.trim()
+          if (trimmed === "") return { reason: `Type a value for ${property}, or choose one` }
+          if (!CSS.supports(property, trimmed)) return { reason: `${property} can't be ${trimmed}` }
+          return { value: trimmed }
+        }}
+        onCommit={(next) => onChange({ custom: next })}
+      />
     </div>
   )
 }
@@ -479,27 +442,18 @@ export const wrapChoices: KeywordChoice[] = [
   { value: "nowrap", label: "No wrap", css: "text-wrap: nowrap", tailwind: "text-nowrap" }
 ]
 
-const cursor = (value: string, label: string, icon: ReactNode): KeywordChoice => ({
+const cursor = (value: string, label: string): KeywordChoice => ({
   value,
   label,
-  icon,
   css: `cursor: ${value}`,
   tailwind: `cursor-${value}`
 })
-
-/** A cursor token, drawn as the Tokens panel draws it, in an icon's room. */
-const cursorToken = (name: string, value: string) => (
-  <span className="block size-3.5">
-    <TokenArt token={{ name: `cursor-${name}`, kind: "cursor", values: { default: value } }} width={14} height={14} />
-  </span>
-)
 
 /** Interaction's Cursor: the project's cursor tokens, then each cursor, drawn and shown as the pointer on hover. */
 export const cursorChoices: KeywordChoice[] = [
   {
     value: "interactive",
     label: "Interactive",
-    icon: cursorToken("interactive", "pointer"),
     css: "cursor: var(--cursor-interactive)",
     tailwind: "cursor-(--cursor-interactive)",
     token: true
@@ -507,41 +461,39 @@ export const cursorChoices: KeywordChoice[] = [
   {
     value: "busy",
     label: "Busy",
-    icon: cursorToken("busy", "progress"),
     css: "cursor: var(--cursor-busy)",
     tailwind: "cursor-(--cursor-busy)",
     token: true
   },
-  cursor("default", "Default", <MousePointer2 className="size-3.5" />),
-  cursor("pointer", "Pointer", <Pointer className="size-3.5" />),
-  cursor("text", "Text", <TextCursor className="size-3.5" />),
-  cursor("move", "Move", <Move className="size-3.5" />),
-  cursor("grab", "Grab", <Hand className="size-3.5" />),
-  cursor("grabbing", "Grabbing", <HandGrab className="size-3.5" />),
-  cursor("not-allowed", "Not allowed", <Ban className="size-3.5" />),
-  cursor("wait", "Wait", <Loader className="size-3.5" />),
-  cursor("progress", "Progress", <LoaderCircle className="size-3.5" />),
-  cursor("help", "Help", <CircleHelp className="size-3.5" />),
-  cursor("crosshair", "Crosshair", <Crosshair className="size-3.5" />),
-  cursor("zoom-in", "Zoom in", <ZoomIn className="size-3.5" />),
-  cursor("zoom-out", "Zoom out", <ZoomOut className="size-3.5" />),
-  cursor("copy", "Copy", <Copy className="size-3.5" />),
-  cursor("ew-resize", "Resize left and right", <MoveHorizontal className="size-3.5" />),
-  cursor("ns-resize", "Resize up and down", <MoveVertical className="size-3.5" />),
-  cursor("none", "None", <EyeOff className="size-3.5" />)
+  cursor("default", "Default"),
+  cursor("pointer", "Pointer"),
+  cursor("text", "Text"),
+  cursor("move", "Move"),
+  cursor("grab", "Grab"),
+  cursor("grabbing", "Grabbing"),
+  cursor("not-allowed", "Not allowed"),
+  cursor("wait", "Wait"),
+  cursor("progress", "Progress"),
+  cursor("help", "Help"),
+  cursor("crosshair", "Crosshair"),
+  cursor("zoom-in", "Zoom in"),
+  cursor("zoom-out", "Zoom out"),
+  cursor("copy", "Copy"),
+  cursor("ew-resize", "Resize left and right"),
+  cursor("ns-resize", "Resize up and down"),
+  cursor("none", "None")
 ]
 
 /** The CSS cursor a cursor choice comes to, a token's included. */
 export const cursorValue = (value: string): string =>
   cursorTokens.find((token) => token.name === `cursor-${value}`)?.value ?? value
 
-/** Draws a cursor option with its icon, and shows that cursor while it's hovered. */
+/**
+ * Draws a cursor option as the Tokens panel draws a cursor token (chrome's `TokenArt`), so a token and the cursor it
+ * holds look the same, and shows that cursor while it's hovered.
+ */
 export function drawCursor(choice: KeywordChoice) {
-  return (
-    <span aria-hidden className="grid size-4 place-items-center" style={{ cursor: cursorValue(choice.value) }}>
-      {choice.icon}
-    </span>
-  )
+  return <TokenMark kind="cursor" value={cursorValue(choice.value)} width={16} height={16} />
 }
 
 const strokeStyle = (value: string, label: string, more = false): KeywordChoice => ({

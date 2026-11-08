@@ -2,10 +2,9 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { AdjustmentsEditor, FilterList, FilterPreview } from "./filter-list.tsx"
-import { PreviewStage } from "./list-parts.tsx"
 import type { Adjustments, FilterEntry } from "./lists-data.ts"
 import { filterWrites } from "./lists-writes.ts"
-import { Playground } from "./playground.tsx"
+import { Playground, PreviewStage } from "./playground.tsx"
 
 /**
  * The filter list (PAR-652's Filter list): `filter` on the layer and `backdrop-filter` behind it. Layer blur, Background

@@ -10,38 +10,20 @@ import { ChevronDown, Contrast } from "lucide-react"
 import { Fragment } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { formatNumber } from "./css-values.ts"
-import {
-  fieldBox,
-  fieldInput,
-  InvalidMark,
-  MessageLine,
-  NotBaseline,
-  OffSystemMark,
-  readNumber,
-  scrub,
-  TokenChip,
-  TokenMark,
-  useTyped
-} from "./field-parts.tsx"
+import { fieldBox, NotBaseline, OffSystemMark, PercentField, useTokens } from "./field-parts.tsx"
 import { type BlendMode, blendModes } from "./text-data.ts"
 import { onOpacityStep, type Opacity } from "./text-writes.ts"
-import { opacityTokens } from "./tokens.ts"
+import { opacityToken } from "./tokens.ts"
 
 /*
  * Appearance's Opacity and Blend mode row (PAR-186, design-options-values.md's Percentage and opacity): a percentage
  * with opacity tokens, then the blend menu, each option previewed on the canvas as it's hovered.
  */
 
-const percentOf = (opacity: Opacity | undefined): number | undefined => {
-  if (opacity === undefined) return undefined
-  if ("token" in opacity) return opacityTokens.find((token) => token.name === opacity.token)?.percent
-  return opacity.percent
-}
-
 /**
- * Opacity: a percentage, typed with the app's maths (`50`, `*0.5`, `-10`), or an opacity token's chip. On opacity's
- * steps, a quarter of a percent, it's written bare (`opacity-47.5`); finer, it's a value of its own, in brackets and
- * marked. Up and Down step 1%, Shift 10%, and its icon scrubs.
+ * Opacity: a percentage, the core's PercentField, typed with the app's maths (`50`, `*0.5`, `-10`), or an opacity
+ * token's chip. On opacity's steps, a quarter of a percent, it's written bare (`opacity-47.5`); finer, it's a value of
+ * its own, in brackets and marked. Up and Down step 1%, Shift 10%, Alt a quarter, and its icon scrubs.
  */
 export function OpacityField({
   value,
@@ -52,103 +34,51 @@ export function OpacityField({
   mixed?: boolean
   onChange: (value: Opacity | undefined) => void
 }) {
-  const token = value !== undefined && "token" in value ? value.token : undefined
-  const percent = percentOf(value)
+  const { tokens, create } = useTokens("opacity")
   const own = value !== undefined && "percent" in value ? value : undefined
   const offStep = own !== undefined && !onOpacityStep(own.percent)
-  const typed = useTyped<Opacity | undefined>({
-    label: "Opacity",
-    shown: token === undefined && percent !== undefined ? formatNumber(percent) : "",
-    read: (text) => {
-      const trimmed = text.trim().toLowerCase()
-      if (trimmed === "") return { value: undefined }
-      const name = trimmed.replace(/^opacity-/, "")
-      if (opacityTokens.some((each) => each.name === name)) return { value: { token: name } }
-      const reading = readNumber(trimmed.replace(/%$/, ""), percent ?? 100, "Opacity")
-      if ("reason" in reading) return { reason: "Opacity takes a percentage, such as 50, or an opacity token" }
-      if ("clear" in reading) return { value: undefined }
-      const kept = Math.min(100, Math.max(0, reading.value))
-      if (kept !== reading.value) {
-        return {
-          value: { percent: kept },
-          message: { tone: "note", text: `Kept at ${kept}%: it can't go ${kept === 100 ? "higher" : "lower"}` }
-        }
-      }
-      return { value: { percent: kept } }
-    },
-    onCommit: onChange,
-    onStep: (up, shift) => {
-      if (token !== undefined) {
-        const at = opacityTokens.findIndex((each) => each.name === token)
-        let index = at + (up ? 1 : -1)
-        if (shift) index = up ? opacityTokens.length - 1 : 0
-        onChange({ token: opacityTokens[Math.min(opacityTokens.length - 1, Math.max(0, index))]!.name })
-        return
-      }
-      const by = (up ? 1 : -1) * (shift ? 10 : 1)
-      onChange({ percent: Math.min(100, Math.max(0, Math.round((percent ?? 100) + by))) })
-    }
-  })
   const nearestStep = own === undefined ? 0 : Math.round(own.percent * 4) / 4
-  let placeholder = "100"
-  if (mixed && value === undefined) placeholder = "Mixed"
+  const token = value !== undefined && "token" in value ? value.token : undefined
   return (
+    // The row's width, beside the blend menu, with what it says under both.
     <div className="min-w-0 flex-1">
-      <label className={fieldBox(typed.error, "group/field")}>
-        {/*
-          The field is too narrow for a token's preview, name and percentage, so with a token the drag handle draws the
-          token's preview and its hint says the percentage.
-        */}
-        <Hint label="Drag to change opacity" detail={token === undefined ? undefined : `${token} is ${percent}%`}>
-          <span
-            onPointerDown={scrub(
-              () => percent ?? 100,
-              (next) => onChange({ percent: Math.round(next) }),
-              { step: 1, shiftStep: 10, min: 0, max: 100 }
-            )}
-            className="shrink-0 cursor-ew-resize touch-none text-muted-foreground select-none"
-          >
-            {token === undefined ? (
-              <Contrast aria-hidden className="size-3.5" />
-            ) : (
-              <TokenMark kind="opacity" value={String((percent ?? 100) / 100)} width={16} />
-            )}
-          </span>
-        </Hint>
-        {token !== undefined && <TokenChip name={token} fill onRemove={() => onChange(undefined)} />}
-        <input
-          aria-label="Opacity"
-          inputMode="decimal"
-          placeholder={token === undefined ? placeholder : ""}
-          {...typed.input}
-          onKeyDown={(event) => {
-            if (token !== undefined && event.currentTarget.value === "" && event.key === "Backspace")
-              onChange(undefined)
-            typed.input.onKeyDown(event)
-          }}
-          className={`${fieldInput} ${token === undefined ? "" : "basis-0"}`}
-        />
-        {typed.error && <InvalidMark />}
-        {!typed.error && offStep && own !== undefined && (
-          <OffSystemMark
-            compact
-            label="Opacity"
-            description={`${formatNumber(own.percent)}% is finer than opacity's steps, a quarter of a percent.`}
-            nearest={{ name: `opacity-${formatNumber(nearestStep)}` }}
-            allowed={own.allow}
-            isTaken={(name) => opacityTokens.some((each) => each.name === name)}
-            namePlaceholder="faint"
-            onUse={() => onChange({ percent: nearestStep })}
-            onCreate={(name) => onChange({ token: name })}
-            onAllow={(allow) => onChange({ percent: own.percent, allow })}
-          />
-        )}
-        {/* A narrow field shows one mark at rest: the status mark takes the unit's place. */}
-        {token === undefined && !typed.focused && !typed.error && !offStep && (
-          <span className="shrink-0 text-muted-foreground">%</span>
-        )}
-      </label>
-      <MessageLine message={typed.message} />
+      <PercentField
+        label="Opacity"
+        inner={<Contrast aria-hidden className="size-3.5" />}
+        value={own?.percent}
+        mixed={mixed}
+        // A token's chip needs the room beside the blend menu, so it fills the field and its percentage is in the hint.
+        narrow={token !== undefined}
+        tokens={{
+          list: tokens,
+          current: token,
+          onPick: (name) => onChange(name === undefined ? undefined : { token: name })
+        }}
+        status={{
+          offSystem:
+            offStep && own !== undefined ? (
+              <OffSystemMark
+                compact
+                label="Opacity"
+                description={`${formatNumber(own.percent)}% is finer than opacity's steps, a quarter of a percent.`}
+                nearest={{ name: `opacity-${formatNumber(nearestStep)}` }}
+                allowed={own.allow}
+                isTaken={(name) => tokens.some((each) => each.name === name)}
+                namePlaceholder="faint"
+                onUse={() => onChange({ percent: nearestStep })}
+                onCreate={
+                  create &&
+                  ((name) => {
+                    create(opacityToken(name, own.percent))
+                    onChange({ token: name })
+                  })
+                }
+                onAllow={(allow) => onChange({ percent: own.percent, allow })}
+              />
+            ) : undefined
+        }}
+        onChange={(percent) => onChange(percent === undefined ? undefined : { percent })}
+      />
     </div>
   )
 }

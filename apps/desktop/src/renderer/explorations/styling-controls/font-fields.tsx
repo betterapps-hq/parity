@@ -1,89 +1,89 @@
-/* oxlint-disable jsx-a11y/prefer-tag-over-role -- the font list is a combobox's listbox, its options set in each font, which a select or datalist can't draw */
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Slider,
-  Toggle
-} from "@buildkitgg/shadcn-baseui-kit"
+import { Popover, PopoverContent, PopoverTrigger, Slider, Toggle } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
-import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "react"
+import { type KeyboardEvent, type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { formatNumber } from "./css-values.ts"
+import { clamp, formatNumber, lengthForm } from "./css-values.ts"
 import {
   fieldBox,
-  fieldInput,
-  InvalidMark,
   type Message,
   MessageLine,
+  MissingMark,
+  nearestToken,
+  notAToken,
   OffSystemMark,
+  type Reading,
   readNumber,
-  scrub,
-  TokenChip,
+  type ScrubKeys,
+  type SearchOption,
   TokenMark,
-  useTyped
+  UnitMenu,
+  useTokens,
+  ValueField
 } from "./field-parts.tsx"
+import { type FontFamily, findFont, genericOf, moreFonts, stackFamilies, weightName } from "./text-data.ts"
+import type { FontValue, LetterSpacing, LineHeight, WeightValue } from "./text-writes.ts"
 import {
-  type FontFamily,
-  findFont,
-  genericOf,
-  moreFonts,
-  projectFonts,
-  stackFamilies,
-  weightName
-} from "./text-data.ts"
-import { type FontValue, type LetterSpacing, type LineHeight, onStep, type WeightValue } from "./text-writes.ts"
-import { leadingTokens, type SizeToken, trackingTokens, weightTokens } from "./tokens.ts"
+  type FontToken,
+  fontToken,
+  fontTokens,
+  type LeadingToken,
+  leadingToken,
+  type SizeToken,
+  type TrackingToken,
+  trackingToken,
+  type WeightToken,
+  weightToken
+} from "./tokens.ts"
 
 /*
  * Text's font rows (PAR-186, design-options-values.md's Font family, Weight, and Line height and letter spacing), each
- * a field with the anatomy every field shares: the value, its unit, what it comes to, the status slot, and the token
- * chip or button.
+ * a ValueField with the anatomy every field shares: the value, its unit, what it comes to, the status slot, and the
+ * token chip or button.
  */
 
-/** What a font value draws as: its first family, its stack, its token, and whether the frame can load it. */
-export function resolveFont(value: FontValue | undefined, created: readonly { token: string; stack: string }[] = []) {
+/** A token's neighbour in its list's order, Shift going to the first or last, as Up and Down step every token. */
+function stepThrough<T extends { name: string }>(list: readonly T[], at: T, up: boolean, { shift }: ScrubKeys): T {
+  const last = list.length - 1
+  let index = clamp(list.indexOf(at) + (up ? 1 : -1), 0, last)
+  if (shift) index = up ? last : 0
+  return list[index] ?? at
+}
+
+/** What a font value draws as: its first family's name, its stack, its token, and whether the frame can load it. */
+export function resolveFont(value: FontValue | undefined, tokens: readonly FontToken[] = fontTokens) {
   if (value === undefined) return undefined
   if ("token" in value) {
-    const font = projectFonts.find((each) => each.token === value.token)
-    const stack = font?.stack ?? created.find((each) => each.token === value.token)?.stack ?? "sans-serif"
-    return { name: font?.name ?? stackFamilies(stack)[0] ?? value.token, stack, token: value.token, missing: false }
+    const token = tokens.find((each) => each.name === value.token)
+    return {
+      name: token?.detail ?? value.token,
+      stack: token?.stack ?? "sans-serif",
+      token: value.token,
+      missing: false
+    }
   }
-  const families = stackFamilies(value.stack)
-  const first = families[0] ?? ""
+  const first = stackFamilies(value.stack)[0] ?? ""
   const generic = ["serif", "sans-serif", "monospace", "system-ui"].includes(first)
   return { name: first, stack: value.stack, token: undefined, missing: !generic && findFont(first) === undefined }
 }
 
-/** The project's font token nearest a stack: the one with the same generic family. */
-function nearestFontToken(stack: string): FontFamily {
+/** The project's font token nearest a stack: the first with the same generic family. */
+function nearestFontToken(stack: string, tokens: readonly FontToken[]): FontToken | undefined {
   const generic = genericOf(stack)
-  const token = { serif: "serif", monospace: "mono", "sans-serif": "sans" }[generic]
-  return projectFonts.find((font) => font.token === token) ?? projectFonts[0]!
+  return tokens.find((token) => genericOf(token.stack) === generic) ?? tokens[0]
 }
 
+/** A font the list offers: one of the project's tokens, or one of More fonts, which choosing adds to the project. */
 interface FontOption {
-  font: FontFamily
+  name: string
+  stack: string
   token?: string
 }
 
 /**
  * Font family: the first family's name in its own face, with +2 when the stack has fallbacks and the stack in the
- * hint. Typing searches a list set in each font, the project's fonts first, and Up and Down move through it,
- * previewing each on the canvas; Enter takes the highlighted one, and a comma-separated stack is kept as typed. A font
- * the frame can't load is Missing, drawn in the fallback with its name struck through.
+ * hint. Focused, it lists the fonts, set in each, the project's first; typing searches them, and Up and Down move
+ * through them, previewing each on the canvas; Enter takes the highlighted one, and a comma-separated stack is kept as
+ * typed. A font the frame can't load is Missing, drawn in the fallback with its name struck through.
  */
 export function FontFamilyField({
   value,
@@ -101,288 +101,167 @@ export function FontFamilyField({
   onChange: (value: FontValue | undefined) => void
   onPreview: (value: FontValue | undefined) => void
 }) {
-  const [query, setQuery] = useState<string>()
-  const [highlight, setHighlight] = useState(0)
-  const [message, setMessage] = useState<Message>()
-  const [created, setCreated] = useState<{ token: string; stack: string }[]>([])
-  const input = useRef<HTMLInputElement>(null)
-  const listId = useId()
-  const resolved = resolveFont(value, created)
-  const open = query !== undefined
-  const searched = (query ?? "").split(",")[0]!.trim().toLowerCase()
-  const options: FontOption[] = [
-    ...projectFonts.map((font) => ({ font, token: font.token })),
-    ...created.map((each) => ({
-      font: { name: stackFamilies(each.stack)[0] ?? each.token, stack: each.stack, weights: [400], italic: false },
-      token: each.token
-    })),
-    ...(tokensOnly ? [] : moreFonts.map((font) => ({ font })))
+  const { tokens, create } = useTokens("font")
+  // What Add font says it'll do, under the row.
+  const [note, setNote] = useState<Message>()
+  const change = (next: FontValue | undefined) => {
+    setNote(undefined)
+    onChange(next)
+  }
+  const resolved = resolveFont(value, tokens)
+  const held = value !== undefined && "token" in value ? value.token : undefined
+  const heldToken = tokens.find((token) => token.name === held)
+  const own = value !== undefined && "stack" in value ? value : undefined
+  const fonts: FontOption[] = [
+    ...tokens.map((token) => ({ name: token.detail, stack: token.stack, token: token.name })),
+    ...(tokensOnly ? [] : moreFonts)
   ]
-  const matches = options.filter(
-    (option) =>
-      searched === "" ||
-      option.font.name.toLowerCase().includes(searched) ||
-      (option.token !== undefined && option.token.includes(searched))
-  )
-  const valueOf = (option: FontOption): FontValue =>
-    option.token === undefined ? { stack: option.font.stack } : { token: option.token }
-  // Under Tokens only, a stack of its own is refused, with the nearest font token under it.
-  let refusal: Message | undefined
-  if (tokensOnly && value !== undefined && "stack" in value && value.allow === undefined) {
-    refusal = { tone: "error", text: `Not a token. Nearest: font-${nearestFontToken(value.stack).token}` }
+  const valueOf = (font: FontOption): FontValue =>
+    font.token === undefined ? { stack: font.stack } : { token: font.token }
+  const options = (text: string): (SearchOption & { value: FontValue })[] => {
+    // A comma means a stack, kept as typed, so the list steps aside.
+    if (text.includes(",")) return []
+    const searched = text.trim().toLowerCase()
+    return fonts
+      .filter(
+        (font) =>
+          searched === "" ||
+          font.name.toLowerCase().includes(searched) ||
+          (font.token !== undefined && font.token.includes(searched))
+      )
+      .map((font) => ({
+        key: `${font.token ?? ""}${font.name}`,
+        value: valueOf(font),
+        group: font.token === undefined ? "More fonts, added to the project when chosen" : "In the project",
+        content: (
+          <>
+            <span className="text-sm" style={{ fontFamily: font.stack }}>
+              {font.name}
+            </span>
+            {font.token !== undefined && (
+              <span className="font-mono text-[11px] text-muted-foreground">font-{font.token}</span>
+            )}
+          </>
+        )
+      }))
   }
-  const refused = refusal !== undefined
-  const close = () => {
-    setQuery(undefined)
-    onPreview(undefined)
+  const read = (text: string): Reading<FontValue | undefined> => {
+    const typed = text.trim()
+    if (typed === "") return { value: undefined }
+    if (!typed.includes(",")) {
+      const words = typed.toLowerCase()
+      const named = fonts.find(
+        (font) =>
+          font.name.toLowerCase() === words ||
+          (font.token !== undefined && (font.token === words || `font-${font.token}` === words))
+      )
+      if (named) return { value: valueOf(named) }
+      return {
+        reason: `No font called ${typed} here. Type it with a fallback, such as ${typed}, sans-serif, to keep it as typed`
+      }
+    }
+    const near = tokensOnly ? nearestFontToken(typed, tokens) : undefined
+    if (near) return notAToken(near, () => change({ token: near.name }))
+    return { value: { stack: typed } }
   }
-  const choose = (option: FontOption) => {
-    onChange(valueOf(option))
-    setMessage(undefined)
-    close()
-    input.current?.blur()
-  }
-  const move = (by: number) => {
-    if (matches.length === 0) return
-    const next = (highlight + by + matches.length) % matches.length
-    setHighlight(next)
-    onPreview(valueOf(matches[next]!))
-  }
-  const commitTyped = () => {
-    const text = (query ?? "").trim()
-    if (text === "") {
-      onChange(undefined)
-      setMessage(undefined)
-      close()
-      return
-    }
-    const option = matches[highlight]
-    if (!text.includes(",") && option) {
-      choose(option)
-      return
-    }
-    if (!text.includes(",")) {
-      setMessage({
-        tone: "error",
-        text: `No font called ${text} here. Type it with a fallback, such as ${text}, sans-serif, to keep it as typed`
-      })
-      return
-    }
-    if (tokensOnly) {
-      const near = nearestFontToken(text)
-      setMessage({ tone: "error", text: `Not a token. Nearest: ${near.token} (${near.name})` })
-      return
-    }
-    onChange({ stack: text })
-    setMessage(undefined)
-    close()
-    input.current?.blur()
-  }
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault()
-      if (!open) setQuery("")
-      else move(event.key === "ArrowDown" ? 1 : -1)
-    }
-    if (event.key === "Enter") commitTyped()
-    if (event.key === "Escape" && open) {
-      event.stopPropagation()
-      close()
-      setMessage(message?.tone === "error" ? { tone: "note", text: "Font is back to what it was." } : undefined)
-    }
-    if (event.key === "Backspace" && resolved?.token !== undefined && (query ?? "") === "") onChange(undefined)
-  }
-  let atRest = ""
-  if (resolved !== undefined && resolved.token === undefined) atRest = resolved.name
-  const fallbacks = resolved ? stackFamilies(resolved.stack).length - 1 : 0
-  let placeholder = inherited.font.name
-  if (mixed && value === undefined) placeholder = "Mixed"
-  const error = message?.tone === "error" || refused
-  let status: ReactNode
-  if (message?.tone === "error") status = <InvalidMark />
-  else if (resolved?.missing) {
-    status = (
-      <MissingFontMark
+  const fallbacks = own ? stackFamilies(own.stack).length - 1 : 0
+  let comesTo = heldToken?.detail
+  if (fallbacks > 0) comesTo = `+${fallbacks}`
+  const near = own ? nearestFontToken(own.stack, tokens) : undefined
+  let missing: ReactNode
+  if (held !== undefined && !heldToken) missing = <MissingMark name={held} />
+  else if (own && resolved?.missing) {
+    const fallback = genericOf(own.stack)
+    missing = (
+      <MissingMark
         name={resolved.name}
-        fallback={genericOf(resolved.stack)}
-        onReplace={(font) => onChange({ token: font.token! })}
-        onAdd={() =>
-          setMessage({
-            tone: "note",
-            text: `Put ${resolved.name}'s font files in public/fonts, and Parity adds its @font-face`
-          })
-        }
-      />
-    )
-  } else if (value !== undefined && "stack" in value) {
-    const near = nearestFontToken(value.stack)
-    status = (
-      <OffSystemMark
-        compact
-        label="Font"
-        description={`${resolved?.name} isn't one of the project's font tokens.`}
-        nearest={{ name: `font-${near.token}`, preview: <TokenMark kind="font" value={near.stack} /> }}
-        allowed={value.allow}
-        isTaken={(name) => projectFonts.some((font) => font.token === name) || created.some((c) => c.token === name)}
-        namePlaceholder="display"
-        onUse={() => onChange({ token: near.token! })}
-        onCreate={(name) => {
-          setCreated((current) => [...current, { token: name, stack: value.stack }])
-          onChange({ token: name })
-        }}
-        onAllow={(allow) => onChange({ stack: value.stack, allow })}
+        description={`${resolved.name} isn't in the project, so it's drawn in ${fallback}.`}
+        actions={[
+          ...tokens.map((token) => ({
+            label: `Replace with ${token.detail}`,
+            run: () => change({ token: token.name })
+          })),
+          {
+            label: "Add font",
+            run: () =>
+              setNote({
+                tone: "note",
+                text: `Put ${resolved.name}'s font files in public/fonts, and Parity adds its @font-face.`
+              })
+          }
+        ]}
       />
     )
   }
-  const shownStack = resolved?.stack ?? inherited.font.stack
   return (
-    <div className="relative">
-      <Hint
-        label={resolved ? `Font: ${resolved.name}` : `Font: ${inherited.font.name}, inherited from ${inherited.from}`}
-        detail={resolved ? resolved.stack : `Set on ${inherited.from}. ${inherited.font.stack}`}
-        hidden={open}
-        wait
-      >
-        <label className={fieldBox(error, "pr-0.5")}>
-          {resolved?.token !== undefined && (
-            <TokenChip
-              name={resolved.token}
-              detail={resolved.name}
-              preview={<TokenMark kind="font" value={resolved.stack} />}
-              onRemove={() => onChange(undefined)}
-            />
-          )}
-          <input
-            ref={input}
-            role="combobox"
-            aria-label="Font"
-            aria-expanded={open}
-            aria-controls={listId}
-            aria-autocomplete="list"
-            aria-invalid={error || undefined}
-            aria-activedescendant={open && matches[highlight] ? `${listId}-${highlight}` : undefined}
-            value={query ?? atRest}
-            placeholder={resolved?.token === undefined ? placeholder : ""}
-            onFocus={(event) => {
-              setQuery(resolved?.token === undefined ? (resolved?.name ?? "") : "")
-              setHighlight(0)
-              event.currentTarget.select()
-            }}
-            onBlur={() => {
-              if (message?.tone !== "error") close()
-            }}
-            onChange={(event) => {
-              setQuery(event.target.value)
-              setHighlight(0)
-              setMessage(undefined)
-            }}
-            onKeyDown={onKeyDown}
-            style={{ fontFamily: open ? undefined : shownStack }}
-            className={`${fieldInput} ${resolved?.missing && !open ? "text-amber-700 line-through dark:text-amber-400" : ""} ${refused ? "text-destructive" : ""}`}
-          />
-          {!open && fallbacks > 0 && resolved?.token === undefined && (
-            <span className="shrink-0 text-muted-foreground">+{fallbacks}</span>
-          )}
-          {status}
-        </label>
-      </Hint>
-      {open && (
-        <div
-          id={listId}
-          role="listbox"
-          aria-label="Fonts"
-          className="absolute top-full right-0 left-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-        >
-          {matches.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No fonts match</p>}
-          {matches.map((option, index) => {
-            const first = index === 0 || (matches[index - 1]!.token === undefined) !== (option.token === undefined)
-            return (
-              <div key={`${option.token ?? ""}${option.font.name}`}>
-                {first && (
-                  <p className="px-2 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground">
-                    {option.token === undefined ? "More fonts, added to the project when chosen" : "In the project"}
-                  </p>
-                )}
-                <div
-                  id={`${listId}-${index}`}
-                  role="option"
-                  tabIndex={-1}
-                  aria-selected={index === highlight}
-                  onPointerEnter={() => {
-                    setHighlight(index)
-                    onPreview(valueOf(option))
-                  }}
-                  onPointerDown={(event) => {
-                    event.preventDefault()
-                    choose(option)
-                  }}
-                  className={`flex cursor-default items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm ${index === highlight ? "bg-accent" : ""}`}
-                >
-                  <span style={{ fontFamily: option.font.stack }}>{option.font.name}</span>
-                  {option.token !== undefined && (
-                    <span className="font-mono text-[11px] text-muted-foreground">font-{option.token}</span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-      <MessageLine message={message ?? refusal} />
+    <div>
+      <ValueField
+        label="Font"
+        shown={own ? resolved?.name : undefined}
+        placeholder={inherited.font.name}
+        mixed={mixed}
+        chip={held === undefined ? undefined : { name: held, token: heldToken, onRemove: () => change(undefined) }}
+        comesTo={comesTo}
+        status={{
+          missing,
+          offSystem:
+            own && near ? (
+              <OffSystemMark
+                compact
+                label="Font"
+                description={`${resolved?.name} isn't one of the project's font tokens.`}
+                nearest={{ name: `font-${near.name}`, preview: <TokenMark kind="font" value={near.stack} /> }}
+                allowed={own.allow}
+                isTaken={(name) => tokens.some((token) => token.name === name)}
+                namePlaceholder="display"
+                onUse={() => change({ token: near.name })}
+                onCreate={
+                  create &&
+                  ((name) => {
+                    create(fontToken(name, resolved?.name ?? name, own.stack))
+                    change({ token: name })
+                  })
+                }
+                onAllow={(allow) => change({ stack: own.stack, allow })}
+              />
+            ) : undefined
+        }}
+        refused={
+          tokensOnly && own && own.allow === undefined && near
+            ? { nearest: near, onUse: () => change({ token: near.name }) }
+            : undefined
+        }
+        search={{
+          label: "Fonts",
+          options,
+          empty: (text) => (text.includes(",") ? undefined : "No fonts match"),
+          onHighlight: onPreview
+        }}
+        hint={{
+          label: resolved ? `Font: ${resolved.name}` : `Font: ${inherited.font.name}, inherited from ${inherited.from}`,
+          detail: resolved ? resolved.stack : `Set on ${inherited.from}. ${inherited.font.stack}`
+        }}
+        inputMode="text"
+        // The family's name in its own face; a font the frame can't load in the fallback, struck through.
+        inputStyle={{ fontFamily: resolved?.stack ?? inherited.font.stack }}
+        inputClassName={
+          resolved?.missing
+            ? "text-amber-700 line-through focus:text-foreground focus:no-underline dark:text-amber-400"
+            : ""
+        }
+        selectOnFocus
+        read={read}
+        onCommit={change}
+      />
+      <MessageLine message={note} />
     </div>
   )
 }
 
-/** The status mark for a font the frame can't load: its menu replaces it with a project font, or adds it. */
-function MissingFontMark({
-  name,
-  fallback,
-  onReplace,
-  onAdd
-}: {
-  name: string
-  fallback: string
-  onReplace: (font: FontFamily) => void
-  onAdd: () => void
-}) {
-  return (
-    <DropdownMenu>
-      <Hint label="Missing font" detail={`${name} isn't in the project, so it's drawn in ${fallback}`}>
-        <DropdownMenuTrigger
-          aria-label={`Missing font: ${name}`}
-          className="grid size-6 shrink-0 place-items-center rounded-md text-amber-600 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-400"
-        >
-          <TriangleAlert className="size-3.5" />
-        </DropdownMenuTrigger>
-      </Hint>
-      <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-            {name} isn&apos;t in the project, so it&apos;s drawn in {fallback}.
-          </DropdownMenuLabel>
-        </DropdownMenuGroup>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="text-xs">Replace font</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {projectFonts.map((font) => (
-              <DropdownMenuItem key={font.name} className="text-xs" onClick={() => onReplace(font)}>
-                <span style={{ fontFamily: font.stack }}>{font.name}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuItem className="text-xs" onClick={onAdd}>
-          Add font
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 /** The weight a value comes to. */
-const weightOf = (value: WeightValue | undefined): number | undefined => {
+const weightOf = (value: WeightValue | undefined, tokens: readonly WeightToken[]): number | undefined => {
   if (value === undefined) return undefined
-  if ("token" in value) return weightTokens.find((token) => token.name === value.token)?.weight
+  if ("token" in value) return tokens.find((token) => token.name === value.token)?.weight
   return value.value
 }
 
@@ -402,12 +281,6 @@ export function weightFace(
   if (weight >= 600 && !font.weights.some((face) => face >= 600)) return { kind: "faked" }
   const face = font.weights.reduce((best, each) => (Math.abs(each - weight) < Math.abs(best - weight) ? each : best))
   return { kind: "nearest", face }
-}
-
-/** The weight a typed or slid number is stored as: its token where one names it (600 is `semibold`). */
-const weightValue = (weight: number): WeightValue => {
-  const token = weightTokens.find((each) => each.weight === weight)
-  return token ? { token: token.name } : { value: weight }
 }
 
 /**
@@ -434,26 +307,18 @@ export function WeightField({
   onItalic: (italic: boolean | undefined) => void
   onPreview: (weight: number | undefined) => void
 }) {
+  const { tokens, create } = useTokens("weight")
   const [open, setOpen] = useState(false)
-  const weight = weightOf(value)
+  const weight = weightOf(value, tokens)
   const shown = weight ?? inherited
   const face = weightFace(font, shown)
-  const faces = font.axis ? weightTokens.map((token) => token.weight) : font.weights
-  const others = weightTokens.map((token) => token.weight).filter((each) => !faces.includes(each))
-  const number = useTyped<number>({
-    label: "Weight",
-    shown: String(shown),
-    read: (text) => {
-      const reading = readNumber(text, shown, "Weight")
-      if ("reason" in reading) return { reason: reading.reason }
-      if ("clear" in reading) return { reason: "Type a weight from 1 to 1000" }
-      if (reading.value < 1 || reading.value > 1000) return { reason: "Weight goes from 1 to 1000" }
-      return { value: Math.round(reading.value) }
-    },
-    onCommit: (next) => onChange(weightValue(next)),
-    onStep: (up, shift) =>
-      onChange(weightValue(Math.min(1000, Math.max(1, shown + (up ? 1 : -1) * (shift ? 100 : 10)))))
-  })
+  const faces = font.axis ? tokens.map((token) => token.weight) : font.weights
+  const others = tokens.map((token) => token.weight).filter((each) => !faces.includes(each))
+  /** The weight a typed or slid number is stored as: its token where one names it (600 is `semibold`). */
+  const weightValue = (number: number): WeightValue => {
+    const token = tokens.find((each) => each.weight === number)
+    return token ? { token: token.name } : { value: number }
+  }
   // Up and Down on the menu's button step through the font's weights, as a token steps through its scale.
   const step = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return
@@ -461,16 +326,19 @@ export function WeightField({
     const at = faces.indexOf(shown)
     let index = at === -1 ? faces.findIndex((each) => each > shown) : at + (event.key === "ArrowUp" ? 1 : -1)
     if (event.shiftKey) index = event.key === "ArrowUp" ? faces.length - 1 : 0
-    const next = faces[Math.min(faces.length - 1, Math.max(0, index))]
+    const next = faces[clamp(index, 0, faces.length - 1)]
     if (next !== undefined) onChange(weightValue(next))
   }
-  let label = weightName(shown)
+  let label = weightName(shown, tokens)
   if (mixed && value === undefined) label = "Mixed"
   let faceNote: string | undefined
   if (face.kind === "faked") faceNote = `Faked by the browser: ${font.name} has no face this heavy`
-  if (face.kind === "nearest") faceNote = `Drawn with ${weightName(face.face)}, the nearest face ${font.name} has`
-  const tokenName = weight === undefined ? undefined : weightTokens.find((token) => token.weight === weight)?.name
+  if (face.kind === "nearest")
+    faceNote = `Drawn with ${weightName(face.face, tokens)}, the nearest face ${font.name} has`
+  const tokenName = weight === undefined ? undefined : tokens.find((token) => token.weight === weight)?.name
   const italicFaked = italic === true && !font.italic
+  const near =
+    value !== undefined && "value" in value ? nearestToken(tokens, (token) => token.weight, value.value) : undefined
   const item = (each: number, faked: boolean) => (
     <button
       key={each}
@@ -485,7 +353,7 @@ export function WeightField({
       }}
       className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none ${each === weight ? "bg-accent" : ""}`}
     >
-      <span style={{ fontFamily: font.stack, fontWeight: each }}>{weightName(each)}</span>
+      <span style={{ fontFamily: font.stack, fontWeight: each }}>{weightName(each, tokens)}</span>
       <span className="text-[11px] text-muted-foreground tabular-nums">{faked ? `${each}, faked` : each}</span>
     </button>
   )
@@ -531,25 +399,34 @@ export function WeightField({
           </Hint>
           <PopoverContent align="start" className="w-60 gap-1 p-1">
             {font.axis && (
-              <div className="flex flex-col gap-2 border-b px-2 pt-1.5 pb-2.5">
-                <p className="text-[11px] text-muted-foreground">
+              <div className="grid grid-cols-[minmax(0,1fr)_4rem] items-center gap-x-2 border-b px-2 pt-1.5 pb-2.5">
+                <p className="col-span-full pb-2 text-[11px] text-muted-foreground">
                   {font.name} is variable: any weight from {font.axis[0]} to {font.axis[1]}
                 </p>
-                <div className="flex items-center gap-2">
-                  <Slider
-                    aria-label="Weight axis"
-                    min={font.axis[0]}
-                    max={font.axis[1]}
-                    step={1}
-                    value={shown}
-                    onValueChange={(next) => onChange(weightValue(Array.isArray(next) ? next[0]! : next))}
-                    className="flex-1"
-                  />
-                  <label className={fieldBox(number.error, "w-16 shrink-0")}>
-                    <input aria-label="Weight" {...number.input} className={fieldInput} />
-                  </label>
-                </div>
-                <MessageLine message={number.message} />
+                <Slider
+                  aria-label="Weight axis"
+                  min={font.axis[0]}
+                  max={font.axis[1]}
+                  step={1}
+                  value={shown}
+                  onValueChange={(next) => onChange(weightValue(Array.isArray(next) ? next[0]! : next))}
+                />
+                <ValueField
+                  label="Weight"
+                  shown={String(shown)}
+                  selectOnFocus
+                  read={(text): Reading<number> => {
+                    const reading = readNumber(text, shown, "Weight")
+                    if ("reason" in reading) return { reason: reading.reason }
+                    if ("clear" in reading) return { reason: "Type a weight from 1 to 1000" }
+                    if (reading.value < 1 || reading.value > 1000) return { reason: "Weight goes from 1 to 1000" }
+                    return { value: Math.round(reading.value) }
+                  }}
+                  onCommit={(next) => onChange(weightValue(next))}
+                  onStep={(up, { shift }) =>
+                    onChange(weightValue(clamp(shown + (up ? 1 : -1) * (shift ? 100 : 10), 1, 1000)))
+                  }
+                />
               </div>
             )}
             <p className="px-2 pt-1 text-[11px] font-medium text-muted-foreground">In {font.name}</p>
@@ -564,17 +441,23 @@ export function WeightField({
             )}
           </PopoverContent>
         </Popover>
-        {value !== undefined && "value" in value && (
+        {value !== undefined && "value" in value && near && (
           <OffSystemMark
             compact
             label="Weight"
             description={`${value.value} isn't one of the font-weight tokens.`}
-            nearest={{ name: `font-${nearestWeightToken(value.value).name}` }}
+            nearest={{ name: `font-${near.name}` }}
             allowed={value.allow}
-            isTaken={(name) => weightTokens.some((token) => token.name === name)}
+            isTaken={(name) => tokens.some((token) => token.name === name)}
             namePlaceholder="heading"
-            onUse={() => onChange({ token: nearestWeightToken(value.value).name })}
-            onCreate={(name) => onChange({ token: name })}
+            onUse={() => onChange({ token: near.name })}
+            onCreate={
+              create &&
+              ((name) => {
+                create(weightToken(name, value.value, name[0]!.toUpperCase() + name.slice(1)))
+                onChange({ token: name })
+              })
+            }
             onAllow={(allow) => onChange({ value: value.value, allow })}
           />
         )}
@@ -592,17 +475,10 @@ export function WeightField({
           </Toggle>
         </Hint>
       </div>
-      {face.kind === "faked" && (
-        <MessageLine message={{ tone: "note", text: `Faked by the browser: ${font.name} has no face this heavy` }} />
-      )}
+      {face.kind === "faked" && <MessageLine message={{ tone: "note", text: faceNote ?? "" }} />}
     </div>
   )
 }
-
-const nearestWeightToken = (weight: number) =>
-  weightTokens.reduce((best, token) =>
-    Math.abs(token.weight - weight) < Math.abs(best.weight - weight) ? token : best
-  )
 
 /** The unit a line height is shown and typed in. */
 type LineUnit = "×" | "px" | "%"
@@ -610,10 +486,10 @@ type LineUnit = "×" | "px" | "%"
 /** What a unit typed after a line height means; em is a multiple, as CSS's line height reads it. */
 const typedUnits: Record<string, LineUnit | "em"> = { px: "px", x: "×", "×": "×", "%": "%", em: "em" }
 
-/** The multiple a line height comes to at a font size. */
-function multipleOf(lineHeight: LineHeight, fontSize: number): number {
+/** The multiple a line height comes to at a font size, a leading token's from the project's tokens. */
+function multipleOf(lineHeight: LineHeight, fontSize: number, tokens: readonly LeadingToken[]): number {
   if ("keyword" in lineHeight) return 1.2
-  if ("token" in lineHeight) return leadingTokens.find((token) => token.name === lineHeight.token)?.multiple ?? 1.5
+  if ("token" in lineHeight) return tokens.find((token) => token.name === lineHeight.token)?.multiple ?? 1.5
   if ("multiple" in lineHeight) return lineHeight.multiple
   return lineHeight.px / fontSize
 }
@@ -643,23 +519,26 @@ export function LineHeightField({
   mixed?: boolean
   onChange: (value: LineHeight | undefined) => void
 }) {
+  const { tokens, create } = useTokens("leading")
   const [unit, setUnit] = useState<LineUnit>(() => unitOf(value))
   const currentIn = (lineHeight: LineHeight | undefined, inUnit: LineUnit): number | undefined => {
     if (lineHeight === undefined) return undefined
-    const multiple = multipleOf(lineHeight, fontSize)
+    const multiple = multipleOf(lineHeight, fontSize, tokens)
     if (inUnit === "px") return "px" in lineHeight ? lineHeight.px : Math.round(multiple * fontSize * 100) / 100
     return inUnit === "%" ? multiple * 100 : multiple
   }
-  let shown = ""
+  const held = value !== undefined && "token" in value ? value.token : undefined
+  const token = tokens.find((each) => each.name === held)
+  let shown: string | undefined
   if (value !== undefined && "keyword" in value) shown = "Auto"
-  else if (value !== undefined && !("token" in value)) shown = formatNumber(currentIn(value, unit) ?? 0)
+  else if (value !== undefined && held === undefined) shown = formatNumber(currentIn(value, unit) ?? 0)
   const fromPx = (px: number): LineHeight => ({ px: Math.round(px * 100) / 100 })
-  const read = (text: string): { value: LineHeight | undefined; message?: Message } | { reason: string } => {
+  const read = (text: string): Reading<LineHeight | undefined> => {
     const trimmed = text.trim().toLowerCase()
     if (trimmed === "") return { value: undefined }
     if (trimmed === "auto" || trimmed === "normal") return { value: { keyword: "normal" } }
     const name = trimmed.replace(/^leading-/, "")
-    if (leadingTokens.some((token) => token.name === name)) return { value: { token: name } }
+    if (tokens.some((each) => each.name === name)) return { value: { token: name } }
     const step = /^spacing-(\d*\.?\d+)$/.exec(trimmed)?.[1]
     if (step !== undefined) return { value: fromPx(Number(step) * 4) }
     let typedUnit: LineUnit | "em" = unit
@@ -686,7 +565,6 @@ export function LineHeightField({
               run: () => {
                 setUnit("×")
                 onChange({ multiple: px })
-                typed.setMessage(undefined)
               }
             }
           }
@@ -706,7 +584,6 @@ export function LineHeightField({
             run: () => {
               setUnit("px")
               onChange(fromPx(multiple))
-              typed.setMessage(undefined)
             }
           }
         }
@@ -714,104 +591,52 @@ export function LineHeightField({
     }
     return { value: { multiple } }
   }
-  const stepBy = (up: boolean, shift: boolean) => {
-    if (value !== undefined && "token" in value) {
-      const at = leadingTokens.findIndex((token) => token.name === value.token)
-      let index = at + (up ? 1 : -1)
-      if (shift) index = up ? leadingTokens.length - 1 : 0
-      const next = leadingTokens[Math.min(leadingTokens.length - 1, Math.max(0, index))]!
-      onChange({ token: next.name })
+  const step = (up: boolean, keys: ScrubKeys) => {
+    if (token) {
+      onChange({ token: stepThrough(tokens, token, up, keys).name })
       return
     }
     const sign = up ? 1 : -1
     if (unit === "px") {
       const from = currentIn(value, "px") ?? size?.lineHeight ?? fontSize * 1.5
-      onChange(fromPx(Math.max(0, Math.round(from) + sign * (shift ? 10 : 1))))
+      onChange(fromPx(Math.max(0, Math.round(from) + sign * (keys.shift ? 10 : 1))))
       return
     }
     const from = currentIn(value, "×") ?? (size ? size.lineHeight / size.px : 1.5)
-    onChange({ multiple: Math.max(0, Math.round((from + sign * (shift ? 0.25 : 0.05)) * 1000) / 1000) })
+    onChange({ multiple: Math.max(0, Math.round((from + sign * (keys.shift ? 0.25 : 0.05)) * 1000) / 1000) })
   }
-  const typed = useTyped<LineHeight | undefined>({
-    label: "Line height",
-    shown,
-    read,
-    onCommit: (next) => {
-      if (next !== undefined && "px" in next) setUnit("px")
-      else if (next !== undefined && "multiple" in next && unit === "px") setUnit("×")
-      onChange(next)
-    },
-    onStep: stepBy
-  })
-  const token =
-    value !== undefined && "token" in value ? leadingTokens.find((each) => each.name === value.token) : undefined
   let placeholder = "Auto"
-  let after: ReactNode
-  if (mixed && value === undefined) placeholder = "Mixed"
-  else if (value === undefined && size) {
+  let comesTo = token?.detail
+  if (value === undefined && size && !mixed) {
     placeholder = unit === "px" ? String(size.lineHeight) : formatNumber(size.lineHeight / size.px)
-    after = <span className="shrink-0 text-[11px] text-muted-foreground">From size</span>
+    comesTo = "From size"
   }
   // A multiple, or pixels off the spacing steps, is a value of its own, marked; whole pixels are a step.
   let own: { multiple: number } | { px: number; allow?: string } | undefined
   if (value !== undefined && "multiple" in value) own = value
-  if (value !== undefined && "px" in value && !onStep(value.px)) own = value
-  const multiple = multipleOf(value ?? { multiple: 1.5 }, fontSize)
-  const nearest = leadingTokens.reduce((best, each) =>
-    Math.abs(each.multiple - multiple) < Math.abs(best.multiple - multiple) ? each : best
-  )
+  if (value !== undefined && "px" in value && !("step" in lengthForm(value.px))) own = value
+  const multiple = multipleOf(value ?? { multiple: 1.5 }, fontSize, tokens)
+  const nearest = nearestToken(tokens, (each) => each.multiple, multiple)
+  const auto = value !== undefined && "keyword" in value
   return (
-    <div>
-      <label className={fieldBox(typed.error, "pr-0.5")}>
-        <span
-          onPointerDown={scrub(
-            () => currentIn(value, unit) ?? (unit === "px" ? (size?.lineHeight ?? 24) : 1.5),
-            (next) => onChange(unit === "px" ? fromPx(Math.max(0, next)) : { multiple: Math.max(0, next) }),
-            unit === "px" ? { step: 1, shiftStep: 10, min: 0 } : { step: 0.05, shiftStep: 0.25, min: 0 }
-          )}
-          className="shrink-0 cursor-ew-resize touch-none text-muted-foreground select-none"
-        >
-          <MoveVertical aria-hidden className="size-3.5" />
-        </span>
-        {token && (
-          <TokenChip
-            name={token.name}
-            detail={`${formatNumber(token.multiple)}×`}
-            preview={<TokenMark kind="leading" value={token.value} />}
-            onRemove={() => onChange(undefined)}
-          />
-        )}
-        <input
-          aria-label="Line height"
-          inputMode="decimal"
-          placeholder={token ? "" : placeholder}
-          {...typed.input}
-          onKeyDown={(event) => {
-            if (token && event.currentTarget.value === "" && event.key === "Backspace") onChange(undefined)
-            typed.input.onKeyDown(event)
-          }}
-          className={fieldInput}
-        />
-        {!typed.focused && after}
-        {typed.error && <InvalidMark />}
-        {!typed.error && own !== undefined && (
-          <OffSystemMark
-            compact
-            label="Line height"
-            description={`${shown}${unit === "px" ? "px" : "×"} isn't a leading token or a spacing step.`}
-            nearest={{ name: `leading-${nearest.name}` }}
-            allowed={"px" in own ? own.allow : undefined}
-            isTaken={(name) => leadingTokens.some((each) => each.name === name)}
-            namePlaceholder="body"
-            onUse={() => onChange({ token: nearest.name })}
-            onCreate={(name) => onChange({ token: name })}
-            onAllow={(allow) => {
-              // A multiple is a value in CSS's own terms; pixels off the steps keep why they're allowed here.
-              if ("px" in own) onChange({ px: own.px, allow })
-            }}
-          />
-        )}
-        {!token && !(value !== undefined && "keyword" in value) && (
+    <ValueField
+      label="Line height"
+      inner={<MoveVertical aria-hidden className="size-3.5" />}
+      scrub={{
+        from: () => currentIn(value, unit) ?? (unit === "px" ? (size?.lineHeight ?? 24) : 1.5),
+        apply: (next) => onChange(unit === "px" ? fromPx(next) : { multiple: next }),
+        by: unit === "px" ? { step: 1, shiftStep: 10, min: 0 } : { step: 0.05, shiftStep: 0.25, min: 0 }
+      }}
+      shown={shown}
+      placeholder={placeholder}
+      mixed={mixed}
+      chip={
+        held === undefined
+          ? undefined
+          : { name: held, token, onRemove: () => onChange(undefined), onReplace: (name) => onChange({ token: name }) }
+      }
+      unit={
+        auto ? undefined : (
           <UnitMenu
             label="Line height"
             unit={unit}
@@ -828,62 +653,57 @@ export function LineHeightField({
               else onChange({ multiple: currentIn(value, "×") ?? 1.5 })
             }}
           />
-        )}
-      </label>
-      <MessageLine message={typed.message} />
-    </div>
-  )
-}
-
-/** A field's unit, a button that opens its unit menu (the field's slot 3). */
-function UnitMenu<T extends string>({
-  label,
-  unit,
-  units,
-  extra,
-  onUnit
-}: {
-  label: string
-  unit: T
-  units: { unit: T; label: string }[]
-  extra?: { label: string; run: () => void }
-  onUnit: (unit: T) => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={`${label} unit: ${unit}`}
-        className="h-full shrink-0 rounded-r-md px-1.5 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {unit}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuRadioGroup value={unit} onValueChange={(next) => onUnit(next as T)}>
-          {units.map((each) => (
-            <DropdownMenuRadioItem key={each.unit} value={each.unit} className="text-xs">
-              <span className="w-5 font-mono">{each.unit}</span>
-              {each.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-        {extra && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-xs" onClick={extra.run}>
-              {extra.label}
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        )
+      }
+      comesTo={comesTo}
+      status={{
+        missing: held !== undefined && !token ? <MissingMark name={held} /> : undefined,
+        offSystem:
+          own && nearest ? (
+            <OffSystemMark
+              compact
+              label="Line height"
+              description={`${shown}${unit === "px" ? "px" : "×"} isn't a leading token or a spacing step.`}
+              nearest={{ name: `leading-${nearest.name}`, preview: <TokenMark kind="leading" value={nearest.value} /> }}
+              allowed={"px" in own ? own.allow : undefined}
+              isTaken={(name) => tokens.some((each) => each.name === name)}
+              namePlaceholder="body"
+              onUse={() => onChange({ token: nearest.name })}
+              onCreate={
+                create &&
+                ((name) => {
+                  create(leadingToken(name, Math.round(multiple * 1000) / 1000))
+                  onChange({ token: name })
+                })
+              }
+              onAllow={(allow) => {
+                // A multiple is a value in CSS's own terms; pixels off the steps keep why they're allowed here.
+                if ("px" in own) onChange({ px: own.px, allow })
+              }}
+            />
+          ) : undefined
+      }}
+      tokens={{
+        list: tokens,
+        current: held,
+        onPick: (name) => onChange(name === undefined ? undefined : { token: name })
+      }}
+      read={read}
+      onCommit={(next) => {
+        if (next !== undefined && "px" in next) setUnit("px")
+        else if (next !== undefined && "multiple" in next && unit === "px") setUnit("×")
+        onChange(next)
+      }}
+      onStep={step}
+    />
   )
 }
 
 type SpacingUnit = "%" | "em" | "px"
 
 /** Letter spacing in em: a token's, a value's, or pixels at the font size. */
-function emOf(spacing: LetterSpacing, fontSize: number): number {
-  if ("token" in spacing) return trackingTokens.find((token) => token.name === spacing.token)?.em ?? 0
+function emOf(spacing: LetterSpacing, fontSize: number, tokens: readonly TrackingToken[]): number {
+  if ("token" in spacing) return tokens.find((token) => token.name === spacing.token)?.em ?? 0
   if ("em" in spacing) return spacing.em
   return spacing.px / fontSize
 }
@@ -906,126 +726,121 @@ export function LetterSpacingField({
   mixed?: boolean
   onChange: (value: LetterSpacing | undefined) => void
 }) {
+  const { tokens, create } = useTokens("tracking")
   const [unit, setUnit] = useState<SpacingUnit>(() => (value !== undefined && "px" in value ? "px" : "%"))
   const currentIn = (spacing: LetterSpacing | undefined, inUnit: SpacingUnit): number | undefined => {
     if (spacing === undefined) return undefined
     if (inUnit === "px")
-      return "px" in spacing ? spacing.px : Math.round(emOf(spacing, fontSize) * fontSize * 100) / 100
-    const em = emOf(spacing, fontSize)
+      return "px" in spacing ? spacing.px : Math.round(emOf(spacing, fontSize, tokens) * fontSize * 100) / 100
+    const em = emOf(spacing, fontSize, tokens)
     return inUnit === "%" ? Math.round(em * 100_000) / 1000 : em
   }
-  const token =
-    value !== undefined && "token" in value ? trackingTokens.find((each) => each.name === value.token) : undefined
-  const shown = value === undefined || token ? "" : formatNumber(currentIn(value, unit) ?? 0)
+  const held = value !== undefined && "token" in value ? value.token : undefined
+  const token = tokens.find((each) => each.name === held)
+  const shown = value === undefined || held !== undefined ? undefined : formatNumber(currentIn(value, unit) ?? 0)
   const store = (number: number, inUnit: SpacingUnit): LetterSpacing => {
     if (inUnit === "px") return { px: Math.round(number * 100) / 100 }
     return { em: Math.round((inUnit === "%" ? number / 100 : number) * 10_000) / 10_000 }
   }
-  const typed = useTyped<LetterSpacing | undefined>({
-    label: "Letter spacing",
-    shown,
-    read: (text) => {
-      const trimmed = text.trim().toLowerCase()
-      if (trimmed === "") return { value: undefined }
-      const name = trimmed.replace(/^tracking-/, "")
-      if (trackingTokens.some((each) => each.name === name)) return { value: { token: name } }
-      let typedUnit = unit
-      let number = trimmed
-      const suffix = /(px|%|em)$/.exec(trimmed)?.[1] as SpacingUnit | undefined
-      if (suffix !== undefined) {
-        number = trimmed.slice(0, -suffix.length)
-        typedUnit = suffix
-      }
-      const reading = readNumber(number.replaceAll("−", "-"), currentIn(value, typedUnit), "Letter spacing")
-      if ("reason" in reading)
-        return { reason: "Letter spacing takes a % of the font size, em, px or a tracking token" }
-      if ("clear" in reading) return { value: undefined }
-      if (typedUnit === "px") setUnit("px")
-      else if (unit === "px") setUnit(typedUnit)
-      return { value: store(reading.value, typedUnit) }
-    },
-    onCommit: onChange,
-    onStep: (up, shift) => {
-      if (token) {
-        const at = trackingTokens.findIndex((each) => each.name === token.name)
-        let index = at + (up ? 1 : -1)
-        if (shift) index = up ? trackingTokens.length - 1 : 0
-        onChange({ token: trackingTokens[Math.min(trackingTokens.length - 1, Math.max(0, index))]!.name })
-        return
-      }
-      const by = { "%": shift ? 2.5 : 0.5, em: shift ? 0.025 : 0.005, px: shift ? 2.5 : 0.5 }[unit]
-      onChange(store((currentIn(value, unit) ?? 0) + (up ? by : -by), unit))
+  const read = (text: string): Reading<LetterSpacing | undefined> => {
+    const trimmed = text.trim().toLowerCase()
+    if (trimmed === "") return { value: undefined }
+    const name = trimmed.replace(/^tracking-/, "")
+    if (tokens.some((each) => each.name === name)) return { value: { token: name } }
+    let typedUnit = unit
+    let number = trimmed
+    const suffix = /(px|%|em)$/.exec(trimmed)?.[1]
+    if (suffix === "px" || suffix === "%" || suffix === "em") {
+      number = trimmed.slice(0, -suffix.length)
+      typedUnit = suffix
     }
-  })
-  const em = value === undefined ? 0 : emOf(value, fontSize)
-  const nearest = trackingTokens.reduce((best, each) => (Math.abs(each.em - em) < Math.abs(best.em - em) ? each : best))
+    const reading = readNumber(number.replaceAll("−", "-"), currentIn(value, typedUnit), "Letter spacing")
+    if ("reason" in reading) return { reason: "Letter spacing takes a % of the font size, em, px or a tracking token" }
+    if ("clear" in reading) return { value: undefined }
+    if (typedUnit === "px") setUnit("px")
+    else if (unit === "px") setUnit(typedUnit)
+    return { value: store(reading.value, typedUnit) }
+  }
+  const em = value === undefined ? 0 : emOf(value, fontSize, tokens)
+  const nearest = nearestToken(tokens, (each) => each.em, em)
   return (
-    <div>
-      <label className={fieldBox(typed.error, "pr-0.5")}>
-        <span
-          onPointerDown={scrub(
-            () => currentIn(value, unit) ?? 0,
-            (next) => onChange(store(next, unit)),
-            unit === "em" ? { step: 0.005, shiftStep: 0.025 } : { step: 0.5, shiftStep: 2.5 }
-          )}
-          className="shrink-0 cursor-ew-resize touch-none text-muted-foreground select-none"
-        >
-          <MoveHorizontal aria-hidden className="size-3.5" />
-        </span>
-        {token && (
-          <TokenChip
-            name={token.name}
-            detail={`${signed(token.em * 100)}%`}
-            preview={<TokenMark kind="tracking" value={`${token.em}em`} />}
-            onRemove={() => onChange(undefined)}
-          />
-        )}
-        <input
-          aria-label="Letter spacing"
-          inputMode="decimal"
-          placeholder={token ? "" : (mixed && value === undefined && "Mixed") || "0"}
-          {...typed.input}
-          onKeyDown={(event) => {
-            if (token && event.currentTarget.value === "" && event.key === "Backspace") onChange(undefined)
-            typed.input.onKeyDown(event)
+    <ValueField
+      label="Letter spacing"
+      inner={<MoveHorizontal aria-hidden className="size-3.5" />}
+      scrub={{
+        from: () => currentIn(value, unit) ?? 0,
+        apply: (next) => onChange(store(next, unit)),
+        by: unit === "em" ? { step: 0.005, shiftStep: 0.025 } : { step: 0.5, shiftStep: 2.5 }
+      }}
+      shown={shown}
+      placeholder="0"
+      mixed={mixed}
+      chip={
+        held === undefined
+          ? undefined
+          : { name: held, token, onRemove: () => onChange(undefined), onReplace: (name) => onChange({ token: name }) }
+      }
+      unit={
+        <UnitMenu
+          label="Letter spacing"
+          unit={unit}
+          units={[
+            { unit: "%", label: "Percentage of the font size" },
+            { unit: "em", label: "Em, the font size" },
+            { unit: "px", label: "Pixels" }
+          ]}
+          onUnit={(next) => {
+            setUnit(next)
+            if (value !== undefined) onChange(store(currentIn(value, next) ?? 0, next))
           }}
-          className={fieldInput}
         />
-        {typed.error && <InvalidMark />}
-        {!typed.error && value !== undefined && !token && (
-          <OffSystemMark
-            compact
-            label="Letter spacing"
-            description={`${shown}${unit} isn't a tracking token.`}
-            nearest={{ name: `tracking-${nearest.name}` }}
-            allowed={"token" in value ? undefined : value.allow}
-            isTaken={(name) => trackingTokens.some((each) => each.name === name)}
-            namePlaceholder="caps"
-            onUse={() => onChange({ token: nearest.name })}
-            onCreate={(name) => onChange({ token: name })}
-            onAllow={(allow) => {
-              if ("em" in value) onChange({ em: value.em, allow })
-              if ("px" in value) onChange({ px: value.px, allow })
-            }}
-          />
-        )}
-        {!token && (
-          <UnitMenu
-            label="Letter spacing"
-            unit={unit}
-            units={[
-              { unit: "%", label: "Percentage of the font size" },
-              { unit: "em", label: "Em, the font size" },
-              { unit: "px", label: "Pixels" }
-            ]}
-            onUnit={(next) => {
-              setUnit(next)
-              if (value !== undefined) onChange(store(currentIn(value, next) ?? 0, next))
-            }}
-          />
-        )}
-      </label>
-      <MessageLine message={typed.message} />
-    </div>
+      }
+      comesTo={token ? `${signed(token.em * 100)}%` : undefined}
+      status={{
+        missing: held !== undefined && !token ? <MissingMark name={held} /> : undefined,
+        offSystem:
+          value !== undefined && !("token" in value) && nearest ? (
+            <OffSystemMark
+              compact
+              label="Letter spacing"
+              description={`${shown}${unit} isn't a tracking token.`}
+              nearest={{
+                name: `tracking-${nearest.name}`,
+                preview: <TokenMark kind="tracking" value={nearest.value} />
+              }}
+              allowed={value.allow}
+              isTaken={(name) => tokens.some((each) => each.name === name)}
+              namePlaceholder="caps"
+              onUse={() => onChange({ token: nearest.name })}
+              onCreate={
+                create &&
+                ((name) => {
+                  create(trackingToken(name, Math.round(em * 10_000) / 10_000))
+                  onChange({ token: name })
+                })
+              }
+              onAllow={(allow) => {
+                if ("em" in value) onChange({ em: value.em, allow })
+                if ("px" in value) onChange({ px: value.px, allow })
+              }}
+            />
+          ) : undefined
+      }}
+      tokens={{
+        list: tokens,
+        current: held,
+        onPick: (name) => onChange(name === undefined ? undefined : { token: name })
+      }}
+      read={read}
+      onCommit={onChange}
+      onStep={(up, keys) => {
+        if (token) {
+          onChange({ token: stepThrough(tokens, token, up, keys).name })
+          return
+        }
+        const by = { "%": keys.shift ? 2.5 : 0.5, em: keys.shift ? 0.025 : 0.005, px: keys.shift ? 2.5 : 0.5 }[unit]
+        onChange(store((currentIn(value, unit) ?? 0) + (up ? by : -by), unit))
+      }}
+    />
   )
 }

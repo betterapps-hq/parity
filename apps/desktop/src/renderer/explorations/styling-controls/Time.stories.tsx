@@ -3,19 +3,27 @@ import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { Field } from "../../chrome/fields.tsx"
 import { HoverCard } from "./easing.tsx"
-import { defaultCurve, defaultDuration, type Spring, springSettle, type Time, timeMs } from "./motion-data.ts"
+import { useTokens } from "./field-parts.tsx"
+import {
+  bezierCss,
+  defaultCurve,
+  defaultDuration,
+  type Spring,
+  springSettle,
+  type Time,
+  timeMs
+} from "./motion-data.ts"
 import { easingWrites, timeWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
 import { TimeField } from "./time.tsx"
-import { type DurationToken, durationTokens } from "./tokens.ts"
 import { mixedWrites, type Writes } from "./writes.ts"
 
 /**
  * A time (PAR-652's Time), as a transition's Duration and Delay take it: milliseconds. `0.2s` typed becomes 200ms; one
  * read from code keeps `s` until it's edited. Any whole millisecond is a step (`duration-200`), unmarked while the
  * project has no duration tokens, and marked once it has some, with the nearest token in the mark's menu. Up and Down
- * step 10ms, Shift 100ms; the label scrubs; a token steps to the next. Duration tokens show as a track against half a
- * second. With a spring, Duration shows the spring's settle time, set by Easing.
+ * step 10ms, Shift 100ms; a token steps to the next. Duration tokens show as a track against half a second, in the
+ * chip and the token list. With a spring, Duration shows the spring's settle time, set by Easing.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Time",
@@ -25,18 +33,28 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const curve = `cubic-bezier(${defaultCurve.join(", ")})`
+const curve = bezierCss(defaultCurve)
+
+/** The card, moving over the time set, with the story's duration tokens, a token made here among them. */
+function TimePreview({ which, time, spring }: { which: "duration" | "delay"; time?: Time; spring?: Spring }) {
+  const { tokens } = useTokens("duration")
+  const ms = spring ? springSettle(spring) : (timeMs(time, tokens) ?? (which === "duration" ? defaultDuration : 0))
+  const transition =
+    which === "duration" ? `translate ${ms}ms ${curve}` : `translate ${defaultDuration}ms ${curve} ${ms}ms`
+  return <HoverCard transition={transition} />
+}
 
 function Timing({
   which = "duration",
   start,
-  tokens = [],
+  withTokens = false,
   spring: startSpring,
   mixed = false
 }: {
   which?: "duration" | "delay"
   start?: Time
-  tokens?: readonly DurationToken[]
+  /** Whether the project has duration tokens; without them, every whole millisecond is unmarked. */
+  withTokens?: boolean
   spring?: Spring
   mixed?: boolean
 }) {
@@ -54,18 +72,18 @@ function Timing({
       tailwind: [`duration-${settle}`, ...easing.tailwind]
     }
   }
-  const ms = spring ? springSettle(spring) : (timeMs(time, tokens) ?? (which === "duration" ? defaultDuration : 0))
-  const transition =
-    which === "duration" ? `translate ${ms}ms ${curve}` : `translate ${defaultDuration}ms ${curve} ${ms}ms`
   return (
-    <Playground writes={writes} preview={<HoverCard transition={transition} />}>
+    <Playground
+      writes={writes}
+      tokens={withTokens ? undefined : { duration: [] }}
+      preview={<TimePreview which={which} time={time} spring={spring} />}
+    >
       <Field label={label}>
         <TimeField
           label={label}
           which={which}
           value={time}
           defaultMs={which === "duration" ? defaultDuration : 0}
-          tokens={tokens}
           mixed={mixed && time === undefined}
           setBy={
             spring && "duration" in spring
@@ -101,17 +119,17 @@ export const TypedInSeconds: Story = {
 export const ReadFromCode: Story = { render: () => <Timing start={{ value: "0.2s" }} /> }
 
 /** A duration token, `duration-fast`, as a chip with its track against half a second. Up steps to normal. */
-export const Token: Story = { render: () => <Timing start={{ token: "duration-fast" }} tokens={durationTokens} /> }
+export const Token: Story = { render: () => <Timing start={{ token: "duration-fast" }} withTokens /> }
 
 /**
- * 200ms in a project with duration tokens: marked as off the system, with Use nearest (fast, 150ms, as near as normal), Create token
- * and Allow here in the mark's menu.
+ * 200ms in a project with duration tokens: marked as off the system, with Use nearest (fast, 150ms, as near as
+ * normal), Create token and Allow here in the mark's menu.
  */
-export const OffTheSystem: Story = { render: () => <Timing start={{ step: 200 }} tokens={durationTokens} /> }
+export const OffTheSystem: Story = { render: () => <Timing start={{ step: 200 }} withTokens /> }
 
 /** 200ms allowed here, with its reason in the filled mark's hint. */
 export const AllowedHere: Story = {
-  render: () => <Timing start={{ step: 200, allow: "Matches the video's fade" }} tokens={durationTokens} />
+  render: () => <Timing start={{ step: 200, allow: "Matches the video's fade" }} withTokens />
 }
 
 /** Delay, 75ms: `delay-75`. Unset, it's 0. A delay can be negative, starting partway through. */

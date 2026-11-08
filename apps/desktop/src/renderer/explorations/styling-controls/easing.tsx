@@ -14,10 +14,14 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type KeyboardEvent, type PointerEvent, useId, useRef, useState } from "react"
+import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
+import { clamp, formatNumber } from "./css-values.ts"
+import { drag, MissingMark, type Reading, readUnitNumber, useTokens, useTokenSets, ValueField } from "./field-parts.tsx"
 import {
   type Bezier,
   bezierCss,
+  defaultCurve,
   type Easing,
   easingName,
   easingPresets,
@@ -27,9 +31,9 @@ import {
   type Spring,
   springSettle
 } from "./motion-data.ts"
-import { easingClass, easingIsLong, easingOrder } from "./motion-writes.ts"
-import { type EasingToken, easingToken, easingTokens } from "./tokens.ts"
-import { readUnitNumber, type TokenOption, UnitField } from "./unit-field.tsx"
+import { easingClass, easingIsLong } from "./motion-writes.ts"
+import { Card, PreviewStage } from "./playground.tsx"
+import { type EasingToken, easingToken, type FieldToken, hexOf } from "./tokens.ts"
 
 /*
  * Easing and spring (PAR-652): a small curve and its name at rest; typed as a preset's name, a token's,
@@ -38,7 +42,7 @@ import { readUnitNumber, type TokenOption, UnitField } from "./unit-field.tsx"
  * is written as `linear()`, whose class runs to hundreds of characters, so it offers Save as token first.
  */
 
-const handleColor = "#0d99ff"
+const namespace = "ease-"
 
 /** An easing's path in a box of `width` by `height`, with room above and below for overshoot. */
 function shapePath(shape: EasingShape, width: number, height: number, low: number, high: number): string {
@@ -72,7 +76,10 @@ function reach(shape: EasingShape): { low: number; high: number } {
   return { low: 0, high: 1 }
 }
 
-/** The small curve an easing shows at rest, in its chip, and in each menu option. */
+/**
+ * The small curve an easing shows at rest and in its editor. The Tokens panel's own preview draws a token's curve in
+ * the token list and the chip; this one draws steps too, which a value of its own can be.
+ */
 export function CurveThumb({
   shape,
   faint = false,
@@ -97,6 +104,20 @@ export function CurveThumb({
   )
 }
 
+/** Tailwind's easings as the token list offers them: by the class each writes, drawn from its own curve. */
+const presetTokens: FieldToken[] = easingPresets.map((preset) => ({
+  name: easingClass({ keyword: preset.keyword }),
+  kind: "easing",
+  value: bezierCss(preset.curve),
+  detail: preset.label
+}))
+
+/** The easing a token list's name stands for: one of Tailwind's by its class, or a project token. */
+function picked(name: string): Easing {
+  const preset = easingPresets.find((option) => easingClass({ keyword: option.keyword }) === name)
+  return preset ? { keyword: preset.keyword } : { token: name }
+}
+
 /** Reads an easing typed: a preset's name, a token's, `cubic-bezier(…)` or `steps(…)`. */
 function readEasing(text: string, tokens: readonly EasingToken[]): Easing | undefined {
   const words = text
@@ -110,7 +131,7 @@ function readEasing(text: string, tokens: readonly EasingToken[]): Easing | unde
       `ease-${option.keyword}` === words
   )
   if (preset) return { keyword: preset.keyword }
-  const token = tokens.find((option) => option.name === words || option.name === `ease-${words}`)
+  const token = tokens.find((option) => option.name === words || option.name === namespace + words)
   if (token) return { token: token.name }
   if (readEasingValue(text)) return { value: text.trim().replaceAll(/\s+/g, " ") }
   return undefined
@@ -119,7 +140,6 @@ function readEasing(text: string, tokens: readonly EasingToken[]): Easing | unde
 export function EasingField({
   label,
   value,
-  projectTokens = easingTokens,
   mixed,
   defaultOpen = false,
   defaultTab = "curve",
@@ -127,109 +147,90 @@ export function EasingField({
 }: {
   label: string
   value: Easing | undefined
-  projectTokens?: readonly EasingToken[]
   mixed?: boolean
   defaultOpen?: boolean
   defaultTab?: "curve" | "spring"
   onChange: (value: Easing | undefined) => void
 }) {
-  const [created, setCreated] = useState<EasingToken[]>([])
+  const { tokens, create } = useTokens("easing")
   const [open, setOpen] = useState(defaultOpen)
-  const tokens = [...projectTokens, ...created]
-  const token = value !== undefined && "token" in value ? tokens.find((other) => other.name === value.token) : undefined
+  const name = value !== undefined && "token" in value ? value.token : undefined
+  const token = name === undefined ? undefined : tokens.find((other) => other.name === name)
   const shape = easingShape(value, tokens)
-  let detail: string | undefined
-  if (value !== undefined && "value" in value && shape.kind === "bezier") detail = shape.curve.join(", ")
-  const options: TokenOption[] = [
-    ...easingPresets.map((preset) => ({
-      name: preset.keyword,
-      label: preset.label,
-      detail: preset.keyword === "linear" ? "ease-linear" : preset.keyword,
-      preview: <CurveThumb shape={{ kind: "bezier", curve: preset.curve }} />
-    })),
-    ...tokens.map((option) => ({
-      name: option.name,
-      label: option.name.replace(/^ease-/, ""),
-      detail: option.spring ? "Spring" : "Token",
-      preview: <CurveThumb shape={easingShape({ token: option.name }, tokens)} />
-    }))
+  let comesTo = token?.detail
+  if (value !== undefined && "value" in value && shape.kind === "bezier") comesTo = shape.curve.join(", ")
+  let current = name
+  if (value !== undefined && "keyword" in value) current = easingClass(value)
+  // Up and Down go through Tailwind's easings, then the project's, in order.
+  const order: Easing[] = [
+    ...easingPresets.map((preset) => ({ keyword: preset.keyword })),
+    ...tokens.map((other) => ({ token: other.name }))
   ]
-  const saveToken = (name: string) => {
-    if (value === undefined || !("spring" in value || "value" in value)) return
-    const full = name.startsWith("ease-") ? name : `ease-${name}`
+  const step = (up: boolean) => {
+    const index = order.findIndex((option) => JSON.stringify(option) === JSON.stringify(value))
+    const from =
+      index === -1 ? order.findIndex((option) => "keyword" in option && option.keyword === "ease-in-out") : index
+    onChange(order[clamp(from + (up ? 1 : -1), 0, order.length - 1)])
+  }
+  const read = (text: string): Reading<Easing | undefined> => {
+    if (text.trim() === "") return { value: undefined }
+    const easing = readEasing(text, tokens)
+    if (!easing)
+      return { reason: `${label} takes a preset such as Ease out, a token's name, cubic-bezier() or steps()` }
+    return { value: easing }
+  }
+  const isTaken = (taken: string) => tokens.some((other) => other.name === taken || other.name === namespace + taken)
+  const saveToken = (made: string) => {
+    if (!create || value === undefined || !("spring" in value || "value" in value)) return
+    const full = made.startsWith(namespace) ? made : namespace + made
     const curve = shape.kind === "bezier" ? shape.curve : undefined
-    setCreated((current) => [...current, easingToken(full, curve, "spring" in value ? value.spring : undefined)])
+    create(easingToken(full, curve, "spring" in value ? value.spring : undefined))
     onChange({ token: full })
   }
+  const editor = (
+    <Popover open={open} onOpenChange={setOpen}>
+      <Hint label={`Edit ${label.toLowerCase()}`}>
+        <PopoverTrigger
+          aria-label={`Edit ${label.toLowerCase()}: ${easingName(value)}`}
+          className="-ml-0.5 grid size-5 shrink-0 place-items-center rounded outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+        >
+          <CurveThumb shape={shape} faint={value === undefined} />
+        </PopoverTrigger>
+      </Hint>
+      <PopoverContent className="w-72 gap-0 p-0" align="start">
+        <EasingEditor value={value} tokens={tokens} defaultTab={defaultTab} onChange={onChange} onSave={saveToken} />
+      </PopoverContent>
+    </Popover>
+  )
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <UnitField
+      <ValueField
         label={label}
-        inner={
-          <Popover open={open} onOpenChange={setOpen}>
-            <Hint label={`Edit ${label.toLowerCase()}`}>
-              <PopoverTrigger
-                aria-label={`Edit ${label.toLowerCase()}: ${easingName(value)}`}
-                className="-ml-0.5 grid size-5 shrink-0 place-items-center rounded outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-              >
-                <CurveThumb shape={shape} faint={value === undefined} />
-              </PopoverTrigger>
-            </Hint>
-            <PopoverContent className="w-72 gap-0 p-0" align="start">
-              <EasingEditor
-                value={value}
-                tokens={tokens}
-                defaultTab={defaultTab}
-                onChange={onChange}
-                onSave={saveToken}
-              />
-            </PopoverContent>
-          </Popover>
-        }
-        shown={value === undefined || token ? undefined : easingName(value)}
+        inner={editor}
+        shown={value === undefined || name !== undefined ? undefined : easingName(value)}
         placeholder="Default"
-        detail={detail}
         mixed={mixed}
-        chip={
-          token && value
-            ? {
-                name: token.name.replace(/^ease-/, ""),
-                title: `${token.name}, ${token.spring ? "a spring" : bezierCss(token.curve!)}`,
-                onRemove: () => onChange(undefined)
-              }
-            : undefined
-        }
-        tokens={options}
-        onPickToken={(name) => {
-          const preset = easingPresets.find((option) => option.keyword === name)
-          onChange(preset ? { keyword: preset.keyword } : { token: name })
-        }}
-        onType={(text) => {
-          if (text.trim() === "") {
-            onChange(undefined)
-            return undefined
+        chip={name === undefined ? undefined : { name, token, namespace, onRemove: () => onChange(undefined) }}
+        comesTo={comesTo}
+        status={{ missing: name !== undefined && !token ? <MissingMark name={name} /> : undefined }}
+        tokens={{
+          list: [...presetTokens, ...tokens],
+          current,
+          onPick: (next) => {
+            if (next) onChange(picked(next))
           }
-          const read = readEasing(text, tokens)
-          if (!read) return `${label} takes a preset such as Ease out, a token's name, cubic-bezier() or steps()`
-          onChange(read)
-          return undefined
         }}
-        onStep={(up) => {
-          // Up and Down go through Tailwind's easings, then the project's, in order.
-          const index = easingOrder.findIndex((option) => JSON.stringify(option) === JSON.stringify(value))
-          const from =
-            index === -1
-              ? easingOrder.findIndex((option) => "keyword" in option && option.keyword === "ease-in-out")
-              : index
-          onChange(easingOrder[Math.min(easingOrder.length - 1, Math.max(0, from + (up ? 1 : -1)))])
-        }}
+        inputMode="text"
+        read={read}
+        onCommit={onChange}
+        onStep={(up) => step(up)}
       />
       {/* The editor says it too, so it isn't left under the open popover. */}
       {!open && value !== undefined && easingIsLong(value) && (
         <SaveAsToken
           says={`Writes a ${easingClass(value).length}-character class.`}
           placeholder="springy"
-          isTaken={(name) => tokens.some((other) => other.name === name || other.name === `ease-${name}`)}
+          isTaken={isTaken}
           onSave={saveToken}
         />
       )}
@@ -364,7 +365,7 @@ function EasingEditor({
           <StepsEditor shape={shape} onChange={onChange} />
         ) : (
           <CurveEditor
-            curve={shape.kind === "bezier" ? shape.curve : [0.4, 0, 0.2, 1]}
+            curve={shape.kind === "bezier" ? shape.curve : defaultCurve}
             onChange={(curve) => onChange({ value: bezierCss(curve) })}
           />
         )}
@@ -380,7 +381,7 @@ function EasingEditor({
           <SaveAsToken
             says={`Writes a ${easingClass({ spring }).length}-character class.`}
             placeholder="springy"
-            isTaken={(name) => tokens.some((other) => other.name === name || other.name === `ease-${name}`)}
+            isTaken={(name) => tokens.some((other) => other.name === name || other.name === namespace + name)}
             onSave={onSave}
           />
         )}
@@ -388,6 +389,9 @@ function EasingEditor({
     </Tabs>
   )
 }
+
+/** A number to two decimals, as a curve's handles are kept. */
+const hundredths = (value: number) => Number(formatNumber(value, 2))
 
 /** The curve, with its two handles dragged or moved with the arrow keys (0.01, Shift 0.1). */
 function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bezier) => void }) {
@@ -399,33 +403,24 @@ function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
   const inner = size - pad * 2
   const x = (value: number) => pad + value * inner
   const y = (value: number) => pad + ((high - value) / (high - low)) * inner
-  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
-  const round = (value: number) => Math.round(value * 100) / 100
   const move = (handle: 0 | 1, toX: number, toY: number) => {
-    const next = [...curve] as Bezier
-    next[handle * 2] = round(clamp(toX, 0, 1))
-    next[handle * 2 + 1] = round(clamp(toY, low, high))
+    const next: Bezier = [...curve]
+    next[handle * 2] = hundredths(clamp(toX, 0, 1))
+    next[handle * 2 + 1] = hundredths(clamp(toY, low, high))
     onChange(next)
   }
   const press = (handle: 0 | 1) => (event: PointerEvent<SVGCircleElement>) => {
+    if (event.button !== 0) return
     event.preventDefault()
-    const target = event.currentTarget
-    target.setPointerCapture(event.pointerId)
-    const follow = (moveEvent: globalThis.PointerEvent) => {
-      const rect = box.current!.getBoundingClientRect()
-      const scale = size / rect.width
-      const px = (moveEvent.clientX - rect.left) * scale
-      const py = (moveEvent.clientY - rect.top) * scale
-      move(handle, (px - pad) / inner, high - ((py - pad) / inner) * (high - low))
-    }
-    const end = () => {
-      target.removeEventListener("pointermove", follow)
-      target.removeEventListener("pointerup", end)
-      target.removeEventListener("pointercancel", end)
-    }
-    target.addEventListener("pointermove", follow)
-    target.addEventListener("pointerup", end)
-    target.addEventListener("pointercancel", end)
+    drag(event, {
+      move: ({ clientX, clientY }) => {
+        const rect = box.current!.getBoundingClientRect()
+        const scale = size / rect.width
+        const px = (clientX - rect.left) * scale
+        const py = (clientY - rect.top) * scale
+        move(handle, (px - pad) / inner, high - ((py - pad) / inner) * (high - low))
+      }
+    })
   }
   const key = (handle: 0 | 1) => (event: KeyboardEvent<SVGCircleElement>) => {
     const step = event.shiftKey ? 0.1 : 0.01
@@ -460,7 +455,7 @@ function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
               y1={y(handle.from[1])}
               x2={x(handle.at[0])}
               y2={y(handle.at[1])}
-              stroke={handleColor}
+              stroke={kindColors.layer}
               strokeWidth={1.5}
             />
             <circle
@@ -473,10 +468,10 @@ function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
               cy={y(handle.at[1])}
               r={6}
               fill="white"
-              stroke={handleColor}
+              stroke={kindColors.layer}
               strokeWidth={2}
-              onPointerDown={press(index as 0 | 1)}
-              onKeyDown={key(index as 0 | 1)}
+              onPointerDown={press(index === 0 ? 0 : 1)}
+              onKeyDown={key(index === 0 ? 0 : 1)}
               className="cursor-grab outline-none focus-visible:stroke-[3]"
             />
           </g>
@@ -561,7 +556,7 @@ function SpringEditor({ spring, onChange }: { spring: Spring | undefined; onChan
         </ToggleGroupItem>
       </ToggleGroup>
       <div className="grid place-items-center rounded-md border bg-muted/40 p-2">
-        <CurveThumb shape={easingShape({ spring: shown })} size={120} faint={spring === undefined} />
+        <CurveThumb shape={easingShape({ spring: shown }, [])} size={120} faint={spring === undefined} />
       </div>
       <p className="text-[11px] text-muted-foreground">Settles in {springSettle(shown)}ms, which is the duration.</p>
       {"duration" in shown ? (
@@ -616,7 +611,7 @@ function SpringEditor({ spring, onChange }: { spring: Spring | undefined; onChan
   )
 }
 
-/** One of a spring's numbers: typed, stepped, or dragged on its slider. */
+/** One of a spring's numbers: typed, stepped, or dragged on its slider, kept within its range on its steps. */
 function SpringNumber({
   label,
   unit,
@@ -635,29 +630,28 @@ function SpringNumber({
   onChange: (value: number) => void
 }) {
   const id = useId()
-  const set = (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next / step) * step)))
+  const set = (next: number) => onChange(clamp(Number(formatNumber(Math.round(next / step) * step)), min, max))
+  const read = (text: string): Reading<number> =>
+    readUnitNumber(text, {
+      units: unit ? { [unit]: 1 } : {},
+      current: value,
+      label,
+      takes: `${label} takes a number from ${min} to ${max}`
+    })
   return (
     <div className="grid grid-cols-[60px_72px_minmax(0,1fr)] items-center gap-2">
       <span id={id} className="text-xs text-muted-foreground">
         {label}
       </span>
-      <UnitField
+      <ValueField
         label={label}
-        unit={unit}
-        shown={String(Number(value.toFixed(2)))}
+        shown={formatNumber(value, 2)}
         placeholder={String(min)}
+        unit={unit}
         narrow
-        onType={(text) => {
-          const reading = readUnitNumber(text, {
-            units: unit ? { [unit]: 1 } : {},
-            current: value,
-            takes: `${label} takes a number from ${min} to ${max}`
-          })
-          if ("reason" in reading) return reading.reason
-          set(reading.value)
-          return undefined
-        }}
-        onStep={(up, shift) => set(value + (up ? 1 : -1) * step * (shift ? 10 : 1))}
+        read={read}
+        onCommit={set}
+        onStep={(up, { shift }) => set(value + (up ? 1 : -1) * step * (shift ? 10 : 1))}
       />
       <Slider
         aria-labelledby={id}
@@ -673,7 +667,8 @@ function SpringNumber({
 
 /**
  * A card that moves when the pointer is over it, or when Play is pressed, with a transition, so an easing, duration
- * and delay can be felt. What it changes on hover follows what the transition covers.
+ * and delay can be felt. What it changes on hover follows what the transition covers. It's drawn on the preview
+ * stage, so a change of opacity or shadow shows against the shapes behind.
  */
 export function HoverCard({
   transition,
@@ -683,29 +678,32 @@ export function HoverCard({
   changes?: readonly ("colors" | "opacity" | "transform" | "shadow")[]
 }) {
   const [on, setOn] = useState(false)
-  const style = {
-    transition,
-    translate: on && changes.includes("transform") ? "120px 0" : "0 0",
-    opacity: on && changes.includes("opacity") ? 0.35 : 1,
-    backgroundColor: on && changes.includes("colors") ? "#2f6fed" : "#ffffff",
-    color: on && changes.includes("colors") ? "#ffffff" : "#0a0a0a",
-    boxShadow: on && changes.includes("shadow") ? "0 12px 24px -4px rgb(0 0 0 / 0.35)" : "0 1px 2px rgb(0 0 0 / 0.1)"
-  }
+  const colors = useTokenSets().color
+  const colored = on && changes.includes("colors")
   return (
-    <div className="flex w-64 flex-col items-start gap-3">
-      <div
-        className="relative h-24 w-full rounded-lg border border-dashed bg-background/40 p-3"
-        onPointerEnter={() => setOn(true)}
-        onPointerLeave={() => setOn(false)}
-      >
+    <div className="flex flex-col items-start gap-3">
+      <PreviewStage>
         <div
-          aria-label="The layer"
-          className="grid h-16 w-20 place-items-center rounded-lg border text-xs"
-          style={style}
+          className="relative h-24 w-56 rounded-lg border border-dashed border-muted-foreground/40 p-3"
+          onPointerEnter={() => setOn(true)}
+          onPointerLeave={() => setOn(false)}
         >
-          Plans
+          <Card
+            style={{
+              width: 80,
+              height: 64,
+              borderRadius: 8,
+              transition,
+              translate: on && changes.includes("transform") ? "120px 0" : "0 0",
+              opacity: on && changes.includes("opacity") ? 0.35 : 1,
+              backgroundColor: hexOf(colored ? "blue-600" : "card", colors),
+              color: hexOf(colored ? "primary-foreground" : "foreground", colors),
+              boxShadow:
+                on && changes.includes("shadow") ? "0 12px 24px -4px rgb(0 0 0 / 0.35)" : "0 1px 2px rgb(0 0 0 / 0.1)"
+            }}
+          />
         </div>
-      </div>
+      </PreviewStage>
       <Button variant="outline" size="sm" className="h-7 text-xs" aria-pressed={on} onClick={() => setOn(!on)}>
         {on ? "Play back" : "Play"}
       </Button>

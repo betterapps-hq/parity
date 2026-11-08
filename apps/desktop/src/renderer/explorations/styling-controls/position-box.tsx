@@ -2,9 +2,7 @@ import { type PointerEvent, useRef } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { type BoxPoint, clamp, type SpotValue, spotKeywords, spotValues } from "./css-values.ts"
-import { drag, type DragPoint } from "./field-parts.tsx"
-import type { BoxPosition } from "./motion-data.ts"
-import { readUnitNumber, UnitField } from "./unit-field.tsx"
+import { drag, type DragPoint, PercentField } from "./field-parts.tsx"
 
 /*
  * The nine-spot box, which every control that places something in a box draws: Layout's alignment, Transform's
@@ -113,13 +111,17 @@ export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, o
   )
 }
 
-const xWords: Record<string, number> = { left: 0, center: 50, right: 100 }
-const yWords: Record<string, number> = { top: 0, center: 50, bottom: 100 }
+/** The words X and Y also take, as CSS names the spots' sides. */
+const axisWords = {
+  x: { left: 0, center: 50, right: 100 },
+  y: { top: 0, center: 50, bottom: 100 }
+} as const
 
 /**
  * Position in a box (PAR-652), as Transform's Origin, Image's Position and a fill image's position take it: the nine
- * spots, and X and Y beside them. A position off the spots lights none and shows as a dot where it is. Dragging in the
- * box sets any position, Shift snapping to the spots.
+ * spots, and X and Y beside them as percentages from 0 to 100, which also take the sides' words (left, center, right;
+ * top, center, bottom). A position off the spots lights none and shows as a dot where it is. Dragging in the box sets
+ * any position, Shift snapping to the spots. Clearing X or Y unsets the position.
  */
 export function PositionInBox({
   label,
@@ -129,53 +131,26 @@ export function PositionInBox({
   onChange
 }: {
   label: string
-  value: BoxPosition | undefined
+  value: BoxPoint | undefined
   /** Where it is unset: the center for an origin and an image's position. */
-  placeholder?: BoxPosition
+  placeholder?: BoxPoint
   mixed?: boolean
-  onChange: (value: BoxPosition | undefined) => void
+  onChange: (value: BoxPoint | undefined) => void
 }) {
   const shown = value ?? placeholder
   const onSpot = spotKeywords(shown) !== undefined
-  const axisField = (axis: "x" | "y") => {
-    const words = axis === "x" ? xWords : yWords
-    const current = shown[axis]
-    const set = (next: number) => onChange({ ...shown, [axis]: Math.round(next * 100) / 100 })
-    return (
-      <UnitField
-        label={`${label} ${axis.toUpperCase()}`}
-        inner={axis.toUpperCase()}
-        unit="%"
-        shown={value === undefined ? undefined : String(value[axis])}
-        placeholder={String(placeholder[axis])}
-        mixed={mixed}
-        narrow
-        onType={(text) => {
-          const trimmed = text.trim().toLowerCase()
-          if (trimmed === "") {
-            onChange(undefined)
-            return undefined
-          }
-          if (words[trimmed] !== undefined) {
-            set(words[trimmed]!)
-            return undefined
-          }
-          const reading = readUnitNumber(trimmed, {
-            units: { "%": 1 },
-            current,
-            takes: `${axis.toUpperCase()} takes a percentage, or ${Object.keys(words)
-              .join(", ")
-              .replace(/, (\w+)$/, " or $1")}`
-          })
-          if ("reason" in reading) return reading.reason
-          set(reading.value)
-          return undefined
-        }}
-        onStep={(up, shift) => set(current + (up ? 1 : -1) * (shift ? 10 : 1))}
-        scrub={{ from: () => current, apply: (from, dx) => set(from + Math.trunc(dx)) }}
-      />
-    )
-  }
+  const axisField = (axis: "x" | "y") => (
+    <PercentField
+      label={`${label} ${axis.toUpperCase()}`}
+      inner={axis.toUpperCase()}
+      value={value?.[axis]}
+      placeholder={String(placeholder[axis])}
+      keywords={axisWords[axis]}
+      mixed={mixed}
+      narrow
+      onChange={(next) => onChange(next === undefined ? undefined : { ...shown, [axis]: next })}
+    />
+  )
   return (
     <div className="flex items-start gap-2">
       <NineSpots
@@ -186,7 +161,7 @@ export function PositionInBox({
         onSpot={onChange}
         onDrag={(point) => onChange(positionAt(point))}
       />
-      <div className="grid min-w-0 flex-1 gap-1">
+      <div className="grid min-w-0 flex-1 grid-cols-1 gap-y-1">
         {axisField("x")}
         {axisField("y")}
       </div>

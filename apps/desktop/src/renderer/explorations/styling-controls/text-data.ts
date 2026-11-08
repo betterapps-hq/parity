@@ -1,17 +1,16 @@
 /*
- * Stand-in fonts for the text, keyword and opacity fields: the project's fonts (Geist, as the app's own sans, and
- * three more as font tokens), and fonts installed on this computer in place of Google Fonts, which the app would add
- * to the project. Tailwind v4's weight, leading, tracking and text size scales are in tokens.ts.
+ * Stand-in fonts for the text fields, with the faces each has: the project's fonts, which its font tokens name, and
+ * fonts installed on this computer in place of Google Fonts, which the app would add to the project. The font tokens
+ * themselves, and Tailwind v4's weight, leading, tracking and text size scales, are in tokens.ts. Blend modes are here
+ * too, as the keywords Appearance's menu offers.
  */
-import { weightTokens } from "./tokens.ts"
+import { type WeightToken, weightTokens } from "./tokens.ts"
 
 export interface FontFamily {
   /** The first family, as it's shown. */
   name: string
   /** The whole stack, as CSS writes it. */
   stack: string
-  /** The project's font token for it (`sans` is `--font-sans`), when it has one. */
-  token?: string
   /** The weights it has a face for. */
   weights: number[]
   /** A variable font's weight axis. */
@@ -19,19 +18,18 @@ export interface FontFamily {
   italic: boolean
 }
 
-/** The project's fonts, each a font token, first in the list. */
+/** The project's fonts, which its font tokens name: Geist, as the app's own sans, and three more. */
 export const projectFonts: FontFamily[] = [
   {
     name: "Geist",
     stack: '"Geist Variable", sans-serif',
-    token: "sans",
     weights: [100, 200, 300, 400, 500, 600, 700, 800, 900],
     axis: [100, 900],
     italic: false
   },
-  { name: "Georgia", stack: "Georgia, serif", token: "serif", weights: [400, 700], italic: true },
-  { name: "Consolas", stack: "Consolas, monospace", token: "mono", weights: [400, 700], italic: true },
-  { name: "Trebuchet MS", stack: '"Trebuchet MS", sans-serif', token: "brand", weights: [400, 700], italic: true }
+  { name: "Georgia", stack: "Georgia, serif", weights: [400, 700], italic: true },
+  { name: "Consolas", stack: "Consolas, monospace", weights: [400, 700], italic: true },
+  { name: "Trebuchet MS", stack: '"Trebuchet MS", sans-serif', weights: [400, 700], italic: true }
 ]
 
 /**
@@ -74,9 +72,9 @@ export function genericOf(stack: string): "serif" | "monospace" | "sans-serif" {
   return "sans-serif"
 }
 
-/** A weight's name where it has one (Semibold), or its number. */
-export function weightName(value: number): string {
-  return weightTokens.find((token) => token.weight === value)?.label ?? String(value)
+/** A weight's name where a token names it (Semibold), or its number. */
+export function weightName(value: number, tokens: readonly WeightToken[] = weightTokens): string {
+  return tokens.find((token) => token.weight === value)?.label ?? String(value)
 }
 
 /** `mix-blend-mode`'s keywords, grouped as Figma's blend menu is; `plus-*` aren't Baseline. */

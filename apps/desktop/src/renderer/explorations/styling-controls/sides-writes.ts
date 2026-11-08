@@ -2,9 +2,12 @@
  * Four sides (PAR-652's Four sides type): padding, margin, stroke width and insets, each side in its own form, and
  * what they're stored as and write. Layer order shares the side's forms, as a count. What's typed is read with the
  * app's maths and units from typing.ts; what's written is the fewest classes, shorthand first (`p-4`, `px-4 py-2`,
- * `p-4 pb-6`).
+ * `p-4 pb-6`), in css-values.ts's forms. The tokens a side can hold are the project's, which the field passes in, so a
+ * token made with Create token reads and steps as any other.
  */
-import { borderWidthTokens, type LengthToken, spacingTokens, zIndexTokens } from "./tokens.ts"
+import type { PreviewKind } from "@parity-app/tokens"
+import { arbitrary, formatNumber, fraction, lengthClass, lengthCss, lengthForm, stepSpacing } from "./css-values.ts"
+import type { LengthToken } from "./tokens.ts"
 import { readLength } from "./typing.ts"
 import type { Writes } from "./writes.ts"
 
@@ -19,6 +22,9 @@ export type Side = SideValue | undefined
 /** Four sides from the top, clockwise, as CSS orders them; an unset side is undefined. */
 export type Sides = [Side, Side, Side, Side]
 
+/** The sides' names, from the top, clockwise. */
+export const sideNames = ["Top", "Right", "Bottom", "Left"] as const
+
 export type SidesKind = "padding" | "margin" | "border" | "inset" | "layer"
 
 /** What a kind of side takes and how it steps. */
@@ -26,7 +32,8 @@ export interface SideRules {
   kind: SidesKind
   /** The property in a sentence: padding, margin, stroke width. */
   noun: string
-  tokens: LengthToken[]
+  /** Which of the project's token sets it offers (`useTokens`), and the kind of token Create token makes in it. */
+  tokens: { set: "spacing" | "borderWidth" | "zIndex"; kind: PreviewKind }
   /** What the kind's token names start with, which a chip leaves off (`gutter` for `spacing-gutter`). */
   namespace: string
   /** Up and Down: the next whole spacing step (4px), a pixel, or one. */
@@ -34,80 +41,89 @@ export interface SideRules {
   negatives: boolean
   auto: boolean
   percent: boolean
+  /** What unset is called in the token list's first row: None, or Auto where unset is `auto`. */
+  unset: "None" | "Auto"
   /** The unit after the number; a count has none. */
   unit?: string
 }
+
+const spacing = { set: "spacing", kind: "spacing" } as const
 
 export const sideRules: Record<SidesKind, SideRules> = {
   padding: {
     kind: "padding",
     noun: "padding",
-    tokens: spacingTokens,
+    tokens: spacing,
     namespace: "spacing-",
     stepBy: "spacing",
     negatives: false,
     auto: false,
     percent: true,
+    unset: "None",
     unit: "px"
   },
   margin: {
     kind: "margin",
     noun: "margin",
-    tokens: spacingTokens,
+    tokens: spacing,
     namespace: "spacing-",
     stepBy: "spacing",
     negatives: true,
     auto: true,
     percent: true,
+    unset: "None",
     unit: "px"
   },
   border: {
     kind: "border",
     noun: "stroke width",
-    tokens: borderWidthTokens,
+    tokens: { set: "borderWidth", kind: "border-width" },
     namespace: "border-width-",
     stepBy: "pixel",
     negatives: false,
     auto: false,
     percent: false,
+    unset: "None",
     unit: "px"
   },
   inset: {
     kind: "inset",
     noun: "inset",
-    tokens: spacingTokens,
+    tokens: spacing,
     namespace: "spacing-",
     stepBy: "spacing",
     negatives: true,
     auto: true,
     percent: true,
+    unset: "Auto",
     unit: "px"
   },
   layer: {
     kind: "layer",
     noun: "layer order",
-    tokens: zIndexTokens,
+    tokens: { set: "zIndex", kind: "z-index" },
     namespace: "z-",
     stepBy: "count",
     negatives: true,
     auto: true,
-    percent: false
+    percent: false,
+    unset: "Auto"
   }
 }
 
 const capital = (text: string) => `${text[0]!.toUpperCase()}${text.slice(1)}`
 
-/** A number as the field shows it, to two places at most. */
-export const shownNumber = (number: number) => String(Number(number.toFixed(2)))
-
-/** Whether a number is one of the field's steps: a whole pixel (a quarter spacing step), or a whole count. */
-export const onStep = (number: number) => Number.isInteger(number)
+/**
+ * Whether a number is one of the field's steps: a whole pixel, which is a step of the spacing scale (any multiple of a
+ * quarter step, as css-values.ts's `lengthForm` says) and a whole stroke width, or a whole count.
+ */
+export const onStep = (number: number) => "step" in lengthForm(number)
 
 /** A side's value in its unit, where it has one: its own number, or its token's. */
-export function sideNumber(side: Side, rules: SideRules): number | undefined {
+export function sideNumber(side: Side, tokens: readonly LengthToken[]): number | undefined {
   if (side === undefined || side === "auto") return undefined
   if ("number" in side) return side.number
-  if ("token" in side) return rules.tokens.find((token) => token.name === side.token)?.px
+  if ("token" in side) return tokens.find((token) => token.name === side.token)?.px
   return undefined
 }
 
@@ -117,15 +133,21 @@ export type SideReading = { side: Side } | { shorthand: Sides } | { reason: stri
  * What's typed into a side: a length with the app's maths and units, a token's name with or without its namespace,
  * `auto` where it's taken, or CSS's shorthand of two to four values, which fills the sides in CSS's order.
  */
-export function readSide(text: string, label: string, rules: SideRules, current: Side): SideReading {
+export function readSide(
+  text: string,
+  label: string,
+  rules: SideRules,
+  current: Side,
+  tokens: readonly LengthToken[]
+): SideReading {
   const trimmed = text.trim()
   if (trimmed === "") return { side: undefined }
   const parts = trimmed.split(/\s+/)
-  if (parts.length === 1) return readOne(trimmed, label, rules, current)
+  if (parts.length === 1) return readOne(trimmed, label, rules, current, tokens)
   if (parts.length > 4) return { reason: `${label} takes one to four values, as CSS's shorthand does` }
   const read: Side[] = []
   for (const part of parts) {
-    const reading = readOne(part, label, rules, undefined)
+    const reading = readOne(part, label, rules, undefined, tokens)
     if ("reason" in reading) return { reason: `Can't read ${part}: ${reading.reason}` }
     if ("side" in reading) read.push(reading.side)
   }
@@ -133,18 +155,24 @@ export function readSide(text: string, label: string, rules: SideRules, current:
   return { shorthand: [a, b, c, d] }
 }
 
-function readOne(text: string, label: string, rules: SideRules, current: Side): SideReading {
+function readOne(
+  text: string,
+  label: string,
+  rules: SideRules,
+  current: Side,
+  tokens: readonly LengthToken[]
+): SideReading {
   if (text.toLowerCase() === "auto") {
     return rules.auto ? { side: "auto" } : { reason: `${capital(rules.noun)} doesn't take auto` }
   }
-  const token = rules.tokens.find((other) => other.name === text || other.name === rules.namespace + text)
+  const token = tokens.find((other) => other.name === text || other.name === rules.namespace + text)
   if (token) return { side: { token: token.name } }
   if (rules.stepBy === "count") {
     const number = Number(text)
     if (!Number.isInteger(number)) return { reason: `${label} takes a whole number, such as 10, or a token` }
     return { side: { number } }
   }
-  const reading = readLength(text, { label, current: sideNumber(current, rules), takesPercent: rules.percent })
+  const reading = readLength(text, { label, current: sideNumber(current, tokens), takesPercent: rules.percent })
   if ("clear" in reading) return { side: undefined }
   if ("reason" in reading) {
     if (!reading.reason.startsWith("Can't read")) return reading
@@ -159,10 +187,21 @@ function readOne(text: string, label: string, rules: SideRules, current: Side): 
   return { side: { number: reading.px } }
 }
 
-/** Up or Down from a side: the next token in scale order, the next whole step, a pixel or one; Shift goes further. */
-export function stepSide(side: Side, rules: SideRules, up: boolean, shift: boolean, measured?: number): Side {
+/**
+ * Up or Down from a side: the next token in scale order, the next whole spacing step (13px goes to 16px, as
+ * css-values.ts's `stepSpacing` moves every spacing length), a pixel or one; Shift goes to the first or last token, or
+ * ten steps.
+ */
+export function stepSide(
+  side: Side,
+  rules: SideRules,
+  up: boolean,
+  shift: boolean,
+  measured: number | undefined,
+  tokens: readonly LengthToken[]
+): Side {
   if (side !== undefined && side !== "auto" && "token" in side) {
-    const scale = rules.tokens.filter((token) => !token.deprecated).toSorted((a, b) => a.px - b.px)
+    const scale = tokens.filter((token) => !token.deprecated).toSorted((a, b) => a.px - b.px)
     const index = scale.findIndex((token) => token.name === side.token)
     if (index !== -1) {
       const last = scale.length - 1
@@ -171,20 +210,11 @@ export function stepSide(side: Side, rules: SideRules, up: boolean, shift: boole
       return { token: scale[next]!.name }
     }
   }
-  if (side !== undefined && side !== "auto" && "percent" in side) {
-    return { percent: side.percent + (up ? 1 : -1) * (shift ? 10 : 1) }
-  }
-  const from = sideNumber(side, rules) ?? measured ?? 0
-  let next: number
-  if (rules.stepBy === "spacing") {
-    // A whole step is 4px: 13px goes up to 16 and down to 12; Shift goes ten steps.
-    const whole = up ? Math.floor(from / 4 + 1e-9) * 4 + 4 : Math.ceil(from / 4 - 1e-9) * 4 - 4
-    next = whole + (up ? 1 : -1) * (shift ? 36 : 0)
-  } else {
-    next = from + (up ? 1 : -1) * (shift ? 10 : 1)
-  }
-  if (!rules.negatives) next = Math.max(0, next)
-  return { number: next }
+  const by = (up ? 1 : -1) * (shift ? 10 : 1)
+  if (side !== undefined && side !== "auto" && "percent" in side) return { percent: side.percent + by }
+  const from = sideNumber(side, tokens) ?? measured ?? 0
+  const next = rules.stepBy === "spacing" ? stepSpacing(from, by) : from + by
+  return { number: rules.negatives ? next : Math.max(0, next) }
 }
 
 /* What a side writes. */
@@ -242,16 +272,8 @@ const properties: Record<SidesKind, Record<Slot, string>> = {
   layer: { all: "z-index", x: "z-index", y: "z-index", t: "z-index", r: "z-index", b: "z-index", l: "z-index" }
 }
 
-/** Tailwind's fractions for a percentage, where it has one (50% is `1/2`). */
-function fraction(percent: number): string | undefined {
-  if (percent === 100) return "full"
-  for (const denominator of [2, 3, 4, 5, 6, 12]) {
-    for (let numerator = 1; numerator < denominator; numerator++) {
-      if (Math.abs((numerator / denominator) * 100 - percent) < 0.01) return `${numerator}/${denominator}`
-    }
-  }
-  return undefined
-}
+/** A number of pixels that isn't a spacing step's length: a stroke width, or an off-step value, as `13.5px`. */
+const pixels = (number: number) => `${formatNumber(number)}px`
 
 /** One side's class: `pt-4`, `-mt-2`, `pt-3.25`, `pt-[13.3px]`, `p-gutter`, `mx-auto`, `top-1/2`, `border-b`. */
 export function sideClass(kind: SidesKind, prefix: string, side: SideValue): string {
@@ -263,15 +285,14 @@ export function sideClass(kind: SidesKind, prefix: string, side: SideValue): str
   }
   if ("percent" in side) {
     const share = kind === "inset" ? fraction(Math.abs(side.percent)) : undefined
-    if (share === undefined) return `${prefix}-[${side.percent}%]`
+    if (share === undefined) return `${prefix}-[${arbitrary(`${side.percent}%`)}]`
     return side.percent < 0 ? `-${prefix}-${share}` : `${prefix}-${share}`
   }
   const number = side.number
   if (kind === "layer") return number < 0 ? `-${prefix}-${-number}` : `${prefix}-${number}`
-  if (!onStep(number)) return `${prefix}-[${shownNumber(number)}px]`
+  if (!onStep(number)) return `${prefix}-[${pixels(number)}]`
   if (kind === "border") return number === 1 ? prefix : `${prefix}-${number}`
-  const steps = Math.abs(number) / 4
-  return number < 0 ? `-${prefix}-${steps}` : `${prefix}-${steps}`
+  return number < 0 ? `-${prefix}-${lengthClass(-number)}` : `${prefix}-${lengthClass(number)}`
 }
 
 /** One side as CSS writes it: a step is `calc(var(--spacing) * 4)`, as Tailwind compiles it. */
@@ -280,16 +301,16 @@ export function sideCss(kind: SidesKind, side: SideValue): string {
   if ("token" in side) return `var(--${side.token})`
   if ("percent" in side) return `${side.percent}%`
   if (kind === "layer") return String(side.number)
-  if (kind === "border" || !onStep(side.number)) return `${shownNumber(side.number)}px`
-  return `calc(var(--spacing) * ${side.number / 4})`
+  if (kind === "border") return pixels(side.number)
+  return lengthCss(side.number)
 }
 
 /** One side as it's drawn in a preview, in pixels where it has them. */
-export function sideInline(side: Side, rules: SideRules): string | undefined {
+export function sideInline(side: Side, tokens: readonly LengthToken[]): string | undefined {
   if (side === undefined) return undefined
   if (side === "auto") return "auto"
   if ("percent" in side) return `${side.percent}%`
-  return `${sideNumber(side, rules) ?? 0}px`
+  return `${sideNumber(side, tokens) ?? 0}px`
 }
 
 /** One side in PAR-652's stored forms: `{ step }`, `{ value }`, `{ token }` or `{ keyword }`. */
@@ -298,9 +319,10 @@ export function sideStored(kind: SidesKind, side: SideValue): unknown {
   if ("token" in side) return { token: side.token }
   if ("percent" in side) return { value: `${side.percent}%` }
   const allow = side.allow === undefined ? {} : { allow: side.allow }
-  if (!onStep(side.number)) return { value: `${shownNumber(side.number)}px`, ...allow }
-  const step = kind === "padding" || kind === "margin" || kind === "inset" ? side.number / 4 : side.number
-  return { step, ...allow }
+  // Spacing kinds count their steps in quarters of a whole one; a stroke width and a count are their own steps.
+  if (kind === "padding" || kind === "margin" || kind === "inset") return { ...lengthForm(side.number), ...allow }
+  if (!onStep(side.number)) return { value: pixels(side.number), ...allow }
+  return { step: side.number, ...allow }
 }
 
 const sameSide = (a: Side, b: Side) => a !== undefined && b !== undefined && JSON.stringify(a) === JSON.stringify(b)
@@ -308,8 +330,9 @@ const isZero = (side: Side) => typeof side === "object" && "number" in side && s
 
 /**
  * The fewest classes for four sides, shorthand first: a pair for each axis, one for every side with the others
- * after it, or each side on its own, whichever is fewest. A zero side writes nothing where preflight already zeroes it (padding, margin, border width), but an
- * inset's 0 is a value. A Mixed side writes nothing, since each layer keeps its own.
+ * after it, or each side on its own, whichever is fewest. A zero side writes nothing where preflight already zeroes
+ * it (padding, margin, border width), but an inset's 0 is a value. A Mixed side writes nothing, since each layer keeps
+ * its own.
  */
 function plan(kind: SidesKind, sides: Sides): [Slot, SideValue][] {
   const skip = (side: Side) => side === undefined || (kind !== "inset" && isZero(side))

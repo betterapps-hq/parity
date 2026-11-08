@@ -3,6 +3,7 @@ import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { type Measured, SpacingPreview } from "./box-model.tsx"
+import { MessageLine } from "./field-parts.tsx"
 import { Playground } from "./playground.tsx"
 import { type Sides, sideRules, sidesWrites } from "./sides-writes.ts"
 import { FourSidesField } from "./sides.tsx"
@@ -77,22 +78,21 @@ function Margin({
           }}
           onHover={setHover}
         />
-        {collapses && !contained && (
-          <output className="flex flex-wrap items-center gap-x-1 pl-24 text-[11px] leading-snug text-muted-foreground">
-            {"This top margin passes through Pricing's top edge, which has no padding or stroke."}
-            <button
-              type="button"
-              onClick={() => setContained(true)}
-              className="font-medium text-foreground underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              Contain margins
-            </button>
-          </output>
-        )}
-        {collapses && contained && (
-          <output className="block pl-24 text-[11px] leading-snug text-muted-foreground">
-            {"Pricing contains its children's margins now, with flow-root."}
-          </output>
+        {collapses && (
+          // Under the fields, past the labels' column.
+          <div className="pl-24">
+            <MessageLine
+              message={
+                contained
+                  ? { tone: "note", text: "Pricing contains its children's margins now, with flow-root." }
+                  : {
+                      tone: "note",
+                      text: "This top margin passes through Pricing's top edge, which has no padding or stroke.",
+                      action: { label: "Contain margins", run: () => setContained(true) }
+                    }
+              }
+            />
+          </div>
         )}
       </PanelSection>
     </Playground>

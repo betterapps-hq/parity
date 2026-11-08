@@ -9,9 +9,12 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { AppWindow, ArrowUpToLine, Crosshair, Ellipsis, Layers, Maximize, Move, Rows3 } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
+import { kindColors } from "../../canvas/kinds.tsx"
 import { ChoiceInput, Field } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { formatNumber } from "./css-values.ts"
+import { MessageLine, useTokens } from "./field-parts.tsx"
 import {
   distances,
   inFlow,
@@ -22,14 +25,17 @@ import {
   type Position,
   placed
 } from "./position-writes.ts"
-import { type Side, type Sides, sideNumber, sideRules } from "./sides-writes.ts"
-import { SideInput } from "./sides.tsx"
+import { type Side, type Sides, sideNames, sideNumber, sideRules } from "./sides-writes.ts"
+import { SideField, useSidesLine } from "./sides.tsx"
 
 /*
  * Position (PAR-652): Placement's toggles, the pin box for a layer that isn't In layout, its presets (Figma's
  * constraints, written in CSS), and Layer order. PositionPreview is the canvas's stand-in: Pricing with Plans placed
- * in it, each pinned side measured to Pricing's edge.
+ * in it, each pinned side measured to Pricing's edge, drawn in the layer's color as the canvas draws a selection.
  */
+
+/** The layer's color, which the canvas draws a selected layer's outline and measurements in. */
+const layerColor = kindColors.layer
 
 const placements = [
   { value: "static", label: "In layout", detail: "Placed by its layout, as its children are", Icon: Rows3 },
@@ -51,8 +57,6 @@ const placements = [
 
 type AxisPreset = "start" | "end" | "both" | "center" | "scale"
 
-const sideNames = ["Top", "Right", "Bottom", "Left"] as const
-
 /** Which of Figma's constraints an axis is, from its pinned sides. */
 function presetOf(start: Side, end: Side, center: number | undefined): AxisPreset | undefined {
   if (center !== undefined) return "center"
@@ -64,7 +68,8 @@ function presetOf(start: Side, end: Side, center: number | undefined): AxisPrese
   return undefined
 }
 
-const round = (number: number) => Math.round(number * 10) / 10
+/** A share of Pricing as Scale pins it, to a tenth of a percent. */
+const tenth = (number: number) => Number(formatNumber(number, 1))
 
 /**
  * Position, for a layer that isn't a design's root: Placement's toggles (In layout, Absolute, Fixed, Sticky, and
@@ -93,7 +98,8 @@ export function PositionSection({
   stickyStopped?: string
   onClipInstead?: () => void
 }) {
-  const rect = placed(position)
+  const spacing = useTokens("spacing").tokens
+  const rect = placed(position, spacing)
   const measured = distances(rect)
   const placement = position.placement
   const shownPlacements = placements.filter((option) => option.value !== "relative" || placement === "relative")
@@ -160,18 +166,16 @@ export function PositionSection({
         </Field>
         {placement !== "static" && <PinBox position={position} measured={measured} stopped={stickyStopped} set={set} />}
         {stickyStopped && (
-          <output className="flex flex-wrap items-center gap-x-1 pl-24 text-[11px] leading-snug text-muted-foreground">
-            {stickyStopped}
-            {onClipInstead && (
-              <button
-                type="button"
-                onClick={onClipInstead}
-                className="font-medium text-foreground underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                Clip without scrolling
-              </button>
-            )}
-          </output>
+          // Under the fields, past the labels' column.
+          <div className="pl-24">
+            <MessageLine
+              message={{
+                tone: "note",
+                text: stickyStopped,
+                action: onClipInstead && { label: "Clip without scrolling", run: onClipInstead }
+              }}
+            />
+          </div>
         )}
         {(placement === "absolute" || placement === "fixed") && <Presets position={position} rect={rect} set={set} />}
         {layerOrderShown && <LayerOrderField value={layerOrder} context={context} onChange={onLayerOrder} />}
@@ -183,7 +187,8 @@ export function PositionSection({
 /**
  * The pin box: a field on each side of a small box, each side pinned or not. Clicking a side's pin pins it at its
  * measured distance, and clicking again unpins it to Auto, as Framer's pin box does; typing in an unpinned side pins
- * it, and typing `auto` unpins it. Centered, the axis shows its offset from the center.
+ * it, and typing `auto` unpins it. Centered, the axis shows its offset from the center. What the fields say goes under
+ * the whole box, where it has the section's width.
  */
 function PinBox({
   position,
@@ -196,6 +201,7 @@ function PinBox({
   stopped?: string
   set: (position: Position) => void
 }) {
+  const { lineFor, said } = useSidesLine()
   const sticky = position.placement === "sticky" || position.placement === "relative"
   const pinned = (index: number) => {
     if (index % 2 === 1 && position.centerX !== undefined) return false
@@ -223,12 +229,14 @@ function PinBox({
       if (index === 1 || index === 2)
         return <span className="grid h-7 place-items-center text-[11px] text-muted-foreground">Centered</span>
       const axis = index === 3 ? "centerX" : "centerY"
+      const label = `${index === 3 ? "Horizontal" : "Vertical"} offset from center`
       return (
-        <SideInput
-          label={`${index === 3 ? "Horizontal" : "Vertical"} offset from center`}
+        <SideField
+          label={label}
           rules={sideRules.inset}
           value={{ number: centered }}
           narrow
+          line={lineFor(label)}
           onChange={(value) => {
             if (typeof value === "object" && "number" in value) set({ ...position, [axis]: value.number })
           }}
@@ -237,7 +245,7 @@ function PinBox({
     }
     const placeholder = sticky ? "Auto" : `Auto ${measured[index]}`
     return (
-      <SideInput
+      <SideField
         label={`${name} inset`}
         rules={sideRules.inset}
         value={position.insets[index]}
@@ -245,6 +253,7 @@ function PinBox({
         placeholder={placeholder}
         measured={measured[index]}
         percentOf={`Pricing's ${index % 2 === 0 ? "height" : "width"}`}
+        line={lineFor(`${name} inset`)}
         onChange={(value) => setSide(index, value)}
         onShorthand={(sides) =>
           set({
@@ -271,7 +280,8 @@ function PinBox({
           style={style}
         >
           <span
-            className={`block ${vertical ? "h-full w-0 border-l-2" : "h-0 w-full border-t-2"} ${on ? "border-[#0d99ff]" : "border-dashed border-muted-foreground/40 group-hover/pin:border-muted-foreground"}`}
+            className={`block ${vertical ? "h-full w-0 border-l-2" : "h-0 w-full border-t-2"} ${on ? "" : "border-dashed border-muted-foreground/40 group-hover/pin:border-muted-foreground"}`}
+            style={on ? { borderColor: layerColor } : undefined}
           />
         </button>
       </Hint>
@@ -293,10 +303,10 @@ function PinBox({
           {/* Plans, inside Pricing; a centered axis draws its center line. */}
           <div className="absolute inset-x-[30%] inset-y-[32%] rounded-sm border bg-background" />
           {position.centerX !== undefined && (
-            <div aria-hidden className="absolute inset-y-1 left-1/2 border-l border-[#0d99ff]" />
+            <div aria-hidden className="absolute inset-y-1 left-1/2 border-l" style={{ borderColor: layerColor }} />
           )}
           {position.centerY !== undefined && (
-            <div aria-hidden className="absolute inset-x-1 top-1/2 border-t border-[#0d99ff]" />
+            <div aria-hidden className="absolute inset-x-1 top-1/2 border-t" style={{ borderColor: layerColor }} />
           )}
           {pin(0, { top: 2, left: "42%", width: "16%", height: "28%" }, true)}
           {pin(2, { bottom: 2, left: "42%", width: "16%", height: "28%" }, true)}
@@ -308,6 +318,9 @@ function PinBox({
         <div className="mx-auto w-[72px]">{field(2)}</div>
         <span />
       </div>
+      {said.map((message) => (
+        <MessageLine key={message.text} message={message} />
+      ))}
     </div>
   )
 }
@@ -341,8 +354,8 @@ function Presets({
     if (preset === "start" || preset === "both") insets[startIndex] = { number: Math.round(start) }
     if (preset === "end" || preset === "both") insets[endIndex] = { number: Math.round(end) }
     if (preset === "scale") {
-      insets[startIndex] = { percent: round((start / of) * 100) }
-      insets[endIndex] = { percent: round((end / of) * 100) }
+      insets[startIndex] = { percent: tenth((start / of) * 100) }
+      insets[endIndex] = { percent: tenth((end / of) * 100) }
     }
     if (preset === "center") {
       const offset = Math.round(start - (of - (horizontal ? layerSize.width : layerSize.height)) / 2)
@@ -419,9 +432,9 @@ export function LayerOrderField({
 }) {
   return (
     <Field label="Layer order" hint={`Orders this layer within ${context}. Higher is in front.`}>
-      <SideInput
+      <SideField
         label="Layer order"
-        inner={<Layers />}
+        inner={<Layers className="size-3.5" />}
         rules={sideRules.layer}
         value={value}
         mixed={mixed}
@@ -437,7 +450,9 @@ export function LayerOrderField({
  * accent color. Fixed draws the window instead of Pricing; Sticky marks the line it sticks at.
  */
 export function PositionPreview({ position, layerOrder }: { position: Position; layerOrder?: Side }) {
-  const rect = placed(position)
+  const spacing = useTokens("spacing").tokens
+  const layerTokens = useTokens("zIndex").tokens
+  const rect = placed(position, spacing)
   const [top, right, bottom, left] = distances(rect)
   const pinnedAt = (index: number) => {
     if (index % 2 === 1 && position.centerX !== undefined) return false
@@ -450,17 +465,21 @@ export function PositionPreview({ position, layerOrder }: { position: Position; 
     pinnedAt(index) && (
       <div key={index} aria-hidden className="pointer-events-none absolute" style={style}>
         <div
-          className={`absolute ${vertical ? "inset-y-0 left-1/2 border-l" : "inset-x-0 top-1/2 border-t"} border-[#0d99ff]`}
+          className={`absolute ${vertical ? "inset-y-0 left-1/2 border-l" : "inset-x-0 top-1/2 border-t"}`}
+          style={{ borderColor: layerColor }}
         />
-        <span className="absolute top-1/2 left-1/2 -translate-1/2 rounded-sm bg-[#0d99ff] px-1 text-[10px] text-white tabular-nums">
+        <span
+          className="absolute top-1/2 left-1/2 -translate-1/2 rounded-sm px-1 text-[10px] text-white tabular-nums"
+          style={{ background: layerColor }}
+        >
           {label}
         </span>
       </div>
     )
-  const z = sideNumber(layerOrder, sideRules.layer)
+  const z = sideNumber(layerOrder, layerTokens)
   let title = "Pricing"
   if (position.placement === "fixed") title = "The window"
-  const stickAt = position.placement === "sticky" ? insetPixels(position.insets[0], parent.height) : undefined
+  const stickAt = position.placement === "sticky" ? insetPixels(position.insets[0], parent.height, spacing) : undefined
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">{title}</span>
@@ -486,10 +505,12 @@ export function PositionPreview({ position, layerOrder }: { position: Position; 
         {stickAt !== undefined && (
           <div
             aria-hidden
-            className="absolute inset-x-0 border-t border-dashed border-[#0d99ff]"
-            style={{ top: stickAt }}
+            className="absolute inset-x-0 border-t border-dashed"
+            style={{ top: stickAt, borderColor: layerColor }}
           >
-            <span className="absolute top-0.5 right-1 text-[10px] text-[#0d99ff]">Sticks here</span>
+            <span className="absolute top-0.5 right-1 text-[10px]" style={{ color: layerColor }}>
+              Sticks here
+            </span>
           </div>
         )}
         <div

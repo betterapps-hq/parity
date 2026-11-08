@@ -1,7 +1,7 @@
 /*
  * The exploration's stand-in tokens, every kind in one place: shadcn's neutral theme's colors, as hex, and Tailwind
  * v4's radius, blur, shadow, text, leading, tracking and weight scales, with a few of the project's own (spacing,
- * stroke widths, layer order, durations, easings, gradients, opacities, cursors, containers). Each token is a
+ * stroke widths, layer order, durations, easings, gradients, opacities, cursors, containers, fonts). Each token is a
  * `FieldToken`, which a field's chip and list draw with `TokenMark`, plus what its kind's fields work with (`px`,
  * `hex`, `ms`, `layers`). Tokens made with Create token are added through React state (`useTokens` in
  * field-parts.tsx), never to these arrays, so one story's token doesn't leak into another.
@@ -10,7 +10,7 @@ import type { PreviewKind } from "@parity-app/tokens"
 import { formatNumber, gradientCss, isPlainColor, mixColor, shadowCss } from "./css-values.ts"
 import type { Length } from "./data.ts"
 import type { GradientPaint, ShadowLayer } from "./lists-data.ts"
-import type { Bezier, Spring } from "./motion-data.ts"
+import { type Bezier, bezierCss, type Spring, springLinear } from "./motion-data.ts"
 
 /** A token as a field offers it: drawn by its kind's preview from its value, with what it comes to in words. */
 export interface FieldToken {
@@ -200,16 +200,22 @@ export interface EasingToken extends FieldToken {
 
 /**
  * An easing token from its curve, or a spring's settings, as the stand-ins and Save as token make them. A spring's
- * preview draws as linear here; its `linear()` is worked out where it's written.
+ * value is the `linear()` it's written as, so its preview draws the spring's curve.
  */
 export function easingToken(name: string, curve?: Bezier, spring?: Spring): EasingToken {
   let detail = ""
-  if (curve) detail = curve.join(", ")
-  else if (spring) detail = "Spring"
+  let value = "linear"
+  if (curve) {
+    detail = curve.join(", ")
+    value = bezierCss(curve)
+  } else if (spring) {
+    detail = "Spring"
+    value = springLinear(spring)
+  }
   return {
     name,
     kind: "easing",
-    value: curve ? `cubic-bezier(${curve.join(", ")})` : "linear",
+    value,
     detail,
     ...(curve ? { curve } : {}),
     ...(spring ? { spring } : {})
@@ -328,6 +334,30 @@ export const gradientTokens: GradientToken[] = [
 
 /* Text */
 
+/** A font token: its value is the stack, which its preview draws Ag in. */
+export interface FontToken extends FieldToken {
+  kind: "font"
+  /** The whole stack, as CSS writes it. */
+  stack: string
+}
+
+/** A font token from its family's name and its stack, as the stand-ins and Create token make them. */
+export const fontToken = (name: string, family: string, stack: string): FontToken => ({
+  name,
+  kind: "font",
+  value: stack,
+  detail: family,
+  stack
+})
+
+/** The project's font tokens: Geist, as the app's own sans, and three more (`sans` is `--font-sans`). */
+export const fontTokens: FontToken[] = [
+  fontToken("sans", "Geist", '"Geist Variable", sans-serif'),
+  fontToken("serif", "Georgia", "Georgia, serif"),
+  fontToken("mono", "Consolas", "Consolas, monospace"),
+  fontToken("brand", "Trebuchet MS", '"Trebuchet MS", sans-serif')
+]
+
 export interface WeightToken extends FieldToken {
   kind: "font-weight"
   weight: number
@@ -335,7 +365,8 @@ export interface WeightToken extends FieldToken {
   label: string
 }
 
-const weight = (name: string, number: number, label: string): WeightToken => ({
+/** A font-weight token, as the stand-ins and Create token make them. */
+export const weightToken = (name: string, number: number, label: string): WeightToken => ({
   name,
   kind: "font-weight",
   value: String(number),
@@ -346,15 +377,15 @@ const weight = (name: string, number: number, label: string): WeightToken => ({
 
 /** Tailwind's font-weight tokens, which name each hundred. */
 export const weightTokens: WeightToken[] = [
-  weight("thin", 100, "Thin"),
-  weight("extralight", 200, "Extra light"),
-  weight("light", 300, "Light"),
-  weight("normal", 400, "Regular"),
-  weight("medium", 500, "Medium"),
-  weight("semibold", 600, "Semibold"),
-  weight("bold", 700, "Bold"),
-  weight("extrabold", 800, "Extra bold"),
-  weight("black", 900, "Black")
+  weightToken("thin", 100, "Thin"),
+  weightToken("extralight", 200, "Extra light"),
+  weightToken("light", 300, "Light"),
+  weightToken("normal", 400, "Regular"),
+  weightToken("medium", 500, "Medium"),
+  weightToken("semibold", 600, "Semibold"),
+  weightToken("bold", 700, "Bold"),
+  weightToken("extrabold", 800, "Extra bold"),
+  weightToken("black", 900, "Black")
 ]
 
 export interface SizeToken extends FieldToken {
@@ -392,7 +423,8 @@ export interface LeadingToken extends FieldToken {
   multiple: number
 }
 
-const leading = (name: string, multiple: number): LeadingToken => ({
+/** A leading token from its multiple, as the stand-ins and Create token make them. */
+export const leadingToken = (name: string, multiple: number): LeadingToken => ({
   name,
   kind: "leading",
   value: String(multiple),
@@ -402,12 +434,12 @@ const leading = (name: string, multiple: number): LeadingToken => ({
 
 /** Tailwind v4's leading tokens, as multiples. */
 export const leadingTokens: LeadingToken[] = [
-  leading("none", 1),
-  leading("tight", 1.25),
-  leading("snug", 1.375),
-  leading("normal", 1.5),
-  leading("relaxed", 1.625),
-  leading("loose", 2)
+  leadingToken("none", 1),
+  leadingToken("tight", 1.25),
+  leadingToken("snug", 1.375),
+  leadingToken("normal", 1.5),
+  leadingToken("relaxed", 1.625),
+  leadingToken("loose", 2)
 ]
 
 export interface TrackingToken extends FieldToken {
@@ -415,7 +447,8 @@ export interface TrackingToken extends FieldToken {
   em: number
 }
 
-const tracking = (name: string, em: number): TrackingToken => ({
+/** A tracking token from its em, as the stand-ins and Create token make them. */
+export const trackingToken = (name: string, em: number): TrackingToken => ({
   name,
   kind: "tracking",
   value: `${em}em`,
@@ -425,12 +458,12 @@ const tracking = (name: string, em: number): TrackingToken => ({
 
 /** Tailwind v4's tracking tokens, in em. */
 export const trackingTokens: TrackingToken[] = [
-  tracking("tighter", -0.05),
-  tracking("tight", -0.025),
-  tracking("normal", 0),
-  tracking("wide", 0.025),
-  tracking("wider", 0.05),
-  tracking("widest", 0.1)
+  trackingToken("tighter", -0.05),
+  trackingToken("tight", -0.025),
+  trackingToken("normal", 0),
+  trackingToken("wide", 0.025),
+  trackingToken("wider", 0.05),
+  trackingToken("widest", 0.1)
 ]
 
 export interface OpacityToken extends FieldToken {
@@ -438,7 +471,8 @@ export interface OpacityToken extends FieldToken {
   percent: number
 }
 
-const opacity = (name: string, percent: number): OpacityToken => ({
+/** An opacity token from its percentage, as the stand-ins and Create token make them. */
+export const opacityToken = (name: string, percent: number): OpacityToken => ({
   name,
   kind: "opacity",
   value: String(percent / 100),
@@ -447,7 +481,7 @@ const opacity = (name: string, percent: number): OpacityToken => ({
 })
 
 /** The project's opacity tokens. */
-export const opacityTokens: OpacityToken[] = [opacity("disabled", 50), opacity("muted", 70)]
+export const opacityTokens: OpacityToken[] = [opacityToken("disabled", 50), opacityToken("muted", 70)]
 
 /* Interaction */
 
@@ -502,7 +536,8 @@ export const tokenSets = {
   leading: leadingTokens,
   tracking: trackingTokens,
   opacity: opacityTokens,
-  cursor: cursorTokens
+  cursor: cursorTokens,
+  font: fontTokens
 }
 
 export type TokenSets = typeof tokenSets

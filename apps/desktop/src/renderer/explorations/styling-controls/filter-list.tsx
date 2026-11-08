@@ -3,31 +3,35 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-  Popover,
-  PopoverContent,
-  PopoverTrigger
+  DropdownMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { Braces, CircleAlert, ListOrdered, Plus, SlidersHorizontal } from "lucide-react"
-import { type CSSProperties, useState } from "react"
+import { unclosedInValue } from "@parity-app/tokens"
+import { Braces, ListOrdered, Plus, SlidersHorizontal } from "lucide-react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { BlurChoice } from "./controls.tsx"
-import { CenteredSlider, ListRow, readAngle, RowMessage } from "./list-parts.tsx"
+import { MessageLine, type Reading, TokenChip, useTokens, ValueField } from "./field-parts.tsx"
+import { CenteredSlider, ListRow } from "./list-parts.tsx"
 import {
   type AdjustmentKey,
+  adjustmentFunctions,
   adjustments,
   type Adjustments,
   colorWords,
-  drawColor,
+  drawListColor,
   type FilterEntry,
+  filterOrder,
   imagePreview,
+  isBehind,
   layerNumbers,
-  layersOf,
+  type ListColor,
   newId
 } from "./lists-data.ts"
 import { adjustmentWrites, filterDrawing } from "./lists-writes.ts"
-import { ShadowEditor } from "./shadow-list.tsx"
+import { angleUnits, splitUnit } from "./motion-data.ts"
+import { Card } from "./playground.tsx"
+import { ShadowCard, ShadowEditor } from "./shadow-list.tsx"
+import { dropShadowTokens } from "./tokens.ts"
 
 /*
  * The filter list (design-options-values.md, Filter list): `filter` in Effects, and `backdrop-filter` behind the layer.
@@ -46,9 +50,7 @@ const addNames: Record<Addable, string> = {
   backdropBlur: "Background blur",
   adjustBehind: "Background adjustments"
 }
-
-const behind = (entry: FilterEntry) =>
-  entry.kind === "backdropBlur" || ((entry.kind === "adjust" || entry.kind === "custom") && entry.behind === true)
+const addables: readonly Addable[] = ["blur", "adjust", "dropShadow", "backdropBlur", "adjustBehind"]
 
 /** The kind an entry is added as, so + offers each once. */
 function addableOf(entry: FilterEntry): Addable | undefined {
@@ -95,8 +97,8 @@ export function FilterList({
   const set = (id: string, entry: FilterEntry) => onChange(entries.map((other) => (other.id === id ? entry : other)))
   const remove = (id: string) => onChange(entries.filter((other) => other.id !== id))
   const groups = [
-    { title: "On the layer", rows: entries.filter((entry) => !behind(entry)).sort((a, b) => order(a) - order(b)) },
-    { title: "Behind the layer", rows: entries.filter(behind).sort((a, b) => order(a) - order(b)) }
+    { title: "On the layer", rows: entries.filter((entry) => !isBehind(entry)).sort((a, b) => order(a) - order(b)) },
+    { title: "Behind the layer", rows: entries.filter(isBehind).sort((a, b) => order(a) - order(b)) }
   ]
   return (
     <PanelSection
@@ -112,7 +114,7 @@ export function FilterList({
             </DropdownMenuTrigger>
           </Hint>
           <DropdownMenuContent align="end" className="w-52">
-            {(Object.keys(addNames) as Addable[]).map((kind) => (
+            {addables.map((kind) => (
               <DropdownMenuItem
                 key={kind}
                 className="text-xs"
@@ -167,12 +169,17 @@ function FilterRow({
   onReplace: (entries: FilterEntry[]) => void
   onRemove: () => void
 }) {
-  const toggle = () => onChange({ ...entry, off: !entry.off })
+  const row = {
+    group: "filters",
+    index: 0,
+    off: entry.off,
+    onToggle: () => onChange({ ...entry, off: !entry.off }),
+    onRemove
+  }
   if (entry.kind === "blur" || entry.kind === "backdropBlur") {
     const label = entry.kind === "blur" ? "Layer blur" : "Background blur"
     return (
-      <ListRow name={label} group="filters" index={0} off={entry.off} onToggle={toggle} onRemove={onRemove}>
-        <span className="w-24 shrink-0 truncate text-xs">{label}</span>
+      <ListRow {...row} name={label} type={<span className="w-24 shrink-0 truncate text-xs">{label}</span>}>
         <div className="min-w-0 flex-1">
           <BlurChoice
             label={label}
@@ -186,27 +193,73 @@ function FilterRow({
   }
   if (entry.kind === "adjust") {
     const label = entry.behind ? "Background adjustments" : "Adjustments"
+    const words = adjustmentWords(entry.values)
     return (
-      <ListRow name={label} group="filters" index={0} off={entry.off} onToggle={toggle} onRemove={onRemove}>
-        <AdjustmentsEntry
-          label={label}
-          values={entry.values}
-          startOpen={startOpen}
-          behind={entry.behind ?? false}
-          onChange={(values) => onChange({ ...entry, values })}
-        />
+      <ListRow
+        {...row}
+        name={label}
+        preview={
+          <span className="grid size-5 place-items-center text-muted-foreground">
+            <SlidersHorizontal className="size-3.5" />
+          </span>
+        }
+        details={{
+          content: (
+            <AdjustmentsEditor
+              values={entry.values}
+              behind={entry.behind ?? false}
+              onChange={(values) => onChange({ ...entry, values })}
+            />
+          ),
+          defaultOpen: startOpen,
+          className: "w-72 p-3"
+        }}
+        type={<span className="shrink-0">Adjustments</span>}
+      >
+        <Hint label={label} detail={words}>
+          <span className="truncate text-muted-foreground">{words}</span>
+        </Hint>
       </ListRow>
     )
   }
   if (entry.kind === "dropShadow") {
+    const { shadow } = entry
+    const token = dropShadowTokens.find((option) => option.name === shadow.token)
     return (
-      <ListRow name="Drop shadow" group="filters" index={0} off={entry.off} onToggle={toggle} onRemove={onRemove}>
-        <DropShadowEntry entry={entry} tokensOnly={tokensOnly} startOpen={startOpen} onChange={onChange} />
+      <ListRow
+        {...row}
+        name="Drop shadow"
+        preview={<ShadowCard entry={shadow} />}
+        details={{
+          content: (
+            <ShadowEditor
+              entry={shadow}
+              tokensOnly={tokensOnly}
+              inFilter
+              onChange={(change) => onChange({ ...entry, shadow: { ...shadow, ...change } })}
+            />
+          ),
+          defaultOpen: startOpen
+        }}
+        type={<span className="shrink-0">Drop shadow</span>}
+      >
+        {shadow.token === undefined ? (
+          <span className="truncate text-muted-foreground tabular-nums">{`${layerNumbers(shadow.layer, false)} ${colorWords(shadow.layer)}`}</span>
+        ) : (
+          <TokenChip
+            name={shadow.token}
+            token={token}
+            namespace="drop-shadow-"
+            preview={null}
+            struck={!token}
+            overridden={shadow.colorOverride !== undefined}
+          />
+        )}
       </ListRow>
     )
   }
   return (
-    <ListRow name="Custom filter" group="filters" index={0} off={entry.off} onToggle={toggle} onRemove={onRemove}>
+    <ListRow {...row} name="Custom filter">
       <CustomEntry entry={entry} onChange={onChange} onReplace={onReplace} />
     </ListRow>
   )
@@ -225,42 +278,6 @@ function adjustmentWords(values: Adjustments): string {
     .join(", ")
 }
 
-/** Adjustments: one entry whose summary opens its sliders. */
-function AdjustmentsEntry({
-  label,
-  values,
-  behind: isBehind,
-  startOpen,
-  onChange
-}: {
-  label: string
-  values: Adjustments
-  behind: boolean
-  startOpen: boolean
-  onChange: (values: Adjustments) => void
-}) {
-  const words = adjustmentWords(values)
-  return (
-    <Popover defaultOpen={startOpen}>
-      <div className="flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md border bg-transparent pl-1 text-xs dark:bg-input/30">
-        <PopoverTrigger
-          aria-label={`${label}: edit`}
-          className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <SlidersHorizontal className="size-3.5" />
-        </PopoverTrigger>
-        <span className="shrink-0">Adjustments</span>
-        <Hint label={label} detail={words}>
-          <span className="truncate pr-1.5 text-muted-foreground">{words}</span>
-        </Hint>
-      </div>
-      <PopoverContent className="w-72 p-3" align="start">
-        <AdjustmentsEditor values={values} behind={isBehind} onChange={onChange} />
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 /**
  * The sliders: brightness, contrast and saturation centered on no change from −100 to 100, hue from −180° to 180°, then
  * grayscale, sepia and invert from 0 to 100. Each slider's hint names the class it writes; one at no change writes
@@ -268,7 +285,7 @@ function AdjustmentsEntry({
  */
 export function AdjustmentsEditor({
   values,
-  behind: isBehind = false,
+  behind = false,
   only,
   onChange
 }: {
@@ -280,7 +297,7 @@ export function AdjustmentsEditor({
   const shown = adjustments.filter((adjustment) => only === undefined || only.includes(adjustment.key))
   return (
     <div className="flex flex-col gap-2">
-      {isBehind && (
+      {behind && (
         <p className="text-[11px] text-muted-foreground">{"Brightness, contrast and saturation of what's behind"}</p>
       )}
       {shown.map((adjustment) => {
@@ -293,65 +310,12 @@ export function AdjustmentsEditor({
             min={adjustment.min}
             max={adjustment.max}
             unit={adjustment.unit}
-            hint={`${isBehind ? "backdrop-" : ""}${adjustmentWrites(adjustment.key, value).className}`}
+            hint={`${behind ? "backdrop-" : ""}${adjustmentWrites(adjustment.key, value).className}`}
             onChange={(next) => onChange({ ...values, [adjustment.key]: next === 0 ? undefined : next })}
           />
         )
       })}
     </div>
-  )
-}
-
-function DropShadowEntry({
-  entry,
-  tokensOnly,
-  startOpen,
-  onChange
-}: {
-  entry: Extract<FilterEntry, { kind: "dropShadow" }>
-  tokensOnly: boolean
-  startOpen: boolean
-  onChange: (entry: FilterEntry) => void
-}) {
-  const { shadow } = entry
-  const [first] = layersOf(shadow)
-  const summary =
-    shadow.token === undefined
-      ? `${layerNumbers(shadow.layer, false)} ${colorWords(shadow.layer)}`
-      : shadow.token.replace("drop-shadow-", "")
-  return (
-    <Popover defaultOpen={startOpen}>
-      <div className="flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md border bg-transparent pl-1 text-xs dark:bg-input/30">
-        <PopoverTrigger
-          aria-label="Drop shadow: edit"
-          className="grid size-5 shrink-0 place-items-center rounded-sm bg-neutral-200 outline-none hover:bg-neutral-300 focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <span
-            aria-hidden
-            className="block size-3 rounded-full bg-white"
-            style={{
-              filter: first ? `drop-shadow(0 ${first.y / 3}px ${first.blur / 3}px ${drawColor(first)})` : undefined
-            }}
-          />
-        </PopoverTrigger>
-        <span className="shrink-0">Drop shadow</span>
-        <Hint label="Follows the shape" detail="filter: drop-shadow(), last in the filter">
-          <span
-            className={`truncate pr-1.5 ${shadow.token === undefined ? "text-muted-foreground" : "rounded-sm bg-accent px-1 font-mono"}`}
-          >
-            {summary}
-          </span>
-        </Hint>
-      </div>
-      <PopoverContent className="w-72 p-2" align="start">
-        <ShadowEditor
-          entry={shadow}
-          tokensOnly={tokensOnly}
-          inFilter
-          onChange={(change) => onChange({ ...entry, shadow: { ...shadow, ...change } })}
-        />
-      </PopoverContent>
-    </Popover>
   )
 }
 
@@ -376,15 +340,10 @@ function functionsOf(text: string): { name: string; args: string }[] | undefined
   return found
 }
 
-const adjustmentFor: Record<string, AdjustmentKey> = {
-  brightness: "brightness",
-  contrast: "contrast",
-  saturate: "saturate",
-  "hue-rotate": "hue",
-  grayscale: "grayscale",
-  sepia: "sepia",
-  invert: "invert"
-}
+/** Each filter function's adjustment: `hue-rotate()` is Hue. */
+const adjustmentFor: Readonly<Record<string, AdjustmentKey>> = Object.fromEntries(
+  adjustments.map((adjustment) => [adjustmentFunctions[adjustment.key], adjustment.key])
+)
 
 /** A function's amount as a percentage: `1.25` and `125%` are both 125. */
 const percentOf = (args: string) => {
@@ -397,7 +356,7 @@ const percentOf = (args: string) => {
  * blurring and then adjusting colors draws what adjusting and then blurring does; the color adjustments and a drop
  * shadow don't commute, so they must already be in Tailwind's order.
  */
-export function putInOrder(text: string, isBehind: boolean): { entries: FilterEntry[] } | { reason: string } {
+export function putInOrder(text: string, behind: boolean): { entries: FilterEntry[] } | { reason: string } {
   const functions = functionsOf(text)
   if (!functions) return { reason: "It can't be read as a list of filter functions" }
   const names = functions.map((part) => part.name)
@@ -407,7 +366,7 @@ export function putInOrder(text: string, isBehind: boolean): { entries: FilterEn
   const unknown = names.find((name) => name !== "blur" && !(name in adjustmentFor))
   if (unknown) return { reason: `${unknown}() has no slider` }
   const colors = names.filter((name) => name !== "blur")
-  const tailwindOrder = ["brightness", "contrast", "grayscale", "hue-rotate", "invert", "saturate", "sepia"]
+  const tailwindOrder = filterOrder.map((key) => adjustmentFunctions[key])
   const sorted = [...colors].sort((a, b) => tailwindOrder.indexOf(a) - tailwindOrder.indexOf(b))
   const outOfPlace = colors.findIndex((name, index) => name !== sorted[index])
   if (outOfPlace >= 0) {
@@ -421,16 +380,18 @@ export function putInOrder(text: string, isBehind: boolean): { entries: FilterEn
     if (part.name === "blur") {
       const px = Number.parseFloat(part.args)
       if (!part.args.endsWith("px") || !Number.isFinite(px)) return { reason: `blur(${part.args}) isn't in px` }
-      entries.push({ id: newId("filter"), kind: isBehind ? "backdropBlur" : "blur", value: { px } })
+      entries.push({ id: newId("filter"), kind: behind ? "backdropBlur" : "blur", value: { px } })
       continue
     }
     const key = adjustmentFor[part.name]!
     const adjustment = adjustments.find((option) => option.key === key)!
     let value: number
     if (key === "hue") {
-      const reading = readAngle(part.args)
-      if ("reason" in reading) return { reason: `hue-rotate(${part.args}) isn't an angle` }
-      value = reading.degrees
+      // An angle in any of CSS's angle units, as degrees.
+      const split = splitUnit(part.args)
+      const perUnit = split && angleUnits[split.unit || "deg"]
+      if (!split || perUnit === undefined) return { reason: `hue-rotate(${part.args}) isn't an angle` }
+      value = split.number * perUnit
     } else if (key === "brightness" || key === "contrast" || key === "saturate") value = percentOf(part.args) - 100
     else value = percentOf(part.args)
     value = Math.round(value)
@@ -438,11 +399,15 @@ export function putInOrder(text: string, isBehind: boolean): { entries: FilterEn
       return { reason: `${part.name}(${part.args}) is past the slider's end` }
     values[key] = value
   }
-  if (Object.keys(values).length > 0) entries.push({ id: newId("filter"), kind: "adjust", behind: isBehind, values })
+  if (Object.keys(values).length > 0) entries.push({ id: newId("filter"), kind: "adjust", behind, values })
   return { entries }
 }
 
-/** Custom: a filter read from code, kept as text, checked by `CSS.supports`, with Put in order where it can be. */
+/**
+ * Custom: a filter read from code, kept as text, on the shared field. What's typed is checked as CSS checks it
+ * (`CSS.supports`), and for a bracket or quote left open, which the browser would close on its own. Put in order
+ * writes it as utilities where that draws the same.
+ */
 function CustomEntry({
   entry,
   onChange,
@@ -453,86 +418,69 @@ function CustomEntry({
   onReplace: (entries: FilterEntry[]) => void
 }) {
   const property = entry.behind ? "backdrop-filter" : "filter"
-  const [typed, setTyped] = useState<string>()
-  const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
-  const error = message?.tone === "error"
-  const commit = (leaving: boolean) => {
-    if (typed === undefined) return true
-    if (CSS.supports(property, typed)) {
-      onChange({ ...entry, text: typed.trim() })
-      setMessage(undefined)
-    } else if (!leaving) {
-      setMessage({ tone: "error", text: `${property} can't be ${typed.trim() || "empty"}` })
-      return false
-    } else {
-      setMessage({ tone: "note", text: `The filter is back to ${entry.text}. ${property} can't be ${typed.trim()}.` })
-    }
-    setTyped(undefined)
-    return true
+  const read = (text: string): Reading<string> => {
+    const trimmed = text.trim()
+    if (trimmed === "") return { reason: `${property} can't be empty` }
+    const open = unclosedInValue(trimmed)
+    if (open) return { reason: open }
+    if (!CSS.supports(property, trimmed)) return { reason: `${property} can't be ${trimmed}` }
+    return { value: trimmed }
   }
   const ordered = putInOrder(entry.text, entry.behind ?? false)
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1">
-      <div
-        className={`flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent pl-1.5 text-xs focus-within:ring-2 dark:bg-input/30 ${error ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
-      >
-        <Hint label="Custom" detail="Read from code in an order Tailwind's utilities can't write, so it's kept as text">
-          <Braces aria-label="Custom" className="size-3.5 shrink-0 text-muted-foreground" />
-        </Hint>
-        <input
-          aria-label="Custom filter"
-          aria-invalid={error || undefined}
-          spellCheck={false}
-          value={typed ?? entry.text}
-          onChange={(event) => setTyped(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
-            if (event.key === "Escape" && typed !== undefined) {
-              setTyped(undefined)
-              setMessage(error ? { tone: "note", text: `The filter is back to ${entry.text}.` } : undefined)
-            }
-          }}
-          onBlur={() => commit(true)}
-          className="w-0 min-w-8 flex-1 truncate bg-transparent font-mono outline-none"
-        />
-        {error && <CircleAlert aria-hidden className="mr-1 size-3.5 shrink-0 text-destructive" />}
-      </div>
-      {!error && !message && "entries" in ordered && (
+    <div className="grid min-w-0 flex-1 gap-1">
+      <ValueField
+        label="Custom filter"
+        inner={
+          <Hint
+            label="Custom"
+            detail="Read from code in an order Tailwind's utilities can't write, so it's kept as text"
+          >
+            <Braces aria-label="Custom" className="size-3.5 shrink-0 text-muted-foreground" />
+          </Hint>
+        }
+        shown={entry.text}
+        inputMode="text"
+        inputClassName="font-mono"
+        read={read}
+        onCommit={(text) => onChange({ ...entry, text })}
+      />
+      {"entries" in ordered ? (
         <Hint label="Put in order" detail="Writes it as Tailwind's utilities. It draws the same, since only blur moves">
           <Button
             variant="outline"
             size="sm"
-            className="h-6 gap-1 self-start px-1.5 text-xs"
+            className="h-6 gap-1 justify-self-start px-1.5 text-xs"
             onClick={() => onReplace(ordered.entries)}
           >
             <ListOrdered className="size-3.5" /> Put in order
           </Button>
         </Hint>
+      ) : (
+        <MessageLine message={{ tone: "note", text: `${ordered.reason}.` }} />
       )}
-      {message && <RowMessage tone={message.tone}>{message.text}</RowMessage>}
-      {!message && "reason" in ordered && <RowMessage tone="note">{`${ordered.reason}.`}</RowMessage>}
     </div>
   )
 }
 
 /**
- * A translucent card with a picture on it, over shapes: the layer's filter changes the card and its picture, and the
- * backdrop filter what shows through it.
+ * A translucent card with a picture on it: the layer's filter changes the card and its picture, and the backdrop
+ * filter what shows through it.
  */
 export function FilterPreview({ entries }: { entries: FilterEntry[] }) {
-  const drawing = filterDrawing(entries, drawColor)
-  const style: CSSProperties = {
-    width: 200,
-    height: 120,
-    background: "rgb(255 255 255 / 0.35)",
-    filter: drawing.filter,
-    backdropFilter: drawing.backdropFilter
-  }
+  const { tokens: colors } = useTokens("color")
+  const drawing = filterDrawing(entries, (value: ListColor) => drawListColor(value, colors))
   return (
-    <div
-      aria-label="The layer"
-      className="relative flex flex-col items-center justify-center gap-2 rounded-xl border border-white/40 text-xs text-neutral-900"
-      style={style}
+    <Card
+      style={{
+        alignContent: "center",
+        gap: 8,
+        borderRadius: 12,
+        boxShadow: "inset 0 0 0 1px rgb(255 255 255 / 0.4)",
+        background: "rgb(255 255 255 / 0.35)",
+        filter: drawing.filter,
+        backdropFilter: drawing.backdropFilter
+      }}
     >
       <span
         aria-hidden
@@ -540,6 +488,6 @@ export function FilterPreview({ entries }: { entries: FilterEntry[] }) {
         style={{ backgroundImage: `url("${imagePreview("/images/hero.jpg") ?? ""}")` }}
       />
       Plans
-    </div>
+    </Card>
   )
 }

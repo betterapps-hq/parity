@@ -21,15 +21,18 @@ export function useDraft(start: Draft) {
 export function Playground({
   writes,
   preview,
+  tokens,
   children
 }: {
   writes: Writes
   preview?: ReactNode
+  /** Sets the story's project starts with in place of the stand-ins, as `{ duration: [] }` for one with none. */
+  tokens?: Partial<TokenSets>
   children: ReactNode
 }) {
   return (
     <TooltipProvider>
-      <ProjectTokens>
+      <ProjectTokens tokens={tokens}>
         <div className="flex min-h-screen flex-wrap items-start gap-6 bg-background p-6 text-foreground">
           {/* The inspector's width, so the control lays out as it will there. */}
           <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1 rounded-lg border p-3">

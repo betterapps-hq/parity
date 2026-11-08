@@ -1,14 +1,29 @@
-import { Button, Input, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
 import { applyFieldInput, readFieldInput, scrubSteps } from "@parity-app/core"
 import type { PreviewKind } from "@parity-app/tokens"
 import { Check, Circle, CircleAlert, CircleCheck, CircleDashed, Hexagon, Moon, TriangleAlert, X } from "lucide-react"
 import {
   createContext,
+  type CSSProperties,
   type HTMLAttributes,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useContext,
+  useId,
   useRef,
   useState
 } from "react"
@@ -16,7 +31,7 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
-import { type FieldToken, type TokenSetName, type TokenSets, tokenSets } from "./tokens.ts"
+import { type FieldToken, type OpacityToken, type TokenSetName, type TokenSets, tokenSets } from "./tokens.ts"
 
 /*
  * The one field every styling control builds on, as PAR-652's design-options-fields.md sets its anatomy: an inner
@@ -55,6 +70,35 @@ export function readNumber(
   if (!outcome.ok) return { reason: outcome.reason }
   if (typeof outcome.value !== "number") return { clear: true }
   return { value: Math.round(outcome.value * 10_000) / 10_000 }
+}
+
+/**
+ * A number typed in a field's own units, with the app's maths as `readNumber` reads it: `45`, `0.25turn`, `+15`, `*2`,
+ * `(90 - 30) / 2`. A unit at the end converts from that unit, `units` giving what one of each comes to in the field's
+ * own; a bare number is in the field's own unit, and a leading `-` is a negative number, not a step down. Text it
+ * can't read gets `takes`, which says what the field takes.
+ */
+export function readUnitNumber(
+  text: string,
+  {
+    units,
+    current,
+    label,
+    takes
+  }: { units: Readonly<Record<string, number>>; current: number; label: string; takes: string }
+): { value: number } | { reason: string } {
+  const trimmed = text.trim()
+  const cannot = { reason: `Can't read "${trimmed}". ${takes}` }
+  // A percentage is a share of a length, which a field in its own units doesn't take.
+  if (trimmed.includes("%")) return cannot
+  const withUnit = /^(.*[\d.)])\s*([a-z°]+)$/i.exec(trimmed)
+  const unit = withUnit?.[2]?.toLowerCase().replace("°", "deg")
+  const factor = unit === undefined ? 1 : units[unit]
+  if (factor === undefined) return cannot
+  const reading = readNumber(withUnit?.[1] ?? trimmed, current / factor, label)
+  if ("clear" in reading) return cannot
+  if ("reason" in reading) return reading.reason.startsWith("Can't read") ? cannot : reading
+  return { value: Math.round(reading.value * factor * 10_000) / 10_000 }
 }
 
 /** A reason as a sentence of its own, ending in a full stop unless it ends in one already or leads into an answer. */
@@ -184,6 +228,14 @@ export function MessageLine({ message }: { message: Message | undefined }) {
  */
 export function notAToken(nearest: FieldToken, onUse: () => void): { reason: string; action: MessageAction } {
   return { reason: "Not a token. Nearest:", action: { label: `${nearest.name} (${nearest.detail})`, run: onUse } }
+}
+
+/**
+ * What Tokens only says of a value off a field's steps, where the steps are on the system, as a side's whole pixels
+ * are: "Not a step. Nearest:" and the nearest step (`14px`) as the answer. A field's `refusal` takes it.
+ */
+export function notAStep(nearest: string, onUse: () => void): { reason: string; action: MessageAction } {
+  return { reason: "Not a step. Nearest:", action: { label: nearest, run: onUse } }
 }
 
 /* Scrubbing and dragging */
@@ -321,6 +373,14 @@ export function fieldBox(error: boolean, extra = ""): string {
   return `group/field flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent px-1.5 text-xs focus-within:ring-2 dark:bg-input/30 ${ring} ${extra}`
 }
 
+/** A bare field's box (ValueField's `bare`): no border until hovered or focused, or while it's in error. */
+function bareBox(error: boolean, extra: string): string {
+  const edge = error
+    ? "border-destructive focus-within:ring-destructive/40"
+    : "border-transparent hover:border-input focus-within:border-input focus-within:ring-ring"
+  return `group/field flex h-6 min-w-0 items-center justify-center gap-1 rounded-md border bg-transparent px-1 text-xs focus-within:ring-2 ${edge} ${extra}`
+}
+
 const inputBase = "w-0 flex-1 bg-transparent tabular-nums outline-none placeholder:text-muted-foreground"
 
 /** The input inside a field's box. */
@@ -330,6 +390,58 @@ export const fieldInput = `${inputBase} min-w-0`
 export const unitButtonClass =
   "-mr-1.5 grid h-full shrink-0 place-items-center rounded-r-md px-1.5 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
 
+/**
+ * A field's unit as a button that opens its unit menu (slot 3), for ValueField's `unit`: the units the field takes,
+ * each with what it is, as Line height's ×, px and % are, then a keyword after them where the field takes one (Auto).
+ * Choosing a unit shows the value in it.
+ */
+export function UnitMenu<U extends string>({
+  label,
+  unit,
+  units,
+  extra,
+  onUnit
+}: {
+  /** The field's name, for the button's accessible name. */
+  label: string
+  unit: U
+  units: readonly { unit: U; label: string }[]
+  extra?: { label: string; run: () => void }
+  onUnit: (unit: U) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger aria-label={`${label} unit: ${unit}`} className={unitButtonClass}>
+        {unit}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuRadioGroup
+          value={unit}
+          onValueChange={(next) => {
+            const chosen = units.find((each) => each.unit === next)
+            if (chosen) onUnit(chosen.unit)
+          }}
+        >
+          {units.map((each) => (
+            <DropdownMenuRadioItem key={each.unit} value={each.unit} className="text-xs">
+              <span className="w-5 font-mono">{each.unit}</span>
+              {each.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        {extra && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-xs" onClick={extra.run}>
+              {extra.label}
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 /* Status marks */
 
 /** The status slot's mark for input the field can't read. */
@@ -337,14 +449,56 @@ export function InvalidMark() {
   return <CircleAlert aria-hidden className="size-3.5 shrink-0 text-destructive" />
 }
 
-/** The status slot's mark for a token the project no longer has, which the chip strikes through. */
-export function MissingMark({ name }: { name: string }) {
+/**
+ * The status slot's mark for a token the project no longer has, which the chip strikes through, or for something else
+ * it lacks, as a font the frame can't load, which `description` says. With `actions`, it opens a menu of them, as a
+ * missing font's Replace and Add font.
+ */
+export function MissingMark({
+  name,
+  description = "The project has no token by this name now. Choose another.",
+  actions
+}: {
+  name: string
+  /** What's missing and what's drawn instead; a missing token's words unless said. */
+  description?: string
+  actions?: readonly { label: string; run: () => void }[]
+}) {
+  const [open, setOpen] = useState(false)
+  if (!actions || actions.length === 0) {
+    return (
+      <Hint label={`${name} is missing`} detail={description}>
+        <span className="grid size-5 shrink-0 place-items-center text-amber-600 dark:text-amber-400">
+          <CircleDashed aria-label={`${name} is missing`} className="size-3.5" />
+        </span>
+      </Hint>
+    )
+  }
   return (
-    <Hint label={`${name} is missing`} detail="The project has no token by this name now. Choose another.">
-      <span className="grid size-5 shrink-0 place-items-center text-amber-600 dark:text-amber-400">
-        <CircleDashed aria-label={`${name} is missing`} className="size-3.5" />
-      </span>
-    </Hint>
+    <Popover open={open} onOpenChange={setOpen}>
+      <Hint label={`${name} is missing`} detail={description}>
+        <PopoverTrigger
+          aria-label={`${name} is missing`}
+          className="grid size-5 shrink-0 place-items-center rounded-md text-amber-600 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent dark:text-amber-400"
+        >
+          <CircleDashed className="size-3.5" />
+        </PopoverTrigger>
+      </Hint>
+      <PopoverContent className="w-60 gap-1 p-1" align="end">
+        <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">{description}</p>
+        {actions.map((action) => (
+          <MenuButton
+            key={action.label}
+            onClick={() => {
+              action.run()
+              setOpen(false)
+            }}
+          >
+            {action.label}
+          </MenuButton>
+        ))}
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -823,6 +977,79 @@ export function TokenList({ label, tokens, current, none, onPick }: TokenListPro
   )
 }
 
+/** One of a search list's options: how it's drawn, and the heading of the group it starts, where it starts one. */
+export interface SearchOption {
+  /** Unique among the options. */
+  key: string
+  content: ReactNode
+  /** The group it's in, whose name heads it where it starts. */
+  group?: string
+}
+
+/**
+ * The list under a combobox that what's typed searches, as Font's list, an expression's completions and a CSS row's
+ * are: each option on a line, headed by its group where one starts, the highlighted one lit. The input keeps focus and
+ * moves the highlight with Up and Down (it names the list with `aria-controls` and the option with
+ * `aria-activedescendant`, `${id}-${index}`); the pointer highlights on hover and picks on press.
+ */
+export function SearchList({
+  id,
+  label,
+  options,
+  highlight,
+  empty,
+  className = "",
+  onHighlight,
+  onPick
+}: {
+  id: string
+  label: string
+  options: readonly SearchOption[]
+  highlight: number
+  /** What it says when nothing's found; without it, an empty list isn't drawn. */
+  empty?: string
+  /** Where it sits: absolute under its field, or in the flow of a popover. */
+  className?: string
+  onHighlight: (index: number) => void
+  onPick: (index: number) => void
+}) {
+  if (options.length === 0 && empty === undefined) return null
+  return (
+    <div
+      id={id}
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a combobox's listbox, its options drawn as each needs, which a select or datalist can't draw
+      role="listbox"
+      aria-label={label}
+      className={`flex max-h-64 flex-col overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md ${className}`}
+    >
+      {options.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">{empty}</p>}
+      {options.map((option, index) => (
+        <div key={option.key} className="contents">
+          {option.group !== undefined && option.group !== options[index - 1]?.group && (
+            <p className="px-2 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground">{option.group}</p>
+          )}
+          <div
+            id={`${id}-${index}`}
+            // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an option of the listbox above
+            role="option"
+            tabIndex={-1}
+            aria-selected={index === highlight}
+            onPointerEnter={() => onHighlight(index)}
+            onPointerDown={(event) => {
+              // The input keeps focus, so the pick is read as a choice, not as leaving the field.
+              event.preventDefault()
+              onPick(index)
+            }}
+            className={`flex cursor-default items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-xs ${index === highlight ? "bg-accent" : ""}`}
+          >
+            {option.content}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /** The nearest of a field's tokens to a number, leaving out deprecated ones, which are on their way out. */
 export function nearestToken<T extends FieldToken>(tokens: readonly T[], measure: (token: T) => number, to: number) {
   const current = tokens.filter((token) => token.deprecated === undefined)
@@ -841,8 +1068,15 @@ const TokensContext = createContext<ProjectTokensValue | undefined>(undefined)
  * The project's tokens for what's inside: tokens.ts's stand-ins, and those made with Create token, held in state so
  * every field and preview inside sees a new one, and nothing outside does. Playground holds one for each story.
  */
-export function ProjectTokens({ children }: { children: ReactNode }) {
-  const [sets, setSets] = useState<TokenSets>(tokenSets)
+export function ProjectTokens({
+  tokens,
+  children
+}: {
+  /** Sets the project starts with in place of the stand-ins, as `{ duration: [] }` for a project with no durations. */
+  tokens?: Partial<TokenSets>
+  children: ReactNode
+}) {
+  const [sets, setSets] = useState<TokenSets>(() => ({ ...tokenSets, ...tokens }))
   const create = <K extends TokenSetName>(set: K, token: TokenSets[K][number]) =>
     setSets((current) => ({ ...current, [set]: [...current[set], token] }))
   return <TokensContext value={{ sets, create }}>{children}</TokensContext>
@@ -961,6 +1195,55 @@ export interface ValueFieldProps<T> {
   selectOnFocus?: boolean
   /** Classes for the row, as a grid places it beside another field whose messages share the line under both. */
   rowClassName?: string
+  /**
+   * What Tokens only says of a value already there in words of the field's own, where `refused`'s "Not a token" doesn't
+   * fit, as a side's `notAStep`: outlined in the error color, with it under the row, until it's allowed here.
+   */
+  refusal?: { reason: string; action?: MessageAction }
+  /**
+   * Alt+Up and Alt+Down step the value with Alt held, as a side's reach the opposite side too (`onStep`'s `alt`),
+   * rather than Alt+Down opening the tokens, which the token button and the chip still open.
+   */
+  altSteps?: boolean
+  /**
+   * A line its messages go to instead of its own under the row, as the box-model widget's sides say things under the
+   * widget: `useTyped`'s `line`. The field then shows nothing under its row; what it comes to is in its hint.
+   */
+  line?: { message: Message | undefined; onMessage: (message: Message | undefined) => void }
+  /**
+   * Borderless until hovered or focused, the value centered and no token button, as the box-model widget's sides sit
+   * in its rings; typing a token's name, the chip and Alt+Down still reach the tokens.
+   */
+  bare?: boolean
+  /** Styles for the input, as Font draws a family's name in its own face. */
+  inputStyle?: CSSProperties
+  /**
+   * A list under the field that what's typed searches, as Font's list of fonts: focused, it lists everything; typing
+   * narrows it; Up and Down move through it, previewing each, and Enter or a click takes the highlighted one. Where
+   * nothing's found, Enter reads what's typed as `read` does, so Font keeps a typed stack.
+   */
+  search?: FieldSearch<T>
+  /**
+   * `=` opens an expression, as design-options-values.md's Expression has it in any field: typing `=` hands what's
+   * typed after it to `onEquals`, which opens the expression's editor. Where the field holds one, `onOpen` opens it as
+   * the field's focused, as clicking `calc 648` does.
+   */
+  expression?: { onEquals: (text: string) => void; onOpen?: () => void }
+}
+
+/** What a field's search list offers: each option's drawing and what it stores, and where it's previewed. */
+export interface FieldSearch<T> {
+  /** The list's accessible name. */
+  label: string
+  /** The options for what's typed so far, in order; everything when nothing's typed. */
+  options: (text: string) => readonly (SearchOption & { value: T })[]
+  /**
+   * What the list says when nothing's found for what's typed (No fonts match); nothing closes it, as for a typed stack.
+   * Either way, Enter reads what's typed as `read` does.
+   */
+  empty?: (text: string) => string | undefined
+  /** The option highlighted with Up and Down or the pointer, to preview it; nothing once the list closes. */
+  onHighlight?: (value: T | undefined) => void
 }
 
 /**
@@ -997,9 +1280,19 @@ export function ValueField<T>({
   inputClassName = "",
   editText,
   selectOnFocus = false,
-  rowClassName = ""
+  rowClassName = "",
+  refusal,
+  altSteps = false,
+  line,
+  bare = false,
+  inputStyle,
+  search,
+  expression
 }: ValueFieldProps<T>) {
   const [listOpen, setListOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [highlight, setHighlight] = useState(0)
+  const searchId = useId()
   const input = useRef<HTMLInputElement>(null)
   const unitText = typeof unit === "string" ? unit : ""
   let backTo = shown === undefined ? placeholder || "unset" : `${shown}${unitText}`
@@ -1010,17 +1303,41 @@ export function ValueField<T>({
     backTo,
     read,
     onCommit,
-    onStep: onStep && ((up, shift, alt) => onStep(up, { shift, alt }))
+    onStep: onStep && ((up, shift, alt) => onStep(up, { shift, alt })),
+    line
   })
   const typing = typed.typed !== undefined
   const showChip = chip !== undefined && !typing
   const offers = tokens !== undefined || picker !== undefined
   const open = picker ? picker.open : listOpen
   const setOpen = picker ? picker.onOpenChange : setListOpen
-  const error = typed.error || refused !== undefined
+  const said = refused ? notAToken(refused.nearest, refused.onUse) : refusal
+  const error = typed.error || said !== undefined
   const clearTyping = () => {
     typed.setTyped(undefined)
     typed.setMessage(undefined)
+  }
+
+  // The search list, while the field's focused: what's typed finds, the highlighted one previewed.
+  const found = search && searching && typed.focused ? search.options(typed.typed ?? "") : []
+  const nothingFound = found.length === 0 ? search?.empty?.(typed.typed ?? "") : undefined
+  const showList =
+    search !== undefined && searching && typed.focused && (found.length > 0 || nothingFound !== undefined)
+  const lit = Math.min(highlight, found.length - 1)
+  const closeSearch = () => {
+    setSearching(false)
+    search?.onHighlight?.(undefined)
+  }
+  const highlightAt = (index: number) => {
+    setHighlight(index)
+    search?.onHighlight?.(found[index]?.value)
+  }
+  const take = (value: T) => {
+    onCommit(value)
+    clearTyping()
+    closeSearch()
+    // Left once the typing's cleared, so leaving doesn't read what was typed to search.
+    requestAnimationFrame(() => input.current?.blur())
   }
 
   let labelSlot: ReactNode
@@ -1064,9 +1381,10 @@ export function ValueField<T>({
   const hintLabel = hint?.label ?? (narrow ? `${label}: ${backTo}` : undefined)
   const hintDetail = narrow ? [comesTo, hint?.detail].filter(Boolean).join(". ") || undefined : hint?.detail
 
+  const boxExtra = `flex-1 ${disabled ? "opacity-50" : ""}`
   const box = (
     <Hint label={hintLabel} detail={hintDetail} hidden={open} wait>
-      <div className={fieldBox(error, `flex-1 ${disabled ? "opacity-50" : ""}`)}>
+      <div className={bare ? bareBox(error, boxExtra) : fieldBox(error, boxExtra)}>
         {labelSlot}
         {picker?.swatch !== undefined && !showChip && (
           <PopoverTrigger
@@ -1090,7 +1408,8 @@ export function ValueField<T>({
             trigger={offers}
             hint={!narrow}
             onType={(key) => {
-              typed.setTyped(key)
+              if (expression && key === "=") expression.onEquals("")
+              else typed.setTyped(key)
               input.current?.focus()
             }}
             onStep={onStep}
@@ -1110,43 +1429,88 @@ export function ValueField<T>({
           spellCheck={false}
           placeholder={fieldPlaceholder}
           value={typed.typed ?? (showChip ? "" : (shown ?? ""))}
-          onChange={typed.input.onChange}
+          role={search ? "combobox" : undefined}
+          aria-expanded={search ? showList : undefined}
+          aria-controls={search ? searchId : undefined}
+          aria-autocomplete={search ? "list" : undefined}
+          aria-activedescendant={showList && found[lit] ? `${searchId}-${lit}` : undefined}
+          style={inputStyle}
+          onChange={(event) => {
+            if (expression && event.target.value.startsWith("=")) {
+              clearTyping()
+              expression.onEquals(event.target.value.slice(1))
+              return
+            }
+            typed.input.onChange(event)
+            if (search) {
+              setSearching(true)
+              setHighlight(0)
+            }
+          }}
           onFocus={(event) => {
             typed.input.onFocus()
             if (editText !== undefined && !typing) typed.setTyped(editText)
             if (selectOnFocus) event.currentTarget.select()
+            if (search) {
+              setSearching(true)
+              setHighlight(0)
+            }
+            expression?.onOpen?.()
           }}
-          onBlur={typed.input.onBlur}
+          onBlur={() => {
+            typed.input.onBlur()
+            if (search) closeSearch()
+          }}
           onKeyDown={(event) => {
             if (showChip && event.currentTarget.value === "" && (event.key === "Backspace" || event.key === "Delete")) {
               event.preventDefault()
               chip.onRemove()
               return
             }
-            if (offers && event.key === "ArrowDown" && event.altKey) {
+            if (expression && event.key === "=") {
+              event.preventDefault()
+              clearTyping()
+              expression.onEquals("")
+              return
+            }
+            if (search && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+              // Up and Down open the list, then move through it, rather than stepping the value.
+              event.preventDefault()
+              if (!searching) {
+                setSearching(true)
+                setHighlight(0)
+              } else if (found.length > 0) {
+                highlightAt((lit + (event.key === "ArrowDown" ? 1 : -1) + found.length) % found.length)
+              }
+              return
+            }
+            if (search && event.key === "Enter" && showList && found[lit]) {
+              event.preventDefault()
+              take(found[lit].value)
+              return
+            }
+            if (search && event.key === "Escape" && searching) closeSearch()
+            if (offers && !altSteps && event.key === "ArrowDown" && event.altKey) {
               event.preventDefault()
               setOpen(true)
               return
             }
             typed.input.onKeyDown(event)
           }}
-          className={`${inputBase} ${showChip ? "min-w-1" : "min-w-6"} ${muted && !typing ? "text-muted-foreground" : ""} ${refused && !typing ? "text-destructive" : ""} ${typed.focused ? "" : "truncate"} ${inputClassName}`}
+          className={`${inputBase} ${showChip ? "min-w-1" : "min-w-6"} ${muted && !typing ? "text-muted-foreground" : ""} ${said && !typing ? "text-destructive" : ""} ${typed.focused ? "" : "truncate"} ${bare ? "text-center" : ""} ${inputClassName}`}
         />
         {comesTo && !narrow && !typed.focused && !typed.error && (
           <span className="min-w-0 shrink truncate text-muted-foreground/70 tabular-nums">{comesTo}</span>
         )}
         {unitPart}
         {mark}
-        {tokens && !showChip && <TokenButton label={label} />}
+        {tokens && !showChip && !bare && <TokenButton label={label} />}
       </div>
     </Hint>
   )
 
   let message = typed.message
-  if (!message && refused && !typing) {
-    const said = notAToken(refused.nearest, refused.onUse)
-    message = { tone: "error", text: said.reason, action: said.action }
-  }
+  if (!message && said && !typing) message = { tone: "error", text: said.reason, action: said.action }
 
   let popup: ReactNode
   if (picker) {
@@ -1175,7 +1539,7 @@ export function ValueField<T>({
 
   return (
     <>
-      <div className={`flex min-w-0 items-center gap-1 ${rowClassName}`}>
+      <div className={`flex min-w-0 items-center gap-1 ${search ? "relative" : ""} ${rowClassName}`}>
         {popup ? (
           <Popover open={open} onOpenChange={setOpen}>
             {box}
@@ -1185,13 +1549,22 @@ export function ValueField<T>({
           box
         )}
         {trailing}
+        {showList && (
+          <SearchList
+            id={searchId}
+            label={search.label}
+            options={found}
+            highlight={lit}
+            empty={nothingFound}
+            className="absolute top-full right-0 left-0 z-30 mt-1"
+            onHighlight={highlightAt}
+            onPick={(index) => take(found[index]!.value)}
+          />
+        )}
       </div>
-      {message ? (
-        <MessageLine message={message} />
-      ) : (
-        narrow &&
-        typed.focused &&
-        comesTo && <p className="col-span-full mt-1 text-[11px] leading-snug text-muted-foreground">{comesTo}</p>
+      {!line && message && <MessageLine message={message} />}
+      {!line && !message && narrow && typed.focused && comesTo && (
+        <p className="col-span-full mt-1 text-[11px] leading-snug text-muted-foreground">{comesTo}</p>
       )}
     </>
   )
@@ -1223,6 +1596,9 @@ export function PercentField({
   disabled,
   hint,
   rowClassName,
+  keywords,
+  tokens,
+  status,
   onChange
 }: {
   label: string
@@ -1241,10 +1617,35 @@ export function PercentField({
   disabled?: boolean
   hint?: { label?: string; detail?: string }
   rowClassName?: string
+  /** Words it also reads as percentages, as a position's X reads `left` as 0 and `right` as 100. */
+  keywords?: Readonly<Record<string, number>>
+  /**
+   * The opacity tokens it offers, as Opacity and a color's alpha do: the one it holds (`current`) is its chip, typing a
+   * token's name (`muted`, `opacity-muted`) picks it, and Up and Down step through them in order.
+   */
+  tokens?: { list: readonly OpacityToken[]; current?: string; onPick: (name: string | undefined) => void }
+  /** Slot 5's marks, as Opacity's off its steps. */
+  status?: StatusMarks
   onChange: (value: number | undefined) => void
 }) {
-  const from = value ?? unsetIs ?? (Number(placeholder) || 0)
+  const held = tokens?.current === undefined ? undefined : tokens.list.find((token) => token.name === tokens.current)
+  const from = value ?? held?.percent ?? unsetIs ?? (Number(placeholder) || 0)
   const settle = (number: number) => clamp(Number(formatNumber(number, places)), min, max)
+  const words = Object.keys(keywords ?? {})
+  let takes =
+    words.length > 0
+      ? `${label} takes a percentage, or ${words.slice(0, -1).join(", ")} or ${words.at(-1)}`
+      : `${label} takes a percentage, such as 50`
+  if (tokens) takes = `${takes}, or an opacity token`
+  // A token steps to the next in the list's order, Shift to the first or last, as every token does.
+  const stepToken = (up: boolean, { shift }: ScrubKeys) => {
+    if (!tokens || !held) return false
+    const last = tokens.list.length - 1
+    let next = clamp(tokens.list.indexOf(held) + (up ? 1 : -1), 0, last)
+    if (shift) next = up ? last : 0
+    tokens.onPick(tokens.list[next]!.name)
+    return true
+  }
   return (
     <ValueField
       label={label}
@@ -1257,18 +1658,29 @@ export function PercentField({
       shown={value === undefined ? undefined : formatNumber(value, places)}
       placeholder={placeholder}
       mixed={mixed}
+      chip={
+        tokens?.current === undefined
+          ? undefined
+          : { name: tokens.current, token: held, onRemove: () => tokens.onPick(undefined) }
+      }
       unit="%"
+      comesTo={held?.detail}
+      status={status}
+      tokens={tokens && { list: tokens.list, current: tokens.current, onPick: tokens.onPick }}
       narrow={narrow}
       hint={hint}
       disabled={disabled}
       rowClassName={rowClassName}
-      read={(text): Reading<number | undefined> => {
+      read={(text): Reading<number | undefined | { token: string }> => {
+        const trimmed = text.trim().toLowerCase()
+        const token = tokens?.list.find((each) => each.name === trimmed || `opacity-${each.name}` === trimmed)
+        if (token) return { value: { token: token.name } }
+        const word = keywords?.[trimmed]
+        if (word !== undefined) return { value: word }
         const reading = readNumber(text.replace(/%\s*$/, ""), from, label)
         if ("clear" in reading) return { value: undefined }
         if ("reason" in reading) {
-          return {
-            reason: reading.reason.startsWith("Can't read") ? `${label} takes a percentage, such as 50` : reading.reason
-          }
+          return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
         }
         const kept = Number(formatNumber(reading.value, places))
         if (kept > max)
@@ -1277,8 +1689,13 @@ export function PercentField({
           return { value: min, message: { tone: "note", text: `${label} goes down to ${min}%, so it's ${min}%.` } }
         return { value: kept }
       }}
-      onCommit={onChange}
-      onStep={(up, keys) => onChange(settle(from + (up ? 1 : -1) * percentStep(keys)))}
+      onCommit={(next) => {
+        if (typeof next === "object") tokens?.onPick(next.token)
+        else onChange(next)
+      }}
+      onStep={(up, keys) => {
+        if (!stepToken(up, keys)) onChange(settle(from + (up ? 1 : -1) * percentStep(keys)))
+      }}
     />
   )
 }

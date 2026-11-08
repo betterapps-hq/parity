@@ -1,18 +1,11 @@
 /*
  * Position's Placement, its insets from the pin box, and Layer order: what they store and write. A pinned side is an
  * inset; an unpinned one is `auto` and writes nothing. Center writes `left: d; right: -d` with auto margins, as the
- * panel spec's presets table says; Fill parent is `inset-0`.
+ * panel spec's presets table says; Fill parent is `inset-0`. Each side writes as sides-writes.ts writes any side, in
+ * css-values.ts's forms; where Plans is drawn takes the project's spacing tokens, so a token inset lands where it says.
  */
-import {
-  type Side,
-  type Sides,
-  sideClass,
-  sideCss,
-  sideNumber,
-  sideRules,
-  sideStored,
-  sidesWrites
-} from "./sides-writes.ts"
+import { type Side, type Sides, sideClass, sideCss, sideNumber, sideStored, sidesWrites } from "./sides-writes.ts"
+import type { LengthToken } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 /** In layout (static), Absolute, Fixed, Sticky, or Relative from More. */
@@ -35,11 +28,11 @@ export const parent = { width: 320, height: 200 }
 export const layerSize = { width: 120, height: 64 }
 export const inFlow = { x: 24, y: 24 }
 
-/** An inset in pixels: its own, its token's, or a percentage of the parent's width or height. */
-export function insetPixels(side: Side, of: number): number | undefined {
+/** An inset in pixels: its own, its spacing token's, or a percentage of the parent's width or height. */
+export function insetPixels(side: Side, of: number, tokens: readonly LengthToken[]): number | undefined {
   if (side === undefined || side === "auto") return undefined
   if ("percent" in side) return (side.percent / 100) * of
-  return sideNumber(side, sideRules.inset)
+  return sideNumber(side, tokens)
 }
 
 interface Rect {
@@ -50,16 +43,14 @@ interface Rect {
 }
 
 function axis(
-  start: Side,
-  end: Side,
+  [start, end]: [Side, Side],
   center: number | undefined,
-  of: number,
-  size: number,
-  flow: number
+  { of, size, flow }: { of: number; size: number; flow: number },
+  tokens: readonly LengthToken[]
 ): { at: number; size: number } {
   if (center !== undefined) return { at: (of - size) / 2 + center, size }
-  const from = insetPixels(start, of)
-  const to = insetPixels(end, of)
+  const from = insetPixels(start, of, tokens)
+  const to = insetPixels(end, of, tokens)
   if (from !== undefined && to !== undefined) return { at: from, size: Math.max(0, of - from - to) }
   if (from !== undefined) return { at: from, size }
   if (to !== undefined) return { at: of - to - size, size }
@@ -68,18 +59,30 @@ function axis(
 
 /**
  * Where Plans is drawn in Pricing: by its insets when Absolute or Fixed, stretching between two pinned sides; moved
- * from its place in the flow by them when Relative; in the flow otherwise, Sticky included until it's scrolled.
+ * from its place in the flow by them when Relative; in the flow otherwise, Sticky included until it's scrolled. A
+ * token inset is as long as the project's token says (`tokens`, its spacing tokens).
  */
-export function placed(position: Position): Rect {
+export function placed(position: Position, tokens: readonly LengthToken[]): Rect {
   const [top, right, bottom, left] = position.insets
   if (position.placement === "absolute" || position.placement === "fixed") {
-    const across = axis(left, right, position.centerX, parent.width, layerSize.width, inFlow.x)
-    const down = axis(top, bottom, position.centerY, parent.height, layerSize.height, inFlow.y)
+    const across = axis(
+      [left, right],
+      position.centerX,
+      { of: parent.width, size: layerSize.width, flow: inFlow.x },
+      tokens
+    )
+    const down = axis(
+      [top, bottom],
+      position.centerY,
+      { of: parent.height, size: layerSize.height, flow: inFlow.y },
+      tokens
+    )
     return { x: across.at, y: down.at, width: across.size, height: down.size }
   }
   if (position.placement === "relative") {
-    const dx = insetPixels(left, parent.width) ?? -(insetPixels(right, parent.width) ?? 0)
-    const dy = insetPixels(top, parent.height) ?? -(insetPixels(bottom, parent.height) ?? 0)
+    const inset = (side: Side, of: number) => insetPixels(side, of, tokens)
+    const dx = inset(left, parent.width) ?? -(inset(right, parent.width) ?? 0)
+    const dy = inset(top, parent.height) ?? -(inset(bottom, parent.height) ?? 0)
     return { x: inFlow.x + dx, y: inFlow.y + dy, ...layerSize }
   }
   return { ...inFlow, ...layerSize }

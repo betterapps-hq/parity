@@ -1,29 +1,33 @@
-/* oxlint-disable jsx-a11y/prefer-tag-over-role -- the completions are a combobox's listbox of functions and tokens, each with what it is beside it, which a datalist can't draw */
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import type { PreviewKind } from "@parity-app/tokens"
+import { SlidersHorizontal } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { swatch } from "../../chrome/token-previews.tsx"
-import { formatNumber } from "./css-values.ts"
+import { arbitrary, formatNumber, lengthForm } from "./css-values.ts"
 import {
   fieldBox,
   fieldInput,
   InvalidMark,
   type Message,
   MessageLine,
+  MissingMark,
+  type Reading,
   readNumber,
+  SearchList,
   TokenChip,
-  TokenMark
+  TokenMark,
+  ValueField
 } from "./field-parts.tsx"
-import { colorTokens, lengthVars } from "./tokens.ts"
+import { colorTokens, type FieldToken, lengthToken, lengthVars } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 /*
  * Expression (PAR-186, design-options-values.md's Expression): `=` in any field opens an expression, which keeps
- * `calc()`, `min()`, `max()`, `clamp()`, `var()` and `color-mix()` as written. At rest it's the function's name and what
- * it comes to (`clamp 24`), or `ƒ` in a field under 96px. Focused, it widens to the row, with completion and each
- * `var()` drawn as a token chip; a `clamp()` opens its three fields. What comes to a step or one token is stored as
- * that, so `calc(var(--spacing) * 18)` is `{ step: 18 }`.
+ * `calc()`, `min()`, `max()`, `clamp()`, `var()` and `color-mix()` as written. At rest it's a ValueField showing the
+ * function's name and what it comes to (`clamp 24`), or `ƒ` in a field under 96px. Focused, it widens to the row, with
+ * completion and each `var()` drawn as a token chip; a `clamp()` opens its three fields. What comes to a step or one
+ * token is stored as that, so `calc(var(--spacing) * 18)` is `{ step: 18 }`.
  */
 
 /** The kind of preview a length token draws with: a spacing bar, a container's width, a size of text, a corner. */
@@ -34,9 +38,14 @@ function lengthKind(name: string): PreviewKind {
   return "spacing"
 }
 
-/** A length token's preview, as the Tokens panel draws it. */
-function LengthMark({ name }: { name: string }) {
-  return <TokenMark kind={lengthKind(name)} value={`${lengthVars[name] ?? 0}px`} name={name} />
+/** The length tokens an expression can name (tokens.ts's `lengthVars`), each drawn by its kind's preview. */
+const lengthTokens = Object.entries(lengthVars).map(([name, px]) => lengthToken(lengthKind(name), name, px))
+
+/** A token named inside `var()`, without `--`: a color's as `color-primary`, a length's by its name. */
+function namedToken(name: string): FieldToken | undefined {
+  return (
+    colorTokens.find((token) => `color-${token.name}` === name) ?? lengthTokens.find((token) => token.name === name)
+  )
 }
 
 /** What a length expression is worked out against: the font size, the viewport, and what a % is of. */
@@ -240,20 +249,11 @@ export function simplest(text: string): Simplest {
     trimmed
   )
   if (mix) return { token: mix[1]!, alpha: { step: Number(mix[2]) } }
+  // Whole pixels are a spacing step, as every length writes them.
   const px = /^(\d*\.?\d+)(px)?$/.exec(trimmed)?.[1]
-  if (px !== undefined && Number.isInteger(Number(px))) return { step: Number(px) / 4 }
+  const form = px === undefined ? undefined : lengthForm(Number(px))
+  if (form !== undefined && "step" in form) return form
   return { value: trimmed }
-}
-
-/** An expression in a Tailwind class's brackets: no spaces inside brackets or around commas and operators, `_` for the rest. */
-export function arbitrary(text: string): string {
-  return text
-    .trim()
-    .replaceAll(/\(\s+/g, "(")
-    .replaceAll(/\s+\)/g, ")")
-    .replaceAll(/\s*,\s*/g, ",")
-    .replaceAll(/\s+([+\-*/])\s+/g, "$1")
-    .replaceAll(/\s+/g, "_")
 }
 
 /** What an expression field writes, in its simplest form. */
@@ -290,8 +290,20 @@ const functions = [
   { name: "var(--", detail: "A token" }
 ]
 
+/** A completion: what it puts in, how it's named, the token it names, and what it is. */
+interface Completion {
+  text: string
+  label: string
+  token?: FieldToken
+  detail?: string
+}
+
 /** The completions for what's being typed before the caret: functions, or tokens inside `var(`. */
-function completionsFor(text: string, caret: number, kind: "length" | "color") {
+function completionsFor(
+  text: string,
+  caret: number,
+  kind: "length" | "color"
+): { replace: number; items: Completion[] } | undefined {
   const before = text.slice(0, caret)
   const variable = /var\(--([\w-]*)$/.exec(before)
   if (variable) {
@@ -301,16 +313,10 @@ function completionsFor(text: string, caret: number, kind: "length" | "color") {
       items: names
         .filter((name) => name.startsWith(variable[1]!))
         .slice(0, 8)
-        .map((name) => ({
-          text: `${name})`,
-          label: `--${name}`,
-          token: kind === "color" ? undefined : name,
-          color: kind === "color" ? colorTokens.find((token) => `color-${token.name}` === name)?.hex : undefined,
-          detail:
-            kind === "color"
-              ? colorTokens.find((token) => `color-${token.name}` === name)?.hex
-              : `${lengthVars[name]}px`
-        }))
+        .map((name) => {
+          const token = namedToken(name)
+          return { text: `${name})`, label: `--${name}`, token, detail: token?.detail }
+        })
     }
   }
   const word = /(?:^|[^\w-])([a-z][\w-]*)$/i.exec(before)?.[1]
@@ -328,13 +334,14 @@ function WithChips({ text }: { text: string }) {
   for (const match of text.matchAll(/var\(--([\w-]+)\)/g)) {
     parts.push(text.slice(last, match.index))
     const name = match[1]!
-    const color = colorTokens.find((token) => `color-${token.name}` === name)
+    const token = namedToken(name)
     parts.push(
       <TokenChip
         key={`${match.index}`}
         name={name.replace(/^color-/, "")}
-        detail={color ? undefined : `${lengthVars[name] ?? "?"}px`}
-        preview={color ? <span className="size-3 rounded-sm" style={swatch(color.hex)} /> : <LengthMark name={name} />}
+        token={token}
+        struck={token === undefined}
+        detail={token?.kind === "color" ? undefined : token?.detail}
       />
     )
     last = match.index + match[0].length
@@ -364,9 +371,11 @@ function clampParts(text: string): [string, string, string] | undefined {
 }
 
 /**
- * A field whose value can be an expression. A plain length types as any length field does; `=` opens the expression,
- * widened to the row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and tokens inside
- * `var()`. Enter checks it with `CSS.supports` and stores it in its simplest form; Escape puts it back.
+ * A field whose value can be an expression, on ValueField. A plain length types as any length field does; `=` opens
+ * the expression, widened to the row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and
+ * tokens inside `var()`. Enter checks it with `CSS.supports` and stores it in its simplest form; Escape puts it back.
+ * At rest an expression shows its function and what it comes to, and focusing it opens it again; a `clamp()` opens its
+ * three fields instead.
  */
 export function ExpressionField({
   label,
@@ -391,7 +400,7 @@ export function ExpressionField({
   const [caret, setCaret] = useState(0)
   const [highlight, setHighlight] = useState(0)
   const [message, setMessage] = useState<Message>()
-  const [plain, setPlain] = useState<string>()
+  const [clampOpen, setClampOpen] = useState(false)
   const editor = useRef<HTMLInputElement>(null)
   const listId = useId()
   const form = value === undefined ? undefined : simplest(value)
@@ -475,138 +484,94 @@ export function ExpressionField({
       )
     }
   }
-  // At rest: a plain length or step types as usual, a token is a chip, and an expression shows its function.
-  let rest: ReactNode
   const came = typeof comesTo === "number" ? formatNumber(comesTo) : undefined
-  const clamp = value === undefined ? undefined : clampParts(value)
-  if (isExpression && narrow) {
-    rest = (
-      <Hint label={`${label}: ${value}`} detail={came ? `Comes to ${came}px` : undefined}>
-        <button
-          type="button"
-          aria-label={`${label}: ${value}`}
-          onClick={() => open(value!)}
-          className={fieldBox(false, "w-full justify-center font-serif italic outline-none")}
-        >
-          {"ƒ"}
-        </button>
-      </Hint>
-    )
-  } else if (isExpression && clamp) {
-    rest = (
-      <Popover>
-        <Hint label={`${label}: ${value}`} detail="Opens its least, preferred and most values" wait>
-          <PopoverTrigger
-            aria-label={`${label}: ${value}`}
-            className={`${fieldBox(false, "w-full justify-between outline-none")} data-popup-open:ring-2 data-popup-open:ring-ring`}
-          >
-            <span>{fn}</span>
-            <span className="text-muted-foreground tabular-nums">{came}</span>
-          </PopoverTrigger>
-        </Hint>
-        <PopoverContent align="start" className="w-64 gap-2 p-3">
-          <ClampFields
-            label={label}
-            parts={clamp}
-            basis={basis}
-            onChange={(parts) => onChange(`clamp(${parts.join(", ")})`)}
-          />
-          <button
-            type="button"
-            onClick={() => open(value!)}
-            className="self-start rounded px-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            Edit as text
-          </button>
-        </PopoverContent>
-      </Popover>
-    )
-  } else if (isExpression || (kind === "color" && value !== undefined)) {
-    rest = (
-      <Hint label={`${label}: ${value}`} detail={came ? `Comes to ${came}px` : "Click to edit"} wait>
-        <button
-          type="button"
-          aria-label={`${label}: ${value}`}
-          onClick={() => open(value!)}
-          className={fieldBox(false, "w-full justify-between outline-none")}
-        >
-          <span className="flex min-w-0 items-center gap-1.5">
-            {kind === "color" && (
-              <span aria-hidden className="size-3.5 shrink-0 rounded-sm" style={swatch(fillTokens(value!))} />
-            )}
-            <span className="truncate">{form && "token" in form && kind === "color" ? `${form.token}` : fn}</span>
-            {form && "token" in form && form.alpha && <span className="text-muted-foreground">{form.alpha.step}%</span>}
-          </span>
-          {came && <span className="text-muted-foreground tabular-nums">{came}</span>}
-        </button>
-      </Hint>
-    )
-  } else if (form !== undefined && "token" in form) {
-    rest = (
-      <label className={fieldBox(false)}>
-        <TokenChip
-          name={form.token}
-          detail={`${lengthVars[form.token] ?? ""}px`}
-          preview={<LengthMark name={form.token} />}
-          onRemove={() => onChange(undefined)}
-        />
-        <input
-          aria-label={label}
-          value=""
-          onChange={(event) => open(event.target.value.replace(/^=/, ""))}
-          onKeyDown={(event) => {
-            if (event.key === "Backspace") onChange(undefined)
-          }}
-          className={fieldInput}
-        />
-      </label>
-    )
-  } else {
-    const px = form !== undefined && "step" in form ? form.step * 4 : undefined
-    rest = (
-      <label className={fieldBox(false)}>
-        <input
-          aria-label={label}
-          inputMode="decimal"
-          placeholder="0"
-          value={plain ?? (px === undefined ? "" : formatNumber(px))}
-          onChange={(event) => {
-            const text = event.target.value
-            if (text.startsWith("=")) {
-              setPlain(undefined)
-              open(text.slice(1))
-            } else setPlain(text)
-          }}
-          onBlur={() => setPlain(undefined)}
-          onKeyDown={(event) => {
-            // = opens an expression, starting from nothing.
-            if (event.key === "=") {
-              event.preventDefault()
-              setPlain(undefined)
-              open("")
-              return
-            }
-            if (event.key !== "Enter" || plain === undefined) return
-            const reading = readNumber(plain.replace(/px$/, ""), px, label)
-            if ("value" in reading) onChange(`${reading.value}px`)
-            if ("clear" in reading) onChange(undefined)
-            if ("reason" in reading) setMessage({ tone: "error", text: `${reading.reason}. Type = for an expression` })
-            else setMessage(undefined)
-            setPlain(undefined)
-          }}
-          className={fieldInput}
-        />
-        <Hint label="Type = for an expression">
-          <span className="shrink-0 text-muted-foreground">px</span>
-        </Hint>
-      </label>
-    )
+  const clamp = value === undefined || narrow ? undefined : clampParts(value)
+  const held = form !== undefined && "token" in form && kind === "length" ? form.token : undefined
+  const heldToken = held === undefined ? undefined : namedToken(held)
+  const px = form !== undefined && "step" in form ? form.step * 4 : undefined
+  // At rest: a plain length or step types as usual, a token is a chip, and an expression shows its function.
+  const atRest = isExpression || (kind === "color" && value !== undefined)
+  let shown = px === undefined ? undefined : formatNumber(px)
+  let restComesTo = heldToken?.detail
+  let inner: ReactNode
+  let hint: { label?: string; detail?: string } = { label: "Type = for an expression" }
+  if (atRest) {
+    shown = form !== undefined && "token" in form ? form.token : fn
+    if (narrow) shown = "ƒ"
+    restComesTo = form !== undefined && "token" in form && form.alpha ? `${form.alpha.step}%` : came
+    let detail = came ? `Comes to ${came}px` : "Click to edit"
+    if (clamp) detail = "Opens its least, preferred and most values"
+    hint = { label: `${label}: ${value}`, detail }
   }
+  if (kind === "color" && value !== undefined) {
+    inner = <span aria-hidden className="size-3.5 shrink-0 rounded-sm" style={swatch(fillTokens(value))} />
+  }
+  const read = (text: string): Reading<string | undefined> => {
+    const trimmed = text.trim()
+    if (trimmed === "") return { value: undefined }
+    const token = lengthTokens.find((each) => each.name === trimmed || `--${each.name}` === trimmed)
+    if (token) return { value: `var(--${token.name})` }
+    const reading = readNumber(trimmed.replace(/px$/, ""), px, label)
+    if ("reason" in reading) return { reason: `${reading.reason}. Type = for an expression` }
+    if ("clear" in reading) return { value: undefined }
+    return { value: `${reading.value}px` }
+  }
+  let onOpen: (() => void) | undefined
+  if (clamp) onOpen = () => setClampOpen(true)
+  else if (atRest) onOpen = () => open(value!)
   const error = message?.tone === "error"
   const editedComesTo = editing === undefined || kind !== "length" ? undefined : evaluateLength(editing, basis)
+  const showList = completions !== undefined && completions.items.length > 0
   return (
     <div className="relative">
-      {rest}
+      <ValueField
+        label={label}
+        inner={inner}
+        shown={shown}
+        placeholder="0"
+        chip={held === undefined ? undefined : { name: held, token: heldToken, onRemove: () => onChange(undefined) }}
+        unit={atRest ? undefined : "px"}
+        comesTo={restComesTo}
+        status={{ missing: held !== undefined && !heldToken ? <MissingMark name={held} /> : undefined }}
+        narrow={narrow}
+        hint={hint}
+        inputClassName={atRest && narrow ? "text-center font-serif italic" : ""}
+        expression={{ onEquals: open, onOpen }}
+        trailing={
+          clamp && (
+            <Popover open={clampOpen} onOpenChange={setClampOpen}>
+              <Hint label="Least, preferred and most">
+                <PopoverTrigger
+                  aria-label={`${label}'s least, preferred and most`}
+                  className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+                >
+                  <SlidersHorizontal className="size-3.5" />
+                </PopoverTrigger>
+              </Hint>
+              <PopoverContent align="end" className="w-64 gap-2 p-3">
+                <ClampFields
+                  label={label}
+                  parts={clamp}
+                  basis={basis}
+                  onChange={(parts) => onChange(`clamp(${parts.join(", ")})`)}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClampOpen(false)
+                    open(value!)
+                  }}
+                  className="self-start rounded px-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  Edit as text
+                </button>
+              </PopoverContent>
+            </Popover>
+          )
+        }
+        read={read}
+        onCommit={onChange}
+      />
       {editing !== undefined && (
         // Focused, it widens to the row, label and all, as Webflow's = editor opens wide.
         <div className="absolute top-0 -left-24 z-30 flex w-[calc(100%+6rem)] flex-col gap-1.5 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-md">
@@ -618,8 +583,9 @@ export function ExpressionField({
               ref={editor}
               role="combobox"
               aria-label={`${label} expression`}
-              aria-expanded={completions !== undefined && completions.items.length > 0}
+              aria-expanded={showList}
               aria-controls={listId}
+              aria-activedescendant={showList ? `${listId}-${highlight}` : undefined}
               aria-invalid={error || undefined}
               value={editing}
               onChange={(event) => {
@@ -635,32 +601,29 @@ export function ExpressionField({
             />
             {error && <InvalidMark />}
           </label>
-          {completions !== undefined && completions.items.length > 0 && (
-            <div id={listId} role="listbox" aria-label="Completions" className="flex flex-col rounded border p-0.5">
-              {completions.items.map((item, index) => (
-                <div
-                  key={item.label}
-                  role="option"
-                  tabIndex={-1}
-                  aria-selected={index === highlight}
-                  onPointerDown={(event) => {
-                    event.preventDefault()
-                    accept(index)
-                  }}
-                  onPointerEnter={() => setHighlight(index)}
-                  className={`flex cursor-default items-center justify-between gap-2 rounded-sm px-1.5 py-1 text-xs ${index === highlight ? "bg-accent" : ""}`}
-                >
-                  <span className="flex items-center gap-1.5 font-mono">
-                    {"token" in item && item.token !== undefined && <LengthMark name={item.token} />}
-                    {"color" in item && item.color !== undefined && (
-                      <span aria-hidden className="size-3 shrink-0 rounded-sm" style={swatch(item.color)} />
-                    )}
-                    {item.label}
-                  </span>
-                  <span className="truncate text-[11px] text-muted-foreground">{item.detail}</span>
-                </div>
-              ))}
-            </div>
+          {showList && (
+            <SearchList
+              id={listId}
+              label="Completions"
+              options={completions.items.map((item) => ({
+                key: item.label,
+                content: (
+                  <>
+                    <span className="flex items-center gap-1.5 font-mono">
+                      {item.token && (
+                        <TokenMark kind={item.token.kind} value={item.token.value} name={item.token.name} />
+                      )}
+                      {item.label}
+                    </span>
+                    <span className="truncate text-[11px] text-muted-foreground">{item.detail}</span>
+                  </>
+                )
+              }))}
+              highlight={highlight}
+              className="shadow-none"
+              onHighlight={setHighlight}
+              onPick={accept}
+            />
           )}
           <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
             <WithChips text={editing} />
@@ -679,7 +642,7 @@ export function ExpressionField({
   )
 }
 
-/** A `clamp()`'s three fields: least, preferred and most, each its own expression, and what the clamp comes to. */
+/** A `clamp()`'s three values, least, preferred and most, each a field of its own with what it comes to. */
 function ClampFields({
   label,
   parts,
@@ -687,12 +650,10 @@ function ClampFields({
   onChange
 }: {
   label: string
-  parts: [string, string, string]
+  parts: readonly [string, string, string]
   basis: Basis
-  onChange: (parts: [string, string, string]) => void
+  onChange: (parts: readonly string[]) => void
 }) {
-  const [typed, setTyped] = useState<[string?, string?, string?]>([])
-  const [message, setMessage] = useState<Message>()
   const names = ["Least", "Preferred", "Most"] as const
   const total = evaluateLength(`clamp(${parts.join(", ")})`, basis)
   return (
@@ -702,47 +663,24 @@ function ClampFields({
         {typeof total === "number" && <span className="text-muted-foreground"> comes to {formatNumber(total)}px</span>}
       </p>
       {names.map((name, index) => {
-        const commit = () => {
-          const text = typed[index]
-          if (text === undefined) return
-          const result = evaluateLength(text, basis)
-          if (typeof result !== "number") {
-            setMessage({ tone: "error", text: `${name}: ${result.reason}` })
-            return
-          }
-          const next = [...parts] as [string, string, string]
-          next[index] = text.trim()
-          onChange(next)
-          setMessage(undefined)
-          setTyped([])
-        }
-        const each = evaluateLength(parts[index]!, basis)
+        const each = evaluateLength(parts[index], basis)
         return (
-          <label key={name} className="grid grid-cols-[64px_1fr] items-center gap-2 text-xs">
-            <span className="text-muted-foreground">{name}</span>
-            <span className={fieldBox(false)}>
-              <input
-                aria-label={`${label} ${name.toLowerCase()}`}
-                value={typed[index] ?? parts[index]}
-                onChange={(event) => {
-                  const next = [...typed] as [string?, string?, string?]
-                  next[index] = event.target.value
-                  setTyped(next)
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") commit()
-                }}
-                onBlur={commit}
-                className={`${fieldInput} font-mono`}
-              />
-              {typeof each === "number" && (
-                <span className="shrink-0 text-muted-foreground tabular-nums">{formatNumber(each)}</span>
-              )}
-            </span>
-          </label>
+          <ValueField
+            key={name}
+            label={`${label} ${name.toLowerCase()}`}
+            inner={name}
+            shown={parts[index]}
+            comesTo={typeof each === "number" ? formatNumber(each) : undefined}
+            inputMode="text"
+            inputClassName="font-mono"
+            read={(text): Reading<string> => {
+              const result = evaluateLength(text, basis)
+              return typeof result === "number" ? { value: text.trim() } : { reason: result.reason }
+            }}
+            onCommit={(text) => onChange(parts.map((part, at) => (at === index ? text : part)))}
+          />
         )
       })}
-      <MessageLine message={message} />
     </div>
   )
 }

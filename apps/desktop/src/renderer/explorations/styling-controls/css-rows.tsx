@@ -1,13 +1,25 @@
-/* oxlint-disable jsx-a11y/prefer-tag-over-role -- completions are a combobox's listbox of properties and values, each with its mark and what it is, which a datalist can't draw */
 import { Checkbox, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { Minus, Plus } from "lucide-react"
 import { type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { EasingArt, swatch } from "../../chrome/token-previews.tsx"
+import { swatch } from "../../chrome/token-previews.tsx"
 import { ColorEditor } from "./color-picker.tsx"
-import { arbitrary, fillTokens } from "./expression.tsx"
-import { fieldBox, InvalidMark, type Message, MessageLine, NotBaseline, TokenMark } from "./field-parts.tsx"
+import { arbitrary, clamp, formatNumber, isPlainColor } from "./css-values.ts"
+import { CurveThumb } from "./easing.tsx"
+import { fillTokens } from "./expression.tsx"
+import {
+  InvalidMark,
+  type Message,
+  MessageLine,
+  NotBaseline,
+  type Reading,
+  readNumber,
+  SearchList,
+  TokenMark,
+  ValueField
+} from "./field-parts.tsx"
+import { type Bezier, bezierCss, type EasingShape, readEasingValue } from "./motion-data.ts"
 import { colorTokens, lengthVars } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
@@ -357,40 +369,36 @@ function Completing({
         className={`${sizeToContent ? "field-sizing-content max-w-full min-w-[8ch]" : "w-full min-w-0"} bg-transparent font-mono text-[11px] outline-none placeholder:text-muted-foreground`}
       />
       {open && (
-        <div
+        <SearchList
           id={listId}
-          role="listbox"
-          aria-label={`${label} completions`}
-          className="absolute top-full left-0 z-30 mt-1 w-56 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-        >
-          {list.map((item, index) => (
-            <div
-              key={item.label}
-              id={`${listId}-${index}`}
-              role="option"
-              tabIndex={-1}
-              aria-selected={index === highlight}
-              onPointerEnter={() => setHighlight(index)}
-              onPointerDown={(event) => {
-                event.preventDefault()
-                finish(item.label)
-              }}
-              className={`flex cursor-default items-center justify-between gap-2 rounded-sm px-1.5 py-1 font-mono text-[11px] ${index === highlight ? "bg-accent" : ""}`}
-            >
-              <span className="truncate">
-                {item.label}
-                {item.mark && <span className="ml-0.5 text-amber-600">†</span>}
-              </span>
-              {item.detail && <span className="shrink-0 font-sans text-muted-foreground">{item.detail}</span>}
-            </div>
-          ))}
-        </div>
+          label={`${label} completions`}
+          options={list.map((item) => ({
+            key: item.label,
+            content: (
+              <>
+                <span className="flex min-w-0 items-center gap-0.5 font-mono text-[11px]">
+                  <span className="truncate">{item.label}</span>
+                  {item.mark && <NotBaseline what={item.label} browsers={item.mark} />}
+                </span>
+                {item.detail && <span className="shrink-0 text-muted-foreground">{item.detail}</span>}
+              </>
+            )
+          }))}
+          highlight={highlight}
+          className="absolute top-full left-0 z-30 mt-1 w-56"
+          onHighlight={setHighlight}
+          onPick={(index) => finish(list[index]!.label)}
+        />
       )}
     </div>
   )
 }
 
-const timing: Record<string, [number, number, number, number]> = {
+/**
+ * CSS's own named easings, as a browser draws `transition-timing-function: ease-in` (Tailwind's `ease-in` is a
+ * different curve, motion-data.ts's `easingPresets`).
+ */
+const cssEasings: Record<string, Bezier> = {
   ease: [0.25, 0.1, 0.25, 1],
   "ease-in": [0.42, 0, 1, 1],
   "ease-out": [0, 0, 0.58, 1],
@@ -398,12 +406,50 @@ const timing: Record<string, [number, number, number, number]> = {
   linear: [0, 0, 1, 1]
 }
 
-/** The four numbers of a timing function, where it's a curve. */
-function curveOf(value: string): [number, number, number, number] | undefined {
-  const keyword = timing[value.trim()]
-  if (keyword) return keyword
-  const bezier = /^cubic-bezier\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)$/.exec(value.trim())
-  return bezier ? [Number(bezier[1]), Number(bezier[2]), Number(bezier[3]), Number(bezier[4])] : undefined
+/** The easing a timing function draws, a curve or steps, read as the Easing field reads one; nothing where it isn't one. */
+function easingOf(value: string): EasingShape | undefined {
+  const keyword = cssEasings[value.trim()]
+  if (keyword) return { kind: "bezier", curve: keyword }
+  return readEasingValue(value)
+}
+
+const handles = ["Start handle x", "Start handle y", "End handle x", "End handle y"] as const
+/** Each handle's place in the grid's first row, so a message under one spans the row below all four. */
+const handleColumns = ["col-start-1", "col-start-2", "col-start-3", "col-start-4"] as const
+
+/**
+ * A curve's four numbers, each a field: typed with the app's maths, Up and Down by 0.01 (Shift 0.1), as the Easing
+ * field's handles move. A handle's x stays from 0 to 1, as `cubic-bezier()` takes it.
+ */
+function CurveFields({ curve, onChange }: { curve: Bezier; onChange: (curve: Bezier) => void }) {
+  const set = (index: number, number: number) => {
+    const next: Bezier = [...curve]
+    next[index] = index % 2 === 0 ? clamp(number, 0, 1) : number
+    onChange(next)
+  }
+  return (
+    <div className="grid grid-cols-4 gap-1">
+      {handles.map((label, index) => (
+        <ValueField
+          key={label}
+          label={label}
+          shown={formatNumber(curve[index]!)}
+          narrow
+          rowClassName={`row-start-1 ${handleColumns[index]}`}
+          read={(text): Reading<number> => {
+            const reading = readNumber(text, curve[index], label)
+            if ("clear" in reading) return { reason: `${label} takes a number, such as 0.5` }
+            if ("reason" in reading) return reading
+            if (index % 2 === 0 && (reading.value < 0 || reading.value > 1))
+              return { reason: `${label} goes from 0 to 1` }
+            return { value: reading.value }
+          }}
+          onCommit={(number) => set(index, number)}
+          onStep={(up, { shift }) => set(index, curve[index]! + (up ? 1 : -1) * (shift ? 0.1 : 0.01))}
+        />
+      ))}
+    </div>
+  )
 }
 
 /**
@@ -412,35 +458,19 @@ function curveOf(value: string): [number, number, number, number] | undefined {
  */
 function InlinePreview({ row, onValue }: { row: CssRow; onValue: (value: string) => void }) {
   const filled = fillTokens(row.value)
-  const curve = curveOf(row.value)
+  const easing = easingOf(row.value)
   let preview: ReactNode
   let editor: ReactNode
-  if (curve) {
-    preview = (
-      <span className="text-muted-foreground">
-        <EasingArt value={row.value} width={14} height={12} playing={false} stroke={1.25} />
-      </span>
-    )
+  if (easing) {
+    preview = <CurveThumb shape={easing} size={12} />
     editor = (
       <div className="flex flex-col gap-2">
-        <span className="grid h-24 place-items-center rounded bg-muted text-muted-foreground">
-          <EasingArt value={row.value} width={200} height={80} playing stroke={2} />
+        <span className="grid h-24 place-items-center rounded bg-muted">
+          <CurveThumb shape={easing} size={80} />
         </span>
-        <div className="grid grid-cols-4 gap-1">
-          {curve.map((number, index) => (
-            <input
-              key={["x1", "y1", "x2", "y2"][index]}
-              aria-label={["Start handle x", "Start handle y", "End handle x", "End handle y"][index]}
-              defaultValue={number}
-              onBlur={(event) => {
-                const next = [...curve]
-                next[index] = Number(event.target.value)
-                if (next.every(Number.isFinite)) onValue(`cubic-bezier(${next.join(", ")})`)
-              }}
-              className={`${fieldBox(false)} w-full font-mono`}
-            />
-          ))}
-        </div>
+        {easing.kind === "bezier" && (
+          <CurveFields curve={easing.curve} onChange={(curve) => onValue(bezierCss(curve))} />
+        )}
       </div>
     )
   } else if (row.property === "box-shadow" && CSS.supports("box-shadow", filled)) {
@@ -448,7 +478,7 @@ function InlinePreview({ row, onValue }: { row: CssRow; onValue: (value: string)
     editor = <TokenMark kind="shadow" value={filled} width={230} height={96} />
   } else if (CSS.supports("color", filled) && !/^(inherit|initial|unset|currentcolor|transparent)$/i.test(row.value)) {
     preview = <span className="block size-3 rounded-sm" style={swatch(filled)} />
-    editor = /^#|^oklch\(/i.test(filled) ? (
+    editor = isPlainColor(filled) ? (
       <ColorEditor value={filled} alpha={undefined} onChange={(next) => onValue(next)} />
     ) : (
       <div className="h-16 rounded" style={swatch(filled)} />

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { Field } from "../../chrome/fields.tsx"
-import type { BoxPosition } from "./motion-data.ts"
+import type { BoxPoint } from "./css-values.ts"
 import { positionWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
 import { PositionInBox } from "./position-box.tsx"
@@ -27,7 +27,7 @@ const landscape = `data:image/svg+xml,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="#bfdbfe"/><circle cx="80" cy="80" r="44" fill="#ffb900"/><path d="M0 300 L120 180 L220 280 L300 200 L400 300 L400 400 L0 400Z" fill="#009689"/><rect y="340" width="400" height="60" fill="#f54900"/></svg>`
 )}`
 
-function Position({ which, start }: { which: "origin" | "object"; start?: BoxPosition }) {
+function Position({ which, start }: { which: "origin" | "object"; start?: BoxPoint }) {
   const [position, setPosition] = useState(start)
   const shown = position ?? { x: 50, y: 50 }
   const preview =

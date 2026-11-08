@@ -11,10 +11,10 @@ import { type FontValue, fontWrites } from "./text-writes.ts"
 /**
  * Font family (PAR-186, design-options-values.md's Font family), Text's Font row on its own. The first family shows in
  * its own face, with +2 when the stack has fallbacks and the stack in the hint; a font token is a chip with Ag in the
- * font. Typing searches a list set in each font, the project's fonts first, and moving through it previews each on the
- * text. Enter takes the highlighted font; a comma-separated stack is kept as typed. A font the frame can't load is
- * Missing, drawn in the fallback with its name struck through. The list's More fonts are fonts installed on this
- * computer, standing in for Google Fonts, which the app adds to the project when one is chosen.
+ * font. Focused, it lists the fonts, set in each, the project's first; typing searches them, and moving through them
+ * previews each on the text. Enter takes the highlighted font; a comma-separated stack is kept as typed. A font the
+ * frame can't load is Missing, drawn in the fallback with its name struck through. The list's More fonts are fonts
+ * installed on this computer, standing in for Google Fonts, which the app adds to the project when one is chosen.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Font family",

@@ -1,10 +1,14 @@
 /*
  * The values Motion, Transform and Position's Rotation hold (PAR-652's Angle, Time, Easing and spring, Transition
- * list, Transform and Position in a box), in its value forms: a step where the utility takes a bare number, a token, a
- * value of its own as typed or read from code, and a spring, kept as its settings since the `linear()` it writes can't
- * be read back into them.
+ * list and Transform), in its value forms: a step where the utility takes a bare number, a token, a value of its own as
+ * typed or read from code, and a spring, kept as its settings since the `linear()` it writes can't be read back into
+ * them. Functions that look a token up take the project's tokens, so a token made with Create token is found too.
  */
-import { type DurationToken, durationTokens, type EasingToken, easingTokens } from "./tokens.ts"
+import { type BoxPoint, formatNumber } from "./css-values.ts"
+import type { DurationToken, EasingToken } from "./tokens.ts"
+
+/** A number to `places` decimals, as a value is kept. */
+const round = (number: number, places = 2) => Number(formatNumber(number, places))
 
 /** An angle: whole degrees as a step (`rotate-45`), or a value of its own as typed or read (`22.5deg`, `0.25turn`). */
 export type Angle = { step: number } | { value: string }
@@ -18,8 +22,6 @@ export function splitUnit(text: string): { number: number; unit: string } | unde
   if (!match) return undefined
   return { number: Number(match[1]), unit: match[2]!.toLowerCase() }
 }
-
-const round = (number: number, places = 2) => Number(number.toFixed(places))
 
 export function angleDegrees(angle: Angle | undefined): number {
   if (angle === undefined) return 0
@@ -42,7 +44,8 @@ export type Time = { step: number; allow?: string } | { token: string } | { valu
 /** Milliseconds in each unit a time is typed or read in. */
 export const timeUnits: Record<string, number> = { ms: 1, s: 1000 }
 
-export function timeMs(time: Time | undefined, tokens: readonly DurationToken[] = durationTokens): number | undefined {
+/** A time in milliseconds, its token's among the project's `tokens`; nothing for unset or a token it doesn't have. */
+export function timeMs(time: Time | undefined, tokens: readonly DurationToken[]): number | undefined {
   if (time === undefined) return undefined
   if ("step" in time) return time.step
   if ("token" in time) return tokens.find((token) => token.name === time.token)?.ms
@@ -68,7 +71,11 @@ export type Easing = { keyword: EasingKeyword } | { token: string } | { value: s
 
 export type EasingKeyword = "linear" | "ease-in" | "ease-out" | "ease-in-out"
 
-/** Tailwind v4's easings, as its theme defines them. */
+/**
+ * Tailwind v4's easings, as its theme defines them: the one table of their curves here. Tailwind's differ from CSS's
+ * keywords of the same names (its `ease-in` is `cubic-bezier(0.4, 0, 1, 1)`, CSS's 0.42), so a preview draws these
+ * numbers, never the keyword.
+ */
 export const easingPresets: { keyword: EasingKeyword; label: string; curve: Bezier }[] = [
   { keyword: "linear", label: "Linear", curve: [0, 0, 1, 1] },
   { keyword: "ease-in", label: "Ease in", curve: [0.4, 0, 1, 1] },
@@ -102,11 +109,14 @@ export function readEasingValue(text: string): EasingShape | undefined {
   return undefined
 }
 
-export function easingShape(easing: Easing | undefined, tokens: readonly EasingToken[] = easingTokens): EasingShape {
+/** A preset's curve, from the one table. */
+const presetCurve = (keyword: EasingKeyword): Bezier =>
+  easingPresets.find((preset) => preset.keyword === keyword)!.curve
+
+/** What an easing draws, its token's among the project's `tokens`; Tailwind's default curve for unset. */
+export function easingShape(easing: Easing | undefined, tokens: readonly EasingToken[]): EasingShape {
   if (easing === undefined) return { kind: "bezier", curve: defaultCurve }
-  if ("keyword" in easing) {
-    return { kind: "bezier", curve: easingPresets.find((preset) => preset.keyword === easing.keyword)!.curve }
-  }
+  if ("keyword" in easing) return { kind: "bezier", curve: presetCurve(easing.keyword) }
   if ("spring" in easing) return { kind: "samples", values: springSamples(easing.spring) }
   if ("token" in easing) {
     const token = tokens.find((other) => other.name === easing.token)
@@ -114,6 +124,17 @@ export function easingShape(easing: Easing | undefined, tokens: readonly EasingT
     return { kind: "bezier", curve: token?.curve ?? defaultCurve }
   }
   return readEasingValue(easing.value) ?? { kind: "bezier", curve: defaultCurve }
+}
+
+/**
+ * An easing as a preview's CSS draws it: the curve's own numbers, steps or a spring's `linear()`, rather than a
+ * variable the page may not have, so Tailwind's presets and the project's tokens move as they're defined.
+ */
+export function drawnEasing(easing: Easing | undefined, tokens: readonly EasingToken[]): string {
+  const shape = easingShape(easing, tokens)
+  if (shape.kind === "bezier") return bezierCss(shape.curve)
+  if (shape.kind === "samples") return `linear(${shape.values.join(", ")})`
+  return shape.jump === "end" ? `steps(${shape.count})` : `steps(${shape.count}, jump-start)`
 }
 
 /** An easing in words: its preset's name, its token's, Steps 4, Spring 400ms, or Custom. */
@@ -267,29 +288,5 @@ export interface TransformValue {
   scaleLinked?: boolean
   flipX?: boolean
   flipY?: boolean
-  origin?: BoxPosition
-}
-
-/* Position in a box. */
-
-/** A position in a box, as percentages from its top left: the nine spots are 0, 50 and 100 on each axis. */
-export interface BoxPosition {
-  x: number
-  y: number
-}
-
-export const spotValues = [0, 50, 100] as const
-
-const horizontal: Record<number, string> = { 0: "left", 50: "center", 100: "right" }
-const vertical: Record<number, string> = { 0: "top", 50: "center", 100: "bottom" }
-
-/** The spot's name in CSS's words (`top left`, `center`), or nothing for a position off the spots. */
-export function spotName(position: BoxPosition): string | undefined {
-  const x = horizontal[position.x]
-  const y = vertical[position.y]
-  if (x === undefined || y === undefined) return undefined
-  if (x === "center" && y === "center") return "center"
-  if (x === "center") return y
-  if (y === "center") return x
-  return `${y} ${x}`
+  origin?: BoxPoint
 }

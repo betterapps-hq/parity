@@ -1,21 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { PreviewStage } from "./list-parts.tsx"
 import type { GradientPaint, PaintEntry, Stop } from "./lists-data.ts"
 import { paintWrites } from "./lists-writes.ts"
 import { PaintPreview, PaintStack } from "./paint-stack.tsx"
-import { Playground } from "./playground.tsx"
+import { Playground, PreviewStage } from "./playground.tsx"
 import type { GradientToken } from "./tokens.ts"
 import { mixedWrites } from "./writes.ts"
 
 /**
  * Fill's paint stack (PAR-652's Paint stack): solids, gradients and images, top first, as CSS paints them. Each entry has
- * its type menu, its preview, which opens its editor, its value or token, its alpha, the eye and −; drag the handle to
- * reorder. + adds the project's usual fill, `bg-background`, on top. A gradient's editor has the bar of stops (click to
- * add, drag to move, drag off to remove, drag the diamond for a color hint), the angle with its dial, Flip and Rotate 90°,
- * Repeat, how colors blend, and the Stops list; an image's has the project's images, the fit and a nine-spot position.
- * The bottom solid is written as `background-color`, the rest as `background-image` layers.
+ * its preview, which opens its editor, its type menu, its value or token, its alpha, the eye and −; drag the handle to
+ * reorder. A solid is the color field, whose swatch opens the color picker, after its type's glyph. + adds the
+ * project's usual fill, `bg-background`, on top. A gradient's editor has the bar of stops (click to add, drag to move,
+ * drag off to remove, drag the diamond for a color hint), the angle with its dial, Flip and Rotate 90°, Repeat, how
+ * colors blend, and the Stops list; an image's has the project's images, the fit and its position in the box. The
+ * bottom solid is written as `background-color`, the rest as `background-image` layers.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Paint stack",

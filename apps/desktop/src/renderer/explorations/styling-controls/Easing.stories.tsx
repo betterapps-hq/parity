@@ -3,8 +3,9 @@ import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { Field } from "../../chrome/fields.tsx"
 import { EasingField, HoverCard } from "./easing.tsx"
-import { defaultCurve, type Easing, springSettle } from "./motion-data.ts"
-import { easingCss, easingWrites, timeWrites } from "./motion-writes.ts"
+import { useTokens } from "./field-parts.tsx"
+import { drawnEasing, type Easing, springSettle } from "./motion-data.ts"
+import { easingWrites, timeWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
 import { mixedWrites, type Writes } from "./writes.ts"
 
@@ -23,6 +24,12 @@ const meta = {
 
 export default meta
 type Story = StoryObj<typeof meta>
+
+/** The card, moving with the easing as it's defined, a token made here among the project's. */
+function EasingPreview({ easing, ms }: { easing: Easing | undefined; ms: number }) {
+  const { tokens } = useTokens("easing")
+  return <HoverCard transition={`translate ${ms}ms ${drawnEasing(easing, tokens)}`} />
+}
 
 function EasingStory({
   start,
@@ -49,9 +56,8 @@ function EasingStory({
       tailwind: [...duration.tailwind, ...writes.tailwind]
     }
   }
-  const css = easing ? easingCss(easing) : `cubic-bezier(${defaultCurve.join(", ")})`
   return (
-    <Playground writes={writes} preview={<HoverCard transition={`translate ${ms}ms ${css}`} />}>
+    <Playground writes={writes} preview={<EasingPreview easing={easing} ms={ms} />}>
       <Field label="Easing">
         <EasingField
           label="Easing"

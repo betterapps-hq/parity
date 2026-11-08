@@ -1,6 +1,8 @@
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
-import { type Side, type SideRules, type Sides, sideInline, sideRules } from "./sides-writes.ts"
-import { FieldLine, type FieldMessage, SideInput, type Spread } from "./sides.tsx"
+import { MessageLine, useTokens } from "./field-parts.tsx"
+import { type Side, type SideRules, type Sides, sideInline, sideNames, sideRules } from "./sides-writes.ts"
+import { SideField, spreadTo, useSidesLine } from "./sides.tsx"
+import type { LengthToken } from "./tokens.ts"
 
 /*
  * The box-model widget (PAR-652's Spacing), opened from Custom in Padding's sides menu: padding's ring around the
@@ -15,18 +17,11 @@ export interface SpacingHover {
   sides: number[]
 }
 
-const spreadTo = (index: number, spread: Spread): number[] => {
-  if (spread === "all") return [0, 1, 2, 3]
-  if (spread === "opposite") return [index, (index + 2) % 4]
-  return [index]
-}
-
-const sideNames = ["Top", "Right", "Bottom", "Left"] as const
-
 /**
  * Padding's ring, with margin's around it once a margin is set, as DevTools' box model lays them out: each side's
  * field where the side is, the layer's size in the middle. Each field is typed, stepped and scrubbed as any side, Alt
- * reaching the opposite side and Alt+Shift all four. Hovering a field highlights its side on the canvas.
+ * reaching the opposite side and Alt+Shift all four. What the fields say goes under the widget. Hovering a field
+ * highlights its side on the canvas.
  */
 export function BoxModel({
   padding,
@@ -54,7 +49,7 @@ export function BoxModel({
   onMargin: (sides: Sides, cleared: number[]) => void
   onHover?: (hover: SpacingHover | undefined) => void
 }) {
-  const [messages, setMessages] = useState<Record<string, FieldMessage | undefined>>({})
+  const { lineFor, said } = useSidesLine()
   const side = (
     box: "padding" | "margin",
     index: number,
@@ -70,17 +65,18 @@ export function BoxModel({
         onPointerEnter={() => onHover?.({ box, sides: [index] })}
         onPointerLeave={() => onHover?.(undefined)}
       >
-        <SideInput
+        <SideField
           label={label}
           rules={rules}
           value={sides[index]}
           mixed={mixed[index]}
           bare
           narrow
+          spreads
           measured={box === "margin" ? measuredMargin?.[index] : undefined}
-          onMessage={(message) => setMessages((current) => ({ ...current, [label]: message }))}
+          line={lineFor(label)}
           onChange={(value: Side, spread) => {
-            const reached = spreadTo(index, spread)
+            const reached = spreadTo([index], spread)
             onChange(sides.map((other, at) => (reached.includes(at) ? value : other)) as Sides, reached)
           }}
           onShorthand={(next) => onChange(next, [0, 1, 2, 3])}
@@ -104,7 +100,6 @@ export function BoxModel({
       {paddingSide(2)}
     </div>
   )
-  const shown = Object.values(messages).filter((message): message is FieldMessage => message !== undefined)
   return (
     <fieldset className="m-0 grid min-w-0 gap-1 border-0 p-0 pt-1" aria-label="Box model">
       {showMargin ? (
@@ -121,8 +116,8 @@ export function BoxModel({
       ) : (
         ring
       )}
-      {shown.map((message) => (
-        <FieldLine key={message.text} message={message} />
+      {said.map((message) => (
+        <MessageLine key={message.text} message={message} />
       ))}
     </fieldset>
   )
@@ -170,6 +165,8 @@ export function SpacingPreview({
 }) {
   const layer = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState<Measured>()
+  const spacing = useTokens("spacing").tokens
+  const widths = useTokens("borderWidth").tokens
   useLayoutEffect(() => {
     const element = layer.current
     if (!element) return
@@ -191,13 +188,13 @@ export function SpacingPreview({
     if (JSON.stringify(next) === JSON.stringify(box)) return
     setBox(next)
     onMeasure?.(next)
-  }, [padding, margin, border, layout, first, contained, box, onMeasure])
-  const inline = (sides: Sides | undefined, rules: SideRules) =>
-    (sides ?? [undefined, undefined, undefined, undefined]).map((side) => sideInline(side, rules) ?? "0px")
+  }, [padding, margin, border, spacing, widths, layout, first, contained, box, onMeasure])
+  const inline = (sides: Sides | undefined, tokens: readonly LengthToken[]) =>
+    (sides ?? [undefined, undefined, undefined, undefined]).map((side) => sideInline(side, tokens) ?? "0px")
   // With no padding of its own to show, Plans keeps a little, untinted, so its content doesn't touch its edge.
-  const paddings = padding ? inline(padding, sideRules.padding) : ["12px", "12px", "12px", "12px"]
-  const margins = inline(margin, sideRules.margin)
-  const borders = inline(border, sideRules.border)
+  const paddings = padding ? inline(padding, spacing) : ["12px", "12px", "12px", "12px"]
+  const margins = inline(margin, spacing)
+  const borders = inline(border, widths)
   const style: CSSProperties = {
     position: "relative",
     padding: paddings.join(" "),

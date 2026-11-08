@@ -18,9 +18,9 @@ import {
   wrapChoices
 } from "./keyword-sets.tsx"
 import { BlendMenu } from "./opacity-blend.tsx"
-import { Playground } from "./playground.tsx"
+import { Card, Playground, PreviewStage } from "./playground.tsx"
 import type { BlendMode } from "./text-data.ts"
-import { OverShapes, TextSample } from "./text-preview.tsx"
+import { filledLayer, TextSample } from "./text-preview.tsx"
 import { type KeywordValue, keywordWrites, opacityWrites } from "./text-writes.ts"
 
 /**
@@ -252,7 +252,11 @@ export const WrapNotBaseline: Story = {
   )
 }
 
-const cursorPreview = (style: Record<string, string>) => <OverShapes style={style}>Hover me</OverShapes>
+const cursorPreview = (style: Record<string, string>) => (
+  <PreviewStage>
+    <Card style={{ ...filledLayer, ...style }}>Hover me</Card>
+  </PreviewStage>
+)
 
 /** Cursor unset: Auto, muted. The menu draws each cursor, and hovering an option shows it as the pointer. */
 export const CursorUnset: Story = {
@@ -302,7 +306,9 @@ export const CursorToken: Story = {
 }
 
 const strokePreview = (style: Record<string, string>) => (
-  <OverShapes style={{ border: "4px solid #0a0a0a", ...style }} />
+  <PreviewStage>
+    <Card style={{ ...filledLayer, border: "4px solid #0a0a0a", ...style }} />
+  </PreviewStage>
 )
 
 /** Stroke's Style: Dashed, each option drawn as a line in it. */
@@ -374,7 +380,11 @@ function Blend({ start }: { start?: BlendMode }) {
   return (
     <Playground
       writes={opacityWrites(undefined, value)}
-      preview={<OverShapes style={{ mixBlendMode: hovered ?? value }} />}
+      preview={
+        <PreviewStage>
+          <Card style={{ ...filledLayer, mixBlendMode: hovered ?? value }} />
+        </PreviewStage>
+      }
     >
       <Field label="Blend">
         <BlendMenu value={value} onChange={setValue} onPreview={setHovered} />

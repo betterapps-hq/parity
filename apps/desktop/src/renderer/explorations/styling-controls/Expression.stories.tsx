@@ -10,8 +10,9 @@ import { TextSample } from "./text-preview.tsx"
  * Expression (PAR-186, design-options-values.md's Expression). `=` in any field opens an expression, widened to the
  * row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and tokens inside `var()`, each `var()`
  * drawn as a token chip and what it comes to beside it. At rest it's the function's name and what it comes to
- * (`clamp 25.6`), or `ƒ` in a field under 96px. A `clamp()` opens its three fields: least, preferred and most. Enter
- * checks it with `CSS.supports` and stores it in its simplest form, so `calc(var(--spacing) * 18)` is a step.
+ * (`clamp 25.6`), or `ƒ` in a field under 96px; focusing it opens it again. A `clamp()` opens its three fields: least,
+ * preferred and most, from the field or the button after it. Enter checks it with `CSS.supports` and stores it in its
+ * simplest form, so `calc(var(--spacing) * 18)` is a step.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Expression",
@@ -88,7 +89,10 @@ export const Calc: Story = {
   render: () => <Expr label="Width" property="width" prefix="w" start="calc(100% - 2rem)" />
 }
 
-/** Font size, `clamp(1rem, 2vw, 2rem)`: clicking it opens least, preferred and most, each typed with what it comes to. */
+/**
+ * Font size, `clamp(1rem, 2vw, 2rem)`: clicking it, or the button after it, opens least, preferred and most, each typed
+ * with what it comes to.
+ */
 export const Clamp: Story = {
   render: () => (
     <Expr
@@ -162,7 +166,7 @@ export const InvalidAsTyped: Story = {
   render: () => <Expr label="Width" property="width" prefix="w" start="calc(100% - 2rem)" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: "Width: calc(100% - 2rem)" }))
+    await userEvent.click(canvas.getByRole("textbox", { name: "Width" }))
     const editor = await canvas.findByRole("combobox", { name: "Width expression" })
     await userEvent.clear(editor)
     await userEvent.type(editor, "calc(100% - ){Enter}")

@@ -2,18 +2,19 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { Field } from "../../chrome/fields.tsx"
-import { AngleField, RotatedPreview } from "./angle.tsx"
+import { AngleField } from "./angle.tsx"
 import { type Angle, angleDegrees } from "./motion-data.ts"
 import { angleWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
+import { TransformPreview } from "./transform.tsx"
 import { mixedWrites } from "./writes.ts"
 
 /**
  * An angle (PAR-652's Angle), as Position's Rotation takes it: degrees with °, clockwise as CSS turns. It's typed as
  * `45`, `45deg`, `0.25turn` or `1rad`, with the app's maths (`+15`, `*2`), and kept in degrees; one read from code keeps
  * its unit until it's edited. Negatives are kept, and angles are never folded into −180 to 180, since a transition to
- * 270° turns the other way from one to −90°. Up and Down step 1°, Shift 15°; the label scrubs; the dial beside it is
- * dragged round, Shift snapping to 15°. Whole degrees are a step (`rotate-45`); others are written in brackets.
+ * 270° turns the other way from one to −90°. Up and Down step 1°, Shift 15°; the dial beside it is dragged round,
+ * Shift snapping to 15°. Whole degrees are a step (`rotate-45`); others are written in brackets.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Angle",
@@ -27,7 +28,7 @@ function Rotation({ start, mixed = false }: { start?: Angle; mixed?: boolean }) 
   const [angle, setAngle] = useState(start)
   const writes = mixed && angle === undefined ? mixedWrites : angleWrites(angle)
   return (
-    <Playground writes={writes} preview={<RotatedPreview degrees={angleDegrees(angle)} />}>
+    <Playground writes={writes} preview={<TransformPreview value={{}} rotate={angleDegrees(angle)} />}>
       <Field label="Rotation" hint="Clockwise, as CSS turns">
         <AngleField label="Rotation" value={angle} mixed={mixed && angle === undefined} onChange={setAngle} />
       </Field>

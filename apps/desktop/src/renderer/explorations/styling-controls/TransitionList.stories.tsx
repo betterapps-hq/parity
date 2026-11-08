@@ -1,17 +1,18 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { HoverCard } from "./easing.tsx"
-import { defaultCurve, type TransitionEntry } from "./motion-data.ts"
-import { easingCss, transitionsWrites } from "./motion-writes.ts"
+import { useTokenSets } from "./field-parts.tsx"
+import type { TransitionEntry } from "./motion-data.ts"
+import { transitionsWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
-import { durationTokens } from "./tokens.ts"
 import { newEntryId, previewTransition, TransitionsSection } from "./transitions.tsx"
 
 /**
  * Motion's Transitions (PAR-652's Transition list), on its own: Motion is a title with + until something's set, and +
  * adds Colors at Tailwind's defaults (150ms, its default curve), shown faintly. Each entry says what changes (All,
  * Colors, Opacity, Transform, Shadow, or a property), then its timing, with the eye, which turns it off without
- * deleting it, and −. Its curve opens its details: what changes, Duration, Easing and Delay. Tailwind takes one
+ * deleting it, and −, as every list's rows do; its handle drags it, or moves it with Up and Down. Its curve opens its
+ * details: what changes, Duration, Easing and Delay. Tailwind takes one
  * transition per element, so one entry is utilities, entries with one timing merge into one property list, and entries
  * with different timings are one arbitrary value, which the entry that causes it says, offering Save as token.
  */
@@ -23,13 +24,8 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const fallback = `cubic-bezier(${defaultCurve.join(", ")})`
-
-function Transitions({ start }: { start: Omit<TransitionEntry, "id">[] }) {
-  const [entries, setEntries] = useState<TransitionEntry[]>(() =>
-    start.map((entry) => ({ ...entry, id: newEntryId() }))
-  )
-  const [savedAs, setSavedAs] = useState<string>()
+/** The card, moving as the written classes would, with the story's tokens, a token made here among them. */
+function TransitionsPreview({ entries }: { entries: readonly TransitionEntry[] }) {
   const changes = new Set(
     entries
       .filter((entry) => !entry.off)
@@ -39,19 +35,18 @@ function Transitions({ start }: { start: Omit<TransitionEntry, "id">[] }) {
         return []
       })
   )
-  const transition = previewTransition(entries, (entry) => (entry.easing ? easingCss(entry.easing) : fallback))
+  const sets = useTokenSets()
+  return <HoverCard transition={previewTransition(entries, sets)} changes={[...changes]} />
+}
+
+function Transitions({ start }: { start: Omit<TransitionEntry, "id">[] }) {
+  const [entries, setEntries] = useState<TransitionEntry[]>(() =>
+    start.map((entry) => ({ ...entry, id: newEntryId() }))
+  )
+  const [savedAs, setSavedAs] = useState<string>()
   return (
-    <Playground
-      writes={transitionsWrites(entries, savedAs)}
-      preview={<HoverCard transition={transition} changes={[...changes]} />}
-    >
-      <TransitionsSection
-        entries={entries}
-        durationTokens={durationTokens}
-        savedAs={savedAs}
-        onSaveToken={setSavedAs}
-        onChange={setEntries}
-      />
+    <Playground writes={transitionsWrites(entries, savedAs)} preview={<TransitionsPreview entries={entries} />}>
+      <TransitionsSection entries={entries} savedAs={savedAs} onSaveToken={setSavedAs} onChange={setEntries} />
     </Playground>
   )
 }

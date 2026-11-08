@@ -1,6 +1,16 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role -- the offset pad is a slider on two axes, which no input element is */
-import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { CircleAlert, Eye, EyeOff, GripVertical, Minus } from "lucide-react"
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@buildkitgg/shadcn-baseui-kit"
+import { ChevronDown, Eye, EyeOff, GripVertical, Minus } from "lucide-react"
 import {
   type CSSProperties,
   type DragEvent,
@@ -10,28 +20,21 @@ import {
   useState
 } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
+import { clamp, formatNumber } from "./css-values.ts"
+import { drag, type Reading, readNumber, ValueField } from "./field-parts.tsx"
 
 /*
- * What the list fields share (design-options-fields.md, Lists): the entry's row with its drag handle, eye and −; the
- * centered slider of Adjustments; the offset pad; the angle field with its dial; and the nine-spot box.
+ * What the list fields share (design-options-fields.md, Lists): the entry's row, in the spec's order (the drag handle,
+ * the preview that opens the entry's details, its type, its summary, the eye and −), the type menu, the centered slider
+ * of Adjustments and the offset pad. Fields, chips, angles, positions and the nine spots are the core's
+ * (field-parts.tsx, angle.tsx, position-box.tsx).
  */
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+/** The box an entry's preview, type and summary share in its row. */
+const entryBox =
+  "flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md border bg-transparent pr-1.5 pl-1 text-xs dark:bg-input/30"
 
-/**
- * One entry's row: a drag handle on hover, which also moves it with Up and Down and removes it with Delete; the entry's
- * own controls; the eye, which turns it off without removing it; and −. Rows are dragged within their group only.
- */
-export function ListRow({
-  name,
-  group,
-  index,
-  off = false,
-  onMove,
-  onToggle,
-  onRemove,
-  children
-}: {
+export interface ListRowProps {
   /** What the entry is, for its buttons' names: "Drop shadow 1". */
   name: string
   /** Rows are reordered only among rows of the same group (Inside or Outside shadows). */
@@ -42,16 +45,79 @@ export function ListRow({
   onMove?: (from: number, to: number) => void
   onToggle: () => void
   onRemove: () => void
+  /** The entry's summary, after its preview and type: its value, token chip or words. */
   children: ReactNode
-}) {
+  /**
+   * The entry's preview (swatch, gradient strip, shadow card, filter glyph), first after the handle, in a box with the
+   * type and summary. With `details`, it opens them.
+   */
+  preview?: ReactNode
+  /** The entry's details, in the popover its preview opens, as every list's entries have them. */
+  details?: {
+    content: ReactNode
+    /** Open at first, for a story. */
+    defaultOpen?: boolean
+    className?: string
+  }
+  /** The entry's type, or its type menu (`TypeMenu`), after the preview. */
+  type?: ReactNode
+  /**
+   * What follows the summary before the eye, as a gradient's alpha does. It's placed in the row's second column
+   * (`col-start-2 row-start-1`, as `PercentField`'s `rowClassName`), so what it says goes under the whole entry.
+   */
+  after?: ReactNode
+}
+
+/**
+ * One entry's row, in the order design-options-fields.md's Lists sets: a drag handle on hover, which also moves it with
+ * Up and Down and removes it with Delete; the entry's preview, which opens its details; its type; its summary; the eye,
+ * which turns it off without removing it (pressed while it's off); and −. Rows are dragged within their group only.
+ */
+export function ListRow({
+  name,
+  group,
+  index,
+  off = false,
+  onMove,
+  onToggle,
+  onRemove,
+  children,
+  preview,
+  details,
+  type,
+  after
+}: ListRowProps) {
   const [draggable, setDraggable] = useState(false)
   const [over, setOver] = useState(false)
-  const type = `application/x-parity-${group}`
+  const dataType = `application/x-parity-${group}`
+  const entry =
+    preview === undefined ? (
+      <>
+        {type}
+        {children}
+      </>
+    ) : (
+      <div className={entryBox}>
+        <EntryPreview name={name} details={details}>
+          {preview}
+        </EntryPreview>
+        {type}
+        {children}
+      </div>
+    )
+  const content = (
+    <div
+      className={`grid min-w-0 flex-1 items-center gap-x-1 ${after === undefined ? "" : "grid-cols-[minmax(0,1fr)_auto]"} ${off ? "opacity-50" : ""}`}
+    >
+      <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-1">{entry}</div>
+      {after}
+    </div>
+  )
   if (onMove === undefined) {
     return (
-      <div className="group/row flex min-h-8 items-center gap-1 rounded-md">
+      <div className="group/row flex min-h-8 items-start pt-0.5 gap-1 rounded-md">
         <span aria-hidden className="w-3 shrink-0" />
-        <div className={`flex min-w-0 flex-1 items-center gap-1 ${off ? "opacity-50" : ""}`}>{children}</div>
+        {content}
         <RowButtons name={name} off={off} onToggle={onToggle} onRemove={onRemove} />
       </div>
     )
@@ -60,22 +126,22 @@ export function ListRow({
     <div
       draggable={draggable}
       onDragStart={(event: DragEvent) => {
-        event.dataTransfer.setData(type, String(index))
+        event.dataTransfer.setData(dataType, String(index))
         event.dataTransfer.effectAllowed = "move"
       }}
       onDragEnd={() => setDraggable(false)}
       onDragOver={(event: DragEvent) => {
-        if (!event.dataTransfer.types.includes(type)) return
+        if (!event.dataTransfer.types.includes(dataType)) return
         event.preventDefault()
         setOver(true)
       }}
       onDragLeave={() => setOver(false)}
       onDrop={(event: DragEvent) => {
         setOver(false)
-        const from = Number(event.dataTransfer.getData(type))
+        const from = Number(event.dataTransfer.getData(dataType))
         if (Number.isFinite(from) && from !== index) onMove(from, index)
       }}
-      className={`group/row flex min-h-8 items-center gap-1 rounded-md ${over ? "ring-2 ring-ring" : ""}`}
+      className={`group/row flex min-h-8 items-start pt-0.5 gap-1 rounded-md ${over ? "ring-2 ring-ring" : ""}`}
     >
       <Hint label="Drag to reorder" detail="Up and Down move it; Delete removes it">
         <button
@@ -98,13 +164,41 @@ export function ListRow({
           <GripVertical className="size-3" />
         </button>
       </Hint>
-      <div className={`flex min-w-0 flex-1 items-center gap-1 ${off ? "opacity-50" : ""}`}>{children}</div>
+      {content}
       <RowButtons name={name} off={off} onToggle={onToggle} onRemove={onRemove} />
     </div>
   )
 }
 
-/** The eye, which turns an entry off without removing it, and −. */
+/** An entry's preview: with details, the button that opens them in the entry's popover. */
+function EntryPreview({
+  name,
+  details,
+  children
+}: {
+  name: string
+  details: ListRowProps["details"]
+  children: ReactNode
+}) {
+  if (details === undefined) return <span className="grid shrink-0 place-items-center">{children}</span>
+  return (
+    <Popover defaultOpen={details.defaultOpen}>
+      <Hint label={`Edit ${name.toLowerCase()}`}>
+        <PopoverTrigger
+          aria-label={`Edit ${name}`}
+          className="grid shrink-0 place-items-center rounded-sm outline-none hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {children}
+        </PopoverTrigger>
+      </Hint>
+      <PopoverContent className={details.className ?? "w-72 p-2"} align="start">
+        {details.content}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** The eye, which turns an entry off without removing it, pressed while it's off, and −. */
 function RowButtons({
   name,
   off,
@@ -126,7 +220,8 @@ function RowButtons({
           variant="ghost"
           size="icon-sm"
           className="size-7"
-          aria-label={off ? `Show ${name}` : `Hide ${name}`}
+          // A toggle keeps one name; pressed says it's hidden.
+          aria-label={`Hide ${name}`}
           aria-pressed={off}
           onClick={onToggle}
         >
@@ -142,29 +237,85 @@ function RowButtons({
   )
 }
 
-/** Moves one item of a list from one place to another. */
+/**
+ * Moves one item of a list from one place to another. A place past either end leaves the list as it is, so Up on the
+ * first entry and Down on the last do nothing.
+ */
 export function moved<T>(list: readonly T[], from: number, to: number): T[] {
   const next = [...list]
+  const within = (at: number) => Number.isInteger(at) && at >= 0 && at < list.length
+  if (!within(from) || !within(to)) return next
   const [item] = next.splice(from, 1)
   next.splice(to, 0, item!)
   return next
 }
 
-/** A message under a row: an error, or a note about what was put back or what's written. */
-export function RowMessage({ tone, children }: { tone: "error" | "note"; children: ReactNode }) {
-  return (
-    <p
-      role={tone === "error" ? "alert" : "status"}
-      className={`col-span-full text-[11px] leading-snug ${tone === "error" ? "text-destructive" : "text-muted-foreground"}`}
+/** One of the types an entry can be, with a glyph for a compact menu. */
+export interface TypeOption<K extends string> {
+  value: K
+  label: string
+  glyph?: ReactNode
+}
+
+export interface TypeMenuProps<K extends string> {
+  /** The entry's name, for the menu's accessible name: "Fill 1". */
+  label: string
+  value: K
+  options: readonly TypeOption<K>[]
+  /** The type's glyph alone, where the entry's value takes the room its name would, as a solid fill's does. */
+  compact?: boolean
+  onChange: (value: K) => void
+}
+
+/** An entry's type menu, which changes it to another type: Drop shadow to Ring, Solid to Linear. */
+export function TypeMenu<K extends string>({ label, value, options, compact = false, onChange }: TypeMenuProps<K>) {
+  const current = options.find((option) => option.value === value)
+  const named = `${label} type: ${current?.label ?? value}`
+  const trigger = compact ? (
+    <Hint label={`${current?.label ?? value}: change type`}>
+      <DropdownMenuTrigger
+        aria-label={named}
+        className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+      >
+        {current?.glyph}
+      </DropdownMenuTrigger>
+    </Hint>
+  ) : (
+    <DropdownMenuTrigger
+      aria-label={named}
+      className="flex shrink-0 items-center gap-0.5 rounded-sm px-0.5 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
     >
-      {children}
-    </p>
+      {current?.label ?? value}
+      <ChevronDown className="size-3 text-muted-foreground" />
+    </DropdownMenuTrigger>
+  )
+  return (
+    <DropdownMenu>
+      {trigger}
+      <DropdownMenuContent align="start" className="w-40">
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next) => {
+            const picked = options.find((option) => option.value === next)
+            if (picked) onChange(picked.value)
+          }}
+        >
+          {options.map((option) => (
+            <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-2 text-xs">
+              {option.glyph}
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
 /**
- * A slider centered on no change, as Figma's and every photo editor's adjustments are, with its number beside it. Up
- * and Down step 1, Shift 10; double-clicking the slider puts it back to no change.
+ * A slider centered on no change, as Figma's and every photo editor's adjustments are, with its number beside it on
+ * the shared field: typed with the app's maths, held to the slider's ends with a note, Up and Down 1, Shift 10.
+ * Double-clicking the slider puts it back to no change.
  */
 export function CenteredSlider({
   label,
@@ -193,22 +344,28 @@ export function CenteredSlider({
   const track: CSSProperties = {
     background: `linear-gradient(to right, ${rest} ${from}%, var(--primary) ${from}%, var(--primary) ${to}%, ${rest} ${to}%)`
   }
-  const [typed, setTyped] = useState<string>()
-  const [message, setMessage] = useState<string>()
-  const commit = () => {
-    if (typed === undefined) return true
-    const number = Number(typed.replace("°", "").replace("−", "-").trim())
-    if (typed.trim() === "" || !Number.isFinite(number)) {
-      setMessage(`${label} takes a number from ${min} to ${max}`)
-      return false
+  const takes = `${label} takes a number from ${min} to ${max}`
+  const read = (text: string): Reading<number> => {
+    const reading = readNumber(text.replace(unit, "").replace("−", "-"), value, label)
+    if ("clear" in reading) return { reason: takes }
+    if ("reason" in reading) return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
+    const number = Math.round(reading.value)
+    if (number > max) {
+      return {
+        value: max,
+        message: { tone: "note", text: `${label} goes up to ${max}${unit}, so it's ${max}${unit}.` }
+      }
     }
-    onChange(clamp(Math.round(number), min, max))
-    setTyped(undefined)
-    setMessage(undefined)
-    return true
+    if (number < min) {
+      return {
+        value: min,
+        message: { tone: "note", text: `${label} goes down to ${min}${unit}, so it's ${min}${unit}.` }
+      }
+    }
+    return { value: number }
   }
   return (
-    <div className="grid grid-cols-[72px_1fr_44px] items-center gap-2">
+    <div className="grid grid-cols-[72px_1fr_3.25rem] items-center gap-x-2">
       <Hint label={label} detail={value === zero ? "No change, which writes nothing" : `Writes ${hint}`} wait>
         <span className="truncate text-xs text-muted-foreground">{label}</span>
       </Hint>
@@ -230,33 +387,14 @@ export function CenteredSlider({
         style={track}
         className="h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background"
       />
-      <input
-        aria-label={`${label} value`}
-        aria-invalid={message ? true : undefined}
-        inputMode="numeric"
-        value={typed ?? `${value}${unit}`}
-        onChange={(event) => setTyped(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && commit()) event.currentTarget.blur()
-          if (event.key === "Escape") {
-            setTyped(undefined)
-            setMessage(undefined)
-          }
-          if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-            event.preventDefault()
-            setTyped(undefined)
-            onChange(clamp(value + (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 10 : 1), min, max))
-          }
-        }}
-        onBlur={() => {
-          if (!commit()) {
-            setTyped(undefined)
-            setMessage(undefined)
-          }
-        }}
-        className={`h-7 w-full min-w-0 rounded-md border bg-transparent px-1.5 text-right text-xs tabular-nums outline-none focus-visible:ring-2 dark:bg-input/30 ${message ? "border-destructive focus-visible:ring-destructive/40" : "focus-visible:ring-ring"}`}
+      <ValueField
+        label={`${label} value`}
+        shown={formatNumber(value)}
+        unit={unit || undefined}
+        read={read}
+        onCommit={onChange}
+        onStep={(up, { shift }) => onChange(clamp(value + (up ? 1 : -1) * (shift ? 10 : 1), min, max))}
       />
-      {message && <RowMessage tone="error">{message}</RowMessage>}
     </div>
   )
 }
@@ -268,24 +406,12 @@ export function CenteredSlider({
 export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: (x: number, y: number) => void }) {
   // The pad reaches a little past the offset, so a large one stays on it.
   const reach = Math.max(24, Math.abs(x), Math.abs(y)) * 1.25
-  const drag = (event: PointerEvent<HTMLDivElement>) => {
-    const box = event.currentTarget.getBoundingClientRect()
-    const move = (clientX: number, clientY: number) =>
-      onChange(
-        Math.round(clamp(((clientX - box.left) / box.width) * 2 - 1, -1, 1) * reach),
-        Math.round(clamp(((clientY - box.top) / box.height) * 2 - 1, -1, 1) * reach)
-      )
-    move(event.clientX, event.clientY)
-    const target = event.currentTarget
-    target.setPointerCapture(event.pointerId)
-    const onMove = (next: globalThis.PointerEvent) => move(next.clientX, next.clientY)
-    const onUp = () => {
-      target.removeEventListener("pointermove", onMove)
-      target.removeEventListener("pointerup", onUp)
-    }
-    target.addEventListener("pointermove", onMove)
-    target.addEventListener("pointerup", onUp)
-  }
+  // The reach stays as it was at the press while the pad's dragged.
+  const press = (event: PointerEvent<HTMLDivElement>) =>
+    drag(event, {
+      press: true,
+      move: (point) => onChange(Math.round((point.x * 2 - 1) * reach), Math.round((point.y * 2 - 1) * reach))
+    })
   return (
     <div
       role="slider"
@@ -293,7 +419,7 @@ export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: 
       aria-valuetext={`X ${x}, Y ${y}`}
       aria-valuenow={x}
       tabIndex={0}
-      onPointerDown={drag}
+      onPointerDown={press}
       onKeyDown={(event) => {
         const moves: Record<string, [number, number]> = {
           ArrowLeft: [-1, 0],
@@ -316,314 +442,6 @@ export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: 
         className="absolute size-2.5 -translate-1/2 rounded-full border-2 border-background bg-primary shadow"
         style={{ left: `${50 + (x / reach) * 50}%`, top: `${50 + (y / reach) * 50}%` }}
       />
-    </div>
-  )
-}
-
-/**
- * A percentage: typed with or without its %, Up and Down 1%, Shift 10%, kept between its ends. What it can't read stays,
- * outlined, with the reason under it; Escape or leaving puts the value back and says so.
- */
-export function PercentField({
-  label,
-  inner,
-  value,
-  min = 0,
-  max = 100,
-  onChange
-}: {
-  label: string
-  /** A short label inside the field, as X and Y are. */
-  inner?: string
-  value: number
-  min?: number
-  max?: number
-  onChange: (value: number) => void
-}) {
-  const [typed, setTyped] = useState<string>()
-  const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
-  const error = message?.tone === "error"
-  const commit = (leaving: boolean) => {
-    if (typed === undefined) return true
-    const number = Number(typed.replace("%", "").replace("−", "-").trim())
-    if (typed.trim() !== "" && Number.isFinite(number)) {
-      onChange(clamp(Math.round(number * 100) / 100, min, max))
-      setMessage(undefined)
-    } else if (!leaving) {
-      setMessage({ tone: "error", text: `${label} takes a percentage, such as 40%` })
-      return false
-    } else {
-      setMessage({ tone: "note", text: `${label} is back to ${value}%.` })
-    }
-    setTyped(undefined)
-    return true
-  }
-  return (
-    <>
-      <label
-        className={`flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent px-1.5 text-xs focus-within:ring-2 dark:bg-input/30 ${error ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
-      >
-        {inner && <span className="shrink-0 text-muted-foreground">{inner}</span>}
-        <input
-          aria-label={label}
-          aria-invalid={error || undefined}
-          inputMode="decimal"
-          value={typed ?? String(value)}
-          onChange={(event) => setTyped(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
-            if (event.key === "Escape" && typed !== undefined) {
-              setTyped(undefined)
-              setMessage(error ? { tone: "note", text: `${label} is back to ${value}%.` } : undefined)
-            }
-            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-              event.preventDefault()
-              setTyped(undefined)
-              setMessage(undefined)
-              onChange(clamp(value + (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 10 : 1), min, max))
-            }
-          }}
-          onBlur={() => commit(true)}
-          className="w-full min-w-0 bg-transparent tabular-nums outline-none"
-        />
-        {error ? (
-          <CircleAlert aria-hidden className="size-3.5 shrink-0 text-destructive" />
-        ) : (
-          <span className="shrink-0 text-muted-foreground">%</span>
-        )}
-      </label>
-      {message && <RowMessage tone={message.tone}>{message.text}</RowMessage>}
-    </>
-  )
-}
-
-/** An angle typed in degrees, turns or radians, as degrees; a named direction (`to right`) as its angle. */
-export function readAngle(text: string): { degrees: number } | { reason: string } {
-  const trimmed = text.trim().toLowerCase().replace("−", "-")
-  const named: Record<string, number> = {
-    "to top": 0,
-    "to top right": 45,
-    "to right": 90,
-    "to bottom right": 135,
-    "to bottom": 180,
-    "to bottom left": 225,
-    "to left": 270,
-    "to top left": 315
-  }
-  if (trimmed in named) return { degrees: named[trimmed]! }
-  const match = /^(-?\d*\.?\d+)\s*(deg|°|turn|rad|grad)?$/.exec(trimmed)
-  if (!match) return { reason: `Type an angle, such as 45, 0.25turn or 1rad` }
-  const number = Number(match[1])
-  const perUnit: Record<string, number> = { deg: 1, "°": 1, turn: 360, rad: 180 / Math.PI, grad: 0.9 }
-  return { degrees: Math.round(number * (perUnit[match[2] ?? "deg"] ?? 1) * 100) / 100 }
-}
-
-/**
- * An angle field: degrees with a ° after them, typed in any angle unit, Up and Down 1°, Shift 15°. Its dial, from the
- * button inside it, is dragged as DevTools' angle clock is, snapping to 15° with Shift. Angles are kept as typed,
- * never brought back between −180 and 180.
- */
-export function AngleField({
-  label,
-  value,
-  onChange
-}: {
-  label: string
-  value: number
-  onChange: (degrees: number) => void
-}) {
-  const [typed, setTyped] = useState<string>()
-  const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
-  const error = message?.tone === "error"
-  const commit = (leaving: boolean) => {
-    if (typed === undefined) return true
-    const reading = readAngle(typed)
-    if ("degrees" in reading) {
-      onChange(reading.degrees)
-      setMessage(undefined)
-    } else if (!leaving) {
-      setMessage({ tone: "error", text: reading.reason })
-      return false
-    } else {
-      setMessage({ tone: "note", text: `${label} is back to ${value}°. ${reading.reason}.` })
-    }
-    setTyped(undefined)
-    return true
-  }
-  const dial = (event: PointerEvent<HTMLDivElement>) => {
-    const box = event.currentTarget.getBoundingClientRect()
-    const move = (clientX: number, clientY: number, snap: boolean) => {
-      const radians = Math.atan2(clientX - (box.left + box.width / 2), -(clientY - (box.top + box.height / 2)))
-      const degrees = (Math.round((radians * 180) / Math.PI) + 360) % 360
-      onChange(snap ? Math.round(degrees / 15) * 15 : degrees)
-    }
-    move(event.clientX, event.clientY, event.shiftKey)
-    const target = event.currentTarget
-    target.setPointerCapture(event.pointerId)
-    const onMove = (next: globalThis.PointerEvent) => move(next.clientX, next.clientY, next.shiftKey)
-    const onUp = () => {
-      target.removeEventListener("pointermove", onMove)
-      target.removeEventListener("pointerup", onUp)
-    }
-    target.addEventListener("pointermove", onMove)
-    target.addEventListener("pointerup", onUp)
-  }
-  return (
-    <>
-      <div
-        className={`flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md border bg-transparent pl-1 text-xs focus-within:ring-2 dark:bg-input/30 ${error ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
-      >
-        <Popover>
-          <Hint label="Dial" detail="Drag around it; Shift snaps to 15°">
-            <PopoverTrigger
-              aria-label={`${label} dial`}
-              className="grid size-5 shrink-0 place-items-center rounded-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span
-                aria-hidden
-                className="relative block size-3.5 rounded-full border border-muted-foreground"
-                style={{ transform: `rotate(${value}deg)` }}
-              >
-                <span className="absolute top-0 left-1/2 h-1/2 w-px -translate-x-1/2 bg-foreground" />
-              </span>
-            </PopoverTrigger>
-          </Hint>
-          <PopoverContent className="w-auto p-3" align="start">
-            <div
-              aria-hidden
-              onPointerDown={dial}
-              className="relative size-24 cursor-pointer touch-none rounded-full border bg-muted/40"
-            >
-              <span
-                className="absolute top-1/2 left-1/2 h-1/2 w-0.5 origin-top -translate-x-1/2 rounded-full bg-primary"
-                style={{ transform: `rotate(${value + 180}deg)` }}
-              />
-              <span className="absolute top-1/2 left-1/2 size-2 -translate-1/2 rounded-full bg-primary" />
-            </div>
-          </PopoverContent>
-        </Popover>
-        <input
-          aria-label={label}
-          aria-invalid={error || undefined}
-          value={typed ?? String(value)}
-          onChange={(event) => setTyped(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
-            if (event.key === "Escape" && typed !== undefined) {
-              setTyped(undefined)
-              setMessage(error ? { tone: "note", text: `${label} is back to ${value}°.` } : undefined)
-            }
-            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-              event.preventDefault()
-              setTyped(undefined)
-              setMessage(undefined)
-              onChange(value + (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 15 : 1))
-            }
-          }}
-          onBlur={() => commit(true)}
-          className="w-0 min-w-6 flex-1 bg-transparent tabular-nums outline-none"
-        />
-        {error ? (
-          <CircleAlert aria-hidden className="mr-1 size-3.5 shrink-0 text-destructive" />
-        ) : (
-          <span className="pr-1.5 text-muted-foreground">°</span>
-        )}
-      </div>
-      {message && <RowMessage tone={message.tone}>{message.text}</RowMessage>}
-    </>
-  )
-}
-
-const spots = [0, 50, 100] as const
-const spotWords = { 0: ["top", "left"], 50: ["middle", "center"], 100: ["bottom", "right"] } as const
-
-/**
- * A position in a box: the nine spots, and a dot where a value off them sits, with its X and Y. Dragging inside sets
- * any position; Shift snaps to the spots.
- */
-export function NineSpot({
-  label,
-  value,
-  onChange
-}: {
-  label: string
-  value: [number, number]
-  onChange: (value: [number, number]) => void
-}) {
-  const [x, y] = value
-  const onSpot = spots.includes(x as 0) && spots.includes(y as 0)
-  const drag = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget) return
-    const box = event.currentTarget.getBoundingClientRect()
-    const move = (clientX: number, clientY: number, snap: boolean) => {
-      const at = (offset: number, size: number) => clamp(Math.round((offset / size) * 100), 0, 100)
-      let next: [number, number] = [at(clientX - box.left, box.width), at(clientY - box.top, box.height)]
-      if (snap) next = next.map((part) => Math.round(part / 50) * 50) as [number, number]
-      onChange(next)
-    }
-    move(event.clientX, event.clientY, event.shiftKey)
-    const target = event.currentTarget
-    target.setPointerCapture(event.pointerId)
-    const onMove = (next: globalThis.PointerEvent) => move(next.clientX, next.clientY, next.shiftKey)
-    const onUp = () => {
-      target.removeEventListener("pointermove", onMove)
-      target.removeEventListener("pointerup", onUp)
-    }
-    target.addEventListener("pointermove", onMove)
-    target.addEventListener("pointerup", onUp)
-  }
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        aria-label={label}
-        role="group"
-        onPointerDown={drag}
-        className="relative grid size-[60px] shrink-0 touch-none grid-cols-3 grid-rows-3 rounded-md border bg-muted/40 p-0.5"
-      >
-        {spots.flatMap((top) =>
-          spots.map((left) => {
-            const active = x === left && y === top
-            return (
-              <button
-                key={`${top}-${left}`}
-                type="button"
-                aria-label={`${label}: ${top === 50 && left === 50 ? "center" : `${spotWords[top][0]} ${spotWords[left][1]}`}`}
-                aria-pressed={active}
-                onClick={() => onChange([left, top])}
-                className="group grid place-items-center rounded-sm hover:bg-accent"
-              >
-                <span
-                  className={`block rounded-full ${active ? "size-2 bg-[#0d99ff]" : "size-1 bg-muted-foreground/50 group-hover:bg-muted-foreground"}`}
-                />
-              </button>
-            )
-          })
-        )}
-        {!onSpot && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute size-2 -translate-1/2 rounded-full bg-[#0d99ff] ring-2 ring-background"
-            style={{ left: `${x}%`, top: `${y}%` }}
-          />
-        )}
-      </div>
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {x}% {y}%
-      </span>
-    </div>
-  )
-}
-
-/** Shapes behind a preview, so translucent paints, shadows and blurs show. */
-export function PreviewStage({ children }: { children: ReactNode }) {
-  return (
-    <div className="relative grid size-64 place-items-center">
-      <div aria-hidden className="absolute inset-4 overflow-hidden rounded-2xl">
-        <div className="absolute top-3 left-4 size-24 rounded-full bg-[#f54900]" />
-        <div className="absolute right-4 bottom-3 size-28 rounded-full bg-[#009689]" />
-        <div className="absolute top-1/3 left-1/2 size-16 rotate-12 bg-[#ffb900]" />
-      </div>
-      {children}
     </div>
   )
 }

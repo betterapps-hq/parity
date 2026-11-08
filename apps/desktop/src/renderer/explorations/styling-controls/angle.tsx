@@ -1,27 +1,35 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role -- the dial is a slider drawn as a clock face, which no input element is */
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef } from "react"
+import type { KeyboardEvent, PointerEvent, ReactNode } from "react"
+import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
+import { drag, type Reading, readUnitNumber, ValueField } from "./field-parts.tsx"
 import { type Angle, angleDegrees, angleOf, angleUnits, splitUnit } from "./motion-data.ts"
-import { readUnitNumber, UnitField } from "./unit-field.tsx"
+
+/** Snaps to 15° with Shift, and to whole degrees otherwise, as the dial does; the label's scrub snaps with Shift. */
+const snapped = (degrees: number, shift: boolean) => (shift ? Math.round(degrees / 15) * 15 : Math.round(degrees))
 
 /**
- * An angle (PAR-652's Angle), as Position's Rotation takes it: degrees with °, typed in deg, turn, rad or grad and kept
- * in degrees, or as read from code until it's edited. Negatives are kept, and angles are never folded into −180 to
- * 180, since a transition to 270° turns the other way from one to −90°. The dial beside it sets it by dragging, Shift
- * snapping to 15°.
+ * An angle (PAR-652's Angle), as Position's Rotation takes it: degrees with °, typed in deg, turn, rad or grad with the
+ * app's maths and kept in degrees, or as read from code until it's edited. Negatives are kept, and angles are never
+ * folded into −180 to 180, since a transition to 270° turns the other way from one to −90°. Up and Down step 1°, Shift
+ * 15°; the inner label, where there is one, scrubs a degree a pixel, Shift snapping to 15°. The dial beside it sets it
+ * by dragging, Shift snapping to 15°.
  */
 export function AngleField({
   label,
   inner,
   value,
   mixed,
+  keywords,
   onChange
 }: {
   label: string
   inner?: ReactNode
   value: Angle | undefined
   mixed?: boolean
+  /** Words the field also reads as angles, as a gradient reads `to right` as 90°. */
+  keywords?: Readonly<Record<string, number>>
   onChange: (value: Angle | undefined) => void
 }) {
   const degrees = angleDegrees(value)
@@ -31,36 +39,38 @@ export function AngleField({
     const read = splitUnit(value.value)
     if (read && read.unit !== "deg" && read.unit !== "") kept = `as ${value.value}`
   }
-  const set = (next: number) => onChange(angleOf(Number(next.toFixed(2))))
+  const angle = (next: number) => angleOf(Number(next.toFixed(2)))
+  const read = (text: string): Reading<Angle | undefined> => {
+    if (text.trim() === "") return { value: undefined }
+    const keyword = keywords?.[text.trim().toLowerCase().replace(/\s+/g, " ")]
+    if (keyword !== undefined) return { value: angle(keyword) }
+    const reading = readUnitNumber(text, {
+      units: angleUnits,
+      current: degrees,
+      label,
+      takes: `${label} takes an angle, such as 45, 0.25turn or 1rad`
+    })
+    if ("reason" in reading) return reading
+    return { value: angle(reading.value) }
+  }
   return (
-    <UnitField
+    <ValueField
       label={label}
       inner={inner}
-      unit="°"
-      shown={value === undefined ? undefined : String(degrees)}
-      placeholder="0"
-      detail={kept}
-      mixed={mixed}
-      onType={(text) => {
-        if (text.trim() === "") {
-          onChange(undefined)
-          return undefined
-        }
-        const reading = readUnitNumber(text, {
-          units: angleUnits,
-          current: degrees,
-          takes: `${label} takes an angle, such as 45, 0.25turn or 1rad`
-        })
-        if ("reason" in reading) return reading.reason
-        set(reading.value)
-        return undefined
-      }}
-      onStep={(up, shift) => set(degrees + (up ? 1 : -1) * (shift ? 15 : 1))}
       scrub={{
         from: () => degrees,
-        apply: (from, dx, shift) => set(shift ? Math.round((from + dx) / 15) * 15 : from + Math.trunc(dx))
+        apply: (next) => onChange(angle(next)),
+        by: { move: (start, dx, { shift }) => (shift ? snapped(start + dx, true) : start + Math.trunc(dx)) }
       }}
-      trailing={<AngleDial label={label} degrees={degrees} onChange={set} />}
+      shown={value === undefined ? undefined : String(degrees)}
+      placeholder="0"
+      mixed={mixed}
+      unit="°"
+      comesTo={kept}
+      read={read}
+      onCommit={onChange}
+      onStep={(up, { shift }) => onChange(angle(degrees + (up ? 1 : -1) * (shift ? 15 : 1)))}
+      trailing={<AngleDial label={label} degrees={degrees} onChange={(next) => onChange(angle(next))} />}
     />
   )
 }
@@ -118,43 +128,34 @@ function DialFace({ degrees, size }: { degrees: number; size: number }) {
 }
 
 function Dial({ label, degrees, onChange }: { label: string; degrees: number; onChange: (degrees: number) => void }) {
-  const face = useRef<SVGSVGElement>(null)
   const size = 128
   const middle = size / 2
   const radians = ((degrees - 90) * Math.PI) / 180
-  // Where the pointer is round the dial, 0 to 360 from the top, clockwise.
-  const pointerAngle = (event: PointerEvent | globalThis.PointerEvent) => {
-    const box = face.current!.getBoundingClientRect()
-    const x = event.clientX - box.left - box.width / 2
-    const y = event.clientY - box.top - box.height / 2
-    return ((Math.atan2(y, x) * 180) / Math.PI + 90 + 360) % 360
-  }
   const press = (event: PointerEvent<SVGSVGElement>) => {
+    if (event.button !== 0) return
     event.preventDefault()
-    const target = event.currentTarget
-    target.setPointerCapture(event.pointerId)
+    const box = event.currentTarget.getBoundingClientRect()
+    // Where the pointer is round the dial, 0 to 360 from the top, clockwise.
+    const around = ({ clientX, clientY }: { clientX: number; clientY: number }) => {
+      const x = clientX - box.left - box.width / 2
+      const y = clientY - box.top - box.height / 2
+      return ((Math.atan2(y, x) * 180) / Math.PI + 90 + 360) % 360
+    }
     // Keep whole turns: start from the turn the angle is on, and follow the pointer across 0° without jumping back.
-    let last = pointerAngle(event)
+    let last = around(event)
     let total = degrees - (((degrees % 360) + 360) % 360) + last
-    const snap = (value: number, shift: boolean) => (shift ? Math.round(value / 15) * 15 : Math.round(value))
-    onChange(snap(total, event.shiftKey))
-    const move = (moveEvent: globalThis.PointerEvent) => {
-      const now = pointerAngle(moveEvent)
-      let delta = now - last
-      if (delta > 180) delta -= 360
-      if (delta < -180) delta += 360
-      total += delta
-      last = now
-      onChange(snap(total, moveEvent.shiftKey))
-    }
-    const end = () => {
-      target.removeEventListener("pointermove", move)
-      target.removeEventListener("pointerup", end)
-      target.removeEventListener("pointercancel", end)
-    }
-    target.addEventListener("pointermove", move)
-    target.addEventListener("pointerup", end)
-    target.addEventListener("pointercancel", end)
+    onChange(snapped(total, event.shiftKey))
+    drag(event, {
+      move: (point) => {
+        const now = around(point)
+        let delta = now - last
+        if (delta > 180) delta -= 360
+        if (delta < -180) delta += 360
+        total += delta
+        last = now
+        onChange(snapped(total, point.shift))
+      }
+    })
   }
   const key = (event: KeyboardEvent<SVGSVGElement>) => {
     const step = event.shiftKey ? 15 : 1
@@ -163,9 +164,9 @@ function Dial({ label, degrees, onChange }: { label: string; degrees: number; on
     else return
     event.preventDefault()
   }
+  const hand = { x: middle + Math.cos(radians) * (middle - 14), y: middle + Math.sin(radians) * (middle - 14) }
   return (
     <svg
-      ref={face}
       role="slider"
       tabIndex={0}
       aria-label={label}
@@ -196,39 +197,14 @@ function Dial({ label, degrees, onChange }: { label: string; degrees: number; on
       <line
         x1={middle}
         y1={middle}
-        x2={middle + Math.cos(radians) * (middle - 14)}
-        y2={middle + Math.sin(radians) * (middle - 14)}
-        className="stroke-[#0d99ff]"
+        x2={hand.x}
+        y2={hand.y}
+        stroke={kindColors.layer}
         strokeWidth={2}
         strokeLinecap="round"
       />
-      <circle cx={middle} cy={middle} r={3} className="fill-[#0d99ff]" />
-      <circle
-        cx={middle + Math.cos(radians) * (middle - 14)}
-        cy={middle + Math.sin(radians) * (middle - 14)}
-        r={5}
-        className="fill-background stroke-[#0d99ff]"
-        strokeWidth={2}
-      />
+      <circle cx={middle} cy={middle} r={3} fill={kindColors.layer} />
+      <circle cx={hand.x} cy={hand.y} r={5} className="fill-background" stroke={kindColors.layer} strokeWidth={2} />
     </svg>
-  )
-}
-
-/** A card drawn rotated, over an outline of where it sits, since rotating doesn't move what's around it. */
-export function RotatedPreview({ degrees }: { degrees: number }) {
-  return (
-    <div className="relative grid size-64 place-items-center">
-      <div
-        aria-hidden
-        className="absolute h-[120px] w-[200px] rounded-xl border border-dashed border-muted-foreground/40"
-      />
-      <div
-        aria-label="The layer"
-        className="relative grid h-[120px] w-[200px] place-items-center rounded-xl border bg-card text-xs text-card-foreground shadow-sm"
-        style={{ rotate: `${degrees}deg` }}
-      >
-        Plans
-      </div>
-    </div>
   )
 }
