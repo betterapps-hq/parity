@@ -17,7 +17,7 @@ import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry
 import { registryVersion } from "@parity-app/agent/routing"
 import { errorDetails } from "@parity-app/core"
 import { copyScale, planExport, planPicture } from "@parity-app/editor"
-import { readTraceHeaders } from "@parity-app/telemetry"
+import { agentCallAnswered, agentCallFailed, agentCallStart, readTraceHeaders } from "@parity-app/telemetry"
 import { passedLink } from "../shared/account.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
@@ -26,6 +26,7 @@ import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
 import { renderOffscreen } from "./render.ts"
+import { scrubSecrets } from "./telemetry.ts"
 import { composePicture, cutPicture } from "./webp.ts"
 
 interface WindowChannel {
@@ -81,29 +82,31 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
     for await (const chunk of request) chunks.push(chunk as Buffer)
     const body = Buffer.concat(chunks).toString("utf8")
     // Any local process with the token can send anything, so the body and its params are checked first (PAR-598). The
-    // call continues the trace the CLI sent in its headers, so it's one trace from the command line on (PAR-629).
-    const answer = () =>
-      answerRequest(body, desktopHost(window()), (caller) => {
+    // call continues the trace the CLI sent in its headers, so it's one trace from the command line on (PAR-629), and
+    // its span says what was asked and how it went (PAR-641).
+    const answer = async () => {
+      const result = await answerRequest(body, desktopHost(window()), (caller) => {
         // Only tags telemetry, so a main that's gone is no matter.
         mainProcess.request("agentCalled", caller).catch(() => undefined)
       })
-    reply(200, { result: await inSpan("agent.called", calledBy(body), answer, readTraceHeaders(request.headers)) })
+      return { result, text: JSON.stringify({ result }) }
+    }
+    const { text } = await inSpan(
+      "agent.called",
+      agentCallStart(body, { value: scrubSecrets }),
+      answer,
+      readTraceHeaders(request.headers),
+      {
+        result: ({ result, text }) => agentCallAnswered(result, text.length),
+        error: agentCallFailed
+      }
+    )
+    response.writeHead(200, { "content-type": "application/json" })
+    response.end(text)
   } catch (error) {
     const details = errorDetails(error)
     reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })
   }
-}
-
-/** The method and caller a call's body names, for its span, before `answerRequest` checks it. */
-export function calledBy(body: string): { method: string; agent?: string } {
-  let sent: unknown
-  try {
-    sent = JSON.parse(body)
-  } catch {
-    return { method: "unreadable" }
-  }
-  const { method, agent } = typeof sent === "object" && sent !== null ? (sent as Record<string, unknown>) : {}
-  return { method: typeof method === "string" ? method : "unreadable", ...(typeof agent === "string" ? { agent } : {}) }
 }
 
 /**

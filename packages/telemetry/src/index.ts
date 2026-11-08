@@ -1,3 +1,4 @@
+export * from "./agent-events.ts"
 export * from "./app-events.ts"
 export * from "./catalog.ts"
 export * from "./check-events.ts"

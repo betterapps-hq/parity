@@ -216,9 +216,10 @@ export const requests = {
 export const skillRequest = fields({ path: text("path", "Skill file to read.").default("SKILL.md") })
 
 /**
- * What the CLI posts to the app's `/rpc` endpoint, as JSON text (PAR-598): the method, its params, and who's calling
- * when the CLI or MCP knows. The app checks the params with the method's own schema in `requests`, and reads the caller
- * leniently, since it's only shown on the canvas.
+ * What the CLI posts to the app's `/rpc` endpoint, as JSON text (PAR-598): the method, its params, who's calling when
+ * the CLI or MCP knows, and whether it came through the CLI or MCP. The app checks the params with the method's own
+ * schema in `requests`, and reads the caller and transport leniently, since they're only shown on the canvas and
+ * recorded in telemetry (PAR-641).
  */
 export const rpcRequest = jsonText(
   z.object(
@@ -227,7 +228,8 @@ export const rpcRequest = jsonText(
       params: z.unknown().optional(),
       agent: z.unknown().optional(),
       agentId: z.unknown().optional(),
-      client: z.unknown().optional()
+      client: z.unknown().optional(),
+      transport: z.unknown().optional()
     },
     "The request must be a JSON object"
   )
