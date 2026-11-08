@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Record project opening, detection, builders and servers (PAR-637)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
