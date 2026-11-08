@@ -78,7 +78,8 @@ export function TypographyPresetExploration({
   const project = projectById(projectId)
   const startWith = projectId === firstProject ? start : applied
   return (
-    <div className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6">
+    // The app's body never scrolls, so the exploration scrolls itself.
+    <div className="h-screen overflow-y-auto bg-background px-4 py-6 text-foreground sm:px-6">
       <header className="mb-6 flex flex-wrap items-end gap-x-6 gap-y-3">
         <div className="flex max-w-xl min-w-0 flex-col gap-1">
           <h1 className="text-sm font-semibold">Typography presets</h1>
