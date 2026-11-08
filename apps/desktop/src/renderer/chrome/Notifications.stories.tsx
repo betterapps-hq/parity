@@ -212,11 +212,11 @@ export const CopiedAsPng: Story = {
   name: "Copied as PNG",
   loaders: [pricingSelected],
   beforeEach: () => {
-    // The story's frame isn't focused, so the real clipboard would refuse the picture.
-    const { write } = navigator.clipboard
-    navigator.clipboard.write = () => Promise.resolve()
+    // The story's frame isn't focused, so the real clipboard would refuse the picture. Its own `write` hides the
+    // clipboard's until the story ends.
+    Object.defineProperty(navigator.clipboard, "write", { value: () => Promise.resolve(), configurable: true })
     return () => {
-      navigator.clipboard.write = write
+      Reflect.deleteProperty(navigator.clipboard, "write")
     }
   },
   play: async () => {
