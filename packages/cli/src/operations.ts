@@ -46,6 +46,8 @@ export interface Operation<Result> {
 }
 
 interface Options<Result> {
+  /** Which copy the call goes to, when it isn't the one its fields say. */
+  routing?: Routing
   failed?: (result: Result) => boolean
   structured?: (result: Result) => Record<string, unknown>
 }
@@ -61,7 +63,7 @@ function mapped<M extends Exclude<Requested, "exec">, Result extends object>(
 ): Operation<Result> {
   const input: z.ZodObject = requests[method]
   const fields = Object.keys(input.shape)
-  const routing = routingFor(fields)
+  const routing = options.routing ?? routingFor(fields)
   return {
     inputSchema: requestJsonSchema(input),
     fields,
@@ -138,7 +140,8 @@ export const operations = {
   }),
   components: operation("components"),
   props: operation("props"),
-  report: withTestRun(operation("report"))
+  // A report goes to a running copy even with no project open, as long as it names no tab.
+  report: withTestRun(operation("report", { routing: "tab-or-any" }))
 }
 
 /**

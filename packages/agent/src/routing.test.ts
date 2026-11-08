@@ -118,6 +118,17 @@ describe("route", () => {
     })
   })
 
+  it("sends a report that names no tab to the copy used last when no project is open anywhere (PAR-646)", () => {
+    const empty = [person(5000, []), session(6000, [])]
+    expect(goes(empty, { kind: "tab", folder: anywhere, anyCopy: true })).toEqual({ app: 20, tab: undefined })
+    expect(goes(empty, { kind: "tab", folder: anywhere })).toBe("unknown_tab")
+    expect(goes(empty, { kind: "tab", tab: "shop", folder: anywhere, anyCopy: true })).toBe("unknown_tab")
+    expect(goes([person(5000), session(6000, [])], { kind: "tab", folder: anywhere, anyCopy: true })).toEqual({
+      app: 10,
+      tab: shop
+    })
+  })
+
   it("matches Windows folders whatever their case and slashes", () => {
     const copies = [copy(10, 1000, [tab("C:\\Work\\Shop", true)], 5000), copy(20, 2000, [tab("D:\\blog", true)], 6000)]
     expect(goes(copies, { kind: "tab", tab: "c:/work/shop/", folder: anywhere })).toEqual({

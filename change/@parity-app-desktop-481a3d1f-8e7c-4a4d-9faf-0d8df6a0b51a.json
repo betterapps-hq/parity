@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Compare Geist and Inter with the proposed interface type in Storybook",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

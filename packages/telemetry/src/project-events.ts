@@ -67,7 +67,11 @@ export const projectLoaded = defineEvent(
     root,
     durationMs: z.number().nonnegative().describe("From asking to open it until its tab is ready, in milliseconds"),
     componentsMs: z.number().nonnegative().describe("How long its guest and components took to load in the window"),
-    components: count("The components it has")
+    components: count("The components it has"),
+    restored: z
+      .boolean()
+      .optional()
+      .describe("Whether the window opened it as it started, as last time's tabs, rather than the person opening it")
   }),
   { level: "info", sentBy: ["renderer"], when: "A project's tab has its components loaded and is ready to draw." }
 )

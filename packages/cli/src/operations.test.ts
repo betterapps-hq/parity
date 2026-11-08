@@ -300,7 +300,7 @@ function invalid(message: string, path?: string) {
 /** What reaches the app: each transport's request, with the tab the CLI routed it to; `tabs` asks no more than routing. */
 function expectRequests(method: string, params: Record<string, unknown>) {
   const { routing } = operations[method as keyof typeof operations]
-  const sent = routing === "tab" ? { tab: fixtureTab.id, ...params } : params
+  const sent = routing === "tab" || routing === "tab-or-any" ? { tab: fixtureTab.id, ...params } : params
   expect(requests).toHaveLength(routing === "copies" ? 0 : 2)
   for (const request of requests)
     expect(request).toEqual(expect.objectContaining({ method, params: sent, agent: "Contract Caller" }))

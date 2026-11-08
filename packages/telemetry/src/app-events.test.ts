@@ -9,10 +9,8 @@ describe("startupTimer", () => {
     expect(mark("mainReady", 9000)).toBeUndefined()
     expect(mark("serviceReady", 1600)).toBeUndefined()
     expect(mark("firstPaint", 2100)).toEqual({
-      mainReadyMs: 200,
-      windowShownMs: 500,
-      firstPaintMs: 1100,
-      serviceReadyMs: 600
+      name: "app.started",
+      attributes: { mainReadyMs: 200, windowShownMs: 500, firstPaintMs: 1100, serviceReadyMs: 600 }
     })
   })
 
@@ -23,6 +21,26 @@ describe("startupTimer", () => {
     mark("serviceReady", 3)
     expect(mark("firstPaint", 4)).toBeDefined()
     expect(mark("firstPaint", 5)).toBeUndefined()
+  })
+
+  it("gives the first project shown on its own, once, whenever it comes", () => {
+    const mark = startupTimer(1000)
+    expect(mark("firstProject", 4200, { restored: true })).toEqual({
+      name: "app.first_project",
+      attributes: { firstProjectMs: 3200, restored: true }
+    })
+    expect(mark("firstProject", 9000, { restored: false })).toBeUndefined()
+    mark("mainReady", 1200)
+    mark("windowShown", 1500)
+    mark("serviceReady", 1600)
+    expect(mark("firstPaint", 2100)?.name).toBe("app.started")
+  })
+
+  it("counts a project the person chose as not restored", () => {
+    expect(startupTimer(0)("firstProject", 30_000)).toEqual({
+      name: "app.first_project",
+      attributes: { firstProjectMs: 30_000, restored: false }
+    })
   })
 })
 

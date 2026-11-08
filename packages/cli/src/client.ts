@@ -83,8 +83,9 @@ tagCaller()
 /**
  * How a call finds its copy of the app (PAR-514): `tab` goes to the copy that has the tab's project open, `open` to the
  * copy that has the project or else the one the person used last, and `copies` asks every copy, for their tabs.
+ * `tab-or-any` is `tab`, except that with no tab named and no project open, it goes to the copy used last (PAR-646).
  */
-export type Routing = "tab" | "open" | "copies"
+export type Routing = "tab" | "tab-or-any" | "open" | "copies"
 
 /**
  * Calls the running Parity app: the copy that has the call's project open, with the exact tab it chose, by the rules
@@ -102,7 +103,13 @@ export async function call<M extends AgentMethod>(
   const request: Request =
     routing === "open"
       ? { kind: "open", root: String(params.root) }
-      : { kind: "tab", ...(typeof params.tab === "string" ? { tab: params.tab } : {}), folder: process.cwd(), real }
+      : {
+          kind: "tab",
+          ...(typeof params.tab === "string" ? { tab: params.tab } : {}),
+          folder: process.cwd(),
+          real,
+          ...(routing === "tab-or-any" ? { anyCopy: true } : {})
+        }
   const target = route(copies, request)
   if (target.kind === "none") {
     if (target.code === "not_running") throw new CodedError(target.message, { code: target.code, retryable: true })

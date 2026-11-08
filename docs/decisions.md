@@ -4720,8 +4720,11 @@ worktree.
 The events are in [telemetry.md](telemetry.md#events), from `app-events.ts` in `@parity-app/telemetry`, which also holds
 the rules for when each is sent. My calls:
 
-- **`app.started` waits for the first paint and the service,** and leaves out the first project shown: nothing records a
-  project opening yet. That time joins it once `project.opened` exists.
+- **`app.started` waits for the first paint and the service,** and leaves out the first project shown, which has an
+  event of its own (PAR-694): `app.first_project`, from the process starting to the first project's tab being ready to
+  draw, as its `project.loaded` reaches main. It's apart because a window can stay on Home, and holding `app.started`
+  for a project would lose it, and the run it starts, whenever none opens. `restored` says whether the window opened the
+  project as it started, from last time's tabs, so a person's time choosing one can be told apart.
 - **`app.quit` says `window closed`, `update` or `other`.** Parity doesn't restart itself after a crash, so the
   proposal's "crash restart" has nothing to report.
 - **`update.installed` is recorded as the app quits to install,** since the new version can't tell it was just
@@ -6207,6 +6210,22 @@ default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My 
   agents parse. `~/.parity/telemetry-notice` says it was shown.
 - **The CLI scrubs keys, tokens and passwords, not `.env` values,** which only the service reads.
 
+## The interface is set in Inter (PAR-709)
+
+- **Parity's own interface is set in Inter, not Geist,** Andrew's call on 2026-11-08, after seeing the proposed type
+  ([interface-type.md](proposals/interface-type.md)) set in both at the same sizes and weights. Inter was drawn for
+  interfaces at small sizes. Its optical sizes run from 14px, so they tighten names and headings; the chrome's 11 to
+  13px all use the 14px cut.
+- **It's Inter's own release, bundled with the app,** 4.1 from github.com/rsms/inter, in
+  `apps/desktop/src/renderer/fonts/inter` with its licence (SIL OFL 1.1). Andrew agreed on 2026-11-08: it's a desktop
+  app, so shipping the font is no problem. The npm builds come from Google Fonts and leave out the alternates that tell
+  I, l and 1 apart, which a design tool needs for layer names, token names and values. Until PAR-710 builds the type
+  into the app, only Storybook loads it, as the proposed type's typeface.
+- **The rest of the proposed type is approved,** Andrew's call on 2026-11-08: its sizes, roles, sentence-case section
+  titles and monospace, as [interface-type.md](proposals/interface-type.md) sets them. Its weights, 450, 550 and 650,
+  stay provisional until the check on a Mac and on Windows at 150% that the proposal sets out. PAR-710 builds it into
+  the app.
+
 ## Agents report problems through the app, as user feedback (PAR-646)
 
 `parity report` and MCP's `report_problem` send what an agent saw as a Sentry user feedback, the same kind as Help >
@@ -6220,7 +6239,8 @@ Report a problem. My calls:
   the report's own request together. The window's replay goes beside it.
 - **The tags are what the agent names, checked:** a design or state that isn't there fails as a screenshot of it would
   (`unknown_design`, `unknown_state`), so a tag always names a real one. A node is passed through, since an agent
-  reporting a wrong node may name one that's gone. With no tab or design named, it works with no project open.
+  reporting a wrong node may name one that's gone. With no tab or design named, it works with no project open: the CLI
+  routes it as `tab-or-any`, to the copy the person used last when no copy has a project open.
 - **It isn't sent while Telemetry is off.** The person's own report goes regardless, since they chose to send it and see
   what goes; an agent's would override their setting. It fails with `app_error`, saying to tell the person instead or
   run `parity diagnostics`.
