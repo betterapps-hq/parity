@@ -169,46 +169,56 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-| Event                 | Level | Kept | Sent by                                 | When                                                                                |
-| --------------------- | ----- | ---- | --------------------------------------- | ----------------------------------------------------------------------------------- |
-| `action.ran`          | info  | all  | renderer                                | An action runs from a key, a menu or the actions search, until it's done.           |
-| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI.                                       |
-| `app.quit`            | info  | all  | main                                    | The app quits.                                                                      |
-| `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                    |
-| `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                         |
-| `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.             |
-| `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                 |
-| `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                    |
-| `document.saved`      | info  | all  | renderer                                | A design file is saved.                                                             |
-| `error.caught`        | error | all  | renderer                                | A failure is shown as an error notification.                                        |
-| `export.done`         | info  | all  | renderer                                | An export finishes.                                                                 |
-| `export.failed`       | warn  | all  | renderer                                | An export fails.                                                                    |
-| `frame.drawn`         | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end.           |
-| `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                          |
-| `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                             |
-| `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                    |
-| `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                            |
-| `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer. |
-| `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.               |
-| `process.memory`      | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                 |
-| `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                    |
-| `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                          |
-| `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                 |
-| `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                   |
-| `report.sent`         | info  | all  | main                                    | Help > Report a problem sends a report.                                             |
-| `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                              |
-| `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                            |
-| `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                     |
-| `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                |
-| `styles.imported`     | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                      |
-| `tab.closed`          | info  | all  | renderer                                | A tab closes.                                                                       |
-| `tab.opened`          | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                         |
-| `tab.switched`        | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                           |
-| `tokens.saved`        | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                         |
-| `update.checked`      | info  | all  | main                                    | A check for an update finds one or finds none.                                      |
-| `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                     |
-| `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                            |
-| `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                       |
+| Event                 | Level | Kept | Sent by                                 | When                                                                                             |
+| --------------------- | ----- | ---- | --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `action.ran`          | info  | all  | renderer                                | An action runs from a key, a menu or the actions search, until it's done.                        |
+| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI.                                                    |
+| `app.quit`            | info  | all  | main                                    | The app quits.                                                                                   |
+| `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                                 |
+| `builder.crashed`     | warn  | all  | service                                 | A project's builder stops by itself while the project is open.                                   |
+| `builder.ready`       | info  | all  | service                                 | A project's builder answers and serves the project.                                              |
+| `builder.restarted`   | info  | all  | service                                 | A project's builder is started again from the processes list.                                    |
+| `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                                      |
+| `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                          |
+| `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                              |
+| `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                                 |
+| `document.saved`      | info  | all  | renderer                                | A design file is saved.                                                                          |
+| `error.caught`        | error | all  | renderer                                | A failure is shown as an error notification.                                                     |
+| `export.done`         | info  | all  | renderer                                | An export finishes.                                                                              |
+| `export.failed`       | warn  | all  | renderer                                | An export fails.                                                                                 |
+| `frame.drawn`         | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end.                        |
+| `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                       |
+| `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                          |
+| `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                 |
+| `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                         |
+| `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.              |
+| `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                            |
+| `process.memory`      | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                              |
+| `project.closed`      | info  | all  | service                                 | An open project is closed.                                                                       |
+| `project.detected`    | debug | all  | service                                 | The service reads a project's package, tools, files and components as it opens, until it's done. |
+| `project.loaded`      | info  | all  | renderer                                | A project's tab has its components loaded and is ready to draw.                                  |
+| `project.openFailed`  | warn  | all  | service                                 | A project can't be opened.                                                                       |
+| `project.opened`      | info  | all  | service                                 | A project opens, with its builder serving it.                                                    |
+| `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                                 |
+| `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                       |
+| `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                              |
+| `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                |
+| `report.sent`         | info  | all  | main                                    | Help > Report a problem sends a report.                                                          |
+| `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                                           |
+| `server.failed`       | warn  | all  | service                                 | A server the process manager started can't start.                                                |
+| `server.started`      | info  | all  | service                                 | A server the process manager started answers at its address.                                     |
+| `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                         |
+| `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                  |
+| `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                             |
+| `styles.imported`     | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                                   |
+| `tab.closed`          | info  | all  | renderer                                | A tab closes.                                                                                    |
+| `tab.opened`          | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                                      |
+| `tab.switched`        | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                                        |
+| `tokens.saved`        | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                                      |
+| `update.checked`      | info  | all  | main                                    | A check for an update finds one or finds none.                                                   |
+| `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                                  |
+| `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                         |
+| `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                                    |
 
 ### `action.ran`
 
@@ -240,6 +250,32 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `windowShownMs`  | `integer` | From the process starting to the first window being created and shown |
 | `firstPaintMs`   | `integer` | From the process starting to the first window's first paint           |
 | `serviceReadyMs` | `integer` | From the process starting to the project service starting to run      |
+
+### `builder.crashed`
+
+| Attribute  | Type                | Meaning                                                  |
+| ---------- | ------------------- | -------------------------------------------------------- |
+| `builder`  | `string`            | The builder's name, as Vite                              |
+| `exitCode` | `integer`, optional | The builder process's exit code, when it exited with one |
+| `signal`   | `string`, optional  | The signal that ended it, when one did                   |
+| `output`   | `string`            | The last of what it printed, up to 50 lines              |
+
+### `builder.ready`
+
+| Attribute    | Type      | Meaning                                        |
+| ------------ | --------- | ---------------------------------------------- |
+| `builder`    | `string`  | The builder's name, as Vite                    |
+| `durationMs` | `number`  | How long it took, in milliseconds              |
+| `restart`    | `boolean` | Whether it was started again, as after a crash |
+
+### `builder.restarted`
+
+| Attribute    | Type               | Meaning                                         |
+| ------------ | ------------------ | ----------------------------------------------- |
+| `builder`    | `string`           | The builder's name, as Vite                     |
+| `durationMs` | `number`           | How long it took, in milliseconds               |
+| `outcome`    | `"ok" \| "error"`  | Whether it answered again                       |
+| `code`       | `string`, optional | The `CodedError` code, when the failure has one |
 
 ### `builder.started`
 
@@ -369,6 +405,67 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `reason`    | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                     |
 | `processes` | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it |
 
+### `project.closed`
+
+| Attribute | Type     | Meaning                                                 |
+| --------- | -------- | ------------------------------------------------------- |
+| `name`    | `string` | The project's name, from its package.json or its folder |
+| `root`    | `string` | The project's folder                                    |
+| `openMs`  | `number` | How long it was open, in milliseconds                   |
+
+### `project.detected`
+
+| Attribute | Type     | Meaning              |
+| --------- | -------- | -------------------- |
+| `root`    | `string` | The project's folder |
+
+### `project.loaded`
+
+| Attribute      | Type      | Meaning                                                        |
+| -------------- | --------- | -------------------------------------------------------------- |
+| `durationMs`   | `number`  | From asking to open it until its tab is ready, in milliseconds |
+| `componentsMs` | `number`  | How long its guest and components took to load in the window   |
+| `components`   | `integer` | The components it has                                          |
+
+### `project.openFailed`
+
+| Attribute     | Type                       | Meaning                                                                            |
+| ------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| `name`        | `string`                   | The project's name, from its package.json or its folder                            |
+| `root`        | `string`                   | The project's folder                                                               |
+| `reopen`      | `boolean`                  | Whether it was reopened as Parity started, because it was open last time (PAR-179) |
+| `durationMs`  | `number`                   | How long it took, in milliseconds                                                  |
+| `detectionMs` | `number`, optional         | How long detection took, when it finished                                          |
+| `builderMs`   | `number`, optional         | How long the builder took to answer, when it did                                   |
+| `framework`   | `string`, optional         | The renderer's ID, as `react`, once one was found                                  |
+| `builder`     | `string`, optional         | The builder's ID, as `vite`, once one was found                                    |
+| `step`        | `"detection" \| "builder"` | The step that failed                                                               |
+| `message`     | `string`                   | Why, as the tab says it                                                            |
+| `code`        | `string`, optional         | The `CodedError` code, when the failure has one                                    |
+
+### `project.opened`
+
+| Attribute     | Type               | Meaning                                                                            |
+| ------------- | ------------------ | ---------------------------------------------------------------------------------- |
+| `name`        | `string`           | The project's name, from its package.json or its folder                            |
+| `root`        | `string`           | The project's folder                                                               |
+| `reopen`      | `boolean`          | Whether it was reopened as Parity started, because it was open last time (PAR-179) |
+| `durationMs`  | `number`           | How long it took, in milliseconds                                                  |
+| `detectionMs` | `number`, optional | How long detection took, when it finished                                          |
+| `builderMs`   | `number`, optional | How long the builder took to answer, when it did                                   |
+| `framework`   | `string`, optional | The renderer's ID, as `react`, once one was found                                  |
+| `builder`     | `string`, optional | The builder's ID, as `vite`, once one was found                                    |
+| `cached`      | `boolean`          | Whether its components and props came from the last detection, as nothing changed  |
+| `react`       | `string`, optional | The React version installed, when it has one                                       |
+| `vite`        | `string`, optional | The Vite version installed, when it has one                                        |
+| `tailwind`    | `string`, optional | The Tailwind version installed, when it has one                                    |
+| `storybook`   | `string`, optional | The Storybook version installed, when it has one                                   |
+| `typescript`  | `string`, optional | The TypeScript version installed, when it has one                                  |
+| `components`  | `integer`          | The components it has                                                              |
+| `designs`     | `integer`          | The designs in its project files                                                   |
+| `tokens`      | `integer`          | The theme variables its styles have                                                |
+| `libraries`   | `integer`          | The component libraries it depends on                                              |
+
 ### `project.unsupported`
 
 | Attribute | Type                                            | Meaning                                                                            |
@@ -413,6 +510,24 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | --------- | ------------------ | ------------------------------ |
 | `method`  | `string`           | The method asked for           |
 | `code`    | `string`, optional | The error code, when it failed |
+
+### `server.failed`
+
+| Attribute    | Type                    | Meaning                                                         |
+| ------------ | ----------------------- | --------------------------------------------------------------- |
+| `kind`       | `string`                | The kind of server, as `storybook`                              |
+| `name`       | `string`                | Its name, as the processes list shows it                        |
+| `durationMs` | `number`                | How long it took, in milliseconds                               |
+| `reason`     | `"exited" \| "timeout"` | Whether it stopped before it answered, or didn't answer in time |
+| `output`     | `string`                | The last of what it printed, up to 50 lines                     |
+
+### `server.started`
+
+| Attribute    | Type     | Meaning                                  |
+| ------------ | -------- | ---------------------------------------- |
+| `kind`       | `string` | The kind of server, as `storybook`       |
+| `name`       | `string` | Its name, as the processes list shows it |
+| `durationMs` | `number` | How long it took, in milliseconds        |
 
 ### `service.lag`
 

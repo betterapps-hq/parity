@@ -189,6 +189,7 @@ export class Workspace {
     let current = placeholder
     let opened: string | undefined
     try {
+      const began = performance.now()
       const info = await request("project.open", { root })
       opened = info.id
       attempt.projectId = info.id
@@ -208,7 +209,7 @@ export class Workspace {
       current = info.id
       const builder = info.builder.name
       this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
-      const session = await createSession(info)
+      const session = await createSession(info, began)
       if (attempt.abandoned) {
         this.dropAbandoned(info.id, info.guestUrl)
         return opening
@@ -313,11 +314,12 @@ export class Workspace {
     if (attempt.abandoned) return
     let opened: string | undefined
     try {
+      const began = performance.now()
       const info = await request("project.open", { root: id })
       opened = info.id
       if (attempt.abandoned) return this.dropAbandoned(info.id)
       this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
-      const session = await createSession(info)
+      const session = await createSession(info, began)
       if (attempt.abandoned) return this.dropAbandoned(info.id, info.guestUrl)
       this.endAttempt(attempt, id)
       this.replace(id, { id, title: info.name, status: "ready", session })
@@ -759,7 +761,12 @@ function sayWhenSavesFail(session: ProjectSession): void {
   })
 }
 
-async function createSession(info: ProjectInfo): Promise<ProjectSession> {
+/**
+ * Loads an opened project's guest and components into a session, and records how long that and the whole open took
+ * from `began`, by `performance.now()` (PAR-637).
+ */
+async function createSession(info: ProjectInfo, began: number): Promise<ProjectSession> {
+  const loading = performance.now()
   const loaded = await loadGuest(info.guestUrl, info.theme)
   const store = new DesignStore(
     openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
@@ -785,6 +792,12 @@ async function createSession(info: ProjectInfo): Promise<ProjectSession> {
   }
   sayWhenSavesFail(session)
   followCorrections(session)
+  const now = performance.now()
+  track("project.loaded", {
+    durationMs: Math.round(now - began),
+    componentsMs: Math.round(now - loading),
+    components: info.componentCount
+  })
   return session
 }
 

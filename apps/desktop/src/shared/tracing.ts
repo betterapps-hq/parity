@@ -53,6 +53,20 @@ export function inSpan<Name extends EventName<Events>, T>(
 }
 
 /**
+ * Records an event under the span this process is working in. Until telemetry has started, nothing is recorded. A
+ * mistake the development build's checks catch is logged rather than thrown, so it never stops the work it describes.
+ */
+export function track<Name extends EventName<Events>>(name: Name, attributes: EventAttributes<Events, Name>): void {
+  if (!telemetry) return
+  const span = current.getStore()
+  try {
+    telemetry.track(name, attributes, span ? { span } : {})
+  } catch (error) {
+    console.error("[telemetry]", error)
+  }
+}
+
+/**
  * A channel's `around`: each request's handler runs in a `request.handled` span that continues the trace the request
  * came with, or starts one when it came with none, as an older sender's does. Telemetry sent on to main isn't a span,
  * since each would record another.

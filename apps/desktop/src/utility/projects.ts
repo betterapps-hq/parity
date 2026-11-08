@@ -38,6 +38,7 @@ import {
   discoverProject,
   documentTarget,
   findLockfiles,
+  findPackage,
   importersOf,
   lockfileFolders,
   type OpenedProjectInfo,
@@ -50,10 +51,12 @@ import {
   readTsconfig,
   withComponentList
 } from "@parity-app/project"
+import { errorCode } from "@parity-app/telemetry"
 import { writeTokenChanges } from "@parity-app/tokens"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import { inSpan, track } from "../shared/tracing.ts"
 import type { ServedCode } from "./bitmap-store.ts"
-import type { StartedBuilder } from "./builders.ts"
+import type { BuilderExit, StartedBuilder } from "./builders.ts"
 import type { SavedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
 import { environment, type ServiceEnvironment } from "./environment.ts"
@@ -115,7 +118,7 @@ export interface ProjectAdapters {
     about: {
       builder: string
       project: string
-      onCrash: (error: string) => void
+      onCrash: (error: string, exit?: BuilderExit) => void
       /** The builder found project files whose code changed (PAR-165). */
       onCodeChange?: (change: CodeChange) => void
     }
@@ -178,13 +181,57 @@ interface Project extends OpenProject {
    */
   config?: { files: Set<string>; lockfileFolders: string[] }
   configWatchers?: Watching[]
+  /** When it opened, by `performance.now()`, for how long it was open. */
+  openedAt: number
+}
+
+/** What an open learned on the way, for `project.opened` or `project.openFailed` (PAR-637). */
+interface Opening {
+  step: "detection" | "builder"
+  name: string
+  framework?: string
+  builder?: string
+  detectionMs?: number
+  builderMs?: number
+  cached: boolean
+  typescript?: string
+}
+
+/** The tools whose versions `project.opened` records, by detection's IDs. */
+const recordedVersions = ["react", "vite", "tailwind", "storybook"] as const
+
+/** The versions installed of the tools `project.opened` records. */
+function toolVersions(detection: ProjectDetection): Partial<Record<(typeof recordedVersions)[number], string>> {
+  const versions: Partial<Record<(typeof recordedVersions)[number], string>> = {}
+  for (const id of recordedVersions) {
+    const version = detection.tools.find((tool) => tool.id === id)?.version
+    if (version) versions[id] = version
+  }
+  return versions
+}
+
+/** The project's installed TypeScript version, when it has one. */
+async function typescriptVersion(root: string): Promise<string | undefined> {
+  const installed = await findPackage(root, "typescript").catch(() => undefined)
+  return installed?.manifest.version
+}
+
+/** Milliseconds since `began`, by `performance.now()`, to a tenth. */
+function since(began: number): number {
+  return Math.round((performance.now() - began) * 10) / 10
+}
+
+/** The last 50 lines of what a process printed. */
+function lastLines(output: string): string {
+  return output.trimEnd().split(/\r?\n/).slice(-50).join("\n")
 }
 
 /** The projects open in tabs. Each runs its own builder, so tabs never share a module graph. */
 export interface OpenProjects {
   /** A project's root from a folder, or from one of its `.par` files; without either, the one Parity was started with. */
   rootFor: (root: string | undefined) => string
-  open: (root: string) => Promise<ProjectInfo>
+  /** Opens a project, or gives the one open or opening there. `reopen` when it's one open as Parity last quit. */
+  open: (root: string, how?: { reopen?: boolean }) => Promise<ProjectInfo>
   close: (projectId: string) => Promise<undefined>
   /** The roots of the projects open now. */
   roots: () => string[]
@@ -247,11 +294,16 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     return new Error(detail)
   }
 
-  async function start(root: string): Promise<ProjectInfo> {
+  /**
+   * Reads what opening a project needs before its builder starts: its package, renderer and builder, the tools it uses,
+   * its files and components, and what the type checker found last time.
+   */
+  async function detect(root: string, opening: Opening) {
     const pkg = (await readPackage(root))?.manifest
     if (!pkg) throw unsupported("no_package", `There's no package.json in ${root}`)
     const renderer = adapters.renderers.find((adapter) => adapter.detect(pkg))
     if (!renderer) throw unsupported("no_renderer", `No renderer supports ${pkg.name ?? root}`)
+    opening.framework = renderer.id
     const found = await findBuilder(adapters.builders, root)
     const detection = await detectProject(
       root,
@@ -265,6 +317,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
     const { builder } = found
     const name = pkg.name ?? basename(root)
+    opening.builder = builder.id
+    opening.name = name
     const config = await discoverProject(root, renderer, pkg)
     // One broken project file shouldn't hide the others; its error is shown instead.
     const known = new Map<string, string>()
@@ -291,9 +345,89 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const opened = saved
       ? nextComponentList(discovered.list, { kind: "restored", sources: saved.sources, leftOut: saved.leftOut ?? [] })
       : discovered
+    opening.cached = !!saved
+    opening.typescript = await typescriptVersion(root)
     if (saved) {
       config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
     }
+    return {
+      builder,
+      config,
+      detection,
+      discovered,
+      documents,
+      explain,
+      fingerprint,
+      known,
+      mainDocument,
+      name,
+      opened,
+      renderer,
+      saved
+    }
+  }
+
+  /**
+   * Opens a project and records how it went, as `project.opened` or `project.openFailed`, with how long each step took
+   * and what it found (PAR-637).
+   */
+  async function recordOpen(root: string, reopen: boolean): Promise<ProjectInfo> {
+    const began = performance.now()
+    const opening: Opening = { step: "detection", name: basename(root), cached: false }
+    const common = () => ({
+      name: opening.name,
+      root,
+      reopen,
+      durationMs: since(began),
+      ...(opening.detectionMs === undefined ? {} : { detectionMs: opening.detectionMs }),
+      ...(opening.builderMs === undefined ? {} : { builderMs: opening.builderMs }),
+      ...(opening.framework ? { framework: opening.framework } : {}),
+      ...(opening.builder ? { builder: opening.builder } : {})
+    })
+    try {
+      const info = await start(root, opening)
+      track("project.opened", {
+        ...common(),
+        cached: opening.cached,
+        ...toolVersions(info.detection),
+        ...(opening.typescript ? { typescript: opening.typescript } : {}),
+        components: Object.keys(info.sources).length,
+        designs: info.documents.reduce((sum, entry) => sum + (entry.document?.containers.length ?? 0), 0),
+        tokens: info.theme.length,
+        libraries: info.libraries.length
+      })
+      return info
+    } catch (error) {
+      const code = errorCode(error)
+      track("project.openFailed", {
+        ...common(),
+        step: opening.step,
+        message: message(error),
+        ...(code ? { code } : {})
+      })
+      throw error
+    }
+  }
+
+  async function start(root: string, opening: Opening): Promise<ProjectInfo> {
+    const began = performance.now()
+    const {
+      builder,
+      config,
+      detection,
+      discovered,
+      documents,
+      explain,
+      fingerprint,
+      known,
+      mainDocument,
+      name,
+      opened,
+      renderer,
+      saved
+    } = await inSpan("project.detected", { root }, () => detect(root, opening))
+    opening.detectionMs = since(began)
+    opening.step = "builder"
 
     const startOptions: BuilderStartOptions = {
       root,
@@ -305,6 +439,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     // The same project's last builder may still be closing.
     await closing.get(root)
     const serving = serveBuilder(root, name, builder, startOptions)
+    const builderStarted = performance.now()
+    serving.then(
+      () => (opening.builderMs = since(builderStarted)),
+      () => undefined
+    )
     const [session, styles] = await Promise.all([
       serving.catch((error: unknown) => {
         throw new Error(explain(message(error)), { cause: error })
@@ -343,7 +482,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       // A saved detection brings its props; discovery's list has every one read.
       components: Promise.resolve(saved?.props ?? {}),
       renderer,
-      ...(config.uiKit ? { uiKit: config.uiKit } : {})
+      ...(config.uiKit ? { uiKit: config.uiKit } : {}),
+      openedAt: performance.now()
     }
     readProps(project, opened, config.componentFiles)
     project.watcher = watchProjectFiles(project)
@@ -377,6 +517,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     again = false
   ): Promise<BuilderProcessSession> {
     const id = builderProcessId(root)
+    const began = performance.now()
     // A reopened project gets a new port, so the windows load its code afresh. On its last address they'd draw with the
     // project's React from before, which kept every closed canvas's frames in memory: about 130 MB each time.
     const port = again
@@ -389,9 +530,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const started = adapters.startBuilder(builderProcessOptions(builder, { ...options, port }), {
       builder: builder.name,
       project: name,
-      onCrash: (error) => {
+      onCrash: (error, exit) => {
         console.warn(`[service] ${name}: ${error}`)
         tracking.set("failed", { error })
+        track("builder.crashed", {
+          builder: builder.name,
+          ...(exit?.exitCode === undefined ? {} : { exitCode: exit.exitCode }),
+          ...(exit?.signal ? { signal: exit.signal } : {}),
+          output: lastLines(exit?.output ?? error)
+        })
       },
       onCodeChange: (change) => {
         const project = projects.get(root)
@@ -405,6 +552,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       lastPorts.set(root, Number(url.port))
       guestPorts.add(Number(url.port))
       tracking.set("running", { url: url.origin })
+      track("builder.ready", { builder: builder.name, durationMs: since(began), restart: again })
       return session
     } catch (error) {
       // A project that doesn't open shows why itself; a builder started again shows it in the list.
@@ -414,8 +562,22 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
   }
 
-  /** Starts a project's builder again, as after it crashed, with the components the project has now. */
+  /** Starts a project's builder again, as after it crashed, and records how that went. */
   async function restartBuilder(root: string): Promise<void> {
+    const began = performance.now()
+    const builder = projects.get(root)?.builder.name ?? root
+    try {
+      await startBuilderAgain(root)
+      track("builder.restarted", { builder, durationMs: since(began), outcome: "ok" })
+    } catch (error) {
+      const code = errorCode(error)
+      track("builder.restarted", { builder, durationMs: since(began), outcome: "error", ...(code ? { code } : {}) })
+      throw error
+    }
+  }
+
+  /** Starts a project's builder again with the components the project has now. */
+  async function startBuilderAgain(root: string): Promise<void> {
     const project = getProject(root)
     await project.session.close()
     const options = {
@@ -764,12 +926,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       }
     },
 
-    open(root) {
+    open(root, { reopen = false } = {}) {
       const existing = projects.get(root)
       if (existing) return Promise.resolve(withComponentList(existing.info, existing.list))
       let pending = opening.get(root)
       if (!pending) {
-        pending = start(root).finally(() => opening.delete(root))
+        pending = recordOpen(root, reopen).finally(() => opening.delete(root))
         opening.set(root, pending)
       }
       return pending
@@ -783,6 +945,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       project?.watcher?.close()
       for (const watcher of project?.configWatchers ?? []) watcher.close()
       if (project) {
+        track("project.closed", { name: project.info.name, root: projectId, openMs: since(project.openedAt) })
         // A reopen waits for the builder's process to end, so a project never has two builders at once.
         const closed = project.session.close()
         closing.set(projectId, closed)
