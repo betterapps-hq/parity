@@ -1,4 +1,5 @@
 import { toast } from "sonner"
+import { reportError } from "../report-error.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 
@@ -20,7 +21,9 @@ export async function openInStorybook(session: ProjectSession, component?: strin
     window.open(url, "_blank")
     toast.success("Opened in your browser", { id: progress, description: url, duration: 3000 })
   } catch (error) {
-    toast.error("Couldn't open Storybook", {
+    reportError(error, {
+      operation: "storybook.open",
+      title: "Couldn't open Storybook",
       id: progress,
       description: (error instanceof Error ? error.message : String(error)).slice(0, 600)
     })

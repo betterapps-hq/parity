@@ -1,6 +1,7 @@
 import { z } from "zod"
+import type { GuestComponentSource } from "./guest-changes.ts"
 import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
-import type { ComponentSource, ProjectConfig } from "./project.ts"
+import type { ProjectConfig } from "./project.ts"
 import type { ComponentRenderStatus } from "./render-status.ts"
 import type { RenderNode } from "./render.ts"
 import { jsonText, parseData } from "./schema.ts"
@@ -154,7 +155,23 @@ export interface BuilderSession {
   guestUrl: string
   /** Version of the customer's build tool. */
   toolVersion: string
+  /**
+   * Tells `listener` each time a project file it serves changes on disk (PAR-165), so the canvas can load the components
+   * it touches again. Returns what stops it.
+   */
+  codeChanges?(listener: (change: CodeChange) => void): () => void
   close(): Promise<void>
+}
+
+/**
+ * Project files whose code changed, by the builder's account: a file that changed on disk, and the components' files
+ * that import it, however deep. Imported again with `?t=<stamp>`, each module imports what changed afresh too.
+ */
+export interface CodeChange {
+  /** The component files among them, relative to the project root. */
+  paths: string[]
+  /** What they're stamped with, which goes up with each change. */
+  stamp: number
 }
 
 /** What a builder passes to the renderer's `createGuest`. */
@@ -209,9 +226,9 @@ export interface Guest {
   /**
    * Adds the project's components found after the guest loaded, by the type checker or in files added since, by id.
    * Each loads the first time it's drawn. An id the guest already has is drawn from its new file from then on, as when
-   * a component moves.
+   * a component moves, and one given a new `version` loads its module again, as when its code changed (PAR-165).
    */
-  addComponents?(sources: Record<string, Pick<ComponentSource, "path" | "export">>): void
+  addComponents?(sources: Record<string, GuestComponentSource>): void
   /**
    * Takes back components `addComponents` gave whose source went away. One the guest loaded with is drawn as it loaded
    * again; one it was only given is no longer a component. Ids it wasn't given change nothing.
@@ -253,7 +270,16 @@ export interface Guest {
 }
 
 export interface MountOptions {
-  onError?(error: unknown): void
+  /**
+   * An error the frame hit. `layer` is set when a component's boundary caught it: that component draws its error box
+   * in its place and the rest of the frame draws. Without it, the error stopped the frame drawing.
+   */
+  onError?(error: unknown, layer?: { nodeId: string; component: string }): void
+  /**
+   * The frame's failing layers, each time they change: one entry for each node whose component is drawing its error
+   * box, empty once they all draw again. Not called after the frame is unmounted.
+   */
+  onFailures?(failures: readonly LayerFailure[]): void
   /**
    * The frame's mode as Storybook globals: each variable's chosen option, as in `{ theme: "dark", viewport: "mobile" }`.
    * Decorators read them.
@@ -266,6 +292,14 @@ export interface MountOptions {
    * resize events) gets this instead of Parity's window while it renders the frame or handles its events.
    */
   viewport?: FrameViewport
+}
+
+/** A layer whose component failed to draw in a frame, and what it threw. */
+export interface LayerFailure {
+  /** The design node, as the render tree names it: prefixed with its instance's path inside a component design. */
+  nodeId: string
+  component: string
+  error: string
 }
 
 export interface FrameViewport {

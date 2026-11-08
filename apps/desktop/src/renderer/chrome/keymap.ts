@@ -46,6 +46,7 @@ export const keymap = {
   pasteReplace: { group: "Edit", label: "Paste to replace", keys: ["Ctrl Shift R"] },
   duplicate: { group: "Edit", label: "Duplicate", keys: ["Ctrl D"] },
   delete: { group: "Edit", label: "Delete", keys: ["Del", "Backspace"] },
+  copyAsPng: { group: "Edit", label: "Copy as PNG", keys: ["Ctrl Shift C"] },
   copyStyle: { group: "Edit", label: "Copy style", keys: ["Ctrl Alt C"] },
   pasteStyle: { group: "Edit", label: "Paste style", keys: ["Ctrl Alt V"] },
   rename: { group: "Edit", label: "Rename", keys: ["Ctrl R", "F2"] },
@@ -63,6 +64,7 @@ export const keymap = {
   bringToFront: { group: "Object", label: "Bring to front", keys: ["Ctrl Shift ]", "]"] },
   sendToBack: { group: "Object", label: "Send to back", keys: ["Ctrl Shift [", "["] },
   hide: { group: "Object", label: "Hide or show", keys: ["Ctrl Shift H"] },
+  lock: { group: "Object", label: "Lock or unlock", keys: ["Ctrl Shift L"] },
 
   alignLeft: { group: "Arrange", label: "Align left", keys: ["Alt A"] },
   alignCenter: { group: "Arrange", label: "Align horizontal centers", keys: ["Alt H"] },

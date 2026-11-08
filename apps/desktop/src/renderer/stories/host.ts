@@ -3,14 +3,15 @@ import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type Desig
 import type { TokenWrite } from "@parity-app/tokens"
 import discovered from "virtual:parity/example-project"
 import desktop from "../../../package.json"
-import { type AccountState, signedOut } from "../../shared/account.ts"
+import { type AccountState, type SignedInAccount, signedOut } from "../../shared/account.ts"
 import type {
   CanvasHost,
   ProjectEditResult,
   ProjectInfo,
   ProjectProcess,
   ServiceMethod,
-  ServiceMethods
+  ServiceMethods,
+  TelemetryState
 } from "../../shared/protocol.ts"
 import { receiveAccount, resetAccountView } from "../account/account.ts"
 import { preloadAnswers } from "../service.ts"
@@ -89,9 +90,16 @@ export function setStoryAccount(next: AccountState): void {
   receiveAccount(next)
 }
 
+/** You're in `chosen` now, as main says it: who, without how they signed in. */
+function inAccount(chosen: SignedInAccount | undefined): AccountState["account"] {
+  if (!chosen) return null
+  const { provider: _provider, ended: _ended, ...person } = chosen
+  return { ...person, untilQuit: accountNow.account?.untilQuit ?? false }
+}
+
 /**
  * Main's side of signing in, as far as a story can play it: a button waits for a browser that never hands back, and
- * Cancel and Sign out do what they say. Nothing opens or leaves the story.
+ * Cancel, switching accounts and Sign out do what they say. Nothing opens or leaves the story.
  */
 const storyAccount: CanvasHost["account"] = {
   get: () => Promise.resolve(accountNow),
@@ -109,11 +117,58 @@ const storyAccount: CanvasHost["account"] = {
     }),
   reopen: () => Promise.resolve(),
   cancel: async () => setStoryAccount({ ...accountNow, attempt: null, ended: null }),
-  signOut: async () => setStoryAccount(signedOut)
+  signOut: async (email) => {
+    const accounts = accountNow.accounts.filter((each) => each.email !== email)
+    // Leaving the account you're in moves to another whose session is still going.
+    const here = accountNow.account?.email === email
+    const account = here ? inAccount(accounts.find((each) => !each.ended)) : accountNow.account
+    setStoryAccount({ ...accountNow, account, accounts })
+  },
+  switchOrganization: async (organizationId) => {
+    const { account, accounts } = accountNow
+    if (!account) return
+    setStoryAccount({
+      ...accountNow,
+      account: { ...account, organizationId },
+      accounts: accounts.map((each) => (each.email === account.email ? { ...each, organizationId } : each))
+    })
+  },
+  use: async (email) => {
+    const chosen = accountNow.accounts.find((each) => each.email === email && !each.ended)
+    if (chosen) setStoryAccount({ ...accountNow, account: inAccount(chosen) })
+  }
+}
+
+/** The stand-in Telemetry setting, at its defaults with a fixed install ID, which stories can start elsewhere. */
+export const defaultTelemetry: TelemetryState = {
+  level: "all",
+  setting: "all",
+  installId: "3f9c2a71-8d4e-4b6a-9e15-c07d2f84b913"
+}
+let telemetryNow: TelemetryState = defaultTelemetry
+
+/** Starts the stand-in Telemetry setting somewhere else, as a variable overriding it. */
+export function setStoryTelemetry(state: TelemetryState): void {
+  telemetryNow = state
+}
+
+const storyTelemetry: CanvasHost["telemetry"] = {
+  get: () => Promise.resolve(telemetryNow),
+  setLevel: async (setting) => {
+    const installId = setting === "off" ? crypto.randomUUID() : telemetryNow.installId
+    telemetryNow = {
+      ...telemetryNow,
+      setting,
+      installId,
+      level: telemetryNow.overriddenBy ? telemetryNow.level : setting
+    }
+    return telemetryNow
+  }
 }
 
 /** Puts the service and the system dialogs back as they were before any story changed them. */
 export function resetHost(): void {
+  telemetryNow = defaultTelemetry
   Object.assign(service, defaultService)
   running.processes = []
   overrides.clear()
@@ -130,6 +185,13 @@ export function installHost(): void {
   const host: CanvasHost = {
     appVersion: desktop.version,
     getBuildInfo: async () => ({ version: desktop.version, channel: "development" }),
+    telemetry: storyTelemetry,
+    // Stories never send a report.
+    report: {
+      prepare: () => Promise.resolve({}),
+      send: () => delay(600).then(() => "00000000000000000000000000000000"),
+      lastCrash: () => Promise.resolve(undefined)
+    },
     updates: {
       get: () => Promise.resolve({ phase: "disabled", beta: false }),
       check: () => Promise.resolve(),
@@ -409,6 +471,12 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     case "layers.export":
       return {
         files: (params.files as { name: string }[]).map((file) => `D:/exports/${file.name}`),
+        warnings: []
+      }
+    case "layers.picture":
+      // A see-through pixel, as a PNG.
+      return {
+        png: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
         warnings: []
       }
     case "designs.export":

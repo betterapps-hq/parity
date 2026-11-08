@@ -11,6 +11,8 @@ import type { CopyReport } from "@parity-app/agent/routing"
 import type {
   CanvasDocument,
   ChangeConflict,
+  CodeChange,
+  GuestComponentSource,
   ComponentInfo,
   ComponentSource,
   DesignChange,
@@ -23,6 +25,7 @@ import type {
 } from "@parity-app/core"
 import type { EditStatus, ExportSize } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
+import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
@@ -110,6 +113,18 @@ export interface ServiceMethods {
       files: { layer: number; name: string; size: ExportSize }[]
     }
     result: { files: string[]; warnings: string[] }
+  }
+  /**
+   * Draws layers and designs offscreen as the canvas has them, as `layers.export` does, and makes one PNG of them all at
+   * 2x for the clipboard (PAR-190). `layers` are by design key, and a layer's id when it isn't the design; `at` is where
+   * the design sits on the canvas, and `name` names the layer in a warning. No PNG when nothing could be drawn.
+   */
+  "layers.picture": {
+    params: {
+      projectId: string
+      layers: { design: string; node?: string; name: string; at: { x: number; y: number } }[]
+    }
+    result: { png?: string; warnings: string[] }
   }
   /**
    * Draws one frame offscreen and captures it as a PNG, for the canvas to show in its place when zoomed far out, and
@@ -279,6 +294,8 @@ export interface WindowMethods {
   }
   /** A project's builder, started again, couldn't have its port back, so the project's guest is at a new address. */
   "project.guestMoved": { params: { projectId: string; guestUrl: string }; result: undefined }
+  /** Component files whose code changed on disk, which the tab's guest loads again (PAR-165). */
+  "project.codeChanged": { params: { projectId: string } & CodeChange; result: undefined }
 }
 
 /**
@@ -306,7 +323,8 @@ export const windowMethods = Object.keys({
   "agent.supports": true,
   "project.fileChanged": true,
   "project.componentsChanged": true,
-  "project.guestMoved": true
+  "project.guestMoved": true,
+  "project.codeChanged": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }
@@ -337,10 +355,47 @@ export interface BuildInfo {
   channel: "beta" | "stable" | "development" | "unknown"
 }
 
+/**
+ * What Parity sends Sentry this run, the level saved in Settings, the variable overriding it if one is set, and the
+ * install ID Sentry groups this computer's reports by (PAR-626).
+ */
+export interface TelemetryState extends ResolvedTelemetry {
+  installId: string
+}
+
+/** The last run's crash, which the window offers to report as it starts (PAR-635). */
+export interface ReportCrash {
+  /** When it stopped, as near as the local copy says, in ISO 8601. */
+  time: string
+}
+
+/** What Help > Report a problem sends main: what happened, and the IDs that tie it to the replay and trace. */
+export interface ProblemReportRequest {
+  message: string
+  screenshot: boolean
+  afterCrash: boolean
+  replayId?: string
+  traceId?: string
+}
+
 /** Exposed on `window.canvasHost` by the preload script. */
 export interface CanvasHost {
   appVersion: string
   getBuildInfo: () => Promise<BuildInfo>
+  /** The Telemetry setting and install ID, which main keeps and applies (PAR-626). */
+  telemetry: {
+    get: () => Promise<TelemetryState>
+    setLevel: (level: TelemetryLevel) => Promise<TelemetryState>
+  }
+  /** Help > Report a problem, which main sends to Sentry (PAR-635). */
+  report: {
+    /** Takes the window's screenshot, as a PNG data URL, before the dialog shows. */
+    prepare: () => Promise<{ screenshot?: string }>
+    /** Sends the report and gives its feedback ID. */
+    send: (report: ProblemReportRequest) => Promise<string>
+    /** The last run's crash, once, if it crashed. */
+    lastCrash: () => Promise<ReportCrash | undefined>
+  }
   updates: {
     get: () => Promise<UpdateState>
     check: () => Promise<void>
@@ -361,17 +416,24 @@ export interface CanvasHost {
     reopen: () => Promise<void>
     /** Stops waiting, and puts away what went wrong or the session that ended. */
     cancel: () => Promise<void>
-    signOut: () => Promise<void>
+    /** Signs out of one account, by its email, or forgets one whose session ended. */
+    signOut: (email: string) => Promise<void>
+    /** Moves the account you're in to another organization the person is in, refreshing in the background. */
+    switchOrganization: (organizationId: string) => Promise<void>
+    /** Switches to another account signed in, by its email, at once: each keeps its own session. */
+    use: (email: string) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
   /**
    * Asks the project service, and never fails: a failure is an answer, with its details. The page asks through
-   * `request` in `renderer/service.ts`, which throws it as a `CodedError` again.
+   * `request` in `renderer/service.ts`, which throws it as a `CodedError` again. `trace` is the action or gesture it's
+   * asked in, as `sentry-trace` and `baggage` (PAR-629).
    */
   ask<M extends ServiceMethod>(
     method: M,
-    params: ServiceMethods[M]["params"]
+    params: ServiceMethods[M]["params"],
+    trace?: TraceHeaders
   ): Promise<Answer<ServiceMethods[M]["result"]>>
   /** Answers the service's requests. One handler per window. */
   serve(handler: (method: WindowMethod, params: unknown) => Promise<ServeAnswer>): void
@@ -454,7 +516,7 @@ export interface RenderJob {
   projectId: string
   guestUrl: string
   /** Components the guest adds before drawing, since the type checker found them after it loaded. */
-  components?: Record<string, Pick<ComponentSource, "path" | "export">>
+  components?: Record<string, GuestComponentSource>
   theme: ThemeVariable[]
   tree: unknown
   /**

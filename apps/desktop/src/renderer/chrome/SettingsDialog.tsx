@@ -19,13 +19,23 @@ import { type ReactNode, useState } from "react"
 import { workspace } from "../workspace.ts"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
 import { type Preferences, setPreferences, type ThemePreference, usePreferences } from "./preferences.ts"
+import { setTelemetryLevel, useTelemetry } from "./telemetry-setting.ts"
 import { setBetaUpdates, useUpdates } from "./updates.tsx"
 
-const themes: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
+const themes: Option<ThemePreference>[] = [
   { value: "light", label: "Light", icon: Sun },
   { value: "dark", label: "Dark", icon: Moon },
   { value: "system", label: "System", icon: Monitor }
 ]
+
+const scales: Option<`${Preferences["exportScale"]}`>[] = [
+  { value: "1", label: "1x" },
+  { value: "2", label: "2x" },
+  { value: "3", label: "3x" }
+]
+
+/** What the switch shares. It reads the same on and off, so turning it doesn't move the dialog (PAR-703). */
+const telemetryDetail = "Errors and crashes, sent to the Parity team to help fix bugs."
 
 /** Where View code opens a file: the first editor installed, a named one, or the system's choice. */
 const editorChoices: { value: CodeEditorChoice; label: string }[] = [
@@ -42,31 +52,19 @@ export function SettingsDialog() {
   const [updateError, setUpdateError] = useState("")
   return (
     <Dialog open={open} onOpenChange={(next) => !next && closeDialog()}>
-      <DialogContent className="gap-0 sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100%-2rem)] gap-0 overflow-y-auto sm:max-w-lg">
         <DialogHeader className="pb-2">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>For every project, and remembered between runs.</DialogDescription>
         </DialogHeader>
         <Section title="Appearance">
           <Row label="Theme" detail="Parity's own look. Previews show whichever theme their mode picks.">
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              spacing={0}
-              value={[preferences.theme]}
-              onValueChange={([theme]) => theme && setPreferences({ theme: theme as ThemePreference })}
-              aria-label="Theme"
-            >
-              {themes.map(({ value, label, icon: Icon }) => (
-                <ToggleGroupItem
-                  key={value}
-                  value={value}
-                  className="gap-1.5 px-2.5 text-muted-foreground aria-pressed:text-foreground"
-                >
-                  <Icon /> {label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <Choice
+              label="Theme"
+              options={themes}
+              value={preferences.theme}
+              onChange={(theme) => setPreferences({ theme })}
+            />
           </Row>
         </Section>
         <Section title="Saving">
@@ -138,26 +136,12 @@ export function SettingsDialog() {
         </Section>
         <Section title="Export">
           <Row label="Image scale" detail="How many pixels each CSS pixel becomes in exported PNGs.">
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              spacing={0}
-              value={[String(preferences.exportScale)]}
-              onValueChange={([scale]) =>
-                scale && setPreferences({ exportScale: Number(scale) as Preferences["exportScale"] })
-              }
-              aria-label="Image scale"
-            >
-              {[1, 2, 3].map((scale) => (
-                <ToggleGroupItem
-                  key={scale}
-                  value={String(scale)}
-                  className="px-3 text-muted-foreground aria-pressed:text-foreground"
-                >
-                  {scale}x
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <Choice
+              label="Image scale"
+              options={scales}
+              value={String(preferences.exportScale) as `${Preferences["exportScale"]}`}
+              onChange={(scale) => setPreferences({ exportScale: Number(scale) as Preferences["exportScale"] })}
+            />
           </Row>
         </Section>
         <Section title="Updates">
@@ -172,17 +156,104 @@ export function SettingsDialog() {
               }}
             />
           </Row>
-          {updateError && (
-            <p role="alert" className="text-xs text-destructive">
-              {updateError}
-            </p>
-          )}
+          <Problem message={updateError} />
         </Section>
+        <TelemetrySection open={open} />
       </DialogContent>
     </Dialog>
   )
 }
 
+/**
+ * Whether Parity shares diagnostics to help fix bugs (PAR-626): on is everything, off is nothing. Main keeps the level;
+ * a variable set when Parity started decides it for that run, so the switch shows it and can't be changed until the
+ * variable is removed.
+ */
+function TelemetrySection({ open }: { open: boolean }) {
+  const telemetry = useTelemetry(open)
+  const [error, setError] = useState("")
+  if (!telemetry) return null
+  const detail = (
+    <>
+      {telemetryDetail}
+      {telemetry.overriddenBy && (
+        <>
+          {" "}
+          Set by <code className="font-mono">{telemetry.overriddenBy}</code> for this run.
+        </>
+      )}
+    </>
+  )
+  return (
+    <Section title="Privacy">
+      <Row label="Share diagnostics" detail={detail}>
+        <Switch
+          checked={telemetry.level !== "off"}
+          disabled={telemetry.overriddenBy !== undefined}
+          aria-label="Share diagnostics"
+          onCheckedChange={(on) => {
+            setError("")
+            void setTelemetryLevel(on ? "all" : "off").catch(() => setError("Couldn't save this setting. Try again."))
+          }}
+        />
+      </Row>
+      <Problem message={error} />
+    </Section>
+  )
+}
+interface Option<T extends string> {
+  value: T
+  label: string
+  icon?: typeof Sun
+}
+
+/** One of a few values, as a row of buttons: the theme, the export scale. */
+function Choice<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  disabled
+}: {
+  label: string
+  options: Option<T>[]
+  value: T
+  onChange: (value: T) => void
+  disabled?: boolean
+}) {
+  return (
+    <ToggleGroup
+      variant="outline"
+      size="sm"
+      spacing={0}
+      value={[value]}
+      disabled={disabled}
+      onValueChange={([next]) => next && onChange(next as T)}
+      aria-label={label}
+    >
+      {options.map(({ value: option, label: name, icon: Icon }) => (
+        <ToggleGroupItem
+          key={option}
+          value={option}
+          className="gap-1.5 px-2.5 text-muted-foreground aria-pressed:text-foreground"
+        >
+          {Icon && <Icon />}
+          {name}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+}
+
+/** A save that failed, under the section it belongs to. */
+function Problem({ message }: { message: string }) {
+  if (!message) return null
+  return (
+    <p role="alert" className="text-xs text-destructive">
+      {message}
+    </p>
+  )
+}
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-t py-2 first-of-type:border-t-0">
@@ -192,7 +263,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-function Row({ label, detail, children }: { label: string; detail: string; children: ReactNode }) {
+function Row({ label, detail, children }: { label: string; detail: ReactNode; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-6 py-2">
       <div className="min-w-0">

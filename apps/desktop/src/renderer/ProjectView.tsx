@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react"
+import { type ReactNode, useCallback, useEffect } from "react"
 import type { Editor } from "tldraw"
 import { AgentPresence } from "./agent/AgentPresence.tsx"
 import { CanvasDrop } from "./canvas/CanvasDrop.tsx"
@@ -9,8 +9,10 @@ import { InspectOverlay } from "./canvas/InspectOverlay.tsx"
 import { useShortcuts } from "./canvas/shortcuts.ts"
 import { TabOrderOverlay } from "./canvas/TabOrderOverlay.tsx"
 import { CanvasMenu } from "./chrome/CanvasMenu.tsx"
-import { ConsolePanel } from "./chrome/ConsolePanel.tsx"
+import { ConsolePanel, ResizeTop } from "./chrome/ConsolePanel.tsx"
+import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
 import { Inspector } from "./chrome/Inspector.tsx"
+import { setLayout, useLayout } from "./chrome/layout.ts"
 import { LeftPanel } from "./chrome/LeftPanel.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
 import { FloatingToolbar, ViewControls } from "./chrome/Toolbar.tsx"
@@ -33,6 +35,7 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
   // The start page's picture of the project, taken as it opens and after each save (PAR-607).
   useEffect(() => (session ? keepProjectPicture(session) : undefined), [session])
   if (!tab) return null
+  const reopen = () => void workspace.reload(id)
 
   if (!session) {
     return (
@@ -45,18 +48,51 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
   return (
     <ProjectContext value={session}>
       <div hidden={!active} className="flex min-h-0 flex-1 flex-col">
-        <main className="flex min-h-0 flex-1">
-          <LeftPanel />
-          {/* The console docks under the canvas, between the side panels (PAR-147). */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            <CanvasArea tabId={tab.id} shown={active} />
-            <ConsolePanel />
-          </div>
-          <Inspector />
-        </main>
-        <StatusBar />
+        {/* Each part fails on its own; this catches what they don't, and can reopen the project (PAR-667). */}
+        <ErrorBoundary name="project" label={tab.title} kind="page" onReopen={reopen}>
+          <main className="flex min-h-0 flex-1">
+            <ErrorBoundary name="left-panel" label="Left panel" onReopen={reopen} className="w-64 flex-none border-r">
+              <LeftPanel />
+            </ErrorBoundary>
+            {/* The console docks under the canvas, between the side panels (PAR-147). */}
+            <div className="flex min-w-0 flex-1 flex-col">
+              <ErrorBoundary name="canvas" label="Canvas" onReopen={reopen} className="justify-center">
+                <CanvasArea tabId={tab.id} shown={active} />
+              </ErrorBoundary>
+              <ConsoleBoundary onReopen={reopen}>
+                <ConsolePanel />
+              </ConsoleBoundary>
+            </div>
+            <ErrorBoundary name="inspector" label="Inspector" onReopen={reopen} className="w-72 flex-none border-l">
+              <Inspector />
+            </ErrorBoundary>
+          </main>
+          <ErrorBoundary name="status-bar" label="Status bar" kind="strip" className="h-7 shrink-0 border-t">
+            <StatusBar />
+          </ErrorBoundary>
+        </ErrorBoundary>
       </div>
     </ProjectContext>
+  )
+}
+
+/** The console's boundary: says it failed in the console's own height, and can hide it. */
+function ConsoleBoundary({ onReopen, children }: { onReopen: () => void; children: ReactNode }) {
+  const { consoleHeight } = useLayout()
+  return (
+    <ErrorBoundary
+      name="console"
+      label="Console"
+      kind="docked"
+      onReopen={onReopen}
+      onClose={() => setLayout({ console: false })}
+      closeLabel="Close the console"
+      className="flex-none border-t"
+      style={{ height: consoleHeight }}
+      edge={<ResizeTop height={consoleHeight} />}
+    >
+      {children}
+    </ErrorBoundary>
   )
 }
 
@@ -84,13 +120,28 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
         data-tool={tool}
       >
         <CanvasEditor onEditor={onEditor} shown={shown} />
-        <CanvasOverlay />
-        <TabOrderOverlay />
-        <InspectOverlay />
-        <CanvasDrop />
-        <AgentPresence />
-        <FloatingToolbar />
-        <ViewControls />
+        {/* What's drawn over the canvas fails without a word, leaving the canvas as it is; Sentry still hears. */}
+        <ErrorBoundary name="canvas.overlay" label="Outlines" kind="silent">
+          <CanvasOverlay />
+        </ErrorBoundary>
+        <ErrorBoundary name="canvas.tab-order" label="Tab order" kind="silent">
+          <TabOrderOverlay />
+        </ErrorBoundary>
+        <ErrorBoundary name="canvas.inspect" label="Inspect" kind="silent">
+          <InspectOverlay />
+        </ErrorBoundary>
+        <ErrorBoundary name="canvas.drop" label="Drop" kind="silent">
+          <CanvasDrop />
+        </ErrorBoundary>
+        <ErrorBoundary name="canvas.agents" label="Agents" kind="silent">
+          <AgentPresence />
+        </ErrorBoundary>
+        <ErrorBoundary name="canvas.toolbar" label="Toolbar" kind="silent">
+          <FloatingToolbar />
+        </ErrorBoundary>
+        <ErrorBoundary name="canvas.view-controls" label="View controls" kind="silent">
+          <ViewControls />
+        </ErrorBoundary>
       </div>
     </CanvasMenu>
   )

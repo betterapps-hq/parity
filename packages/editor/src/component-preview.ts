@@ -4,6 +4,8 @@ import {
   type ComponentProp,
   type ComponentSource,
   type DesignNode,
+  type InstanceSlot,
+  type LayoutNode,
   type OpenProp,
   type RenderNode,
   renderProblem,
@@ -43,6 +45,11 @@ export interface PreviewContext {
 export function componentPreviewTree(component: string, context: PreviewContext): RenderNode[] {
   const example = componentExample(component, context.info, context.sources)
   const placed = drawnOpen(context.props ? withProps(example, component, context.props) : example, context.sources)
+  return previewFrame(resolveDesign(placed, undefined, context.viewport, context.library))
+}
+
+/** What a preview crops to: `children` at their own size up to `previewMaxWidth`, with room around them. */
+function previewFrame(children: RenderNode[]): RenderNode[] {
   return [
     {
       kind: "element",
@@ -55,9 +62,20 @@ export function componentPreviewTree(component: string, context: PreviewContext)
         maxWidth: `${previewFrameWidth}px`,
         padding: `${previewPadding}px`
       },
-      children: resolveDesign(placed, undefined, context.viewport, context.library)
+      children
     }
   ]
+}
+
+/**
+ * What a preview of an instance's slot draws: its layout as the component lays it out, holding what the instance fills
+ * it with, or its placeholder while it fills it with nothing. Drawn by itself, so a large component's slot is as easy
+ * to see as a small one's.
+ */
+export function slotPreviewTree(slot: InstanceSlot, library: ComponentLibrary, viewport: string): RenderNode[] {
+  const { slot: _slot, bind: _bind, ...layout } = slot.node
+  const drawn: LayoutNode = { ...layout, children: slot.fill.length > 0 ? slot.fill : slot.node.children }
+  return previewFrame(resolveDesign(drawn, undefined, viewport, library))
 }
 
 /** The value an item is given to be the one open or chosen, when neither it nor its sample has one. */

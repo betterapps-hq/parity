@@ -73,6 +73,11 @@ const handlers: Handlers = {
     tab?.session?.components.set(components)
     return undefined
   },
+  "project.codeChanged": ({ projectId, paths, stamp }) => {
+    const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
+    if (tab) workspace.codeChanged(tab.id, paths, stamp)
+    return undefined
+  },
   "project.guestMoved": async ({ projectId, guestUrl }) => {
     // A tab that couldn't load it says so, and the service tries again when the builder is started again.
     if (!(await workspace.moveGuest(projectId, guestUrl))) throw new Error(`The guest at ${guestUrl} didn't load`)

@@ -1,8 +1,9 @@
+import { setSlot } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
-import { design, example } from "../stories/fixtures.tsx"
+import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
-import { inspecting, InspectorStage, slowly } from "./inspector-stories.tsx"
+import { inspecting, InspectorStage, slowly, typing } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
 
 /**
@@ -43,6 +44,83 @@ export const ScreenSelected: Story = { loaders: [inspecting("design", () => ({ d
 
 /** A component design selected: Plan card's params with their defaults, and the three places it's used. */
 export const ComponentSelected: Story = { loaders: [inspecting("design", () => ({ design: design("Plan card") }))] }
+
+/** App top bar with its actions layout made a named slot, `actions`. */
+const topBarWithSlot = () => {
+  const key = design("App top bar")
+  example().store.updateContainer(key, "Make slot", (container) =>
+    setSlot(container, node("App top bar", "Top bar actions"), "actions")
+  )
+  return { design: key }
+}
+
+/**
+ * A component design with a slot (PAR-83): Props lists App top bar's `actions` slot after its params, a kind of prop
+ * that takes layers, with the layout it fills where a param has its default. In code, below Modes, shows how an
+ * instance reads.
+ */
+export const ComponentWithSlots: Story = { loaders: [inspecting("design", topBarWithSlot)] }
+
+/**
+ * Two slots, Plan card's features and its price block: code nests the one holding the most layers, `features`, between
+ * the tags, and passes `pricing` as a prop. Nothing left in Plan card can be a slot, so Add says why.
+ */
+export const ComponentWithSeveralSlots: Story = {
+  loaders: [
+    inspecting("design", () => {
+      const key = design("Plan card")
+      example().store.updateContainer(key, "Make slot", (container) =>
+        setSlot(
+          setSlot(container, node("Plan card", "Features"), "features"),
+          node("Plan card", "Price block"),
+          "pricing"
+        )
+      )
+      return { design: key }
+    })
+  ]
+}
+
+/** Add in Props, then one of Plan card's layouts: it's a slot named after the layout, its name ready to rename. */
+export const AddingASlot: Story = {
+  loaders: [inspecting("design", () => ({ design: design("Plan card") }))],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    const add = await panel.findByRole("button", { name: "Add a prop" }, slowly)
+    add.focus()
+    await userEvent.keyboard("{Enter}")
+    await userEvent.click(await within(document.body).findByRole("menuitem", { name: "Features" }, slowly))
+    await expect(await panel.findByRole("textbox", { name: "features slot name" }, slowly)).toHaveFocus()
+  }
+}
+
+/** Add in Props, then Text: a row to name it, and Enter adds `subtitle`, a text prop with a default to change. */
+export const AddingATextProp: Story = {
+  loaders: [inspecting("design", () => ({ design: design("Plan card") }))],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    const add = await panel.findByRole("button", { name: "Add a prop" }, slowly)
+    add.focus()
+    await userEvent.keyboard("{Enter}")
+    await userEvent.click(await within(document.body).findByRole("menuitem", { name: "Text" }, slowly))
+    const name = await panel.findByRole("textbox", { name: "New text prop's name" }, slowly)
+    await userEvent.type(name, "Subtitle{Enter}", typing)
+    await expect(await panel.findByText("subtitle", undefined, slowly)).toBeVisible()
+    await expect(panel.getByText(`subtitle="Text"`, { exact: false })).toBeVisible()
+  }
+}
+
+/** Renaming the slot after one of App top bar's params, `page`: the name stays, and the row says why. */
+export const SlotNameTaken: Story = {
+  loaders: [inspecting("design", topBarWithSlot)],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    const name = await panel.findByRole("textbox", { name: "actions slot name" }, slowly)
+    await userEvent.clear(name)
+    await userEvent.type(name, "Page{Enter}", typing)
+    await expect(await panel.findByRole("alert", undefined, slowly)).toHaveTextContent("A param is already called page")
+  }
+}
 
 /** A component with many params, Project card's nineteen: switches for its booleans, inputs for the rest. */
 export const ComponentWithManyParams: Story = {

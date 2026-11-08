@@ -2,6 +2,307 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 07 Nov 2026 11:02:22 GMT",
+      "version": "0.32.0",
+      "tag": "@parity-app/desktop_v0.32.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "04edf02db4e6b18410682b0df81c45c1ecf405fe",
+            "comment": "A part of the window that fails while it draws now says so in its own place, with Try again and Report a problem, and the rest of the window keeps working"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 09:34:17 GMT",
+      "version": "0.31.0",
+      "tag": "@parity-app/desktop_v0.31.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a8556262108a1d2afdef46540760632b63686f94",
+            "comment": "Layers opens an instance's row to the layers inside it, read-only apart from each layer's eye"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 09:04:55 GMT",
+      "version": "0.30.0",
+      "tag": "@parity-app/desktop_v0.30.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0428ec0e70d925eb69f246f649d9c21c0ee440c0",
+            "comment": "Failing components draw a hatched box and show in the console with why and how to fix them, the console filters levels from a menu, and saved component code reaches the canvas live"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 04:57:51 GMT",
+      "version": "0.29.0",
+      "tag": "@parity-app/desktop_v0.29.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ac8ae641c27a2750fd3c27d692a75247f6e72433",
+            "comment": "Lock layers and designs with Ctrl+Shift+L, a lock on each Layers row, and Lock in the canvas and row menus: a locked one can't be selected or moved on the canvas, only from Layers, and stays locked in the .par"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 04:09:47 GMT",
+      "version": "0.28.1",
+      "tag": "@parity-app/desktop_v0.28.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3c20efd8939c2a1b2c5d98e26302efb68632aacc",
+            "comment": "Share diagnostics keeps one short description, on or off, so Settings doesn't shift when it's turned"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 03:48:15 GMT",
+      "version": "0.28.0",
+      "tag": "@parity-app/desktop_v0.28.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b2fe13882236d18154cf5c76172556dd2c92b121",
+            "comment": "Add Help > Report a problem, which sends what happened with a screenshot, logs, versions and projects, and offers itself after a crash; add parity diagnostics, which writes the same as a zip (PAR-635)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 03:33:55 GMT",
+      "version": "0.27.0",
+      "tag": "@parity-app/desktop_v0.27.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d7703064df693435234a09a7daf1ae232fcffd05",
+            "comment": "Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ee3447c7d941c2ca646c7a3cd5a6d219434ddcf0",
+            "comment": "parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time (PAR-636)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d2ede6f4e8a7c3262f4434aa8cb61a05a8a0c508",
+            "comment": "Record every error notification as error.caught, failed service requests, and saves, exports, project edits and libraries"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 02:36:08 GMT",
+      "version": "0.26.0",
+      "tag": "@parity-app/desktop_v0.26.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "baa0b3872bbcd81b2c5096ce7f3563cbbf974bcb",
+            "comment": "Record tabs, panels, dialogs, modes, settings and start page actions as telemetry events"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 02:04:08 GMT",
+      "version": "0.25.0",
+      "tag": "@parity-app/desktop_v0.25.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aa0a1fea8dc6e76d7f289bcc6a15b80a031e1ac2",
+            "comment": "Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "91a41a685da273f284d9431b04712c14be35e6b2",
+            "comment": "Record startup, quitting, updates, memory, service lag and long tasks as telemetry events (PAR-631)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3c7656995f96cce19abfb78962f72dd0fa04191b",
+            "comment": "Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or agent as Sentry's user"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "755f0c4243aabbddb2bb15b213209e7738383b9e",
+            "comment": "Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside Make component and the slots outlined on the canvas"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8e9550fcca6248f46ebdb1748ffd9954bff6cd19",
+            "comment": "Scrub the open projects' .env values from telemetry in every process"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 00:54:36 GMT",
+      "version": "0.24.0",
+      "tag": "@parity-app/desktop_v0.24.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8656b8708f872c49ba2b33d7008f2e9888a561e9",
+            "comment": "Record the editor window with Session Replay, and send the frames on the canvas with errors and a frame's last bitmap with a failed render (PAR-624)"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e4ceebe121fb1480e1ae1f862129fb652d78bf9b",
+            "comment": "Wait in the e2e tests for the zoom to settle, so boards have their size at it"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 00:05:43 GMT",
+      "version": "0.23.0",
+      "tag": "@parity-app/desktop_v0.23.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5fbcfa6b9799604d5e36048dbc39c3bc50fa8d7c",
+            "comment": "Settings > Privacy > Share diagnostics turns Parity's diagnostics on or off without a restart, and About shows whether they're on and the install ID."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 18:37:59 GMT",
+      "version": "0.22.0",
+      "tag": "@parity-app/desktop_v0.22.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "672bcdd6694d13498ba96a32ad9497a5ea92a2a6",
+            "comment": "Stay signed in to several accounts and switch between them: your accounts are in a panel from your picture in the title bar, each with its own Sign out, and Home's top left is a workspace menu for the account you're in"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "24b061d92559fa54345c9bc2be8ceb4d41abb568",
+            "comment": "Name every build as a Sentry release and upload its source maps, so stack traces resolve to source"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4956bc93980688acec3083ded29bda6a49c3e3f8",
+            "comment": "Home's account menu becomes a workspace menu, and your accounts move to a panel in the title bar where each has its own Sign out (exploration); on a phone, Home's search spans its row and Show more follows the cards"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "635de1c960596c297f5a61df97e03f3ee55e4c46",
+            "comment": "Send events as Sentry logs, breadcrumbs and spans through main, and keep a local copy in rotating log files"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6868f1966e1dcb1542ba7ebae86b9f9273d69da8",
+            "comment": "Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 10:42:47 GMT",
+      "version": "0.21.0",
+      "tag": "@parity-app/desktop_v0.21.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1a1bae91b9a37a7ed12a90cb87c0153062f328dc",
+            "comment": "Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2dd7d7e82b5be7b8f6ad76d1229d87bd71f0aff2",
+            "comment": "Choose your organization when WorkOS asks at sign-in, switch organizations from Home's account menu, and give project pictures' phone frame a shadow of its own."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "00f3fc2236e1663479f5bde292f639d7a23ec72d",
+            "comment": "Send errors, crashes and hangs from every process to Sentry, on by default"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aeaacd836cb13d0765b3c25a84289a3fe338edb5",
+            "comment": "Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom when frames run slow"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8a577ec84c18da4379451f28e068ec447762e61c",
+            "comment": "Scrub keys, tokens and passwords from the errors and breadcrumbs sent to Sentry"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8bd8d77143b89970aefa3d5be663b6ae77f8f191",
+            "comment": "Say what a press went to and which tooltips were open in the e2e helpers' failures"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 10:01:34 GMT",
       "version": "0.20.0",
       "tag": "@parity-app/desktop_v0.20.0",

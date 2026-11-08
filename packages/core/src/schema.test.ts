@@ -6,8 +6,10 @@ import {
   checkData,
   fileObject,
   finiteNumber,
+  type InvalidData,
   jsonText,
   nonBlankString,
+  onInvalidData,
   parseData,
   parseInput,
   plainObject
@@ -154,5 +156,34 @@ describe("packageManifest", () => {
       "/app/package.json: /repository/url: expected a string"
     )
     expect(() => parseManifest("{", "/app/package.json")).toThrow("/app/package.json: /: expected JSON")
+  })
+})
+
+describe("onInvalidData", () => {
+  it("is told of each failed check, with the schema's name, its problems and the data", () => {
+    const failures: InvalidData[] = []
+    const stop = onInvalidData((failure) => failures.push(failure))
+    const port = z.number().meta({ id: "port" })
+    expect(checkData(port, "80").success).toBe(false)
+    expect(() => parseInput(port, "81")).toThrow(CodedError)
+    expect(parseData(port, 82)).toBe(82)
+    stop()
+    expect(() => parseData(port, "83")).toThrow(TypeError)
+    expect(failures.map(({ schema, problem, value }) => ({ schema, problem, value }))).toEqual([
+      { schema: "port", problem: { pointer: "", message: "expected a number" }, value: "80" },
+      { schema: "port", problem: { pointer: "", message: "expected a number" }, value: "81" }
+    ])
+    expect(failures[0]?.issues).toHaveLength(1)
+  })
+
+  it("names a schema by its description when it has no id, and a listener that throws changes nothing", () => {
+    const names: string[] = []
+    const stop = onInvalidData((failure) => {
+      names.push(failure.schema)
+      throw new Error("The listener broke")
+    })
+    expect(() => parseData(z.string().describe("A name"), 1)).toThrow("/: expected a string")
+    stop()
+    expect(names).toEqual(["A name"])
   })
 })

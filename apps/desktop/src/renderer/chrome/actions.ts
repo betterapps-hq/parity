@@ -1,6 +1,7 @@
 import type { ContainerKind } from "@parity-app/core"
 import { selectedDesigns, selectedNodes } from "@parity-app/editor"
 import type { Tool } from "../selection.ts"
+import { tracedAction } from "../tracing.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
 import {
@@ -8,6 +9,7 @@ import {
   alignSelection,
   closeTab,
   copy,
+  copySelectedAsPng,
   copySelectionStyle,
   cut,
   deleteSelection,
@@ -18,6 +20,7 @@ import {
   goHome,
   goToMainComponent,
   hideSelection,
+  lockSelection,
   nudge,
   openNewTab,
   openProjectFile,
@@ -110,7 +113,7 @@ const tool = (name: Tool): Action => ({
   available: hasSession
 })
 
-const commandActions: Record<Command, Action> = {
+const keymapActions: Record<Command, Action> = {
   select: tool("select"),
   hand: tool("hand"),
   frame: tool("frame"),
@@ -138,6 +141,7 @@ const commandActions: Record<Command, Action> = {
   pasteReplace: { run: () => pasteReplace(), available: hasLayer },
   duplicate: { run: () => duplicateSelection(), available: () => (hasLayer() ? can("duplicate") : hasDesign()) },
   delete: { run: () => deleteSelection(), available: hasSomething },
+  copyAsPng: { run: () => copySelectedAsPng(), available: () => hasLayer() || designs() > 0 },
   copyStyle: { run: () => copySelectionStyle(), available: hasLayer },
   pasteStyle: { run: () => pasteSelectionStyle(), available: hasLayer },
   rename: { run: () => renameSelection(), available: hasDesign },
@@ -155,6 +159,7 @@ const commandActions: Record<Command, Action> = {
   bringToFront: { run: () => orderSelection("front"), available: () => can("order") },
   sendToBack: { run: () => orderSelection("back"), available: () => can("order") },
   hide: { run: () => hideSelection(), available: () => can("hide") },
+  lock: { run: () => lockSelection(), available: () => (hasLayer() ? can("lock") : hasDesign()) },
 
   alignLeft: { run: () => alignSelection("left"), available: alignable },
   alignCenter: { run: () => alignSelection("center"), available: alignable },
@@ -228,11 +233,11 @@ const repeatable: readonly Command[] = [
   "distributeVertical"
 ]
 
-/** Each command's action, the repeatable ones remembering themselves each time they run, however they're run. */
-export const actions: Record<Command, Action> = { ...commandActions }
+/** The repeatable commands' actions remember themselves each time they run, however they're run. */
+const remembering: Record<Command, Action> = { ...keymapActions }
 for (const command of repeatable) {
-  const action = commandActions[command]
-  actions[command] = {
+  const action = keymapActions[command]
+  remembering[command] = {
     ...action,
     run: (event) => {
       rememberAction({ label: keymap[command].label, run: () => action.run(), available: action.available })
@@ -240,3 +245,14 @@ for (const command of repeatable) {
     }
   }
 }
+
+/**
+ * Each action, run in a trace of its own named by its ID, which the work it causes in the service and main joins
+ * (PAR-629), whether a key, a menu or the actions search ran it.
+ */
+export const actions = Object.fromEntries(
+  Object.entries<Action>(remembering).map(([id, action]) => [
+    id,
+    { ...action, run: (event?: KeyboardEvent) => tracedAction(id, () => action.run(event)) }
+  ])
+) as Record<Command, Action>

@@ -30,6 +30,7 @@ import {
 } from "@parity-app/editor"
 import { toast } from "sonner"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
+import { errorMessage, reportError } from "../report-error.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
@@ -79,7 +80,7 @@ export async function pasteClipboard(session: ProjectSession): Promise<void> {
   }
   if (content.kind === "image") return pasteImage(session, content.blob, content.name)
   if (content.kind === "text") pasteText(session, content.text)
-  if (content.kind === "unreadable") toast.error(unreadableCopy)
+  if (content.kind === "unreadable") reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
 }
 
 type ClipboardContent =
@@ -149,7 +150,7 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
   if (selected.length === 0) return
   const content = await readClipboard()
   if (content.kind === "unreadable") {
-    toast.error(unreadableCopy)
+    reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
     return
   }
   if (content.kind !== "envelope" || content.envelope.payload.kind !== "designs") {
@@ -226,7 +227,7 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
     return
   }
   if (content.kind === "unreadable") {
-    toast.error(unreadableCopy)
+    reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
     return
   }
   if (content.kind === "envelope" && content.envelope.payload.kind === "designs") {
@@ -298,7 +299,7 @@ async function clipboardLayers(
     return undefined
   }
   if (content.kind === "unreadable") {
-    toast.error(unreadableCopy)
+    reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
     return undefined
   }
   const progress = toast.loading("Adding the image…")
@@ -307,9 +308,11 @@ async function clipboardLayers(
     toast.dismiss(progress)
     return [node]
   } catch (error) {
-    toast.error("Couldn't paste the image", {
+    reportError(error, {
+      operation: "images.import",
+      title: "Couldn't paste the image",
       id: progress,
-      description: error instanceof Error ? error.message : String(error)
+      description: errorMessage(error)
     })
     return undefined
   }
@@ -335,9 +338,11 @@ async function pasteImage(session: ProjectSession, blob: Blob, name: string): Pr
     placeLayers(session, [await importImage(session, blob, name)], "Paste image")
     toast.dismiss(progress)
   } catch (error) {
-    toast.error("Couldn't paste the image", {
+    reportError(error, {
+      operation: "images.import",
+      title: "Couldn't paste the image",
       id: progress,
-      description: error instanceof Error ? error.message : String(error)
+      description: errorMessage(error)
     })
   }
 }

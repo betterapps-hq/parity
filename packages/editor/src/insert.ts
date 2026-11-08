@@ -14,6 +14,7 @@ import {
   locateNode,
   nodeIds,
   plainObject,
+  slotAtPath,
   withLibraryContext
 } from "@parity-app/core"
 import { z } from "zod"
@@ -149,10 +150,13 @@ export function insertIntoDesign(
 
 /**
  * Where a click inserts, rather than a drag, with `node` the selected layer: into it when it's a layout, else just
- * after it in its layout or slot; with no layer selected, at the end of the design's root. Undefined when there's
- * nowhere to insert: the layer isn't in the design, it's a root that isn't a layout, or the root isn't one.
+ * after it in its layout or slot; into the end of a selected slot of one of the design's instances (see `slotAtPath`);
+ * with no layer selected, at the end of the design's root. Undefined when there's nowhere to insert: the layer isn't in
+ * the design, it's a root that isn't a layout, or the root isn't one.
  */
-export function whereToInsert(root: DesignNode, node?: string): InsertAt | undefined {
+export function whereToInsert(root: DesignNode, node?: string, library?: ComponentLibrary): InsertAt | undefined {
+  const slot = node && library ? slotAtPath(root, node, library) : undefined
+  if (slot) return { parent: slot.instance.id, slot: slot.slot.name }
   if (node) {
     const location = locateNode(root, node)
     if (!location) return undefined

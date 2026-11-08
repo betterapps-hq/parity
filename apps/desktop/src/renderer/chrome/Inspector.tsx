@@ -3,6 +3,7 @@ import { Accessibility, CodeXml, MonitorSmartphone, SlidersHorizontal } from "lu
 import { AccessibilityPanel } from "./AccessibilityPanel.tsx"
 import { CodePanel } from "./CodePanel.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
+import { ErrorBoundary } from "./ErrorBoundary.tsx"
 import { ModesPanel } from "./ModesPanel.tsx"
 import { SidePanel } from "./SidePanel.tsx"
 
@@ -24,16 +25,24 @@ export function Inspector() {
       ]}
     >
       <TabsContent value="design" className="min-h-0 overflow-x-hidden overflow-y-auto">
-        <DesignTab />
+        <ErrorBoundary name="inspector.design" label="Design">
+          <DesignTab />
+        </ErrorBoundary>
       </TabsContent>
       <TabsContent value="modes" className="min-h-0 overflow-x-hidden overflow-y-auto">
-        <ModesPanel />
+        <ErrorBoundary name="inspector.modes" label="Modes">
+          <ModesPanel />
+        </ErrorBoundary>
       </TabsContent>
       <TabsContent value="code" className="flex min-h-0 flex-col overflow-hidden">
-        <CodePanel />
+        <ErrorBoundary name="inspector.code" label="Code">
+          <CodePanel />
+        </ErrorBoundary>
       </TabsContent>
       <TabsContent value="accessibility" className="flex min-h-0 flex-col overflow-hidden">
-        <AccessibilityPanel />
+        <ErrorBoundary name="inspector.accessibility" label="Accessibility">
+          <AccessibilityPanel />
+        </ErrorBoundary>
       </TabsContent>
     </SidePanel>
   )

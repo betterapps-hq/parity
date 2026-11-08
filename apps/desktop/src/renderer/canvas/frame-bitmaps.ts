@@ -6,6 +6,7 @@ import { type FrameKeys, frameKeys, renderJob } from "../../shared/render-job.ts
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import type { BoardRest } from "./frame-sleep.ts"
+import { failedRender } from "./frames-on-screen.ts"
 
 /**
  * How much smaller than a frame its bitmap is. Zoomed out until a frame is drawn no larger than that, the canvas shows
@@ -53,13 +54,12 @@ export interface FrameShows extends FrameKeys {
   job: RenderJob
 }
 
-const noRevision = { get: () => 0, subscribe: () => () => undefined }
-
 /**
  * What a frame shows. Worked out once for each frame, so the live frame and what stands in for it zoomed out (its
  * bitmap, its skeleton) can't disagree about when it changed. A component the guest is given from a new file, as the
- * type checker finds it, changes every frame's key, so each draws again and its bitmap is taken again; the job carries
- * those components, so the offscreen renderer draws them too.
+ * type checker finds it, or again because its code changed on disk (PAR-165), changes the key of each frame drawing it,
+ * so those draw again and their bitmaps are taken again; the job carries those components, so the offscreen renderer
+ * draws them too.
  */
 export function useFrameShows(
   session: ProjectSession,
@@ -72,8 +72,6 @@ export function useFrameShows(
 ): FrameShows {
   const previews = useSyncExternalStore(session.tokens.subscribe, session.tokens.previews)
   const { guest } = session.loaded
-  const revision = guest.revision ?? noRevision
-  const code = useSyncExternalStore(revision.subscribe, revision.get)
   const { guestUrl, theme } = session.info
   const { added } = session
   const { width, height } = frame
@@ -113,7 +111,7 @@ export function useFrameShows(
     ]
   )
   const id = guestId(guest)
-  return useMemo(() => ({ ...frameKeys(job, { id, code }), job }), [job, id, code])
+  return useMemo(() => ({ ...frameKeys(job, { id }), job }), [job, id])
 }
 
 /** A frame's bitmap, as `useFrameBitmap` has it. */
@@ -127,6 +125,12 @@ export interface FrameBitmap {
    * captured. Not once a capture has failed, which is tried again later.
    */
   pending: boolean
+  /**
+   * `src` is the bitmap of what the frame showed before, standing in while the one of what it shows now is to come, as
+   * after a save changed a component it draws (PAR-165), so the board doesn't go blank meanwhile. The frame doesn't sleep
+   * on it.
+   */
+  stale?: true
 }
 
 /**
@@ -204,7 +208,16 @@ export function useFrameBitmap(
   }, [key])
 
   if (shown?.key === key) return { ...shown, pending: false }
-  return { pending: failedKey !== key }
+  if (failedKey === key) return { pending: false }
+  if (shown?.src) {
+    return {
+      src: shown.src,
+      ...(shown.height === undefined ? {} : { height: shown.height }),
+      pending: true,
+      stale: true
+    }
+  }
+  return { pending: true }
 }
 
 /**
@@ -378,8 +391,9 @@ export function capture(
     if (taken.height !== undefined) heights.set(key, taken.height)
     return taken.src
   })
-  const settled = taking.catch((): typeof failed => {
+  const settled = taking.catch((error: unknown): typeof failed => {
     if (bitmaps.get(key) === settled) bitmaps.delete(key)
+    failedRender(key, error, job.design)
     return failed
   })
   bitmaps.set(key, settled)

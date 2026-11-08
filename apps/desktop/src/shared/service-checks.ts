@@ -19,7 +19,9 @@ const stringRecord = z.record(z.string(), z.string())
 const renderJob = z.object({
   projectId: z.string(),
   guestUrl: z.string(),
-  components: z.record(z.string(), z.object({ path: z.string(), export: z.string() })).optional(),
+  components: z
+    .record(z.string(), z.object({ path: z.string(), export: z.string(), version: z.number().optional() }))
+    .optional(),
   theme: z.array(themeVariable),
   // The node tree is drawn by the offscreen window's guest, which reads it as the canvas does.
   tree: z.unknown(),
@@ -78,6 +80,16 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
         layer: z.number().int().nonnegative(),
         name: z.string(),
         size: z.object({ format: z.enum(["png", "jpg"]), scale: z.union([z.literal(1), z.literal(2), z.literal(3)]) })
+      })
+    )
+  }),
+  "layers.picture": project.extend({
+    layers: z.array(
+      z.object({
+        design: z.string(),
+        node: z.string().optional(),
+        name: z.string(),
+        at: z.object({ x: finiteNumber, y: finiteNumber })
       })
     )
   }),

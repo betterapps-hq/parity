@@ -484,6 +484,9 @@ export const BrowserAfterHandingBack: Story = { render: () => <HandBackPage outc
 /** The same page when the code couldn't be traded: Parity's window says why, so the page only points there. */
 export const BrowserAfterAProblem: Story = { render: () => <HandBackPage outcome="problem" /> }
 
+/** Handed back with one more step in Parity: choosing an organization, or single sign-on. */
+export const BrowserWithOneMoreStep: Story = { render: () => <HandBackPage outcome="continue" /> }
+
 /**
  * AuthKit's own pages, dressed by WorkOS's branding settings, beside the settings that do it: the app's colors, font
  * and corners, the icon, and the sign-in screen's glow as custom CSS. People only pass through these: the code for a

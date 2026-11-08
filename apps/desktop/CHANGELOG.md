@@ -1,8 +1,157 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 10:01:34 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 07 Nov 2026 11:02:22 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.32.0
+
+Sat, 07 Nov 2026 11:02:22 GMT
+
+### Minor changes
+
+- A part of the window that fails while it draws now says so in its own place, with Try again and Report a problem, and
+  the rest of the window keeps working (ajcraswell@gmail.com)
+
+## 0.31.0
+
+Sat, 07 Nov 2026 09:34:17 GMT
+
+### Minor changes
+
+- Layers opens an instance's row to the layers inside it, read-only apart from each layer's eye (ajcraswell@gmail.com)
+
+## 0.30.0
+
+Sat, 07 Nov 2026 09:04:55 GMT
+
+### Minor changes
+
+- Failing components draw a hatched box and show in the console with why and how to fix them, the console filters levels
+  from a menu, and saved component code reaches the canvas live (ajcraswell@gmail.com)
+
+## 0.29.0
+
+Sat, 07 Nov 2026 04:57:51 GMT
+
+### Minor changes
+
+- Lock layers and designs with Ctrl+Shift+L, a lock on each Layers row, and Lock in the canvas and row menus: a locked
+  one can't be selected or moved on the canvas, only from Layers, and stays locked in the .par (ajcraswell@gmail.com)
+
+## 0.28.1
+
+Sat, 07 Nov 2026 04:09:47 GMT
+
+### Patches
+
+- Share diagnostics keeps one short description, on or off, so Settings doesn't shift when it's turned
+  (ajcraswell@gmail.com)
+
+## 0.28.0
+
+Sat, 07 Nov 2026 03:48:15 GMT
+
+### Minor changes
+
+- Add Help > Report a problem, which sends what happened with a screenshot, logs, versions and projects, and offers
+  itself after a crash; add parity diagnostics, which writes the same as a zip (PAR-635) (ajcraswell@gmail.com)
+
+## 0.27.0
+
+Sat, 07 Nov 2026 03:33:55 GMT
+
+### Minor changes
+
+- Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633) (ajcraswell@gmail.com)
+- parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time
+  (PAR-636) (ajcraswell@gmail.com)
+- Record every error notification as error.caught, failed service requests, and saves, exports, project edits and
+  libraries (ajcraswell@gmail.com)
+
+## 0.26.0
+
+Sat, 07 Nov 2026 02:36:08 GMT
+
+### Minor changes
+
+- Record tabs, panels, dialogs, modes, settings and start page actions as telemetry events (ajcraswell@gmail.com)
+
+## 0.25.0
+
+Sat, 07 Nov 2026 02:04:08 GMT
+
+### Minor changes
+
+- Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)
+  (ajcraswell@gmail.com)
+- Record startup, quitting, updates, memory, service lag and long tasks as telemetry events (PAR-631)
+  (ajcraswell@gmail.com)
+- Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or
+  agent as Sentry's user (ajcraswell@gmail.com)
+- Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside
+  Make component and the slots outlined on the canvas (ajcraswell@gmail.com)
+
+### Patches
+
+- Scrub the open projects' .env values from telemetry in every process (ajcraswell@gmail.com)
+
+## 0.24.0
+
+Sat, 07 Nov 2026 00:54:36 GMT
+
+### Minor changes
+
+- Record the editor window with Session Replay, and send the frames on the canvas with errors and a frame's last bitmap
+  with a failed render (PAR-624) (ajcraswell@gmail.com)
+
+## 0.23.0
+
+Sat, 07 Nov 2026 00:05:43 GMT
+
+### Minor changes
+
+- Settings > Privacy > Share diagnostics turns Parity's diagnostics on or off without a restart, and About shows whether
+  they're on and the install ID. (ajcraswell@gmail.com)
+
+## 0.22.0
+
+Fri, 06 Nov 2026 18:37:59 GMT
+
+### Minor changes
+
+- Stay signed in to several accounts and switch between them: your accounts are in a panel from your picture in the
+  title bar, each with its own Sign out, and Home's top left is a workspace menu for the account you're in
+  (ajcraswell@gmail.com)
+- Name every build as a Sentry release and upload its source maps, so stack traces resolve to source
+  (ajcraswell@gmail.com)
+- Home's account menu becomes a workspace menu, and your accounts move to a panel in the title bar where each has its
+  own Sign out (exploration); on a phone, Home's search spans its row and Show more follows the cards
+  (ajcraswell@gmail.com)
+- Send events as Sentry logs, breadcrumbs and spans through main, and keep a local copy in rotating log files
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token (ajcraswell@gmail.com)
+
+## 0.21.0
+
+Fri, 06 Nov 2026 10:42:47 GMT
+
+### Minor changes
+
+- Copy the selected layers or designs to the clipboard as a PNG at 2x with Ctrl+Shift+C, drawn as exporting draws them
+  (ajcraswell@gmail.com)
+- Choose your organization when WorkOS asks at sign-in, switch organizations from Home's account menu, and give project
+  pictures' phone frame a shadow of its own. (ajcraswell@gmail.com)
+- Send errors, crashes and hangs from every process to Sentry, on by default (ajcraswell@gmail.com)
+
+### Patches
+
+- Boards take their size once the zoom settles, so they no longer measure themselves on almost every frame of a zoom
+  when frames run slow (ajcraswell@gmail.com)
+- Scrub keys, tokens and passwords from the errors and breadcrumbs sent to Sentry (ajcraswell@gmail.com)
 
 ## 0.20.0
 

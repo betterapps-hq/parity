@@ -1,8 +1,10 @@
-import { designsSelection, selectedDesigns } from "@parity-app/editor"
+import { designsSelection, holdZoom, selectedDesigns, zoomHeldFrom, zoomSettled } from "@parity-app/editor"
 import { useCallback, useEffect } from "react"
 import {
   type Atom,
   atom,
+  type Computed,
+  computed,
   createShapeId,
   type Editor,
   react,
@@ -112,25 +114,21 @@ function drawableColor(color: string): string {
 }
 
 /**
- * Makes the zoom tldraw writes to the page's styles (as `--tl-zoom`) change only once the camera has been still for a
- * few frames and a moment. Every element of every frame inherits it, so each change restyles them all: at 60 designs
- * that was most of each frame while zooming. tldraw's own debounce only holds while frames are quick, since a slow frame
- * outlasts its timeout and counts as the camera stopping. What has to follow the zoom live uses `useZoomStyle`. A zoom
- * that settles somewhere new also draws the camera's layer again, sharp at that zoom (see layer-redraw.ts).
+ * Makes the zoom tldraw writes to the page's styles (as `--tl-zoom`) change only once the zoom has settled (see
+ * `zoomSettle`). Every element of every frame inherits it, so each change restyles them all: at 60 designs that was most
+ * of each frame while zooming. tldraw's own debounce only holds while frames are quick, since a slow frame outlasts its
+ * timeout and counts as the camera stopping. What has to follow the zoom live uses `useZoomStyle`. A zoom that settles
+ * somewhere new also draws the camera's layer again, sharp at that zoom (see layer-redraw.ts).
  */
 function settleZoom(editor: Editor): () => void {
   const settled = atom("settled zoom", editor.getZoomLevel())
-  let last = { zoom: editor.getZoomLevel(), at: performance.now() }
-  let still = 0
+  let held = zoomHeldFrom(editor.getZoomLevel(), performance.now())
   let frame = 0
   let endRedraw: (() => void) | undefined
   const check = (now: number) => {
     const zoom = editor.getZoomLevel()
-    if (zoom !== last.zoom) {
-      last = { zoom, at: now }
-      still = 0
-    } else still++
-    if (still >= 3 && now - last.at >= 150) {
+    held = holdZoom(held, zoom, now)
+    if (zoomSettled(held, now)) {
       if (zoom !== settled.get()) {
         const layer = editor.getContainer().querySelector(".tl-html-layer")
         endRedraw?.()
@@ -150,6 +148,22 @@ function settleZoom(editor: Editor): () => void {
     cancelAnimationFrame(frame)
     endRedraw?.()
   }
+}
+
+/** Whether the zoom has settled, by editor (see `isZoomSettled`). */
+const zoomSettledness = new WeakMap<Editor, Computed<boolean>>()
+
+/**
+ * Whether the zoom has settled where it is (see `settleZoom`), rather than still on its way: the zoom it settled at
+ * last has caught up with it. Panning leaves it settled.
+ */
+export function isZoomSettled(editor: Editor): boolean {
+  let settled = zoomSettledness.get(editor)
+  if (!settled) {
+    settled = computed("zoom settled", () => editor.getZoomLevel() === editor.getEfficientZoomLevel())
+    zoomSettledness.set(editor, settled)
+  }
+  return settled.get()
 }
 
 /** Whether the editor's tab has been hidden for a while (see `hiddenSleepMs`), by editor. */
@@ -276,12 +290,14 @@ export function CanvasEditor({
       const sync = () => {
         const wanted = new Map<
           TLShapeId,
-          { type: "canvas-container" | "canvas-note"; key: string; x: number; y: number }
+          { type: "canvas-container" | "canvas-note"; key: string; x: number; y: number; locked?: boolean }
         >()
         for (const { key, container } of store.getEntries()) {
           // A board an agent moved stays where it was until the agent's cursor drags it over.
           const at = heldBoards.at(tab, key) ?? container.position
-          wanted.set(shapeIdFor(key), { type: "canvas-container", key, ...at })
+          // A locked design's board is a locked shape, which tldraw neither selects nor moves (PAR-192).
+          const locked = container.locked === true
+          wanted.set(shapeIdFor(key), { type: "canvas-container", key, ...at, locked })
         }
         for (const { key, note } of store.getNotes())
           wanted.set(shapeIdFor(key), { type: "canvas-note", key, ...note.position })
@@ -289,11 +305,11 @@ export function CanvasEditor({
           () => {
             const stale = editor.getCurrentPageShapes().filter((shape) => !wanted.has(shape.id))
             if (stale.length > 0) editor.deleteShapes(stale.map((shape) => shape.id))
-            for (const [id, { type, key, x, y }] of wanted) {
+            for (const [id, { type, key, x, y, locked = false }] of wanted) {
               const shape = editor.getShape(id)
-              if (!shape) editor.createShape({ id, type, x, y, props: { key } })
-              else if (Math.abs(shape.x - x) >= 1 || Math.abs(shape.y - y) >= 1) {
-                editor.updateShape({ id, type: shape.type, x, y })
+              if (!shape) editor.createShape({ id, type, x, y, isLocked: locked, props: { key } })
+              else if (Math.abs(shape.x - x) >= 1 || Math.abs(shape.y - y) >= 1 || shape.isLocked !== locked) {
+                editor.updateShape({ id, type: shape.type, x, y, isLocked: locked })
               }
             }
           },
