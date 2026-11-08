@@ -43,11 +43,22 @@ function measure(element: Element): string {
   return `${px(style.fontSize)}/${px(style.lineHeight)} ${style.fontWeight}${tracking}`
 }
 
+/** The typeface the interface is set in: Geist, as now, or Inter, to compare (see proposed-type.css). */
+export type InterfaceFont = "geist" | "inter"
+
 /**
- * A sample drawn in one type, with the size, line height and weight it comes out at underneath, measured from the page
- * rather than written down, so the numbers can't drift from what's shown.
+ * A sample drawn in one type and typeface, with the size, line height and weight it comes out at underneath, measured
+ * from the page rather than written down, so the numbers can't drift from what's shown.
  */
-export function Specimen({ type, children }: { type: InterfaceType; children: ReactNode }) {
+export function Specimen({
+  type,
+  font = "geist",
+  children
+}: {
+  type: InterfaceType
+  font?: InterfaceFont
+  children: ReactNode
+}) {
   const sample = useRef<HTMLDivElement>(null)
   const [spec, setSpec] = useState("")
   useLayoutEffect(() => {
@@ -56,7 +67,7 @@ export function Specimen({ type, children }: { type: InterfaceType; children: Re
   }, [])
   return (
     <div className="flex flex-col gap-1.5">
-      <div ref={sample} data-interface-type={type}>
+      <div ref={sample} data-interface-type={type} data-interface-font={font}>
         {children}
       </div>
       <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{spec}</span>

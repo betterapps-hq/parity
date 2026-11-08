@@ -63,6 +63,17 @@ Cascadia Mono comes with Windows 11, and its lowercase is within 2% of Geist's, 
 Mono (`@fontsource-variable/geist-mono`, from the same source as the Geist package Parity already uses) would match
 Geist exactly and look the same on both systems, but it's a new dependency, so it waits for your agreement.
 
+## Geist or Inter
+
+The Geist or Inter story sets the proposed type in both, at the same sizes and weights. Inter, which Figma, Framer and
+Linear use, was drawn for screen text at small sizes: its letters are a little wider and more open than Geist's, and it
+has optical sizes, so small text comes out a little looser and headings a little tighter on their own. Geist is
+narrower, gives Parity a look of its own, and has Geist Mono to match.
+
+Inter's own release can tell I, l and 1 apart and slash its zero, but `@fontsource-variable/inter`, a Google Fonts
+build, leaves those alternates out. It's a dev dependency for Storybook only: the build drops it, or moves it to the
+app's dependencies if you choose Inter.
+
 ## What the build changes
 
 - **`styles.css`:** the sizes, line heights, weights and `--font-mono` in `@theme`, body text at the normal weight, and

@@ -132,3 +132,15 @@
   -webkit-font-smoothing: auto;
   -moz-osx-font-smoothing: auto;
 }
+
+/*
+ * Inter in place of Geist, for comparing the two typefaces. Its optical sizes are on by default, so it draws each size
+ * from the matching cut. Anything that names the sans font itself takes Inter too.
+ */
+[data-interface-font="inter"] {
+  font-family: "Inter Variable", sans-serif;
+
+  & .font-sans {
+    font-family: inherit;
+  }
+}
