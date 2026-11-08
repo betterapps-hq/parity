@@ -166,10 +166,10 @@ export function TokenDetail({
       </div>
       <header className="flex flex-col gap-0.5 p-3">
         <div className="flex items-baseline gap-3">
-          <h3 className="min-w-0 flex-1 truncate font-mono text-sm font-medium">{preview.name}</h3>
+          <h3 className="min-w-0 flex-1 truncate font-mono text-sm">{preview.name}</h3>
           {comesTo && <span className="shrink-0 font-mono text-sm text-muted-foreground tabular-nums">{comesTo}</span>}
         </div>
-        {token.description && <p className="text-xs text-muted-foreground">{token.description}</p>}
+        {token.description && <p className="type-description text-muted-foreground">{token.description}</p>}
       </header>
       <form
         data-token-editing={editing || undefined}
@@ -213,7 +213,7 @@ export function TokenDetail({
                         className="h-7 font-mono text-xs"
                       />
                     </span>
-                    {problems[theme] && <p className="mt-1 text-[11px] text-destructive">{problems[theme]}</p>}
+                    {problems[theme] && <p className="type-message mt-1 text-destructive">{problems[theme]}</p>}
                   </>
                 ) : (
                   <span id={`${id}-${theme}`} className="flex items-baseline gap-2">
@@ -227,10 +227,10 @@ export function TokenDetail({
             </Fragment>
           ))}
           {!editing && token.unwritten && (
-            <dd className="col-start-2 -mt-1 text-[11px] text-destructive">Not written to the stylesheet</dd>
+            <dd className="type-message col-start-2 -mt-1 text-destructive">Not written to the stylesheet</dd>
           )}
           {!editing && applied && !token.unwritten && (
-            <dd className="col-start-2 -mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+            <dd className="type-message col-start-2 -mt-1 flex flex-wrap items-center gap-x-1.5 text-muted-foreground">
               <Check className="size-3 shrink-0 text-(--process-running)" />
               Applied. Saving writes it to {stylesheet}.
               {undo && (
@@ -238,7 +238,7 @@ export function TokenDetail({
                   type="button"
                   variant="link"
                   size="xs"
-                  className="h-auto px-0 text-[11px]"
+                  className="h-auto px-0"
                   onClick={() => {
                     undo()
                     setApplied(false)
@@ -276,7 +276,7 @@ export function TokenDetail({
         <footer className="flex min-h-11 items-center gap-2 border-t px-3 py-2">
           {editing ? (
             <>
-              <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">{applyHint(valid, changed)}</p>
+              <p className="type-message min-w-0 flex-1 text-muted-foreground">{applyHint(valid, changed)}</p>
               <Button type="button" variant="ghost" size="sm" onClick={cancel}>
                 Cancel
               </Button>
@@ -435,7 +435,7 @@ export function DetailPreview({
               {themes.length > 1 && (
                 // A long theme name is cut short within its swatch, and its tooltip has the whole name.
                 <span
-                  className="absolute bottom-1.5 left-2 max-w-[calc(100%-1rem)] truncate rounded px-1 text-[10px]"
+                  className="absolute bottom-1.5 left-2 max-w-[calc(100%-1rem)] truncate rounded px-1 text-2xs"
                   style={{ background: "rgb(0 0 0 / 0.55)", color: "white" }}
                   title={themeLabel(theme, themes, themeNames)}
                 >
@@ -503,7 +503,7 @@ function SpacingScale({ token, scale, width }: { token: PreviewToken; scale: rea
         return (
           <div key={step.name} className="flex h-4 items-center gap-2">
             <span
-              className={`w-24 shrink-0 truncate font-mono text-[10px] ${current ? "font-medium text-foreground" : "text-muted-foreground"}`}
+              className={`w-24 shrink-0 truncate font-mono text-2xs ${current ? "text-foreground" : "text-muted-foreground"}`}
             >
               {step.name}
             </span>
@@ -536,8 +536,9 @@ function DurationRace({
           key={other.name}
           className={`flex items-center gap-2 ${other.name === token.name ? "text-foreground" : "text-muted-foreground/60"}`}
         >
-          <span className="w-10 shrink-0 text-right text-[10px] tabular-nums">{drawn(other)}</span>
-          <DurationArt value={drawn(other)} width={width - 80} height={12} playing={playing} period={period} />
+          {/* Wide enough for 1000ms at 11px. */}
+          <span className="w-11 shrink-0 text-right text-2xs tabular-nums">{drawn(other)}</span>
+          <DurationArt value={drawn(other)} width={width - 84} height={12} playing={playing} period={period} />
         </div>
       ))}
     </div>
@@ -555,7 +556,10 @@ function TypeSpecimen({ token, width }: { token: PreviewToken; width: number }) 
         background: paper.sheet,
         borderColor: paper.edge,
         color: paper.ink,
-        fontFamily: token.kind === "font" ? drawn(token) : undefined
+        fontFamily: token.kind === "font" ? drawn(token) : undefined,
+        // The font's own regular: at the interface's 450 a variable font would show a weight nobody chose, and a static
+        // face its 500.
+        fontWeight: token.kind === "font" ? 400 : undefined
       }}
     >
       <span className="leading-none" style={{ fontSize: Math.min(size * 2.5, 56) }}>
@@ -565,7 +569,7 @@ function TypeSpecimen({ token, width }: { token: PreviewToken; width: number }) 
         The quick brown fox jumps over the lazy dog.
       </span>
       {token.kind === "font" && (
-        <span className="text-[13px]" style={{ color: paper.muted }}>
+        <span className="text-sm" style={{ color: paper.muted }}>
           0123456789 &amp; ?! @ #
         </span>
       )}
@@ -583,7 +587,7 @@ function LayerStack({ token, scale }: { token: PreviewToken; scale: readonly Pre
       {stack.map((layer, index) => (
         <div
           key={layer.name}
-          className={`flex h-5 items-center gap-2 rounded-[3px] px-2 text-[11px] ${
+          className={`flex h-5 items-center gap-2 rounded-[3px] px-2 text-2xs ${
             layer.name === token.name ? "bg-(--canvas-layer) text-white" : "text-muted-foreground"
           }`}
           style={{ marginLeft: (stack.length - 1 - index) * 4 }}
@@ -619,7 +623,7 @@ function BreakpointRuler({
       ].map((device) => (
         <span
           key={device.name}
-          className="absolute top-14 text-[10px] text-muted-foreground/70"
+          className="absolute top-14 text-2xs text-muted-foreground/70"
           style={{ left: 12 + at(device.width) - 14 }}
         >
           {device.name}
@@ -634,7 +638,7 @@ function BreakpointRuler({
             className="absolute top-4 flex flex-col items-center"
             style={{ left: 12 + at(px(drawn(shown)) || 0) - 12 }}
           >
-            <span className={`text-[10px] ${mine ? "text-foreground" : "text-muted-foreground"}`}>
+            <span className={`text-2xs ${mine ? "text-foreground" : "text-muted-foreground"}`}>
               {step.name.slice(shared.length) || step.name}
             </span>
             <span
@@ -644,7 +648,7 @@ function BreakpointRuler({
           </span>
         )
       })}
-      <span className="absolute right-3 bottom-2 text-[10px] text-muted-foreground tabular-nums">
+      <span className="absolute right-3 bottom-2 text-2xs text-muted-foreground tabular-nums">
         {valueLabel(token)} and wider
       </span>
     </div>

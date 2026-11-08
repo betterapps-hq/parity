@@ -17,6 +17,7 @@ import type { ContainerEntry } from "../design-store.ts"
 import { extractIntoComponent } from "./components.ts"
 import { ChoiceInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { NameInput } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { valueKind } from "./prop-values.ts"
 import { clearRepeatedParts, findRepeatedParts, holdRepeatedParts, useRepeatedParts } from "./repeated-parts.ts"
@@ -41,7 +42,7 @@ export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
     )
   } else if (candidates.length === 0) {
     content = (
-      <p className="px-1 text-xs text-muted-foreground">
+      <p className="type-description px-1 text-muted-foreground">
         Nothing repeats with the same structure. Select a layer and use Make component to extract a part used once.
       </p>
     )
@@ -85,7 +86,7 @@ function CandidateCard({
     <li className="rounded-md border p-2.5">
       <div className="mb-2 flex items-center gap-2">
         <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-        <Input
+        <NameInput
           value={name}
           onChange={(event) => setName(event.currentTarget.value)}
           className="h-7 flex-1 px-2 text-xs"
@@ -99,12 +100,12 @@ function CandidateCard({
         <div className="mb-2 flex flex-wrap gap-1">
           {candidate.params.map((param) => (
             <Hint key={param.name} label={param.values.map(String).join(", ")} wait>
-              <code className="rounded bg-muted px-1.5 text-[11px] text-muted-foreground">{param.name}</code>
+              <code className="rounded bg-muted px-1.5 text-2xs text-muted-foreground">{param.name}</code>
             </Hint>
           ))}
         </div>
       )}
-      {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
+      {error && <p className="type-message mb-2 text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button
           size="sm"
@@ -339,7 +340,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
           </div>
         ))}
       </div>
-      {error && <p className="mt-2 px-1 text-xs text-destructive">{error}</p>}
+      {error && <p className="type-message mt-2 px-1 text-destructive">{error}</p>}
     </PanelSection>
   )
 }

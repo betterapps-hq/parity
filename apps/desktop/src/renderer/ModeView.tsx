@@ -234,7 +234,7 @@ export function ModeView({
       {message && (
         <div
           role="alert"
-          className="mode-error absolute inset-x-0 top-0 max-h-1/2 overflow-auto bg-destructive/90 p-3 font-mono text-xs whitespace-pre-wrap text-white"
+          className="mode-error absolute inset-x-0 top-0 max-h-1/2 overflow-auto bg-destructive/90 p-3 type-code font-mono whitespace-pre-wrap text-white"
         >
           {message}
         </div>

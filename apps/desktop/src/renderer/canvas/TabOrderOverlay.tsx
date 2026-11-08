@@ -16,6 +16,7 @@ type Trails = { key: string; stops: Stop[] }[]
 
 /** At most this many stops are drawn per frame; a frame with more is still numbered up to here. */
 const maxStops = 200
+/** The trail's orange, which is light, so its numbers are near-black on it, 6.5:1, as a canvas chip's text must be. */
 const color = "#f97316"
 
 /**
@@ -94,8 +95,8 @@ export function TabOrderOverlay() {
         stops.map((stop, index) => (
           <span
             key={`${key}:${index}`}
-            className="absolute grid h-[18px] min-w-[18px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full px-1 text-[10px] leading-none font-semibold text-white tabular-nums shadow-sm"
-            style={{ left: stop.x, top: stop.y, background: color }}
+            className="absolute grid h-[18px] min-w-[18px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full px-1 text-2xs leading-none font-medium tabular-nums shadow-sm"
+            style={{ left: stop.x, top: stop.y, background: color, color: "var(--canvas-chip-ink)" }}
           >
             {index + 1}
           </span>

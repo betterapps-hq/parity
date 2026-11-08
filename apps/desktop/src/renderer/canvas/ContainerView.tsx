@@ -45,6 +45,7 @@ import { createPortal } from "react-dom"
 import { stopEventPropagation } from "tldraw"
 import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../chrome/designs.ts"
 import { Hint } from "../chrome/Hint.tsx"
+import { Name, NameInput } from "../chrome/Name.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { useLibrary, useModeSettings } from "../design-store.ts"
@@ -472,7 +473,7 @@ function TitleButton({
   entry: ContainerEntry
   selected: boolean
   color: string | undefined
-  /** A frame's name: smaller, and neutral until it's selected. */
+  /** A frame's name: regular, with a smaller icon, and neutral until it's selected. */
   quiet?: boolean
   onPointerDown: (event: ReactPointerEvent) => void
 }) {
@@ -499,11 +500,11 @@ function TitleButton({
     return (
       <div className="flex min-w-0 items-center gap-1.5 px-1" onPointerDown={stopEventPropagation}>
         {icon}
-        <input
+        <NameInput
           ref={focusAndSelect}
           defaultValue={container.name}
           aria-label={`${kindTitle(container.kind)} name`}
-          className="h-7 w-56 min-w-0 rounded-md border bg-background px-2 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="h-7 w-56 min-w-0 rounded-md border bg-background px-2 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-background"
           onBlur={(event) => {
             renameDesign(session, entry, event.currentTarget.value)
             setRenaming(false)
@@ -531,13 +532,13 @@ function TitleButton({
                 event.stopPropagation()
                 setRenaming(true)
               }}
-              className={`flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 hover:text-foreground ${
-                quiet ? "text-[13px] text-muted-foreground" : "text-sm font-medium text-foreground/90"
+              className={`flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 text-sm hover:text-foreground ${
+                quiet ? "text-muted-foreground" : "font-medium text-foreground/90"
               }`}
               style={color ? { color } : undefined}
             >
               {icon}
-              <span className="truncate">{container.name}</span>
+              <Name>{container.name}</Name>
             </button>
           </Hint>
         }
@@ -637,7 +638,11 @@ function StateMenu({
     <DropdownMenu>
       <DropdownMenuTrigger className={menuTrigger} aria-label="State">
         {allStates && <Rows3 className="size-3.5 opacity-70" />}
-        <span className="max-w-40 truncate">{allStates ? "Every state" : (current?.name ?? "State")}</span>
+        {current && !allStates ? (
+          <Name className="max-w-40">{current.name}</Name>
+        ) : (
+          <span className="max-w-40 truncate">{allStates ? "Every state" : "State"}</span>
+        )}
         <ChevronDown className="size-3.5 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -647,7 +652,7 @@ function StateMenu({
             const changes = changeCount(state)
             return (
               <DropdownMenuRadioItem key={state.id} value={state.id}>
-                <span className="flex-1 truncate">{state.name}</span>
+                <Name className="flex-1">{state.name}</Name>
                 {index > 0 && (
                   <span className="text-xs text-muted-foreground">{`${changes} change${changes === 1 ? "" : "s"}`}</span>
                 )}
@@ -702,7 +707,7 @@ function StateLabel({
         onClick={onSelect}
         className="state-label pointer-events-auto absolute right-full flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap"
       >
-        <span className="text-sm font-medium text-foreground">{state.name}</span>
+        <Name className="text-sm font-medium text-foreground">{state.name}</Name>
         {!base && (
           <span className="text-xs text-muted-foreground">{`${changes} change${changes === 1 ? "" : "s"}`}</span>
         )}
@@ -884,7 +889,7 @@ const FrameTile = memo(function FrameTile({
           >
             {projectPrimary && <Crown className="size-3.5 shrink-0 text-amber-400" aria-label="Primary mode" />}
             <ModeViewportIcon of={mode} className="size-3.5 shrink-0 opacity-70" aria-hidden />
-            <span className="truncate">{mode.name}</span>
+            <Name>{mode.name}</Name>
           </button>
           <span className="shrink-0 rounded bg-muted px-1.5 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
             {frame.width}

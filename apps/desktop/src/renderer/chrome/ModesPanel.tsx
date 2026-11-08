@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
   Input,
   Select,
-  SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue
@@ -40,7 +39,9 @@ import { useMemo } from "react"
 import { useProject } from "../canvas/context.ts"
 import { useModeSettings } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
+import { PanelSelectContent } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { NameInput } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { type PresetGroup, ViewportIcon, ViewportPicker, viewportPresets, withViewport } from "./viewports.tsx"
 
@@ -201,7 +202,7 @@ function ModeCard({ mode, settings, primary, onChange, onMakePrimary, onDuplicat
   return (
     <li className={`rounded-lg border p-3 ${primary ? "border-primary/40 bg-accent/30" : ""}`}>
       <div className="mb-2.5 flex items-center gap-2">
-        <Input
+        <NameInput
           key={mode.name}
           defaultValue={mode.name}
           aria-label="Mode name"
@@ -214,7 +215,12 @@ function ModeCard({ mode, settings, primary, onChange, onMakePrimary, onDuplicat
             if (event.key === "Enter") event.currentTarget.blur()
           }}
         />
-        {primary && <Badge variant="secondary">Primary</Badge>}
+        {/* A tag on the mode's row, a Caption, as its chips are in the Design tab. */}
+        {primary && (
+          <Badge variant="secondary" className="text-2xs">
+            Primary
+          </Badge>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -281,16 +287,16 @@ function VariableSelect({ icon, variable, value, onChange }: VariableSelectProps
         {variable.name}
       </span>
       <Select items={items} value={value} onValueChange={(next) => next && onChange(next)}>
-        <SelectTrigger size="sm" className="w-full min-w-0 overflow-hidden" aria-label={variable.name}>
+        <SelectTrigger size="sm" className="w-full min-w-0 overflow-hidden text-xs" aria-label={variable.name}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <PanelSelectContent>
           {items.map((item) => (
             <SelectItem key={item.value} value={item.value}>
               {item.label}
             </SelectItem>
           ))}
-        </SelectContent>
+        </PanelSelectContent>
       </Select>
     </>
   )
@@ -387,7 +393,7 @@ function OptionDetails({ option }: { option: VariableOption }) {
   return (
     <>
       {parts.map((part) => (
-        <code key={part} className="rounded bg-muted px-1 text-[11px] text-muted-foreground">
+        <code key={part} className="rounded bg-muted px-1 text-2xs text-muted-foreground">
           {part}
         </code>
       ))}

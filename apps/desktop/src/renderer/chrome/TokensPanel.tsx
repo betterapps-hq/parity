@@ -1,6 +1,5 @@
 import {
   Button,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -32,6 +31,7 @@ import { save } from "./commands.ts"
 import { Announce, CopyOnClick, useCopy } from "./Copy.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
+import { NameInput } from "./Name.tsx"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
 import { onShowToken, takeShownToken } from "./shown-token.ts"
@@ -215,14 +215,13 @@ export function TokensPanel() {
               count={item.count}
               open={item.open}
               onToggle={() => toggle(item.title)}
+              tone="quiet"
             />
           </div>
         )
       case "heading":
         return (
-          <div className={`px-4.5 pb-0.5 text-[11px] text-muted-foreground ${item.first ? "" : "pt-2"}`}>
-            {item.text}
-          </div>
+          <div className={`px-4.5 pb-0.5 text-2xs text-muted-foreground ${item.first ? "" : "pt-2"}`}>{item.text}</div>
         )
       case "row":
         return (
@@ -254,7 +253,7 @@ export function TokensPanel() {
       case "hue":
         return (
           <div className="flex items-center gap-1.5 px-3 pb-1">
-            <span className="w-14 shrink-0 truncate px-1 text-[11px] text-muted-foreground">{item.hue}</span>
+            <span className="w-14 shrink-0 truncate px-1 text-2xs text-muted-foreground">{item.hue}</span>
             <div className="flex flex-1 gap-px">
               {item.shades.map((shade) => (
                 <PaletteShade
@@ -268,7 +267,7 @@ export function TokensPanel() {
           </div>
         )
       case "note":
-        return <p className="px-4 pb-2 text-xs text-muted-foreground">{item.text}</p>
+        return <p className="type-description px-4 pb-2 text-muted-foreground">{item.text}</p>
       case "described":
         return (
           <div className="px-3">
@@ -278,7 +277,7 @@ export function TokensPanel() {
       case "end":
         return <div className="h-4" />
       case "empty":
-        return <p className="p-6 text-center text-sm text-muted-foreground">No tokens match.</p>
+        return <p className="type-empty p-6 text-center text-muted-foreground">No tokens match.</p>
     }
   }
 
@@ -288,7 +287,7 @@ export function TokensPanel() {
         <div className="flex items-center gap-1.5">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <NameInput
               value={query}
               onChange={(event) => {
                 const next = event.currentTarget.value
@@ -572,9 +571,9 @@ function TokenRow({
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate font-mono">{token.name}</span>
             {described?.description && (
-              <span className="truncate text-[11px] text-muted-foreground">{described.description}</span>
+              <span className="truncate text-2xs text-muted-foreground">{described.description}</span>
             )}
-            {unwritten && <span className="text-[11px] text-destructive">Not written to the stylesheet</span>}
+            {unwritten && <span className="type-message text-destructive">Not written to the stylesheet</span>}
           </span>
           {copying.status ? (
             <span className="shrink-0">
@@ -632,15 +631,15 @@ function TokenTileButton({
         >
           <TokenTile token={preview} width={width} height={58} playing={playing} />
           <span className="flex min-w-0 items-baseline gap-1 px-0.5">
-            <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{token.name}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-2xs">{token.name}</span>
             {copying.status ? (
-              <span className="shrink-0 text-[10px]">
+              <span className="shrink-0 text-2xs">
                 <Copied copying={copying} />
               </span>
             ) : (
               value && (
                 <span
-                  className={`shrink-0 text-[10px] tabular-nums ${unwritten ? "text-destructive" : "text-muted-foreground"}`}
+                  className={`shrink-0 text-2xs tabular-nums ${unwritten ? "text-destructive" : "text-muted-foreground"}`}
                 >
                   {value}
                 </span>
@@ -704,7 +703,7 @@ function DescribedRow({ token }: { token: LibraryToken }) {
       >
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-mono">{token.path}</span>
-          {token.description && <span className="truncate text-[11px] text-muted-foreground">{token.description}</span>}
+          {token.description && <span className="truncate text-2xs text-muted-foreground">{token.description}</span>}
         </span>
       </Hint>
       {token.type !== "color" && (

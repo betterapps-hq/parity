@@ -18,6 +18,7 @@ import { Monitor, Moon, Sun } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { workspace } from "../workspace.ts"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
+import { DialogGroupTitle } from "./PanelSection.tsx"
 import { type Preferences, setPreferences, type ThemePreference, usePreferences } from "./preferences.ts"
 import { setTelemetryLevel, useTelemetry } from "./telemetry-setting.ts"
 import { setBetaUpdates, useUpdates } from "./updates.tsx"
@@ -249,15 +250,15 @@ function Choice<T extends string>({
 function Problem({ message }: { message: string }) {
   if (!message) return null
   return (
-    <p role="alert" className="text-xs text-destructive">
+    <p role="alert" className="type-message text-destructive">
       {message}
     </p>
   )
 }
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="border-t py-2 first-of-type:border-t-0">
-      <h3 className="pt-2 pb-1 text-xs font-medium text-muted-foreground">{title}</h3>
+    <section className="border-t pt-4 pb-2 first-of-type:border-t-0">
+      <DialogGroupTitle>{title}</DialogGroupTitle>
       {children}
     </section>
   )
@@ -268,7 +269,7 @@ function Row({ label, detail, children }: { label: string; detail: ReactNode; ch
     <div className="flex items-center justify-between gap-6 py-2">
       <div className="min-w-0">
         <div className="text-sm">{label}</div>
-        <div className="text-xs text-muted-foreground">{detail}</div>
+        <div className="type-description text-muted-foreground">{detail}</div>
       </div>
       <div className="shrink-0">{children}</div>
     </div>

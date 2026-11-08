@@ -22,6 +22,7 @@ import { type CardVariant, ComponentCard, type ComponentCardProps, ComponentPopo
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { formatKeys } from "./keys.ts"
+import { Name } from "./Name.tsx"
 
 /**
  * A component's card in the Assets panel: its preview, large, with its name, file and what to do with it. It opens
@@ -275,7 +276,7 @@ function Row({
       className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left text-sm hover:bg-accent aria-expanded:bg-accent"
     >
       <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-      <span className="truncate">{name}</span>
+      <Name>{name}</Name>
     </button>
   )
 }
@@ -298,7 +299,9 @@ export const BesideItsRow: Story = {
     <Stage className="p-0">
       <div className="flex h-screen">
         <div className="flex w-64 flex-col border-r bg-background py-2">
-          <div className="px-8 pt-1 text-[11px] text-muted-foreground">input-group</div>
+          <div className="px-8 pt-1 text-2xs text-muted-foreground">
+            <Name className="block">input-group</Name>
+          </div>
           {["InputGroup", "InputGroupAddon", "InputGroupButton", "InputGroupInput"].map((name) => (
             <Row key={name} name={name} />
           ))}
@@ -308,7 +311,9 @@ export const BesideItsRow: Story = {
             preview={made(pictures.inputGroupText)}
           />
           <Row name="InputGroupTextarea" />
-          <div className="px-8 pt-1 text-[11px] text-muted-foreground">input-otp</div>
+          <div className="px-8 pt-1 text-2xs text-muted-foreground">
+            <Name className="block">input-otp</Name>
+          </div>
           <Row name="InputOTP" />
         </div>
         <div className="flex-1 bg-muted/40" />

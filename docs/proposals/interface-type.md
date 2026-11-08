@@ -1,15 +1,11 @@
 # Proposal: easier-to-read interface type
 
-Status: approved, 2026-11-08 (PAR-709). Andrew chose Inter over Geist that day and approved the rest the same day
+Status: built, 2026-11-08 (PAR-710). Andrew chose Inter over Geist and approved the rest on 2026-11-08
 ([decisions.md](../decisions.md#the-interface-is-set-in-inter-par-709)), but for the weights, which wait for the check
-in [Open: the weights](#open-the-weights). PAR-710 builds it into the app. The comparison is in Storybook under
-Parity/Explorations/ Interface type
-([InterfaceType.stories.tsx](../../apps/desktop/src/renderer/explorations/InterfaceType.stories.tsx)), and the toolbar's
-Type control turns the proposed type on for every story: Parity/Chrome/App menu's stories, such as Edit and Settings,
-show menus with shortcuts and a dialog with descriptions and a select open in either type, and Parity/Left panel/Tokens'
-Detail and Save fails show a token's detail, with its 10px modes and values and its messages. What the proposal sets is
-one stylesheet, [proposed-type.css](../../apps/desktop/src/renderer/explorations/interface-type/proposed-type.css),
-which the build moves into `styles.css`.
+in [Open: the weights](#open-the-weights); font smoothing waits with them. What was built, and the calls made building
+it, are in [decisions.md](../decisions.md#the-interface-type-is-built-into-the-app-par-710); the roles are described in
+[typography.md](../typography.md), which is the reference from here on. The lint rule under "Holding to it" is PAR-729.
+The comparison stories and their stylesheet were removed with the build; Parity/Type/Scale draws every role.
 
 ## In one line
 
