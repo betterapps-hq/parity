@@ -59,6 +59,7 @@ import { ExportSection } from "./ExportSection.tsx"
 import { FieldWithProp } from "./field-prop.tsx"
 import { ChoiceInput, Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
+import { changedFields, recordInspectorChange } from "./inspector-events.ts"
 import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
@@ -100,10 +101,12 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
   const node = nodeOnBoard(container, location.node, state)
   const override = targetPatches(container, target)?.[nodeId]
 
-  const change = (label: string, value: NodeChange, gesture?: string) =>
+  const change = (label: string, value: NodeChange, gesture?: string) => {
     store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
       gesture
     })
+    recordLayerChange(key, [nodeId], state.id, node, value, gesture)
+  }
   const reset = (field?: PatchField) =>
     store.updateContainer(key, "Reset change", (current) =>
       resetOverride(current, boardTarget(current, state.id), nodeId, field)
@@ -190,13 +193,15 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
   const own = inner.instance.overrides?.[inner.key]
   const main = entries.find((candidate) => candidate.container.id === inner.instance.design)
 
-  const change = (label: string, value: NodeChange, gesture?: string) =>
+  const change = (label: string, value: NodeChange, gesture?: string) => {
     store.updateContainer(
       key,
       label,
       (current) => editLayer(store, current, boardTarget(current, state.id), path, value),
       { gesture }
     )
+    recordLayerChange(key, [path], state.id, node, value, gesture)
+  }
   const reset = (field?: PatchField) =>
     store.updateContainer(key, "Reset change", (current) =>
       resetLayer(store, current, boardTarget(current, state.id), path, field)
@@ -844,4 +849,18 @@ export function renameLayer(container: ContainerSpec, nodeId: string, name: stri
     return next
   })
   return { ...container, root }
+}
+
+/** Records each field a layer's change sets, as `inspector.changed`, with what the layer showed before (PAR-640). */
+function recordLayerChange(
+  design: string,
+  layers: string[],
+  state: string,
+  node: DesignNode,
+  change: NodeChange,
+  gesture: string | undefined
+): void {
+  for (const { field, from, to } of changedFields(node, change)) {
+    recordInspectorChange({ field, design, layers, state, from, to, ...(gesture ? { gesture } : {}) })
+  }
 }

@@ -30,7 +30,7 @@ import {
 } from "@parity-app/editor"
 import { toast } from "sonner"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
-import { errorMessage, reportError } from "../report-error.ts"
+import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { shapeIdFor } from "./CanvasEditor.tsx"
@@ -73,14 +73,66 @@ export async function pasteClipboard(session: ProjectSession): Promise<void> {
   if (content.kind === "envelope") {
     const { envelope } = content
     const { payload } = envelope
-    if (payload.kind === "layers") placeLayers(session, payload.nodes)
-    else if (payload.kind === "designs") pasteDesigns(session, payload.designs, envelope.project === session.info.root)
-    else pasteNotes(session, payload.notes)
+    if (payload.kind === "layers") {
+      const place = placeLayers(session, payload.nodes)
+      pasted("paste", "layers", payload.nodes.length, place?.design)
+    } else if (payload.kind === "designs") {
+      pasteDesigns(session, payload.designs, envelope.project === session.info.root)
+      pasted("paste", "designs", payload.designs.length)
+    } else {
+      pasteNotes(session, payload.notes)
+      pasted("paste", "notes", payload.notes.length)
+    }
     return
   }
-  if (content.kind === "image") return pasteImage(session, content.blob, content.name)
-  if (content.kind === "text") pasteText(session, content.text)
-  if (content.kind === "unreadable") reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
+  if (content.kind === "image") return pasteImage(session, content)
+  if (content.kind === "text") pasted("paste", "text", 1, pasteText(session, content.text))
+  if (content.kind === "unreadable") {
+    reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
+    pasteFailed("paste", "unreadable", "unreadable")
+  }
+  if (content.kind === "empty") pasteFailed("paste", "empty", "empty")
+}
+
+/** Which paste: Paste, Paste over selection, Paste to replace, or Paste here. */
+type PasteHow = "paste" | "over" | "replace" | "here"
+
+/** What was on the clipboard, as `clipboard.pasted` and `clipboard.failed` name it. */
+type PastedContent = "layers" | "designs" | "notes" | "image" | "svg" | "text" | "empty" | "unreadable"
+
+/** What a read of the clipboard holds, as `clipboard.pasted` names it. */
+function contentOf(content: ClipboardContent): PastedContent {
+  if (content.kind === "envelope") return content.envelope.payload.kind
+  if (content.kind === "image") return content.blob.type === "image/svg+xml" ? "svg" : "image"
+  return content.kind
+}
+
+/**
+ * Records a paste that put something on the canvas (PAR-640), as `clipboard.pasted` and, as it's inserted too,
+ * `insert.done`: into `design`, or as designs, notes or a frame of its own when there's none.
+ */
+function pasted(how: PasteHow, content: PastedContent, count: number, design?: string): void {
+  track("clipboard.pasted", { how, content, count })
+  if (content === "empty" || content === "unreadable") return
+  track("insert.done", {
+    source: "paste",
+    via: "clipboard",
+    kind: content === "svg" ? "image" : content,
+    count,
+    ...(design ? { design } : {}),
+    newDesign: design === undefined && content !== "designs" && content !== "notes"
+  })
+}
+
+/** Records a paste that pasted nothing, with why. */
+function pasteFailed(
+  how: PasteHow,
+  content: PastedContent,
+  reason: "empty" | "unreadable" | "wrongKind" | "noTarget" | "instance" | "imageFailed",
+  error?: unknown
+): void {
+  const code = error === undefined ? undefined : errorCode(error)
+  track("clipboard.failed", { how, content, reason, ...(code ? { code } : {}) })
 }
 
 type ClipboardContent =
@@ -126,8 +178,9 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
   const frame = store.editFrame(current)
   const ids = selectedNodes(current)
   if (frame && ids.length > 0) {
-    const nodes = await clipboardLayers(session, "Copy layers to paste them over layers")
-    if (!nodes) return
+    const layers = await clipboardLayers(session, "over", "Copy layers to paste them over layers")
+    if (!layers) return
+    const { nodes } = layers
     let copies: string[] = []
     store.updateContainer(
       frame.design,
@@ -140,10 +193,12 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
     )
     if (copies.length === 0) {
       toast.info("Layers inside an instance can't be pasted over")
+      pasteFailed("over", layers.content, "instance")
       return
     }
     selection.set(layersSelection(frame.design, copies, current))
     warnUnknown(nodes, session.components.get())
+    pasted("over", layers.content, copies.length, frame.design)
     return
   }
   const selected = selectedDesigns(current).flatMap((key) => store.getEntry(key) ?? [])
@@ -151,10 +206,12 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
   const content = await readClipboard()
   if (content.kind === "unreadable") {
     reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
+    pasteFailed("over", "unreadable", "unreadable")
     return
   }
   if (content.kind !== "envelope" || content.envelope.payload.kind !== "designs") {
     toast.info("Copy screens or components to paste them over the selection")
+    pasteFailed("over", contentOf(content), content.kind === "empty" ? "empty" : "wrongKind")
     return
   }
   const at = {
@@ -167,13 +224,14 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
     at
   )
   const path = store.mainPath
-  const pasted = kindsName(copies.map((copy) => copy.kind))
-  store.change(copies.length === 1 ? `Paste over ${pasted}` : `Paste ${pasted} over`, (snapshot) => {
+  const named = kindsName(copies.map((copy) => copy.kind))
+  store.change(copies.length === 1 ? `Paste over ${named}` : `Paste ${named} over`, (snapshot) => {
     const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
     const next = { ...document, containers: [...document.containers, ...copies] }
     return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
   })
   selection.set(designsSelection(copies.map((copy) => containerKey(path, copy.id))))
+  pasted("over", "designs", copies.length)
 }
 
 /**
@@ -185,8 +243,9 @@ export async function pasteToReplace(session: ProjectSession): Promise<void> {
   const frame = session.store.editFrame(current)
   const ids = selectedNodes(current)
   if (!frame || ids.length === 0) return
-  const nodes = await clipboardLayers(session, "Copy layers to replace layers with them")
-  if (!nodes) return
+  const layers = await clipboardLayers(session, "replace", "Copy layers to replace layers with them")
+  if (!layers) return
+  const { nodes } = layers
   let copies: string[] = []
   session.store.updateContainer(
     frame.design,
@@ -199,10 +258,12 @@ export async function pasteToReplace(session: ProjectSession): Promise<void> {
   )
   if (copies.length === 0) {
     toast.info("Layers inside an instance can't be replaced")
+    pasteFailed("replace", layers.content, "instance")
     return
   }
   session.selection.set(layersSelection(frame.design, copies, current))
   warnUnknown(nodes, session.components.get())
+  pasted("replace", layers.content, copies.length, frame.design)
 }
 
 /**
@@ -224,10 +285,12 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
   const content = await readClipboard()
   if (content.kind === "empty") {
     toast.info("There's nothing on the clipboard to paste")
+    pasteFailed("here", "empty", "empty")
     return
   }
   if (content.kind === "unreadable") {
     reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
+    pasteFailed("here", "unreadable", "unreadable")
     return
   }
   if (content.kind === "envelope" && content.envelope.payload.kind === "designs") {
@@ -243,24 +306,30 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
       return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
     })
     selection.set(designsSelection(copies.map((copy) => containerKey(path, copy.id))))
+    pasted("here", "designs", copies.length)
     return
   }
   if (content.kind === "envelope" && content.envelope.payload.kind === "notes") {
     pasteNotes(session, content.envelope.payload.notes, at)
+    pasted("here", "notes", content.envelope.payload.notes.length)
     return
   }
   if (place.kind === "canvas" && content.kind === "text") {
     addFrameOfText(session, content.text, at, "Paste text")
+    pasted("here", "text", 1)
     return
   }
   if (place.kind === "none") {
     toast.info("There's no layout here to paste into")
+    pasteFailed("here", contentOf(content), "noTarget")
     return
   }
-  const nodes = await clipboardLayers(session, "Copy layers to paste them here", content)
-  if (!nodes) return
+  const layers = await clipboardLayers(session, "here", "Copy layers to paste them here", content)
+  if (!layers) return
+  const { nodes } = layers
   if (place.kind === "canvas") {
     pasteAsNewDesign(session, nodes, at)
+    pasted("here", layers.content, nodes.length)
     return
   }
   const { hit, here, frame } = place
@@ -276,37 +345,44 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
   )
   selection.set(layersSelection(frame.design, copies, hit))
   warnUnknown(nodes, session.components.get())
+  pasted("here", layers.content, copies.length, frame.design)
 }
 
 /**
  * What's on the clipboard as layers to place: Parity's copied layers, an image saved into the project, or plain text as
- * a text layer. Undefined, with a message, when it's something else or nothing. `read` is the clipboard already read.
+ * a text layer, with what it was. Undefined, with a message, when it's something else or nothing, which is recorded as
+ * a paste `how` that failed. `read` is the clipboard already read.
  */
 async function clipboardLayers(
   session: ProjectSession,
+  how: PasteHow,
   notLayers: string,
   read?: ClipboardContent
-): Promise<DesignNode[] | undefined> {
+): Promise<{ nodes: DesignNode[]; content: PastedContent } | undefined> {
   const content = read ?? (await readClipboard())
+  const kind = contentOf(content)
   if (content.kind === "envelope") {
-    if (content.envelope.payload.kind === "layers") return content.envelope.payload.nodes
+    if (content.envelope.payload.kind === "layers") return { nodes: content.envelope.payload.nodes, content: kind }
     toast.info(notLayers)
+    pasteFailed(how, kind, "wrongKind")
     return undefined
   }
-  if (content.kind === "text") return [textLayer(content.text)]
+  if (content.kind === "text") return { nodes: [textLayer(content.text)], content: kind }
   if (content.kind === "empty") {
     toast.info("There's nothing on the clipboard to paste")
+    pasteFailed(how, kind, "empty")
     return undefined
   }
   if (content.kind === "unreadable") {
     reportError(unreadableCopy, { operation: "clipboard.read", title: unreadableCopy })
+    pasteFailed(how, kind, "unreadable")
     return undefined
   }
   const progress = toast.loading("Adding the image…")
   try {
     const node = await importImage(session, content.blob, content.name)
     toast.dismiss(progress)
-    return [node]
+    return { nodes: [node], content: kind }
   } catch (error) {
     reportError(error, {
       operation: "images.import",
@@ -314,6 +390,7 @@ async function clipboardLayers(
       id: progress,
       description: errorMessage(error)
     })
+    pasteFailed(how, kind, "imageFailed", error)
     return undefined
   }
 }
@@ -332,11 +409,12 @@ async function clipboardImage(): Promise<Blob | undefined> {
 }
 
 /** Saves a pasted image into the project and places it like a pasted layer, at its own proportions. */
-async function pasteImage(session: ProjectSession, blob: Blob, name: string): Promise<void> {
+async function pasteImage(session: ProjectSession, content: ClipboardContent & { kind: "image" }): Promise<void> {
   const progress = toast.loading("Adding the image…")
   try {
-    placeLayers(session, [await importImage(session, blob, name)], "Paste image")
+    const place = placeLayers(session, [await importImage(session, content.blob, content.name)], "Paste image")
     toast.dismiss(progress)
+    pasted("paste", contentOf(content), 1, place?.design)
   } catch (error) {
     reportError(error, {
       operation: "images.import",
@@ -344,6 +422,7 @@ async function pasteImage(session: ProjectSession, blob: Blob, name: string): Pr
       id: progress,
       description: errorMessage(error)
     })
+    pasteFailed("paste", contentOf(content), "imageFailed", error)
   }
 }
 
@@ -539,14 +618,15 @@ function pasteNotes(session: ProjectSession, notes: NoteSpec[], at?: { x: number
 
 /**
  * Text from outside the app becomes a text layer where layers would paste, or with nothing to paste into, a text frame
- * in the middle of the view, as the text tool makes one on the empty canvas.
+ * in the middle of the view, as the text tool makes one on the empty canvas. Returns the design it went into, unless it
+ * made one.
  */
-function pasteText(session: ProjectSession, text: string): void {
+function pasteText(session: ProjectSession, text: string): string | undefined {
   if (!selectedPasteTarget(session)) {
     addFrameOfText(session, text, viewCenter(session), "Paste text")
-    return
+    return undefined
   }
-  placeLayers(session, [textLayer(text)])
+  return placeLayers(session, [textLayer(text)])?.design
 }
 
 /** Layers from another project can name components this one doesn't have; they paste, with a warning. */

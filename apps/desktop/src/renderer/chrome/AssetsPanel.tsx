@@ -70,6 +70,7 @@ import {
 import { toast } from "sonner"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
+import { insertDrag } from "../canvas/gesture.ts"
 import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
@@ -128,7 +129,9 @@ function dragItem(item: InsertItem) {
     onDragStart: (event: DragEvent) => {
       event.dataTransfer.setData(insertMime, JSON.stringify(item))
       event.dataTransfer.effectAllowed = "copy"
-    }
+      insertDrag.start()
+    },
+    onDragEnd: () => insertDrag.end()
   }
 }
 

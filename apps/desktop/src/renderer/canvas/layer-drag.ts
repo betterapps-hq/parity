@@ -102,6 +102,7 @@ export function pressLayers(
 
   followPress(absolute ? gestures.absoluteDrag : gestures.layerDrag, session.store, start, {
     design: absolute ? entry.key : undefined,
+    moves: { designs: [entry.key], layers: ids },
     cursor: "grabbing",
     start(drag) {
       if (absolute) placed = followAbsolute(session, area, entry, ids[0]!, host, drag)

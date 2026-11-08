@@ -20,6 +20,7 @@ import { ContainerShapeUtil, designDrag } from "./ContainerShapeUtil.tsx"
 import { useProject } from "./context.ts"
 import { bitmapScale } from "./frame-bitmaps.ts"
 import { hiddenSleepMs } from "./frame-sleep.ts"
+import { CameraGestures, countFrames, recordGesture } from "./gesture.ts"
 import { designColor, kindColors } from "./kinds.tsx"
 import { redrawLayer } from "./layer-redraw.ts"
 import { NoteShapeUtil } from "./NoteShapeUtil.tsx"
@@ -330,18 +331,43 @@ export function CanvasEditor({
       const stopStore = store.subscribe(sync)
       const stopHeld = heldBoards.subscribe(sync)
 
+      // A pan or a zoom is a gesture of its own, recorded once the camera settles (PAR-640).
+      const camera = new CameraGestures()
+      const stopCamera = react("camera gestures", () => camera.moved(editor.getCamera()))
+
       // A board or note dragged by tldraw moves in one gesture, from its first move until tldraw stops translating.
-      let translation: string | undefined
+      let translation:
+        | { gesture: string; began: number; moved: Set<string>; frames: () => number | undefined }
+        | undefined
       const stopTranslation = react("translation ends", () => {
         if (editor.isIn("select.translating") || !translation) return
-        store.endGesture(translation)
+        const { gesture, began, moved, frames } = translation
         translation = undefined
+        const undoStep = store.endGesture(gesture)
+        const fps = frames()
+        recordGesture({
+          kind: "move",
+          how: "release",
+          kept: true,
+          durationMs: Math.round(performance.now() - began),
+          designs: [...moved],
+          ...(fps === undefined ? {} : { fps }),
+          undoStep
+        })
       })
       const stopMoves = editor.sideEffects.registerAfterChangeHandler("shape", (previous, next, source) => {
         if (source !== "user" || designDrag.active || (previous.x === next.x && previous.y === next.y)) return
         const translating = editor.isIn("select.translating")
-        if (translating) translation ??= store.beginGesture()
-        const gesture = translating ? translation : undefined
+        if (translating) {
+          translation ??= {
+            gesture: store.beginGesture(),
+            began: performance.now(),
+            moved: new Set(),
+            frames: countFrames()
+          }
+          if (next.type === "canvas-container" || next.type === "canvas-note") translation.moved.add(next.props.key)
+        }
+        const gesture = translating ? translation?.gesture : undefined
         if (next.type === "canvas-container" && !heldBoards.at(tab, next.props.key)) {
           store.setPosition(next.props.key, { x: next.x, y: next.y }, { gesture })
         }
@@ -430,6 +456,8 @@ export function CanvasEditor({
         stopStore()
         stopHeld()
         stopTranslation()
+        stopCamera()
+        camera.stop()
         stopMoves()
         stopSelection()
         stopFollowing()

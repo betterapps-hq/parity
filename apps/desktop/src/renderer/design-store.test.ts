@@ -1,7 +1,9 @@
 import { type CanvasDocument, type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { historyLimit, type TokenEdit, type TokenWrite } from "@parity-app/editor"
+import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "./design-store.ts"
+import { setWindowTelemetry } from "./report-error.ts"
 
 function design(id: string): ContainerSpec {
   return {
@@ -401,5 +403,44 @@ describe("token edits", () => {
     await vi.runAllTimersAsync()
     expect(tokenWrites).toHaveLength(1)
     expect(store.getSaveState()).toEqual({ status: "saved" })
+  })
+})
+
+describe("recording undo and redo", () => {
+  it("records each step undone and redone, with its label and what it changed", () => {
+    const sink = createTestSink()
+    setWindowTelemetry(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "renderer", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+    try {
+      const { store } = setup()
+      store.updateContainer("app.par#home", "Rename screen", (container) => ({ ...container, name: "Start" }))
+      store.undo()
+      store.redo()
+      // Nothing left to redo, so nothing is recorded.
+      store.redo()
+      const step = { step: "Rename screen", designs: ["app.par#home"], files: ["app.par"], modes: false, tokens: false }
+      expect(sink.events.map(({ name, attributes }) => ({ name, attributes }))).toEqual([
+        { name: "edit.undone", attributes: step },
+        { name: "edit.redone", attributes: step }
+      ])
+    } finally {
+      setWindowTelemetry(undefined)
+    }
+  })
+
+  it("says whether a gesture made an undo step as it ends", () => {
+    const { store } = setup()
+    const moved = store.beginGesture()
+    store.updateContainer("app.par#home", "Rename", (container) => ({ ...container, name: "Moved" }), {
+      gesture: moved
+    })
+    expect(store.endGesture(moved)).toBe(true)
+    expect(store.endGesture(store.beginGesture())).toBe(false)
   })
 })

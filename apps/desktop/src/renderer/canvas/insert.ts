@@ -10,9 +10,46 @@ import {
   whereToInsert
 } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
+import { track } from "../report-error.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { designNames, viewCenter } from "./new-screen.ts"
 import { type HereMeasures, placeAtPoint } from "./paste-here.ts"
+
+/** How an item from the Assets panel was inserted: clicked, dragged onto the canvas, or chosen in Quick insert. */
+export type InsertVia = "click" | "drag" | "quickInsert"
+
+/** Records an item inserted, as `insert.done` (PAR-640): which section it came from, what it was and where it went. */
+function recordInsert(
+  session: ProjectSession,
+  item: InsertItem,
+  via: InsertVia,
+  design: string | undefined,
+  newDesign: boolean
+): void {
+  track("insert.done", {
+    source: insertSource(session, item),
+    via,
+    kind: item.kind,
+    item: itemName(item),
+    count: 1,
+    ...(design ? { design } : {}),
+    newDesign
+  })
+}
+
+/** Which item it is: the component, the design an instance places, or the image's file. */
+function itemName(item: InsertItem): string {
+  if (item.kind === "component") return item.component
+  return item.kind === "instance" ? item.design : item.src
+}
+
+/** The Assets panel section an item is from: an icon set's icons, images, or components. */
+function insertSource(session: ProjectSession, item: InsertItem): "components" | "icons" | "images" {
+  if (item.kind === "image") return "images"
+  if (item.kind !== "component") return "components"
+  const icons = session.info.libraries.filter((library) => library.kind === "icons")
+  return icons.some((library) => item.component.startsWith(`${library.id}/`)) ? "icons" : "components"
+}
 
 /**
  * Inserting from the Assets panel, by a drop on the canvas or a click. The rules are `@parity-app/editor`'s; this
@@ -76,7 +113,8 @@ export function insertContext(session: ProjectSession, item: InsertItem): Insert
 export function insertItem(
   session: ProjectSession,
   target: InsertAt & { entry: ContainerEntry; mode?: string; state?: string },
-  item: InsertItem
+  item: InsertItem,
+  via: InsertVia = "drag"
 ): string | undefined {
   const { store, selection } = session
   const context = insertContext(session, item)
@@ -86,7 +124,10 @@ export function insertItem(
     node = inserted.node
     return inserted.container
   })
-  if (node) selection.set({ design: target.entry.key, node, mode: target.mode, state: target.state })
+  if (node) {
+    selection.set({ design: target.entry.key, node, mode: target.mode, state: target.state })
+    recordInsert(session, item, via, target.entry.key, false)
+  }
   return node
 }
 
@@ -95,7 +136,12 @@ export function insertItem(
  * holding it, with its top left `at`, named after it (`designOfItem`, PAR-546, PAR-545). One undo step, and the frame
  * is selected, as a paste there selects the frame it makes.
  */
-export function addFrameOfItem(session: ProjectSession, item: InsertItem, at = viewCenter(session)): string {
+export function addFrameOfItem(
+  session: ProjectSession,
+  item: InsertItem,
+  at = viewCenter(session),
+  via: InsertVia = "drag"
+): string {
   const { store, selection } = session
   const { design } = designOfItem(
     item,
@@ -106,6 +152,7 @@ export function addFrameOfItem(session: ProjectSession, item: InsertItem, at = v
   )
   const key = store.addContainer(store.mainPath, design, insertLabel(item))
   selection.set({ design: key })
+  recordInsert(session, item, via, key, true)
   return key
 }
 
@@ -114,16 +161,16 @@ export function addFrameOfItem(session: ProjectSession, item: InsertItem, at = v
  * other selected layer, or at the end of a selected design. With no design selected, it lands on the canvas, so it makes a new frame there, in
  * the middle of the view (PAR-546). Returns false when the selected design has nowhere to insert it.
  */
-export function insertAtSelection(session: ProjectSession, item: InsertItem): boolean {
+export function insertAtSelection(session: ProjectSession, item: InsertItem, via: InsertVia = "click"): boolean {
   const current = session.selection.get()
   if (!current.design) {
-    addFrameOfItem(session, item)
+    addFrameOfItem(session, item, viewCenter(session), via)
     return true
   }
   const entry = session.store.getEntry(current.design)
   if (!entry) return false
   const at = whereToInsert(entry.container.root, current.node, session.store.getComponentLibrary())
   if (!at) return false
-  insertItem(session, { entry, ...at, mode: current.mode, state: current.state }, item)
+  insertItem(session, { entry, ...at, mode: current.mode, state: current.state }, item, via)
   return true
 }

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useProject } from "./context.ts"
 import { carriesFiles, draggedTypes, dropFiles, type FileDrop, fileDropAt, overFileField } from "./drop-files.ts"
+import { insertDrag } from "./gesture.ts"
 import type { Point } from "./hit.ts"
 import { addFrameOfItem, dropTarget, insertItem, insertMime } from "./insert.ts"
 import { kindColors } from "./kinds.tsx"
@@ -138,8 +139,8 @@ export function CanvasDrop() {
       const canvas = target ? undefined : emptyCanvasAt(session, area, point)
       const item = readInsertItem(event.dataTransfer!.getData(insertMime))
       if (!item) return
-      if (target) insertItem(session, target, item)
-      else if (canvas) addFrameOfItem(session, item, canvas)
+      if (target) insertDrag.dropped(insertItem(session, target, item) && target.entry.key)
+      else if (canvas) insertDrag.dropped(addFrameOfItem(session, item, canvas))
       else toast.info("There's no layout here to drop into")
     }
 

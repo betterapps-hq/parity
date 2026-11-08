@@ -147,6 +147,24 @@ and passes them to each window, which asks for them as its telemetry starts. Eac
 
 What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
 
+## Editing
+
+Editing on the canvas and in the inspector is recorded once per thing done, never per pointer move or per frame
+(PAR-640):
+
+- **`gesture.ended` comes from `canvas/gesture.ts`.** `followPress` records each pointer drag as it ends, `GestureRun`
+  each run of arrow presses or of Up and Down in a field, `CameraGestures` each pan or zoom once the camera has been
+  still for 300 ms, and `InsertDrag` each item dragged in from the Assets panel. Boards and notes moved by tldraw are
+  recorded where `CanvasEditor.tsx` ends their gesture. `undoStep` is whether the design store's gesture made a step,
+  and `fps` counts the animation frames drawn while it lasted.
+- **`edit.undone` and `edit.redone` come from the design store,** whichever button, key or toast undid the step.
+- **`inspector.changed` comes from where the inspector writes:** the style rows (`chrome/style-editor.ts`) and a layer's
+  text, visibility and props (`chrome/LayerPanel.tsx`). Values are JSON; a row whose layers differ was `mixed`.
+- **`insert.done` comes from `canvas/insert.ts`, `canvas/drop-files.ts` and `canvas/clipboard.ts`,** so an item from the
+  Assets panel or Quick insert, files dropped and a paste are each one. A paste is `clipboard.pasted` too, and a paste
+  that pastes nothing is `clipboard.failed` with why.
+- **`text.edited` comes from the text editor on the canvas** as it closes.
+
 ## Levels and sampling
 
 Each event has a level, lowest first: `debug`, `info`, `warn`, `error` and `fatal`. `error` and `fatal` events also
@@ -176,15 +194,22 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `app.quit`            | info  | all  | main                                    | The app quits.                                                                      |
 | `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                    |
 | `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                         |
+| `clipboard.failed`    | info  | all  | renderer                                | A paste pastes nothing, and says why.                                               |
+| `clipboard.pasted`    | info  | all  | renderer                                | A paste puts something on the canvas.                                               |
 | `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.             |
 | `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                 |
 | `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                    |
 | `document.saved`      | info  | all  | renderer                                | A design file is saved.                                                             |
+| `edit.redone`         | info  | all  | renderer                                | A step undone is redone.                                                            |
+| `edit.undone`         | info  | all  | renderer                                | A step is undone.                                                                   |
 | `error.caught`        | error | all  | renderer                                | A failure is shown as an error notification.                                        |
 | `export.done`         | info  | all  | renderer                                | An export finishes.                                                                 |
 | `export.failed`       | warn  | all  | renderer                                | An export fails.                                                                    |
 | `frame.drawn`         | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end.           |
+| `gesture.ended`       | info  | all  | renderer                                | A gesture ends: a drag, a resize, a run of presses, a pan or a zoom.                |
 | `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                          |
+| `insert.done`         | info  | all  | renderer                                | Something is inserted onto the canvas.                                              |
+| `inspector.changed`   | info  | all  | renderer                                | A field in the inspector changes a layer.                                           |
 | `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                             |
 | `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                    |
 | `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                            |
@@ -204,6 +229,7 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `tab.closed`          | info  | all  | renderer                                | A tab closes.                                                                       |
 | `tab.opened`          | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                         |
 | `tab.switched`        | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                           |
+| `text.edited`         | info  | all  | renderer                                | Editing a text layer in place on the canvas ends.                                   |
 | `tokens.saved`        | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                         |
 | `update.checked`      | info  | all  | main                                    | A check for an update finds one or finds none.                                      |
 | `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                     |
@@ -247,6 +273,23 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | --------- | -------- | ------------------ |
 | `builder` | `string` | The builder's name |
 
+### `clipboard.failed`
+
+| Attribute | Type                                                                                        | Meaning                                                                                                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `how`     | `"paste" \| "over" \| "replace" \| "here"`                                                  | Which paste: Paste, Paste over selection, Paste to replace, or Paste here                                                                                                        |
+| `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, text, nothing, or a copy that can't be read                                                  |
+| `reason`  | `"empty" \| "unreadable" \| "wrongKind" \| "noTarget" \| "instance" \| "imageFailed"`       | Why nothing was pasted: nothing to paste, a copy that can't be read, content that can't go there, no layout there, layers inside an instance, or an image that couldn't be saved |
+| `code`    | `string`, optional                                                                          | The error code, when saving an image failed                                                                                                                                      |
+
+### `clipboard.pasted`
+
+| Attribute | Type                                                                                        | Meaning                                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `how`     | `"paste" \| "over" \| "replace" \| "here"`                                                  | Which paste: Paste, Paste over selection, Paste to replace, or Paste here                                                       |
+| `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, text, nothing, or a copy that can't be read |
+| `count`   | `integer`                                                                                   | How many layers, designs or notes were pasted                                                                                   |
+
 ### `data.invalid`
 
 | Attribute | Type       | Meaning                                                       |
@@ -279,6 +322,26 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `file`       | `string`  | The file written            |
 | `durationMs` | `number`  | How long it took            |
 | `bytes`      | `integer` | The document's size as JSON |
+
+### `edit.redone`
+
+| Attribute | Type       | Meaning                                                                   |
+| --------- | ---------- | ------------------------------------------------------------------------- |
+| `step`    | `string`   | The step's label, as Edit > Undo names it: `Move frame`, `Change padding` |
+| `designs` | `string[]` | The designs it changed, by key                                            |
+| `files`   | `string[]` | The files it changed, which are written again                             |
+| `modes`   | `boolean`  | Whether it changed the project's modes                                    |
+| `tokens`  | `boolean`  | Whether it changed token values                                           |
+
+### `edit.undone`
+
+| Attribute | Type       | Meaning                                                                   |
+| --------- | ---------- | ------------------------------------------------------------------------- |
+| `step`    | `string`   | The step's label, as Edit > Undo names it: `Move frame`, `Change padding` |
+| `designs` | `string[]` | The designs it changed, by key                                            |
+| `files`   | `string[]` | The files it changed, which are written again                             |
+| `modes`   | `boolean`  | Whether it changed the project's modes                                    |
+| `tokens`  | `boolean`  | Whether it changed token values                                           |
 
 ### `error.caught`
 
@@ -320,12 +383,50 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | `queuedMs` | `number`  | How long it waited for an offscreen window, in milliseconds |
 | `whole`    | `boolean` | Whether it was drawn whole, to capture or check it          |
 
+### `gesture.ended`
+
+| Attribute    | Type                                                                                                                                                             | Meaning                                                                |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `kind`       | `"move" \| "resize" \| "layerDrag" \| "absoluteDrag" \| "titleDrag" \| "boxSelect" \| "frameDraw" \| "nudge" \| "fieldNudge" \| "insertDrag" \| "pan" \| "zoom"` | The gesture, as `canvas/gesture.ts` names it                           |
+| `how`        | `"release" \| "escape" \| "interrupted" \| "cancelled" \| "settled" \| "selection" \| "ended"`                                                                   | How it ended                                                           |
+| `kept`       | `boolean`                                                                                                                                                        | Whether what it did stands, rather than being taken back or called off |
+| `durationMs` | `number`                                                                                                                                                         | From when it began to when it ended, in milliseconds                   |
+| `designs`    | `string[]`, optional                                                                                                                                             | The designs it moved or changed, by key                                |
+| `layers`     | `string[]`, optional                                                                                                                                             | The layers it moved                                                    |
+| `fps`        | `number`, optional                                                                                                                                               | Frames the window drew per second during it                            |
+| `presses`    | `integer`, optional                                                                                                                                              | How many presses a run took                                            |
+| `undoStep`   | `boolean`                                                                                                                                                        | Whether it became an undo step                                         |
+
 ### `gesture.ran`
 
 | Attribute | Type               | Meaning                                             |
 | --------- | ------------------ | --------------------------------------------------- |
 | `gesture` | `string`           | The gesture's kind, as `canvas/gesture.ts` names it |
 | `how`     | `string`, optional | How it ended: release, escape or interrupted        |
+
+### `insert.done`
+
+| Attribute   | Type                                                                                 | Meaning                                                                                       |
+| ----------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `source`    | `"components" \| "icons" \| "images" \| "paste" \| "drop"`                           | Where it came from: the Assets panel's Components, Icons or Images, a paste, or files dropped |
+| `via`       | `"click" \| "drag" \| "quickInsert" \| "clipboard" \| "files"`                       | How: clicked or dragged from the panel, Quick insert, the clipboard, or files dropped         |
+| `kind`      | `"component" \| "instance" \| "image" \| "layers" \| "designs" \| "notes" \| "text"` | What it inserted                                                                              |
+| `item`      | `string`, optional                                                                   | Which: the component, the design an instance places, or the image's file                      |
+| `count`     | `integer`                                                                            | How many layers, designs or notes went in                                                     |
+| `design`    | `string`, optional                                                                   | The design it went into, by key                                                               |
+| `newDesign` | `boolean`                                                                            | Whether it made a design of its own, with nothing to go into                                  |
+
+### `inspector.changed`
+
+| Attribute | Type               | Meaning                                                                                              |
+| --------- | ------------------ | ---------------------------------------------------------------------------------------------------- |
+| `field`   | `string`           | What it changed: a style row (`style.padding`), a prop (`props.variant`), `text`, `hidden` or `name` |
+| `design`  | `string`           | The design, by key                                                                                   |
+| `layers`  | `string[]`         | The layers it changed                                                                                |
+| `state`   | `string`, optional | The state the edit went to, by id                                                                    |
+| `from`    | `string`           | The value before, as JSON; `mixed` when the layers differed                                          |
+| `to`      | `string`           | The value after, as JSON                                                                             |
+| `gesture` | `boolean`          | Whether it's part of a run of Up and Down presses                                                    |
 
 ### `ipc.failed`
 
@@ -462,6 +563,17 @@ unless the event says otherwise. Sampling is decided when an event is tracked or
 | --------- | ------------------------------ | ------------------------ |
 | `from`    | `"home" \| "project" \| "new"` | What was in front before |
 | `to`      | `"home" \| "project" \| "new"` | What is in front now     |
+
+### `text.edited`
+
+| Attribute    | Type                                        | Meaning                                                                                       |
+| ------------ | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `design`     | `string`                                    | The design, by key                                                                            |
+| `layer`      | `string`                                    | The text layer, by id                                                                         |
+| `outcome`    | `"committed" \| "unchanged" \| "cancelled"` | Whether the text was changed, left as it was, or the editor closed before it could be written |
+| `how`        | `"enter" \| "escape" \| "blur"`, optional   | What closed it: Enter, Escape, or clicking away                                               |
+| `durationMs` | `number`                                    | How long it was open, in milliseconds                                                         |
+| `length`     | `integer`                                   | How many characters the text has after it                                                     |
 
 ### `tokens.saved`
 

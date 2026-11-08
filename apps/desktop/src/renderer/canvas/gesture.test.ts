@@ -1,8 +1,30 @@
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { dragThreshold } from "@parity-app/editor"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
-import { followPress, GestureRun, gestures, onGestureEnd, type Press } from "./gesture.ts"
+import { setWindowTelemetry } from "../report-error.ts"
+import { CameraGestures, followPress, GestureRun, gestures, InsertDrag, onGestureEnd, type Press } from "./gesture.ts"
+
+/** Where the gestures' events go, checked against their schemas (PAR-640). */
+const sink = createTestSink()
+beforeEach(() => {
+  setWindowTelemetry(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "renderer", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+  )
+})
+afterEach(() => {
+  setWindowTelemetry(undefined)
+  sink.clear()
+})
+
+/** The `gesture.ended` events recorded, by their attributes. */
+const ended = () => sink.named("gesture.ended").map((event) => event.attributes)
 
 /** A key press as the window gets it. */
 const press = (key: string) => Object.assign(new Event("keydown", { cancelable: true }), { key })
@@ -93,7 +115,11 @@ function setup() {
   const name = () => store.getEntry(design)!.container.name
   const rename = (to: string, gesture?: string) =>
     store.updateContainer(design, "Rename", (container) => ({ ...container, name: to }), { gesture })
-  return { store, target, cursors, at: { target, holdCursor }, name, rename }
+  // A clock that moves on 10ms each time it's read, and a frame counter that saw 60 a second.
+  let time = 0
+  const now = () => (time += 10)
+  const countFrames = () => () => 60
+  return { store, target, cursors, at: { target, holdCursor, now, countFrames }, name, rename }
 }
 
 describe("a press on the canvas", () => {
@@ -299,7 +325,10 @@ describe("a run of presses", () => {
         log.push(`begin g${count}`)
         return `g${count}`
       },
-      endGesture: (gesture) => log.push(`end ${gesture}`)
+      endGesture: (gesture) => {
+        log.push(`end ${gesture}`)
+        return true
+      }
     })
     return { run, log }
   }
@@ -336,5 +365,127 @@ describe("a run of presses", () => {
     run.end()
     run.end()
     expect(watching).toEqual(["start", "stop"])
+  })
+})
+
+describe("gesture.ended", () => {
+  it("records a drag once, as it ends, with how, what it moved, its frame rate and its undo step", () => {
+    const { target, at, store, rename } = setup()
+    followPress(
+      gestures.resize,
+      store,
+      { clientX: 0, clientY: 0 },
+      { design, move: (event, drag) => rename(`Home ${event.clientX}`, drag.gesture) },
+      at
+    )
+    for (const x of [10, 20, 30]) target.dispatchEvent(pointer("pointermove", x))
+    // Nothing per move.
+    expect(ended()).toEqual([])
+    target.dispatchEvent(new Event("pointerup"))
+    expect(ended()).toEqual([
+      { kind: "resize", how: "release", kept: true, durationMs: 10, designs: [design], fps: 60, undoStep: true }
+    ])
+  })
+
+  it("records a drag taken back with Escape as not kept and no undo step, and names the layers it moved", () => {
+    const { target, at, store, rename } = setup()
+    followPress(
+      gestures.absoluteDrag,
+      store,
+      { clientX: 0, clientY: 0 },
+      {
+        design,
+        moves: { designs: [design], layers: ["badge"] },
+        move: (event, drag) => rename(`Home ${event.clientX}`, drag.gesture)
+      },
+      at
+    )
+    target.dispatchEvent(pointer("pointermove", 10))
+    target.dispatchEvent(press("Escape"))
+    expect(ended()).toMatchObject([
+      { kind: "absoluteDrag", how: "escape", kept: false, designs: [design], layers: ["badge"], undoStep: false }
+    ])
+  })
+
+  it("counts a step a drag makes as it ends, outside its undo gesture, as a design dragged by its title does", () => {
+    const { target, at, store, rename } = setup()
+    followPress(
+      gestures.titleDrag,
+      store,
+      { clientX: 0, clientY: 0 },
+      { move: () => undefined, end: () => rename("Moved") },
+      at
+    )
+    target.dispatchEvent(pointer("pointermove", 10))
+    target.dispatchEvent(new Event("pointerup"))
+    expect(ended()).toMatchObject([{ kind: "titleDrag", kept: true, undoStep: true }])
+  })
+
+  it("records nothing for a click", () => {
+    const { target, at, store } = setup()
+    followPress(gestures.layerDrag, store, { clientX: 0, clientY: 0 }, { move: () => undefined }, at)
+    target.dispatchEvent(new Event("pointerup"))
+    expect(ended()).toEqual([])
+  })
+
+  it("records a run of presses once it ends, with how many it took", () => {
+    const { store, rename } = setup()
+    let time = 0
+    const run = new GestureRun(store, "fieldNudge", () => (time += 100))
+    rename("Home 1", run.gesture("badge"))
+    rename("Home 2", run.gesture("badge"))
+    expect(ended()).toEqual([])
+    run.select("title")
+    expect(ended()).toEqual([
+      { kind: "fieldNudge", how: "selection", kept: true, durationMs: 100, presses: 2, undoStep: true }
+    ])
+  })
+
+  it("records a pan or zoom once the camera has settled, as a zoom when it zoomed on the way", () => {
+    vi.useFakeTimers()
+    try {
+      let time = 0
+      const camera = new CameraGestures(300, () => time)
+      camera.moved({ x: 0, y: 0, z: 1 })
+      for (const [x, z] of [
+        [10, 1],
+        [20, 1],
+        [20, 2]
+      ] as const) {
+        time += 16
+        camera.moved({ x, y: 0, z })
+      }
+      vi.advanceTimersByTime(200)
+      expect(ended()).toEqual([])
+      time += 400
+      vi.advanceTimersByTime(400)
+      expect(ended()).toEqual([
+        { kind: "zoom", how: "settled", kept: true, durationMs: 32, fps: 62.5, undoStep: false }
+      ])
+      // A camera that stays still is no gesture.
+      camera.moved({ x: 20, y: 0, z: 2 })
+      vi.runAllTimers()
+      expect(ended()).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("records an item dragged from the Assets panel as dropped where it went in, or called off", () => {
+    let time = 0
+    const drag = new InsertDrag(
+      () => (time += 250),
+      () => () => undefined
+    )
+    drag.start()
+    drag.dropped(design)
+    drag.end()
+    drag.start()
+    drag.dropped(undefined)
+    drag.end()
+    expect(ended()).toEqual([
+      { kind: "insertDrag", how: "release", kept: true, durationMs: 250, designs: [design], undoStep: true },
+      { kind: "insertDrag", how: "cancelled", kept: false, durationMs: 250, undoStep: false }
+    ])
   })
 })

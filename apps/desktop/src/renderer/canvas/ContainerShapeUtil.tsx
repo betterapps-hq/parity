@@ -249,6 +249,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
         { history: "ignore" }
       )
     followPress(gestures.titleDrag, session.store, event, {
+      moves: { designs: moving },
       cursor: "grabbing",
       start() {
         designDrag.active = true

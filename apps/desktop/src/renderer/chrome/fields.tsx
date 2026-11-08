@@ -368,7 +368,7 @@ export function NumberField({
    * run lasts while only Up and Down are pressed on one target: typing, Enter, Escape, leaving the field, scrubbing or
    * the target changing ends it.
    */
-  const presses = useMemo(() => (store ? new GestureRun(store) : undefined), [store])
+  const presses = useMemo(() => (store ? new GestureRun(store, "fieldNudge") : undefined), [store])
   const endGesture = () => presses?.end()
   const beginGesture = () => presses?.gesture(target)
   const input = useRef<HTMLInputElement>(null)

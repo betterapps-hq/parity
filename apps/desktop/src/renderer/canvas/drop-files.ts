@@ -12,7 +12,7 @@ import {
   sortDrop
 } from "@parity-app/editor"
 import { toast } from "sonner"
-import { reportError } from "../report-error.ts"
+import { reportError, track } from "../report-error.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { importImage } from "./clipboard.ts"
 import { type Hit, pickedIn } from "./hit.ts"
@@ -106,7 +106,9 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
       store.getEntries().map((entry) => entry.container.id),
       target.at
     )
-    selection.set({ design: store.addContainer(store.mainPath, design, label) })
+    const key = store.addContainer(store.mainPath, design, label)
+    selection.set({ design: key })
+    recordDrop(added, key, true)
     return
   }
   const { hit, here } = target
@@ -126,6 +128,20 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
     return
   }
   selection.set(layersSelection(hit.entry.key, copies, hit))
+  recordDrop(added, hit.entry.key, false)
+}
+
+/** Records images dropped from outside the app as `insert.done` (PAR-640). */
+function recordDrop(added: readonly { name: string }[], design: string, newDesign: boolean): void {
+  track("insert.done", {
+    source: "drop",
+    via: "files",
+    kind: "image",
+    ...(added.length === 1 ? { item: added[0]!.name } : {}),
+    count: added.length,
+    design,
+    newDesign
+  })
 }
 
 /** Whether a drag carries files from outside the app, such as from Explorer or Finder. */
