@@ -4,6 +4,7 @@ import {
   agentCallFailed,
   agentCallStart,
   cliEvents,
+  createScrubber,
   createTelemetry,
   createTestSink,
   endWhenSettled,
@@ -44,6 +45,17 @@ describe("agentCallStart", () => {
     const { input, snippet } = agentCallStart(body)
     expect(input).toHaveLength(2001)
     expect(snippet).toHaveLength(10_001)
+  })
+
+  it("scrubs a project's secrets before they're escaped or cut", () => {
+    const scrubber = createScrubber({ secrets: ['my-"shop"-secret-value', "my-shop-secret-value"] })
+    const body = JSON.stringify({
+      method: "exec",
+      params: { replace: 'token = my-"shop"-secret-value', code: `${"y".repeat(9990)}my-shop-secret-value` }
+    })
+    const { input, snippet } = agentCallStart(body, scrubber)
+    expect(input).toBe(JSON.stringify({ replace: "token = [redacted]" }))
+    expect(snippet).toBe(`${"y".repeat(9990)}[redacted]`)
   })
 
   it("counts a call naming an MCP client as MCP when an older CLI doesn't say how it came", () => {

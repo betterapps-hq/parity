@@ -92,7 +92,9 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   many alternatives it offered; a snippet or screenshot that failed without throwing counts as failed too. The answer's
   warning groups are listed by category. An `exec` call's snippet goes on the span by itself, so a failed snippet reads
   beside its error. `agentCallStart`, `agentCallAnswered` and `agentCallFailed` in `@parity-app/telemetry` read these
-  from the body and the answer. When the server can't start, the service records `agent.serverFailed`.
+  from the body and the answer, scrubbing the open projects' `.env` values before the params are serialized or cut,
+  since an escaped or shortened secret wouldn't match later. When the server can't start, the service records
+  `agent.serverFailed`.
 - **The CLI records its own runs** through `@parity-app/telemetry`: `cli.ran` for each command, with the flags' names
   but not their values; `cli.connectFailed` when no copy of the app is registered (`not_running`) or none answers
   (`not_answering`); `cli.versionMismatch` when the app is newer than the CLI reads, or its answer doesn't check; and

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { defineEvent } from "./events.ts"
+import { createScrubber, type Scrubber } from "./scrub.ts"
 import { errorCode, type SpanEnd } from "./trace.ts"
 
 /*
@@ -120,6 +121,9 @@ function record(value: unknown): Record<string, unknown> | undefined {
 
 const text = (value: unknown) => (typeof value === "string" && value.trim() ? value : undefined)
 
+/** Scrubs without a project's `.env` values, for callers that have none. */
+const scrubWithoutSecrets = createScrubber()
+
 /** What `agent.called` starts with. */
 export type AgentCallStart = z.input<typeof agentCalled.schema>
 
@@ -127,11 +131,15 @@ export type AgentCallStart = z.input<typeof agentCalled.schema>
  * What an agent call's span starts with, from the body the CLI posted, before the app checks it: the method, how it
  * came, who sent it, its params and an exec call's snippet apart. A body that isn't a JSON object is `unreadable`. A
  * CLI older than PAR-641 doesn't say how it came, so a call naming an MCP client counts as MCP.
+ *
+ * The body's values are scrubbed with `scrubber`, given the open projects' `.env` values, before anything is
+ * serialized or cut: a secret escaped by `JSON.stringify` or cut short at a limit no longer matches, so the scrubbing
+ * every event gets later couldn't find it.
  */
-export function agentCallStart(body: string): AgentCallStart {
+export function agentCallStart(body: string, scrubber: Pick<Scrubber, "value"> = scrubWithoutSecrets): AgentCallStart {
   let sent: Record<string, unknown> | undefined
   try {
-    sent = record(JSON.parse(body))
+    sent = record(scrubber.value(JSON.parse(body) as unknown))
   } catch {
     sent = undefined
   }

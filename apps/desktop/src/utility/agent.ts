@@ -26,6 +26,7 @@ import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
 import { renderOffscreen } from "./render.ts"
+import { scrubSecrets } from "./telemetry.ts"
 import { composePicture, cutPicture } from "./webp.ts"
 
 interface WindowChannel {
@@ -90,10 +91,16 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
       })
       return { result, text: JSON.stringify({ result }) }
     }
-    const { text } = await inSpan("agent.called", agentCallStart(body), answer, readTraceHeaders(request.headers), {
-      result: ({ result, text }) => agentCallAnswered(result, text.length),
-      error: agentCallFailed
-    })
+    const { text } = await inSpan(
+      "agent.called",
+      agentCallStart(body, { value: scrubSecrets }),
+      answer,
+      readTraceHeaders(request.headers),
+      {
+        result: ({ result, text }) => agentCallAnswered(result, text.length),
+        error: agentCallFailed
+      }
+    )
     response.writeHead(200, { "content-type": "application/json" })
     response.end(text)
   } catch (error) {
