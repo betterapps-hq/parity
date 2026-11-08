@@ -64,7 +64,8 @@ function send(batch: Batch): void {
         case "log":
           Sentry.withScope((inner) => {
             if (item.log.traceId) inner.setPropagationContext({ traceId: item.log.traceId, sampleRand: Math.random() })
-            Sentry.logger[item.log.level](item.log.message, item.log.attributes)
+            // A log takes no scope tags, so the run's tags go in its attributes, to filter logs as errors are.
+            Sentry.logger[item.log.level](item.log.message, { ...run.tags, ...item.log.attributes })
           })
           break
         case "exception": {
