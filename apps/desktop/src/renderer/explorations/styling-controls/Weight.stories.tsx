@@ -3,9 +3,10 @@ import { useState } from "react"
 import { Field } from "../../chrome/fields.tsx"
 import { FontFamilyField, resolveFont, WeightField } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
-import { findFont, projectFonts, weightTokens } from "./text-data.ts"
+import { findFont, projectFonts } from "./text-data.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type FontValue, fontWrites, type WeightValue, weightWrites } from "./text-writes.ts"
+import { weightTokens } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 /**
@@ -57,7 +58,7 @@ function Weight({
   const token =
     weight !== undefined && "token" in weight ? weightTokens.find((each) => each.name === weight.token) : undefined
   let shown = 400
-  if (weight !== undefined) shown = token?.value ?? ("value" in weight ? weight.value : 400)
+  if (weight !== undefined) shown = token?.weight ?? ("value" in weight ? weight.value : 400)
   return (
     <Playground
       writes={together(fontWrites(font), weightWrites(weight, italic))}

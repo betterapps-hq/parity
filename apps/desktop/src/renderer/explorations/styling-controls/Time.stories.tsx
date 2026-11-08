@@ -3,19 +3,11 @@ import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { Field } from "../../chrome/fields.tsx"
 import { HoverCard } from "./easing.tsx"
-import {
-  defaultCurve,
-  defaultDuration,
-  type DurationToken,
-  durationTokens,
-  type Spring,
-  springSettle,
-  type Time,
-  timeMs
-} from "./motion-data.ts"
+import { defaultCurve, defaultDuration, type Spring, springSettle, type Time, timeMs } from "./motion-data.ts"
 import { easingWrites, timeWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
 import { TimeField } from "./time.tsx"
+import { type DurationToken, durationTokens } from "./tokens.ts"
 import { mixedWrites, type Writes } from "./writes.ts"
 
 /**

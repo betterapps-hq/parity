@@ -2,10 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { PreviewStage } from "./list-parts.tsx"
-import type { GradientPaint, GradientToken, PaintEntry, Stop } from "./lists-data.ts"
+import type { GradientPaint, PaintEntry, Stop } from "./lists-data.ts"
 import { paintWrites } from "./lists-writes.ts"
 import { PaintPreview, PaintStack } from "./paint-stack.tsx"
 import { Playground } from "./playground.tsx"
+import type { GradientToken } from "./tokens.ts"
 import { mixedWrites } from "./writes.ts"
 
 /**

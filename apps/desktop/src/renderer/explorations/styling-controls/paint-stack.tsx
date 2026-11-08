@@ -21,17 +21,17 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ArrowLeftRight, ChevronDown, Image as ImageIcon, Minus, Plus, Repeat, RotateCw, Unlink } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
+import { Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { Checker, ColorInput } from "./color-picker.tsx"
+import { ColorInput } from "./color-picker.tsx"
+import { mixColor } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import { AngleField, ListRow, moved, NineSpot, PercentField, RowMessage } from "./list-parts.tsx"
 import {
   drawColor,
   type GradientKind,
   type GradientPaint,
-  type GradientToken,
-  gradientTokens,
   imagePreview,
   type ImageFit,
   type ImagePaint,
@@ -51,6 +51,7 @@ import {
   resolveGradient,
   simpleGradient
 } from "./lists-writes.ts"
+import { type GradientToken, gradientToken, gradientTokens } from "./tokens.ts"
 
 /*
  * Fill's paint stack (design-options-values.md, Paint stack): solids, gradients and images, top first, as CSS paints
@@ -626,7 +627,7 @@ export function GradientEditor({
             className="h-7 self-start text-xs"
             onClick={() => {
               const name = `gradient-saved-${saved.length + 1}`
-              onSave({ name, paint: { ...resolved, token: undefined } as GradientToken["paint"] })
+              onSave(gradientToken(name, { ...resolved, token: undefined } as GradientToken["paint"]))
               onChange({ ...resolved, token: name })
             }}
           >
@@ -771,7 +772,7 @@ function StopsBar({
             className={`absolute top-0 grid size-4 -translate-x-1/2 touch-none place-items-center rounded-sm border-2 bg-background shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected === stop.id ? "border-[#0d99ff]" : "border-background"} ${leaving === stop.id ? "opacity-30" : ""}`}
             style={{ left: `${stop.position}%` }}
           >
-            <Checker hex={drawColor({ color: stop.color })} alpha={stop.alpha} className="size-2.5" />
+            <Swatch value={mixColor(drawColor({ color: stop.color }), stop.alpha)} className="size-2.5" />
           </button>
         ))}
       </div>

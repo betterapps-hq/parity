@@ -1,84 +1,10 @@
 /*
- * Stand-in tokens and a stand-in layer for the styling controls exploration: shadcn's neutral theme's colors, as hex,
- * and Tailwind's radius and blur scales.
+ * The stand-in layer for the styling controls exploration: the proposed style fields it has, and the colors the
+ * stand-in design already uses. Its tokens are in tokens.ts.
  */
-
-export interface ColorToken {
-  name: string
-  hex: string
-  /** The token to use instead, when this one is deprecated (DTCG's `$deprecated`). */
-  deprecated?: string
-}
-
-export const colorTokens: ColorToken[] = [
-  { name: "background", hex: "#ffffff" },
-  { name: "foreground", hex: "#0a0a0a" },
-  { name: "card", hex: "#ffffff" },
-  { name: "primary", hex: "#171717" },
-  { name: "primary-foreground", hex: "#fafafa" },
-  { name: "secondary", hex: "#f5f5f5" },
-  { name: "muted", hex: "#f5f5f5" },
-  { name: "muted-foreground", hex: "#737373" },
-  { name: "accent", hex: "#f5f5f5" },
-  { name: "destructive", hex: "#e7000b" },
-  { name: "border", hex: "#e5e5e5" },
-  { name: "ring", hex: "#a1a1a1" },
-  { name: "chart-1", hex: "#f54900" },
-  { name: "chart-2", hex: "#009689" },
-  { name: "chart-3", hex: "#104e64" },
-  { name: "chart-4", hex: "#ffb900" },
-  { name: "chart-5", hex: "#fe9a00" },
-  // A few of the palette's shades, as a project with Tailwind's colors lists them after its semantic tokens.
-  { name: "blue-500", hex: "#3b82f6" },
-  { name: "blue-600", hex: "#2563eb" },
-  { name: "teal-600", hex: "#0d9488" },
-  { name: "orange-600", hex: "#ea580c" },
-  { name: "amber-400", hex: "#fbbf24" },
-  // Tailwind's black and white, which its shadows are drawn in.
-  { name: "black", hex: "#000000" },
-  { name: "white", hex: "#ffffff" },
-  // An old brand color the project has replaced, kept so layers still using it draw and say so.
-  { name: "brand-blue", hex: "#1d4ed8", deprecated: "blue-600" }
-]
-
-/** A style's color as CSS: a token's color by its name, or a plain color (`#2563eb`, `oklch(…)`) as it's written. */
-export const hexOf = (value: string | undefined): string | undefined => {
-  if (value === undefined) return undefined
-  if (/^#|^oklch\(/i.test(value)) return value
-  return colorTokens.find((token) => token.name === value)?.hex
-}
 
 /** Colors the stand-in design already uses: the shapes behind Plans, and a plain blue a layer was given. */
 export const usedColors = ["#f54900", "#009689", "#ffb900", "#2f6fed"]
-
-/** A length token: its name, what it comes to, and the token to use instead when it's deprecated. */
-export interface LengthToken {
-  name: string
-  px: number
-  deprecated?: string
-}
-
-export const radiusTokens: LengthToken[] = [
-  { name: "radius-xs", px: 2 },
-  { name: "radius-sm", px: 6 },
-  { name: "radius-md", px: 8 },
-  { name: "radius-lg", px: 10 },
-  { name: "radius-xl", px: 14 },
-  { name: "radius-2xl", px: 18 },
-  { name: "radius-full", px: 9999 },
-  // An old card radius the project has replaced with radius-xl.
-  { name: "radius-card", px: 12, deprecated: "radius-xl" }
-]
-
-export const blurTokens: LengthToken[] = [
-  { name: "blur-xs", px: 4 },
-  { name: "blur-sm", px: 8 },
-  { name: "blur-md", px: 12 },
-  { name: "blur-lg", px: 16 },
-  { name: "blur-xl", px: 24 },
-  { name: "blur-2xl", px: 40 },
-  { name: "blur-3xl", px: 64 }
-]
 
 /** A grid track: a share of what's left (`fr`), a fixed length in pixels, or sized by its content. */
 export type Track =
@@ -211,14 +137,3 @@ export interface Draft {
  * it's allowed here when it is (`{ value, allow }` in PAR-652's value forms).
  */
 export type Length = string | { px: number; allow?: string }
-
-/** A length in pixels: its own, or its token's. */
-export const lengthPx = (value: Length | undefined, tokens: readonly { name: string; px: number }[]): number => {
-  if (value === undefined) return 0
-  if (typeof value === "object") return value.px
-  return tokens.find((token) => token.name === value)?.px ?? 0
-}
-
-export const radiusPx = (value: Length | undefined): number => lengthPx(value, radiusTokens)
-
-export const blurPx = (value: Length | undefined): number => lengthPx(value, blurTokens)

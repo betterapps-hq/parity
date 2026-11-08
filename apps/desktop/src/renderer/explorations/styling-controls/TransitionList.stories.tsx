@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { HoverCard } from "./easing.tsx"
-import { defaultCurve, durationTokens, type TransitionEntry } from "./motion-data.ts"
+import { defaultCurve, type TransitionEntry } from "./motion-data.ts"
 import { easingCss, transitionsWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
+import { durationTokens } from "./tokens.ts"
 import { newEntryId, previewTransition, TransitionsSection } from "./transitions.tsx"
 
 /**

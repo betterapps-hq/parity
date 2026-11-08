@@ -3,7 +3,16 @@
  * design-options-values.md specifies them, with Tailwind v4's shadow, inset shadow, drop shadow and text shadow scales,
  * two gradient tokens and the project's images.
  */
-import { hexOf, type Length } from "./data.ts"
+import type { Length } from "./data.ts"
+import {
+  allShadowTokens,
+  dropShadowTokens,
+  hexOf,
+  insetShadowTokens,
+  type ShadowToken,
+  shadowTokens,
+  textShadowTokens
+} from "./tokens.ts"
 
 /** A color in a list entry: a color token's name or a plain color, with its alpha from 0 to 100. */
 export interface ListColor {
@@ -77,37 +86,6 @@ export interface PaintEntry {
   off?: boolean
 }
 
-export interface GradientToken {
-  name: string
-  paint: Omit<GradientPaint, "token">
-}
-
-export const gradientTokens: GradientToken[] = [
-  {
-    name: "gradient-brand",
-    paint: {
-      kind: "linear",
-      angle: 90,
-      stops: [
-        { id: "brand-1", position: 0, color: "blue-500" },
-        { id: "brand-2", position: 100, color: "teal-600" }
-      ]
-    }
-  },
-  {
-    name: "gradient-sunset",
-    paint: {
-      kind: "linear",
-      angle: 135,
-      stops: [
-        { id: "sunset-1", position: 0, color: "chart-4" },
-        { id: "sunset-2", position: 50, color: "chart-5" },
-        { id: "sunset-3", position: 100, color: "chart-1" }
-      ]
-    }
-  }
-]
-
 const svg = (body: string) =>
   `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100">${body}</svg>`)}`
 
@@ -148,54 +126,6 @@ export interface ShadowLayer extends ListColor {
   inset?: boolean
 }
 
-export interface ShadowToken {
-  name: string
-  layers: ShadowLayer[]
-}
-
-/** Tailwind's shadow color: black at the token's alpha. */
-const layer = (x: number, y: number, blur: number, spread: number, alpha: number): ShadowLayer => ({
-  x,
-  y,
-  blur,
-  spread,
-  color: "black",
-  alpha
-})
-
-export const shadowTokens: ShadowToken[] = [
-  { name: "shadow-2xs", layers: [layer(0, 1, 0, 0, 5)] },
-  { name: "shadow-xs", layers: [layer(0, 1, 2, 0, 5)] },
-  { name: "shadow-sm", layers: [layer(0, 1, 3, 0, 10), layer(0, 1, 2, -1, 10)] },
-  { name: "shadow-md", layers: [layer(0, 4, 6, -1, 10), layer(0, 2, 4, -2, 10)] },
-  { name: "shadow-lg", layers: [layer(0, 10, 15, -3, 10), layer(0, 4, 6, -4, 10)] },
-  { name: "shadow-xl", layers: [layer(0, 20, 25, -5, 10), layer(0, 8, 10, -6, 10)] },
-  { name: "shadow-2xl", layers: [layer(0, 25, 50, -12, 25)] }
-]
-
-export const insetShadowTokens: ShadowToken[] = [
-  { name: "inset-shadow-2xs", layers: [layer(0, 1, 0, 0, 5)] },
-  { name: "inset-shadow-xs", layers: [layer(0, 1, 1, 0, 5)] },
-  { name: "inset-shadow-sm", layers: [layer(0, 2, 4, 0, 5)] }
-]
-
-export const dropShadowTokens: ShadowToken[] = [
-  { name: "drop-shadow-xs", layers: [layer(0, 1, 1, 0, 5)] },
-  { name: "drop-shadow-sm", layers: [layer(0, 1, 2, 0, 15)] },
-  { name: "drop-shadow-md", layers: [layer(0, 3, 3, 0, 12)] },
-  { name: "drop-shadow-lg", layers: [layer(0, 4, 4, 0, 15)] },
-  { name: "drop-shadow-xl", layers: [layer(0, 9, 7, 0, 10)] },
-  { name: "drop-shadow-2xl", layers: [layer(0, 25, 25, 0, 15)] }
-]
-
-export const textShadowTokens: ShadowToken[] = [
-  { name: "text-shadow-2xs", layers: [layer(0, 1, 0, 0, 15)] },
-  { name: "text-shadow-xs", layers: [layer(0, 1, 1, 0, 20)] },
-  { name: "text-shadow-sm", layers: [layer(0, 1, 0, 0, 7.5), layer(0, 1, 1, 0, 7.5), layer(0, 2, 2, 0, 7.5)] },
-  { name: "text-shadow-md", layers: [layer(0, 1, 1, 0, 10), layer(0, 1, 2, 0, 10), layer(0, 2, 4, 0, 10)] },
-  { name: "text-shadow-lg", layers: [layer(0, 1, 2, 0, 10), layer(0, 3, 2, 0, 10), layer(0, 4, 8, 0, 10)] }
-]
-
 export type ShadowKind = "drop" | "inner" | "ring"
 
 /**
@@ -224,8 +154,6 @@ export function tokensFor(entry: Pick<ShadowEntry, "kind" | "follow">, onText = 
   if (entry.follow) return dropShadowTokens
   return onText ? textShadowTokens : shadowTokens
 }
-
-export const allShadowTokens = [...shadowTokens, ...insetShadowTokens, ...dropShadowTokens, ...textShadowTokens]
 
 /** The layers an entry draws: its token's, with the override's color, or its own. */
 export function layersOf(entry: ShadowEntry, saved: ShadowToken[] = []): ShadowLayer[] {

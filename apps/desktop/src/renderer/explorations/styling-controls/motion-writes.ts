@@ -8,7 +8,6 @@ import {
   defaultDuration,
   type Easing,
   easingPresets,
-  easingTokens,
   type Move,
   springLinear,
   spotName,
@@ -19,6 +18,7 @@ import {
   transitionProperties,
   transitionSets
 } from "./motion-data.ts"
+import { easingTokens } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 const nothing: Writes = { stored: undefined, css: [], tailwind: [] }

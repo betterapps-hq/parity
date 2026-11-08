@@ -4,11 +4,10 @@ import type { PreviewKind } from "@parity-app/tokens"
 import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { swatch } from "../../chrome/token-previews.tsx"
-import { colorTokens } from "./data.ts"
+import { formatNumber } from "./css-values.ts"
 import {
   fieldBox,
   fieldInput,
-  formatNumber,
   InvalidMark,
   type Message,
   MessageLine,
@@ -16,6 +15,7 @@ import {
   TokenChip,
   TokenMark
 } from "./field-parts.tsx"
+import { colorTokens, lengthVars } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 /*
@@ -25,17 +25,6 @@ import type { Writes } from "./writes.ts"
  * `var()` drawn as a token chip; a `clamp()` opens its three fields. What comes to a step or one token is stored as
  * that, so `calc(var(--spacing) * 18)` is `{ step: 18 }`.
  */
-
-/** The length tokens an expression can name, in pixels. */
-export const lengthVars: Record<string, number> = {
-  spacing: 4,
-  "container-sm": 384,
-  "container-md": 448,
-  "container-lg": 512,
-  "text-base": 16,
-  "text-xl": 20,
-  "radius-lg": 10
-}
 
 /** The kind of preview a length token draws with: a spacing bar, a container's width, a size of text, a corner. */
 function lengthKind(name: string): PreviewKind {

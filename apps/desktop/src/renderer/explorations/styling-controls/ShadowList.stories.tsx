@@ -2,10 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { PreviewStage } from "./list-parts.tsx"
-import type { ShadowEntry, ShadowLayer, ShadowToken } from "./lists-data.ts"
+import type { ShadowEntry, ShadowLayer } from "./lists-data.ts"
 import { shadowWrites } from "./lists-writes.ts"
 import { Playground } from "./playground.tsx"
 import { ShadowList, ShadowPreview } from "./shadow-list.tsx"
+import type { ShadowToken } from "./tokens.ts"
 import { mixedWrites } from "./writes.ts"
 
 /**

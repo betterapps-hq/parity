@@ -23,13 +23,12 @@ import {
   easingPresets,
   type EasingShape,
   easingShape,
-  type EasingToken,
-  easingTokens,
   readEasingValue,
   type Spring,
   springSettle
 } from "./motion-data.ts"
 import { easingClass, easingIsLong, easingOrder } from "./motion-writes.ts"
+import { type EasingToken, easingToken, easingTokens } from "./tokens.ts"
 import { readUnitNumber, type TokenOption, UnitField } from "./unit-field.tsx"
 
 /*
@@ -159,7 +158,7 @@ export function EasingField({
     if (value === undefined || !("spring" in value || "value" in value)) return
     const full = name.startsWith("ease-") ? name : `ease-${name}`
     const curve = shape.kind === "bezier" ? shape.curve : undefined
-    setCreated((current) => [...current, { name: full, curve, spring: "spring" in value ? value.spring : undefined }])
+    setCreated((current) => [...current, easingToken(full, curve, "spring" in value ? value.spring : undefined)])
     onChange({ token: full })
   }
   return (

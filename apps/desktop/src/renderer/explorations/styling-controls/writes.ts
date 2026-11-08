@@ -3,7 +3,9 @@
  * PAR-652's value forms (`{ token }`, `{ step }`, `{ value }`, `{ keyword }`, `{ mode }`), the CSS, and the Tailwind
  * classes. The stored value is kept apart from the Tailwind (call 7), so another framework's output can sit beside it.
  */
-import { blurTokens, type Draft, type Length, radiusTokens, type Size, type Track, trackCss } from "./data.ts"
+import { arbitrary, colorCss, fraction, isPlainColor, lengthClass, lengthCss, lengthForm } from "./css-values.ts"
+import { type Draft, type Length, type Size, type Track, trackCss } from "./data.ts"
+import { radiusTokens } from "./tokens.ts"
 
 /** What a control writes: its stored value, the CSS declarations and the Tailwind classes. */
 export interface Writes {
@@ -12,27 +14,6 @@ export interface Writes {
   tailwind: string[]
   /** What it changes in the markup rather than the style, as a text layer's tag does. */
   markup?: string
-}
-
-/** Pixels in a whole spacing step, at Tailwind's default `--spacing` of 0.25rem. */
-const spacing = 4
-
-/** A length in pixels as a spacing step where it is one (any multiple of a quarter step), or as a value. */
-function lengthForm(px: number): { step: number } | { value: string } {
-  const steps = px / spacing
-  return Number.isInteger(steps * 4) ? { step: steps } : { value: `${px}px` }
-}
-
-/** The Tailwind suffix for a length: `130` for a step, `[13.3px]` otherwise. */
-function lengthClass(px: number): string {
-  const form = lengthForm(px)
-  return "step" in form ? String(form.step) : `[${form.value}]`
-}
-
-/** CSS for a length: `calc(var(--spacing) * 130)` for a step, the value otherwise. */
-function lengthCss(px: number): string {
-  const form = lengthForm(px)
-  return "step" in form ? `calc(var(--spacing) * ${form.step})` : form.value
 }
 
 /** A length in pixels for a property, as a spacing step where it is one: `gap: calc(var(--spacing) * 4)`, `gap-4`. */
@@ -50,27 +31,21 @@ export function colorWrites(
 ): Writes {
   const property = prefix === "bg" ? "background-color" : "border-color"
   if (value === undefined) return { stored: undefined, css: [], tailwind: [] }
-  if (/^#|^oklch\(/i.test(value)) {
-    const withAlpha = alpha === undefined || !value.startsWith("#") ? value : `${value}${alphaHex(alpha)}`
-    const css = alpha !== undefined && value.startsWith("oklch") ? value.replace(/\)$/, ` / ${alpha}%)`) : withAlpha
+  const css = colorCss(value, alpha)
+  if (isPlainColor(value)) {
+    // The alpha is part of a plain color, stored and written with it: `#2f6fed80`, `oklch(… / 50%)`.
     return {
-      stored: { value: withAlpha, ...(allowed === undefined ? {} : { allow: allowed }) },
+      stored: { value: css, ...(allowed === undefined ? {} : { allow: allowed }) },
       css: [`${property}: ${css}`],
-      tailwind: [`${prefix}-[${css.replaceAll(" ", "_")}]`]
+      tailwind: [`${prefix}-[${arbitrary(css)}]`]
     }
   }
-  const variable = `var(--color-${value})`
   return {
     stored: { token: value, ...(alpha === undefined ? {} : { alpha: { step: alpha } }) },
-    css: [`${property}: ${alpha === undefined ? variable : `color-mix(in oklab, ${variable} ${alpha}%, transparent)`}`],
+    css: [`${property}: ${css}`],
     tailwind: [`${prefix}-${value}${alpha === undefined ? "" : `/${alpha}`}`]
   }
 }
-
-const alphaHex = (alpha: number) =>
-  Math.round((alpha / 100) * 255)
-    .toString(16)
-    .padStart(2, "0")
 
 /** A token or a value of its own, stored with its form and why it's allowed, if it is. */
 function lengthStored(value: Length | undefined): unknown {
@@ -126,11 +101,13 @@ export function blurWrites(which: "blur" | "backdropBlur", value: Length | undef
   const prefix = which === "blur" ? "blur" : "backdrop-blur"
   if (value === undefined) return { stored: undefined, css: [], tailwind: [] }
   if (typeof value === "string") {
-    const known = blurTokens.some((token) => token.name === value)
+    // A token in the theme's blur namespace (`--blur-*`) is a utility of its own, a token made here included;
+    // another custom property is written as a variable.
+    const themed = value.startsWith("blur-")
     return {
       stored: { token: value },
       css: [`${property}: blur(var(--${value}))`],
-      tailwind: [known ? `${prefix}-${value.replace("blur-", "")}` : `${prefix}-(--${value})`]
+      tailwind: [themed ? `${prefix}-${value.replace("blur-", "")}` : `${prefix}-(--${value})`]
     }
   }
   return {
@@ -188,17 +165,6 @@ export function strokeWrites(draft: Draft, inLayout: boolean, position: StrokePo
     tailwind.push(widthClass(width ?? 1))
   }
   return { stored, css: [...css, ...color.css], tailwind: [...tailwind, ...color.tailwind] }
-}
-
-/** Tailwind's fractions for a percentage, where it has one (50% is `1/2`), as call 10 writes them. */
-function fraction(percent: number): string | undefined {
-  for (const denominator of [2, 3, 4, 5, 6, 12]) {
-    for (let numerator = 1; numerator < denominator; numerator++) {
-      const share = (numerator / denominator) * 100
-      if (Math.abs(share - percent) < 0.01) return `${numerator}/${denominator}`
-    }
-  }
-  return percent === 100 ? "full" : undefined
 }
 
 /** A width or height: a length, a percentage, or a mode (Hug, Fill, Min content, Max content). */
@@ -263,8 +229,8 @@ export function sizeRowWrites(draft: Draft): Writes {
   return { stored, css, tailwind }
 }
 
-/** A grid track in Tailwind's arbitrary value, with underscores for spaces. */
-const trackClass = (track: Track) => trackCss(track).replaceAll(" ", "")
+/** Grid tracks in Tailwind's arbitrary value: `200px_minmax(0,1fr)`. */
+const tracksClass = (tracks: Track[]) => arbitrary(tracks.map(trackCss).join(" "))
 
 /** The layout: flex or grid, its direction, wrapping, alignment and tracks. */
 export function layoutWrites(draft: Draft): Writes {
@@ -279,18 +245,16 @@ export function layoutWrites(draft: Draft): Writes {
       const equal = draft.columns.every((track) => track.kind === "fr" && track.value === 1)
       stored.columns = draft.columns
       css.push(`grid-template-columns: ${draft.columns.map(trackCss).join(" ")}`)
-      tailwind.push(
-        equal ? `grid-cols-${draft.columns.length}` : `grid-cols-[${draft.columns.map(trackClass).join("_")}]`
-      )
+      tailwind.push(equal ? `grid-cols-${draft.columns.length}` : `grid-cols-[${tracksClass(draft.columns)}]`)
     } else {
       stored.columns = { repeat: "auto-fit", min: lengthForm(draft.columns.fit) }
       css.push(`grid-template-columns: repeat(auto-fit, minmax(${draft.columns.fit}px, 1fr))`)
-      tailwind.push(`grid-cols-[repeat(auto-fit,minmax(${draft.columns.fit}px,1fr))]`)
+      tailwind.push(`grid-cols-[${arbitrary(`repeat(auto-fit, minmax(${draft.columns.fit}px, 1fr))`)}]`)
     }
     if (draft.rows?.length) {
       stored.rows = draft.rows
       css.push(`grid-template-rows: ${draft.rows.map(trackCss).join(" ")}`)
-      tailwind.push(`grid-rows-[${draft.rows.map(trackClass).join("_")}]`)
+      tailwind.push(`grid-rows-[${tracksClass(draft.rows)}]`)
     }
     return { stored, css, tailwind }
   }

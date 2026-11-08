@@ -21,14 +21,14 @@ import {
 import { ChevronDown, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { OffSystemMark } from "./color-picker.tsx"
+import { formatNumber } from "./css-values.ts"
 import {
   fieldBox,
   fieldInput,
-  formatNumber,
   InvalidMark,
   type Message,
   MessageLine,
+  OffSystemMark,
   readNumber,
   scrub,
   TokenChip,
@@ -39,16 +39,13 @@ import {
   type FontFamily,
   findFont,
   genericOf,
-  leadingTokens,
   moreFonts,
   projectFonts,
-  type SizeToken,
   stackFamilies,
-  trackingTokens,
-  weightName,
-  weightTokens
+  weightName
 } from "./text-data.ts"
 import { type FontValue, type LetterSpacing, type LineHeight, onStep, type WeightValue } from "./text-writes.ts"
+import { leadingTokens, type SizeToken, trackingTokens, weightTokens } from "./tokens.ts"
 
 /*
  * Text's font rows (PAR-186, design-options-values.md's Font family, Weight, and Line height and letter spacing), each
@@ -385,7 +382,7 @@ function MissingFontMark({
 /** The weight a value comes to. */
 const weightOf = (value: WeightValue | undefined): number | undefined => {
   if (value === undefined) return undefined
-  if ("token" in value) return weightTokens.find((token) => token.name === value.token)?.value
+  if ("token" in value) return weightTokens.find((token) => token.name === value.token)?.weight
   return value.value
 }
 
@@ -409,7 +406,7 @@ export function weightFace(
 
 /** The weight a typed or slid number is stored as: its token where one names it (600 is `semibold`). */
 const weightValue = (weight: number): WeightValue => {
-  const token = weightTokens.find((each) => each.value === weight)
+  const token = weightTokens.find((each) => each.weight === weight)
   return token ? { token: token.name } : { value: weight }
 }
 
@@ -441,8 +438,8 @@ export function WeightField({
   const weight = weightOf(value)
   const shown = weight ?? inherited
   const face = weightFace(font, shown)
-  const faces = font.axis ? weightTokens.map((token) => token.value as number) : font.weights
-  const others = weightTokens.map((token) => token.value as number).filter((each) => !faces.includes(each))
+  const faces = font.axis ? weightTokens.map((token) => token.weight) : font.weights
+  const others = weightTokens.map((token) => token.weight).filter((each) => !faces.includes(each))
   const number = useTyped<number>({
     label: "Weight",
     shown: String(shown),
@@ -472,7 +469,7 @@ export function WeightField({
   let faceNote: string | undefined
   if (face.kind === "faked") faceNote = `Faked by the browser: ${font.name} has no face this heavy`
   if (face.kind === "nearest") faceNote = `Drawn with ${weightName(face.face)}, the nearest face ${font.name} has`
-  const tokenName = weight === undefined ? undefined : weightTokens.find((token) => token.value === weight)?.name
+  const tokenName = weight === undefined ? undefined : weightTokens.find((token) => token.weight === weight)?.name
   const italicFaked = italic === true && !font.italic
   const item = (each: number, faked: boolean) => (
     <button
@@ -603,7 +600,9 @@ export function WeightField({
 }
 
 const nearestWeightToken = (weight: number) =>
-  weightTokens.reduce((best, token) => (Math.abs(token.value - weight) < Math.abs(best.value - weight) ? token : best))
+  weightTokens.reduce((best, token) =>
+    Math.abs(token.weight - weight) < Math.abs(best.weight - weight) ? token : best
+  )
 
 /** The unit a line height is shown and typed in. */
 type LineUnit = "×" | "px" | "%"
@@ -614,7 +613,7 @@ const typedUnits: Record<string, LineUnit | "em"> = { px: "px", x: "×", "×": "
 /** The multiple a line height comes to at a font size. */
 function multipleOf(lineHeight: LineHeight, fontSize: number): number {
   if ("keyword" in lineHeight) return 1.2
-  if ("token" in lineHeight) return leadingTokens.find((token) => token.name === lineHeight.token)?.value ?? 1.5
+  if ("token" in lineHeight) return leadingTokens.find((token) => token.name === lineHeight.token)?.multiple ?? 1.5
   if ("multiple" in lineHeight) return lineHeight.multiple
   return lineHeight.px / fontSize
 }
@@ -759,7 +758,7 @@ export function LineHeightField({
   if (value !== undefined && "px" in value && !onStep(value.px)) own = value
   const multiple = multipleOf(value ?? { multiple: 1.5 }, fontSize)
   const nearest = leadingTokens.reduce((best, each) =>
-    Math.abs(each.value - multiple) < Math.abs(best.value - multiple) ? each : best
+    Math.abs(each.multiple - multiple) < Math.abs(best.multiple - multiple) ? each : best
   )
   return (
     <div>
@@ -777,8 +776,8 @@ export function LineHeightField({
         {token && (
           <TokenChip
             name={token.name}
-            detail={`${formatNumber(token.value)}×`}
-            preview={<TokenMark kind="leading" value={String(token.value)} />}
+            detail={`${formatNumber(token.multiple)}×`}
+            preview={<TokenMark kind="leading" value={token.value} />}
             onRemove={() => onChange(undefined)}
           />
         )}

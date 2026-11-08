@@ -24,10 +24,8 @@ import {
   ArrowRight,
   Baseline,
   ChevronDown,
-  CircleAlert,
   Ellipsis,
   Grid3x3,
-  Hexagon,
   LayoutTemplate,
   Lock,
   LockOpen,
@@ -43,25 +41,20 @@ import {
   SquareDashed,
   SquareRoundCorner,
   Squircle,
-  TriangleAlert,
   WrapText,
   X
 } from "lucide-react"
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
+import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
+import { kindColors } from "../../canvas/kinds.tsx"
 import { ChoiceInput, Field } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { ColorInput, OffSystemMark } from "./color-picker.tsx"
+import { ColorInput } from "./color-picker.tsx"
+import { formatNumber, remPx, type SpotValue, spotKeywords, stepSpacing } from "./css-values.ts"
 import {
-  blurPx,
-  blurTokens,
   type Columns,
   type Draft,
-  hexOf,
   type Length,
-  type LengthToken,
-  radiusPx,
-  radiusTokens,
   type SelfAlign,
   type Size,
   sizeCss,
@@ -72,7 +65,23 @@ import {
   trackLabel,
   usedColors
 } from "./data.ts"
-import { readLength, scrubbing } from "./typing.ts"
+import {
+  MissingMark,
+  nearestToken,
+  notAToken,
+  OffSystemMark,
+  type Reading,
+  type ScrubKeys,
+  TokenMark,
+  unitButtonClass,
+  useTokens,
+  useTokenSets,
+  ValueField
+} from "./field-parts.tsx"
+import { drawnStyle, PreviewStage } from "./playground.tsx"
+import { NineSpots } from "./position-box.tsx"
+import { lengthToken } from "./tokens.ts"
+import { readLength } from "./typing.ts"
 import type { StrokePosition } from "./writes.ts"
 
 /*
@@ -244,7 +253,8 @@ export function LayoutSection({ draft, set }: SectionProps) {
   )
 }
 
-const spots = ["start", "center", "end"] as const
+/** Where a spot of the box sits along an axis of the layout: its start, its center or its end. */
+const flexPlace: Record<SpotValue, "start" | "center" | "end"> = { 0: "start", 50: "center", 100: "end" }
 
 /**
  * The nine-spot box, physical: the top-left spot is the top left whichever way the layout runs. A reversed layout
@@ -255,40 +265,30 @@ function AlignmentBox({ draft, set }: Pick<SectionProps, "draft" | "set">) {
   const justify = draft.justify ?? "start"
   // Unset is stretch, which no spot shows, as in the app's box.
   const align = draft.align ?? "stretch"
+  // Stretched or on the baseline, children fill the cross axis, so the whole line at their end is lit.
+  const fillsAcross = align === "stretch" || isBaseline(align)
+  // A column runs down, so rows are its main axis; a row runs across, so columns are.
+  const placeOf = (spot: { x: SpotValue; y: SpotValue }) => ({
+    main: column ? flexPlace[spot.y] : flexPlace[spot.x],
+    cross: column ? flexPlace[spot.x] : flexPlace[spot.y]
+  })
   return (
-    <div className="grid size-[60px] shrink-0 grid-cols-3 grid-rows-3 rounded-md border bg-muted/40 p-0.5">
-      {spots.flatMap((row) =>
-        spots.map((across) => {
-          // A column runs down, so rows are its main axis; a row runs across, so columns are.
-          const main = column ? row : across
-          const cross = column ? across : row
-          // Stretched or on the baseline, children fill the cross axis, so the whole line at their end is lit.
-          const fillsAcross = align === "stretch" || isBaseline(align)
-          const active = justify === main && (fillsAcross || align === cross)
-          return (
-            <button
-              key={`${row}-${across}`}
-              type="button"
-              aria-label={`Align ${verticalNames[row]} ${horizontalNames[across]}`}
-              aria-pressed={active}
-              onClick={() => set({ justify: main, align: isBaseline(draft.align) ? draft.align : cross })}
-              className="group grid place-items-center rounded-sm hover:bg-accent"
-            >
-              <span
-                className={`block rounded-full ${active ? "size-2 bg-[#0d99ff]" : "size-1 bg-muted-foreground/50 group-hover:bg-muted-foreground"}`}
-              />
-            </button>
-          )
-        })
-      )}
-    </div>
+    <NineSpots
+      label="Alignment"
+      lit={(spot) => {
+        const { main, cross } = placeOf(spot)
+        return justify === main && (fillsAcross || align === cross)
+      }}
+      spotName={(spot) => `Align ${spotKeywords(spot)}`}
+      onSpot={(spot) => {
+        const { main, cross } = placeOf(spot)
+        set({ justify: main, align: isBaseline(draft.align) ? draft.align : cross })
+      }}
+    />
   )
 }
 
 const isBaseline = (align: Draft["align"]) => align === "baseline" || align === "last baseline"
-
-const verticalNames = { start: "top", center: "middle", end: "bottom" } as const
-const horizontalNames = { start: "left", center: "center", end: "right" } as const
 
 const fr = (value: number): Track => ({ kind: "fr", value })
 
@@ -856,6 +856,9 @@ function useMeasured(selector: string): { width: number; height: number; parent:
 
 const sizeModeNames = { hug: "Hug", fill: "Fill", min: "Min content", max: "Max content" } as const
 
+/** Up and Down's count of steps: one, or ten with Shift. */
+const stepCount = (up: boolean, { shift }: ScrubKeys) => (up ? 1 : -1) * (shift ? 10 : 1)
+
 /**
  * A width or height with its mode, as PAR-652's Size type has it. A length shows its number and unit; a mode shows in
  * words, with what it comes to after it, faintly (Hug 248). The unit is a button that opens the field's menu. Typing a
@@ -883,15 +886,12 @@ export function SizeField({
   onAddLimit?: (which: "min" | "max") => void
   onChange: (size: Size) => void
 }) {
-  const [typed, setTyped] = useState<string>()
-  const [focused, setFocused] = useState(false)
   const [unit, setUnit] = useState<"px" | "rem">("px")
-  const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
   const fixed = typeof value === "number"
   const percent = typeof value === "object"
   let shown = ""
   if (setBy) shown = "Auto"
-  else if (fixed) shown = unit === "rem" ? String(Number((value / remPixels).toFixed(3))) : String(value)
+  else if (fixed) shown = unit === "rem" ? formatNumber(value / remPx) : String(value)
   else if (percent) shown = String(value.percent)
   else shown = sizeModeNames[value]
   let mode: string = value as string
@@ -907,12 +907,13 @@ export function SizeField({
   const reason = `${axis} takes a length, Hug or Fill`
   /**
    * What's typed: Hug or Fill by name; a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`),
-   * where a bare number is in the unit shown; or a percentage, CSS's (call 10).
+   * where a bare number is in the unit shown; or a percentage, CSS's (call 10). Nothing typed keeps the size.
    */
-  const read = (text: string): Size | { reason: string } => {
+  const read = (text: string): Reading<Size | undefined> => {
     const word = text.trim().toLowerCase()
-    if (word === "hug" || word === "fit") return "hug"
-    if (word === "fill") return "fill"
+    if (word === "") return { value: undefined }
+    if (word === "hug" || word === "fit") return { value: "hug" }
+    if (word === "fill") return { value: "fill" }
     const bare = /^-?(\d*\.?\d+)$/.test(word)
     let input = word
     if (bare && percent) input = `${word}%`
@@ -920,55 +921,35 @@ export function SizeField({
     const reading = readLength(input, { label: axis, current: fixed && !setBy ? value : measured, takesPercent: true })
     if ("reason" in reading) return { reason: reading.reason.startsWith("Can't read") ? reason : reading.reason }
     if ("clear" in reading) return { reason }
-    if ("percent" in reading) return { percent: Math.max(0, Math.round(reading.percent * 10) / 10) }
+    if ("percent" in reading) return { value: { percent: Math.max(0, Math.round(reading.percent * 10) / 10) } }
     if (/rem\s*$/.test(word)) setUnit("rem")
     else if (/px\s*$/.test(word)) setUnit("px")
-    return Math.max(1, reading.px)
+    return { value: Math.max(1, reading.px) }
   }
-  const commit = (leaving: boolean): boolean => {
-    if (typed === undefined) return true
-    const next = typed.trim() === "" ? undefined : read(typed)
-    if (typeof next === "object" && "reason" in next) {
-      if (leaving) {
-        setMessage({ tone: "note", text: `${axis} is back to ${shown}. ${next.reason}.` })
-        setTyped(undefined)
-      } else setMessage({ tone: "error", text: next.reason })
-      return false
-    }
-    if (next !== undefined) onChange(next)
-    setTyped(undefined)
-    setMessage(undefined)
-    return true
-  }
-  const step = (up: boolean, shift: boolean) => {
+  const step = (up: boolean, keys: ScrubKeys) => {
     if (percent) {
-      onChange({ percent: Math.max(0, value.percent + (up ? 1 : -1) * (shift ? 10 : 1)) })
+      onChange({ percent: Math.max(0, value.percent + stepCount(up, keys)) })
       return
     }
     // A mode, or Auto, becomes Fixed at its measured size and steps from there.
     const from = fixed && !setBy ? value : (measured ?? 0)
-    onChange(Math.max(4, nextSpacingStep(from, up, shift)))
-  }
-  const error = message?.tone === "error"
-  const choose = (next: Size) => {
-    setMessage(undefined)
-    onChange(next)
+    onChange(Math.max(4, stepSpacing(from, stepCount(up, keys))))
   }
   const atMeasured = measured ?? (fixed ? value : 100)
   const menu = (
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`${axis} unit and mode${unitLabel ? `: ${unitLabel}` : ""}`}
-        className="grid h-full shrink-0 place-items-center rounded-r-md px-1.5 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+        className={unitButtonClass}
       >
         {unitLabel ?? <ChevronDown className="size-3.5" />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuRadioGroup
           value={mode}
-          onValueChange={(mode) => {
-            if (mode === "fixed") choose(atMeasured)
-            else if (mode === "hug" || mode === "fill") choose(mode)
+          onValueChange={(next) => {
+            if (next === "fixed") onChange(atMeasured)
+            else if (next === "hug" || next === "fill") onChange(next)
           }}
         >
           <DropdownMenuRadioItem value="fixed" className="text-xs">
@@ -991,11 +972,11 @@ export function SizeField({
           value={(fixed && !setBy && unit) || (percent && "%") || ""}
           onValueChange={(next) => {
             if (next === "%") {
-              choose({ percent: parent ? Math.round((atMeasured / parent) * 1000) / 10 : 100 })
+              onChange({ percent: parent ? Math.round((atMeasured / parent) * 1000) / 10 : 100 })
               return
             }
             setUnit(next as "px" | "rem")
-            if (!fixed || setBy) choose(atMeasured)
+            if (!fixed || setBy) onChange(atMeasured)
           }}
         >
           <DropdownMenuRadioItem value="px" className="text-xs">
@@ -1012,10 +993,10 @@ export function SizeField({
           <DropdownMenuSubTrigger className="text-xs">More units</DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-36">
             <DropdownMenuRadioGroup value={value === "min" || value === "max" ? value : ""}>
-              <DropdownMenuRadioItem value="min" className="text-xs" onClick={() => choose("min")}>
+              <DropdownMenuRadioItem value="min" className="text-xs" onClick={() => onChange("min")}>
                 Min content
               </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="max" className="text-xs" onClick={() => choose("max")}>
+              <DropdownMenuRadioItem value="max" className="text-xs" onClick={() => onChange("max")}>
                 Max content
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
@@ -1036,83 +1017,31 @@ export function SizeField({
     </DropdownMenu>
   )
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <Hint
-        label={setBy ? `${axis} is set by ${setBy}` : undefined}
-        detail={setBy ? `${measured}px at this ratio` : undefined}
-      >
-        <div
-          className={`flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent pl-1.5 text-xs focus-within:ring-2 dark:bg-input/30 ${error ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
-        >
-          <span
-            // Dragging W or H scrubs the size a spacing step per 2 screen pixels, making a mode Fixed first.
-            onPointerDown={scrubbing(() => (fixed && !setBy ? value : (measured ?? 0)), onChange, {
-              spacing: true,
-              min: 1
-            })}
-            className="shrink-0 cursor-ew-resize touch-none text-muted-foreground select-none"
-          >
-            {axis[0]}
-          </span>
-          <input
-            aria-label={axis}
-            aria-invalid={error || undefined}
-            value={typed ?? shown}
-            onFocus={(event) => {
-              setFocused(true)
-              if (message?.tone === "note") setMessage(undefined)
-              event.currentTarget.select()
-            }}
-            onChange={(event) => setTyped(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
-              if (event.key === "Escape" && typed !== undefined) {
-                setTyped(undefined)
-                setMessage(error ? { tone: "note", text: `${axis} is back to ${shown}.` } : undefined)
-              }
-              if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                event.preventDefault()
-                setTyped(undefined)
-                setMessage(undefined)
-                step(event.key === "ArrowUp", event.shiftKey)
-              }
-            }}
-            onBlur={() => {
-              setFocused(false)
-              commit(true)
-            }}
-            // It takes what's left after what the value comes to, so that shows, cut short when it's long.
-            className={`w-0 min-w-8 flex-1 bg-transparent tabular-nums outline-none ${setBy && typed === undefined ? "text-muted-foreground" : ""}`}
-          />
-          {!focused && comesTo && (
-            <span className="min-w-0 shrink truncate text-muted-foreground/70 tabular-nums">{comesTo}</span>
-          )}
-          {error && <CircleAlert aria-hidden className="size-3.5 shrink-0 text-destructive" />}
-          {!focused && menu}
-        </div>
-      </Hint>
-      {message && (
-        <p
-          role={error ? "alert" : "status"}
-          className={`text-[11px] leading-snug ${error ? "text-destructive" : "text-muted-foreground"}`}
-        >
-          {message.text}
-        </p>
-      )}
+    <div className="flex min-w-0 flex-col">
+      <ValueField
+        label={axis}
+        inner={axis[0]}
+        // Dragging W or H scrubs the size a spacing step per 2 screen pixels, making a mode Fixed first.
+        scrub={{
+          from: () => (fixed && !setBy ? value : (measured ?? 0)),
+          apply: (px) => onChange(px),
+          by: { spacing: true, min: 1 }
+        }}
+        shown={shown}
+        muted={setBy !== undefined}
+        unit={menu}
+        comesTo={comesTo}
+        hint={setBy ? { label: `${axis} is set by ${setBy}`, detail: `${measured}px at this ratio` } : undefined}
+        selectOnFocus
+        read={read}
+        onCommit={(next) => {
+          if (next !== undefined) onChange(next)
+        }}
+        onStep={step}
+      />
     </div>
   )
 }
-
-/** The next whole spacing step up or down from a length (4px with Tailwind's default `--spacing`); ten with Shift. */
-function nextSpacingStep(pixels: number, up: boolean, shift: boolean): number {
-  const steps = (shift ? 10 : 1) * spacingPixels
-  return up
-    ? Math.floor(pixels / spacingPixels) * spacingPixels + steps
-    : Math.ceil(pixels / spacingPixels) * spacingPixels - steps
-}
-
-/** Pixels in a whole spacing step, at Tailwind's default `--spacing` of 0.25rem. */
-const spacingPixels = 4
 
 /** Named ratios, as Tailwind names two of them (`aspect-square`, `aspect-video`). */
 const namedRatios = [
@@ -1134,59 +1063,20 @@ function readRatio(text: string): string | undefined {
 }
 
 /**
- * The ratio, typed, with its name after it (Video) and the named ratios in its menu. A ratio it can't read stays, with
- * the reason under it; Enter keeps it, and Escape or leaving puts the ratio back and says so.
+ * The ratio, typed, with its name after it (Video) and the named ratios in its unit's menu. A ratio it can't read
+ * stays, with the reason under it; Enter keeps it, and Escape or leaving puts the ratio back and says so.
  */
 export function RatioField({ aspect, onChange }: { aspect: string; onChange: (aspect: string) => void }) {
-  const [typed, setTyped] = useState<string>()
-  const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
   const name = namedRatios.find((option) => option.value === aspect)?.name
-  const error = message?.tone === "error"
-  const commit = (leaving: boolean): boolean => {
-    if (typed === undefined) return true
-    const read = readRatio(typed)
-    if (read) {
-      onChange(read)
-      setMessage(undefined)
-    } else if (!leaving) {
-      setMessage({ tone: "error", text: "Type a ratio, such as 16:9, 16/9 or 1.78" })
-      return false
-    } else {
-      setMessage({ tone: "note", text: `The ratio is back to ${ratioText(aspect)}. Type one as 16:9, 16/9 or 1.78.` })
-    }
-    setTyped(undefined)
-    return true
-  }
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex items-center gap-1">
-        <label
-          className={`flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md border bg-transparent px-1.5 text-xs focus-within:ring-2 dark:bg-input/30 ${error ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
-        >
-          <input
-            aria-label="Aspect ratio"
-            aria-invalid={error || undefined}
-            value={typed ?? ratioText(aspect)}
-            onFocus={() => message?.tone === "note" && setMessage(undefined)}
-            onChange={(event) => setTyped(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
-              if (event.key === "Escape" && typed !== undefined) {
-                setTyped(undefined)
-                setMessage(error ? { tone: "note", text: `The ratio is back to ${ratioText(aspect)}.` } : undefined)
-              }
-            }}
-            onBlur={() => commit(true)}
-            className="w-16 min-w-0 flex-1 bg-transparent tabular-nums outline-none"
-          />
-          {name && typed === undefined && <span className="truncate text-muted-foreground">{name}</span>}
-          {error && <CircleAlert aria-hidden className="size-3.5 shrink-0 text-destructive" />}
-        </label>
+    <ValueField
+      label="Aspect ratio"
+      shown={ratioText(aspect)}
+      comesTo={name}
+      inputMode="text"
+      unit={
         <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="Named ratios"
-            className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-          >
+          <DropdownMenuTrigger aria-label="Named ratios" className={unitButtonClass}>
             <ChevronDown className="size-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-36">
@@ -1200,16 +1090,13 @@ export function RatioField({ aspect, onChange }: { aspect: string; onChange: (as
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-      {message && (
-        <p
-          role={error ? "alert" : "status"}
-          className={`text-[11px] leading-snug ${error ? "text-destructive" : "text-muted-foreground"}`}
-        >
-          {message.text}
-        </p>
-      )}
-    </div>
+      }
+      read={(text): Reading<string> => {
+        const ratio = readRatio(text)
+        return ratio ? { value: ratio } : { reason: "Type a ratio, such as 16:9, 16/9 or 1.78" }
+      }}
+      onCommit={onChange}
+    />
   )
 }
 
@@ -1547,7 +1434,6 @@ export function RadiusChoice({
       // A corner's field is narrow, so what its value comes to and its status show in its hint.
       narrow={corner !== undefined}
       value={value}
-      tokens={radiusTokens}
       tokensOnly={tokensOnly}
       mixed={mixed}
       cssTakes={(length) => CSS.supports("border-radius", length)}
@@ -1574,7 +1460,6 @@ export function BlurChoice({
       label={label}
       kind="blur"
       value={value}
-      tokens={blurTokens}
       tokensOnly={tokensOnly}
       mixed={mixed}
       placeholder="None"
@@ -1584,18 +1469,15 @@ export function BlurChoice({
   )
 }
 
-/** What a token comes to, as its field shows it: `10px`, or Full for a radius that rounds the ends. */
-const lengthDetail = (px: number) => (px === 9999 ? "Full" : `${px}px`)
-
 /**
- * A length field that takes a token or a value of its own, as every field does (call 1). A token shows as a chip, then
- * what it comes to, faintly (`lg 10px`); clicking the chip opens the kind's tokens. The field types like a text field
- * with the chip in it: click beside the chip to type, which replaces it, and Backspace or the chip's × removes it. A
- * value shows as typed, with its unit and a hollow mark whose menu has the nearest token, Create token and Allow here;
- * Tokens only refuses it. The token button after a value opens the tokens too, on hover or focus. Typing a token's name
- * (`lg`, `radius-lg`) takes the token. What's typed is checked as CSS checks the property (`CSS.supports`) before it's
- * stored; text it can't take stays, outlined in the error color, with the reason under it. In a narrow field
- * (`narrow`, under about 96px), the unit shows on hover, and what the value comes to and its status are in its hint.
+ * A length field that takes a token or a value of its own, as every field does (call 1), on the shared field. A token
+ * shows as a chip, then what it comes to, faintly (`lg 10px`); clicking the chip opens the kind's tokens, as the token
+ * button after a value does on hover or focus. Typing beside the chip, or on it, replaces it, and Backspace or the
+ * chip's × removes it. A value shows as typed, with its unit and a hollow mark whose menu has the nearest token, Create
+ * token and Allow here; Tokens only refuses it. Typing a token's name (`lg`, `radius-lg`) takes the token. What's typed
+ * is checked as CSS checks the property (`CSS.supports`) before it's stored. Up and Down step a token through the scale
+ * and a value by a pixel. In a narrow field (`narrow`, under about 96px), the unit shows on hover, and what the value
+ * comes to and its status are in its hint.
  */
 function LengthField({
   label,
@@ -1603,7 +1485,6 @@ function LengthField({
   icon,
   narrow = false,
   value,
-  tokens,
   tokensOnly = false,
   placeholder = "0",
   mixed = false,
@@ -1611,13 +1492,12 @@ function LengthField({
   onChange
 }: {
   label: string
-  /** The token kind, which is also the namespace the field leaves off a token's name (`lg` for `radius-lg`). */
+  /** The token kind and set, which is also the namespace the field leaves off a token's name (`lg` for `radius-lg`). */
   kind: "radius" | "blur"
+  /** Slot 1's icon, which scrubs the value. */
   icon?: ReactNode
   narrow?: boolean
   value: Length | undefined
-  /** The project's tokens of the kind; Create token adds to them. */
-  tokens: LengthToken[]
   tokensOnly?: boolean
   placeholder?: string
   /** The selected layers differ here: it shows Mixed, and typing replaces every one. */
@@ -1626,30 +1506,20 @@ function LengthField({
   cssTakes: (length: string) => boolean
   onChange: (value: Length | undefined) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const [typed, setTyped] = useState<string>()
-  const [focused, setFocused] = useState(false)
-  const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
-  const input = useRef<HTMLInputElement>(null)
-  const token = typeof value === "string" ? tokens.find((other) => other.name === value) : undefined
-  // A token the project no longer has: still named, struck through, until another is chosen.
-  const missing = typeof value === "string" && token === undefined
+  const { tokens, create } = useTokens(kind)
+  const namespace = `${kind}-`
+  const name = typeof value === "string" ? value : undefined
+  const token = name === undefined ? undefined : tokens.find((other) => other.name === name)
   const own = typeof value === "object" ? value : undefined
-  const prefix = `${kind}-`
   // Deprecated tokens are neither offered as the nearest nor stepped onto: they're on their way out.
   const scale = tokens.filter((other) => other.deprecated === undefined)
-  const nearestTo = (px: number) =>
-    scale.reduce((best, other) => (Math.abs(other.px - px) < Math.abs(best.px - px) ? other : best))
+  const nearestTo = (px: number) => nearestToken(tokens, (other) => other.px, px)
   const nearest = own ? nearestTo(own.px) : undefined
   const refused = own !== undefined && tokensOnly && own.allow === undefined
-  const error = message?.tone === "error"
-  let current = "none"
-  if (typeof value === "string") current = value
-  else if (own) current = `${own.px}px`
-  const read = (text: string): { value: Length | undefined } | { reason: string } => {
+  const read = (text: string): Reading<Length | undefined> => {
     const trimmed = text.trim()
     if (trimmed === "") return { value: undefined }
-    const named = tokens.find((other) => other.name === trimmed || other.name === prefix + trimmed)
+    const named = tokens.find((other) => other.name === trimmed || other.name === namespace + trimmed)
     if (named) return { value: named.name }
     // The app's maths and units: `6`, `6px`, `0.5rem`, `+2`, `*2`.
     const reading = readLength(trimmed, { label, current: own?.px ?? token?.px })
@@ -1658,244 +1528,96 @@ function LengthField({
     }
     if ("reason" in reading) return reading
     if (!("px" in reading)) return { value: undefined }
-    const px = reading.px
-    if (!cssTakes(`${px}px`)) return { reason: `${label} can't be ${trimmed}` }
-    if (tokensOnly) {
-      const near = nearestTo(px)
-      return { reason: `Not a token. Nearest: ${near.name} (${lengthDetail(near.px)})` }
-    }
-    return { value: { px: Math.round(px * 100) / 100 } }
+    if (!cssTakes(`${reading.px}px`)) return { reason: `${label} can't be ${trimmed}` }
+    const near = nearestTo(reading.px)
+    if (tokensOnly && near) return notAToken(near, () => onChange(near.name))
+    return { value: { px: Math.round(reading.px * 100) / 100 } }
   }
-  const commit = (leaving: boolean): boolean => {
-    if (typed === undefined) return true
-    const outcome = read(typed)
-    if ("value" in outcome) {
-      onChange(outcome.value)
-      setMessage(undefined)
-    } else if (!leaving) {
-      setMessage({ tone: "error", text: outcome.reason })
-      return false
-    } else {
-      setMessage({ tone: "note", text: `${label} is back to ${current}. ${outcome.reason}.` })
-    }
-    setTyped(undefined)
-    return true
-  }
-  const step = (up: boolean, shift: boolean) => {
-    setTyped(undefined)
-    setMessage(undefined)
+  const step = (up: boolean, { shift }: ScrubKeys) => {
     if (token && scale.includes(token)) {
       // A token steps to the next of its kind in scale order; Shift goes to the first or last.
-      const index = scale.indexOf(token)
       const last = scale.length - 1
-      let next = Math.min(last, Math.max(0, index + (up ? 1 : -1)))
+      let next = Math.min(last, Math.max(0, scale.indexOf(token) + (up ? 1 : -1)))
       if (shift) next = up ? last : 0
       onChange(scale[next]!.name)
       return
     }
-    const from = own?.px ?? 0
+    const from = own?.px ?? token?.px ?? 0
     onChange({ px: Math.max(0, from + (up ? 1 : -1) * (shift ? 10 : 1)) })
   }
-  // A narrow field's hint carries what the value comes to and its status, which have no room in the field.
-  let hintDetail: string | undefined
-  if (token?.deprecated) hintDetail = `${lengthDetail(token.px)}. Deprecated: use ${token.deprecated} instead`
-  else if (token) hintDetail = lengthDetail(token.px)
-  else if (missing) hintDetail = "Missing: the project has no token by this name now"
-  else if (own?.allow !== undefined) hintDetail = `Allowed here: ${own.allow}`
-  else if (own && nearest) hintDetail = `Not a token. Nearest: ${nearest.name} (${lengthDetail(nearest.px)})`
-  else if (mixed) hintDetail = "Mixed: the selected layers differ"
-  else hintDetail = "Unset"
-  const chipName = typeof value === "string" ? value : undefined
-  const showChip = chipName !== undefined && typed === undefined
-  let fieldPlaceholder = mixed ? "Mixed" : placeholder
-  if (showChip) fieldPlaceholder = ""
-  const list = (
-    <PopoverContent className="w-52 gap-0 p-1" align="start">
-      {[{ name: undefined, px: 0 }, ...tokens].map((option) => (
-        <button
-          key={option.name ?? "none"}
-          type="button"
-          onClick={() => {
-            onChange(option.name)
-            setMessage(undefined)
-            setOpen(false)
-          }}
-          className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent ${option.name === value ? "bg-accent" : ""}`}
-        >
-          <span className={`min-w-0 flex-1 truncate font-mono ${option.name ? "" : "text-muted-foreground"}`}>
-            {option.name ?? "None"}
-          </span>
-          {"deprecated" in option && option.deprecated && (
-            <TriangleAlert aria-label="Deprecated" className="size-3 shrink-0 text-amber-500" />
-          )}
-          <span className="text-muted-foreground tabular-nums">{option.name ? lengthDetail(option.px) : ""}</span>
-        </button>
-      ))}
-    </PopoverContent>
-  )
+  // A narrow field's hint carries the value's status, which has no room in the field.
+  let status: string | undefined
+  if (token?.deprecated) status = `Deprecated: use ${token.deprecated} instead`
+  else if (name !== undefined && !token) status = "Missing: the project has no token by this name now"
+  else if (own?.allow !== undefined) status = `Allowed here: ${own.allow}`
+  else if (own && nearest) status = `Not a token. Nearest: ${nearest.name} (${nearest.detail})`
+  else if (mixed && value === undefined) status = "Mixed: the selected layers differ"
+  else if (value === undefined) status = "Unset"
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <Popover open={open} onOpenChange={setOpen}>
-        <Hint
-          label={narrow ? `${label}: ${current}` : undefined}
-          detail={narrow ? hintDetail : undefined}
-          hidden={open}
-          wait
-        >
-          <div
-            className={`group/length flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent pl-1 text-xs focus-within:ring-2 dark:bg-input/30 ${error || refused ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"}`}
-          >
-            {showChip ? (
-              // The chip: clicking it opens the tokens, and its × takes the token off.
-              <span className="flex min-w-0 shrink items-center rounded-sm bg-accent">
-                <PopoverTrigger
-                  aria-label={`${label}: ${chipName}${missing ? ", missing" : ""}`}
-                  onKeyDown={(event) => {
-                    // Typing on a focused chip replaces the token, as typing in the field after it does.
-                    if (event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey) {
-                      event.preventDefault()
-                      setTyped(event.key)
-                      input.current?.focus()
-                    } else if (event.key === "Backspace" || event.key === "Delete") {
-                      event.preventDefault()
-                      onChange(undefined)
-                      input.current?.focus()
-                    } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                      event.preventDefault()
-                      step(event.key === "ArrowUp", event.shiftKey)
-                    }
-                  }}
-                  className="flex min-w-0 items-center gap-1.5 rounded-sm px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {icon}
-                  <span className={`truncate font-mono ${missing ? "text-amber-600 line-through" : ""}`}>
-                    {chipName.replace(prefix, "")}
-                  </span>
-                </PopoverTrigger>
-                {token?.deprecated && (
-                  <Hint label={`${token.name} is deprecated`} detail={`Use ${token.deprecated} instead`}>
-                    <button
-                      type="button"
-                      aria-label={`${token.name} is deprecated. Use ${token.deprecated} instead`}
-                      onClick={() => onChange(token.deprecated)}
-                      className="grid size-4 shrink-0 place-items-center rounded-sm text-amber-500 outline-none hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <TriangleAlert className="size-3" />
-                    </button>
-                  </Hint>
-                )}
-                <button
-                  type="button"
-                  aria-label={`Remove ${chipName} from ${label}`}
-                  onClick={() => {
-                    onChange(undefined)
-                    input.current?.focus()
-                  }}
-                  className="mr-0.5 hidden size-4 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none group-hover/length:grid hover:bg-background/60 hover:text-foreground focus-visible:grid focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
-            ) : (
-              icon && <span className="shrink-0 pl-0.5">{icon}</span>
-            )}
-            {showChip && token && !narrow && !focused && (
-              <span className="truncate text-muted-foreground/70 tabular-nums">{lengthDetail(token.px)}</span>
-            )}
-            {/* Always there, after the chip, as in a text field: click beside the chip to type, and Backspace removes it. */}
-            <input
-              ref={input}
-              aria-label={label}
-              aria-invalid={error || refused || undefined}
-              inputMode="decimal"
-              placeholder={fieldPlaceholder}
-              value={typed ?? (own ? String(own.px) : "")}
-              onFocus={() => {
-                setFocused(true)
-                if (message?.tone === "note") setMessage(undefined)
+    <ValueField
+      label={label}
+      inner={icon}
+      // Dragging the icon scrubs a value of its own a pixel per screen pixel, and a token through the scale.
+      scrub={
+        icon === undefined
+          ? undefined
+          : {
+              from: () => own?.px ?? token?.px ?? 0,
+              apply: (px) => onChange({ px }),
+              by: { step: 1, shiftStep: 10, altStep: 0.1, min: 0 }
+            }
+      }
+      shown={own ? formatNumber(own.px) : undefined}
+      placeholder={placeholder}
+      mixed={mixed}
+      chip={
+        name === undefined
+          ? undefined
+          : {
+              name,
+              token,
+              namespace,
+              onRemove: () => onChange(undefined),
+              onReplace: (replacement) => onChange(replacement)
+            }
+      }
+      unit={own ? "px" : undefined}
+      comesTo={token?.detail}
+      status={{
+        missing: name !== undefined && !token ? <MissingMark name={name} /> : undefined,
+        offSystem:
+          own && nearest ? (
+            <OffSystemMark
+              label={label}
+              compact
+              description={`${own.px}px isn't one of the project's ${kind} tokens.`}
+              nearest={{
+                name: `${nearest.name}, ${nearest.detail}`,
+                preview: <TokenMark kind={nearest.kind} value={nearest.value} />
               }}
-              onChange={(event) => setTyped(event.target.value)}
-              onKeyDown={(event) => {
-                if (showChip && event.currentTarget.value === "" && ["Backspace", "Delete"].includes(event.key)) {
-                  event.preventDefault()
-                  onChange(undefined)
-                }
-                if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
-                if (event.key === "Escape" && typed !== undefined) {
-                  setTyped(undefined)
-                  setMessage(error ? { tone: "note", text: `${label} is back to ${current}.` } : undefined)
-                }
-                if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                  event.preventDefault()
-                  step(event.key === "ArrowUp", event.shiftKey)
-                }
-              }}
-              onBlur={() => {
-                setFocused(false)
-                commit(true)
-              }}
-              className={`w-0 flex-1 bg-transparent tabular-nums outline-none placeholder:text-muted-foreground ${showChip ? "min-w-1" : "min-w-6"} ${refused ? "text-destructive" : ""}`}
+              allowed={own.allow}
+              isTaken={(taken) => tokens.some((other) => other.name === namespace + taken)}
+              namePlaceholder={kind === "radius" ? "card" : "glass"}
+              onUse={() => onChange(nearest.name)}
+              onCreate={
+                create &&
+                ((made) => {
+                  create(lengthToken(kind, namespace + made, own.px))
+                  onChange(namespace + made)
+                })
+              }
+              onAllow={(reason) => onChange(reason === undefined ? { px: own.px } : { ...own, allow: reason })}
             />
-            {own && !focused && (
-              <span className={`shrink-0 text-muted-foreground ${narrow ? "hidden group-hover/length:inline" : ""}`}>
-                px
-              </span>
-            )}
-            {error && <CircleAlert aria-hidden className="size-3.5 shrink-0 text-destructive" />}
-            {!error && own && nearest && !focused && (
-              <OffSystemMark
-                label={label}
-                compact
-                description={`${own.px}px isn't one of the project's ${kind} tokens.`}
-                nearest={{ name: `${nearest.name}, ${lengthDetail(nearest.px)}` }}
-                allowed={own.allow}
-                isTaken={(name) => tokens.some((other) => other.name === prefix + name)}
-                namePlaceholder={kind === "radius" ? "card" : "glass"}
-                onUse={() => onChange(nearest.name)}
-                onCreate={(name) => {
-                  tokens.push({ name: prefix + name, px: own.px })
-                  onChange(prefix + name)
-                }}
-                onAllow={(reason) => onChange(reason === undefined ? { px: own.px } : { ...own, allow: reason })}
-              />
-            )}
-            {!showChip && !error && (
-              // The token button, for a field holding no token: on hover or focus, as Figma's variable button shows.
-              <Hint label={`Choose a ${kind} token`}>
-                <PopoverTrigger
-                  aria-label={`${label} tokens`}
-                  className="hidden size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none group-focus-within/length:grid group-hover/length:grid hover:bg-accent hover:text-foreground focus-visible:grid focus-visible:ring-2 focus-visible:ring-ring data-popup-open:grid data-popup-open:bg-accent"
-                >
-                  <Hexagon className="size-3.5" />
-                </PopoverTrigger>
-              </Hint>
-            )}
-            {showChip && <span className="w-1 shrink-0" />}
-          </div>
-        </Hint>
-        {list}
-      </Popover>
-      {message && (
-        <p
-          role={error ? "alert" : "status"}
-          className={`text-[11px] leading-snug ${error ? "text-destructive" : "text-muted-foreground"}`}
-        >
-          {message.text}
-        </p>
-      )}
-      {!message && refused && nearest && (
-        <p role="alert" className="flex flex-wrap items-center gap-x-1 text-[11px] leading-snug text-destructive">
-          Not a token. Nearest:
-          <button
-            type="button"
-            onClick={() => onChange(nearest.name)}
-            className="font-medium text-foreground underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            {nearest.name} ({lengthDetail(nearest.px)})
-          </button>
-        </p>
-      )}
-    </div>
+          ) : undefined
+      }}
+      tokens={{ list: tokens, current: name, none: "None", onPick: onChange }}
+      refused={refused && nearest ? { nearest, onUse: () => onChange(nearest.name) } : undefined}
+      narrow={narrow}
+      hint={{ detail: status }}
+      read={read}
+      onCommit={onChange}
+      onStep={step}
+    />
   )
 }
 
@@ -2197,13 +1919,14 @@ const presets = [
 ]
 
 /**
- * A number typed, committed on Enter or blur, with a short label inside and a unit after, hidden while focused. A
- * length in pixels (`pixels`) is shown in px or rem, switched by the unit after it as the canvas's type box switches,
- * and takes either typed (`1rem`, `16px`); it's kept in pixels whichever is shown, so 16px becomes 1rem. A spacing
- * length (`spacing`) steps to the next whole spacing step (4px) on Up and Down; others step by 1, or 10 with Shift.
+ * A number typed, committed on Enter or blur, with a short label inside and a unit after, hidden while focused: a
+ * ValueField. A length in pixels (`pixels`) is shown in px or rem, switched by the unit after it as the canvas's type
+ * box switches, and takes either typed (`1rem`, `16px`); it's kept in pixels whichever is shown, so 16px becomes 1rem.
+ * A spacing length (`spacing`) steps to the next whole spacing step (4px) on Up and Down and scrubs a step per 2 screen
+ * pixels; others step by 1, or 10 with Shift, and scrub a step per screen pixel.
  *
  * In a narrow field (`narrow`, under about 96px, as sides are), the unit shows only on hover. Input it can't read
- * stays, outlined in the error color with a mark in the status slot and the reason under it; Enter keeps it, and
+ * stays, outlined in the error color with a mark in the status slot and the reason under the row; Enter keeps it, and
  * Escape or leaving puts the value back and says so.
  */
 export function Num({
@@ -2229,21 +1952,16 @@ export function Num({
   min?: number
   onChange: (value: number | undefined) => void
 }) {
-  const [typed, setTyped] = useState<string>()
-  const [focused, setFocused] = useState(false)
   const [unit, setUnit] = useState<"px" | "rem">("px")
-  const [message, setMessage] = useState<{ tone: "error" | "note"; text: string }>()
   const inRem = pixels && unit === "rem"
-  let shown = value === undefined ? "" : String(value)
-  if (inRem && value !== undefined) shown = String(Number((value / remPixels).toFixed(3)))
+  let shown = value === undefined ? undefined : formatNumber(value)
+  if (inRem && value !== undefined) shown = formatNumber(value / remPx)
   const other = unit === "px" ? "rem" : "px"
-  const switchable = pixels && value !== undefined
-  const error = message?.tone === "error"
   /**
    * What's typed: a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`), a bare number in the
    * unit shown; or, for a count, a whole number.
    */
-  const read = (text: string): { value: number | undefined } | { reason: string } => {
+  const read = (text: string): Reading<number | undefined> => {
     if (pixels) {
       const bare = /^\s*-?(\d*\.?\d+)\s*$/.test(text)
       const reading = readLength(inRem && bare ? `${text}rem` : text, { label, current: value })
@@ -2257,29 +1975,10 @@ export function Num({
       ? { value: Math.max(min, Math.round(number)) }
       : { reason: `${label} takes a whole number` }
   }
-  const commit = (leaving: boolean): boolean => {
-    if (typed === undefined) return true
-    const next = read(typed)
-    if ("reason" in next) {
-      if (!leaving) {
-        setMessage({ tone: "error", text: next.reason })
-        return false
-      }
-      setMessage({ tone: "note", text: `${label} is back to ${shown || placeholder}. ${next.reason}.` })
-    } else {
-      onChange(next.value)
-      setMessage(undefined)
-    }
-    setTyped(undefined)
-    return true
-  }
-  // Dragging the letter inside the field scrubs it, as Figma's labels do.
-  const scrub = scrubbing(() => value ?? Math.max(min, 0), onChange, { spacing, min })
-  let after: ReactNode
-  if (error) after = <CircleAlert aria-hidden className="mr-1.5 size-3.5 shrink-0 text-destructive" />
-  else if (focused) after = undefined
-  else if (switchable)
-    after = (
+  const from = () => value ?? Math.max(min, 0)
+  let unitPart: ReactNode = suffix
+  if (pixels && value !== undefined) {
+    unitPart = (
       <Hint label={`Show in ${other}`}>
         <button
           type="button"
@@ -2288,86 +1987,38 @@ export function Num({
             event.preventDefault()
             setUnit(other)
           }}
-          className={`h-full shrink-0 rounded-r-md px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground ${narrow ? "hidden group-hover/num:block" : ""}`}
+          className={unitButtonClass}
         >
           {unit}
         </button>
       </Hint>
     )
-  else if (suffix) after = <span className="shrink-0 pr-1.5 text-muted-foreground">{suffix}</span>
+  }
   return (
-    <>
-      <label
-        className={`group/num flex h-7 min-w-0 items-center gap-1 rounded-md border bg-transparent pl-1.5 text-xs focus-within:ring-2 dark:bg-input/30 ${error ? "border-destructive focus-within:ring-destructive/40" : "focus-within:ring-ring"} ${switchable || error ? "" : "pr-1.5"}`}
-      >
-        {inner && (
-          <span
-            onPointerDown={scrub}
-            className="shrink-0 cursor-ew-resize touch-none text-muted-foreground select-none"
-          >
-            {inner}
-          </span>
-        )}
-        <input
-          aria-label={label}
-          aria-invalid={error || undefined}
-          inputMode="decimal"
-          placeholder={placeholder}
-          value={typed ?? shown}
-          onFocus={() => {
-            setFocused(true)
-            if (message?.tone === "note") setMessage(undefined)
-          }}
-          onChange={(event) => setTyped(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
-            if (event.key === "Escape" && typed !== undefined) {
-              setTyped(undefined)
-              setMessage(error ? { tone: "note", text: `${label} is back to ${shown || placeholder}.` } : undefined)
-            }
-            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-              event.preventDefault()
-              setTyped(undefined)
-              setMessage(undefined)
-              const up = event.key === "ArrowUp"
-              const from = value ?? Math.max(min, 0)
-              const next = spacing
-                ? nextSpacingStep(from, up, event.shiftKey)
-                : from + (up ? 1 : -1) * (event.shiftKey ? 10 : 1)
-              onChange(Math.max(min, next))
-            }
-          }}
-          onBlur={() => {
-            setFocused(false)
-            commit(true)
-          }}
-          className="w-full min-w-0 bg-transparent tabular-nums outline-none placeholder:text-muted-foreground"
-        />
-        {after}
-      </label>
-      {message && (
-        // A row of fields lays this out under the whole row, as the app's fields say things under the row.
-        <p
-          role={error ? "alert" : "status"}
-          className={`col-span-full text-[11px] leading-snug ${error ? "text-destructive" : "text-muted-foreground"}`}
-        >
-          {message.text}
-        </p>
-      )}
-    </>
+    <ValueField
+      label={label}
+      inner={inner}
+      // Dragging the letter inside the field scrubs it, as Figma's labels do.
+      scrub={{
+        from,
+        apply: (next) => onChange(next),
+        by: spacing ? { spacing: true, min } : { step: 1, shiftStep: 10, min }
+      }}
+      shown={shown}
+      placeholder={placeholder}
+      unit={unitPart}
+      narrow={narrow}
+      read={read}
+      onCommit={onChange}
+      onStep={(up, keys) => {
+        const count = stepCount(up, keys)
+        onChange(Math.max(min, spacing ? stepSpacing(from(), count) : from() + count))
+      }}
+    />
   )
 }
 
-/** Pixels in a rem, as the inspector's fields count them. */
-const remPixels = 16
-
 /* The canvas's stand-ins. */
-
-const rgba = (hex: string | undefined, alpha: number | undefined): string | undefined => {
-  if (!hex) return undefined
-  if (alpha === undefined) return hex
-  return `color-mix(in srgb, ${hex} ${alpha}%, transparent)`
-}
 
 const flipped = { start: "end", center: "center", end: "start" } as const
 const flexValues = {
@@ -2401,9 +2052,8 @@ export function LayerPreview({
   childSelected?: boolean
   onSelectChild?: (selected: boolean) => void
 }) {
+  const sets = useTokenSets()
   const grid = draft.columns !== undefined
-  const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
-  const widths = Array.isArray(draft.borderWidth) ? draft.borderWidth : [0, 0, 0, 0].map(() => draft.borderWidth ?? 0)
   const Tag = (draft.tag ?? "p") as "p"
   const direction = `${draft.direction ?? "column"}${draft.reverse ? "-reverse" : ""}` as const
   // The box is physical, so a reversed layout writes the other end: its top is flex-end.
@@ -2426,44 +2076,32 @@ export function LayerPreview({
     minHeight: px(draft.minHeight),
     maxHeight: px(draft.maxHeight),
     aspectRatio: draft.aspect,
-    background: rgba(hexOf(draft.background), draft.backgroundAlpha),
-    borderColor: rgba(hexOf(draft.border), draft.borderAlpha) ?? "transparent",
-    borderStyle: "solid",
-    borderWidth: widths.map((width) => `${width}px`).join(" "),
-    borderRadius: radii.map((radius) => `${Math.min(radiusPx(radius), 200)}px`).join(" "),
-    filter: draft.blur ? `blur(${blurPx(draft.blur)}px)` : undefined,
-    backdropFilter: draft.backdropBlur ? `blur(${blurPx(draft.backdropBlur)}px)` : undefined,
+    ...drawnStyle(draft, sets),
+    // The selection's outline, in the layer's color, as the canvas draws it.
+    outlineColor: kindColors.layer,
     color: "#0a0a0a"
   }
   return (
     // Plans' parent, wider than Plans, so Fill and a percentage show; it hugs Plans' height.
-    <div className="relative flex w-full max-w-[680px] justify-center">
-      {/* Shapes behind the layer, so a backdrop blur and a translucent fill show. */}
-      <div aria-hidden className="absolute -inset-10 overflow-hidden rounded-3xl">
-        <div className="absolute top-4 left-6 size-40 rounded-full bg-[#f54900]" />
-        <div className="absolute right-10 bottom-2 size-48 rounded-full bg-[#009689]" />
-        <div className="absolute top-1/3 left-1/2 size-28 rotate-12 bg-[#ffb900]" />
-      </div>
-      <section
-        aria-label="Plans"
-        className="relative outline outline-1 outline-offset-0 outline-[#0d99ff]"
-        style={style}
-      >
+    <PreviewStage around>
+      <section aria-label="Plans" className="relative outline outline-offset-0" style={style}>
         <Tag className="m-0 text-base font-semibold" style={grid ? { gridColumn: "1 / -1" } : undefined}>
           Simple pricing for every team
         </Tag>
         {["Hobby", "Pro plan", "Team"].map((name) => {
           const pro = name === "Pro plan"
+          const selected = pro && childSelected
           return (
             <button
               key={name}
               type="button"
               data-layer={name}
-              aria-pressed={pro && childSelected}
+              aria-pressed={selected}
               onClick={() => onSelectChild?.(pro ? !childSelected : false)}
-              className={`rounded-lg border border-black/10 bg-white/80 p-3 text-left text-sm ${pro && childSelected ? "outline-2 outline-[#0d99ff]" : ""}`}
-              style={
-                grid && pro
+              className={`rounded-lg border border-black/10 bg-white/80 p-3 text-left text-sm ${selected ? "outline-2" : ""}`}
+              style={{
+                ...(selected ? { outlineColor: kindColors.layer } : {}),
+                ...(grid && pro
                   ? {
                       gridColumn: placementCss(
                         draft.colStart,
@@ -2476,15 +2114,15 @@ export function LayerPreview({
                       width: cellSize(draft.childWidth),
                       height: cellSize(draft.childHeight)
                     }
-                  : { fontSize: pro ? 20 : 14 }
-              }
+                  : { fontSize: pro ? 20 : 14 })
+              }}
             >
               {name}
             </button>
           )
         })}
       </section>
-    </div>
+    </PreviewStage>
   )
 }
 

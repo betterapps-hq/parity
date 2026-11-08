@@ -4,9 +4,9 @@ import { userEvent, within } from "storybook/test"
 import { Field } from "../../chrome/fields.tsx"
 import { LetterSpacingField, LineHeightField } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
-import { leadingTokens, type SizeToken, sizeTokens, trackingTokens } from "./text-data.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type LetterSpacing, letterSpacingWrites, type LineHeight, lineHeightWrites } from "./text-writes.ts"
+import { leadingTokens, type SizeToken, sizeTokens, trackingTokens } from "./tokens.ts"
 import { mergeWrites } from "./writes.ts"
 
 /**
@@ -31,7 +31,7 @@ const sizeNamed = (name: string) => sizeTokens.find((size) => size.name === name
 function lineHeightCss(lineHeight: LineHeight | undefined, size: SizeToken | undefined): string | number | undefined {
   if (lineHeight === undefined) return size ? `${size.lineHeight}px` : undefined
   if ("keyword" in lineHeight) return "normal"
-  if ("token" in lineHeight) return leadingTokens.find((token) => token.name === lineHeight.token)?.value
+  if ("token" in lineHeight) return leadingTokens.find((token) => token.name === lineHeight.token)?.multiple
   if ("multiple" in lineHeight) return lineHeight.multiple
   return `${lineHeight.px}px`
 }

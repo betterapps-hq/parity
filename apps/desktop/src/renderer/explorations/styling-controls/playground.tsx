@@ -1,11 +1,15 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { type CSSProperties, type ReactNode, useState } from "react"
-import { blurPx, type Draft, hexOf, radiusPx } from "./data.ts"
+import { mixColor } from "./css-values.ts"
+import { type Draft, usedColors } from "./data.ts"
+import { ProjectTokens, useTokenSets } from "./field-parts.tsx"
+import { hexOf, lengthPx, type TokenSets } from "./tokens.ts"
 import type { StrokePosition, Writes } from "./writes.ts"
 
 /*
  * Where each control is tried on its own: the control at the inspector's width, and beside it what it stores and what
- * it writes as CSS and as Tailwind, updated as it's used. A preview draws the result where it helps.
+ * it writes as CSS and as Tailwind, updated as it's used. A preview draws the result where it helps. Each story has its
+ * own project tokens, so a token made with Create token is there for the story's fields and preview only.
  */
 
 /** A style that changes as the control is used, for a story's state. */
@@ -25,18 +29,23 @@ export function Playground({
 }) {
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen flex-wrap items-start gap-6 bg-background p-6 text-foreground">
-        {/* The inspector's width, so the control lays out as it will there. */}
-        <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1 rounded-lg border p-3">
-          {children}
-        </section>
-        <Readout writes={writes} />
-        {preview && (
-          <section aria-label="Preview" className="grid shrink-0 place-items-center rounded-lg border bg-muted/40 p-6">
-            {preview}
+      <ProjectTokens>
+        <div className="flex min-h-screen flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+          {/* The inspector's width, so the control lays out as it will there. */}
+          <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1 rounded-lg border p-3">
+            {children}
           </section>
-        )}
-      </div>
+          <Readout writes={writes} />
+          {preview && (
+            <section
+              aria-label="Preview"
+              className="grid shrink-0 place-items-center rounded-lg border bg-muted/40 p-6"
+            >
+              {preview}
+            </section>
+          )}
+        </div>
+      </ProjectTokens>
     </TooltipProvider>
   )
 }
@@ -65,9 +74,80 @@ function Readout({ writes }: { writes: Writes }) {
   )
 }
 
+/** The shapes behind Plans, in the design's own colors: two circles and a square turned a little. */
+const [shapeA, shapeB, shapeC] = usedColors
+
 /**
- * A card drawn with the style's fill, stroke, radius and blurs, over shapes, so a translucent fill and a background
- * blur show.
+ * Shapes behind a preview, so a translucent fill, a shadow, a filter or a background blur shows. It's a 256-pixel
+ * square for a card; `around` lets what's inside set its own size, with larger shapes spilling past it, as the layer
+ * preview's is.
+ */
+export function PreviewStage({ around = false, children }: { around?: boolean; children: ReactNode }) {
+  if (around) {
+    return (
+      <div className="relative flex w-full max-w-[680px] justify-center">
+        <div aria-hidden className="absolute -inset-10 overflow-hidden rounded-3xl">
+          <div className="absolute top-4 left-6 size-40 rounded-full" style={{ background: shapeA }} />
+          <div className="absolute right-10 bottom-2 size-48 rounded-full" style={{ background: shapeB }} />
+          <div className="absolute top-1/3 left-1/2 size-28 rotate-12" style={{ background: shapeC }} />
+        </div>
+        {children}
+      </div>
+    )
+  }
+  return (
+    <div className="relative grid size-64 place-items-center">
+      <div aria-hidden className="absolute inset-4 overflow-hidden rounded-2xl">
+        <div className="absolute top-3 left-4 size-24 rounded-full" style={{ background: shapeA }} />
+        <div className="absolute right-4 bottom-3 size-28 rounded-full" style={{ background: shapeB }} />
+        <div className="absolute top-1/3 left-1/2 size-16 rotate-12" style={{ background: shapeC }} />
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/** The 200 by 120 card, Plans, drawn with a style: every list and effect field's preview draws on it. */
+export function Card({ style, children = "Plans" }: { style?: CSSProperties; children?: ReactNode }) {
+  return (
+    <div
+      aria-label="The layer"
+      className="relative grid place-items-center text-xs text-neutral-900"
+      style={{ width: 200, height: 120, ...style }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** A style's colors, radii, stroke and blurs as a preview draws them, with the project's tokens resolved. */
+export function drawnStyle(
+  draft: Draft,
+  sets: TokenSets,
+  { inLayout = true, position = "inside" }: { inLayout?: boolean; position?: StrokePosition } = {}
+): CSSProperties {
+  const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
+  const widths = Array.isArray(draft.borderWidth) ? draft.borderWidth : [0, 0, 0, 0].map(() => draft.borderWidth ?? 0)
+  const strokeColor = mixColor(hexOf(draft.border, sets.color), draft.borderAlpha) ?? "transparent"
+  const width = typeof draft.borderWidth === "number" ? draft.borderWidth : 1
+  const stroke: CSSProperties = inLayout
+    ? { borderColor: strokeColor, borderStyle: "solid", borderWidth: widths.map((px) => `${px}px`).join(" ") }
+    : {
+        outline: `${width}px solid ${strokeColor}`,
+        outlineOffset: { inside: -width, center: -width / 2, outside: 0 }[position]
+      }
+  return {
+    background: mixColor(hexOf(draft.background, sets.color), draft.backgroundAlpha) ?? "transparent",
+    borderRadius: radii.map((radius) => `${Math.min(lengthPx(radius, sets.radius), 200)}px`).join(" "),
+    filter: draft.blur ? `blur(${lengthPx(draft.blur, sets.blur)}px)` : undefined,
+    backdropFilter: draft.backdropBlur ? `blur(${lengthPx(draft.backdropBlur, sets.blur)}px)` : undefined,
+    ...stroke
+  }
+}
+
+/**
+ * The card drawn with the style's fill, stroke, radius and blurs, over the stage's shapes, so a translucent fill and a
+ * background blur show.
  */
 export function CardPreview({
   draft,
@@ -80,43 +160,12 @@ export function CardPreview({
   position?: StrokePosition
   cornerShape?: string
 }) {
-  const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
-  const widths = Array.isArray(draft.borderWidth) ? draft.borderWidth : [0, 0, 0, 0].map(() => draft.borderWidth ?? 0)
-  const strokeColor = tint(hexOf(draft.border), draft.borderAlpha) ?? "transparent"
-  const width = typeof draft.borderWidth === "number" ? draft.borderWidth : 1
-  const stroke: CSSProperties = inLayout
-    ? { borderColor: strokeColor, borderStyle: "solid", borderWidth: widths.map((px) => `${px}px`).join(" ") }
-    : {
-        outline: `${width}px solid ${strokeColor}`,
-        outlineOffset: { inside: -width, center: -width / 2, outside: 0 }[position]
-      }
-  const style = {
-    width: 200,
-    height: 120,
-    background: tint(hexOf(draft.background), draft.backgroundAlpha) ?? "transparent",
-    borderRadius: radii.map((radius) => `${Math.min(radiusPx(radius), 200)}px`).join(" "),
-    filter: draft.blur ? `blur(${blurPx(draft.blur)}px)` : undefined,
-    backdropFilter: draft.backdropBlur ? `blur(${blurPx(draft.backdropBlur)}px)` : undefined,
-    ...stroke,
-    ...(cornerShape ? { cornerShape } : {})
-  } as CSSProperties
+  const sets = useTokenSets()
+  // `corner-shape` is Chromium's only, and not in React's CSS types yet.
+  const shape: CSSProperties & { cornerShape?: string } = cornerShape ? { cornerShape } : {}
   return (
-    <div className="relative grid size-64 place-items-center">
-      <div aria-hidden className="absolute inset-4 overflow-hidden rounded-2xl">
-        <div className="absolute top-3 left-4 size-24 rounded-full bg-[#f54900]" />
-        <div className="absolute right-4 bottom-3 size-28 rounded-full bg-[#009689]" />
-        <div className="absolute top-1/3 left-1/2 size-16 rotate-12 bg-[#ffb900]" />
-      </div>
-      <div aria-label="The layer" className="relative grid place-items-center text-xs text-neutral-900" style={style}>
-        Plans
-      </div>
-    </div>
+    <PreviewStage>
+      <Card style={{ ...drawnStyle(draft, sets, { inLayout, position }), ...shape }} />
+    </PreviewStage>
   )
-}
-
-/** A color at an alpha from 0 to 100, as CSS draws it. */
-export function tint(color: string | undefined, alpha: number | undefined): string | undefined {
-  if (!color) return undefined
-  if (alpha === undefined) return color
-  return `color-mix(in srgb, ${color} ${alpha}%, transparent)`
 }

@@ -6,9 +6,9 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { EasingArt, swatch } from "../../chrome/token-previews.tsx"
 import { ColorEditor } from "./color-picker.tsx"
-import { colorTokens } from "./data.ts"
-import { arbitrary, fillTokens, lengthVars } from "./expression.tsx"
+import { arbitrary, fillTokens } from "./expression.tsx"
 import { fieldBox, InvalidMark, type Message, MessageLine, NotBaseline, TokenMark } from "./field-parts.tsx"
+import { colorTokens, lengthVars } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 /*

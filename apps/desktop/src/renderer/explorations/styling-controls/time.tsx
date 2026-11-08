@@ -1,6 +1,7 @@
 import { useState } from "react"
-import { OffSystemMark } from "./color-picker.tsx"
-import { type DurationToken, type Time, timeMs, timeUnits, splitUnit } from "./motion-data.ts"
+import { OffSystemMark } from "./field-parts.tsx"
+import { type Time, timeMs, timeUnits, splitUnit } from "./motion-data.ts"
+import { type DurationToken, durationToken } from "./tokens.ts"
 import { readUnitNumber, type TokenOption, UnitField } from "./unit-field.tsx"
 
 /**
@@ -90,7 +91,7 @@ export function TimeField({
             onUse={() => onChange({ token: nearest.name })}
             onCreate={(name) => {
               const full = name.startsWith("duration-") ? name : `duration-${name}`
-              setCreated((current) => [...current, { name: full, ms: ms! }])
+              setCreated((current) => [...current, durationToken(full, ms!)])
               onChange({ token: full })
             }}
             onAllow={(reason) => {

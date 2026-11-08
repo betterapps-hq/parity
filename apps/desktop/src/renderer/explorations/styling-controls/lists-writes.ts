@@ -3,22 +3,20 @@
  * `background-image` layers, the shadow list in Tailwind's four box-shadow slots (or one arbitrary value when it
  * doesn't fit them), and the filter list in Tailwind's filter order.
  */
-import { blurTokens, type Length } from "./data.ts"
+import type { Length } from "./data.ts"
 import {
   type AdjustmentKey,
   type FilterEntry,
   type GradientPaint,
-  type GradientToken,
-  gradientTokens,
   type ImagePaint,
   layersOf,
   type ListColor,
   type Paint,
   type PaintEntry,
   type ShadowEntry,
-  type ShadowLayer,
-  type ShadowToken
+  type ShadowLayer
 } from "./lists-data.ts"
+import { blurTokens, type GradientToken, gradientTokens, type ShadowToken } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 const nothing: Writes = { stored: undefined, css: [], tailwind: [] }

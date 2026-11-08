@@ -4,6 +4,7 @@
  * value of its own as typed or read from code, and a spring, kept as its settings since the `linear()` it writes can't
  * be read back into them.
  */
+import { type DurationToken, durationTokens, type EasingToken, easingTokens } from "./tokens.ts"
 
 /** An angle: whole degrees as a step (`rotate-45`), or a value of its own as typed or read (`22.5deg`, `0.25turn`). */
 export type Angle = { step: number } | { value: string }
@@ -41,18 +42,6 @@ export type Time = { step: number; allow?: string } | { token: string } | { valu
 /** Milliseconds in each unit a time is typed or read in. */
 export const timeUnits: Record<string, number> = { ms: 1, s: 1000 }
 
-export interface DurationToken {
-  name: string
-  ms: number
-}
-
-/** A project's duration tokens; a project without them leaves every whole millisecond unmarked. */
-export const durationTokens: DurationToken[] = [
-  { name: "duration-fast", ms: 150 },
-  { name: "duration-normal", ms: 250 },
-  { name: "duration-slow", ms: 400 }
-]
-
 export function timeMs(time: Time | undefined, tokens: readonly DurationToken[] = durationTokens): number | undefined {
   if (time === undefined) return undefined
   if ("step" in time) return time.step
@@ -89,18 +78,6 @@ export const easingPresets: { keyword: EasingKeyword; label: string; curve: Bezi
 
 /** Tailwind v4's `--default-transition-timing-function`, which a transition with no easing of its own takes. */
 export const defaultCurve: Bezier = [0.4, 0, 0.2, 1]
-
-export interface EasingToken {
-  name: string
-  curve?: Bezier
-  spring?: Spring
-}
-
-/** The project's easing tokens. */
-export const easingTokens: EasingToken[] = [
-  { name: "ease-snappy", curve: [0.2, 0.8, 0.2, 1] },
-  { name: "ease-gentle", curve: [0.33, 0, 0.15, 1] }
-]
 
 /** What an easing draws: a curve, a staircase, or a spring's samples. */
 export type EasingShape =

@@ -28,7 +28,7 @@ import {
 import { type PointerEvent as ReactPointerEvent, type ReactNode, useRef, useState } from "react"
 import { Field } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { OffSystemMark } from "./color-picker.tsx"
+import { OffSystemMark } from "./field-parts.tsx"
 import {
   onStep,
   readSide,
@@ -39,6 +39,7 @@ import {
   sideNumber,
   stepSide
 } from "./sides-writes.ts"
+import { lengthToken } from "./tokens.ts"
 
 /*
  * The Four sides field (PAR-652's Four sides type) and the one-side field it's made of, shared by Padding, Margin,
@@ -235,7 +236,8 @@ export function SideInput({
         namePlaceholder="gutter"
         onUse={() => onChange({ number: nearestStep }, "side")}
         onCreate={(name) => {
-          rules.tokens.push({ name: rules.namespace + name, px: own.number })
+          // A token of the set's kind; phase B adds it through useTokens rather than to the shared set.
+          rules.tokens.push(lengthToken(rules.tokens[0]?.kind ?? "spacing", rules.namespace + name, own.number))
           onChange({ token: rules.namespace + name }, "side")
         }}
         onAllow={(reason) =>

@@ -4,9 +4,10 @@ import { userEvent, within } from "storybook/test"
 import { Field } from "../../chrome/fields.tsx"
 import { OpacityRow } from "./opacity-blend.tsx"
 import { Playground } from "./playground.tsx"
-import { type BlendMode, opacityTokens } from "./text-data.ts"
+import type { BlendMode } from "./text-data.ts"
 import { OverShapes } from "./text-preview.tsx"
 import { type Opacity, opacityWrites } from "./text-writes.ts"
+import { opacityTokens } from "./tokens.ts"
 
 /**
  * Opacity and blend mode (PAR-186, design-options-values.md's Percentage and opacity), Appearance's row on its own: a

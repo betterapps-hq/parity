@@ -1,8 +1,9 @@
 /*
- * Stand-in tokens and fonts for the text, keyword and opacity fields: the project's fonts (Geist, as the app's own
- * sans, and three more as font tokens), fonts installed on this computer in place of Google Fonts, which the app
- * would add to the project, and Tailwind v4's weight, leading, tracking and text size scales.
+ * Stand-in fonts for the text, keyword and opacity fields: the project's fonts (Geist, as the app's own sans, and
+ * three more as font tokens), and fonts installed on this computer in place of Google Fonts, which the app would add
+ * to the project. Tailwind v4's weight, leading, tracking and text size scales are in tokens.ts.
  */
+import { weightTokens } from "./tokens.ts"
 
 export interface FontFamily {
   /** The first family, as it's shown. */
@@ -73,62 +74,10 @@ export function genericOf(stack: string): "serif" | "monospace" | "sans-serif" {
   return "sans-serif"
 }
 
-/** Tailwind's font-weight tokens, which name each hundred. */
-export const weightTokens = [
-  { name: "thin", value: 100, label: "Thin" },
-  { name: "extralight", value: 200, label: "Extra light" },
-  { name: "light", value: 300, label: "Light" },
-  { name: "normal", value: 400, label: "Regular" },
-  { name: "medium", value: 500, label: "Medium" },
-  { name: "semibold", value: 600, label: "Semibold" },
-  { name: "bold", value: 700, label: "Bold" },
-  { name: "extrabold", value: 800, label: "Extra bold" },
-  { name: "black", value: 900, label: "Black" }
-] as const
-
 /** A weight's name where it has one (Semibold), or its number. */
 export function weightName(value: number): string {
-  return weightTokens.find((token) => token.value === value)?.label ?? String(value)
+  return weightTokens.find((token) => token.weight === value)?.label ?? String(value)
 }
-
-/** Tailwind v4's text sizes, each with the line height it pairs; `display` is the project's, pairing more. */
-export const sizeTokens = [
-  { name: "xs", px: 12, lineHeight: 16 },
-  { name: "sm", px: 14, lineHeight: 20 },
-  { name: "base", px: 16, lineHeight: 24 },
-  { name: "lg", px: 18, lineHeight: 28 },
-  { name: "xl", px: 20, lineHeight: 28 },
-  // A project size that pairs a weight and letter spacing too, so a line height beside it is its own class.
-  { name: "display", px: 36, lineHeight: 40, pairsMore: true }
-] as const
-
-export type SizeToken = (typeof sizeTokens)[number]
-
-/** Tailwind v4's leading tokens, as multiples. */
-export const leadingTokens = [
-  { name: "none", value: 1 },
-  { name: "tight", value: 1.25 },
-  { name: "snug", value: 1.375 },
-  { name: "normal", value: 1.5 },
-  { name: "relaxed", value: 1.625 },
-  { name: "loose", value: 2 }
-] as const
-
-/** Tailwind v4's tracking tokens, in em. */
-export const trackingTokens = [
-  { name: "tighter", em: -0.05 },
-  { name: "tight", em: -0.025 },
-  { name: "normal", em: 0 },
-  { name: "wide", em: 0.025 },
-  { name: "wider", em: 0.05 },
-  { name: "widest", em: 0.1 }
-] as const
-
-/** The project's opacity tokens. */
-export const opacityTokens = [
-  { name: "disabled", percent: 50 },
-  { name: "muted", percent: 70 }
-] as const
 
 /** `mix-blend-mode`'s keywords, grouped as Figma's blend menu is; `plus-*` aren't Baseline. */
 export const blendModes = [

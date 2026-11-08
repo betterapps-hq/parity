@@ -9,22 +9,23 @@ import {
 import { ChevronDown, Contrast } from "lucide-react"
 import { Fragment } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { OffSystemMark } from "./color-picker.tsx"
+import { formatNumber } from "./css-values.ts"
 import {
   fieldBox,
   fieldInput,
-  formatNumber,
   InvalidMark,
   MessageLine,
   NotBaseline,
+  OffSystemMark,
   readNumber,
   scrub,
   TokenChip,
   TokenMark,
   useTyped
 } from "./field-parts.tsx"
-import { type BlendMode, blendModes, opacityTokens } from "./text-data.ts"
+import { type BlendMode, blendModes } from "./text-data.ts"
 import { onOpacityStep, type Opacity } from "./text-writes.ts"
+import { opacityTokens } from "./tokens.ts"
 
 /*
  * Appearance's Opacity and Blend mode row (PAR-186, design-options-values.md's Percentage and opacity): a percentage

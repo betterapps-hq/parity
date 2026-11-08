@@ -43,6 +43,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { TokenArt } from "../../chrome/token-previews.tsx"
 import { fieldBox, fieldInput, InvalidMark, MessageLine, NotBaseline, useTyped } from "./field-parts.tsx"
 import type { KeywordOption, KeywordValue } from "./text-writes.ts"
+import { cursorTokens } from "./tokens.ts"
 
 /*
  * Keyword sets (PAR-186, design-options-values.md's Keyword sets): icon toggles or a menu, each option's hint naming
@@ -531,10 +532,8 @@ export const cursorChoices: KeywordChoice[] = [
 ]
 
 /** The CSS cursor a cursor choice comes to, a token's included. */
-export const cursorValue = (value: string): string => cursorTokens[value] ?? value
-
-/** The project's cursor tokens and the cursors they hold. */
-const cursorTokens: Record<string, string> = { interactive: "pointer", busy: "progress" }
+export const cursorValue = (value: string): string =>
+  cursorTokens.find((token) => token.name === `cursor-${value}`)?.value ?? value
 
 /** Draws a cursor option with its icon, and shows that cursor while it's hovered. */
 export function drawCursor(choice: KeywordChoice) {

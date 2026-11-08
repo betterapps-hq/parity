@@ -19,7 +19,6 @@ import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { CurveThumb, EasingField, SaveAsToken } from "./easing.tsx"
 import {
   defaultDuration,
-  type DurationToken,
   easingName,
   easingShape,
   springSettle,
@@ -31,6 +30,7 @@ import {
 } from "./motion-data.ts"
 import { transitionForm } from "./motion-writes.ts"
 import { TimeField } from "./time.tsx"
+import type { DurationToken } from "./tokens.ts"
 
 /*
  * Motion's Transitions (PAR-652's Transition list): each entry says what changes, then its timing, with the eye and −.

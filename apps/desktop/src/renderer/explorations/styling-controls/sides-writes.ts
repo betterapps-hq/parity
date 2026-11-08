@@ -4,7 +4,7 @@
  * app's maths and units from typing.ts; what's written is the fewest classes, shorthand first (`p-4`, `px-4 py-2`,
  * `p-4 pb-6`).
  */
-import type { LengthToken } from "./data.ts"
+import { borderWidthTokens, type LengthToken, spacingTokens, zIndexTokens } from "./tokens.ts"
 import { readLength } from "./typing.ts"
 import type { Writes } from "./writes.ts"
 
@@ -37,30 +37,6 @@ export interface SideRules {
   /** The unit after the number; a count has none. */
   unit?: string
 }
-
-/** The project's spacing tokens, beside Tailwind's steps: `--spacing-gutter` writes `p-gutter`. */
-const spacingTokens: LengthToken[] = [
-  { name: "spacing-inset", px: 16 },
-  { name: "spacing-gutter", px: 24 },
-  { name: "spacing-section", px: 64 },
-  // An old card padding the project has replaced with spacing-gutter.
-  { name: "spacing-card", px: 20, deprecated: "spacing-gutter" }
-]
-
-const borderWidthTokens: LengthToken[] = [
-  { name: "border-width-hairline", px: 1 },
-  { name: "border-width-thick", px: 3 }
-]
-
-/** Layer order's tokens, in the order they stack. */
-const zIndexTokens: LengthToken[] = [
-  { name: "z-raised", px: 10 },
-  { name: "z-dropdown", px: 20 },
-  { name: "z-sticky", px: 30 },
-  { name: "z-overlay", px: 40 },
-  { name: "z-modal", px: 50 },
-  { name: "z-toast", px: 60 }
-]
 
 export const sideRules: Record<SidesKind, SideRules> = {
   padding: {

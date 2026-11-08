@@ -2,6 +2,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-base
 import { CircleAlert, Hexagon, X } from "lucide-react"
 import { type PointerEvent as ReactPointerEvent, type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
+import { drag } from "./field-parts.tsx"
 
 /*
  * The field Angle, Time, Easing, Move, Scale and a position's X and Y share, with the slots every field has (PAR-652's
@@ -86,21 +87,10 @@ export function UnitField({
   const startScrub = (event: ReactPointerEvent<HTMLElement>) => {
     if (!scrub || event.button !== 0) return
     event.preventDefault()
-    const handle = event.currentTarget
-    handle.setPointerCapture(event.pointerId)
-    const startX = event.clientX
     const from = scrub.from()
     setTyped(undefined)
     setMessage(undefined)
-    const move = (moveEvent: PointerEvent) => scrub.apply(from, moveEvent.clientX - startX, moveEvent.shiftKey)
-    const end = () => {
-      handle.removeEventListener("pointermove", move)
-      handle.removeEventListener("pointerup", end)
-      handle.removeEventListener("pointercancel", end)
-    }
-    handle.addEventListener("pointermove", move)
-    handle.addEventListener("pointerup", end)
-    handle.addEventListener("pointercancel", end)
+    drag(event, { move: ({ dx, shift }) => scrub.apply(from, dx, shift) })
   }
   // While a chip shows, the input after it takes typing, which replaces the token.
   const showChip = chip !== undefined && typed === undefined

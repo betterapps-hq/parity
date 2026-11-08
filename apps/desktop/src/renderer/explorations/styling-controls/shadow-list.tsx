@@ -28,7 +28,6 @@ import { Num } from "./controls.tsx"
 import { usedColors } from "./data.ts"
 import { ListRow, moved, OffsetPad, RowMessage } from "./list-parts.tsx"
 import {
-  allShadowTokens,
   colorWords,
   drawColor,
   layerNumbers,
@@ -38,10 +37,10 @@ import {
   type ShadowEntry,
   type ShadowKind,
   type ShadowLayer,
-  type ShadowToken,
   tokensFor
 } from "./lists-data.ts"
 import { shadowDrawing, shadowsFitSlots, shadowTarget } from "./lists-writes.ts"
+import { allShadowTokens, type ShadowToken, shadowToken } from "./tokens.ts"
 
 /*
  * Effects' shadow list (design-options-values.md, Shadow list): drop shadows, inner shadows and rings, in two groups,
@@ -147,7 +146,7 @@ export function ShadowList({
         : layersOf(entry, saved).map((part) => ({ ...part, inset: entry.kind === "inner" }))
     )
     const name = `shadow-saved-${saved.length + 1}`
-    onSave({ name, layers })
+    onSave(shadowToken("shadow", name, layers))
     onChange([
       { id: newId("shadow"), kind: "drop", token: name, layer: defaultLayer },
       ...ordered.filter((entry) => !box.includes(entry))
