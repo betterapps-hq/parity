@@ -714,12 +714,13 @@ const trackingNames: Record<number, string> = {
 
 /**
  * A font's class, keeping its whole stack so it falls back as the preset did: its theme token, the variable the
- * library defines for it, or the stack in brackets, each family with a space in single quotes as Tailwind reads one.
+ * library defines for it, or the stack in brackets, each family with a space in single quotes as Tailwind reads one. A
+ * variable is typed as a family name, since Tailwind reads `font-(--x)` as a weight.
  */
 function fontClass(project: PresetProject, font: string): string {
   const entry = project.fonts.find((candidate) => candidate.name === font)
   if (entry?.token?.startsWith("font-")) return entry.token
-  if (entry?.token && project.variable) return `font-(${project.variable("font", entry.token)})`
+  if (entry?.token && project.variable) return `font-(family-name:${project.variable("font", entry.token)})`
   const families = (entry?.stack ?? font).split(",").map((family) => family.trim().replaceAll('"', ""))
   return `font-[${families.map((family) => (family.includes(" ") ? `'${family.replaceAll(" ", "_")}'` : family)).join(",")}]`
 }
@@ -834,6 +835,7 @@ export function tailwindCode(project: PresetProject, layer: TextLayer): CodeLine
   const preset = presetByName(project, layer.preset)
   const covered = coveredBy(preset)
   const classes: CodeLine[] = []
+  let variants = false
   if (preset) classes.push({ text: presetClass(preset) })
   for (const viewport of viewports) {
     const values = layer.own[viewport.id] ?? {}
@@ -843,6 +845,7 @@ export function tailwindCode(project: PresetProject, layer: TextLayer): CodeLine
       if (value === undefined) continue
       const written = tailwindClass(project, field, value)
       classes.push({ text: variant ? `${variant}:${written}` : written, override: covered.has(field) })
+      variants ||= variant !== undefined
     }
   }
   if (layer.color) classes.push({ text: colorClass(project, layer.color) })
@@ -857,7 +860,25 @@ export function tailwindCode(project: PresetProject, layer: TextLayer): CodeLine
     }))
   ]
   if (classes.length === 0) lines.splice(0, 1, { text: "<p>" })
-  return preset ? [...lines, { text: "" }, { text: "/* index.css */" }, ...presetDefinition(project, preset)] : lines
+  const css = [...(variants ? breakpointTheme(project) : []), ...(preset ? presetDefinition(project, preset) : [])]
+  return css.length > 0 ? [...lines, { text: "" }, { text: "/* index.css */" }, ...css] : lines
+}
+
+/**
+ * The project's breakpoints that differ from Tailwind's, set in its theme so a variant applies from the width the
+ * project means (Material UI's `md` is 900px, Tailwind's 768px).
+ */
+function breakpointTheme(project: PresetProject): CodeLine[] {
+  const differ = project.breakpoints.filter(
+    (breakpoint) =>
+      tailwindBreakpoints.find((standard) => standard.prefix === breakpoint.prefix)?.width !== breakpoint.width
+  )
+  if (differ.length === 0) return []
+  return [
+    { text: "@theme {" },
+    ...differ.map((breakpoint) => ({ text: `  --breakpoint-${breakpoint.prefix}: ${breakpoint.width}px;` })),
+    { text: "}" }
+  ]
 }
 
 // ---- What the library's own adapter would write (PAR-708) ----
