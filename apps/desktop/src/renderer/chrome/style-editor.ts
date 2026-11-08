@@ -72,7 +72,7 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   const count = selection.layers.length
   const only = count === 1 ? selection.layers[0]!.id : undefined
   // Each change is recorded with the row's values before and after, as the layers show them (PAR-640).
-  const recordRow = (row: StyleRow, gesture?: string) => {
+  const recordRow = (row: StyleRow, before: unknown, gesture?: string) => {
     const changed = store.getEntry(entry.key)?.container
     const now =
       changed &&
@@ -84,20 +84,23 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
       state: selection.state.id,
       from: rowValues(selection, row),
       to: rowValues(now, row),
+      changed: changed !== before,
       ...(gesture ? { gesture } : {})
     })
   }
   return {
     selection,
     set: (row, edit, label = "Change style", gesture) => {
+      const before = store.getEntry(entry.key)?.container
       const apply = within(selection.edit(row, edit, measure))
       preview.settle(apply)
       store.updateContainer(entry.key, count > 1 ? `${label} on ${count} layers` : label, apply, { gesture })
-      recordRow(row, gesture)
+      recordRow(row, before, gesture)
     },
     reset: (row) => {
+      const before = store.getEntry(entry.key)?.container
       store.updateContainer(entry.key, count > 1 ? "Reset changes" : "Reset change", within(selection.reset(row)))
-      recordRow(row)
+      recordRow(row, before)
     },
     preview: (row, edit) => preview.show(within(selection.edit(row, edit, measure))),
     endPreview: () => preview.cancel(),

@@ -14,13 +14,27 @@ export interface InspectorChange {
   from: unknown
   to: unknown
   gesture?: string
+  /**
+   * Whether the layers changed, when the caller knows: values that differ across the layers read `mixed` before and
+   * after an edit that changed each of them.
+   */
+  changed?: boolean
 }
 
 /** Records a change, unless it left the value as it was. */
-export function recordInspectorChange({ field, design, layers, state, from, to, gesture }: InspectorChange): void {
+export function recordInspectorChange({
+  field,
+  design,
+  layers,
+  state,
+  from,
+  to,
+  gesture,
+  changed
+}: InspectorChange): void {
   const before = valueText(from)
   const after = valueText(to)
-  if (before === after) return
+  if (!(changed ?? before !== after)) return
   track("inspector.changed", {
     field,
     design,

@@ -2,7 +2,7 @@ import type { DesignNode } from "@parity-app/core"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 import { setWindowTelemetry } from "../report-error.ts"
-import { changedFields, recordInspectorChange } from "./inspector-events.ts"
+import { changedFields, mixed, recordInspectorChange } from "./inspector-events.ts"
 
 const sink = createTestSink()
 
@@ -46,6 +46,23 @@ describe("recordInspectorChange", () => {
     recordInspectorChange({ ...change, from: { gap: 3 }, to: { gap: 3 } })
     expect(sink.named("inspector.changed").map((event) => event.attributes)).toEqual([
       { ...change, from: '{"gap":2}', to: '{"gap":3}', gesture: true }
+    ])
+  })
+
+  it("records an edit to layers whose values differ, which read as mixed before and after", () => {
+    setWindowTelemetry(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "renderer", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+    const change = { field: "style.padding", design: "app.par#home", layers: ["a", "b"], from: mixed, to: mixed }
+    recordInspectorChange({ ...change, changed: true })
+    recordInspectorChange({ ...change, changed: false })
+    expect(sink.named("inspector.changed").map((event) => event.attributes)).toEqual([
+      { field: "style.padding", design: "app.par#home", layers: ["a", "b"], from: "mixed", to: "mixed", gesture: false }
     ])
   })
 })
