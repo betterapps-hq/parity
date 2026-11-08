@@ -170,6 +170,22 @@
     --font-weight-semibold: var(--weight-sans-semibold);
   }
 
+  /* The start page's paragraphs wrap at 13px, so they're on a 20px line: this stands in for `type-body`. */
+  p.text-sm.text-pretty {
+    line-height: 1.25rem;
+  }
+
+  /* The start page's section headings take the inspector's section title, 12px semibold. */
+  h2.text-sm.font-semibold {
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
+  }
+
+  /* The project filter's pressed state is marked by color only, so it doesn't widen. */
+  [aria-pressed="true"].rounded-sm.text-muted-foreground {
+    font-weight: var(--font-weight-normal);
+  }
+
   /*
    * The build takes `font-medium` off the app's code (a token's heading, slot names); this stands in for that. The
    * variable above covers the kit's own.
@@ -311,16 +327,28 @@
     [data-slot="toggle"],
     [data-slot="toggle-group-item"],
     [data-slot="badge"],
-    [data-slot="kbd"]
+    [data-slot="kbd"],
+    [data-slot="label"],
+    [data-slot="field-label"]
   ) {
     --font-weight-medium: var(--font-weight-normal);
+
+    /* The variable inherits, so a name or a count inside one of them gets the medium back. */
+    & > * {
+      --font-weight-medium: var(--weight-sans-medium);
+    }
   }
 
   /*
    * The kit's own descriptions carry their own size and line, which a caller's role can't beat, so they're set here:
    * a field's and an item's at the description role, an empty state's at the empty-panel role.
    */
-  :is([data-slot="field-description"], [data-slot="item-description"], [data-slot="alert-description"]) {
+  /* Not an item description in code: the Code tab's file path is Secondary code, 11px. */
+  :is(
+    [data-slot="field-description"],
+    [data-slot="item-description"]:not(.font-mono),
+    [data-slot="alert-description"]
+  ) {
     font-size: var(--text-xs);
     line-height: 1.125rem;
     text-wrap: pretty;
@@ -335,6 +363,22 @@
   /* Code over many lines sits on 18px, as editors set it. This stands in for `type-code` on code blocks. */
   pre.font-mono.text-xs {
     line-height: var(--tw-leading, 1.125rem);
+  }
+
+  /*
+   * The Code tab's source: the kit's block sets `leading-relaxed`, which a caller's `type-code` can't beat, and the app
+   * sets it 11px; it's read, so it's 12px on 18px. This stands in for `type-code` there and the kit row that beats the
+   * kit's line.
+   */
+  [data-slot="code-block-content"] {
+    font-size: var(--text-xs);
+    line-height: 1.125rem;
+    --tw-leading: 1.125rem;
+  }
+
+  /* The kit's item title in code is on code's line, not the kit's `leading-snug`. */
+  [data-slot="item-title"].font-mono {
+    line-height: var(--text-xs--line-height);
   }
 
   [data-slot="dialog-description"],

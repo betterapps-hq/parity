@@ -395,6 +395,22 @@ export const LayerSelected: Story = {
   )
 }
 
+/**
+ * Sign in's card in the Code tab: its title, its component's name and file in code. Its elements and their lines come
+ * from the canvas as it draws, so they show in Whole window, with the Code tab open and the card selected.
+ */
+export const CodeTab: Story = {
+  name: "Code tab",
+  loaders: [inspecting("code", () => layersSelection(design("Sign in"), [node("Sign in", "Sign in card")]))],
+  render: () => (
+    <Stage>
+      <TypeCompare>
+        <Inspector />
+      </TypeCompare>
+    </Stage>
+  )
+}
+
 /** Layers, with a layer deep inside Plan card selected, so rows nest and names run long. */
 export const Layers: Story = {
   loaders: [

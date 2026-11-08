@@ -76,27 +76,33 @@ with weights like these; Windows ignores it. The stories were judged on Windows 
 and stems fall between pixels, which favors heavier weights. Before the build fixes the weights, they're checked on a
 Mac and on Windows at 150%: the Design tab, Layers, Tokens, the Code tab and the console, in both themes, with the
 fixed-width boxes that hold 10px text today (a token's mode names and values in `TokenDetail.tsx`, the tab order's
-numbers, the console's count) checked for clipping at 11px. If 450 reads heavy on the Mac, where grayscale smoothing is
-the cause rather than density, the weights come down there only, keyed to a class on `<html>`: the preload exposes
-`process.platform` on the context bridge (the renderer can't read it under context isolation, and `<html>` doesn't exist
-yet while the preload runs), and the renderer's entry adds `platform-mac` before React mounts, beside where `theme.ts`
-sets `dark`, as `:root.platform-mac { --font-weight-normal: …; --weight-sans-medium: …; --weight-sans-semibold: … }`,
-with `--weight-sans-*` in `@theme static` so Tailwind emits them though no utility names them. It's set on `:root`,
-where `@theme` resolves `--font-weight-medium` from them, not on `<body>`, which would reach only the rules that restate
-them. The weights aren't keyed to the theme: with the System theme a Mac switches appearance on its own, which would
-change Inter's widths and re-truncate names mid-session, and light and dark would stop comparing like for like. If 450
-reads heavy on the light theme, that's fixed with its colors, as its `--muted-foreground` change is, or with one value
-for both themes. Not a resolution query either, for the same reason: a window moved between a 1x and a 2x screen would
+numbers, the console's count) checked for clipping at 11px. "Reads heavy" is decided two ways, which have to agree
+before a weight moves. One is measured: ink per pixel of width for a 12px label and a 13px row, as code's weight was
+measured (Inter 450 is 2.50 at 12px on Windows at 100%, the floor), recorded here for each machine. The other is seen:
+the inspector beside Figma's desktop inspector, also Inter at similar weights, at the same scaling in both themes,
+screenshotted together. If 450 reads heavy on the Mac, where grayscale smoothing is the cause rather than density, the
+weights come down there only, keyed to a class on `<html>`: the preload exposes `process.platform` on the context bridge
+(the renderer can't read it under context isolation, and `<html>` doesn't exist yet while the preload runs), and the
+renderer's entry adds `platform-mac` before React mounts, beside where `theme.ts` sets `dark`, as
+`:root.platform-mac { --font-weight-normal: …; --weight-sans-medium: …; --weight-sans-semibold: … }`, with
+`--weight-sans-*` in `@theme static` so Tailwind emits them though no utility names them. It's set on `:root`, where
+`@theme` resolves `--font-weight-medium` from them, not on `<body>`, which would reach only the rules that restate them.
+The weights aren't keyed to the theme: with the System theme a Mac switches appearance on its own, which would change
+Inter's widths and re-truncate names mid-session, and light and dark would stop comparing like for like. If 450 reads
+heavy on the light theme, that's fixed with its colors, as its `--muted-foreground` change is, or with one value for
+both themes. Not a resolution query either, for the same reason: a window moved between a 1x and a 2x screen would
 change weight, and Inter's widths with it.
 
 Windows at 100% is a floor, not the reference: text mustn't read thin there, but most Windows laptops run at 125–150%
-and Macs at 2x, so those are what the weights are tuned on. Windows gets one set at every scale, since a class can't
-tell 100% from 150%: if 450 reads heavy at 150%, Windows moves to 425/525/625 everywhere, as long as 100% still reads
-evenly. The check also covers names in scripts Inter doesn't draw (Japanese, Chinese, Arabic, Hebrew, Thai, Devanagari),
-which fall back to static system faces: CSS rounds 500 down to their regular but 550 and 650 up to their semibold or
-bold, so a non-Latin design name or "Only {name}" would turn heavier than it is today. If it reads wrong, `--font-sans`
-lists `@font-face` aliases after InterVariable, such as `local("Yu Gothic UI")` declared at `font-weight: 100 599` and
-its Semibold from 600, so 550 maps to regular as 500 did.
+and Macs at 2x, so those are what the weights are tuned on. Every screenshot reviewed so far is at the floor, so
+approving this proposal approves its sizes, roles, case and code; its weights are approved by the check, whose
+screenshots and ink numbers go in this section before the build sets them. Windows gets one set at every scale, since a
+class can't tell 100% from 150%: if 450 reads heavy at 150%, Windows moves to 425/525/625 everywhere, as long as 100%
+still reads evenly. The check also covers names in scripts Inter doesn't draw (Japanese, Chinese, Arabic, Hebrew, Thai,
+Devanagari), which fall back to static system faces: CSS rounds 500 down to their regular but 550 and 650 up to their
+semibold or bold, so a non-Latin design name or "Only {name}" would turn heavier than it is today. If it reads wrong,
+`--font-sans` lists `@font-face` aliases after InterVariable, such as `local("Yu Gothic UI")` declared at
+`font-weight: 100 599` and its Semibold from 600, so 550 maps to regular as 500 did.
 
 Notes on the canvas are people's own text and keep their size and spacing, at Inter's own regular weight.
 
@@ -167,6 +173,9 @@ Reviews of the proposal raised these, and they were decided as follows.
 - **An empty panel's hint is one step below its message,** 12px under 13px, as a secondary line is under its name; set
   at the message's size, the hint read as more of the message.
 - **A filled tag on a row is a Caption,** whatever name it sits under; a `Badge` holding a value is a control.
+- **Roles are named by job, not by style.** Label, Value, Field label and Compact row all come to 12/16 at 450, and
+  that's intended: a change to one job (labels grayer, values tabular) shouldn't move the others, and typography.md says
+  which to pick by what the text does.
 - **One set of weights for both themes.** Keyed to the theme, they'd change Inter's widths when a Mac's appearance
   switches under the System theme, re-truncating names mid-session; the light theme's balance is fixed with color.
 
@@ -185,23 +194,31 @@ Reviews of the proposal raised these, and they were decided as follows.
 - **`styles.css`, the kit's parts:** one rule per row below. A rule that beats one of the kit's literal values
   (`text-[0.8rem]`, `md:text-sm`, `leading-none`, `tracking-*`) is unlayered, as the tooltip rule is, since the kit's
   utilities would beat a base rule. A weight goes in `@layer base` and repoints `--font-weight-medium`, which the kit's
-  `font-medium` reads, rather than the property, so a caller's weight utility still wins. A small Vitest reads the
-  classes each row leans on in the kit's `dist` and fails when a kit upgrade changes them, rather than 12.8px, 14px or a
-  medium tab quietly coming back; the lint rule fails a `type-*` on a kit `*Description` or `*Title`, since a caller's
-  role can't beat the kit's own size there.
+  `font-medium` reads, rather than the property, so a caller's `font-semibold` or `font-normal` still wins; a caller's
+  `font-medium` reads the same variable and does nothing there, so the lint rule fails it on those parts, and their
+  children (`> *`) get the sans medium back, since the variable inherits. A small Vitest scans every component in the
+  kit's `dist` for `font-medium`, `text-[…]`, `md:text-*`, `leading-*` and `tracking-*`, with each slot's name, and
+  compares the hits with a checked-in list where each is either a row below or marked unused by the app, so a kit
+  upgrade that adds, changes or renames one fails, rather than 12.8px, 14px or a medium tab quietly coming back. Later,
+  since Buildkit is ours, those literal values can move into the kit as theme variables, which would retire most of
+  these rules; the lint rule fails a `type-*` on a kit `*Description` or `*Title`, since a caller's role can't beat the
+  kit's own size there.
 
-  | Kit part                                                                                      | Rule                                                                     | Layer     | Guard test          | Why                                                                                                                                                                                                         |
-  | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `:is([data-slot="input"], [data-slot="input-group-control"], [data-slot="textarea"]).text-xs` | at `width >= 48rem`, the xs size and `line-height: var(--tw-leading, …)` | unlayered | `md:text-sm`        | The kit's `md:text-sm` beats a caller's size in the app's window, so 12px fields drew at 13–14px. Not for `.text-base`, which the kit's inputs carry themselves; the selection's title takes `md:text-base` |
-  | `.text-\[0\.8rem\]`: the small button, small toggles and toggle groups, the calendar          | the xs size and line                                                     | unlayered | `text-[0.8rem]`     | 12.8px is off the scale                                                                                                                                                                                     |
-  | `[data-slot$="-shortcut"]`                                                                    | `letter-spacing: 0`, `font-feature-settings: "case"`                     | unlayered | `tracking-widest`   | Shortcuts ran long; `case` sets `+` at the capitals' middle                                                                                                                                                 |
-  | `[data-slot="kbd"]`: tooltips, the toolbar, tabs, the Shortcuts dialog                        | `font-feature-settings: "case"`                                          | base      | its classes         | As shortcuts                                                                                                                                                                                                |
-  | `[data-slot="empty-title"]`                                                                   | `letter-spacing: 0`                                                      | unlayered | `tracking-tight`    | 13px isn't tracked                                                                                                                                                                                          |
-  | `tabs-trigger` (the active one too), `toggle`, `toggle-group-item`, `badge`, `kbd`            | `--font-weight-medium: var(--font-weight-normal)`                        | base      | `font-medium`       | At 550 controls and chips sat one step under the section titles; a heavier active tab widened and, through `transition-all`, animated. Buttons, which act, stay medium                                      |
-  | `field-description`, `item-description`, `alert-description` (`ReportProblemDialog.tsx`)      | the description role, 12/18, `pretty`                                    | unlayered | their size and line | The kit's own size and line, which a caller's role can't beat                                                                                                                                               |
-  | `empty-description`                                                                           | the empty-panel role, 13/20, `balance`                                   | unlayered | its size and line   | As above                                                                                                                                                                                                    |
-  | `dialog-description`, `dialog-title`, `alert-dialog-title`                                    | a 20px line                                                              | unlayered | `leading-none`      | A title with a long name in it (`ConvertToFrameDialog.tsx`) wraps                                                                                                                                           |
-  | `dialog-title`, `alert-dialog-title`                                                          | `--font-weight-medium: var(--font-weight-semibold)`                      | base      | `font-medium`       | 15px is a name or a title, at 650 either way, so a dialog's title outranks the semibold group titles in it                                                                                                  |
+  | Kit part                                                                                                 | Rule                                                                                        | Layer     | Guard test                         | Why                                                                                                                                                                                                                                                                                                                                                                                                        |
+  | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `:is([data-slot="input"], [data-slot="input-group-control"], [data-slot="textarea"]).text-xs`            | at `width >= 48rem`, the xs size and `line-height: var(--tw-leading, …)`                    | unlayered | `md:text-sm`                       | The kit's `md:text-sm` beats a caller's size in the app's window, so 12px fields drew at 13–14px. Not for `.text-base`, which the kit's inputs carry themselves; the selection's title takes `md:text-base`                                                                                                                                                                                                |
+  | `.text-\[0\.8rem\]`: the small button, small toggles and toggle groups, the calendar                     | the xs size and line                                                                        | unlayered | `text-[0.8rem]`                    | 12.8px is off the scale                                                                                                                                                                                                                                                                                                                                                                                    |
+  | `[data-slot$="-shortcut"]`                                                                               | `letter-spacing: 0`, `font-feature-settings: "case"`                                        | unlayered | `tracking-widest`                  | Shortcuts ran long; `case` sets `+` at the capitals' middle                                                                                                                                                                                                                                                                                                                                                |
+  | `[data-slot="kbd"]`: tooltips, the toolbar, tabs, the Shortcuts dialog                                   | `font-feature-settings: "case"`                                                             | base      | its classes                        | As shortcuts                                                                                                                                                                                                                                                                                                                                                                                               |
+  | `[data-slot="empty-title"]`                                                                              | `letter-spacing: 0`                                                                         | unlayered | `tracking-tight`                   | 13px isn't tracked                                                                                                                                                                                                                                                                                                                                                                                         |
+  | `tabs-trigger` (the active one too), `toggle`, `toggle-group-item`, `badge`, `kbd`                       | `--font-weight-medium: var(--font-weight-normal)`, and `var(--weight-sans-medium)` on `> *` | base      | `font-medium`                      | At 550 controls and chips sat one step under the section titles; a heavier active tab widened and, through `transition-all`, animated. Buttons, which act, stay medium                                                                                                                                                                                                                                     |
+  | `label`, `field-label`                                                                                   | `--font-weight-medium: var(--font-weight-normal)`                                           | base      | `text-sm leading-none font-medium` | The kit's `Label` is 13px at 550 on a 1.0 line, no role; every panel use sets `text-xs font-normal` (`DesignPanel.tsx`, `StatesSection.tsx`, `AccessibilityPanel.tsx`), and a bare one now lands regular. `FieldLabel` renders its `Label` under its own slot, `field-label`, so it's named too: a dialog's field labels (`ReportProblemDialog.tsx`) are 13/18 regular. In a panel a label takes `text-xs` |
+  | `field-description`, `item-description:not(.font-mono)`, `alert-description` (`ReportProblemDialog.tsx`) | the description role, 12/18, `pretty`                                                       | unlayered | their size and line                | The kit's own size and line, which a caller's role can't beat. Not an item description in code: the Code tab's file path (`CodePanel.tsx`) is Secondary code, 11px, under its 12px name                                                                                                                                                                                                                    |
+  | `code-block-content`                                                                                     | 12px on an 18px line, setting `--tw-leading` too                                            | unlayered | `leading-relaxed`                  | The Code tab's source (`CodePanel.tsx`, `text-[11px]` today) is read, so it's a Code block; the kit's `leading-relaxed` beats a caller's `type-code`                                                                                                                                                                                                                                                       |
+  | `item-title.font-mono`                                                                                   | the xs line                                                                                 | unlayered | `leading-snug`                     | The Code tab's names (`CodePanel.tsx`, `ItemTitle` in code at `text-xs`) sit on code's line, not the kit's                                                                                                                                                                                                                                                                                                 |
+  | `empty-description`                                                                                      | the empty-panel role, 13/20, `balance`                                                      | unlayered | its size and line                  | As above                                                                                                                                                                                                                                                                                                                                                                                                   |
+  | `dialog-description`, `dialog-title`, `alert-dialog-title`                                               | a 20px line                                                                                 | unlayered | `leading-none`                     | A title with a long name in it (`ConvertToFrameDialog.tsx`) wraps                                                                                                                                                                                                                                                                                                                                          |
+  | `dialog-title`, `alert-dialog-title`                                                                     | `--font-weight-medium: var(--font-weight-semibold)`                                         | base      | `font-medium`                      | 15px is a name or a title, at 650 either way, so a dialog's title outranks the semibold group titles in it                                                                                                                                                                                                                                                                                                 |
 
 - **`styles.css`, the rest,** in `@layer base`, so a utility on the element still wins:
   `:is(.font-mono, code, pre) { font-weight: 400; letter-spacing: 0; --tw-tracking: 0; font-size-adjust: ex-height 0.52; --font-weight-medium: 400; --font-weight-semibold: 600 }`,
@@ -276,8 +293,10 @@ Reviews of the proposal raised these, and they were decided as follows.
   board's label and the W×H chips under a selection, a frame and a frame being drawn (`CanvasOverlay.tsx`), the spacing
   value (`SpacingHandles.tsx`), the inspect label (`InspectOverlay.tsx`) and an agent's (`AgentPresence.tsx`). Their
   dimmed parts (`text-white/75` on the spacing chip's scale name, `opacity-80` on the inspect label's location) go to
-  plain white. Code in a chip stays at code's 400. The mode and agent colors are lighter still (about 2.5:1 and 2.2:1
-  for white), which goes with the light theme's contrast in the separate color change.
+  plain white. Code in a chip stays at code's 400. Weight doesn't make 11px legible on a weak fill, so the role carries
+  a fill requirement, met in the separate color change: a chip's text is at least 4.5:1 on its fill. The screen, layer
+  and component chips (oklch L 0.64, about 3.3:1 for white) take a darker step of their color, around L 0.55, while the
+  selection's strokes keep 0.64; the light hues, mode green (2.5:1) and agent amber (2.2:1), take near-black text.
 - **Item titles:** a name or title that heads a card, popover or panel is `text-sm font-medium`, 13/18 at 550: a
   component card's name (`ComponentCard.tsx`), a board's and a state's title on the canvas (`ContainerView.tsx`),
   Processes' and Performance's titles (`Processes.tsx`, `PerformanceStats.tsx`), a panel's error (`PanelError.tsx`) and
@@ -305,31 +324,37 @@ Reviews of the proposal raised these, and they were decided as follows.
   match its label). Dialogs' selects keep 13px. The exploration's stylesheet shrinks every select, as it can't tell a
   panel's popup from a dialog's.
 - **Wrapped text,** as named roles rather than a tag or one-off values: 12px text that can run to more than one line is
-  on an 18px line, 13px on 20px, and 11px on 16px. `styles.css` adds three utilities, `@utility type-description` and
-  `@utility type-message` (12px on 18px, `text-wrap: pretty`) and `@utility type-empty` (13px on 20px, `balance`, with
-  `& > .text-xs { line-height: calc(18 / 12) }` so its hint, such as "Click inside one to select a layer…" in
-  `DesignPanel.tsx` and `AccessibilityPanel.tsx`, wraps on an 18px line and stays balanced, and an empty title inside
-  it, as in `AssetsPanel.tsx`, is `font-medium text-foreground`), each setting `--tw-leading` too, since Tailwind emits
-  a utility with more properties before `text-xs` and the size utility would otherwise win the line height; they replace
-  `text-xs` or `text-sm` on an element, and the lint rule fails one beside the other. The lint rule then allows no
-  `/[…]` or `leading-[…]` line heights at all. They go on every wrapped description, whatever its tag (a grep for
-  `text-xs` on `<p>`, `<div>` and `<span>` that hold sentences finds them: section and setting descriptions, the Code
-  and Components tabs' notes, panel errors, toasts), on every message that's read (field messages, TokenDetail's and
-  Tokens' errors, Assets' reasons), and on the empty panels. A one-line `<p>`, such as "No stroke.", keeps `text-xs` and
-  its 16px line. 11px code that wraps (`ComponentCard.tsx`'s error, the accessibility panel's color rows) takes
-  `text-2xs/4`. "double-click" in the empty Design tab's hint takes a non-breaking hyphen (U+2011). The named line
-  heights left in the renderer come onto the roles too: `leading-relaxed` (`ProjectStatus.tsx`, `ErrorBoundary.tsx`,
-  `ExportSection.tsx`, `SignInPanels.tsx`, the accessibility panel), `leading-normal`, `leading-snug`
-  (`AccessibilityPanel.tsx`, `AssetsPanel.tsx`), `leading-5` (`ConsolePanel.tsx`, `slot-props.tsx`, `UpdateToast.tsx`)
-  and `leading-4` (`instance-slots.tsx`, `UpdateToast.tsx`) become the `type-*` role their text plays. Code over many
-  lines (the Code tab's `CodeBlockContent`, stack traces' `pre`, the console's messages) takes a fourth,
-  `@utility type-code`, 12px on 18px with `--tw-leading`, as editors set code.
+  on an 18px line, 13px on 20px, and 11px on 16px. `@utility type-body` (13px on 20px, `text-wrap: pretty`) is the start
+  page's paragraphs (`HomePage.tsx`'s intros, `text-sm text-pretty` today, on 18px). `styles.css` adds three more,
+  `@utility type-description` and `@utility type-message` (12px on 18px, `text-wrap: pretty`) and `@utility type-empty`
+  (13px on 20px, `balance`, with `& > .text-xs { line-height: calc(18 / 12) }` so its hint, such as "Click inside one to
+  select a layer…" in `DesignPanel.tsx` and `AccessibilityPanel.tsx`, wraps on an 18px line and stays balanced, and an
+  empty title inside it, as in `AssetsPanel.tsx`, is `font-medium text-foreground`), each setting `--tw-leading` too,
+  since Tailwind emits a utility with more properties before `text-xs` and the size utility would otherwise win the line
+  height; they replace `text-xs` or `text-sm` on an element, and the lint rule fails one beside the other. The lint rule
+  then allows no `/[…]` or `leading-[…]` line heights at all. They go on every wrapped description, whatever its tag (a
+  grep for `text-xs` on `<p>`, `<div>` and `<span>` that hold sentences finds them: section and setting descriptions,
+  the Code and Components tabs' notes, panel errors, toasts), on every message that's read (field messages,
+  TokenDetail's and Tokens' errors, Assets' reasons), and on the empty panels. A one-line `<p>`, such as "No stroke.",
+  keeps `text-xs` and its 16px line. 11px code that wraps (`ComponentCard.tsx`'s error, the accessibility panel's color
+  rows) takes `text-2xs/4`. "double-click" in the empty Design tab's hint takes a non-breaking hyphen (U+2011). The
+  named line heights left in the renderer come onto the roles too: `leading-relaxed` (`ProjectStatus.tsx`,
+  `ErrorBoundary.tsx`, `ExportSection.tsx`, `SignInPanels.tsx`, the accessibility panel), `leading-normal`,
+  `leading-snug` (`AccessibilityPanel.tsx`, `AssetsPanel.tsx`), `leading-5` (`ConsolePanel.tsx`, `slot-props.tsx`,
+  `UpdateToast.tsx`) and `leading-4` (`instance-slots.tsx`, `UpdateToast.tsx`) become the `type-*` role their text
+  plays. Code over many lines (the Code tab's `CodeBlockContent`, stack traces' `pre`, the console's messages) takes a
+  fourth, `@utility type-code`, 12px on 18px with `--tw-leading`, as editors set code.
 - **Sans inside code:** an Inter word inside a monospace line, such as "on" between two colors in the accessibility
   panel, resets what the monospace rule passes down:
   `:is(.font-mono, code, pre) .font-sans { font-size-adjust: none; font-weight: var(--font-weight-normal); --font-weight-medium: var(--weight-sans-medium); --font-weight-semibold: var(--weight-sans-semibold) }`,
   in the base layer. `@theme` holds Inter's medium and semibold as `--weight-sans-medium` (550) and
   `--weight-sans-semibold` (650), which `--font-weight-medium` and `--font-weight-semibold` point at, so the Mac's
   lighter weights, if the check calls for them, change in one place and reach Inter inside code too.
+- **The start page's sections:** "Bring your own" and "For you" (`HomePage.tsx`, `text-sm font-semibold`, 13/650 over
+  13/550 items) take `PanelSectionTitle` in the lead tone, 12/650, as the inspector's sections lead their rows. The
+  project filter's pressed state (`ProjectList.tsx`, `aria-pressed:font-medium`) is marked by color only, since a
+  heavier pressed label widens it, as a heavier active tab did. The start page is compared through the toolbar's Type
+  control on Parity/Start page.
 - **Headings:** `tracking-tight` on the start page's and sign-in's headings becomes -0.01em (`HomePage.tsx`,
   `SignInPanels.tsx`) through `--tracking-tight: -0.01em` in the plain `@theme`; the kit's only `tracking-tight`, on
   `empty-title`, is already reset to 0. And sign-in's `text-2xl leading-tight` (`SignInPanels.tsx`) drops
