@@ -402,8 +402,8 @@ export function fieldBox(error: boolean, extra = ""): string {
 }
 
 /**
- * The one button over the end of a field (Tokens, or Detach on a token), in room the field keeps for it (`pr-7`), faded
- * in while the field's hovered or focused, or its list is open, so nothing moves.
+ * The one button over the end of a field (Tokens, or Detach on a token), faded in while the field's hovered or focused,
+ * or its list is open, when the field makes room for it (`pr-7`) and a unit or mark at the end moves aside.
  */
 export const fieldEndButton =
   "absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 outline-none group-focus-within/field:opacity-100 group-hover/field:opacity-100 hover:bg-background/70 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:opacity-100"
@@ -1678,13 +1678,11 @@ export function ValueField<T>({
     // The pill and Detach go, so the value's text takes the focus.
     input.current?.focus()
   }
-  // Room at the box's end for its one button, kept whether it shows or not, so nothing moves on hover. A mark at the end
-  // has the room at rest instead, and moves aside for the button while it shows: on hover or focus, and while Tokens
-  // has its list open (Detach shows only on hover or focus).
+  // Room at the box's end for its one button, only while it shows: on hover or focus, and while Tokens has its list
+  // open (Detach shows only on hover or focus). At rest, a unit or mark sits at the end, and moves aside for it.
   const endRoom = !bare && (offers || chip !== undefined)
   let room = ""
-  if (endRoom && mark === undefined) room = "pr-7"
-  else if (endRoom && open && !showChip) room = "pr-7"
+  if (endRoom && open && !showChip) room = "pr-7"
   else if (endRoom) room = "transition-[padding] duration-100 hover:pr-7 focus-within:pr-7"
 
   const boxExtra = `flex-1 ${room} ${disabled ? "opacity-50" : ""}`

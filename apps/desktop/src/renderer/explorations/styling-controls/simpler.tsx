@@ -86,11 +86,12 @@ function Caption({ text, onScrub }: { text: string; onScrub?: (event: PointerEve
 const captionRow = "flex h-5 min-w-0 items-center justify-between gap-1 whitespace-nowrap"
 
 /**
- * The filled box every simpler field draws, with room kept at its end for the one button, so hovering moves nothing.
- * Hovering outlines it faintly, focus outlines it in the ring's color, and an error in red, which hovering leaves.
+ * The filled box every simpler field draws, with room at its end for the one button while it shows (hovered, focused,
+ * or a list open), so at rest a unit sits at the end and moves aside for it. Hovering outlines it faintly, focus
+ * outlines it in the ring's color, and an error in red, which hovering leaves.
  */
 const box = (error: boolean, extra = "") =>
-  `group/simple relative flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-muted pr-7 text-xs ring-inset dark:bg-input/40 ${error ? "ring-1 ring-destructive" : "hover:not-focus-within:ring-1 hover:not-focus-within:ring-border focus-within:ring-1 focus-within:ring-ring"} ${extra}`
+  `group/simple relative flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-muted pr-2 text-xs transition-[padding] duration-100 hover:pr-7 focus-within:pr-7 has-[[data-popup-open]]:pr-7 ring-inset dark:bg-input/40 ${error ? "ring-1 ring-destructive" : "hover:not-focus-within:ring-1 hover:not-focus-within:ring-border focus-within:ring-1 focus-within:ring-ring"} ${extra}`
 
 /** The one button over the end of a field, faded in while the field's hovered or focused, or its list is open. */
 const endButton =
