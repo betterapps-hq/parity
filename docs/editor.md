@@ -1824,18 +1824,18 @@ mode, with one state, and isn't written to code.
   undo step of its own. A width of its own, from the handles, the menu's sizes or the inspector, stops it hugging.
 - **Whatever lands on the empty canvas makes a frame,** as "New screen, New component and the empty canvas" above says,
   hugging what's in it and named after it. Pasted text makes a text frame, as the text tool does.
-- **The inspector for a frame:** its name; its kind, Frame, Component or Screen, lightest first; where it's drawn
-  ("Drawn in Desktop Light", with the primary mode's crown) and that it isn't written to code; then its root layout's
-  layout, spacing, size and fill straight away, with no states, modes or params. The size rows are the frame's own size:
-  a fixed width or height resizes it, Hug makes it hug its content, and Fill or Auto puts back the primary mode's width
-  or the content's height. Export is at the foot, as for any design.
+- **The inspector for a frame:** its name, with the kind's icon beside it; where it's drawn ("Drawn in Desktop Light",
+  with the primary mode's crown) and that it isn't written to code; then its root layout's layout, spacing, size and
+  fill straight away, with no states, modes or params. The size rows are the frame's own size: a fixed width or height
+  resizes it, Hug makes it hug its content, and Fill or Auto puts back the primary mode's width or the content's height.
+  Export is at the foot, as for any design.
 - **Convert to,** in every design's title menu ("Convert to component", "Convert to screen", "Convert to frame", with
-  each kind's icon), in the inspector's kind switch, and as Make component's Convert to component in the canvas and
-  Object menus. A frame becomes a screen or a component at once, keeping its size as its preview's, with a toast ("Plan
-  card is a component") whose Undo makes it a frame again. A screen or component becomes a frame at once when it drops
-  nothing; otherwise a dialog lists what goes (states after the first, previews beside the main one, params, and each
-  design's instances, which become plain layers), with Cancel and Convert to frame. Each is one undo step, and
-  converting a component detaches its instances in the same step.
+  each kind's icon), and as Make component's Convert to component in the canvas and Object menus. A frame becomes a
+  screen or a component at once, keeping its size as its preview's, with a toast ("Plan card is a component") whose Undo
+  makes it a frame again. A screen or component becomes a frame at once when it drops nothing; otherwise a dialog lists
+  what goes (states after the first, previews beside the main one, params, and each design's instances, which become
+  plain layers), with Cancel and Convert to frame. Each is one undo step, and converting a component detaches its
+  instances in the same step.
 - **Layers lists Frames** after Components and Screens once there are any; its + picks the frame tool.
 
 Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
@@ -1861,9 +1861,9 @@ Tests:
   previews, params and instances, and none for a screen that drops nothing.
 - End to end (PAR-202), `apps/desktop/e2e/frames.e2e.ts`: F and a drag draws Frame 1, selected, with the move tool back,
   as "Draw frame", which Undo takes out; A and a click makes 100 × 100; the menu resizes the selected frame to Mobile; T
-  and typing makes a frame named after the text that hugs it on one line; Component in the kind switch converts at once
-  and the toast's Undo makes it a frame; and Frame for Pricing asks, and Cancel leaves it a screen.
-  `e2e/dropping.e2e.ts`: an image and Badge dropped on the empty canvas make frames.
+  and typing makes a frame named after the text that hugs it on one line; the title menu's Convert to component converts
+  at once and the toast's Undo makes it a frame; and Convert to frame on Pricing's title asks, and Cancel leaves it a
+  screen. `e2e/dropping.e2e.ts`: an image and Badge dropped on the empty canvas make frames.
 
 Checked in the app on 2026-11-05, on a copy of the example started as the end-to-end suite starts it and driven over the
 DevTools protocol: F and a drag, A and a click, the menu's sizes, T and typing, Ctrl+V of a copied layer with nothing
