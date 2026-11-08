@@ -50,6 +50,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import {
   caseNames,
+  closestPreset,
   coveredBy,
   differsByViewport,
   fieldLabel,
@@ -60,6 +61,7 @@ import {
   overrideCount,
   type Preset,
   presetAt,
+  type PresetMatch,
   presetByName,
   type PresetProject,
   resetOverrides,
@@ -381,26 +383,71 @@ function PresetRow({
   ]
     .filter(Boolean)
     .join("\n")
+  const closest = closestPreset(project, layer, viewport)
   return (
-    <Row
-      label="Preset"
-      hint={hint}
-      dot={changesByViewport.length > 0}
-      action={
-        preset && (
-          <PresetMenu
-            preset={preset}
-            hiddenFields={locking === "hidden" ? hiddenFields : []}
-            overrides={overrides}
-            onReveal={onReveal}
-            onResetOverrides={onResetOverrides}
-            onDetach={onDetach}
-          />
-        )
-      }
-    >
-      <PresetPicker project={project} value={layer.preset} viewport={viewport} overrides={overrides} onPick={onPick} />
-    </Row>
+    <>
+      <Row
+        label="Preset"
+        hint={hint}
+        dot={changesByViewport.length > 0}
+        action={
+          preset && (
+            <PresetMenu
+              preset={preset}
+              hiddenFields={locking === "hidden" ? hiddenFields : []}
+              overrides={overrides}
+              onReveal={onReveal}
+              onResetOverrides={onResetOverrides}
+              onDetach={onDetach}
+            />
+          )
+        }
+      >
+        <PresetPicker
+          project={project}
+          value={layer.preset}
+          viewport={viewport}
+          overrides={overrides}
+          onPick={onPick}
+        />
+      </Row>
+      {closest && <ClosestPreset match={closest} viewport={viewport} onUse={onPick} />}
+    </>
+  )
+}
+
+/**
+ * Under the preset row of a layer without one: the preset its type matches, or the nearest, one click away, as a value
+ * that isn't a token offers the nearest token. Using it fills in what the preset covers.
+ */
+function ClosestPreset({
+  match,
+  viewport,
+  onUse
+}: {
+  match: PresetMatch
+  viewport: ViewportId
+  onUse: (name: string) => void
+}) {
+  const { preset, differs } = match
+  const values = presetAt(preset, viewport)
+  const sets = differs.map((field) => `${fieldLabel(field).toLowerCase()} ${formatValue(field, values[field])}`)
+  const text = differs.length === 0 ? `Matches ${preset.name}` : `Near ${preset.name}, which sets ${sets.join(" and ")}`
+  return (
+    <div className="-mt-1 grid grid-cols-[88px_1fr] gap-2 pb-1">
+      <span />
+      <div className="flex items-baseline justify-between gap-2">
+        <output className="min-w-0 text-[11px] leading-snug text-muted-foreground">{text}</output>
+        <button
+          type="button"
+          onClick={() => onUse(preset.name)}
+          aria-label={`Use ${preset.name}`}
+          className="shrink-0 rounded-sm text-[11px] leading-snug font-medium whitespace-nowrap text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          Use
+        </button>
+      </div>
+    </div>
   )
 }
 

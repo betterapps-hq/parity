@@ -107,7 +107,7 @@ export const Overriding: Story = {
 
 /**
  * subtitle1 detached: the layer keeps its font, size, weight and line height as values of its own, and the rows are
- * ordinary ones in all three.
+ * ordinary ones in all three. Its type still matches subtitle1, which the preset row offers to use again.
  */
 export const Detached: Story = {
   args: { start: (project) => detach(project, layerWith("subtitle1")) },
@@ -115,6 +115,24 @@ export const Detached: Story = {
     const hidden = version(canvasElement, "Hidden")
     await expect(hidden.getByRole("button", { name: "Typography preset: none" })).toBeVisible()
     await expect(hidden.getByRole("textbox", { name: "Size" })).toHaveValue("20")
+    await expect(hidden.getByRole("status")).toHaveTextContent("Matches subtitle1")
+  }
+}
+
+/**
+ * A layer with no preset whose type is subtitle1's but for a 24px line height: the preset row offers the nearest
+ * preset and says where it differs. Using it fills in subtitle1, line height and all.
+ */
+export const ClosestPreset: Story = {
+  args: {
+    start: (project) => setOwn(detach(project, layerWith("subtitle1")), "mobile", "lineHeight", { px: 24 })
+  },
+  play: async ({ canvasElement }) => {
+    const locked = version(canvasElement, "Shown locked")
+    await expect(locked.getByRole("status")).toHaveTextContent("Near subtitle1, which sets line height 28")
+    await userEvent.click(locked.getByRole("button", { name: "Use subtitle1" }))
+    await expect(locked.getByRole("button", { name: "Typography preset: subtitle1" })).toBeVisible()
+    await expect(locked.getByRole("textbox", { name: "Line height, set by subtitle1" })).toHaveValue("28")
   }
 }
 

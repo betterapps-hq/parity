@@ -533,6 +533,53 @@ export function formatValue(field: TypeField, value: TypeValue | undefined): str
   }
 }
 
+/** A preset a layer without one could use: one it matches, or the nearest, with the rows where it differs. */
+export interface PresetMatch {
+  preset: Preset
+  differs: TypeField[]
+}
+
+/** How far apart two values of a row are, in pixels where the row is a length, at a size. */
+function apart(field: TypeField, a: TypeValue | undefined, b: TypeValue | undefined, size: number): number {
+  if (a === undefined || b === undefined) return a === b ? 0 : Infinity
+  if (field === "lineHeight") return Math.abs(lineHeightPx(a as LineHeight, size) - lineHeightPx(b as LineHeight, size))
+  if (field === "letterSpacing") {
+    const px = (spacing: LetterSpacing) => ("px" in spacing ? spacing.px : spacing.em * size)
+    return Math.abs(px(a as LetterSpacing) - px(b as LetterSpacing))
+  }
+  if (field === "size" || field === "weight") return Math.abs((a as number) - (b as number))
+  return a === b ? 0 : Infinity
+}
+
+/** Within a hundredth of a pixel counts as the same, so 1.5 times 16 matches 24px. */
+const same = 0.01
+
+/** A size within two pixels is near enough to offer a preset, as a length within half a step offers a token. */
+const nearSize = 2
+
+/**
+ * The preset a layer without one matches in a viewport, or else the nearest: the one whose size is within two pixels
+ * that differs in the fewest rows, then by the least size. What the layer shows counts, inherited values too, so plain
+ * body text finds the project's body preset.
+ */
+export function closestPreset(project: PresetProject, layer: TextLayer, viewport: ViewportId): PresetMatch | undefined {
+  if (layer.preset) return undefined
+  const shown = typeAt(project, layer, viewport)
+  const size = shown.size ?? project.inherited.size
+  const candidates = project.presets.flatMap((preset) => {
+    const values = presetAt(preset, viewport)
+    const gap = apart("size", values.size ?? size, size, size)
+    if (gap > nearSize) return []
+    const differs = (Object.keys(values) as TypeField[]).filter(
+      (field) => apart(field, values[field], shown[field], size) > same
+    )
+    return [{ preset, differs, gap }]
+  })
+  candidates.sort((a, b) => a.differs.length - b.differs.length || a.gap - b.gap)
+  const best = candidates[0]
+  return best && { preset: best.preset, differs: best.differs }
+}
+
 /** Size over line height in pixels, "20/28", or the size alone when the line height isn't set. */
 export function sizeAndLine(project: PresetProject, values: TypeValues): string {
   const size = values.size ?? project.inherited.size
@@ -654,11 +701,12 @@ const trackingNames: Record<number, string> = {
   0.1: "widest"
 }
 
+/** A font's class: its theme token, or its first family in single quotes, as Tailwind reads a family in brackets. */
 function fontClass(project: PresetProject, font: string): string {
   const entry = project.fonts.find((candidate) => candidate.name === font)
-  return entry?.token?.startsWith("font-")
-    ? entry.token
-    : `font-[${(entry?.stack ?? font).split(",")[0]!.replaceAll(" ", "_")}]`
+  if (entry?.token?.startsWith("font-")) return entry.token
+  const family = (entry?.stack ?? font).split(",")[0]!.trim().replaceAll('"', "")
+  return `font-['${family.replaceAll(" ", "_")}']`
 }
 
 function tailwindClass(project: PresetProject, field: TypeField, value: TypeValue): string {
