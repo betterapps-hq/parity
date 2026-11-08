@@ -24,7 +24,7 @@ import {
 } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
-import { activeSession, clearBitmapCache, exportImages, selectedDesign, zoomToSelection } from "./commands.ts"
+import { activeSession, clearBitmapCache, exportImages, selectedDesign } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { setLayout } from "./layout.ts"
@@ -170,7 +170,7 @@ function commandItems(): Item[] {
       label: keymap[id].label,
       keywords: keymap[id].group,
       keys: keymap[id].keys[0],
-      run: () => actions[id].run(),
+      run: () => actions[id].run("search"),
       available: () => actions[id].available?.() !== false
     }))
 }
@@ -189,7 +189,7 @@ function projectItems(session: ProjectSession): Item[] {
       icon: <DesignIcon kind={entry.container.kind} style={{ color: designColor(entry.container.kind) }} />,
       run: () => {
         session.selection.set({ design: entry.key })
-        zoomToSelection(session)
+        void actions.zoomToSelection.run("search")
       }
     })
   }

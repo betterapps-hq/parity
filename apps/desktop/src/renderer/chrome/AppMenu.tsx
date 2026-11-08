@@ -136,7 +136,7 @@ function Item({
       variant={variant}
       inset={Icon ? undefined : true}
       disabled={action.available?.() === false}
-      onClick={() => void action.run()}
+      onClick={() => void action.run("menu")}
     >
       {Icon && <Icon />} {children ?? keymap[command].label}
       <MenubarShortcut>{formatKeys(keymap[command].keys[0])}</MenubarShortcut>

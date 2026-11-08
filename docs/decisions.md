@@ -5851,6 +5851,27 @@ valid.
 - This widens PAR-194's "colours, type, radius and shadows stay tokens"; its flag for lengths off the scale becomes this
   mark.
 
+## Every action is recorded by the action list's one wrapper (PAR-639)
+
+`command.ran` records each action in `chrome/actions.ts`, whatever asked for it. My calls:
+
+- **It's the action's trace, not a second event.** PAR-629's `action.ran` span is now `command.ran`, with what ran it
+  (`from`), whether it applied (`enabled`), and how many layers and designs were selected. The span gives the outcome
+  and duration, and the work the action causes joins its trace.
+- **The wrapper is `run(from)`.** `recordActions` (`chrome/record-actions.ts`) wraps every entry, and the window runs an
+  action only through it: keys, the menubar, the canvas and Layers menus, Search actions, the toolbar and panel buttons.
+  An action bound to where it was asked for passes `instead`. New screen where the canvas menu opened, or Save for the
+  Tokens panel's project, runs that in the action's place, still recorded under the action's ID.
+- **One tried while it doesn't apply is recorded as cancelled and doesn't run.** That's a Ctrl shortcut on the canvas or
+  any app shortcut. A plain key that doesn't apply still does what it would anyway, such as Tab moving focus, so it
+  isn't recorded. The wrapper asks `available` itself, so every caller gets the same answer.
+- **Selection is counts, not IDs or names.** That's enough to tell an empty selection from many layers. It stays cheap
+  for PAR-647's budget: one `available` call and one count per command.
+- **A test fails if window code calls an action's command directly** (`record-actions.test.ts`). It reads the source and
+  flags any file that imports a function the actions run from `commands.ts`, `layout.ts`, `create.ts` or
+  `QuickInsert.tsx` and calls it anywhere except through `instead`. Search actions' extras with no shortcut (Export all,
+  Snap, Performance stats, Clear bitmap cache, About) aren't in the action list, so they aren't recorded.
+
 ## Interface events are recorded by the stores that own them (PAR-634)
 
 `tab.*`, `panel.shown`, `dialog.opened`, `mode.switched`, `setting.changed` and `start.action` are recorded where the

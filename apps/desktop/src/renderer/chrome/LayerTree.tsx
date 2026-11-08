@@ -75,7 +75,7 @@ import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
-import { actions, rememberCommand } from "./actions.ts"
+import { actions } from "./actions.ts"
 import { SearchField } from "./AssetsPanel.tsx"
 import { showConsole } from "./ConsolePanel.tsx"
 import { createDesign } from "./create.ts"
@@ -551,10 +551,10 @@ export function LayerTree() {
 
 /** The + for frames picks the frame tool, to draw one; the others make a design. */
 function addDesign(session: Session, kind: ContainerKind): void {
-  if (kind === "frame") session.selection.setTool("frame")
+  if (kind === "frame") void actions.frame.run("panel")
   else {
-    createDesign(session, kind)
-    rememberCommand(kind === "component" ? "newComponent" : "newScreen")
+    const command = kind === "screen" ? "newScreen" : "newComponent"
+    void actions[command].run("panel", { instead: () => createDesign(session, kind) })
   }
 }
 
@@ -974,7 +974,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
         key={action}
         disabled={!entry.enabled}
         variant={action === "delete" ? "destructive" : undefined}
-        onClick={() => (action === "rename" ? onRename() : void actions[action].run())}
+        onClick={() => void actions[action].run("layersMenu", action === "rename" ? { instead: onRename } : {})}
       >
         {entry.label}
         {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}

@@ -18,8 +18,8 @@ export function useAppShortcuts(): void {
       if (!command) return
       event.preventDefault()
       event.stopImmediatePropagation()
-      const action = actions[command]
-      if (action.available?.() !== false) void action.run(event)
+      // One that doesn't apply is recorded as tried, as a Ctrl shortcut on the canvas is.
+      void actions[command].run("key", { event })
     }
     window.addEventListener("keydown", onKeyDown, { capture: true })
     return () => window.removeEventListener("keydown", onKeyDown, { capture: true })
@@ -78,11 +78,14 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
         const action = actions[command]
         // A key that doesn't apply now does what it would anyway, as Enter on a button, unless it's a Ctrl shortcut.
         if (action.available?.() === false) {
-          if (mod) handled()
+          if (!mod) return
+          handled()
+          // Tried while it doesn't apply: recorded, without running.
+          void action.run("key", { event })
           return
         }
         handled()
-        void action.run(event)
+        void action.run("key", { event })
         return
       }
       // The browser's own Ctrl shortcuts for these would select the page's text or act on nothing here.

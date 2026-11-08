@@ -527,7 +527,7 @@ export const EditAfterWrapping: Story = {
       await openProjects("example")
       const pricing = design("Pricing")
       example().selection.set(layersSelection(pricing, [node("Pricing", "Hero")]))
-      actions.wrap.run()
+      actions.wrap.run("key")
     }
   ],
   play: async () => {
