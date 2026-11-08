@@ -5,7 +5,26 @@ import type { PreviewKind } from "@parity-app/tokens"
 import { px } from "../lengths.ts"
 
 export { px }
-import { Ban, Hand, MousePointer2, TextCursor } from "lucide-react"
+import {
+  Ban,
+  CircleQuestionMark,
+  Copy,
+  Crosshair,
+  EyeOff,
+  Hand,
+  HandGrab,
+  Loader,
+  LoaderCircle,
+  type LucideIcon,
+  MousePointer2,
+  Move,
+  MoveHorizontal,
+  MoveVertical,
+  Pointer,
+  TextCursor,
+  ZoomIn,
+  ZoomOut
+} from "lucide-react"
 import {
   createContext,
   type CSSProperties,
@@ -125,6 +144,26 @@ export const onPaper = new Set<PreviewKind>([
 
 /** Kinds that move, and so play while hovered, focused or open. */
 export const moving = new Set<PreviewKind>(["duration", "easing", "animation"])
+
+/** Each cursor keyword drawn as the pointer it is; any other draws as the arrow. */
+const cursorIcons: Record<string, LucideIcon> = {
+  pointer: Pointer,
+  "not-allowed": Ban,
+  text: TextCursor,
+  wait: Loader,
+  progress: LoaderCircle,
+  move: Move,
+  grab: Hand,
+  grabbing: HandGrab,
+  help: CircleQuestionMark,
+  crosshair: Crosshair,
+  "zoom-in": ZoomIn,
+  "zoom-out": ZoomOut,
+  copy: Copy,
+  "ew-resize": MoveHorizontal,
+  "ns-resize": MoveVertical,
+  none: EyeOff
+}
 
 const checkerboard = "repeating-conic-gradient(oklch(0.88 0 0) 0 25%, transparent 0 50%)"
 
@@ -854,7 +893,7 @@ export function TokenArt({
       )
     }
     case "cursor": {
-      const Icon = { pointer: Hand, "not-allowed": Ban, text: TextCursor }[value] ?? MousePointer2
+      const Icon = cursorIcons[value] ?? MousePointer2
       // The box takes the cursor itself, so hovering it shows the real thing.
       return (
         <span className="grid size-full place-items-center text-muted-foreground" style={{ cursor: value }}>

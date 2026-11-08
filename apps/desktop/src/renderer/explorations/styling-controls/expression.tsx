@@ -535,6 +535,7 @@ export function ExpressionField({
         status={{ missing: held !== undefined && !heldToken ? <MissingMark name={held} /> : undefined }}
         narrow={narrow}
         hint={hint}
+        description={atRest ? value : undefined}
         inputClassName={atRest && narrow ? "text-center font-serif italic" : ""}
         expression={{ onEquals: open, onOpen }}
         trailing={

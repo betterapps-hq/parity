@@ -137,8 +137,16 @@ export function useTyped<T>({
   const message = line ? line.message : ownMessage
   const setMessage = (next: Message | undefined) => {
     setFailed(next?.tone === "error")
-    if (line) line.onMessage(next)
-    else setOwnMessage(next)
+    // Once its answer is taken ("Use 24px", the nearest token), the message has been answered, so it goes.
+    const action = next?.action
+    const said = next && action ? { ...next, action: { ...action, run: () => answer(action) } } : next
+    if (line) line.onMessage(said)
+    else setOwnMessage(said)
+  }
+  const answer = (action: MessageAction) => {
+    action.run()
+    setTyped(undefined)
+    setMessage(undefined)
   }
   const error = failed
   const named = backTo ?? (shown || "unset")
@@ -212,6 +220,8 @@ export function MessageLine({ message }: { message: Message | undefined }) {
       {message.action && (
         <button
           type="button"
+          // Pressing it leaves the typing where it is, so the field doesn't put its value back and move the answer away.
+          onMouseDown={(event) => event.preventDefault()}
           onClick={message.action.run}
           className="inline-flex items-center gap-1 rounded px-1 font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -827,8 +837,9 @@ export function TokenChip({
   onReplace
 }: TokenChipProps) {
   const shownName = withoutNamespace(name, namespace)
-  let drawn = preview
-  if (drawn === undefined && token) {
+  // A chip squeezed into a narrow field keeps its name and leaves the preview to its hint and list.
+  let drawn = fill ? undefined : preview
+  if (drawn === undefined && token && !fill) {
     drawn = <TokenMark kind={token.kind} value={token.value} name={token.name} width={20} height={14} />
   }
   const content = (
@@ -908,12 +919,19 @@ export function TokenChip({
  * The token button (slot 6): it shows while the field is hovered or focused and holds no token, as Figma's variable
  * button does, and opens the field's token list, as Alt+Down does. It's that popover's trigger.
  */
-export function TokenButton({ label }: { label: string }) {
+export function TokenButton({
+  label,
+  focusOnly = false
+}: {
+  label: string
+  /** Shows only while the field is focused, as in a narrow field, where hovering has no room for it beside the mark. */
+  focusOnly?: boolean
+}) {
   return (
     <Hint label={`Choose a token for ${label}`} detail="Alt+Down">
       <PopoverTrigger
         aria-label={`${label} tokens`}
-        className="-mr-1 hidden size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none group-focus-within/field:grid group-hover/field:grid hover:bg-accent hover:text-foreground focus-visible:grid focus-visible:ring-2 focus-visible:ring-ring data-popup-open:grid data-popup-open:bg-accent"
+        className={`-mr-1 hidden size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none group-focus-within/field:grid ${focusOnly ? "" : "group-hover/field:grid"} hover:bg-accent hover:text-foreground focus-visible:grid focus-visible:ring-2 focus-visible:ring-ring data-popup-open:grid data-popup-open:bg-accent`}
       >
         <Hexagon className="size-3" />
       </PopoverTrigger>
@@ -929,6 +947,8 @@ export interface TokenListProps {
   current?: string
   /** A first row that unsets the field, where it can be unset, with what unset is called (None, Auto). */
   none?: string
+  /** The field holds a value of its own, so neither the first row nor any token is the one it holds. */
+  own?: boolean
   onPick: (name: string | undefined) => void
 }
 
@@ -936,7 +956,7 @@ export interface TokenListProps {
  * A field's tokens, for its popover: each drawn with its kind's preview as the Tokens panel draws it, with what it comes
  * to, a deprecated one marked, and the one the field holds highlighted. Up and Down move through it.
  */
-export function TokenList({ label, tokens, current, none, onPick }: TokenListProps) {
+export function TokenList({ label, tokens, current, none, own = false, onPick }: TokenListProps) {
   const rows: { name: string | undefined; token?: FieldToken }[] = [
     ...(none === undefined ? [] : [{ name: undefined }]),
     ...tokens.map((token) => ({ name: token.name, token }))
@@ -951,7 +971,7 @@ export function TokenList({ label, tokens, current, none, onPick }: TokenListPro
   return (
     <fieldset aria-label={`${label} tokens`} className="flex max-h-64 min-w-0 flex-col overflow-y-auto">
       {rows.map(({ name, token }) => {
-        const selected = name === current
+        const selected = name === current && !(name === undefined && own)
         return (
           <button
             key={name ?? "none"}
@@ -1191,6 +1211,8 @@ export interface ValueFieldProps<T> {
   inputClassName?: string
   /** The whole text to edit once focused, where the value shows short at rest (an OKLCH color). */
   editText?: string
+  /** The whole value for screen readers, where the field shows it short at rest (an expression's `calc`). */
+  description?: string
   /** Selects the value on focus, so typing replaces it. */
   selectOnFocus?: boolean
   /** Classes for the row, as a grid places it beside another field whose messages share the line under both. */
@@ -1279,6 +1301,7 @@ export function ValueField<T>({
   inputMode = "decimal",
   inputClassName = "",
   editText,
+  description,
   selectOnFocus = false,
   rowClassName = "",
   refusal,
@@ -1366,7 +1389,9 @@ export function ValueField<T>({
   if (typed.error) mark = <InvalidMark />
   else if (!typing) mark = status?.missing ?? status?.offSystem ?? status?.theme ?? status?.deprecated
 
-  const showUnit = unit !== undefined && !typed.focused && !showChip && (shown !== undefined || !mixed)
+  // A narrow field has room for one thing after the value: its status mark takes the unit's place, which its hint names.
+  const showUnit =
+    unit !== undefined && !typed.focused && !showChip && (shown !== undefined || !mixed) && !(narrow && mark)
   let unitPart: ReactNode
   if (showUnit && typeof unit === "string") {
     unitPart = (
@@ -1424,6 +1449,7 @@ export function ValueField<T>({
           ref={input}
           aria-label={label}
           aria-invalid={error || undefined}
+          aria-describedby={description === undefined ? undefined : `${searchId}-description`}
           disabled={disabled}
           inputMode={inputMode}
           spellCheck={false}
@@ -1504,7 +1530,12 @@ export function ValueField<T>({
         )}
         {unitPart}
         {mark}
-        {tokens && !showChip && !bare && <TokenButton label={label} />}
+        {tokens && !showChip && !bare && <TokenButton label={label} focusOnly={narrow} />}
+        {description !== undefined && (
+          <span id={`${searchId}-description`} className="sr-only">
+            {description}
+          </span>
+        )}
       </div>
     </Hint>
   )
@@ -1527,6 +1558,7 @@ export function ValueField<T>({
           tokens={tokens.list}
           current={tokens.current}
           none={tokens.none}
+          own={chip === undefined && shown !== undefined && shown !== ""}
           onPick={(name) => {
             tokens.onPick(name)
             clearTyping()
