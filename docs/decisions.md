@@ -6106,3 +6106,27 @@ version mismatches and MCP sessions. My calls:
 - **A command's calls carry its `cli.ran` span,** so its trace has a root in the local log. `parity mcp` ends its span
   once it's listening, and each MCP call starts its own trace, as before.
 - **`cli.ran` records flags by name only,** since their values can name files, projects and snippets.
+
+## Opening projects, builders and servers are recorded (PAR-637)
+
+The events are in [telemetry.md](telemetry.md#events), from `project-events.ts` in `@parity-app/telemetry`. My calls:
+
+- **`project.opened` and `project.openFailed` are events, not spans,** since a span keeps the name it started with and
+  the outcome decides the name. Each carries its total and per-step times as attributes (`detectionMs`, `builderMs`),
+  and the steps are spans in the open's trace: `project.detected` for reading the package, tools, files and components,
+  and `builder.started` (PAR-629) for the builder.
+- **`project.openFailed` names the step that failed,** `detection` or `builder`, with the message the tab shows and the
+  `CodedError` code when there is one. An unsupported project is still `project.unsupported` too.
+- **The window's part is `project.loaded`,** recorded once the tab's guest and components have loaded, with the time
+  from asking to open it. It names the project by `name` and `root`, as `project.opened` does, so the two can be paired
+  when several projects open in one session. The first frame drawn isn't recorded yet: PAR-711.
+- **TypeScript's version comes from its installed package,** since detection doesn't list it; React, Vite, Tailwind and
+  Storybook come from detection.
+- **A reopen is one the service makes as it starts** (PAR-179), and `cached` means the components and props came from
+  detection's cache.
+- **`builder.crashed` is a `warn` with the builder's exit code or signal and its last 50 lines,** next to the Sentry
+  error the service already sends for a crash, so the crash shows in the trace's logs as well as in Issues.
+- **`server.started` and `server.failed` come from the process manager,** with `exited` or `timeout`. Builders run in
+  processes of their own, outside it, so they have their own events.
+- **Node code records through `track` in `shared/tracing.ts`,** which puts the event under the span the process is
+  working in, as `inSpan` does for spans.
