@@ -162,7 +162,7 @@ function commandItems(): Item[] {
       keywords: keymap[id].group,
       keys: keymap[id].keys[0],
       run: () => actions[id].run(),
-      ...(actions[id].available ? { available: actions[id].available } : {})
+      available: () => actions[id].available?.() !== false
     }))
 }
 

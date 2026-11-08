@@ -240,7 +240,11 @@ for (const command of repeatable) {
   remembering[command] = {
     ...action,
     run: (event) => {
-      rememberAction({ label: keymap[command].label, run: () => action.run(), available: action.available })
+      rememberAction({
+        label: keymap[command].label,
+        run: () => action.run(),
+        available: () => action.available?.() !== false
+      })
       return action.run(event)
     }
   }
