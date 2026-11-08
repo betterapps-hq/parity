@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Set the interface in Inter, on four sizes for the chrome with nothing under 11px, regular text a step heavier, sentence-case section titles, and code in each system's monospace.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

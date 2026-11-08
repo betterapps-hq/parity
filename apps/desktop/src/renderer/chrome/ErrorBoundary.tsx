@@ -13,6 +13,7 @@ import parityIcon from "../../../../../brand/parity-icon.svg?url"
 import { ErrorDetails } from "../ProjectStatus.tsx"
 import { CopyButton } from "./Copy.tsx"
 import { IconButton } from "./IconButton.tsx"
+import { PanelSectionTitle } from "./PanelSection.tsx"
 
 /**
  * How a part of the window shows that it failed, by the room it has:
@@ -217,7 +218,7 @@ function PanelFallback(props: FallbackProps) {
       <TriangleAlert className="size-5 text-destructive" />
       <div className="flex max-w-64 flex-col gap-1">
         <p className="text-sm font-medium">{title(label, again)}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="type-description text-muted-foreground">
           {reopen
             ? "Reopening the project may fix it. Your changes are saved first."
             : "Your changes are kept, and the rest of the window still works."}
@@ -257,7 +258,8 @@ function ConsoleFallback(props: FallbackProps) {
     >
       {edge}
       <div className="flex h-10 shrink-0 items-center gap-2 border-b px-2">
-        <h2 className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{label}</h2>
+        {/* As the console's: the title sits in the header's row, without a section title's margin over its fields. */}
+        <PanelSectionTitle title={label} as="h2" spacing="" />
         <span className="flex-1" />
         <CopyButton text={errorText(error)} label="Copy the error's details" />
         {onClose && (
@@ -275,7 +277,7 @@ function ConsoleFallback(props: FallbackProps) {
             <TriangleAlert className="size-4 text-destructive" />
             {title(label, again)}
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="type-description text-muted-foreground">
             {reopen
               ? "Reopening the project may fix it. Your changes are saved first."
               : "Your designs' messages are still kept, and the rest of the window still works."}
@@ -304,8 +306,8 @@ function TabFallback(props: FallbackProps) {
           <TriangleAlert className="size-5" />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-lg font-semibold">{title(label, again)}</h1>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <h1 className="text-lg font-semibold tracking-tight">{title(label, again)}</h1>
+          <p className="type-body text-muted-foreground">{description}</p>
         </div>
         <ErrorDetails message={errorText(error)} />
         <div className="flex flex-wrap gap-2">
@@ -341,8 +343,8 @@ function WindowFallback(props: FallbackProps) {
       >
         <img src={parityIcon} alt="" className="size-14" />
         <div className="flex max-w-md flex-col gap-2">
-          <h1 className="text-xl font-semibold">{title("Parity", again)}</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight">{title("Parity", again)}</h1>
+          <p className="type-body text-muted-foreground">
             {reload
               ? "Reloading the window may fix it. Your changes are saved first."
               : "Your changes are still open. Try again, and if it happens again, reload the window."}
@@ -455,7 +457,7 @@ function Thrown({ error }: { error: unknown }) {
   return (
     <div className="relative min-w-0">
       {/* Long addresses in a stack can't wrap at a space, so they break anywhere rather than widening the dialog. */}
-      <pre className="h-20 overflow-y-auto rounded-md bg-muted p-2.5 pr-10 font-mono text-xs leading-relaxed wrap-anywhere whitespace-pre-wrap text-muted-foreground select-text">
+      <pre className="h-20 overflow-y-auto rounded-md bg-muted p-2.5 pr-10 type-code font-mono wrap-anywhere whitespace-pre-wrap text-muted-foreground select-text">
         {text}
       </pre>
       <CopyButton text={text} label="Copy the error's details" className="absolute top-1 right-1" />

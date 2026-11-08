@@ -71,7 +71,7 @@ function SlotState({ slot }: { slot: InstanceSlot }) {
         style={{ color: slotColor, fill: filled ? `color-mix(in oklch, ${slotColor} 25%, transparent)` : undefined }}
       />
       <span
-        className={`rounded-full px-1.5 text-[11px] leading-4 ${
+        className={`rounded-full px-1.5 py-px text-2xs ${
           filled ? "bg-muted text-foreground" : "border border-dashed text-muted-foreground"
         }`}
       >
@@ -106,7 +106,7 @@ function SlotPicture({ slot }: { slot: InstanceSlot }) {
       />
     )
   } else if (preview?.error) {
-    shown = <span className="text-xs text-muted-foreground">{preview.error}</span>
+    shown = <span className="type-message text-muted-foreground">{preview.error}</span>
   } else {
     // A shimmer while it's drawn, as a component's preview has.
     shown = (
@@ -250,7 +250,8 @@ export function SlotPanel({
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <div className="flex h-7 items-center gap-2">
           <SquareDashed className="size-4 shrink-0" style={{ color: slotColor }} />
-          <span className="truncate px-1.5 font-mono text-sm font-medium">{slot.name}</span>
+          {/* The selection's title, in code, so at code's semibold rather than a name's. */}
+          <span className="truncate px-1.5 font-mono text-base font-semibold">{slot.name}</span>
         </div>
         <p className="mt-0.5 flex items-center gap-1 pl-6 text-xs text-muted-foreground">
           Slot in
@@ -282,7 +283,9 @@ export function SlotPanel({
           {!filled && <span className="text-muted-foreground">Placeholder showing</span>}
         </div>
         <SlotPicture slot={slot} />
-        <p className="mt-3 px-1 text-xs text-muted-foreground">Click a component in Components to add it here.</p>
+        <p className="type-description mt-3 px-1 text-muted-foreground">
+          Click a component in Components to add it here.
+        </p>
       </PanelSection>
     </>
   )

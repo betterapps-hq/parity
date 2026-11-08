@@ -87,7 +87,9 @@ export function PerformanceStats() {
         </div>
         <div className="flex flex-col gap-2 border-b px-3 py-2.5">
           <div className="flex items-baseline gap-1.5 tabular-nums">
-            <span className={`text-lg font-semibold ${fpsTone(latest?.fps ?? 60)}`}>{latest?.fps ?? "–"}</span>
+            <span className={`text-base font-semibold tabular-nums ${fpsTone(latest?.fps ?? 60)}`}>
+              {latest?.fps ?? "–"}
+            </span>
             <span className="text-muted-foreground">frames a second</span>
             {lowest !== undefined && (
               <span className="ml-auto text-muted-foreground">lowest {lowest} in the last minute</span>
@@ -125,7 +127,7 @@ export function PerformanceStats() {
             </tr>
           </tbody>
         </table>
-        <p className="border-t px-3 py-2 text-muted-foreground">
+        <p className="border-t px-3 py-2 type-description text-muted-foreground">
           {latest?.heap &&
             `This window's JavaScript uses ${megabytes(latest.heap.used)} of ${megabytes(latest.heap.limit)}. `}
           CPU is a share of all {navigator.hardwareConcurrency} cores. Each project&apos;s builder is counted, but

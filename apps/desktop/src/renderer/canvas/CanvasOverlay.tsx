@@ -29,6 +29,7 @@ import { flushSync } from "react-dom"
 import { react, type TLRecord } from "tldraw"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
+import { Name } from "../chrome/Name.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, subscribeFrames } from "../frame.ts"
 import { useEditing } from "../selection.ts"
@@ -49,7 +50,7 @@ import {
   selectionFrame,
   underPoint
 } from "./hit.ts"
-import { designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
+import { chipColors, chipFor, designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
 import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
 import { getSnapMeasures, LayerSnapping } from "./layer-snap.ts"
 import { findLayer } from "./layers.ts"
@@ -107,7 +108,8 @@ interface Spacing {
 
 interface Model {
   outlines: { key: string; box: Box; color: string; dashed: boolean; thick: boolean }[]
-  label?: { box: Box; name: string; size: string; color: string }
+  /** The selection's name over it and its size under it; several layers are counted rather than named. */
+  label?: { box: Box; name: string; size: string; color: string; counted?: boolean }
   redlines: Redline[]
   handles: Handles[]
   drag?: DragView
@@ -445,22 +447,22 @@ export function CanvasOverlay() {
       {model.label && !editing && (
         <>
           <div
-            className="absolute -translate-y-full truncate rounded-t px-1.5 py-px text-[11px] font-medium text-white"
+            className="absolute -translate-y-full truncate rounded-t px-1.5 py-px text-2xs font-medium tabular-nums"
             style={{
               left: model.label.box.x - 1,
               top: model.label.box.y - 1,
               maxWidth: Math.max(model.label.box.w, 80),
-              background: model.label.color
+              ...chipFor(model.label.color)
             }}
           >
-            {model.label.name}
+            {model.label.counted ? model.label.name : <Name>{model.label.name}</Name>}
           </div>
           <div
-            className="absolute -translate-x-1/2 rounded px-1.5 py-px text-[11px] text-white tabular-nums"
+            className="absolute -translate-x-1/2 rounded px-1.5 py-px text-2xs font-medium tabular-nums"
             style={{
               left: model.label.box.x + model.label.box.w / 2,
               top: model.label.box.y + model.label.box.h + 6,
-              background: model.label.color
+              ...chipFor(model.label.color)
             }}
           >
             {model.label.size}
@@ -469,11 +471,11 @@ export function CanvasOverlay() {
       )}
       {model.frameSize && !editing && (
         <div
-          className="absolute -translate-x-1/2 rounded px-1.5 py-px text-[11px] text-white tabular-nums"
+          className="absolute -translate-x-1/2 rounded px-1.5 py-px text-2xs font-medium tabular-nums"
           style={{
             left: model.frameSize.box.x + model.frameSize.box.w / 2,
             top: model.frameSize.box.y + model.frameSize.box.h + 6,
-            background: kindColors.layer
+            ...chipColors.layer
           }}
         >
           {model.frameSize.size}
@@ -493,10 +495,11 @@ export function CanvasOverlay() {
           }}
         >
           <span
-            className="absolute -top-[3px] -left-[3px] flex -translate-y-full items-center gap-1 rounded-[3px] px-1 font-mono text-[10px] whitespace-nowrap"
+            className="absolute -top-[3px] -left-[3px] flex -translate-y-full items-center gap-1 rounded-[3px] px-1 font-mono text-2xs whitespace-nowrap"
             style={{
               background: `color-mix(in oklch, ${kindColors.component} 16%, var(--background))`,
-              color: kindColors.component
+              // A step off the component color, so the name is 4.5:1 on the tint in either theme (see styles.css).
+              color: "var(--canvas-slot-chip-text)"
             }}
           >
             <SquareDashed className="size-2.5" />
@@ -733,7 +736,8 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
       box,
       name: `${layers.length} layers`,
       size: `${formatPx((right - left) / scale)} × ${formatPx((bottom - top) / scale)}`,
-      color: kindColors.layer
+      color: kindColors.layer,
+      counted: true
     }
   }
   const drag = getDragView()
@@ -1289,8 +1293,8 @@ function FrameDrawingView() {
         }}
       >
         <span
-          className="absolute top-full left-1/2 mt-2 -translate-x-1/2 rounded px-1.5 py-px text-[11px] font-medium whitespace-nowrap text-white tabular-nums"
-          style={{ background: kindColors.layer }}
+          className="absolute top-full left-1/2 mt-2 -translate-x-1/2 rounded px-1.5 py-px text-2xs font-medium whitespace-nowrap tabular-nums"
+          style={chipColors.layer}
         >
           {formatPx(size.width)} × {formatPx(size.height)}
         </span>

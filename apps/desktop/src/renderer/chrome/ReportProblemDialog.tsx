@@ -134,13 +134,13 @@ export function ReportProblemView(props: ReportProblemViewProps) {
               <h3 id={`${ids.text}-sent`} className="text-sm font-medium">
                 Also sent
               </h3>
-              <ul className="grid list-disc gap-0.5 pl-5 text-xs text-muted-foreground">
+              <ul className="grid list-disc gap-0.5 pl-5 type-description text-muted-foreground">
                 {crash && <li>The crash report from {lowerFirst(crash.when)}</li>}
                 {attachments(props.projects).map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
-              <FieldDescription className="text-xs">
+              <FieldDescription className="type-description">
                 Only the Parity team sees reports. Choose what Parity shares in Settings &gt; Privacy.
               </FieldDescription>
             </section>

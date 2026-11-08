@@ -38,6 +38,7 @@ import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { openSource, viewCode } from "./code-editor.ts"
 import { Hint } from "./Hint.tsx"
+import { Name } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 
 /** How many lines show around the picked element's line: before it, and after. */
@@ -143,7 +144,8 @@ function ComponentCode({
     <>
       <div className="flex shrink-0 items-center gap-2 border-b py-2 pr-2 pl-4">
         <NodeIcon node={node} className="size-4 shrink-0" style={{ color: nodeColor(node) }} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{layerName}</span>
+        {/* The selection's title, as the Design tab shows it, so switching tabs doesn't resize it. */}
+        <Name className="min-w-0 flex-1 text-base font-semibold">{layerName}</Name>
         <InspectToggle pressed={inspecting.picking} />
       </div>
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
@@ -154,7 +156,7 @@ function ComponentCode({
             </ItemMedia>
             <ItemContent className="min-w-0">
               <ItemTitle className="font-mono text-xs">{name}</ItemTitle>
-              <ItemDescription className="truncate font-mono text-[11px]">
+              <ItemDescription className="truncate font-mono text-2xs">
                 {source?.library ? `from ${source.path}` : (source?.path ?? "Not found in the project")}
               </ItemDescription>
             </ItemContent>
@@ -174,7 +176,7 @@ function ComponentCode({
             )}
           </Item>
           {source?.library && (
-            <p className="mt-3 px-1 text-xs text-muted-foreground">
+            <p className="type-description mt-3 px-1 text-muted-foreground">
               {`${name} is written in ${source.path}, so its elements have no lines in the project.`}
             </p>
           )}
@@ -212,7 +214,7 @@ function ElementList({
 }) {
   if (elements.length === 0) {
     return (
-      <p className="px-1 text-xs text-muted-foreground">
+      <p className="type-description px-1 text-muted-foreground">
         No elements have a line yet. The project&apos;s dev server adds them as the frame draws.
       </p>
     )
@@ -237,7 +239,7 @@ function ElementList({
               <span className="shrink-0" style={{ color: kindColors.component }}>
                 {element.tag}
               </span>
-              <span className="min-w-0 flex-1 truncate text-right text-[11px] text-muted-foreground">
+              <span className="min-w-0 flex-1 truncate text-right text-2xs text-muted-foreground">
                 {shortSource(element.source)}
               </span>
             </button>
@@ -275,8 +277,9 @@ function SourceLines({ session, source }: { session: ProjectSession; source: Ele
           </Hint>
         </CodeBlockActions>
       </CodeBlockHeader>
+      {/* The source is read, not glanced at, so it's a code block: 12px on an 18px line. */}
       {typeof file === "string" ? (
-        <CodeBlockContent lineNumbers startLine={first} className="text-[11px]">
+        <CodeBlockContent lineNumbers startLine={first} className="type-code">
           {lines.map((line, index) => (
             <CodeBlockLine key={first + index} variant={first + index === source.line ? "highlighted" : "default"}>
               {line}
@@ -284,7 +287,7 @@ function SourceLines({ session, source }: { session: ProjectSession; source: Ele
           ))}
         </CodeBlockContent>
       ) : (
-        <p className="px-3 py-2 text-xs text-muted-foreground">
+        <p className="type-message px-3 py-2 text-muted-foreground">
           {file instanceof Error ? file.message : `Reading ${fileName(source.path)}…`}
         </p>
       )}

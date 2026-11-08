@@ -107,7 +107,7 @@ export function AppMenu() {
     <Menubar className="mr-2 mb-1.5 shrink-0 border-0 [-webkit-app-region:no-drag]" aria-label="Application">
       {menus.map(([name, Items]) => (
         <MenubarMenu key={name}>
-          <MenubarTrigger>{name}</MenubarTrigger>
+          <MenubarTrigger className="font-normal">{name}</MenubarTrigger>
           {/* As wide as what it holds; the kit's are as wide as their trigger, which wraps the items. */}
           <MenubarContent className="w-auto">
             <Items />
@@ -177,7 +177,7 @@ function FileItems() {
         <MenubarSubContent className="max-w-96 min-w-64">
           {recent.length === 0 && (
             <MenubarGroup>
-              <MenubarLabel>Nothing opened yet</MenubarLabel>
+              <MenubarLabel className="font-normal text-muted-foreground">Nothing opened yet</MenubarLabel>
             </MenubarGroup>
           )}
           {recent.map((root) => (
@@ -396,7 +396,7 @@ function HelpItems() {
 function SelectionHint({ children }: { children: ReactNode }) {
   return (
     <MenubarGroup>
-      <MenubarLabel className="flex items-center gap-1.5 font-normal">
+      <MenubarLabel className="flex items-center gap-1.5 font-normal text-muted-foreground">
         <SquareDashed className="size-3.5" /> {children}
       </MenubarLabel>
     </MenubarGroup>

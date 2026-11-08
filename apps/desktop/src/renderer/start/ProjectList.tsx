@@ -93,7 +93,7 @@ export function ProjectList({
               setScope(option.id)
               setMore(false)
             }}
-            className="rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:font-medium aria-pressed:text-foreground"
+            className="rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:text-foreground"
           >
             {option.label}
           </button>

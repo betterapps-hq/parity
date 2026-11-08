@@ -6242,9 +6242,37 @@ default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My 
 - **It's Inter's own release, bundled with the app,** 4.1 from github.com/rsms/inter, in
   `apps/desktop/src/renderer/fonts/inter` with its licence (SIL OFL 1.1). Andrew agreed on 2026-11-08: it's a desktop
   app, so shipping the font is no problem. The npm builds come from Google Fonts and leave out the alternates that tell
-  I, l and 1 apart, which a design tool needs for layer names, token names and values. Until PAR-710 builds the type
-  into the app, only Storybook loads it, as the proposed type's typeface.
+  I, l and 1 apart, which a design tool needs for layer names, token names and values. `styles.css` loads it with
+  `font-display: block`, since the file is local.
 - **The rest of the proposed type is approved,** Andrew's call on 2026-11-08: its sizes, roles, sentence-case section
   titles and monospace, as [interface-type.md](proposals/interface-type.md) sets them. Its weights, 450, 550 and 650,
-  stay provisional until the check on a Mac and on Windows at 150% that the proposal sets out. PAR-710 builds it into
-  the app.
+  stay provisional until the check on a Mac and on Windows at 150% that the proposal sets out.
+
+## The interface type is built into the app (PAR-710)
+
+The approved type from [interface-type.md](proposals/interface-type.md) is the app's, and [typography.md](typography.md)
+describes its roles and their classes. My calls, and Andrew's where named:
+
+- **Four chrome sizes in the theme:** 11/14 (`text-2xs`, with 0.01em), 12/16, 13/18 and 15/20, with headings at 18/24
+  and 24/32, set in a plain `@theme` in `styles.css` so the kit's components read them. Line heights are ratios. Wrapped
+  text has its own utilities, `type-description`, `type-message`, `type-body`, `type-empty` and `type-code`.
+- **Weights at 450, 550 and 650, still provisional,** through `font-normal`, `font-medium` and `font-semibold`, with
+  Inter's medium and semibold held once as `--weight-sans-medium` and `--weight-sans-semibold`. Font smoothing isn't set
+  yet: the proposal pairs it with the weights, so both wait for the check on a Mac.
+- **Code is set in each system's monospace,** Cascadia Mono, Menlo or Consolas, at 400 with Cascadia's lowercase height
+  through `font-size-adjust`, never medium.
+- **The kit's overrides stay in the app,** Andrew's call on 2026-11-08: the type is Parity's, not something every app
+  built on Buildkit should take. Each is a rule in `styles.css` keyed on the kit class it replaces, and
+  `kit-type.test.ts` fails when a kit upgrade adds or changes one of the kit's own type classes.
+- **The app depends on `cn` directly,** 0.5.1, the merger the kit's runtime already uses, Andrew's go-ahead on
+  2026-11-08. `class-merger.ts` registers `text-2xs` as a size and the `type-*` roles as sizes with line heights, and
+  installs it with the kit's `setCn`, so a caller's role replaces the kit's size rather than sitting beside it. Without
+  it, `cn` read `text-2xs` as a color and dropped it beside one.
+- **Names have their own letters:** `<Name>` and `NameInput` (`chrome/Name.tsx`) carry `name-text`, Inter's `ss04` with
+  contextual alternates off, wherever a name stands on its own or is edited.
+- **The 12px titles are components:** `PanelSectionTitle` with a `lead` or `quiet` tone, `GroupLabel` and
+  `DialogGroupTitle`, so the three styles can't drift apart again.
+- **Geist's package is gone,** and with it the Storybook Type control and the exploration's stylesheet. The Scale story
+  stays as Parity/Type/Scale.
+- **The lint rule lands on its own,** as PAR-729: it can only pass once every class is on a role, and it's a plugin with
+  tests of its own, so it follows this build rather than holding it up.

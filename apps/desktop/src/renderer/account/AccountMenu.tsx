@@ -2,6 +2,7 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/sha
 import { KeyRound, Plus } from "lucide-react"
 import { useRef, useState } from "react"
 import type { SignedInAccount } from "../../shared/account.ts"
+import { Name } from "../chrome/Name.tsx"
 import { accountActions, useAccount, workspaceOf } from "./account.ts"
 import { NobodyAvatar, PersonAvatar } from "./PersonAvatar.tsx"
 
@@ -151,7 +152,7 @@ function AccountRow({
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex min-w-0 text-sm font-medium">
-          {several ? <Email address={email} /> : <span className="truncate">{account.name ?? email}</span>}
+          {several ? <Email address={email} /> : <Name>{account.name ?? email}</Name>}
         </span>
         <span className="truncate text-xs text-muted-foreground">{detail}</span>
       </span>

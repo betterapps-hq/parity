@@ -204,7 +204,7 @@ export function NewPropRow({ entry }: { entry: ContainerEntry }) {
         <span className="truncate text-xs text-muted-foreground">{kind.label}, Enter to add</span>
       </div>
       {adding.error && (
-        <p id="new-prop-error" role="alert" className="px-1 pt-1 text-xs text-destructive">
+        <p id="new-prop-error" role="alert" className="type-message px-1 pt-1 text-destructive">
           {adding.error}
         </p>
       )}
@@ -297,7 +297,7 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
         </div>
       </div>
       {error && (
-        <p id={errorId} role="alert" className="px-1 pt-1 text-xs text-destructive">
+        <p id={errorId} role="alert" className="type-message px-1 pt-1 text-destructive">
           {error}
         </p>
       )}
@@ -355,7 +355,7 @@ export function CodeLines({ entry, slots }: { entry: ContainerEntry; slots: Desi
     lines.push({ text: "/>", muted: true })
   }
   return (
-    <pre className="overflow-x-auto rounded-md border bg-muted/40 py-2 font-mono text-[11px] leading-5">
+    <pre className="type-code overflow-x-auto rounded-md border bg-muted/40 py-2 font-mono">
       {lines.map((line, index) => (
         <div
           key={index}

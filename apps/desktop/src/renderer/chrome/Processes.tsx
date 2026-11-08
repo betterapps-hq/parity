@@ -31,6 +31,7 @@ import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 
 import type { ProcessStatus, ProjectProcess } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { Hint } from "./Hint.tsx"
+import { GroupLabel } from "./PanelSection.tsx"
 import {
   dismissProcess,
   formatUptime,
@@ -132,7 +133,7 @@ export function Processes() {
                 {active.slice(0, 5).map((process, index) => (
                   <Light key={process.id} process={process} size={6} delay={index * 0.45} />
                 ))}
-                {active.length > 5 && <span className="ml-0.5 text-[10px]">+{active.length - 5}</span>}
+                {active.length > 5 && <span className="ml-0.5 text-2xs">+{active.length - 5}</span>}
                 {unseen[0] && <Light process={unseenFailure ?? unseen[0]} size={6} />}
               </span>
             </button>
@@ -161,7 +162,9 @@ export function Processes() {
         <div className="max-h-[min(30rem,60vh)] overflow-y-auto border-t pb-1.5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]">
           {groups.map((group) => (
             <section key={group.key} className="pt-2">
-              <h3 className="px-3.5 pb-1 text-[11px] font-medium text-muted-foreground">{group.title}</h3>
+              <GroupLabel as="h3" className="block px-3.5 pb-1">
+                {group.title}
+              </GroupLabel>
               <ul>
                 {group.processes.map((process) => (
                   <ProcessRow key={process.id} process={process} now={now} />
@@ -171,7 +174,7 @@ export function Processes() {
           ))}
           {finished.length > 0 && (
             <section className="pt-2">
-              <h3 className="flex items-center px-3.5 pb-1 text-[11px] font-medium text-muted-foreground">
+              <GroupLabel as="h3" className="flex items-center px-3.5 pb-1">
                 <span className="flex-1">Last results</span>
                 <button
                   type="button"
@@ -180,7 +183,7 @@ export function Processes() {
                 >
                   Clear
                 </button>
-              </h3>
+              </GroupLabel>
               <ul>
                 {finished.map((process) => (
                   <ProcessRow key={process.id} process={process} now={now} showProject={manyProjects} />
@@ -376,12 +379,12 @@ function ProcessRow({
           <Hint label={describe(process)} wait>
             <div className="flex items-baseline gap-2">
               <span
-                className={`truncate text-[13px] font-medium ${done && process.status !== "failed" && !task ? "text-muted-foreground" : "text-foreground"}`}
+                className={`truncate text-xs ${done && process.status !== "failed" && !task ? "text-muted-foreground" : "text-foreground"}`}
               >
                 {process.name}
               </span>
               {word && <StatusWord status={process.status}>{word}</StatusWord>}
-              {showProject && <span className="truncate text-[10.5px] text-muted-foreground">{process.project}</span>}
+              {showProject && <span className="truncate text-2xs text-muted-foreground">{process.project}</span>}
             </div>
           </Hint>
           {task ? <TaskLine process={process} /> : <ServerLine process={process} />}
@@ -390,7 +393,7 @@ function ProcessRow({
           <div
             className={`flex items-center justify-end tabular-nums transition-all duration-150 ${hasActions ? "group-focus-within/row:pointer-events-none group-focus-within/row:opacity-0 group-hover/row:pointer-events-none group-hover/row:opacity-0" : ""} ${confirming ? "pointer-events-none opacity-0" : ""}`}
           >
-            <span className={`text-[12px] ${done ? "text-muted-foreground" : "text-foreground"}`}>{time}</span>
+            <span className={`text-xs ${done ? "text-muted-foreground" : "text-foreground"}`}>{time}</span>
           </div>
           {hasActions && (
             <div
@@ -447,7 +450,7 @@ function ServerLine({ process }: { process: ProjectProcess }) {
     const [first, ...rest] = process.error.split("\n")
     return (
       <Hint label={first} detail={rest.join("\n").trim() || undefined} wait>
-        <div className="mt-0.5 truncate text-[11px]" style={{ color: "var(--process-failed)" }}>
+        <div className="mt-0.5 truncate text-2xs" style={{ color: "var(--process-failed)" }}>
           {first}
         </div>
       </Hint>
@@ -463,7 +466,7 @@ function TaskLine({ process }: { process: ProjectProcess }) {
     const share = progress && progress.total > 0 ? Math.min(1, progress.done / progress.total) : undefined
     return (
       <div className="mt-0.5 flex min-w-0 flex-col gap-1">
-        <div className="flex min-w-0 items-baseline gap-2 text-[11px] text-muted-foreground">
+        <div className="flex min-w-0 items-baseline gap-2 text-2xs text-muted-foreground">
           <span className="truncate">{process.detail ?? kinds[process.kind].role}</span>
           {progress && (
             <span className="ml-auto shrink-0 tabular-nums">
@@ -496,7 +499,7 @@ function TaskLine({ process }: { process: ProjectProcess }) {
       wait
     >
       <div
-        className={`mt-0.5 truncate text-[11px] ${color ? "" : "text-muted-foreground"}`}
+        className={`mt-0.5 truncate text-2xs ${color ? "" : "text-muted-foreground"}`}
         style={color ? { color } : undefined}
       >
         {process.summary ?? kinds[process.kind].role}
@@ -514,7 +517,7 @@ function StatusWord({ status, children }: { status: ProcessStatus; children: Rea
   return (
     <span
       data-process-motion
-      className="shrink-0 text-[10.5px] font-medium"
+      className="shrink-0 text-2xs"
       style={
         moving
           ? {
@@ -535,16 +538,16 @@ function StatusWord({ status, children }: { status: ProcessStatus; children: Rea
 /** Where it serves: its Portless name when it has one, its subdomain bright, or its local port. */
 function Address({ process }: { process: ProjectProcess }) {
   if (!process.domain && !process.url) {
-    return <div className="mt-0.5 text-[11px] text-muted-foreground">{kinds[process.kind].role}</div>
+    return <div className="mt-0.5 text-2xs text-muted-foreground">{kinds[process.kind].role}</div>
   }
   const content = process.domain ? <Domain domain={process.domain} url={process.url} /> : <Port url={process.url!} />
   if (!canOpen(process)) {
-    return <div className="mt-0.5 flex min-w-0 items-center font-mono text-[11px]">{content}</div>
+    return <div className="mt-0.5 flex min-w-0 items-center font-mono text-2xs">{content}</div>
   }
   return (
     <button
       type="button"
-      className="mt-0.5 flex max-w-full min-w-0 items-center rounded font-mono text-[11px] decoration-muted-foreground/40 underline-offset-2 hover:underline"
+      className="mt-0.5 flex max-w-full min-w-0 items-center rounded font-mono text-2xs decoration-muted-foreground/40 underline-offset-2 hover:underline"
       onClick={() => window.open(process.domain ?? process.url, "_blank")}
     >
       {content}

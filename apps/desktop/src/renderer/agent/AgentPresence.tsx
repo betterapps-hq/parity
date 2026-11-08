@@ -383,7 +383,7 @@ function MeasureLabel({ label, palette }: { label: Label; palette: AgentPalette 
   return (
     <div
       ref={ref}
-      className={`absolute mt-1.5 -translate-x-1/2 rounded px-1.5 py-px text-[10px] font-medium whitespace-nowrap tabular-nums shadow transition-opacity duration-500 ${leaving ? "opacity-0" : "opacity-100"}`}
+      className={`absolute mt-1.5 -translate-x-1/2 rounded px-1.5 py-px text-2xs font-medium whitespace-nowrap tabular-nums shadow transition-opacity duration-500 ${leaving ? "opacity-0" : "opacity-100"}`}
       style={{ background: palette.color, color: palette.ink }}
     >
       {size.w} × {size.h}

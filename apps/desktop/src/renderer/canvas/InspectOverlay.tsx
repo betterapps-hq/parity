@@ -5,7 +5,7 @@ import { useSelection } from "../selection.ts"
 import { useProject } from "./context.ts"
 import { elementsWrittenAt, frameAt, type SourcedElement, shortSource, sourcedElementAt } from "./element-sources.ts"
 import { getInspecting, pickElement, setPicking, useInspecting } from "./inspect.ts"
-import { kindColors } from "./kinds.tsx"
+import { chipColors, kindColors } from "./kinds.tsx"
 
 interface Box {
   x: number
@@ -129,12 +129,13 @@ export function InspectOverlay() {
         />
       ))}
       {marks.label && (
+        // A canvas chip in code, so at code's regular rather than the chip's medium, with the tag at code's semibold.
         <div
-          className="absolute flex -translate-y-full items-center gap-1.5 truncate rounded-t px-1.5 py-px font-mono text-[11px] text-white"
-          style={{ left: marks.label.box.x - 1, top: marks.label.box.y - 1, background: color }}
+          className="absolute flex -translate-y-full items-center gap-1.5 truncate rounded-t px-1.5 py-px font-mono text-2xs tabular-nums"
+          style={{ left: marks.label.box.x - 1, top: marks.label.box.y - 1, ...chipColors.component }}
         >
           <span className="font-semibold">{marks.label.tag}</span>
-          <span className="opacity-80">{marks.label.where}</span>
+          <span>{marks.label.where}</span>
         </div>
       )}
     </div>

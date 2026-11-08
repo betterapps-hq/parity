@@ -26,6 +26,30 @@ export const kindColors = {
   agent: "var(--canvas-agent)"
 } as const
 
+/** A chip's fill and text, at least 4.5:1 apart, so its 11px text reads (see styles.css). */
+export interface ChipColors {
+  background: string
+  color: string
+}
+
+/**
+ * Each kind's chip over the canvas, such as a selection's label and size: a darker step of the selection color under
+ * white, or, for the light hues, the selection color itself under near-black text.
+ */
+export const chipColors = {
+  screen: { background: "var(--canvas-screen-chip)", color: "white" },
+  component: { background: "var(--canvas-component-chip)", color: "white" },
+  mode: { background: kindColors.mode, color: "var(--canvas-chip-ink)" },
+  layer: { background: "var(--canvas-layer-chip)", color: "white" },
+  agent: { background: kindColors.agent, color: "var(--canvas-chip-ink)" }
+} as const satisfies Record<keyof typeof kindColors, ChipColors>
+
+/** The chip that goes with a selection color from `kindColors`. */
+export function chipFor(color: string): ChipColors {
+  const kind = (Object.keys(kindColors) as (keyof typeof kindColors)[]).find((key) => kindColors[key] === color)
+  return kind ? chipColors[kind] : { background: color, color: "white" }
+}
+
 /** A design's color. A frame is a layout on the canvas, so it's selected in the layer color. */
 export function designColor(kind: ContainerKind | undefined): string {
   if (kind === "frame") return kindColors.layer

@@ -28,6 +28,7 @@ import { activeSession, clearBitmapCache, exportImages, selectedDesign } from ".
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { setLayout } from "./layout.ts"
+import { Name } from "./Name.tsx"
 import { getPreferences, setPreferences } from "./preferences.ts"
 import { insertOption, offerOf } from "./QuickInsert.tsx"
 import { rememberAction } from "./repeat.ts"
@@ -45,6 +46,9 @@ interface Item extends FindItem<Heading> {
   keys?: string
   icon?: ReactNode
 }
+
+/** The groups whose rows are names, which show in the letters names take everywhere (`<Name>`). */
+const named = new Set<Heading>(["Designs", "Layers", "Components", "Projects"])
 
 /** At most this many of each of these while searching, as there can be thousands. */
 const limits = { Layers: 8, Components: 6, Tokens: 6, Designs: 6 }
@@ -338,15 +342,18 @@ export function ActionsSearch() {
                   onSelect={() => run(item)}
                 >
                   {item.icon}
-                  <span className="truncate">{item.label}</span>
+                  {/* By the item's own group, so a name under Recent shows in a name's letters too. */}
+                  {named.has(item.group) ? <Name>{item.label}</Name> : <span className="truncate">{item.label}</span>}
                   {item.keys ? (
-                    <CommandShortcut className="tracking-normal">
+                    <CommandShortcut>
                       <Kbd>{formatKeys(item.keys)}</Kbd>
                     </CommandShortcut>
                   ) : (
                     item.detail && (
                       // The kit's slot for what ends a row, which also keeps its check mark from taking the space.
-                      <CommandShortcut className="max-w-1/2 truncate tracking-normal">{item.detail}</CommandShortcut>
+                      <CommandShortcut data-words className="max-w-1/2 truncate">
+                        {item.detail}
+                      </CommandShortcut>
                     )
                   )}
                 </CommandItem>

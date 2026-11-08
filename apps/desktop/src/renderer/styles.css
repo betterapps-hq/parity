@@ -6,11 +6,199 @@
  * the Code tab's code showed in one color (PAR-167).
  */
 @source "../../node_modules/@buildkitgg/shadcn-baseui-kit/dist/lib/highlighter.js";
-@import "@fontsource-variable/geist";
+
+/*
+ * The interface is set in Inter (PAR-709, docs/typography.md), Inter's own release (4.1, from github.com/rsms/inter)
+ * bundled under its licence in fonts/inter. The npm builds come from Google Fonts, which leave out the alternates that
+ * tell I, l and 1 apart. The file is local, so `block` costs nothing and the first frame never lays out in a fallback.
+ */
+@font-face {
+  font-family: "InterVariable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url("./fonts/inter/InterVariable.woff2") format("woff2");
+}
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", sans-serif;
+  --font-sans: "InterVariable", sans-serif;
+}
+
+/*
+ * The interface's type scale and weights (docs/typography.md). A plain `@theme`, not `inline`, so the utilities read
+ * these variables, which the kit's parts and code repoint below. Line heights are ratios, as Tailwind's are, so a child
+ * sized inline inherits a line in proportion.
+ */
+@theme {
+  /* Captions: units, counts, tags on a row and chips over the canvas, with a little room between letters. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: calc(14 / 11);
+  --text-2xs--letter-spacing: 0.01em;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(16 / 12);
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: calc(18 / 13);
+  --text-base: 0.9375rem;
+  --text-base--line-height: calc(20 / 15);
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(24 / 18);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(26 / 20);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(32 / 24);
+
+  /*
+   * Inter is variable, so regular text sits a step above 400, which reads thin at 12px on a dark panel, with medium and
+   * semibold moved up to keep their distance. Provisional until the check on a Mac and on Windows at 150%
+   * (docs/proposals/interface-type.md: Open: the weights).
+   */
+  --font-weight-normal: 450;
+  --font-weight-medium: var(--weight-sans-medium);
+  --font-weight-semibold: var(--weight-sans-semibold);
+
+  /* Inter's optical sizes already tighten headings from 14px up, so they close up less than Tailwind's -0.025em. */
+  --tracking-tight: -0.01em;
+
+  /*
+   * Code in each system's monospace: Cascadia Mono on Windows 11, Menlo on macOS, Consolas on Windows 10. `ui-monospace`
+   * only works in Safari. `font-size-adjust` below gives them all Cascadia's lowercase height.
+   */
+  --font-mono: "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+/*
+ * Inter's own medium and semibold, which `--font-weight-medium` and `--font-weight-semibold` point at. Code swaps those
+ * for 400 and 600, and Inter inside code takes these back, so a change to the weights is made here once.
+ */
+@theme static {
+  --weight-sans-medium: 550;
+  --weight-sans-semibold: 650;
+}
+
+/* Wrapped text, as roles. Each sets `--tw-leading` too, so its line holds beside whichever utility Tailwind emits last. */
+@utility type-body {
+  font-size: var(--text-sm);
+  line-height: calc(20 / 13);
+  --tw-leading: calc(20 / 13);
+  text-wrap: pretty;
+}
+
+@utility type-description {
+  font-size: var(--text-xs);
+  line-height: calc(18 / 12);
+  --tw-leading: calc(18 / 12);
+  text-wrap: pretty;
+}
+
+@utility type-message {
+  font-size: var(--text-xs);
+  line-height: calc(18 / 12);
+  --tw-leading: calc(18 / 12);
+  text-wrap: pretty;
+}
+
+/* An empty panel: centered lines of even length, and its hint a step below on an 18px line. */
+@utility type-empty {
+  font-size: var(--text-sm);
+  line-height: calc(20 / 13);
+  --tw-leading: calc(20 / 13);
+  text-wrap: balance;
+
+  & > .text-xs {
+    line-height: calc(18 / 12);
+  }
+}
+
+/* Code over many lines, on 18px as editors set it. */
+@utility type-code {
+  font-size: var(--text-xs);
+  line-height: calc(18 / 12);
+  --tw-leading: calc(18 / 12);
+}
+
+/*
+ * A name that stands on its own (rows, a board's title, the selection's label) in Inter's letters for names: `ss04`
+ * gives I serifs and l a tail, so I, l and 1 can't be mistaken, and contextual alternates are off, so a typed -> shows
+ * as typed. Only `<Name>` and `NameInput` use it.
+ */
+@utility name-text {
+  font-feature-settings:
+    "ss04",
+    "calt" 0;
+}
+
+/*
+ * The kit's own sizes, lines and tracking, brought onto the roles. Each is unlayered, since the kit's utilities would
+ * beat a base rule, and keyed on the kit class it replaces, so a caller's own size or line, which makes `cn` drop the
+ * kit's, turns the rule off too. kit-type.test.ts fails when the kit adds or changes one.
+ */
+
+/*
+ * The kit's input, input group and textarea set `md:text-sm`, which beats a caller's `text-xs` in the app's window,
+ * always wider than 48rem. The selection's title passes `md:text-base` instead, which `cn` lets replace it.
+ */
+@media (width >= 48rem) {
+  :is([data-slot="input"], [data-slot="input-group-control"], [data-slot="textarea"]).text-xs {
+    font-size: var(--text-xs);
+    line-height: var(--tw-leading, var(--text-xs--line-height));
+  }
+}
+
+/* The kit's small button, small toggles and the calendar are 12.8px, between two steps: they take the panel's 12px. */
+.text-\[0\.8rem\] {
+  font-size: var(--text-xs);
+  line-height: var(--tw-leading, var(--text-xs--line-height));
+}
+
+/* Shortcuts are read as keys, not spaced out like a label. */
+[data-slot$="-shortcut"].tracking-widest {
+  letter-spacing: 0;
+}
+
+/* An empty panel's title is 13px, which isn't tracked. */
+[data-slot="empty-title"].tracking-tight {
+  letter-spacing: 0;
+}
+
+/* The kit's descriptions are 14px: a field's, an item's and an alert's are the description role, 12/18. */
+:is(
+  [data-slot="field-description"],
+  [data-slot="item-description"]:not(.font-mono),
+  [data-slot="alert-description"]
+).text-sm {
+  font-size: var(--text-xs);
+  line-height: calc(18 / 12);
+  text-wrap: pretty;
+}
+
+/* An empty panel's description is the empty-panel role, 13/20. */
+[data-slot="empty-description"].text-sm\/relaxed {
+  font-size: var(--text-sm);
+  line-height: calc(20 / 13);
+  text-wrap: balance;
+}
+
+/* Code over many lines is on 18px, not the kit's `leading-relaxed`. */
+[data-slot="code-block-content"].leading-relaxed {
+  line-height: calc(18 / 12);
+  --tw-leading: calc(18 / 12);
+}
+
+/* The kit's item title in code sits on code's line, not the kit's `leading-snug`. */
+[data-slot="item-title"].font-mono.leading-snug {
+  line-height: var(--text-xs--line-height);
+}
+
+/* A dialog's description and a title with a long name in it wrap on a 20px line, not the kit's `leading-none`. */
+[data-slot="dialog-description"].text-sm,
+[data-slot="alert-dialog-description"].text-sm {
+  line-height: calc(20 / 13);
+}
+
+[data-slot="dialog-title"].leading-none,
+[data-slot="alert-dialog-title"].text-base {
+  line-height: calc(20 / 15);
 }
 
 :root {
@@ -48,7 +236,79 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply font-sans font-normal;
+  }
+
+  /*
+   * The kit sets its tabs, toggles, badges, key chips and labels medium. They're controls, chips and labels, so they're
+   * regular, the active tab too: a heavier active label widened its tab and, through `transition-all`, animated the
+   * weight. This repoints the variable the kit's `font-medium` reads, so a caller's `font-semibold` or `font-normal`
+   * still wins. Buttons, which act, stay medium.
+   */
+  :is(
+    [data-slot="tabs-trigger"],
+    [data-slot="toggle"],
+    [data-slot="toggle-group-item"],
+    [data-slot="badge"],
+    [data-slot="kbd"],
+    [data-slot="label"],
+    [data-slot="field-label"]
+  ) {
+    --font-weight-medium: var(--font-weight-normal);
+
+    /* The variable inherits, so a name or a count inside one of them gets the medium back. */
+    & > :not([data-slot]) {
+      --font-weight-medium: var(--weight-sans-medium);
+    }
+  }
+
+  /* 15px is a name or a title, at semibold either way, so a dialog's title outranks the group titles in it. */
+  :is([data-slot="dialog-title"], [data-slot="alert-dialog-title"]) {
+    --font-weight-medium: var(--font-weight-semibold);
+  }
+
+  /*
+   * Keys are capitals and symbols, so + and - sit at the capitals' middle, as native menus draw them. A shortcut's slot
+   * that holds words instead, such as a search row's path or a menu item's note, is marked `data-words` and keeps its
+   * lowercase's hyphens.
+   */
+  [data-slot="kbd"],
+  [data-slot$="-shortcut"]:not([data-words]) {
+    font-feature-settings: "case";
+  }
+
+  /*
+   * Code at the size of the values beside it, at 400 against Inter's 450 to quieten its wider, darker letters, and never
+   * medium: Menlo and Consolas have only regular and bold, and Cascadia only named weights, so 550 would come out bold
+   * on one system and SemiBold on another. A kit part's own `font-medium` set in code reads 400 here. Emphasis in code is
+   * semibold, at 600. Bare `code` and `pre` take the monospace from preflight without the class, so they're named too.
+   */
+  :is(.font-mono, code, pre) {
+    font-weight: 400;
+    letter-spacing: 0;
+    --tw-tracking: 0;
+    /* Whichever monospace renders, its lowercase is Cascadia Mono's, 0.52 of the size, 5% under Inter's. */
+    font-size-adjust: ex-height 0.52;
+    --font-weight-medium: 400;
+    --font-weight-semibold: 600;
+  }
+
+  /* Inter inside code, such as the word between two colors, takes back what the monospace passes down. */
+  :is(.font-mono, code, pre) .font-sans {
+    font-size-adjust: none;
+    font-weight: var(--font-weight-normal);
+    --font-weight-medium: var(--weight-sans-medium);
+    --font-weight-semibold: var(--weight-sans-semibold);
+  }
+
+  /* A field shows a typed -> as typed, but keeps Inter's plain letters unless it edits a name (`name-text`). */
+  :is(input, textarea) {
+    font-feature-settings: "calt" 0;
+  }
+
+  /* A placeholder is a label, so it keeps the plain letters. */
+  :is(input, textarea)::placeholder {
+    font-feature-settings: normal;
   }
 }
 html,
@@ -77,6 +337,25 @@ body,
   --canvas-mode: oklch(0.72 0.16 162);
   --canvas-layer: oklch(0.64 0.18 256);
   --canvas-agent: oklch(0.78 0.16 70);
+
+  /*
+   * Chips over the canvas (a selection's label and size, a spacing value, the inspect label) hold 11px text, which
+   * reads only at 4.5:1 on its fill (docs/typography.md, Canvas chip). White on the selection colors is about 3.4:1, so
+   * the darker hues' chips take a step of their color at L 0.55 (white on screen and layer 4.9:1, on component 5.5:1,
+   * on spacing 5.5:1) while their strokes keep 0.64. The light hues keep their fill and take near-black text: 7.9:1 on
+   * mode green, 8.8:1 on agent amber, 6.5:1 on tab order's orange.
+   */
+  --canvas-screen-chip: oklch(0.55 0.18 256);
+  --canvas-component-chip: oklch(0.55 0.23 304);
+  --canvas-layer-chip: oklch(0.55 0.18 256);
+  --canvas-spacing-chip: oklch(0.55 0.22 350);
+  --canvas-chip-ink: oklch(0.2 0 0);
+
+  /*
+   * A slot's chip is its name in the component color on a 16% tint of it, which is 3.1:1 on the light theme's tint; a
+   * darker step holds it at 5.7:1 there, and a lighter one at 5.9:1 on the dark theme's.
+   */
+  --canvas-slot-chip-text: light-dark(oklch(0.5 0.23 304), oklch(0.7 0.2 304));
 }
 
 body {

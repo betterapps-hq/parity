@@ -4,8 +4,8 @@ How Parity's interface sets its type: the roles text plays, the classes each rol
 Why each call was made is in the [interface type proposal](proposals/interface-type.md) and
 [decisions.md](decisions.md#the-interface-is-set-in-inter-par-709).
 
-Status: this describes the type PAR-709 builds. Until that lands, the app is in Geist on Tailwind's default scale, and
-the proposed type shows in Storybook with the toolbar's Type control.
+Status: built (PAR-710). The weights are provisional until they're checked on a Mac and on Windows at 150%, and the lint
+rule under [What holds it](#what-holds-it) is to come (PAR-729); until then, review holds new UI to the roles.
 
 ## In one line
 
@@ -123,17 +123,18 @@ The three 12px titles differ only by weight and color, so they're components, no
   `font-medium` reads the repointed variable and does nothing, so the lint rule fails it there; their children get the
   medium back. Each unlayered rule is keyed on the kit class it replaces, so a caller's own size or line, which makes
   `cn` drop the kit's, also turns the rule off. The `type-*` roles are registered with the class merger (`createCn`,
-  installed with the kit runtime's `setCn`), so a caller's role replaces the kit's size as `text-xs` would. A Vitest
-  scans the kit's `dist` for its own sizes, lines, tracking and medium, and fails on any it doesn't list.
+  installed with the kit runtime's `setCn` in `class-merger.ts`), so a caller's role replaces the kit's size as
+  `text-xs` would. `kit-type.test.ts` scans the kit's `dist` for its own sizes, lines, tracking and medium, and fails on
+  any it doesn't list.
 - **The theme's line heights are ratios,** as Tailwind's are, so a child sized inline inherits a line in proportion.
-- **The lint rule.** A rule in the vite-plus oxlint plugin config fails `className` strings with one-off type values in
-  `apps/desktop/src/renderer`, outside explorations and the exempt parts above, gathering every static class string in
-  an expression (both branches of a ternary, `cn` and `clsx` arguments, same-file constants) before it checks a
-  combination, and names the role to use. It also fails the kit's `SelectContent` in the panels outside `fields.tsx`
-  (use `PanelSelectContent`), `name-text` outside `<Name>` and `NameInput`, a `type-*` class beside a `text-{size}`
-  class, `font-mono` with `font-medium`, `font-medium` on the kit's `TabsTrigger`, `Toggle`, `ToggleGroupItem`, `Badge`,
-  `Kbd`, `Label` and `FieldLabel`, `text-xl`, and `text-xs` with `font-medium` or `font-semibold` and
-  `text-muted-foreground` outside the title components.
+- **The lint rule (PAR-729, to come).** A rule in the vite-plus oxlint plugin config fails `className` strings with
+  one-off type values in `apps/desktop/src/renderer`, outside explorations and the exempt parts above, gathering every
+  static class string in an expression (both branches of a ternary, `cn` and `clsx` arguments, same-file constants)
+  before it checks a combination, and names the role to use. It also fails the kit's `SelectContent` in the panels
+  outside `fields.tsx` (use `PanelSelectContent`), `name-text` outside `<Name>` and `NameInput`, a `type-*` class beside
+  a `text-{size}` class, `font-mono` with `font-medium`, `font-medium` on the kit's `TabsTrigger`, `Toggle`,
+  `ToggleGroupItem`, `Badge`, `Kbd`, `Label` and `FieldLabel`, `text-xl`, and `text-xs` with `font-medium` or
+  `font-semibold` and `text-muted-foreground` outside the title components.
 - **The Scale story.** Parity/Type/Scale draws every role above that isn't a popup (a panel's select is checked by
   opening one in the panel stories) with the classes listed here, measured underneath, so a change to a role shows in
   Storybook, where it's reviewed.

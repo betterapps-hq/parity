@@ -29,7 +29,8 @@ import { focusOnMount, kindColors, layerLabel, NodeIcon } from "../canvas/kinds.
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
 import { statesValue, updateAndRecord } from "./inspector-events.ts"
-import { PanelSection } from "./PanelSection.tsx"
+import { Name } from "./Name.tsx"
+import { GroupLabel, PanelSection } from "./PanelSection.tsx"
 
 /**
  * A design's states, like a Storybook file's stories. The first is the base: the design itself. Every other state
@@ -187,7 +188,7 @@ function StateRow({
           className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-2 text-left"
         >
           <RadioMark active={active} />
-          <span className="min-w-0 flex-1 truncate">{state.name}</span>
+          <Name className="min-w-0 flex-1">{state.name}</Name>
         </button>
       )}
       {summary && <span className="shrink-0 px-1 text-xs text-muted-foreground">{summary}</span>}
@@ -239,9 +240,11 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
   const overrides = Object.entries(state.overrides ?? {})
   return (
     <div className="mt-4">
-      <div className="mb-2 px-1 text-xs font-medium text-muted-foreground">Changes in {state.name}</div>
+      <GroupLabel as="div" className="mb-2 px-1">
+        Changes in {state.name}
+      </GroupLabel>
       {overrides.length === 0 ? (
-        <p className="px-1 text-xs text-muted-foreground">
+        <p className="type-description px-1 text-muted-foreground">
           Nothing yet. Select a layer and edit it while this state is shown.
         </p>
       ) : (
@@ -261,9 +264,7 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
                     ) : (
                       <Pencil className="size-3.5 shrink-0" />
                     )}
-                    <span className="truncate">
-                      {node ? layerLabel(node, entries, store.getComponentLibrary()) : nodeId}
-                    </span>
+                    <Name>{node ? layerLabel(node, entries, store.getComponentLibrary()) : nodeId}</Name>
                   </button>
                   <Hint label="Reset every change to this layer">
                     <Button
