@@ -58,6 +58,8 @@
     --weight-sans-semibold: 650;
     --font-weight-medium: var(--weight-sans-medium);
     --font-weight-semibold: var(--weight-sans-semibold);
+    /* The darker chip fill the color change brings, so a Canvas chip's white text is 4.5:1 on it. */
+    --canvas-chip-screen: oklch(0.55 0.18 256);
     font-weight: var(--font-weight-normal);
 
     /*

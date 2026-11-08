@@ -17,6 +17,11 @@ weight from the theme, and a lint rule that fails one-off values.
 The roles below come to a dozen styles. Several roles share one on purpose: they're named by what the text does, so a
 change to one job doesn't move the others.
 
+The weights in these tables are provisional: 450, 550 and 650 are what `font-normal`, `font-medium` and `font-semibold`
+come to on Windows at 100%, where they were judged, until the check on a Mac and on Windows at 150%
+([Open: the weights](proposals/interface-type.md#open-the-weights)) sets them, per platform if it must. Pick by the
+class, not the number. Code's 400 and 600 are fixed, since code doesn't follow those classes.
+
 | Style       | Size and line         | Weight | Tracking | Roles                                                                       |
 | ----------- | --------------------- | ------ | -------- | --------------------------------------------------------------------------- |
 | 11 regular  | 11/14                 | 450    | 0.01em   | Caption                                                                     |
@@ -28,7 +33,7 @@ change to one job doesn't move the others.
 | 13 regular  | 13/18                 | 450    | 0        | Row, menu item, tab; Field label in a dialog                                |
 | 13 medium   | 13/18                 | 550    | 0        | Item title, Button                                                          |
 | 13 wrapped  | 13/20                 | 450    | 0        | Body, Empty panel, Dialog description                                       |
-| 15 semibold | 15/20                 | 650    | 0        | Selection title, Dialog title                                               |
+| 15 semibold | 15/20                 | 650    | 0        | Selection title, Dialog title, Figure                                       |
 | Heading     | 18/24 or 24/32        | 650    | -0.01em  | Heading, Page title                                                         |
 | Code        | 12/16, 12/18 or 11/14 | 400    | 0        | Code, Code block, Secondary code (emphasis at 600)                          |
 
@@ -48,7 +53,7 @@ Pick the role, not a size. Each role's classes are all it needs; the theme sets 
 | Section title       | `PanelSectionTitle`                                                                   | 12/16, 650                       | The inspector's sections, the accessibility panel's groups, the console, the error screen, the start page's sections              |
 | Group label         | `GroupLabel`                                                                          | 12/16, 550, gray                 | Groups in lists: Layers, Tokens, Processes; the kit's menu labels and command groups draw it already                              |
 | Group title         | `DialogGroupTitle`                                                                    | 12/16, 650, gray                 | Groups in dialogs: Settings, Shortcuts                                                                                            |
-| Strong value        | `font-medium text-foreground` inside a Label                                          | 12/16, 550                       | The part of a line of labels that's read: the status bar's and Performance's figures                                              |
+| Strong value        | `font-medium text-foreground` inside a Label                                          | 12/16, 550                       | The part of a line of labels that's read: the status bar's counts, Performance's memory and CPU                                   |
 | Row, menu item, tab | `text-sm`                                                                             | 13/18, 450                       | Layer rows, the kit's menus, tabs (the active one too), dialogs' selects                                                          |
 | Item title          | `text-sm font-medium`                                                                 | 13/18, 550                       | A name or title heading a card, popover or panel: a component card, Processes, Performance, a panel's error                       |
 | Control, chip       | the kit's `ToggleGroup` and `Toggle` at `size="sm"`, `Kbd`, a `Badge` holding a value | 12/16, 450                       | Segmented controls in panels such as Placement, key chips, the design's path; at the default size a toggle is 13px, for dialogs   |
@@ -59,6 +64,7 @@ Pick the role, not a size. Each role's classes are all it needs; the theme sets 
 | Button              | the kit's `Button`                                                                    | 13/18, 550                       | Dialogs' actions, such as Cancel and Save                                                                                         |
 | Empty panel         | `type-empty text-muted-foreground text-center`                                        | 13/20, 450, gray, balanced       | What a panel says when there's nothing to show; a title in it is `font-medium text-foreground`, 550                               |
 | Empty panel hint    | `text-xs` inside `type-empty`                                                         | 12/18, 450, gray, balanced       | The line under it, such as how to select a layer                                                                                  |
+| Figure              | `text-base font-semibold tabular-nums`                                                | 15/20, 650                       | A number read at a glance in a panel or popover: Performance's frame rate, the accessibility panel's counts                       |
 | Selection title     | `text-base font-semibold`; `md:text-base` on a field                                  | 15/20, 650                       | The inspector's title for what's selected, on every tab: a design's or layer's name (a `NameInput`), several layers, a slot (600) |
 | Dialog title        | the kit's `DialogTitle`                                                               | 15/20, 650                       | Titles of dialogs                                                                                                                 |
 | Dialog description  | the kit's `DialogDescription`                                                         | 13/20, 450, gray                 | What a dialog is for, under its title                                                                                             |

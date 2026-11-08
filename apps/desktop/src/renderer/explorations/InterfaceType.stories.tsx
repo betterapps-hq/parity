@@ -260,6 +260,15 @@ const roles: Role[] = [
     )
   },
   {
+    name: "Figure",
+    where: "A number read at a glance: Performance's frame rate, accessibility counts",
+    sample: (
+      <span data-sample className="text-base font-semibold tabular-nums">
+        60
+      </span>
+    )
+  },
+  {
     name: "Selection title",
     where: "The inspector's title for what's selected: a design, a layer",
     sample: (
@@ -329,7 +338,8 @@ const roles: Role[] = [
       <span
         data-sample
         className="rounded px-1.5 py-px text-[11px] font-medium text-white"
-        style={{ background: "var(--canvas-screen)" }}
+        // The proposed side draws on the darker chip fill the color change brings, as the chip will ship.
+        style={{ background: "var(--canvas-chip-screen, var(--canvas-screen))" }}
       >
         Pricing
       </span>

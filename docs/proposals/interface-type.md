@@ -72,21 +72,40 @@ descriptions at 12/18, empty panels at 13/20. A panel's select opens with its it
 panels' selects in `fields.tsx`, so dialogs' selects keep 13px), while menus from the title bar and canvas stay 13px. A
 section title that folds shows hover with a fill, as rows do, since it's already in the text color hover used to turn
 it. Font smoothing is grayscale on macOS, which turns off the stem darkening and thins text, as Figma and Linear set it
-with weights like these; Windows ignores it. The stories were judged on Windows at 100% scaling, where Inter is unhinted
-and stems fall between pixels, which favors heavier weights. Before the build fixes the weights, they're checked on a
-Mac and on Windows at 150%: the Design tab, Layers, Tokens, the Code tab and the console, in both themes, with the
-fixed-width boxes that hold 10px text today (a token's mode names and values in `TokenDetail.tsx`, the tab order's
-numbers, the console's count) checked for clipping at 11px. "Reads heavy" is decided two ways, which have to agree
-before a weight moves. One is measured: ink per pixel of width for an 11px Caption (gray on the dark panel and on the
-light theme's `--muted` fill), an 11px Canvas chip (white on its fill), a 12px label, a 13px row, a 12px section title
-and the 15px selection title, as code's weight was measured (Inter 450 is 2.50 at 12px on Windows at 100%, the floor),
-recorded here for each machine. Semibold is tried at 600 and at 650 on its own, not only as the base plus 200, since the
-inspector's titles lead their 13px rows by weight alone: on each platform the 12px title has to lay down more ink per
-pixel than the 13px row it leads, and the lightest semibold that does is the one kept. The Caption gets a floor of its
-own, set at Windows 100% as 12px's 2.50 was; if 450 misses it there, the Caption takes its own weight rather than the
-whole base moving. The other is seen: the inspector beside Figma's desktop inspector, also Inter at similar weights, at
-the same scaling in both themes, screenshotted together. If 450 reads heavy on the Mac, where grayscale smoothing is the
-cause rather than density, the weights come down there only, keyed to a class on `<html>`: the preload exposes
+with weights like these; Windows ignores it. The weights are open until they're checked on a Mac and on Windows at 150%:
+see [Open: the weights](#open-the-weights).
+
+Notes on the canvas are people's own text and keep their size and spacing, at Inter's own regular weight.
+
+## Open: the weights
+
+The stories were judged on Windows at 100% scaling, where Inter is unhinted and stems fall between pixels, which favors
+heavier weights. Windows at 100% is a floor, not the reference: text mustn't read thin there, but most Windows laptops
+run at 125–150% and Macs at 2x, so those are what the weights are tuned on. Every screenshot reviewed so far is at the
+floor, so approving this proposal approves its sizes, roles, case and code; its weights are approved by this check,
+whose results fill the table below before the build sets them.
+
+On each setup, the Design tab, Layers, Tokens, the Code tab and the console are screenshotted in both themes beside
+Figma's desktop inspector, also Inter at similar weights, at the same scaling, with the base tried at 425, 450 and 475
+and semibold at 600 and 650 on its own, not only as the base plus 200, since the inspector's titles lead their 13px rows
+by weight alone. The side-by-side decides. Ink per pixel of width (an 11px Caption gray on the dark panel and on the
+light theme's `--muted` fill, an 11px Canvas chip on its fill, a 12px label, a 13px row, a 12px section title, the 15px
+selection title) is recorded beside it as a diagnostic, not a gate, since it grows with size and shrinks with a wide
+face's sidebearings. The fixed-width boxes that hold 10px text today (a token's mode names and values in
+`TokenDetail.tsx`, the tab order's numbers, the console's count) are checked for clipping at 11px, and the Caption is
+judged on its own: if 450 reads thin there at the floor, the Caption takes its own weight rather than the whole base
+moving.
+
+| Setup            | Theme       | Screens                                   | Screenshot | Base | Semibold | Verdict |
+| ---------------- | ----------- | ----------------------------------------- | ---------- | ---- | -------- | ------- |
+| Windows 11, 100% | dark, light | Design, Layers, Tokens, Code tab, console | to do      |      |          |         |
+| Windows 11, 150% | dark, light | Design, Layers, Tokens, Code tab, console | to do      |      |          |         |
+| Windows 10, 150% | dark, light | Design, Layers, Tokens, Code tab, console | to do      |      |          |         |
+| macOS, 2x        | dark, light | Design, Layers, Tokens, Code tab, console | to do      |      |          |         |
+
+Windows gets one set at every scale, since a class can't tell 100% from 150%: if 450 reads heavy at 150%, Windows moves
+to 425/525/625 everywhere, as long as 100% still reads evenly. If 450 reads heavy on the Mac, where grayscale smoothing
+is the cause rather than density, the weights come down there only, keyed to a class on `<html>`: the preload exposes
 `process.platform` on the context bridge (the renderer can't read it under context isolation, and `<html>` doesn't exist
 yet while the preload runs), and the renderer's entry adds `platform-mac` before React mounts, beside where `theme.ts`
 sets `dark`, as `:root.platform-mac { --font-weight-normal: …; --weight-sans-medium: …; --weight-sans-semibold: … }`,
@@ -98,18 +117,11 @@ reads heavy on the light theme, that's fixed with its colors, as its `--muted-fo
 for both themes. Not a resolution query either, for the same reason: a window moved between a 1x and a 2x screen would
 change weight, and Inter's widths with it.
 
-Windows at 100% is a floor, not the reference: text mustn't read thin there, but most Windows laptops run at 125–150%
-and Macs at 2x, so those are what the weights are tuned on. Every screenshot reviewed so far is at the floor, so
-approving this proposal approves its sizes, roles, case and code; its weights are approved by the check, whose
-screenshots and ink numbers go in this section before the build sets them. Windows gets one set at every scale, since a
-class can't tell 100% from 150%: if 450 reads heavy at 150%, Windows moves to 425/525/625 everywhere, as long as 100%
-still reads evenly. The check also covers names in scripts Inter doesn't draw (Japanese, Chinese, Arabic, Hebrew, Thai,
-Devanagari), which fall back to static system faces: CSS rounds 500 down to their regular but 550 and 650 up to their
-semibold or bold, so a non-Latin design name or "Only {name}" would turn heavier than it is today. If it reads wrong,
-`--font-sans` lists `@font-face` aliases after InterVariable, such as `local("Yu Gothic UI")` declared at
-`font-weight: 100 599` and its Semibold from 600, so 550 maps to regular as 500 did.
-
-Notes on the canvas are people's own text and keep their size and spacing, at Inter's own regular weight.
+The check also covers names in scripts Inter doesn't draw (Japanese, Chinese, Arabic, Hebrew, Thai, Devanagari), which
+fall back to static system faces: CSS rounds 500 down to their regular but 550 and 650 up to their semibold or bold, so
+a non-Latin design name or "Only {name}" would turn heavier than it is today. If it reads wrong, `--font-sans` lists
+`@font-face` aliases after InterVariable, such as `local("Yu Gothic UI")` declared at `font-weight: 100 599` and its
+Semibold from 600, so 550 maps to regular as 500 did.
 
 ## Monospace
 
@@ -178,6 +190,10 @@ Reviews of the proposal raised these, and they were decided as follows.
 - **An empty panel's hint is one step below its message,** 12px under 13px, as a secondary line is under its name; set
   at the message's size, the hint read as more of the message.
 - **A filled tag on a row is a Caption,** whatever name it sits under; a `Badge` holding a value is a control.
+- **The kit's overrides stay in the app.** Buildkit's kits keep shadcn's classes for every app built on them, so the
+  roles this app chose (12px small buttons, regular tabs, 18px description lines) are set here, held by the override
+  table and the guard test, not changed in the kit. Moving a value into the kit as a theme variable is Buildkit's own
+  decision, made there for every app.
 - **Roles are named by job, not by style.** Label, Value, Field label and Compact row all come to 12/16 at 450, and
   that's intended: a change to one job (labels grayer, values tabular) shouldn't move the others, and typography.md says
   which to pick by what the text does.
@@ -306,14 +322,20 @@ Reviews of the proposal raised these, and they were decided as follows.
   value (`SpacingHandles.tsx`), the inspect label (`InspectOverlay.tsx`) and an agent's (`AgentPresence.tsx`). Their
   dimmed parts (`text-white/75` on the spacing chip's scale name, `opacity-80` on the inspect label's location) go to
   plain white. Code in a chip stays at code's 400. Weight doesn't make 11px legible on a weak fill, so the role carries
-  a fill requirement, met in the separate color change: a chip's text is at least 4.5:1 on its fill. The screen, layer
-  and component chips (oklch L 0.64, about 3.3:1 for white) take a darker step of their color, around L 0.55, while the
-  selection's strokes keep 0.64; the light hues, mode green (2.5:1) and agent amber (2.2:1), take near-black text. The
-  role covers any text on a fill drawn over the canvas or a swatch, so three more join it: tab order's numbers
-  (`TabOrderOverlay.tsx`, `text-[10px] font-semibold` on a trail color) become `text-2xs font-medium tabular-nums`, with
-  the same fill rule; the slot chip (`CanvasOverlay.tsx`, 10px code in the component color on a 16% tint of it) becomes
-  Secondary code, at code's 400, with its kind color held to 4.5:1 on its own tint in both themes by the color change;
-  and a token swatch's theme label (`TokenDetail.tsx`, white on a 55% black scrim, about 4.7:1 over white) is a Caption.
+  a fill requirement, met by the color change, which merges before the build or lands in the same PR, so a chip never
+  ships at 11px on a fill it can't read on: a chip's text is at least 4.5:1 on its fill. The Scale story draws the
+  proposed chip on that fill. The screen, layer and component chips (oklch L 0.64, about 3.3:1 for white) take a darker
+  step of their color, around L 0.55, while the selection's strokes keep 0.64; the light hues, mode green (2.5:1) and
+  agent amber (2.2:1), take near-black text. The role covers any text on a fill drawn over the canvas or a swatch, so
+  three more join it: tab order's numbers (`TabOrderOverlay.tsx`, `text-[10px] font-semibold` on a trail color) become
+  `text-2xs font-medium tabular-nums`, with the same fill rule; the slot chip (`CanvasOverlay.tsx`, 10px code in the
+  component color on a 16% tint of it) becomes Secondary code, at code's 400, with its kind color held to 4.5:1 on its
+  own tint in both themes by the color change; and a token swatch's theme label (`TokenDetail.tsx`, white on a 55% black
+  scrim, about 4.7:1 over white) is a Caption.
+- **Figures:** a number read at a glance in a panel or popover is a Figure, `text-base font-semibold tabular-nums`,
+  15/20: Performance's frame rate (`PerformanceStats.tsx`, `text-lg font-semibold` today, an 18px heading used as a
+  number) and the accessibility panel's impact counts (`AccessibilityPanel.tsx`, which drops `leading-none`).
+  Performance's memory and CPU, inside a line of labels, stay Strong values.
 - **Item titles:** a name or title that heads a card, popover or panel is `text-sm font-medium`, 13/18 at 550: a
   component card's name (`ComponentCard.tsx`), a board's and a state's title on the canvas (`ContainerView.tsx`),
   Processes' and Performance's titles (`Processes.tsx`, `PerformanceStats.tsx`), a panel's error (`PanelError.tsx`) and
