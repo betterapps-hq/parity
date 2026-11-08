@@ -142,7 +142,13 @@ export function drawnStyle(
       }
   return {
     background: mixColor(hexOf(draft.background, sets.color), draft.backgroundAlpha) ?? "transparent",
-    borderRadius: radii.map((radius) => `${Math.min(lengthPx(radius, sets.radius), 200)}px`).join(" "),
+    borderRadius: radii
+      .map((radius) =>
+        typeof radius === "object" && "percent" in radius
+          ? `${radius.percent}%`
+          : `${Math.min(lengthPx(radius, sets.radius), 200)}px`
+      )
+      .join(" "),
     filter: draft.blur ? `blur(${lengthPx(draft.blur, sets.blur)}px)` : undefined,
     backdropFilter: draft.backdropBlur ? `blur(${lengthPx(draft.backdropBlur, sets.blur)}px)` : undefined,
     ...stroke

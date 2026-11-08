@@ -48,6 +48,7 @@ import {
   type Columns,
   type Draft,
   type Length,
+  type Radius,
   type SelfAlign,
   type Size,
   sizeCss,
@@ -64,6 +65,7 @@ import {
   type Reading,
   type ScrubKeys,
   unitButtonClass,
+  UnitMenu,
   useTokens,
   useTokenSets,
   ValueField
@@ -1110,7 +1112,7 @@ const corners = ["Top left", "Top right", "Bottom right", "Bottom left"] as cons
 /** The corners' indices in reading order across the two-by-two grid of fields. */
 const cornersAsLaidOut = [0, 1, 3, 2] as const
 
-const sameLength = (a: Length | undefined, b: Length | undefined) => JSON.stringify(a) === JSON.stringify(b)
+const sameRadius = (a: Radius | undefined, b: Radius | undefined) => JSON.stringify(a) === JSON.stringify(b)
 
 /**
  * Appearance's Radius, as the simpler fields lay it out (PAR-186): one field under its name, and each corner, laid out
@@ -1120,7 +1122,7 @@ const sameLength = (a: Length | undefined, b: Length | undefined) => JSON.string
  */
 export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: SectionProps) {
   const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
-  const alike = radii.every((radius) => sameLength(radius, radii[0]))
+  const alike = radii.every((radius) => sameRadius(radius, radii[0]))
   const [each, setEach] = useState(!alike)
   return (
     <PanelSection title="Appearance">
@@ -1157,7 +1159,7 @@ export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: Se
                   tokensOnly={tokensOnly}
                   mixed={mixed}
                   onChange={(value) => {
-                    const next = [...radii] as [Length?, Length?, Length?, Length?]
+                    const next = [...radii] as [Radius?, Radius?, Radius?, Radius?]
                     next[index] = value
                     set({ radius: next })
                   }}
@@ -1410,14 +1412,15 @@ export function RadiusChoice({
   mixedNote?: string
   label: string
   corner?: 0 | 1 | 2 | 3
-  value: Length | undefined
+  value: Radius | undefined
   tokensOnly?: boolean
-  onChange: (value: Length | undefined) => void
+  onChange: (value: Radius | undefined) => void
 }) {
   return (
     <LengthField
       label={label}
       kind="radius"
+      takesPercent
       icon={corner === undefined ? undefined : <CornerGlyph corner={corner} />}
       // A corner's field is narrow, so what its value comes to and its status show in its hint.
       narrow={corner !== undefined}
@@ -1453,7 +1456,9 @@ export function BlurChoice({
       mixed={mixed}
       placeholder="None"
       cssTakes={(length) => CSS.supports("filter", `blur(${length})`)}
-      onChange={onChange}
+      onChange={(next) => {
+        if (typeof next !== "object" || "px" in next) onChange(next)
+      }}
     />
   )
 }
@@ -1463,10 +1468,12 @@ export function BlurChoice({
  * shows as a pill naming it, with what it comes to in its hint; clicking it opens the kind's tokens, as the button at
  * the field's end does on hover or focus. Typing on the pill replaces it, and Backspace or Detach keeps its value
  * without the token. A value shows as typed, with its unit and no mark; Tokens offers the nearest token first, then
- * Create token, and Allow here under Tokens only, which refuses it. Typing a token's name (`lg`, `radius-lg`) takes the token. What's typed
- * is checked as CSS checks the property (`CSS.supports`) before it's stored. Up and Down step a token through the scale
- * and a value by a pixel. In a narrow field (`narrow`, under about 96px), the unit shows on hover, and what the value
- * comes to and its status are in its hint.
+ * Create token, and Allow here under Tokens only, which refuses it. With `takesPercent`, as Radius, it takes a
+ * percentage too, typed (`50%`) or from the unit's menu (px or %), which Tokens only leaves alone as sides' are: it's
+ * a share of the layer, not a step off the scale. Typing a token's name (`lg`, `radius-lg`) takes the token. What's
+ * typed is checked as CSS checks the property (`CSS.supports`) before it's stored. Up and Down step a token through the
+ * scale and a value by a pixel or a percent. In a narrow field (`narrow`, under about 96px), the unit shows on hover,
+ * and what the value comes to and its status are in its hint.
  */
 function LengthField({
   label,
@@ -1478,6 +1485,7 @@ function LengthField({
   placeholder = "0",
   mixed = false,
   mixedNote = "Mixed: the selected layers differ",
+  takesPercent = false,
   cssTakes,
   onChange
 }: {
@@ -1487,38 +1495,59 @@ function LengthField({
   /** Slot 1's icon, which scrubs the value. */
   icon?: ReactNode
   narrow?: boolean
-  value: Length | undefined
+  value: Radius | undefined
   tokensOnly?: boolean
   placeholder?: string
   /** The selected layers differ here: it shows Mixed, and typing replaces every one. */
   mixed?: boolean
   /** What its hint says of Mixed. */
   mixedNote?: string
+  /** It takes a percentage of the layer's size too, as Radius does, with px or % in the unit's menu. */
+  takesPercent?: boolean
   /** Whether CSS takes a length here, as `CSS.supports` says for the property. */
   cssTakes: (length: string) => boolean
-  onChange: (value: Length | undefined) => void
+  onChange: (value: Radius | undefined) => void
 }) {
   const { tokens, create } = useTokens(kind)
   const namespace = `${kind}-`
   const name = typeof value === "string" ? value : undefined
   const token = name === undefined ? undefined : tokens.find((other) => other.name === name)
-  const own = typeof value === "object" ? value : undefined
+  const own = typeof value === "object" && "px" in value ? value : undefined
+  const percent = typeof value === "object" && "percent" in value ? value.percent : undefined
+  // The unit a bare number is typed in while the field holds no value of its own, as the menu last set it.
+  const [chosenUnit, setChosenUnit] = useState<"px" | "%">("px")
+  let unitNow = chosenUnit
+  if (percent !== undefined) unitNow = "%"
+  else if (own) unitNow = "px"
   // Deprecated tokens are neither offered as the nearest nor stepped onto: they're on their way out.
   const scale = tokens.filter((other) => other.deprecated === undefined)
   const nearestTo = (px: number) => nearestToken(tokens, (other) => other.px, px)
   const nearest = own ? nearestTo(own.px) : undefined
   const refused = own !== undefined && tokensOnly && own.allow === undefined
-  const read = (text: string): Reading<Length | undefined> => {
+  const read = (text: string): Reading<Radius | undefined> => {
     const trimmed = text.trim()
     if (trimmed === "") return { value: undefined }
     const named = tokens.find((other) => other.name === trimmed || other.name === namespace + trimmed)
     if (named) return { value: named.name }
-    // The app's maths and units: `6`, `6px`, `0.5rem`, `+2`, `*2`.
-    const reading = readLength(trimmed, { label, current: own?.px ?? token?.px })
+    // A number, or maths on one, with no unit typed is in the unit shown: `40` or `+10` in % is a percentage.
+    if (takesPercent && unitNow === "%" && !/[a-z%]/i.test(trimmed)) {
+      const sum = readLength(trimmed, { label, current: percent })
+      if ("px" in sum) {
+        const share = Math.round(sum.px * 100) / 100
+        return cssTakes(`${share}%`) ? { value: { percent: share } } : { reason: `${label} can't be ${trimmed}%` }
+      }
+    }
+    // The app's maths and units: `6`, `6px`, `0.5rem`, `+2`, `*2`, and `50%` where it takes one.
+    const reading = readLength(trimmed, { label, current: own?.px ?? token?.px, takesPercent })
     if ("reason" in reading && reading.reason.startsWith("Can't read")) {
-      return { reason: `${label} takes a length, such as 6px, or a ${kind} token` }
+      const example = takesPercent ? "6px or 50%" : "6px"
+      return { reason: `${label} takes a length, such as ${example}, or a ${kind} token` }
     }
     if ("reason" in reading) return reading
+    if ("percent" in reading) {
+      if (!cssTakes(`${reading.percent}%`)) return { reason: `${label} can't be ${trimmed}` }
+      return { value: { percent: Math.round(reading.percent * 100) / 100 } }
+    }
     if (!("px" in reading)) return { value: undefined }
     if (!cssTakes(`${reading.px}px`)) return { reason: `${label} can't be ${trimmed}` }
     const near = nearestTo(reading.px)
@@ -1534,28 +1563,57 @@ function LengthField({
       onChange(scale[next]!.name)
       return
     }
+    const by = (up ? 1 : -1) * (shift ? 10 : 1)
+    if (percent !== undefined) {
+      onChange({ percent: Math.max(0, percent + by) })
+      return
+    }
     const from = own?.px ?? token?.px ?? 0
-    onChange({ px: Math.max(0, from + (up ? 1 : -1) * (shift ? 10 : 1)) })
+    onChange({ px: Math.max(0, from + by) })
   }
+  // The unit's menu keeps the number and changes its unit, as Webflow's does: 12px becomes 12%.
+  const toUnit = (next: "px" | "%") => {
+    setChosenUnit(next)
+    if (next === "%" && own) onChange({ percent: own.px })
+    else if (next === "px" && percent !== undefined) onChange({ px: percent })
+  }
+  let unit: ReactNode
+  if (takesPercent && (own || percent !== undefined)) {
+    unit = (
+      <UnitMenu
+        label={label}
+        unit={unitNow}
+        units={[
+          { unit: "px", label: "Pixels" },
+          { unit: "%", label: "Of the layer's size" }
+        ]}
+        onUnit={toUnit}
+      />
+    )
+  } else if (own) unit = "px"
   // A narrow field's hint carries the value's status, which has no room in the field.
   let status: string | undefined
   if (token?.deprecated) status = `Deprecated: use ${token.deprecated} instead`
   else if (name !== undefined && !token) status = "Missing: the project has no token by this name now"
   else if (own?.allow !== undefined) status = `Allowed here: ${own.allow}`
   else if (own && nearest) status = `Not a token. Nearest: ${nearest.name} (${nearest.detail})`
+  else if (percent !== undefined) status = `${formatNumber(percent)}% of the layer's width across and height down`
   else if (mixed && value === undefined) status = mixedNote
   else if (value === undefined) status = "Unset"
+  const shownPercent = percent === undefined ? undefined : formatNumber(percent)
+  // A percentage of its own is offered no nearest token or Create token, as tokens are lengths.
+  const ownPercent = shownPercent === undefined ? undefined : { text: `${shownPercent}%` }
   return (
     <ValueField
       label={label}
       inner={icon}
-      // Dragging the icon, or the row's name, scrubs the value a pixel per screen pixel.
+      // Dragging the icon, or the row's name, scrubs the value a pixel, or a percent, per screen pixel.
       scrub={{
-        from: () => own?.px ?? token?.px ?? 0,
-        apply: (px) => onChange({ px }),
+        from: () => percent ?? own?.px ?? token?.px ?? 0,
+        apply: (number) => onChange(percent === undefined ? { px: number } : { percent: number }),
         by: { step: 1, shiftStep: 10, altStep: 0.1, min: 0 }
       }}
-      shown={own ? formatNumber(own.px) : undefined}
+      shown={own ? formatNumber(own.px) : shownPercent}
       placeholder={placeholder}
       mixed={mixed}
       chip={
@@ -1570,11 +1628,12 @@ function LengthField({
               onReplace: (replacement) => onChange(replacement)
             }
       }
-      unit={own ? "px" : undefined}
+      unit={unit}
+      unitName={unitNow}
       comesTo={token?.detail}
       own={
         own === undefined
-          ? undefined
+          ? ownPercent
           : {
               text: `${formatNumber(own.px)}px`,
               nearest,

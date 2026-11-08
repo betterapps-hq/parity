@@ -6,7 +6,7 @@ import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { AppearanceSection, FillSection } from "./controls.tsx"
 import { stepSpacing } from "./css-values.ts"
-import type { Draft, Length } from "./data.ts"
+import type { Draft, Radius } from "./data.ts"
 import { ProjectTokens, type ScrubBy, type ScrubKeys, useTokens } from "./field-parts.tsx"
 import {
   colorInspiration,
@@ -70,14 +70,16 @@ type Story = StoryObj<typeof meta>
 
 /* Converting between today's stored forms and what a simpler field holds */
 
-const fromLength = (value: Length | undefined): Holds => {
+const fromLength = (value: Radius | undefined): Holds => {
   if (value === undefined) return undefined
   if (typeof value === "string") return { token: value }
+  if ("percent" in value) return { value: value.percent, percent: true }
   return value.allow === undefined ? { value: value.px } : { value: value.px, allow: value.allow }
 }
-const toLength = (holds: Holds): Length | undefined => {
+const toLength = (holds: Holds): Radius | undefined => {
   if (holds === undefined) return undefined
   if ("token" in holds) return holds.token
+  if (holds.percent) return { percent: holds.value }
   return holds.allow === undefined ? { px: holds.value } : { px: holds.value, allow: holds.allow }
 }
 const fromOpacity = (value: Opacity | undefined): Holds => {
@@ -242,7 +244,7 @@ function OpacitySimpler({
   )
 }
 
-type Corners = [Length?, Length?, Length?, Length?]
+type Corners = [Radius?, Radius?, Radius?, Radius?]
 const cornerNames = ["Top left", "Top right", "Bottom right", "Bottom left"] as const
 
 /**
@@ -279,6 +281,7 @@ function RadiusField({
         holds={alike ? fromLength(corners[0]) : undefined}
         mixed={mixed || !alike}
         length
+        percent
         min={0}
         tokens={tokens}
         namespace="radius-"
@@ -310,7 +313,7 @@ function RadiusField({
     )
   }
   const corner = (index: 0 | 1 | 2 | 3, line: GroupLine) => {
-    const set = (value: Length | undefined, keys?: ScrubKeys) => {
+    const set = (value: Radius | undefined, keys?: ScrubKeys) => {
       const next: Corners = [...corners]
       for (const reached of spreadTo([index], spreadOf(keys))) next[reached] = value
       onChange(next)
@@ -324,6 +327,7 @@ function RadiusField({
         glyphHint={cornerNames[index]}
         holds={fromLength(corners[index])}
         length
+        percent
         min={0}
         tokens={tokens}
         namespace="radius-"

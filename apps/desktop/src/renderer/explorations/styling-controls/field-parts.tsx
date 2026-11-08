@@ -421,9 +421,12 @@ const inputBase = "w-0 flex-1 bg-transparent tabular-nums outline-none placehold
 /** The input inside a field's box. */
 export const fieldInput = `${inputBase} min-w-0`
 
-/** A unit that opens the field's unit and mode menu, at the box's right edge (slot 3), as Webflow's unit does. */
+/**
+ * A unit that opens the field's unit and mode menu (slot 3), as Webflow's unit does: at the box's end at rest, and
+ * beside its end button while that shows, so it's drawn as the end button is rather than against the box's edge.
+ */
 export const unitButtonClass =
-  "-mr-1.5 grid h-full shrink-0 place-items-center rounded-r-md px-1.5 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+  "-mx-1 grid h-5 shrink-0 place-items-center rounded px-1 text-muted-foreground outline-none hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-background/70 data-popup-open:text-foreground"
 
 /**
  * A field's unit as a button that opens its unit menu (slot 3), for ValueField's `unit`: the units the field takes,
@@ -458,7 +461,8 @@ export function UnitMenu<U extends string>({
           }}
         >
           {units.map((each) => (
-            <DropdownMenuRadioItem key={each.unit} value={each.unit} className="text-xs">
+            // Choosing a unit is done, so the menu closes, as a menu item's does.
+            <DropdownMenuRadioItem key={each.unit} value={each.unit} closeOnClick className="text-xs">
               <span className="w-5 font-mono">{each.unit}</span>
               {each.label}
             </DropdownMenuRadioItem>
@@ -1408,6 +1412,8 @@ export interface ValueFieldProps<T> {
   chip?: FieldChip
   /** Slot 3: the unit, as text, or a button that opens the field's unit and mode menu (`unitButtonClass`). */
   unit?: ReactNode
+  /** The unit as text where `unit` is a menu, for a narrow field's hint to name the value whole: `25%`. */
+  unitName?: string
   /**
    * Slot 4: what it comes to, or "set by …", faint after the value; in a narrow field, or after a token's pill, in the
    * hint.
@@ -1537,6 +1543,7 @@ export function ValueField<T>({
   muted = false,
   chip,
   unit,
+  unitName,
   comesTo,
   status,
   own,
@@ -1571,7 +1578,7 @@ export function ValueField<T>({
   const input = useRef<HTMLInputElement>(null)
   // Set when a pick closes the list, so the focus goes to the value's text rather than a pill that may have gone.
   const picked = useRef(false)
-  const unitText = typeof unit === "string" ? unit : ""
+  const unitText = unitName ?? (typeof unit === "string" ? unit : "")
   let backTo = shown === undefined ? placeholder || "unset" : `${shown}${unitText}`
   if (chip) backTo = chip.name
   const typed = useTyped({

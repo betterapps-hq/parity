@@ -4,7 +4,7 @@
  * classes. The stored value is kept apart from the Tailwind (call 7), so another framework's output can sit beside it.
  */
 import { arbitrary, colorCss, fraction, isPlainColor, lengthClass, lengthCss, lengthForm } from "./css-values.ts"
-import { type Draft, type Length, type Size, type Track, trackCss } from "./data.ts"
+import { type Draft, type Length, type Radius, type Size, type Track, trackCss } from "./data.ts"
 import { radiusTokens } from "./tokens.ts"
 
 /** What a control writes: its stored value, the CSS declarations and the Tailwind classes. */
@@ -54,25 +54,30 @@ function lengthStored(value: Length | undefined): unknown {
   return { value: `${value.px}px`, ...(value.allow === undefined ? {} : { allow: value.allow }) }
 }
 
+/** A radius as stored: a length's form, or a percentage as its value (`{ value: "50%" }`). */
+const radiusStored = (value: Radius | undefined): unknown =>
+  typeof value === "object" && "percent" in value ? { value: `${value.percent}%` } : lengthStored(value)
+
 const cornerNames = ["top-left", "top-right", "bottom-right", "bottom-left"] as const
 const cornerClasses = ["tl", "tr", "br", "bl"] as const
 
 /** Radius: one for every corner, or each corner's own, and the corner shape where it's set. */
 export function radiusWrites(radius: Draft["radius"], cornerShape?: string): Writes {
-  const one = (value: Length | undefined, side?: string) => {
+  const one = (value: Radius | undefined, side?: string) => {
     const prefix = side ? `rounded-${side}` : "rounded"
     if (value === undefined) return undefined
     if (typeof value === "string") {
       const token = radiusTokens.find((other) => other.name === value)
       return { css: `var(--${value})`, tailwind: `${prefix}-${value.replace("radius-", "")}`, full: token?.px === 9999 }
     }
+    if ("percent" in value) return { css: `${value.percent}%`, tailwind: `${prefix}-[${value.percent}%]`, full: false }
     return { css: `${value.px}px`, tailwind: `${prefix}-[${value.px}px]`, full: false }
   }
   const css: string[] = []
   const tailwind: string[] = []
   let stored: unknown
   if (Array.isArray(radius)) {
-    stored = radius.map(lengthStored)
+    stored = radius.map(radiusStored)
     radius.forEach((value, index) => {
       const written = one(value, cornerClasses[index])
       if (!written) return
@@ -80,7 +85,7 @@ export function radiusWrites(radius: Draft["radius"], cornerShape?: string): Wri
       tailwind.push(written.tailwind)
     })
   } else {
-    stored = lengthStored(radius)
+    stored = radiusStored(radius)
     const written = one(radius)
     if (written) {
       css.push(`border-radius: ${written.css}`)

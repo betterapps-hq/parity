@@ -82,7 +82,7 @@ export interface Draft {
   /** Why a plain fill is allowed here as an exception to the token system, kept with the value (`allow`). */
   backgroundAllowed?: string
   /** One radius, or each corner from the top left, clockwise. */
-  radius?: Length | [Length?, Length?, Length?, Length?]
+  radius?: Radius | [Radius?, Radius?, Radius?, Radius?]
   border?: string
   borderAlpha?: number
   borderAllowed?: string
@@ -137,3 +137,9 @@ export interface Draft {
  * it's allowed here when it is (`{ value, allow }` in PAR-652's value forms).
  */
 export type Length = string | { px: number; allow?: string }
+
+/**
+ * A radius: a length, or a percentage of the layer's size, as Framer's and Webflow's take, so `50%` rounds a square
+ * into a circle at any size, and anything else into an ellipse (CSS takes it of the width across and the height down).
+ */
+export type Radius = Length | { percent: number }

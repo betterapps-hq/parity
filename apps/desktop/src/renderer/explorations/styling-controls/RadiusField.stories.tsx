@@ -9,7 +9,9 @@ import { inState, mixedWrites, radiusWrites } from "./writes.ts"
  * Radius (PAR-186, PAR-652's Appearance), on its own: one field under its name, and each corner, laid out where the
  * corners are, once Each corner at the end of the name's row is pressed. It opens pressed when the corners differ, and
  * the one field says Mixed if they still differ when it's closed. Each takes a radius token or a value of its own
- * (call 1), typed with the app's maths (`+2`, `*2`, `0.5rem`) and checked by `CSS.supports` before it's stored. A
+ * (call 1) in px or as a percentage of the layer's size, as Framer and Webflow take (`50%`); the unit's menu switches
+ * between them, keeping the number. It's typed with the app's maths (`+2`, `*2`, `0.5rem`) and checked by
+ * `CSS.supports` before it's stored. A
  * corner's field is narrow, so its unit shows on hover and what it comes to is in its hint. The button beside Each
  * corner opens Corner shape, marked † as Chromium only. Up and Down step a token through the scale.
  */
@@ -60,6 +62,12 @@ export const PerCorner: Story = {
 
 /** A value of its own, 12px, with no mark: Tokens offers the nearest (radius-lg) first, then Create token. */
 export const PlainValue: Story = { render: () => <Radius start={{ radius: { px: 12 } }} /> }
+
+/**
+ * 50%, typed or from the unit's menu: half the card's width across and half its height down, so the 200 by 120 card is
+ * an ellipse (a square would be a circle), written `rounded-[50%]`. Unlike radius-full's pill, it rounds the sides too.
+ */
+export const Percentage: Story = { render: () => <Radius start={{ radius: { percent: 50 } }} /> }
 
 /** 12px allowed here, with its reason in Tokens, which can stop allowing it. */
 export const AllowedHere: Story = {
