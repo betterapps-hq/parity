@@ -851,9 +851,31 @@ export function TokenMark({
         ...(onPaper.has(kind) ? { background: paper.sheet, boxShadow: `inset 0 0 0 1px ${paper.edge}` } : {})
       }}
     >
-      <TokenArt token={{ name, kind, values: { default: value } }} width={width} height={height} playing={playing} />
+      <TokenArt
+        token={{ name, kind, values: { default: value } }}
+        width={width}
+        height={height}
+        playing={playing && moving.has(kind)}
+      />
     </span>
   )
+}
+
+/**
+ * Which row of a token list is live, hovered or focused, so its mark plays, as the Tokens panel's do: a duration's dot
+ * crosses, an easing runs. Spread `rowProps(name)` on each row's button and pass `live(name)` to its TokenMark.
+ */
+export function useLiveRow() {
+  const [current, setCurrent] = useState<string>()
+  return {
+    live: (name: string | undefined) => name !== undefined && current === name,
+    rowProps: (name: string | undefined) => ({
+      onPointerEnter: () => setCurrent(name),
+      onPointerLeave: () => setCurrent(undefined),
+      onFocus: () => setCurrent(name),
+      onBlur: () => setCurrent(undefined)
+    })
+  }
 }
 
 /** A name without the namespace a field implies: `lg` for `radius-lg` in Radius. */
@@ -1070,7 +1092,7 @@ export interface TokenListProps {
  * moves (a duration, an easing) plays while its row is hovered or focused, as in the Tokens panel.
  */
 export function TokenList({ label, tokens, current, none, own = false, onPick }: TokenListProps) {
-  const [live, setLive] = useState<string>()
+  const { live, rowProps } = useLiveRow()
   const rows: { name: string | undefined; token?: FieldToken }[] = [
     ...(none === undefined ? [] : [{ name: undefined }]),
     ...tokens.map((token) => ({ name: token.name, token }))
@@ -1093,19 +1115,11 @@ export function TokenList({ label, tokens, current, none, own = false, onPick }:
             aria-current={selected || undefined}
             onClick={() => onPick(name)}
             onKeyDown={move}
-            onPointerEnter={() => setLive(name)}
-            onPointerLeave={() => setLive(undefined)}
-            onFocus={() => setLive(name)}
-            onBlur={() => setLive(undefined)}
+            {...rowProps(name)}
             className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent ${selected ? "bg-accent" : ""}`}
           >
             {token ? (
-              <TokenMark
-                kind={token.kind}
-                value={token.value}
-                name={token.name}
-                playing={live === name && moving.has(token.kind)}
-              />
+              <TokenMark kind={token.kind} value={token.value} name={token.name} playing={live(name)} />
             ) : (
               <span aria-hidden className="block h-4 w-6 shrink-0" />
             )}
@@ -1203,6 +1217,7 @@ export function TokenMenu<T extends FieldToken>({
 }: TokenMenuProps<T>) {
   const [naming, setNaming] = useState<string>()
   const [reason, setReason] = useState<string>()
+  const { live, rowProps } = useLiveRow()
   const name = (naming ?? "").trim()
   const full = `${namespace}${name}`
   const taken = name !== "" && tokens.some((each) => each.name === full)
@@ -1225,8 +1240,8 @@ export function TokenMenu<T extends FieldToken>({
           <p className="px-2 pt-1 pb-0.5 type-description text-muted-foreground">
             {same ? "Same as" : "Nearest to"} {own}
           </p>
-          <button type="button" className={menuRow} onClick={() => onPick(nearest.name)}>
-            <TokenMark kind={nearest.kind} value={nearest.value} name={nearest.name} />
+          <button type="button" className={menuRow} onClick={() => onPick(nearest.name)} {...rowProps(nearest.name)}>
+            <TokenMark kind={nearest.kind} value={nearest.value} name={nearest.name} playing={live(nearest.name)} />
             <span className="min-w-0 flex-1 truncate">{nearest.name}</span>
             <span className="text-muted-foreground tabular-nums">{nearest.detail}</span>
           </button>

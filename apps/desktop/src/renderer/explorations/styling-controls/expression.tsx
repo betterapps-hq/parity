@@ -633,13 +633,19 @@ export function ExpressionField({
             <SearchList
               id={listId}
               label="Completions"
-              options={completions.items.map((item) => ({
+              options={completions.items.map((item, index) => ({
                 key: item.label,
                 content: (
                   <>
                     <span className="flex items-center gap-1.5 font-mono">
                       {item.token && (
-                        <TokenMark kind={item.token.kind} value={item.token.value} name={item.token.name} />
+                        // The highlighted completion plays, as a token list's live row does.
+                        <TokenMark
+                          kind={item.token.kind}
+                          value={item.token.value}
+                          name={item.token.name}
+                          playing={index === highlight}
+                        />
                       )}
                       {item.label}
                     </span>
