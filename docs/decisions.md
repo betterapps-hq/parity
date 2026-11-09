@@ -6554,3 +6554,32 @@ after it to add tags or attachments. My calls:
 - **One hook, in the package, with the SDK passed in.** `@parity-app/telemetry` still never imports Sentry, so each
   process passes its own module, whose `withStaticSpan` marks the span hook. The CLI's tests check it against the real
   SDK: a span holding a key leaves scrubbed, and Sentry starts without the warning.
+
+## On-call watches four dashboards, and only production alerts (PAR-716)
+
+You approved [proposals/on-call-health.md](proposals/on-call-health.md) on 2026-11-09, which sets out what on-call
+watches across every process and surface. The dashboards are linked in [sentry.md](sentry.md#dashboards). Your calls and
+mine:
+
+- **Four dashboards, one question each,** rather than PAR-643's one: Parity (is anything wrong now?), Parity performance
+  (is anything slow?), Parity workflows (which step is failing?) and Parity releases and telemetry (is the latest build
+  healthy, and is the data coming in?). The first stays on one screen, and each of the others is where its numbers lead.
+  PAR-727's time to first frame is on Parity performance, so it closes with this.
+- **Only `production` alerts.** Development is agents' and your own drives, CI fails on purpose, and installed builds
+  are testers', so none of them should file a monitor bug. No monitor is on until a public build sends `production`
+  (PAR-779), and "Agent calls failing over 5%" is off until then. The issue alerts for new issues, regressions and
+  feedback still file from every environment.
+- **CI sends errors and reports only (PAR-777).** It sent 90% of last week's spans, which no plan's quota covers. The
+  end-to-end suite reads the local copy, so its checks don't need Sentry.
+- **`tester` splits into `preview` and `release` (PAR-778),** so a preview installer's bugs don't read as the published
+  app's.
+- **Every dashboard covers all projects.** `admin@betterapps.io` isn't a member of the `parity` team, and Sentry refuses
+  a dashboard that names projects its maker can't open. Only Parity's projects are in `better-apps`, so all of them is
+  the same set, and the web, dashboard and API projects join when they send.
+- **Made through Sentry's API from a signed-in browser,** not by hand in the UI: the same calls the UI makes, so the
+  widgets match the spec exactly and were checked against live data as they were made. Two planned widgets were left
+  out, since Sentry can't read what they need: the bitmap cache's hit rate (PAR-772) and a count of scrubbed secrets,
+  which the canary (PAR-775) replaces.
+- **Signals not sent yet are their own issues,** PAR-771 to PAR-776: service restarts and hang lengths, memory and the
+  cache as numbers, export times, a check that releases have their maps and commits, a scrubbing canary, and the CLI's
+  dropped batches.
