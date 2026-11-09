@@ -14,7 +14,7 @@ const dsn = "https://65d0cf052034375c83fb8f442e40e7f8@o4512381874274304.ingest.u
 
 const scrubber = createScrubber()
 
-/** The commit a checkout runs, which names its release, or none outside a Git checkout. */
+/** The commit a checkout run from source is at, which names its release, or none outside a Git checkout. */
 function commitOf(folder: string | undefined): string | undefined {
   if (!folder) return undefined
   try {
@@ -27,14 +27,14 @@ function commitOf(folder: string | undefined): string | undefined {
 const releases = new Map<string, string>()
 
 function releaseOf(run: Batch["run"]): string {
-  const key = `${run.version}|${run.installed}|${run.source ?? ""}`
+  const key = `${run.version}|${run.published}|${run.commit ?? run.source ?? ""}`
   let release = releases.get(key)
   if (release === undefined) {
     release = telemetryRelease({
       project: "parity-cli",
       version: run.version,
-      published: run.installed,
-      commit: commitOf(run.source)
+      published: run.published,
+      commit: run.commit ?? commitOf(run.source)
     })
     releases.set(key, release)
   }

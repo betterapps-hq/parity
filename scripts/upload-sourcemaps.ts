@@ -1,7 +1,9 @@
-// Uploads the bundles and source maps `pnpm build` left in sourcemaps/ to Sentry's parity-desktop project, as the
-// release their events name, so stack traces resolve to source (PAR-625). CI runs it for the build it installs, and the
-// release workflow for each published beta; both have SENTRY_AUTH_TOKEN.
-// Usage: node scripts/upload-sourcemaps.ts [--published] [--link-commits]
+// Uploads the bundles and source maps a package's build left in its sourcemaps/ to the Sentry project its events go to,
+// as the release they name, so stack traces resolve to source: the desktop app's to parity-desktop (PAR-625), the CLI's
+// to parity-cli (PAR-719). CI runs it for the app's build it installs, and the release workflows for each published
+// version; all have SENTRY_AUTH_TOKEN.
+// Usage: node scripts/upload-sourcemaps.ts <package folder> --project <name> [--published] [--link-commits]
+//   --project       the Sentry project, which the release's name starts with, as telemetryRelease has it
 //   --published     the maps are a published version's, whose release is named by version; otherwise by commit
 //   --link-commits  ties the release to its commit through Sentry's GitHub integration, for suspect commits and
 //                   "resolved in next release"; only for a commit on main
@@ -11,17 +13,24 @@ import { join, resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { telemetryRelease } from "@parity-app/telemetry"
 import { SentryCli } from "@sentry/cli"
+import type { SourceMapsBuild } from "./sourcemaps.ts"
 
-const sourceMaps = resolve(import.meta.dirname, "../sourcemaps")
-const project = "parity-desktop"
-const where = ["--org", "better-apps", "--project", project]
-
-const { values } = parseArgs({
-  options: { published: { type: "boolean", default: false }, "link-commits": { type: "boolean", default: false } }
+const { values, positionals } = parseArgs({
+  allowPositionals: true,
+  options: {
+    project: { type: "string" },
+    published: { type: "boolean", default: false },
+    "link-commits": { type: "boolean", default: false }
+  }
 })
+const [packageFolder] = positionals
+const { project } = values
+if (!packageFolder || !project) throw new Error("Usage: upload-sourcemaps.ts <package folder> --project <name>")
 if (!process.env.SENTRY_AUTH_TOKEN) throw new Error("SENTRY_AUTH_TOKEN isn't set")
 
-const build = JSON.parse(readFileSync(join(sourceMaps, "build.json"), "utf8")) as { version: string; commit?: string }
+const sourceMaps = resolve(packageFolder, "sourcemaps")
+const where = ["--org", "better-apps", "--project", project]
+const build = JSON.parse(readFileSync(join(sourceMaps, "build.json"), "utf8")) as SourceMapsBuild
 const release = telemetryRelease({ project, version: build.version, published: values.published, commit: build.commit })
 console.log(`Uploading source maps for ${release}`)
 

@@ -51,7 +51,6 @@
     "@parity-app/styles-tailwind": "workspace:*",
     "@parity-app/telemetry": "workspace:*",
     "@parity-app/tokens": "workspace:*",
-    "@sentry/cli": "catalog:",
     "@storybook/react-vite": "10.6.5",
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "^19.3.0",

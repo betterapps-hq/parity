@@ -23,10 +23,12 @@ import type { Breadcrumb, Event, SentryLog, SentryTarget, TraceContext } from "@
 /** What a batch reports as, the same for everything in it. */
 export interface BatchRun {
   environment: string
-  /** The CLI's version, and whether it's installed from npm or runs from a checkout, whose commit names the release. */
+  /** The CLI's version, and whether `npm publish` built it, which alone names its release by version (PAR-719). */
   version: string
-  installed: boolean
-  /** The folder whose Git commit names a checkout's release, read by the sender, off the command's path. */
+  published: boolean
+  /** The commit a build was made from, which names an unpublished build's release. */
+  commit?: string
+  /** The folder whose Git commit names the release of a checkout run from source, read by the sender. */
   source?: string
   tags: Record<string, string>
   user: { id: string; username?: string }

@@ -14,7 +14,7 @@ afterEach(() => rmSync(folder, { recursive: true, force: true }))
 const run: BatchRun = {
   environment: "development",
   version: "0.19.0",
-  installed: false,
+  published: false,
   tags: { driver: "agent", agent: "Terminal" },
   user: { id: "install" }
 }

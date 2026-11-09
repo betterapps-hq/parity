@@ -4822,7 +4822,9 @@ How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
 - **Electron's own native symbols come from Sentry's built-in Electron symbol server,** a project setting, not an
   upload. Parity ships no native code of its own yet; sharp's prebuilt binaries come without debug files.
 - **`@sentry/cli` 3.8.2 is a devDependency of the app** (your call, 2026-11-06), run from `scripts/build.ts` and
-  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it.
+  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it. PAR-719 moved it, with
+  those scripts' Sentry parts, to the workspace's root, where the CLI's build uses them too; see "The published CLI's
+  source maps go to parity-cli" below.
 
 ## Sentry watches agent failures and crash-free sessions (PAR-643)
 
@@ -6264,8 +6266,8 @@ default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My 
   (`Terminal` unless `PARITY_AGENT_NAME` or MCP names it) and `agent_client` the MCP client.
 - **Installed means installed from npm.** A CLI under `node_modules` reports as `tester` and names its release
   `parity-cli@<version>`; one run from a checkout, from source or its own `dist`, reports as `development`, named by the
-  checkout's commit, which the sender reads with Git. A pkg.pr.new preview is installed too, so it reports as its
-  version.
+  checkout's commit, which the sender reads with Git. A pkg.pr.new preview is installed too, so it reported as its
+  version until PAR-719 named it by its commit; see "The published CLI's source maps go to parity-cli" below.
 - **The notice is one line on stderr, once:** "Parity shares diagnostics to help fix bugs. To stop sharing them, turn
   off Settings > Privacy > Share diagnostics in the app, or set PARITY_TELEMETRY=off." It names the switch by its path
   in the app, not Sentry, as PAR-626 asked, reviewed with the writing-style-guide skill, and stays off stdout, which
@@ -6407,8 +6409,7 @@ process" has it, and nothing else is hidden that wasn't before. My calls:
 - **Checked in the app:** keys put on screen, clicked and changed came back as `[redacted]` in Sentry's stored recording
   segments, with the rest of the window's text as written (replay `c3060db5…`).
 - **`.env` values reach the window a moment after it starts,** so text recorded before main passes them isn't scrubbed
-  of them, though known shapes and long random strings are. They come as a project opens, before its panels show
-  it. =======
+  of them, though known shapes and long random strings are. They come as a project opens, before its panels show it.
 
 ## A render page's failure keeps its own message (PAR-680)
 
@@ -6427,8 +6428,6 @@ an agent never said what went wrong. My calls:
   error is. The stack doesn't cross processes, since `codedErrors` sends messages, and an agent never gets the guest's
   stack.
 
-> > > > > > > origin/main
-
 ## A report from an error's fallback is linked to the error (PAR-704)
 
 Report a problem in a fallback (PAR-667) opens the same dialog as Help > Report a problem (PAR-635), and the feedback it
@@ -6444,3 +6443,30 @@ calls:
 - **Its tag says where it came from:** `report: error fallback`, beside `help menu` and `after crash`.
 - **The dialog doesn't name the error yet.** The issue's optional "The error from Layers" line in Also sent waits for
   Andrew's approval of the copy in Storybook.
+
+## The published CLI's source maps go to parity-cli (PAR-719)
+
+A stack from the published CLI named its bundled chunks (`dist/client-<hash>.mjs`), since `vp pack` wrote no maps. It
+now resolves to `packages/cli/src`, as the app's does to its source (PAR-625). How it runs is in
+[sentry.md](sentry.md#releases-and-source-maps). My calls:
+
+- **One way to separate and upload maps, for both.** The app's build steps moved to the workspace's root:
+  `separateSourceMaps` in `scripts/sourcemaps.ts` gives the bundles debug IDs and moves their maps out of what ships,
+  and `scripts/upload-sourcemaps.ts` takes the package and the Sentry project (`apps/desktop --project parity-desktop`,
+  `packages/cli --project parity-cli`). The app's `build.ts` and the CLI's `vite.config.ts` both call the first, from
+  `vp pack`'s `build:done` hook for the CLI, so the `prepack` that `npm publish` and pkg.pr.new run does it too. That
+  moved `@sentry/cli` from the app's devDependencies to the root's, which also takes `@parity-app/telemetry` for
+  `telemetryRelease`, so the release names stay in one place.
+- **Only the build `npm publish` makes is the published version's release.** `vp pack` writes `dist/build.json`, with
+  `published` true only when `npm_command` is `publish`, which npm sets for the `prepack` it runs, and the commit it
+  built from. The CLI reads it: published is `parity-cli@<version>`; a pkg.pr.new preview, which `pnpm pack` builds, and
+  a checkout's own `dist` are named by their commit; from source, by the checkout's commit, as before. Being under
+  `node_modules` still makes it `tester`. The file is outside the bundles, so their debug IDs don't depend on it.
+- **`cd-npm.yml` builds the published version again from its tag to upload,** as `cd-desktop.yml` does for the app,
+  since the shared release template runs without Sentry's token. Two builds of the same commit gave the same debug IDs.
+  The release is tied to the tag's commit on main. Previews' maps aren't uploaded; their stacks name the bundled files.
+- **Chunks that only re-export get no map,** so only the bundles with one get a debug ID. They hold no code to resolve.
+- **Checked before release:** the packed CLI ships `dist/build.json` and no maps; `bin.mjs`'s call to `reportCliFailure`
+  resolves through its map to `packages/cli/src/bin.ts` line 159; and `sentry-cli sourcemaps upload`, pointed at a
+  stand-in server, paired each of the 9 bundles with its map and debug ID. Whether an event from the installed CLI
+  resolves in Sentry can only be seen once a version is published.

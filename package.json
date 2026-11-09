@@ -34,6 +34,8 @@
   },
   "devDependencies": {
     "@buildkitgg/oxlint-config": "catalog:",
+    "@parity-app/telemetry": "workspace:*",
+    "@sentry/cli": "catalog:",
     "@types/node": "^24.12.0",
     "beachball": "catalog:",
     "knip": "catalog:",

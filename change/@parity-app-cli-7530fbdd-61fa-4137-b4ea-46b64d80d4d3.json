@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Upload the published CLI's source maps to Sentry, and name a pkg.pr.new preview's release by its commit (PAR-719)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

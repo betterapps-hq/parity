@@ -163,10 +163,10 @@ describe("batchRun", () => {
 
   it("tags a batch as the app tags its events: environment, test pass, and the agent calling", () => {
     cliCallerChanged({ name: "Claude", id: "Claude#1a2b3c4d", client: "claude-code" })
-    const run = batchRun({ CI: "true", PARITY_TEST_RUN: "ci-7" }, "install", true)
+    const run = batchRun({ CI: "true", PARITY_TEST_RUN: "ci-7" }, "install", true, { published: true })
     expect(run).toMatchObject({
       environment: "ci",
-      installed: true,
+      published: true,
       tags: { test_run: "ci-7", driver: "agent", agent: "Claude", agent_client: "claude-code" },
       user: { id: "install", username: "Claude#1a2b3c4d" }
     })
@@ -175,9 +175,16 @@ describe("batchRun", () => {
   })
 
   it("names a checkout's folder, whose commit names its release, and the tester as the user", () => {
-    const run = batchRun({ PARITY_TESTER: "Andrew" }, "install", false)
+    const run = batchRun({ PARITY_TESTER: "Andrew" }, "install", false, undefined)
     expect(run).toMatchObject({ environment: "development", user: { id: "install", username: "Andrew" } })
     expect(run.tags).toEqual({ driver: "agent", agent: "Terminal" })
+    expect(run.published).toBe(false)
     expect(run.source).toBeDefined()
+  })
+
+  it("names a build that npm didn't publish, such as a pkg.pr.new preview, by the commit it was built from", () => {
+    const run = batchRun({}, "install", true, { published: false, commit: "9a6440b" })
+    expect(run).toMatchObject({ environment: "tester", published: false, commit: "9a6440b" })
+    expect(run.source).toBeUndefined()
   })
 })
