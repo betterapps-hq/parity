@@ -1,8 +1,21 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 08 Nov 2026 23:45:38 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 00:29:40 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.39.0
+
+Mon, 09 Nov 2026 00:29:40 GMT
+
+### Minor changes
+
+- Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's
+  screenshot and replay, the call's trace and the design's frames, returning its link (ajcraswell@gmail.com)
+- Set the interface in Inter, on four sizes for the chrome with nothing under 11px, regular text a step heavier,
+  sentence-case section titles, and code in each system's monospace. (ajcraswell@gmail.com)
+- The inspector's Design tab starts with what's selected, as its icon and kind in the kind's color above its name, with
+  which component or file on hover (ajcraswell@gmail.com)
 
 ## 0.38.0
 

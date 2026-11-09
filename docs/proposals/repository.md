@@ -34,7 +34,9 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **Only the desktop app and the CLI are versioned,** from Beachball change files (PAR-4). The packages they bundle stay
   `private`. The CLI is on npm as `@parity-app/cli` (PAR-13): 0.0.0 was published by hand on 2026-10-30, and npm trusts
   `ci.yml` in the `npm` environment to publish the rest.
-- **The agency monorepo's stricter lint rules are on** (PAR-396), apart from the three left out below.
+- **Lint extends Buildkit's base config with its anti-slop rules** (PAR-730), which replaced the agency monorepo's rules
+  (PAR-396) and turned on the three those left out. Code that doesn't pass yet is listed by part in `vite.config.ts`,
+  each part with a sub-issue that cleans it up. Storybook uses Buildkit's shared config.
 - **Hooks check what a commit stages and what a push sends** (PAR-3), so other sessions' unfinished work no longer fails
   a commit. `pnpm verify` still checks the whole folder.
 - **The type-aware lint rules are on** (PAR-396), checked with types on push and in CI. One test file turns
@@ -338,7 +340,8 @@ What it doesn't take:
 
 - **Turborepo,** since `vp run` runs tasks and caches them.
 - **Shared config packages** (`@repo/oxlint-config`, `@repo/typescript-config`). Vite+ keeps lint and format settings in
-  the root config, with overrides per folder.
+  the root config, with overrides per folder. Since PAR-730 that config extends Buildkit's published
+  `@buildkitgg/oxlint-config` instead.
 - **"Prefer `type` over `interface`".** Parity's code uses `interface` 414 times to `type`'s 177.
 - **The React Compiler rule and "don't write `useMemo`".** Parity doesn't run the compiler.
 - **Its library catalogs** (`ts-extras`, `ts-pattern`, `tiny-invariant`, `zod`, `@mantine/hooks`) and Fluent UI styling.

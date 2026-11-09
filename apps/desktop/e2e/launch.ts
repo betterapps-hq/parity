@@ -19,6 +19,8 @@ export interface Launched {
   uiPort: number
   debugPort: number
   project: string
+  /** The copy's profile, which holds its local copy of the events it records and the file agents find it through. */
+  profile: string
   /** The app's own output, which a test that can't reach the app quotes. */
   log: string
 }
@@ -82,7 +84,7 @@ export async function launch(): Promise<RunningApp> {
     await stop()
     throw new Error(`${error instanceof Error ? error.message : String(error)}\nThe app's last output:\n${tail}`)
   }
-  return { uiPort, debugPort, project, dir, log, stop }
+  return { uiPort, debugPort, project, profile, dir, log, stop }
 }
 
 /** The page size every test is written for, which `App.connect` checks the window got. */
@@ -141,9 +143,9 @@ public static class Display {
 
 /**
  * This process's environment, less what Vitest sets for its own tests (`VITEST`, `TEST`, `NODE_ENV=test`), so the app
- * and its servers run as they do under `pnpm dev`.
+ * and its servers, and the `parity` commands the tests run, run as they do under `pnpm dev` and send telemetry.
  */
-function appEnvironment(): NodeJS.ProcessEnv {
+export function appEnvironment(): NodeJS.ProcessEnv {
   const env = { ...process.env }
   for (const name of Object.keys(env)) {
     if (name.startsWith("VITEST") || name === "TEST") delete env[name]

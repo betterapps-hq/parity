@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's screenshot and replay, the call's trace and the design's frames, returning its link",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

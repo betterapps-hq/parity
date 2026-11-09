@@ -2162,10 +2162,22 @@ the Repository, CI and releases stream in Linear.
     alias.
   - **No two files in a folder may differ only by case and extension.** Beside `Processes.tsx`, `processes.ts` made the
     checker on Windows mistake one for the other, so it's now `process-store.ts`.
-- **The agency monorepo's stricter lint rules are on** (PAR-396), from its `@repo/oxlint-config`, without `curly`,
-  `no-console` and `no-bitwise` as you chose, and without the React Compiler rule, since Parity doesn't run the
-  compiler. My calls:
-  - **Only the rules beyond oxlint's correctness category are listed** in `vite.config.ts`, since that category is on
+- **Lint extends Buildkit's base config, `@buildkitgg/oxlint-config/base`** (PAR-730), which you asked for on
+  2026-11-08. It brings every anti-slop rule, and `curly`, `no-console` and `no-bitwise` are now on, as you decided
+  then: no rule is relaxed. A line can still turn one off, with a comment saying why, where there's a very good reason,
+  such as a bitwise hash or a CLI that prints. My calls:
+  - **Code that doesn't pass yet is listed in `notYetClean` in `vite.config.ts`,** one entry per PAR-730 sub-issue,
+    naming only the rules that part still breaks. New code and every path outside the list get every rule. The list only
+    shrinks, and goes when it's empty.
+  - **`vite.config.ts` lists only Parity's rules beyond base:** `consistent-type-imports`, Vite+'s imports rule and the
+    `toast.error` restriction. `react/exhaustive-deps` stays an error rather than base's warning.
+  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility,
+    Vitest and Chromatic addons. The app lists the three addons itself, because base names them by package and pnpm
+    doesn't hoist them to the app. The Vitest addon's test runs aren't wired into `vp test` yet.
+- **The agency monorepo's stricter lint rules were on before Buildkit's** (PAR-396), from its `@repo/oxlint-config`,
+  without `curly`, `no-console` and `no-bitwise` as you chose then, and without the React Compiler rule, since Parity
+  doesn't run the compiler. The calls below still stand, apart from those three rules. My calls:
+  - **Only the rules beyond oxlint's correctness category were listed** in `vite.config.ts`, since that category is on
     already. `react/exhaustive-deps` stays an error there rather than the agency's warning.
   - **Unused names starting with `_` are allowed,** as the agency allows them.
   - **A nested ternary becomes an `if` chain or a small named function,** not a disable comment. A callback that does
@@ -6304,6 +6316,26 @@ Report a problem. My calls:
   issue; the subdomain form of the same path doesn't. The Linear issue isn't known when the command returns, since
   Sentry's alert files it afterwards; the feedback links it.
 - **The MCP tool list grew to 13.6 KB,** and its budget to 14 KB, for a tool agents are meant to reach for unprompted.
+
+## The end-to-end suite checks the main workflows' events through the local copy (PAR-648)
+
+`telemetry.e2e.ts` checks the events and traces of opening a project, a drag, a command from the keyboard, Save and an
+agent's call, in CI only, as the rest of the suite runs. My calls:
+
+- **It reads the local copy, not a test sink or Sentry.** The copy runs as `pnpm dev` does, and the local copy already
+  holds every event and span from every process, so the app needs no test mode, and the events checked are the ones that
+  leave. Asking Sentry would make a test wait on ingestion and need a token in CI.
+- **CI's runs keep sending to Sentry,** under `environment: ci` and the run's `test_run`, so a failing test still links
+  to its events and replay. The suite checks that every line of the local copy carries the run.
+- **The agent's call goes through the real `parity` command,** from this checkout, against the copy's own agent file, so
+  the test covers the CLI's trace reaching the app: `agent.called` must continue `cli.ran`. It runs in the checkout, not
+  the project's temporary folder, so the sender it leaves behind can't stop the suite removing that folder.
+- **Save's test is the one that writes,** since autosave is off by default and an edit alone writes nothing. It
+  duplicates, saves, then undoes and saves again, so the file is back as it was and the reset after it finds nothing
+  unsaved.
+- **`gesture.ended` and the window's `document.saved` aren't checked by trace.** Both are recorded after their trace has
+  ended, so they carry none; the test checks their attributes, and the service's answer to Save's write shows the trace
+  reached it. Recording them in their trace is PAR-752.
 
 ## Replays are scrubbed as they're recorded (PAR-679)
 
