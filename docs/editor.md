@@ -52,12 +52,15 @@ that cover it.
   state to make something happen, apart from `show`, which puts a design in view at a zoom, `showEmptyCanvas`, which
   puts an empty part of the canvas in view, and `reset`, which undoes everything after each test. Copy and paste go
   through a stand-in for the clipboard on the page; the system's clipboard is never read or written.
+- **What it recorded.** `e2e/events.ts` reads the events and spans the copy wrote to its local copy, and runs the
+  `parity` command against the copy alone. `telemetry.e2e.ts` uses them to check the main workflows' events and traces;
+  [telemetry.md](telemetry.md#checking-it-in-the-end-to-end-tests) says what it checks.
 - **Adding a test.** Put it in its area's file (`selecting`, `menus`, `inserting`, `moving`, `keyboard`, `fields`,
-  `dropping`, `text`, `reopening` or `sleeping`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that connects before all,
-  resets after each test and closes after all, as the others do. Start with `app.show(design, zoom)`, act through
-  `App`'s gestures or `app.page.keyboard`, and wait for what changes with `expect.poll`, since the app answers a frame
-  or more later. Change the project only through edits Undo takes back, so `reset` can put it back. Then name the test
-  in its feature's section here.
+  `dropping`, `text`, `reopening`, `sleeping` or `telemetry`), or in a new `apps/desktop/e2e/<area>.e2e.ts` that
+  connects before all, resets after each test and closes after all, as the others do. Start with
+  `app.show(design, zoom)`, act through `App`'s gestures or `app.page.keyboard`, and wait for what changes with
+  `expect.poll`, since the app answers a frame or more later. Change the project only through edits Undo takes back, so
+  `reset` can put it back. Then name the test in its feature's section here.
 - **The page never scrolls.** `App` counts each time the window's page scrolls, and `reset` fails the test it ran in if
   it did, or if the page isn't at the top, then puts it back so the tests after start clean. A scrolled page moves the
   canvas without tldraw noticing, so every click after it lands off by as much (PAR-424, "The window", below). Until
