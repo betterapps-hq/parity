@@ -569,7 +569,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       return { findings: findingsFor(String(params.design)), frames: 4, warnings: [] }
     case "frames.stored":
       // No bitmap kept, as on a first launch: a frame that sleeps draws first, or waits on its placeholder.
-      return {}
+      return { kept: (JSON.parse(String(params.jobs)) as unknown[]).map(() => ({})) }
     case "pictures.store":
       return params.picture
     case "pictures.read":

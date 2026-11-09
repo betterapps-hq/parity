@@ -1,10 +1,12 @@
 import { portFree, viteBuilder } from "@parity-app/builder-vite"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
+import { parseInput } from "@parity-app/core"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { errorCode } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import { storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, exportLayers, layersPicture, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
@@ -133,16 +135,20 @@ const handlers: Handlers<ServiceMethods> = {
 
     return { src: `data:image/webp;base64,${webp.toString("base64")}`, height: kept }
   },
-  "frames.stored": async ({ job }) => {
-    const served = projects.codeServedAt(job.projectId, job.guestUrl)
-    const kept = served && (await storedBitmap(served, job))
+  "frames.stored": async ({ jobs }) => ({
+    kept: await Promise.all(
+      parseInput(storedJobs, jobs).map(async (job) => {
+        const served = projects.codeServedAt(job.projectId, job.guestUrl)
+        const kept = served && (await storedBitmap(served, job))
 
-    if (served) {
-      cacheUse.frame(kept !== undefined)
-    }
+        if (served) {
+          cacheUse.frame(kept !== undefined)
+        }
 
-    return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
-  },
+        return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
+      })
+    )
+  }),
   "frames.clearStored": clearBitmaps,
   "pictures.store": ({ root, picture }) => storePicture(root, picture),
   "pictures.read": ({ roots }) => readPictures(roots),

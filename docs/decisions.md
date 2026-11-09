@@ -6398,6 +6398,23 @@ preload bridge and then the port), the Base UI parts each board's title mounts (
 - **The rest are issues of their own:** PAR-758 for Session Replay, PAR-759 for the kept bitmaps' requests and PAR-760
   for the boards' title controls. Drawing the boards and frames themselves is left as it is.
 
+## Kept bitmaps are asked for together, as JSON text (PAR-759)
+
+Called on 2026-11-08. Reopening the example project (119 frames) sent 119 `frames.stored` requests as its canvas
+mounted, each with its frame's render job, and copying them across the preload bridge and onto the port took 196 to 250
+ms of the window's thread before the first frame. My calls:
+
+- **The frames a canvas mounts ask in one request.** `askStored` in `canvas/frame-bitmaps.ts` gathers the jobs asked for
+  in a task and sends them once it's done, and the service answers each job's bitmap in order. Alone, this cut the cost
+  to 159 to 184 ms: the bridge and the port copy the theme the jobs share once, but the trees, 94 different ones
+  totalling 2.5 MB as JSON, were still copied object by object.
+- **The jobs go as JSON text.** Text crosses the bridge and the port as one copy: stringifying the batch and sending it
+  takes 37 to 59 ms in all. The service reads it with `storedJobs`, the render job's own check under `jsonText`, so a
+  page sending anything else is refused as before. Sending only what the disk name needs wasn't simpler, since the name
+  takes nearly all of the job, the theme and tree included.
+- **Other requests keep their objects.** `frames.capture` sends one job at a time, and `previews.lookup` waits until the
+  canvas's bitmaps are in, so neither was in the profile.
+
 ## Replays are scrubbed as they're recorded (PAR-679)
 
 Session Replay recordings lose the same secrets as every other event, `.env` values included, through the editor

@@ -3865,8 +3865,11 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   out with the cache.
 - **A frame not yet captured this session asks for a kept one first,** and shows it as soon as it's read. Only when
   there's none is it captured, after what's left of the 1-second wait; frames showing the same bitmap share one read,
-  and a capture that landed meanwhile wins. Every capture that rendered is kept, written beside its name and renamed so
-  a reader never finds half a file. A frame that didn't render isn't kept.
+  and a capture that landed meanwhile wins. The frames asking in the same task, as a canvas mounting asks for all of
+  them, go in one `frames.stored` request, their jobs as JSON text, which crosses the preload bridge and the port as one
+  copy (PAR-759). A warm reopen of the example project spent 196 to 250 ms of the window's thread sending 119 requests
+  before its first frame, and spends 37 to 59 ms sending one. Every capture that rendered is kept, written beside its
+  name and renamed so a reader never finds half a file. A frame that didn't render isn't kept.
 - **Four frames are captured at once (PAR-523),** each in an offscreen window of its own, so each is drawn, measured and
   captured exactly as it was when one window took them one at a time. The canvas asks for as many captures at once as
   there are windows (`offscreenWindows`, in `turns`), so an agent's render or export waits for at most the four under
@@ -3910,10 +3913,11 @@ crop covering its box, and boxes and heights measured back in CSS pixels). `pack
 text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
 images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
 the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
-`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (4: a kept bitmap stands in for its key, with its height, so no
-capture is asked for, frames with the same key share a read, none when none was kept, and a capture taken during the
-read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
-of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (6: a kept bitmap stands in for its key, with its height, so no
+capture is asked for, frames with the same key share a read, frames asking together share one request and each gets its
+own bitmap, none when the service couldn't say, none when none was kept, and a capture taken during the read wins).
+Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test of their
+own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
 `examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
 shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
 millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
