@@ -60,9 +60,8 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
-const tsconfig = (paths: string, extra: Record<string, unknown> = {}) =>
+const tsconfig = (paths: string) =>
   JSON.stringify({
-    ...extra,
     compilerOptions: { jsx: "react-jsx", strict: true, paths: { "@lib/*": [paths] } },
     include: ["src", "a", "b"]
   })

@@ -29,6 +29,9 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
   libgen's `Live`, checked with the guards in `packages/libgen/src/live.ts`.
 - **Lint rules aren't relaxed.** Buildkit's base config, with its anti-slop rules, applies everywhere. Turn a rule off
   on one line only for a very good reason, such as a bitwise hash, with a comment saying why.
+- **TypeScript's bit flags are read through one helper.** Where TypeScript's compiler API has a predicate, use it
+  (`type.isUnion()`, `checker.isArrayType`). Otherwise test `ts.SymbolFlags` and `ts.TypeFlags` with a small helper that
+  holds the package's one `no-bitwise` disable, as `hasFlag` in `packages/code/src/flags.ts` does.
 - **String-literal unions, not enums,** which Node can't strip anyway (see decisions.md, "Developing Parity").
 - **Named exports.** Default exports are for what a tool requires, such as a story file's `meta`.
 - **No barrel files,** apart from a package's own entry, `src/index.ts`.
