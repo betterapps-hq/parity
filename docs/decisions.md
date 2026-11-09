@@ -2171,9 +2171,10 @@ the Repository, CI and releases stream in Linear.
     shrinks, and goes when it's empty.
   - **`vite.config.ts` lists only Parity's rules beyond base:** `consistent-type-imports`, Vite+'s imports rule and the
     `toast.error` restriction. `react/exhaustive-deps` stays an error rather than base's warning.
-  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility,
-    Vitest and Chromatic addons. The app lists the three addons itself, because base names them by package and pnpm
-    doesn't hoist them to the app. The Vitest addon's test runs aren't wired into `vp test` yet.
+  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility
+    and Vitest addons by path, so the app doesn't list them (PAR-753). Chromatic is app-specific and Parity doesn't use
+    it. Story tests, once the Vitest addon's runs are wired up, run in CI only, as you decided on 2026-11-08: they're
+    too slow for local test passes.
 - **The agency monorepo's stricter lint rules were on before Buildkit's** (PAR-396), from its `@repo/oxlint-config`,
   without `curly`, `no-console` and `no-bitwise` as you chose then, and without the React Compiler rule, since Parity
   doesn't run the compiler. The calls below still stand, apart from those three rules. My calls:
@@ -6421,3 +6422,19 @@ an agent never said what went wrong. My calls:
 - **The page's stack goes with `frame.failed`,** recorded under the frame's span as `render threw`, as a guest's own
   error is. The stack doesn't cross processes, since `codedErrors` sends messages, and an agent never gets the guest's
   stack.
+
+## A report from an error's fallback is linked to the error (PAR-704)
+
+Report a problem in a fallback (PAR-667) opens the same dialog as Help > Report a problem (PAR-635), and the feedback it
+sends names the error that fallback caught as its associated event, so Sentry shows the report on that error's issue. My
+calls:
+
+- **One report path.** The event ID rides along the existing one: `openReport({ eventId })`, the `problemReport` check
+  (32 lowercase hex digits, like the replay and trace IDs) and `sendFeedback`'s `associatedEventId`. No second dialog or
+  channel.
+- **The window keeps the ID by the error it caught,** in a `WeakMap` beside `reactErrorHandlers`, since the boundary's
+  reporter is handed the error, and the fallback's Report a problem is clicked after `onCaughtError` ran. An error
+  thrown as a string or another primitive can't be a key, so its report goes unlinked, as before.
+- **Its tag says where it came from:** `report: error fallback`, beside `help menu` and `after crash`.
+- **The dialog doesn't name the error yet.** The issue's optional "The error from Layers" line in Also sent waits for
+  Andrew's approval of the copy in Storybook.
