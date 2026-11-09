@@ -67,7 +67,7 @@ export function layoutFindings(
           kind: "clipped",
           node: node.id,
           box,
-          container: { ...(by ? { node: by } : {}), box: clipBox },
+          container: by ? { node: by, box: clipBox } : { box: clipBox },
           overflow
         })
         continue

@@ -83,8 +83,10 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
 
 - **Linear** is installed for the Better Apps workspace, so alert rules can file issues in PAR and resolving one side
   resolves the other.
-- **GitHub** is installed for `betterapps-hq`, limited to `parity`, for commits in releases, suspect commits and stack
-  trace links.
+- **GitHub** is installed for `betterapps-hq`, for commits in releases, suspect commits and stack trace links. Sentry
+  adds each repository the GitHub app can see to Settings > Repositories, and `sentry-cli releases set-commits` fails
+  with `Unknown repo` for one missing there. The app can see every `betterapps-hq` repository; releases link
+  `betterapps-hq/parity` (PAR-768).
 - **Sentry's MCP server** is how agents read an issue's events, trace and replay. `.mcp.json` and `.codex/config.toml`
   give it to every session in this repository, scoped to `better-apps`, and it signs in with OAuth, as
   `admin@betterapps.io`. Picking up a bug with it is in [work.md](work.md#bugs-from-sentry).
@@ -182,7 +184,10 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
 2. Moved ownership to `admin@betterapps.io`: it asked to join, was approved as Owner, and the personal account left.
 3. Started the Business trial, which raised the one-member limit for the handover.
 4. Installed the Linear integration from Settings > Integrations > Linear, approved in Linear.
-5. Installed the GitHub integration from Settings > Integrations > GitHub, approved in GitHub for `betterapps-hq`.
+5. Installed the GitHub integration from Settings > Integrations > GitHub > Add Installation, on 2026-11-08 (PAR-768).
+   An earlier attempt never finished, so Sentry had no repositories. GitHub's authorization ran in a popup, and the
+   first pass ended with "Integration does not exist". Starting again from step 1 and choosing `betterapps-hq` linked
+   it, and Sentry then added the organisation's repositories itself.
 6. Created the `parity-ci` organisation token and stored it with `gh secret set SENTRY_AUTH_TOKEN`.
 7. Created the two alerts above with Sentry's MCP server, signed in as `admin@betterapps.io`. Linear's action takes
    Linear's ids: team `ffa6e3c4-91d5-4501-868e-a7a7a797e256`, project `84f1963b-e7c0-4ee8-9f3b-0a23cddd3714`, Todo

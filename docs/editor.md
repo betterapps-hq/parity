@@ -3865,8 +3865,11 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   out with the cache.
 - **A frame not yet captured this session asks for a kept one first,** and shows it as soon as it's read. Only when
   there's none is it captured, after what's left of the 1-second wait; frames showing the same bitmap share one read,
-  and a capture that landed meanwhile wins. Every capture that rendered is kept, written beside its name and renamed so
-  a reader never finds half a file. A frame that didn't render isn't kept.
+  and a capture that landed meanwhile wins. The frames asking in the same task, as a canvas mounting asks for all of
+  them, go in one `frames.stored` request, their jobs as JSON text, which crosses the preload bridge and the port as one
+  copy (PAR-759). A warm reopen of the example project spent 196 to 250 ms of the window's thread sending 119 requests
+  before its first frame, and spends 37 to 59 ms sending one. Every capture that rendered is kept, written beside its
+  name and renamed so a reader never finds half a file. A frame that didn't render isn't kept.
 - **Four frames are captured at once (PAR-523),** each in an offscreen window of its own, so each is drawn, measured and
   captured exactly as it was when one window took them one at a time. The canvas asks for as many captures at once as
   there are windows (`offscreenWindows`, in `turns`), so an agent's render or export waits for at most the four under
@@ -3910,10 +3913,11 @@ crop covering its box, and boxes and heights measured back in CSS pixels). `pack
 text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
 images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
 the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
-`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (4: a kept bitmap stands in for its key, with its height, so no
-capture is asked for, frames with the same key share a read, none when none was kept, and a capture taken during the
-read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
-of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (6: a kept bitmap stands in for its key, with its height, so no
+capture is asked for, frames with the same key share a read, frames asking together share one request and each gets its
+own bitmap, none when the service couldn't say, none when none was kept, and a capture taken during the read wins).
+Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test of their
+own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
 `examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
 shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
 millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
@@ -5486,16 +5490,18 @@ Several copies of Parity can run at once, each with its own projects open, and e
 that has its project. Each copy writes an entry to `~/.parity/agents` as its service starts and main removes it as the
 copy quits. A call that finds an entry for a copy that isn't running removes it if it can; one it can't remove, as when
 another call is removing it at the same moment, doesn't fail the call (PAR-764). The CLI asks each copy for its tabs and
-when its window last had focus, chooses the copy and tab by the rules in `packages/agent/src/routing.ts`, and sends that
-exact tab. `--tab` takes an id, folder or name; `--tab active` is the active tab of the copy focused last; without
-`--tab`, a call goes to the open project the working folder is in, else to `active`. A project open in two copies goes
-to the one running longest. `parity tabs` lists every copy's projects once. `PARITY_AGENT_FILE` keeps a copy apart,
-reachable only through that file.
+when its window last had focus, giving up on one that hasn't answered after 5 seconds of the CLI being free to wait, so
+a CLI starved on a busy machine still reads a copy that answered (PAR-766). It then chooses the copy and tab by the
+rules in `packages/agent/src/routing.ts`, and sends that exact tab. `--tab` takes an id, folder or name; `--tab active`
+is the active tab of the copy focused last; without `--tab`, a call goes to the open project the working folder is in,
+else to `active`. A project open in two copies goes to the one running longest. `parity tabs` lists every copy's
+projects once. `PARITY_AGENT_FILE` keeps a copy apart, reachable only through that file.
 
 Implementation: `packages/agent/src/routing.ts` (the rules, data in and out, also the app's tab matching in
 `renderer/agent/handlers.ts`), `packages/agent/src/registry.ts` (entries, for the app and the CLI),
 `apps/desktop/src/utility/agent.ts` (writes the entry, answers `copy`), `apps/desktop/src/main/index.ts` (removes it),
-`packages/cli/src/client.ts` (routes each call) and `operations.ts` (each operation's routing, from its fields).
+`packages/cli/src/client.ts` (routes each call), `wait.ts` (the limit on asking a copy) and `operations.ts` (each
+operation's routing, from its fields).
 
 Tests: `packages/agent/src/routing.test.ts` (two copies with different projects, the same project in both, `active` by
 focus, the working folder, nested projects, Windows case and slashes, nothing open or running),
@@ -5503,7 +5509,8 @@ focus, the working folder, nested projects, Windows case and slashes, nothing op
 file before the registry; a copy kept apart), and `packages/cli/src/copies.test.ts` (the real CLI and MCP server against
 two fake copies: routing, `active`, the merged list, an unknown tab, a stale entry removed, each operation's routing,
 and MCP tools routed and answering exactly as the CLI's commands do, since both run the same operations through the same
-`call`).
+`call`), and `packages/cli/src/wait.test.ts` (an answer read after the CLI was blocked past the limit; a copy that never
+answers given up on).
 
 Checked with two dev copies sharing a registry, one with `examples/shadcn-vite` and one with a copy of it: `parity tabs`
 listed both; `state` reached each by folder (in any case and slashes) and from inside each project's folder; `exec` ran

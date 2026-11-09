@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterAll, beforeAll, beforeEach } from "vite-plus/test"
+import { afterAll, beforeAll, beforeEach, expect } from "vite-plus/test"
 
 export function toolReply(stdout: string): unknown {
   return stdout
@@ -13,6 +13,12 @@ export function toolReply(stdout: string): unknown {
     .map((line): unknown => JSON.parse(line))
     .find((value) => value !== null && typeof value === "object" && "id" in value && value.id === 2)
 }
+
+/**
+ * A CLI or MCP process that exited with code 0. Matching its whole result, not just the code, prints its stdout and
+ * stderr when it didn't, so a failure says why (PAR-766).
+ */
+export const succeeded = expect.objectContaining({ code: 0 })
 
 /**
  * How long one CLI or MCP process may take. A start on CI's Windows runners, with every test file's processes and

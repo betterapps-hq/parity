@@ -65,39 +65,6 @@ const trackedInputs = [{ auto: true }, "!node_modules", "!node_modules/.vite/**"
  */
 const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
   {
-    issue: "PAR-733",
-    files: ["packages/libgen/**"],
-    rules: [
-      "anti-slop/no-array-filter-map",
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/no-conditional-empty-object-spread",
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "no-bitwise",
-      "oxc/no-accumulating-spread"
-    ]
-  },
-  {
-    issue: "PAR-735",
-    files: ["packages/agent/**"],
-    rules: [
-      "anti-slop/no-array-filter-map",
-      "anti-slop/no-conditional-empty-object-spread",
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-shape-in-symbol-names",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "oxc/no-accumulating-spread"
-    ]
-  },
-  {
     issue: "PAR-736",
     files: ["packages/cli/**"],
     rules: [
@@ -111,23 +78,6 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/require-safety-comment-for-type-assertion",
       "no-bitwise",
       "no-console"
-    ]
-  },
-  {
-    issue: "PAR-737",
-    files: ["packages/renderer-react/**"],
-    rules: [
-      "anti-slop/no-array-filter-map",
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/no-conditional-empty-object-spread",
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-object-parameters",
-      "anti-slop/no-reflect-get",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion"
     ]
   },
   {

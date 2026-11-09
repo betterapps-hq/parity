@@ -2,10 +2,10 @@ import { type LibraryDecorator, type LibraryIcons, parseData } from "@parity-app
 import { z } from "zod"
 import type { ExampleHints } from "./examples.ts"
 import type { IconTagSource } from "./icon-tags.ts"
+import { isFunction, isNumber, isObject, isText, type Live, type LiveFunction, live, type Load } from "./live.ts"
 import type { CollectedToken } from "./tokens.ts"
 
-/** Loads a module the way the project would: from the project's own `node_modules`. */
-export type Load = (specifier: string) => Promise<Record<string, unknown>>
+export type { Load } from "./live.ts"
 
 /** What a theme object holds, read by running the library's own code at generation time. */
 export interface ThemeTokens {
@@ -14,10 +14,10 @@ export interface ThemeTokens {
 }
 
 /** A function, which a theme object's schema can only check is one. */
-const callable = z.custom<(...args: never[]) => unknown>((value) => typeof value === "function", "expected a function")
+const callable = z.custom<LiveFunction>((value) => isFunction(value), "expected a function")
 
 /** Custom properties by name, as a stylesheet object holds them. */
-const declarations = z.record(z.string(), z.unknown())
+const declarations = z.record(z.string(), live)
 
 /** What libgen reads of MUI: `createTheme`, and the stylesheets and theme it makes. */
 const muiStyles = z.looseObject({ createTheme: callable })
@@ -26,11 +26,11 @@ const muiStyleSheets = z.array(z.record(z.string(), declarations))
 
 const muiPlainTheme = z.looseObject({
   breakpoints: z.looseObject({ values: z.record(z.string(), z.number()) }),
-  typography: z.record(z.string(), z.unknown())
+  typography: z.record(z.string(), live)
 })
 
 /** A typography variant; the theme's other entries, such as `pxToRem` and `fontSize`, aren't objects. */
-const muiVariant = z.looseObject({ fontSize: z.unknown(), lineHeight: z.unknown() })
+const muiVariant = z.looseObject({ fontSize: live, lineHeight: live })
 
 /** What libgen reads of Chakra: its default system's token stylesheet. */
 const chakraModule = z.looseObject({ defaultSystem: z.looseObject({ getTokenCss: callable }) })
@@ -42,7 +42,7 @@ const fluentTheme = z.record(z.string(), z.union([z.string(), z.number()])).opti
  * Checks a theme object libgen reads by running the library, so a change in the library names the field it moved,
  * as `MUI's createTheme(): /breakpoints/values/sm: expected a number`.
  */
-function readTheme<T extends z.ZodType>(what: string, schema: T, value: unknown): z.output<T> {
+function readTheme<T extends z.ZodType>(what: string, schema: T, value: Live): z.output<T> {
   try {
     return parseData(schema, value)
   } catch (error) {
@@ -130,7 +130,7 @@ const buildkit = Object.fromEntries(
   })
 )
 
-export const presets: Record<string, Preset> = {
+const presetList = {
   ...buildkit,
   "radix-ui": {
     examples: { paths: ["apps/storybook/stories/"] },
@@ -206,12 +206,11 @@ export const presets: Record<string, Preset> = {
     ],
     async theme(load) {
       const { createTheme } = readTheme("@mui/material/styles", muiStyles, await load("@mui/material/styles"))
-      const make = createTheme as (options: unknown) => unknown
 
       const theme = readTheme(
         "MUI's createTheme()",
         muiVariablesTheme,
-        make({ cssVariables: { colorSchemeSelector: "class" }, colorSchemes: { light: true, dark: true } })
+        createTheme({ cssVariables: { colorSchemeSelector: "class" }, colorSchemes: { light: true, dark: true } })
       )
 
       const sheets = readTheme("MUI's generateStyleSheets()", muiStyleSheets, theme.generateStyleSheets())
@@ -222,7 +221,7 @@ export const presets: Record<string, Preset> = {
           const context = /\bdark\b/.test(selector) ? "dark" : "default"
 
           for (const [name, value] of Object.entries(properties)) {
-            if (!name.startsWith("--") || (typeof value !== "string" && typeof value !== "number")) {
+            if (!name.startsWith("--") || !(isText(value) || isNumber(value))) {
               continue
             }
 
@@ -247,7 +246,7 @@ export const presets: Record<string, Preset> = {
         tokens.set("spacing", { var: "spacing", category: "spacing", values: { default: unit } })
       }
 
-      const plain = readTheme("MUI's createTheme()", muiPlainTheme, make({}))
+      const plain = readTheme("MUI's createTheme()", muiPlainTheme, createTheme({}))
       const breakpoints = plain.breakpoints.values
 
       // MUI's own variables hold whole `font` shorthands and no widths, so its type scale and breakpoints are declared
@@ -271,23 +270,24 @@ export const presets: Record<string, Preset> = {
 
         const { fontSize, lineHeight } = read.data
 
-        if (typeof fontSize !== "string") {
+        if (!isText(fontSize)) {
           continue
         }
 
         const size = `mui-font-size-${variant}`
         const leading = `mui-line-height-${variant}`
 
-        if (typeof lineHeight === "number" || typeof lineHeight === "string") {
+        if (isNumber(lineHeight) || isText(lineHeight)) {
           tokens.set(leading, { var: leading, category: "leading", values: { default: String(lineHeight) } })
         }
 
-        tokens.set(size, {
-          var: size,
-          category: "font-size",
-          values: { default: fontSize },
-          ...(tokens.has(leading) ? { lineHeight: leading } : {})
-        })
+        const token: CollectedToken = { var: size, category: "font-size", values: { default: fontSize } }
+
+        if (tokens.has(leading)) {
+          token.lineHeight = leading
+        }
+
+        tokens.set(size, token)
       }
 
       return {
@@ -350,13 +350,13 @@ export const presets: Record<string, Preset> = {
       const system = readTheme("@chakra-ui/react", chakraModule, await load("@chakra-ui/react")).defaultSystem
       const tokens = new Map<string, CollectedToken>()
 
-      const visit = (styles: unknown, context: string) => {
-        if (typeof styles !== "object" || styles === null) {
+      const visit = (styles: Live, context: string) => {
+        if (!isObject(styles)) {
           return
         }
 
-        for (const [key, value] of Object.entries(styles as Record<string, unknown>)) {
-          if (key.startsWith("--") && (typeof value === "string" || typeof value === "number")) {
+        for (const [key, value] of Object.entries(styles)) {
+          if (key.startsWith("--") && (isText(value) || isNumber(value))) {
             const property = key.slice(2)
 
             const token = tokens.get(property) ?? {
@@ -570,7 +570,10 @@ export const presets: Record<string, Preset> = {
     // Each icon's metaphors are in its folder of the repository, at the commit npm says the version came from.
     tags: { files: "assets/*/metadata.json" }
   }
-}
+} satisfies Record<string, Preset>
+
+/** The presets, by the package each describes. */
+export const presets: ReadonlyMap<string, Preset> = new Map(Object.entries(presetList))
 
 function breakpointName(id: string): string {
   return { xs: "Extra small", sm: "Small", md: "Medium", lg: "Large", xl: "XL" }[id] ?? id.toUpperCase()
@@ -607,23 +610,23 @@ function muiCategory(name: string): CollectedToken["category"] {
 function chakraCategory(name: string, value: string): CollectedToken["category"] {
   const kind = /^chakra-([a-z]+(?:-[a-z]+)?)-/.exec(name)?.[1] ?? ""
 
-  const map: Record<string, CollectedToken["category"]> = {
-    colors: "color",
-    spacing: "spacing",
-    radii: "radius",
-    "font-sizes": "font-size",
-    fonts: "font",
-    "font-weights": "font-weight",
-    "letter-spacings": "tracking",
-    "line-heights": "leading",
-    shadows: "shadow",
-    breakpoints: "breakpoint",
-    sizes: "container",
-    durations: "motion",
-    easings: "motion"
-  }
+  const map = new Map<string, CollectedToken["category"]>([
+    ["colors", "color"],
+    ["spacing", "spacing"],
+    ["radii", "radius"],
+    ["font-sizes", "font-size"],
+    ["fonts", "font"],
+    ["font-weights", "font-weight"],
+    ["letter-spacings", "tracking"],
+    ["line-heights", "leading"],
+    ["shadows", "shadow"],
+    ["breakpoints", "breakpoint"],
+    ["sizes", "container"],
+    ["durations", "motion"],
+    ["easings", "motion"]
+  ])
 
-  return map[kind] ?? (/^(?:#|rgb|hsl|oklch|color-mix)/.test(value) ? "color" : "other")
+  return map.get(kind) ?? (/^(?:#|rgb|hsl|oklch|color-mix)/.test(value) ? "color" : "other")
 }
 
 function fluentCategory(name: string): CollectedToken["category"] {

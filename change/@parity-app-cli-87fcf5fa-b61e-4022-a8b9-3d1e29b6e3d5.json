@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Stop a call failing because the CLI was too busy to read a copy's answer in time",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

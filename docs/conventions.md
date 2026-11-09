@@ -23,6 +23,10 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 
 - **No `any`.** A value that's truly unknown is `unknown`, narrowed before use (lint enforces this).
 - **Avoid `as` assertions.** Narrow with a type guard, or check and throw when the assumption fails. `as const` is fine.
+  One that stays has a `// SAFETY:` comment before it saying why it holds (lint enforces this).
+- **No `typeof` checks, even in a type guard** (lint enforces this). Parse a value with its zod schema, or tell values
+  apart with `instanceof`, `Array.isArray` or `in`. Values from running code, such as the modules libgen loads, are
+  libgen's `Live`, checked with the guards in `packages/libgen/src/live.ts`.
 - **Lint rules aren't relaxed.** Buildkit's base config, with its anti-slop rules, applies everywhere. Turn a rule off
   on one line only for a very good reason, such as a bitwise hash, with a comment saying why.
 - **TypeScript's bit flags are read through one helper.** Where TypeScript's compiler API has a predicate, use it

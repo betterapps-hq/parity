@@ -5,8 +5,10 @@ import {
   type ComponentLibrary,
   type DesignNode,
   type NodeStyle,
+  type PropValues,
   radiusKeywords
 } from "@parity-app/core"
+import { z } from "zod"
 import type { Warning } from "./warnings.ts"
 
 /** What a design is checked against: the project's components, tokens and icon sets, and what this call inserted. */
@@ -115,7 +117,7 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
 export function propWarnings(
   info: ComponentInfo | undefined,
   component: string,
-  props: Record<string, unknown> | undefined,
+  props: PropValues | undefined,
   where: string
 ): Warning[] {
   if (!info || !props) {
@@ -139,7 +141,7 @@ export function propWarnings(
       continue
     }
 
-    if (prop.kind === "enum" && value !== undefined && !prop.options?.includes(value as string)) {
+    if (prop.kind === "enum" && value !== undefined && !prop.options?.some((option) => option === value)) {
       found.push({
         category: "invalid_option",
         message: `${component} ${name} is one of ${prop.options?.map((option) => JSON.stringify(option)).join(", ")}, not ${JSON.stringify(value)}`,
@@ -151,6 +153,9 @@ export function propWarnings(
   return found
 }
 
+/** A length written as a name, a token's or `fill` or `hug`, rather than a number of spacing steps. */
+const lengthName = z.string()
+
 /** Lengths given as token names rather than spacing steps, by the style key they're under. */
 function lengthTokens(style: NodeStyle | undefined): [string, string][] {
   const found: [string, string][] = []
@@ -159,8 +164,10 @@ function lengthTokens(style: NodeStyle | undefined): [string, string][] {
     const value = style?.[name]
 
     for (const side of Array.isArray(value) ? value : [value]) {
-      if (typeof side === "string" && side !== "fill" && side !== "hug") {
-        found.push([name, side])
+      const token = lengthName.safeParse(side).data
+
+      if (token !== undefined && token !== "fill" && token !== "hug") {
+        found.push([name, token])
       }
     }
   }

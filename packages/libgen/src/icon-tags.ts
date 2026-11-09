@@ -1,4 +1,6 @@
+import type { LibraryManifest } from "@parity-app/core"
 import { moduleData } from "./js-data.ts"
+import { isNumber, isRecord, isText, type Live } from "./live.ts"
 import { packageFile, publishedSource, publishedVersions, repositoryFiles } from "./published.ts"
 
 /**
@@ -56,7 +58,7 @@ export async function readIconTags(
   icons: readonly ExportedIcon[],
   fetchers: TagFetchers = published
 ): Promise<IconTags> {
-  let data: unknown[]
+  let data: Live[]
   let from: string
 
   if ("files" in source) {
@@ -88,12 +90,12 @@ export async function readIconTags(
     from = `${name}@${version}/${source.file}`
   }
 
-  const tags = iconWords(data, icons)
+  const words = iconWords(data, icons)
 
-  return { tags, source: from, matched: Object.keys(tags).length }
+  return { tags: Object.fromEntries(words), source: from, matched: words.size }
 }
 
-function parsed(text: string): unknown[] {
+function parsed(text: string): Live[] {
   try {
     return [JSON.parse(text)]
   } catch {
@@ -109,20 +111,20 @@ function parsed(text: string): unknown[] {
  * icons come in), words most icons have, and markers that aren't words (`*new*`) are left out. Fields that tell icons
  * apart come before ones that group many, since a set's first tags count most in search.
  */
-export function iconWords(data: readonly unknown[], icons: readonly ExportedIcon[]): Record<string, string[]> {
+export function iconWords(data: readonly Live[], icons: readonly ExportedIcon[]): Map<string, string[]> {
   const least = Math.max(1, Math.min(20, Math.floor(icons.length / 2)))
-  let best: Map<string, unknown> | undefined
+  let best: Map<string, Live> | undefined
 
-  const consider = (entries: [unknown, unknown][]) => {
-    const byKey = new Map<string, unknown>()
+  const consider = (entries: [Live, Live][]) => {
+    const byKey = new Map<string, Live>()
 
     for (const [key, value] of entries) {
-      if (typeof key === "string" && !byKey.has(normalize(key))) {
+      if (isText(key) && !byKey.has(normalize(key))) {
         byKey.set(normalize(key), value)
       }
     }
 
-    const matched = new Map<string, unknown>()
+    const matched = new Map<string, Live>()
 
     for (const icon of icons) {
       const key = keysFor(icon).find((candidate) => byKey.has(candidate))
@@ -137,7 +139,7 @@ export function iconWords(data: readonly unknown[], icons: readonly ExportedIcon
     }
   }
 
-  const visit = (value: unknown, depth: number) => {
+  const visit = (value: Live, depth: number) => {
     if (Array.isArray(value)) {
       const records = value.filter(isRecord)
 
@@ -146,7 +148,7 @@ export function iconWords(data: readonly unknown[], icons: readonly ExportedIcon
       }
 
       for (const field of new Set(records.flatMap((record) => Object.keys(record)))) {
-        if (records.some((record) => typeof record[field] === "string")) {
+        if (records.some((record) => isText(record[field]))) {
           consider(records.map((record) => [record[field], record]))
         }
       }
@@ -168,7 +170,7 @@ export function iconWords(data: readonly unknown[], icons: readonly ExportedIcon
   }
 
   if (!best) {
-    return {}
+    return new Map()
   }
 
   // Each field's words by icon: a list's strings, or a string field's value when it names a group.
@@ -195,7 +197,7 @@ export function iconWords(data: readonly unknown[], icons: readonly ExportedIcon
       for (const [field, inner] of Object.entries(value)) {
         if (Array.isArray(inner)) {
           add(field, false, label, wordsOf(inner))
-        } else if (typeof inner === "string") {
+        } else if (isText(inner)) {
           add(
             field,
             true,
@@ -233,7 +235,7 @@ export function iconWords(data: readonly unknown[], icons: readonly ExportedIcon
   })
 
   kept.sort((a, b) => b.distinct - a.distinct)
-  const tags: Record<string, string[]> = {}
+  const tags = new Map<string, string[]>()
   const common = new Map<string, number>()
 
   for (const icon of icons) {
@@ -243,55 +245,54 @@ export function iconWords(data: readonly unknown[], icons: readonly ExportedIcon
       continue
     }
 
-    tags[icon.label] = words
+    tags.set(icon.label, words)
 
     for (const word of words) {
       common.set(word, (common.get(word) ?? 0) + 1)
     }
   }
 
-  const tagged = Object.keys(tags).length
+  const tagged = tags.size
 
   if (tagged < 8) {
     return tags
   }
 
-  for (const [label, words] of Object.entries(tags)) {
+  for (const [label, words] of tags) {
     const specific = words.filter((word) => common.get(word)! <= tagged / 4)
 
     if (specific.length > 0) {
-      tags[label] = specific
+      tags.set(label, specific)
     } else {
-      delete tags[label]
+      tags.delete(label)
     }
   }
 
   return tags
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
 /**
  * A list's words, lowercased and without the punctuation that ends them: its strings and numbers (Tabler's `911`), when
  * it has any strings at all. One that starts with a symbol is a marker (`*new*`) or a symbol (`->`), not a word.
  */
-function wordsOf(list: readonly unknown[]): string[] {
-  if (!list.some((item) => typeof item === "string")) {
+function wordsOf(list: readonly Live[]): string[] {
+  if (!list.some(isText)) {
     return []
   }
 
-  return list
-    .filter((item) => typeof item === "string" || typeof item === "number")
-    .map((item) =>
-      String(item)
-        .toLowerCase()
-        .replaceAll(/\s+/g, " ")
-        .trim()
-        .replace(/[^\p{L}\p{N}]+$/u, "")
-    )
-    .filter((word) => /^[\p{L}\p{N}]/u.test(word))
+  return list.flatMap((item) => {
+    if (!isText(item) && !isNumber(item)) {
+      return []
+    }
+
+    const word = String(item)
+      .toLowerCase()
+      .replaceAll(/\s+/g, " ")
+      .trim()
+      .replace(/[^\p{L}\p{N}]+$/u, "")
+
+    return /^[\p{L}\p{N}]/u.test(word) ? [word] : []
+  })
 }
 
 /** A path where `*` is any one folder or file name, as a regular expression. */
@@ -331,15 +332,16 @@ function keysFor(icon: ExportedIcon): string[] {
  * A `.lib.par` as JSON, indented by two spaces, with each icon's tags on a line of their own, so a set's thousands of
  * icons stay readable and its file half the size.
  */
-export function manifestText(manifest: Record<string, unknown>): string {
-  const icons = manifest.icons as { tags?: Record<string, string[]> } | undefined
+export function manifestText(manifest: LibraryManifest): string {
+  const icons = manifest.icons
 
   if (!icons?.tags) {
     return `${JSON.stringify(manifest, null, 2)}\n`
   }
 
-  const marker = JSON.stringify("\u0000tags\u0000")
-  const text = JSON.stringify({ ...manifest, icons: { ...icons, tags: JSON.parse(marker) as string } }, null, 2)
+  const placeholder = "\u0000tags\u0000"
+  const marker = JSON.stringify(placeholder)
+  const text = JSON.stringify({ ...manifest, icons: { ...icons, tags: placeholder } }, null, 2)
 
   const lines = Object.entries(icons.tags).map(
     ([name, tags]) => `      ${JSON.stringify(name)}: ${JSON.stringify(tags)}`

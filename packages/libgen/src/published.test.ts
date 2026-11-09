@@ -59,8 +59,8 @@ describe("repositoryUrl", () => {
 describe("publishedVersion", () => {
   it("takes a version npm has, or the one a tag points to", async () => {
     const usual = globalThis.fetch
-    globalThis.fetch = (async () =>
-      Response.json({ versions: { "1.62.0": {}, "1.63.0": {} }, "dist-tags": { latest: "1.63.0" } })) as typeof fetch
+    globalThis.fetch = async () =>
+      Response.json({ versions: { "1.62.0": {}, "1.63.0": {} }, "dist-tags": { latest: "1.63.0" } })
 
     try {
       expect(await publishedVersion("lucide-react", "1.62.0")).toBe("1.62.0")
@@ -73,7 +73,7 @@ describe("publishedVersion", () => {
 
   it("names the field of a malformed npm document", async () => {
     const usual = globalThis.fetch
-    globalThis.fetch = (async () => Response.json({ "dist-tags": { latest: 1 } })) as typeof fetch
+    globalThis.fetch = async () => Response.json({ "dist-tags": { latest: 1 } })
 
     try {
       await expect(publishedVersion("lucide-react", "latest")).rejects.toThrow(
