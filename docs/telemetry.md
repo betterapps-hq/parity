@@ -989,11 +989,11 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `service.exited`
 
-| Attribute   | Type      | Meaning                                                                                                 |
-| ----------- | --------- | ------------------------------------------------------------------------------------------------------- |
-| `exitCode`  | `integer` | The code the project service exited with                                                                |
-| `ranMs`     | `integer` | How long it ran before it exited                                                                        |
-| `restarted` | `boolean` | Whether a fresh service took its place as it exited. A crashed one is started again when a window loads |
+| Attribute   | Type      | Meaning                                                                                                  |
+| ----------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `exitCode`  | `integer` | The code the project service exited with                                                                 |
+| `ranMs`     | `integer` | How long it ran before it exited                                                                         |
+| `restarted` | `boolean` | Whether a fresh service takes its place: one replaced it, or a crash starts one, with back-off (PAR-788) |
 
 ### `service.lag`
 

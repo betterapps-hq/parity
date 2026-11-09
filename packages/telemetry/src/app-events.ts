@@ -114,7 +114,7 @@ export const serviceExited = defineEvent(
     restarted: z
       .boolean()
       .describe(
-        "Whether a fresh service took its place as it exited. A crashed one is started again when a window loads"
+        "Whether a fresh service takes its place: one replaced it, or a crash starts one, with back-off (PAR-788)"
       )
   }),
   {
