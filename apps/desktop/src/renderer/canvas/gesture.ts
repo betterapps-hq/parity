@@ -1,5 +1,5 @@
 import { type Checkpoint, dragThreshold, type HistoryEntry } from "@parity-app/editor"
-import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
+import type { EventAttributes, registeredEvents, TraceContext } from "@parity-app/telemetry"
 import type { DesignStore } from "../design-store.ts"
 import { track } from "../report-error.ts"
 import { startTrace, type Trace } from "../tracing.ts"
@@ -17,9 +17,9 @@ import { startTrace, type Trace } from "../tracing.ts"
 /** What `gesture.ended` says about a gesture. */
 export type GestureEnded = EventAttributes<typeof registeredEvents, "gesture.ended">
 
-/** Records a gesture that has ended. Every kind is recorded through here. */
-export function recordGesture(ended: GestureEnded): void {
-  track("gesture.ended", ended)
+/** Records a gesture that has ended, under the `gesture.ran` span of a drag. Every kind is recorded through here. */
+export function recordGesture(ended: GestureEnded, span?: TraceContext): void {
+  track("gesture.ended", ended, { span })
 }
 
 /**
@@ -229,16 +229,19 @@ export function followPress(
     const fps = frames?.()
     const designs = press.moves?.designs ?? (press.design === undefined ? undefined : [press.design])
     const layers = press.moves?.layers
-    recordGesture({
-      kind,
-      how,
-      kept: outcome === "keep",
-      durationMs: Math.round(now() - began),
-      ...(designs ? { designs: [...designs] } : {}),
-      ...(layers ? { layers: [...layers] } : {}),
-      ...(fps === undefined ? {} : { fps }),
-      undoStep
-    })
+    recordGesture(
+      {
+        kind,
+        how,
+        kept: outcome === "keep",
+        durationMs: Math.round(now() - began),
+        ...(designs ? { designs: [...designs] } : {}),
+        ...(layers ? { layers: [...layers] } : {}),
+        ...(fps === undefined ? {} : { fps }),
+        undoStep
+      },
+      trace?.context
+    )
   })
 }
 

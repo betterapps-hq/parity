@@ -27,6 +27,7 @@ import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
 import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
 import { TokenStore } from "./tokens-store.ts"
+import { currentTraceContext } from "./tracing.ts"
 
 /** Everything one open project needs: its info from the service, its components and styles, and its stores. */
 export interface ProjectSession {
@@ -873,12 +874,14 @@ async function saveDocument(projectId: string, path: string, document: CanvasDoc
   const start = performance.now()
   const bytes = JSON.stringify(document).length
   const measured = () => ({ file: path, durationMs: Math.round(performance.now() - start), bytes })
+  // In the trace the write was asked in, the edit's or Save's, which has moved on by the time the service answers.
+  const inTrace = { span: currentTraceContext() }
   try {
     await request("document.save", { projectId, path, document })
-    track("document.saved", measured())
+    track("document.saved", measured(), inTrace)
   } catch (error) {
     const code = errorCode(error)
-    track("document.saveFailed", { ...measured(), ...(code ? { code } : {}) })
+    track("document.saveFailed", { ...measured(), ...(code ? { code } : {}) }, inTrace)
     throw error
   }
 }

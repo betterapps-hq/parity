@@ -100,8 +100,9 @@ The end-to-end suite reads back what the app recorded and checks the main workfl
 - **It checks the traces across processes:** the service's `project.opened` and its answers are in the trace of
   `project.opening`, with `project.loaded` and `project.drawn`. The service's answer to `document.save` is in the trace
   of Save. `agent.called` continues the command's `cli.ran` span. The drag and Duplicate each start a trace of their
-  own; with autosave off, as it is by default, neither asks the service for anything. `gesture.ended` and the window's
-  `document.saved` are recorded outside their trace, so they're checked by their attributes alone.
+  own; with autosave off, as it is by default, neither asks the service for anything. `gesture.ended` is under the
+  drag's `gesture.ran` span and the window's `document.saved` under Save's `command.ran`, though each is recorded after
+  that span ends (PAR-752).
 - **CI's runs still send to Sentry,** as `environment: ci` with `test_run` set to `github-<run>-<attempt>`, and every
   line of the local copy carries that `testRun`, which the suite checks. The `parity` command it runs sends as an
   agent's does, with the same tags, and writes its log and outbox inside the copy's profile.
@@ -313,8 +314,10 @@ so recording never stops the work it describes.
 - **In the editor window,** `track` from `renderer/report-error.ts` records an event, under a span when given. Every
   action in `chrome/actions.ts` runs in its own `command.ran` trace through `tracedCommand`, and a canvas drag starts a
   `gesture.ran` trace with `startTrace`, both in `renderer/tracing.ts`. Work that runs later, such as a save an edit
-  scheduled, keeps the trace with `keepTrace`. Tabs, panels, dialogs, the mode, settings and the start page are recorded
-  by the store that owns them, through `recordInterface`, not at each control.
+  scheduled, keeps the trace with `keepTrace`. An event recorded after its trace has moved on passes the span it belongs
+  to as `track`'s `span`: `gesture.ended` its drag's, from the trace's `context`, and `document.saved` the one its write
+  was asked in, from `currentTraceContext()` before it waits on the service (PAR-752). Tabs, panels, dialogs, the mode,
+  settings and the start page are recorded by the store that owns them, through `recordInterface`, not at each control.
 - **In main and the service,** `track` and `inSpan` from `shared/tracing.ts` record under the span the process is
   working in, followed across `await`s. A request to another process carries it with `currentTraceHeaders()`, and queued
   work keeps it with `currentTrace()`. A channel's handlers each run in a `request.handled` span through `handleInSpan`.

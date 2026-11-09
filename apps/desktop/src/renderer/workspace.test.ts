@@ -1,8 +1,10 @@
-import { defaultModeSettings } from "@parity-app/core"
+import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import { createTelemetry, createTestSink, registeredEvents, type TraceContext } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ProjectInfo } from "../shared/protocol.ts"
 import type * as ReportError from "./report-error.ts"
 import { preloadAnswers } from "./service.ts"
+import { tracedCommand, traceWith } from "./tracing.ts"
 import type { ProjectSession } from "./workspace.ts"
 
 // docs/editor.md, Opening and closing projects: a tab closed while its project opens, as tabs restored at launch can
@@ -23,10 +25,13 @@ vi.mock("./guest.ts", () => ({
   previewToken: () => undefined
 }))
 
-const tracked = vi.hoisted(() => [] as Array<{ name: string; attributes: Record<string, unknown> }>)
+const tracked = vi.hoisted(
+  () => [] as Array<{ name: string; attributes: Record<string, unknown>; span?: TraceContext | undefined }>
+)
 vi.mock("./report-error.ts", async (original) => ({
   ...(await original<typeof ReportError>()),
-  track: (name: string, attributes: Record<string, unknown>) => tracked.push({ name, attributes })
+  track: (name: string, attributes: Record<string, unknown>, options?: { span?: TraceContext }) =>
+    tracked.push({ name, attributes, span: options?.span })
 }))
 
 const { homeTab, Workspace } = await import("./workspace.ts")
@@ -53,6 +58,8 @@ let picturesKept: string[][]
 /** The projects whose folders the start page asked about, each time, and what the service answers. */
 let checked: string[][]
 let folders: { missing: string[]; example?: string }
+/** How the service answers a design file's write. */
+const saving = { answer: (): Promise<unknown> => Promise.resolve(undefined) }
 
 beforeEach(() => {
   tracked.length = 0
@@ -77,6 +84,7 @@ beforeEach(() => {
           picturesKept.push(params.roots!)
           return Promise.resolve(undefined)
         }
+        if (method === "document.save") return saving.answer()
         if (method === "start.check") {
           checked.push(params.roots!)
           return Promise.resolve(folders)
@@ -649,5 +657,53 @@ describe("moveGuest", () => {
     expect(await moving).toBe(false)
     expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(reopened.guestUrl)
     expect(guest.released).toEqual([info.guestUrl, moved])
+  })
+})
+
+// docs/telemetry.md: a write's `document.saved` or `document.saveFailed` is in the trace it was asked in (PAR-752).
+describe("recording a save", () => {
+  const sink = createTestSink()
+  traceWith(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "renderer", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+  )
+  const about: ContainerSpec = {
+    id: "about",
+    name: "About",
+    position: { x: 0, y: 0 },
+    root: { type: "layout", id: "root", children: [] },
+    states: [{ id: "default", name: "Default" }]
+  }
+  const save = { action: "save", from: "key" as const, enabled: true, layers: 0, designs: 0 }
+
+  /** Saves an added design with Save, giving where `command.ran` sat and what the save recorded. */
+  async function saveWith(answer: () => Promise<unknown>) {
+    sink.clear()
+    saving.answer = answer
+    vi.stubGlobal("localStorage", memoryStorage())
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const { store } = workspace.getTab(info.id)!.session!
+    store.addContainer(info.mainDocument, about)
+    await tracedCommand(save, () => store.flush()).catch(() => undefined)
+    const ran = sink.spans.find(({ name }) => name === "command.ran")
+    return {
+      command: { traceId: ran!.traceId, spanId: ran!.spanId },
+      recorded: tracked.filter(({ name }) => name.startsWith("document.save"))
+    }
+  }
+
+  it("records a write in the trace Save asked for it in", async () => {
+    const { command, recorded } = await saveWith(() => Promise.resolve(undefined))
+    expect(recorded).toMatchObject([{ name: "document.saved", attributes: { file: "app.par" }, span: command }])
+  })
+
+  it("records a failed write in that trace too", async () => {
+    const { command, recorded } = await saveWith(() => Promise.reject(new Error("Disk full")))
+    expect(recorded).toMatchObject([{ name: "document.saveFailed", attributes: { file: "app.par" }, span: command }])
   })
 })

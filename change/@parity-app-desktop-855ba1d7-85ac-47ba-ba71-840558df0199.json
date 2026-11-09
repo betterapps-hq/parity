@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Record gesture.ended and document.saved in the trace of the drag or edit they belong to",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

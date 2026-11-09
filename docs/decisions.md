@@ -6358,9 +6358,10 @@ agent's call, in CI only, as the rest of the suite runs. My calls:
 - **Save's test is the one that writes,** since autosave is off by default and an edit alone writes nothing. It
   duplicates, saves, then undoes and saves again, so the file is back as it was and the reset after it finds nothing
   unsaved.
-- **`gesture.ended` and the window's `document.saved` aren't checked by trace.** Both are recorded after their trace has
-  ended, so they carry none; the test checks their attributes, and the service's answer to Save's write shows the trace
-  reached it. Recording them in their trace is PAR-752.
+- **`gesture.ended` and the window's `document.saved` are checked by trace,** under the drag's `gesture.ran` and Save's
+  `command.ran` spans. Both are recorded after that span has ended, so at first they carried no trace; PAR-752 passes
+  each the span it belongs to through `track`'s `span`: the drag's trace's `context`, and for a write the trace it was
+  asked in, the edit's that `keepTrace` kept or Save's, read before it waits on the service.
 
 ## Boards measure together as the canvas opens (PAR-726)
 
