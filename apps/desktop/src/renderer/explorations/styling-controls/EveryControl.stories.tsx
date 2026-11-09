@@ -1,4 +1,6 @@
+import { Badge } from "@buildkitgg/shadcn-baseui-kit"
 import { composeStories, type Meta, type StoryObj } from "@storybook/react-vite"
+import { Check } from "lucide-react"
 import type { ComponentType } from "react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import * as angle from "./Angle.stories.tsx"
@@ -39,8 +41,9 @@ import * as weight from "./Weight.stories.tsx"
 
 /**
  * Every control (PAR-186) on one page, numbered, to review one at a time. Each is one of its own stories, holding a
- * value, shown without what it writes or its preview; its name opens all its stories. They're in the design panel's
- * order, after the fields the others are built from.
+ * value, shown without what it writes or its preview; its name opens all its stories. They're numbered in the design
+ * panel's order, after the fields the others are built from, and each is marked Reviewed or To review, with what's
+ * left to review first.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Every control",
@@ -53,6 +56,8 @@ type Story = StoryObj<typeof meta>
 interface Entry {
   name: string
   Story: ComponentType & { id: string }
+  /** Andrew has been through it and it's settled. */
+  reviewed?: boolean
 }
 
 const k = composeStories(keywords)
@@ -61,16 +66,16 @@ const groups: { name: string; entries: Entry[] }[] = [
   {
     name: "Fields the others are built from",
     entries: [
-      { name: "Number field", Story: composeStories(numberField).SpacingLength },
-      { name: "Expression", Story: composeStories(expression).Calc },
+      { name: "Number field", Story: composeStories(numberField).SpacingLength, reviewed: true },
+      { name: "Expression", Story: composeStories(expression).Calc, reviewed: true },
       // The picker opens from the field's swatch: its own stories open it at the start, and it takes focus as it does.
-      { name: "Color field and picker", Story: composeStories(colorField).Token }
+      { name: "Color field and picker", Story: composeStories(colorField).Token, reviewed: true }
     ]
   },
   {
     name: "Layout",
     entries: [
-      { name: "Frame size", Story: composeStories(frameSize).Desktop },
+      { name: "Frame size", Story: composeStories(frameSize).Desktop, reviewed: true },
       { name: "Layout direction and alignment", Story: composeStories(layout).HorizontalCentered },
       { name: "Grid tracks", Story: composeStories(gridTracks).SizedTracks },
       { name: "Grid placement", Story: composeStories(gridPlacement).SpanAndStart }
@@ -145,29 +150,40 @@ const groups: { name: string; entries: Entry[] }[] = [
   { name: "Code", entries: [{ name: "Raw CSS value", Story: composeStories(rawCss).Rows }] }
 ]
 
-// Numbered through, so each group's list starts where the one before it ended.
-const numbered = groups.map((group, index) => ({
-  ...group,
-  start: 1 + groups.slice(0, index).reduce((count, before) => count + before.entries.length, 0)
-}))
+// Numbered through in the panel's order, so a control keeps its number however the page is sorted.
+const numbered = groups.map((group, index) => {
+  const start = 1 + groups.slice(0, index).reduce((count, before) => count + before.entries.length, 0)
+  return { ...group, start, entries: group.entries.map((entry, at) => ({ ...entry, number: start + at })) }
+})
+
+// What's left to review comes first: reviewed controls go to the end of their group, and a group with nothing left
+// to review goes to the end of the page.
+const byReview = (reviewed: boolean | undefined) => (reviewed ? 1 : 0)
+const sorted = numbered
+  .map((group) => ({
+    ...group,
+    entries: group.entries.toSorted((a, b) => byReview(a.reviewed) - byReview(b.reviewed))
+  }))
+  .toSorted(
+    (a, b) =>
+      byReview(a.entries.every((entry) => entry.reviewed)) - byReview(b.entries.every((entry) => entry.reviewed))
+  )
 
 function EveryControlPage() {
   return (
     // It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't.
     <div className="flex h-screen flex-col gap-8 overflow-y-auto bg-background p-6 text-foreground">
       <ControlOnly value>
-        {numbered.map((group) => (
+        {sorted.map((group) => (
           <section key={group.name} aria-labelledby={`group-${group.start}`} className="flex flex-col gap-3">
             <GroupLabel as="h2" className="block">
               <span id={`group-${group.start}`}>{group.name}</span>
             </GroupLabel>
-            <ol start={group.start} className="flex flex-wrap items-start gap-x-6 gap-y-8">
-              {group.entries.map(({ name, Story: Control }, index) => (
+            <ul className="flex flex-wrap items-start gap-x-6 gap-y-8">
+              {group.entries.map(({ name, Story: Control, reviewed, number }) => (
                 <li key={name} className="flex flex-col gap-2">
-                  <h3 className="flex items-baseline gap-2 text-sm font-medium">
-                    <span aria-hidden className="text-muted-foreground tabular-nums">
-                      {group.start + index}
-                    </span>
+                  <h3 className="flex items-center gap-2 text-sm font-medium">
+                    <span className="text-muted-foreground tabular-nums">{number}</span>
                     <a
                       href={`/?path=/story/${Control.id}`}
                       target="_top"
@@ -175,11 +191,21 @@ function EveryControlPage() {
                     >
                       {name}
                     </a>
+                    {reviewed ? (
+                      <Badge className="border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+                        <Check aria-hidden />
+                        Reviewed
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        To review
+                      </Badge>
+                    )}
                   </h3>
                   <Control />
                 </li>
               ))}
-            </ol>
+            </ul>
           </section>
         ))}
       </ControlOnly>
