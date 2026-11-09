@@ -12,6 +12,7 @@ import {
   type ReviewTool,
   reviewSpec,
   SearchActions,
+  ToolbarDialogs,
   Tools,
   useReviewEscape
 } from "./options.tsx"
@@ -204,6 +205,7 @@ export function WarpStage() {
             <WarpToolbar />
           </div>
         </div>
+        <ToolbarDialogs />
       </ProjectContext>
     </TooltipProvider>
   )

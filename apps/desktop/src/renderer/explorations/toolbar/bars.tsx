@@ -3,7 +3,14 @@ import type { ReactNode } from "react"
 import { ProjectContext } from "../../canvas/context.ts"
 import { example } from "../../stories/fixtures.tsx"
 import { KindBar } from "./kind-bar.tsx"
-import { type AnnotationKind, annotationKinds, ReviewBarLook, ReviewToolbar, ZoomCorner } from "./options.tsx"
+import {
+  type AnnotationKind,
+  annotationKinds,
+  ReviewBarLook,
+  ReviewToolbar,
+  ToolbarDialogs,
+  ZoomCorner
+} from "./options.tsx"
 import { Par184Bar } from "./par-184-bar.tsx"
 
 /* The bars on their own, set in place rather than floating over a canvas, so zoom shows 100%. */
@@ -67,6 +74,7 @@ export function ToolbarComparison() {
           </Row>
         ))}
       </div>
+      <ToolbarDialogs />
     </TooltipProvider>
   )
 }

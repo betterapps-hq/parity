@@ -27,9 +27,8 @@ export const Today: Story = {
 }
 
 /**
- * Pick Accessibility in the review menu and the toolbar warps into Accessibility's own bar, its options as stamps from
- * the Accessibility annotations exploration. Done or Esc warps it back. The other kinds still show the bar above, until
- * they have options of their own.
+ * Pick a kind of annotation in the review menu and the toolbar warps into that kind's own bar, its options as stamps.
+ * Done or Esc warps it back. Comment still shows its bar above.
  */
 export const Warp: Story = {
   loaders: [() => openProjects("example")],

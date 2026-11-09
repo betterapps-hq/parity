@@ -44,8 +44,10 @@ import { useValue } from "tldraw"
 import { useProject } from "../../canvas/context.ts"
 import { placeFrame } from "../../canvas/frame-tool.ts"
 import { actions } from "../../chrome/actions.ts"
+import { ActionsSearch } from "../../chrome/ActionsSearch.tsx"
 import { type Command, keymap } from "../../chrome/keymap.ts"
 import { formatKeys } from "../../chrome/keys.ts"
+import { QuickInsert } from "../../chrome/QuickInsert.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { type Tool, useSelection, useTool } from "../../selection.ts"
@@ -676,6 +678,19 @@ export function ReviewToolbar() {
       <Divider />
       <SearchActions />
     </Bar>
+  )
+}
+
+/**
+ * The dialogs Insert and Search actions open. The app mounts them once for the window (App.tsx), so a story with the
+ * toolbar on its own mounts them itself: otherwise they'd open unseen, and the story after would show them.
+ */
+export function ToolbarDialogs() {
+  return (
+    <>
+      <QuickInsert />
+      <ActionsSearch />
+    </>
   )
 }
 
