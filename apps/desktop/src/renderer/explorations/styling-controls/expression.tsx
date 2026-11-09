@@ -26,7 +26,8 @@ import type { Writes } from "./writes.ts"
 /*
  * Expression (PAR-186, design-options-values.md's Expression): `=` in any field opens an expression, which keeps
  * `calc()`, `min()`, `max()`, `clamp()`, `var()` and `color-mix()` as written. At rest it's a ValueField showing the
- * function's name and what it comes to (`clamp 24`), or `ƒ` in a field under 96px. Focused, it opens over its row and
+ * expression whole, cut to the field's width, and what it comes to (`calc(100% - 2rem) 648`), or `ƒ` in a field
+ * under 96px. Focused, it opens over its row and
  * wraps a long expression, with completion and each `var()` drawn as a token chip; a `clamp()` opens its three fields.
  * What comes to a step or one token is stored as that, so `calc(var(--spacing) * 18)` is `{ step: 18 }`.
  */
@@ -380,7 +381,7 @@ function clampParts(text: string): [string, string, string] | undefined {
  * the expression, widened to the row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and
  * tokens inside `var()`, those the field can take listed where a value starts, before anything's typed. Enter checks it with
  * `CSS.supports` and stores it in its simplest form; Escape, or Backspace with nothing typed, puts it back. Each puts
- * focus back on the field. At rest an expression shows its function and what it comes to, and focusing
+ * focus back on the field. At rest an expression shows itself whole and what it comes to, and focusing
  * it, clicking it or pressing Enter in it opens it again; a `clamp()` opens its three fields instead.
  */
 export function ExpressionField({
@@ -414,7 +415,6 @@ export function ExpressionField({
   const listId = useId()
   const form = value === undefined ? undefined : simplest(value)
   const isExpression = form !== undefined && "value" in form && !/^\d/.test(form.value)
-  const fn = isExpression ? (/^([a-z-]+)\(/.exec(value!.trim())?.[1] ?? value!.trim()) : undefined
   const comesTo = kind === "length" && value !== undefined ? evaluateLength(value, basis) : undefined
   const completions = editing === undefined ? undefined : completionsFor(editing, caret, kind)
   const check = (text: string): string | undefined => {
@@ -510,15 +510,19 @@ export function ExpressionField({
   const held = form !== undefined && "token" in form && kind === "length" ? form.token : undefined
   const heldToken = held === undefined ? undefined : namedToken(held)
   const px = form !== undefined && "step" in form ? form.step * 4 : undefined
-  // At rest: a plain length or step types as usual, a token is a chip, and an expression shows its function.
+  // At rest: a plain length or step types as usual, a token is a chip, and an expression shows itself whole, so
+  // what was written is still there to read when the field isn't focused.
   const atRest = isExpression || (kind === "color" && value !== undefined)
   let shown = px === undefined ? undefined : formatNumber(px)
   let restComesTo = heldToken?.detail
+  let restClass = ""
   let inner: ReactNode
   let hint: { label?: string; detail?: string } = { label: "Type = for an expression" }
   if (atRest) {
-    shown = form !== undefined && "token" in form ? form.token : fn
+    shown = form !== undefined && "token" in form ? form.token : value!.trim()
     if (narrow) shown = "ƒ"
+    // Code, as it was typed; ƒ is a mark, not code.
+    if (isExpression) restClass = narrow ? "text-center font-serif italic" : "font-mono"
     restComesTo = form !== undefined && "token" in form && form.alpha ? `${form.alpha.step}%` : came
     let detail = came ? `Comes to ${came}px` : "Click to edit"
     if (clamp) detail = "Opens its least, preferred and most values"
@@ -557,7 +561,7 @@ export function ExpressionField({
         narrow={narrow}
         hint={hint}
         description={atRest ? value : undefined}
-        inputClassName={atRest && narrow ? "text-center font-serif italic" : ""}
+        inputClassName={restClass}
         expression={{ onEquals: open, onOpen }}
         trailing={
           clamp && (

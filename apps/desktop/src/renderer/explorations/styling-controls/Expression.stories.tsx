@@ -10,8 +10,8 @@ import { TextSample } from "./text-preview.tsx"
  * Expression (PAR-186, design-options-values.md's Expression). `=` in any field opens an expression, widened to the
  * row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and tokens inside `var()`, those the
  * field can take listed before anything's typed, each `var()` drawn as a token chip and what it comes to beside it.
- * Backspace with nothing typed takes the `=` away. At rest it's the function's name and what it comes to
- * (`clamp 25.6`), or `ƒ` in a field under 96px; focusing it, clicking it or pressing Enter in it opens it again. A
+ * Backspace with nothing typed takes the `=` away. At rest it's the expression whole, cut to the field's width, and
+ * what it comes to (`clamp(1rem, 2vw, 2rem) 25.6`), or `ƒ` in a field under 96px; focusing it, clicking it or pressing Enter in it opens it again. A
  * `clamp()` opens its three fields: least, preferred and most, from the field or the button after it. Enter checks it
  * with `CSS.supports` and stores it in its simplest form, so `calc(var(--spacing) * 18)` is a step. Enter and Escape put
  * focus back on the field.
@@ -86,7 +86,7 @@ function Expr({
   )
 }
 
-/** Width, `calc(100% - 2rem)`: calc and what it comes to in Plans, 648. Click it to edit the text. */
+/** Width, `calc(100% - 2rem)`, whole, and what it comes to in Plans, 648. Click it to edit the text. */
 export const Calc: Story = {
   render: () => <Expr label="Width" property="width" prefix="w" start="calc(100% - 2rem)" />
 }
