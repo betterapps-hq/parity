@@ -1,9 +1,20 @@
 import { Check, CircleDashed } from "lucide-react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
+import framerGridAdvanced from "./comparison-pictures/framer-grid-advanced.webp?inline"
+import framerGrid from "./comparison-pictures/framer-grid.webp?inline"
+import framerStack from "./comparison-pictures/framer-stack.webp?inline"
+import penpotCellAuto from "./comparison-pictures/penpot-cell-auto.webp?inline"
+import penpotCellManual from "./comparison-pictures/penpot-cell-manual.webp?inline"
+import penpotFlexWrap from "./comparison-pictures/penpot-flex-wrap.webp?inline"
+import penpotFlex from "./comparison-pictures/penpot-flex.webp?inline"
+import penpotGridCanvas from "./comparison-pictures/penpot-grid-canvas.webp?inline"
+import penpotGridTracks from "./comparison-pictures/penpot-grid-tracks.webp?inline"
+import penpotGrid from "./comparison-pictures/penpot-grid.webp?inline"
 
 /*
- * How other design tools draw the same control, beside a story's control, for review: each a screenshot from the
- * tool's own help pages, loaded from there rather than kept in the repository, with a link to the page it's from.
+ * How other design tools draw the same control, beside a story's control, for review: screenshots taken in Penpot and
+ * Framer on 2026-11-09, kept here, and screenshots from the tools' own help pages, loaded from there, each with a link
+ * to where it's from.
  */
 
 /** A screenshot of another tool's control, from its own help pages. */
@@ -84,9 +95,29 @@ const figmaShot = (id: string) => `https://help.figma.com/hc/article_attachments
 const webflowShot = (id: string) => `https://help.webflow.com/hc/article_attachments/${id}`
 
 const framerRtl = "https://www.framer.com/help/articles/rtl-best-practices/"
+const penpotApp = "https://penpot.app"
+const framerApp = "https://www.framer.com"
 
 /** Layout's direction, alignment, gap and wrap, in Figma, Framer, Webflow and Penpot. */
 export const layoutComparisons: Comparison[] = [
+  {
+    tool: "Penpot",
+    image: penpotFlex,
+    source: penpotApp,
+    shows: "Flex layout: align, direction with reverse, wrap, justify as six icons, gaps and padding"
+  },
+  {
+    tool: "Penpot",
+    image: penpotFlexWrap,
+    source: penpotApp,
+    shows: "Wrapping adds a third row of icons for where the lines sit"
+  },
+  {
+    tool: "Framer",
+    image: framerStack,
+    source: framerApp,
+    shows: "Stack: direction, Distribute as a menu, Align, Wrap as Yes or No, and Gap with a slider"
+  },
   {
     tool: "Framer",
     image: "https://framerusercontent.com/images/IlJdriFlrxuc7qylCDI13lpxE.png",
@@ -148,6 +179,36 @@ export const layoutComparisons: Comparison[] = [
 /** A grid's columns and rows, in Figma, Webflow and Penpot. */
 export const gridTrackComparisons: Comparison[] = [
   {
+    tool: "Penpot",
+    image: penpotGrid,
+    source: penpotApp,
+    shows: "Grid layout: rows of unlabeled icons for each alignment, and Edit grid to reach the tracks"
+  },
+  {
+    tool: "Penpot",
+    image: penpotGridTracks,
+    source: penpotApp,
+    shows: "In Edit grid: each track a value and a unit, FR, Auto, px or %"
+  },
+  {
+    tool: "Penpot",
+    image: penpotGridCanvas,
+    source: penpotApp,
+    shows: "Edit grid on the canvas: numbered lines, a size in each header, and + to add"
+  },
+  {
+    tool: "Framer",
+    image: framerGrid,
+    source: framerApp,
+    shows: "Grid: column and row counts with steppers, gap across and down; every column the same"
+  },
+  {
+    tool: "Framer",
+    image: framerGridAdvanced,
+    source: framerApp,
+    shows: "Advanced: columns Auto or Fixed, a least width, height and alignment"
+  },
+  {
     tool: "Figma",
     image: figmaShot("31880057373975"),
     source: figmaGrid,
@@ -178,6 +239,18 @@ export const gridTrackComparisons: Comparison[] = [
 
 /** A grid child's place, in Figma, Webflow and Penpot. */
 export const gridPlacementComparisons: Comparison[] = [
+  {
+    tool: "Penpot",
+    image: penpotCellAuto,
+    source: penpotApp,
+    shows: "Grid cell, Auto: a column and a row, and four icons each way to align it"
+  },
+  {
+    tool: "Penpot",
+    image: penpotCellManual,
+    source: penpotApp,
+    shows: "Grid cell, Manual: start and end lines, with no span"
+  },
   {
     tool: "Figma",
     image: figmaShot("40414359336087"),
