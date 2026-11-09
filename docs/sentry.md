@@ -99,11 +99,13 @@ What a filed issue carries:
 
 - **The title is the Sentry issue's.** For user feedback, Sentry writes a short summary of the message.
 - **The description is empty.** The Sentry link is attached to the Linear issue, and the release, environment and
-  `test_run` are in the Sentry issue it points to. Linear's action can't add them, and PAR-668 will.
+  `test_run` of each event are in the Sentry issue it points to, read through Sentry's MCP server. Linear's action has
+  no description field, and putting them on the bug would take code of its own (PAR-668).
 - **The two are linked both ways.** The Sentry issue lists the Linear one under its linked issues. Resolving the Sentry
   issue closes the Linear one, and closing the Linear issue resolves the Sentry one in the next release.
-- **There's one Linear issue per Sentry issue.** A regression reopens the linked Linear issue, in Backlog, rather than
-  filing another, even when the alert fires on it.
+- **There's one Linear issue per Sentry issue.** A regression reopens the linked Linear issue in Todo rather than filing
+  another, even when the alert fires on it. Linear reopens it in the Parity team's default status, so Todo is the
+  default, set in Linear's team settings under Statuses.
 - **Linear's "in the next release" is literal.** Events from the release the bug was closed in, and from the next
   release Sentry sees, count as fixed and don't reopen it.
 
@@ -167,7 +169,9 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
 7. Created the two alerts above with Sentry's MCP server, signed in as `admin@betterapps.io`. Linear's action takes
    Linear's ids: team `ffa6e3c4-91d5-4501-868e-a7a7a797e256`, project `84f1963b-e7c0-4ee8-9f3b-0a23cddd3714`, Todo
    `141b0d67-7506-4a2a-91b9-c77117d7204f` and Bug `a6475d27-8132-4225-88de-b7f0c2d09177`.
-8. Created the monitor "Agent calls failing over 5%" and the alert "File monitor breaches in Linear" with Sentry's MCP
+8. Made Todo the Parity team's default status in Linear, under Settings > Teams > Parity > Statuses, so regressions
+   reopen there (PAR-668). It was Backlog.
+9. Created the monitor "Agent calls failing over 5%" and the alert "File monitor breaches in Linear" with Sentry's MCP
    server, on 2026-11-08, with the same Linear action.
 
 PAR-658 brings all of this into Terraform in `infra/sentry`, which the Sentry provider supports for monitors, alerts and
