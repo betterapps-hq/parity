@@ -1,8 +1,18 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 09 Nov 2026 03:07:25 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 04:18:08 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.28.2
+
+Mon, 09 Nov 2026 04:18:08 GMT
+
+### Patches
+
+- Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the
+  interrupted frame as crashed (ajcraswell@gmail.com)
+- Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756) (ajcraswell@gmail.com)
 
 ## 0.28.1
 
