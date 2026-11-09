@@ -130,7 +130,7 @@ const groups: { name: string; entries: Entry[] }[] = [
     name: "Text",
     entries: [
       { name: "Typography preset", Story: composeStories(typographyPreset).Folded, reviewed: true },
-      { name: "Text tag", Story: composeStories(textTag).Heading2 },
+      { name: "Text tag", Story: composeStories(textTag).Heading2, reviewed: true },
       { name: "Font family", Story: composeStories(fontFamily).Token, reviewed: true },
       { name: "Weight and style", Story: composeStories(weight).Named, reviewed: true },
       { name: "Line height and letter spacing", Story: composeStories(lineHeight).Step, reviewed: true },
