@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { ms } from "./attributes.ts"
 import { defineEvent } from "./events.ts"
 
 /*
@@ -6,8 +7,6 @@ import { defineEvent } from "./events.ts"
  * in its offscreen windows; the service makes previews and keeps bitmaps on disk. The rules that decide what's recorded
  * are here, so they're tested without Electron.
  */
-
-const ms = (meaning: string) => z.number().int().nonnegative().describe(meaning)
 
 const design = {
   design: z.string().optional().describe("The design's key, as the document names it. None for a component preview"),

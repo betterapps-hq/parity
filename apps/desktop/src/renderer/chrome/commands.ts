@@ -194,6 +194,8 @@ export async function exportLayers(
     return
   }
 
+  const began = performance.now()
+
   const files = exportFiles(
     targets.map((target) => target.name),
     sizes
@@ -218,7 +220,7 @@ export async function exportLayers(
       files
     })
 
-    track("export.done", { ...exported, files: written.length })
+    track("export.done", { ...exported, durationMs: since(began), files: written.length })
     toast.success(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
       id: progress,
       description: folder,
@@ -232,7 +234,7 @@ export async function exportLayers(
       })
     }
   } catch (error) {
-    trackExportFailed(exported, error)
+    trackExportFailed({ ...exported, durationMs: since(began) }, error)
     reportError(error, {
       operation: "layers.export",
       title: "Couldn't export",
@@ -245,10 +247,15 @@ export async function exportLayers(
 /** A layer as `layers.picture` draws it. */
 type PicturedLayer = ServiceMethods["layers.picture"]["params"]["layers"][number]
 
-/** What an export wrote, for `export.done` and `export.failed`. */
-type Exported = Omit<EventAttributes<typeof registeredEvents, "export.failed">, "code">
+/** What an export wrote, for `export.done` and `export.failed`, which add how long it took. */
+type Exported = Omit<EventAttributes<typeof registeredEvents, "export.failed">, "code" | "durationMs">
 
-function trackExportFailed(exported: Exported, cause: unknown): void {
+/** The whole milliseconds since `began`, a `performance.now()`. */
+function since(began: number): number {
+  return Math.round(performance.now() - began)
+}
+
+function trackExportFailed(exported: Exported & { durationMs: number }, cause: unknown): void {
   const failed: EventAttributes<typeof registeredEvents, "export.failed"> = { ...exported }
   const code = errorCode(cause)
 
@@ -376,6 +383,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
     return
   }
 
+  const began = performance.now()
   const scale = getPreferences().exportScale
   const named = designs.length === 1 ? store.getEntry(designs[0]!)?.container.name : undefined
   const progress = toast.loading(`Exporting ${named ?? store.designsLabel(designs)}…`)
@@ -390,7 +398,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
       scale
     })
 
-    track("export.done", { ...exported, files: files.length })
+    track("export.done", { ...exported, durationMs: since(began), files: files.length })
     toast.success(files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`, {
       id: progress,
       description: folder,
@@ -405,7 +413,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
       })
     }
   } catch (error) {
-    trackExportFailed(exported, error)
+    trackExportFailed({ ...exported, durationMs: since(began) }, error)
     reportError(error, {
       operation: "designs.export",
       title: "Couldn't export",
