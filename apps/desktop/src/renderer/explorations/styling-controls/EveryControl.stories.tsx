@@ -110,7 +110,7 @@ const groups: { name: string; entries: Entry[] }[] = [
     name: "Fill and stroke",
     entries: [
       { name: "Paint stack", Story: composeStories(paints).Solid },
-      { name: "Stroke", Story: composeStories(stroke).AllSides },
+      { name: "Stroke", Story: composeStories(stroke).AllSides, reviewed: true },
       { name: "Stroke width", Story: composeStories(strokeWidth).VerticalAndHorizontal, reviewed: true },
       { name: "Stroke style", Story: k.StrokeStyle, reviewed: true }
     ]
@@ -121,8 +121,8 @@ const groups: { name: string; entries: Entry[] }[] = [
       { name: "Shadow list", Story: composeStories(shadows).Token },
       { name: "Layer and background blur", Story: composeStories(blur).Both },
       { name: "Filter list", Story: composeStories(filters).InTailwindsOrder },
-      { name: "Transform", Story: composeStories(transform).Move },
-      { name: "Angle", Story: composeStories(angle).Step }
+      { name: "Transform", Story: composeStories(transform).Move, reviewed: true },
+      { name: "Angle", Story: composeStories(angle).Step, reviewed: true }
     ]
   },
   {
