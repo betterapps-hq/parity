@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { ms } from "./attributes.ts"
 import { defineEvent } from "./events.ts"
 
 /** Handled failures and the editor's saves, exports and project edits (PAR-632). */
@@ -76,7 +77,8 @@ const exportAttributes = {
   formats: z.array(z.enum(["png", "jpg"])).describe("The formats written"),
   scales: z.array(z.number()).describe("The scales written"),
   designs: z.number().int().nonnegative().describe("The designs and layers exported"),
-  states: z.number().int().nonnegative().optional().describe("The states exported, when they're counted")
+  states: z.number().int().nonnegative().optional().describe("The states exported, when they're counted"),
+  durationMs: ms("From asking for the export, once its folder is picked, until its files are written or it fails")
 }
 
 export const exportDone = defineEvent(
