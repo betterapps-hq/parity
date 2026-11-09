@@ -14,12 +14,17 @@ const design = {
   mode: z.string().optional().describe("The mode it draws in, by ID")
 }
 
-/** Why a frame failed: its module didn't load, its code threw while drawing, or it didn't finish in time. */
-export type FrameFailure = "module not found" | "render threw" | "timed out"
+/**
+ * Why a frame failed: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's
+ * renderer crashed under it.
+ */
+export type FrameFailure = "module not found" | "render threw" | "timed out" | "crashed"
 
 const failure = z
-  .enum(["module not found", "render threw", "timed out"])
-  .describe("Why: its module didn't load, its code threw while drawing, or it didn't finish in time")
+  .enum(["module not found", "render threw", "timed out", "crashed"])
+  .describe(
+    "Why: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's renderer crashed"
+  )
 
 export const frameRendered = defineEvent(
   "frame.rendered",
@@ -48,7 +53,7 @@ export const frameFailed = defineEvent(
     ...design,
     priority: z.string().describe("The queue it waited in: render, visible or idle"),
     failure,
-    message: z.string().describe("The guest's error message"),
+    message: z.string().describe("The guest's error message, or what happened to its window"),
     stack: z.string().optional().describe("The guest's stack, when it threw an error that has one")
   }),
   {
@@ -117,7 +122,7 @@ const moduleMissing =
   /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|cannot find module|failed to resolve (import|module specifier)|does not provide an export named|module not found/i
 
 /** Why a frame's guest failed, from its error message: a module that didn't load, or its code throwing. */
-export function frameFailure(message: string): Exclude<FrameFailure, "timed out"> {
+export function frameFailure(message: string): Exclude<FrameFailure, "timed out" | "crashed"> {
   return moduleMissing.test(message) ? "module not found" : "render threw"
 }
 
