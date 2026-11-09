@@ -401,15 +401,17 @@ window.addEventListener(
     const target = event.target instanceof Element ? event.target : undefined
     const inOverlay = !!target?.closest("[role=menu], [role=listbox], [role=dialog]")
 
-    if (event.key === "Escape" && escapeReview && !inOverlay && !pointerHeld) {
+    // Typing, as in a text layer edited in place, keeps Esc to finish it, and keeps C and T.
+    const typing = !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
+
+    if (event.key === "Escape" && escapeReview && !inOverlay && !pointerHeld && !typing) {
       event.stopImmediatePropagation()
       escapeReview()
 
       return
     }
 
-    // Typing, and Interact, where keys are the designs', keep C and T.
-    const typing = !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
+    // Interact, where keys are the designs', keeps C and T too.
 
     if (!reviewKey || inOverlay || typing || interacting() || event.ctrlKey || event.metaKey || event.altKey) {
       return
