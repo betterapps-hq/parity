@@ -123,7 +123,7 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
  * Values they share show as usual; the ones that differ are listed, and setting one gives them all that value.
  */
 export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: string[] }) {
-  const { store } = useProject()
+  const { store, info } = useProject()
   const entries = useContainerEntries(store)
   const editor = useStyleEditor(entry, ids)
 
@@ -167,7 +167,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         targets={selection.layers.map((layer) => ({
           design: entry.key,
           node: layer.id,
-          name: layerLabel(layer.node, entries, store.getComponentLibrary())
+          name: layerLabel(layer.node, entries, store.getComponentLibrary(), info.libraries)
         }))}
         label={`Export ${selection.layers.length} layers`}
       />

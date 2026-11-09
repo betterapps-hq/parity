@@ -251,7 +251,7 @@ function RadioMark({ active }: { active: boolean }) {
 
 /** What a state changes, grouped by layer. Selecting a layer opens it for editing in this state. */
 function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec }) {
-  const { store, selection } = useProject()
+  const { store, selection, info } = useProject()
   const entries = useContainerEntries(store)
   const overrides = Object.entries(state.overrides ?? {})
 
@@ -282,7 +282,9 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
                     ) : (
                       <Pencil className="size-3.5 shrink-0" />
                     )}
-                    <Name>{node ? layerLabel(node, entries, store.getComponentLibrary()) : nodeId}</Name>
+                    <Name>
+                      {node ? layerLabel(node, entries, store.getComponentLibrary(), info.libraries) : nodeId}
+                    </Name>
                   </button>
                   <Hint label="Reset every change to this layer">
                     <Button

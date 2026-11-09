@@ -59,7 +59,7 @@ export function CodePanel() {
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
   const entries = useContainerEntries(store)
-  const label = (node: DesignNode) => layerLabel(node, entries, store.getComponentLibrary())
+  const label = (node: DesignNode) => layerLabel(node, entries, store.getComponentLibrary(), session.info.libraries)
   const several = (selected.nodes?.length ?? 0) > 1 || (selected.designs?.length ?? 0) > 1
   const node = entry && selected.node && !several ? selectedLayer(session, entry, selected.node) : undefined
 

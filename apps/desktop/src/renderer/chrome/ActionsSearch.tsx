@@ -225,7 +225,7 @@ function projectItems(session: ProjectSession): Item[] {
       items.push({
         id: `layer:${entry.key}/${node.id}`,
         group: "Layers",
-        label: layerLabel(node, entries, library),
+        label: layerLabel(node, entries, library, session.info.libraries),
         keywords: entry.container.name,
         detail: entry.container.name,
         searchOnly: true,

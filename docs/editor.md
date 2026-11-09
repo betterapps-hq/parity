@@ -2622,17 +2622,25 @@ and the canvas menu. Its own glyph could be a kind's icon, such as Type or AppWi
 such as X or Plus; its name says which icon it is. A library's other components keep the Box. Search actions is drawn
 outside the project's tab, so it hands `NodeIcon` the project's libraries; everywhere else they come from the tab.
 
-Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
-headers in `LayerPanel.tsx`; `layerKind` and `isIconLayer` in `chrome/layer-kind.ts`; `NodeIcon` and `nodeColor` in
-`canvas/kinds.tsx`.
+An unnamed icon layer is called by its icon, without its set's path or a trailing "Icon" (PAR-796): Plus for
+`lucide/Plus`, Cog for `heroicons/16/solid/CogIcon`, where it used to show the component's id. That's its name in
+Layers, the inspector, Search actions, the canvas chip, Select layer, and the Code, States and multi-selection panels,
+and the name of a component made from it. A layer named by hand keeps its name, and a library's other components keep
+their ids. `layerLabel` takes the project's libraries for this, since which libraries are icon sets is the project's.
 
-Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (7: text whatever its tag; layouts by direction and grids;
+Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
+headers in `LayerPanel.tsx`; `layerKind`, `isIconLayer`, `iconName` and `unnamedIconLabel` in `chrome/layer-kind.ts`;
+`NodeIcon`, `nodeColor` and `layerLabel` in `canvas/kinds.tsx`; Select layer's labels in `chrome/canvas-menu.ts`.
+
+Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (9: text whatever its tag; layouts by direction and grids;
 a slot; an instance's component only in full; a library's components and icons named by the library; icon sets told from
-other libraries and the project's own components; a library matched by its whole id), and
-`apps/desktop/src/renderer/canvas/kinds.test.ts` (4: a text layer is green apart from its layout; its chip and its text
-on a panel take their own steps; an icon layer is Smile in a project's tab, beside a component's Box; and outside a tab
-when it's given the libraries). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances:
-Layer Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
+other libraries and the project's own components; a library matched by its whole id; an icon's name without its path or
+"Icon"; only an unnamed icon layer named by its icon), `apps/desktop/src/renderer/canvas/kinds.test.ts` (6: a text layer
+is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
+project's tab, beside a component's Box; and outside a tab when it's given the libraries; an unnamed icon's label is its
+icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select layer names an
+unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances: Layer
+Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
 
 ## Component props
 

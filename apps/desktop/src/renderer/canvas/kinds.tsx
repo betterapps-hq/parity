@@ -21,7 +21,7 @@ import {
   Type
 } from "lucide-react"
 import { useContext } from "react"
-import { isIconLayer } from "../chrome/layer-kind.ts"
+import { isIconLayer, unnamedIconLabel } from "../chrome/layer-kind.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { ProjectContext } from "./context.ts"
 
@@ -104,10 +104,16 @@ export function nodeColor(node: DesignNode): string {
 
 /**
  * A layer's name, with an unnamed instance called after its design ("Member row") rather than by the design's id. A
- * library's design, which isn't one of the `entries`, is found in `library` when it's given.
+ * library's design, which isn't one of the `entries`, is found in `library` when it's given. An unnamed icon is called
+ * by its icon when the project's `libraries` are given (`unnamedIconLabel`).
  */
-export function layerLabel(node: DesignNode, entries: readonly ContainerEntry[], library?: ComponentLibrary): string {
-  return nodeLabel(node, designNamer(entries, library))
+export function layerLabel(
+  node: DesignNode,
+  entries: readonly ContainerEntry[],
+  library?: ComponentLibrary,
+  libraries?: readonly Pick<LibraryInfo, "id" | "kind">[]
+): string {
+  return (libraries && unnamedIconLabel(node, libraries)) ?? nodeLabel(node, designNamer(entries, library))
 }
 
 /** Finds a design's name by its id: one of the project's `entries`, else one of `library`'s designs. */

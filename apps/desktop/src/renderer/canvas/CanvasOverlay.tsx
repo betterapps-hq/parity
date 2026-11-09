@@ -861,7 +861,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
       const scale = editor.getZoomLevel() * frameScale(host)
       model.label = {
         box: toBox(rect),
-        name: node ? layerLabel(node, store.getEntries(), store.getComponentLibrary()) : id,
+        name: node ? layerLabel(node, store.getEntries(), store.getComponentLibrary(), session.info.libraries) : id,
         size: `${formatPx(rect.width / scale)} × ${formatPx(rect.height / scale)}`,
         color
       }
