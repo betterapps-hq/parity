@@ -6317,8 +6317,9 @@ agent's call, in CI only, as the rest of the suite runs. My calls:
 - **The agent's call goes through the real `parity` command,** from this checkout, against the copy's own agent file, so
   the test covers the CLI's trace reaching the app: `agent.called` must continue `cli.ran`. It runs in the checkout, not
   the project's temporary folder, so the sender it leaves behind can't stop the suite removing that folder.
-- **Save's test duplicates and saves in two key presses,** before the edit's own write is due 300 ms later, so Save is
-  what writes the file and its trace holds the service's answer.
+- **Save's test is the one that writes,** since autosave is off by default and an edit alone writes nothing. It
+  duplicates, saves, then undoes and saves again, so the file is back as it was and the reset after it finds nothing
+  unsaved.
 - **`gesture.ended` and the window's `document.saved` aren't checked by trace.** Both are recorded after their trace has
-  ended, so they carry none; the test checks their attributes, and the service's answer to the write shows the trace
+  ended, so they carry none; the test checks their attributes, and the service's answer to Save's write shows the trace
   reached it. Recording them in their trace is PAR-752.

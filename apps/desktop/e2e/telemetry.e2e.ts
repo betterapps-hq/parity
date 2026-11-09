@@ -72,7 +72,7 @@ describe("the events Parity records", () => {
     )
   })
 
-  it("puts a drag in one trace with the save it causes", async () => {
+  it("records a drag as a trace of its own, with how it ended", async () => {
     const since = new Date().toISOString()
     await app.show("Dashboard", 0.5)
     await app.selectLayer("Dashboard", users)
@@ -90,13 +90,9 @@ describe("the events Parity records", () => {
     expect(ended.attributes).toMatchObject({ how: "release", kept: true, undoStep: true })
     expect(ended.attributes.designs).toEqual([key])
     expect(ended.attributes.layers).toEqual([users])
-    // The edit schedules the write in the drag's trace, so the service's work on it joins the drag.
-    const save = await handled("document.save", ran.traceId)
-    expect(save.outcome).toBe("ok")
-    await recorded({ name: "document.saved" }, since)
   })
 
-  it("puts a command from the keyboard in one trace with the save it causes", async () => {
+  it("records a command from the keyboard as a trace of its own", async () => {
     const since = new Date().toISOString()
     await app.show("Dashboard", 0.5)
     await app.selectLayer("Dashboard", users)
@@ -105,23 +101,31 @@ describe("the events Parity records", () => {
     const ran = await recorded({ name: "command.ran", attributes: { action: "duplicate", from: "key" } }, since)
     expect(ran.outcome).toBe("ok")
     expect(ran.attributes).toMatchObject({ enabled: true, layers: 1 })
-    await handled("document.save", ran.traceId)
+    expect(ran.traceId).toBeDefined()
   })
 
   it("puts saving from the keyboard in one trace with the write", async () => {
     const since = new Date().toISOString()
     await app.show("Dashboard", 0.5)
     await app.selectLayer("Dashboard", users)
-    // Saved at once, before the edit's own write is due, so Save writes it.
     await app.page.keyboard.press("Control+d")
+    await expect.poll(() => app.unsaved()).not.toEqual([])
     await app.page.keyboard.press("Control+s")
-    await expect.poll(() => app.unsaved()).toEqual([])
-    const saved = await recorded({ name: "command.ran", attributes: { action: "save", from: "key" } }, since)
-    expect(saved.outcome).toBe("ok")
-    const write = await handled("document.save", saved.traceId)
-    expect(write.outcome).toBe("ok")
-    const file = await recorded({ name: "document.saved" }, since)
-    expect(file.attributes.bytes).toBeGreaterThan(0)
+    try {
+      await expect.poll(() => app.unsaved()).toEqual([])
+      const saved = await recorded({ name: "command.ran", attributes: { action: "save", from: "key" } }, since)
+      expect(saved.outcome).toBe("ok")
+      const write = await handled("document.save", saved.traceId)
+      expect(write.outcome).toBe("ok")
+      const file = await recorded({ name: "document.saved" }, since)
+      expect(file.attributes.bytes).toBeGreaterThan(0)
+    } finally {
+      // The file goes back as it was, so undoing everything after the test leaves nothing to save.
+      await app.page.keyboard.press("Control+z")
+      await expect.poll(() => app.unsaved()).not.toEqual([])
+      await app.page.keyboard.press("Control+s")
+      await expect.poll(() => app.unsaved()).toEqual([])
+    }
   })
 
   it("puts an agent's call in one trace with the command it came from", async () => {

@@ -99,9 +99,9 @@ The end-to-end suite reads back what the app recorded and checks the main workfl
   log and `agent.called` in the app's.
 - **It checks the traces across processes:** the service's `project.opened` and its answers are in the trace of
   `project.opening`, with `project.loaded` and `project.drawn`. The service's answer to `document.save` is in the trace
-  of the drag, the command or Save that asked for the write. `agent.called` continues the command's `cli.ran` span.
-  `gesture.ended` and the window's `document.saved` are recorded outside their trace, so they're checked by their
-  attributes alone.
+  of Save. `agent.called` continues the command's `cli.ran` span. The drag and Duplicate each start a trace of their
+  own; with autosave off, as it is by default, neither asks the service for anything. `gesture.ended` and the window's
+  `document.saved` are recorded outside their trace, so they're checked by their attributes alone.
 - **CI's runs still send to Sentry,** as `environment: ci` with `test_run` set to `github-<run>-<attempt>`, and every
   line of the local copy carries that `testRun`, which the suite checks. The `parity` command it runs sends as an
   agent's does, with the same tags, and writes its log and outbox inside the copy's profile.
