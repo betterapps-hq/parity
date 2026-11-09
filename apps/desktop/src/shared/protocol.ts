@@ -134,12 +134,14 @@ export interface ServiceMethods {
   /** The bitmap as a data URL, a lossless WebP as it's kept (PAR-535), and the frame's height kept with it. */
   "frames.capture": { params: { job: RenderJob; height?: number }; result: { src?: string; height?: number } }
   /**
-   * The bitmap of a frame kept on disk from an earlier capture of the same job with the same code, if there is one
-   * (PAR-158). It's asked for before anything is captured, so a project opened again shows its frames zoomed out at once.
-   * `height` is the frame's height as it was captured, in its own CSS pixels, which a frame that hasn't drawn yet takes
-   * while it shows the bitmap (PAR-179).
+   * The bitmaps of frames kept on disk from earlier captures of the same jobs with the same code, where there are any
+   * (PAR-158), in the jobs' order. They're asked for before anything is captured, so a project opened again shows its
+   * frames zoomed out at once. The frames a canvas mounts ask together, with their jobs as JSON text (`RenderJob[]`),
+   * since text crosses the preload bridge and the port as one copy, where the jobs' trees as objects took about 0.14 s of
+   * the window's thread (PAR-759). `height` is the frame's height as it was captured, in its own CSS pixels, which a
+   * frame that hasn't drawn yet takes while it shows the bitmap (PAR-179).
    */
-  "frames.stored": { params: { job: RenderJob }; result: { src?: string; height?: number } }
+  "frames.stored": { params: { jobs: string }; result: { kept: { src?: string; height?: number }[] } }
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: undefined; result: undefined }
   /**

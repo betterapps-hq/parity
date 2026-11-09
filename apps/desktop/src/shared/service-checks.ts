@@ -1,5 +1,5 @@
 import type { Checks } from "@parity-app/channel"
-import { CodedError, canvasDocument, detectionCorrections, finiteNumber, parseInput } from "@parity-app/core"
+import { CodedError, canvasDocument, detectionCorrections, finiteNumber, jsonText, parseInput } from "@parity-app/core"
 import { z } from "zod"
 import type { ServiceMethods } from "./protocol.ts"
 
@@ -96,7 +96,7 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
     )
   }),
   "frames.capture": z.object({ job: renderJob, height: finiteNumber.optional() }),
-  "frames.stored": z.object({ job: renderJob }),
+  "frames.stored": z.object({ jobs: z.string() }),
   "frames.clearStored": z.undefined(),
   "pictures.store": z.object({ root: z.string(), picture: projectPicture }),
   "pictures.read": roots,
@@ -112,6 +112,9 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
   "processes.restart": processId,
   "processes.dismiss": processId
 }
+
+/** The jobs `frames.stored` is asked for, as JSON text, which its handler reads with `parseInput`. */
+export const storedJobs = jsonText(z.array(renderJob))
 
 /** Reads each request's params as `serviceParams` says, or throws `CodedError` with `invalid_input`. */
 export const serviceChecks = Object.fromEntries(

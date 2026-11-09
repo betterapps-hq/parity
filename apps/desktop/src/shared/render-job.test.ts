@@ -1,5 +1,5 @@
 import { execute, type FrameRequest } from "@parity-app/agent"
-import { type ContainerSpec, frameGeometry, type ModeSettings, resolveModes } from "@parity-app/core"
+import { type ContainerSpec, frameGeometry, type ModeSettings, parseInput, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { RenderJob } from "./protocol.ts"
 import {
@@ -16,7 +16,7 @@ import {
   renderJob,
   renderJobMode
 } from "./render-job.ts"
-import { serviceChecks } from "./service-checks.ts"
+import { serviceChecks, storedJobs } from "./service-checks.ts"
 
 /** A 1280px screen 1234px tall, whose height is the mode's own rather than the nearest device's 800. */
 const modes: ModeSettings = {
@@ -201,6 +201,7 @@ describe("renderJob", () => {
     )
 
     expect(serviceChecks["frames.capture"]({ job }).job).toEqual(job)
+    expect(parseInput(storedJobs, JSON.stringify([job]))).toEqual([job])
     expect(
       serviceChecks["previews.make"]({ preview: { component: "Card", job }, priority: "idle" }).preview.job
     ).toEqual(job)
@@ -303,7 +304,7 @@ describe("a job's names", () => {
 
   it("name a bitmap as before PAR-575, so the bitmaps kept already are found", () => {
     // The job as the service read it, less the address and the components, then where each component comes from.
-    const checked = serviceChecks["frames.stored"]({ job: renderJob(guest, { ...drawsText, tokens: [token] }) }).job
+    const checked = parseInput(storedJobs, JSON.stringify([renderJob(guest, { ...drawsText, tokens: [token] })]))[0]!
     const { guestUrl: _address, components: _given, ...drawn } = checked
     expect(bitmapName(checked, {})).toBe(`${JSON.stringify(drawn)}\0${JSON.stringify([])}`)
   })
