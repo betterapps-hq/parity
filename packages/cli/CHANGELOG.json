@@ -2,6 +2,35 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 13:05:07 GMT",
+      "version": "0.31.0",
+      "tag": "@parity-app/cli_v0.31.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c1d629545de2329688db91ac013bedd2655e1ff4",
+            "comment": "Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit helpers, and module exports are checked with instanceof Function"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "cebe1620a315a3eb7f89a30f2a0ae9ed3c981de7",
+            "comment": "The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered, focused or dragged, with value chips in dark text"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0aba5f352906a36662f444280c6459e9273f9ead",
+            "comment": "Publish to npm's next tag first, and report production once a version has been promoted to latest"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 12:29:45 GMT",
       "version": "0.30.0",
       "tag": "@parity-app/cli_v0.30.0",

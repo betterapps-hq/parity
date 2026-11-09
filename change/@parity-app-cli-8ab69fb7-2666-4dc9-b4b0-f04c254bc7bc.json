@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit helpers, and module exports are checked with instanceof Function",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

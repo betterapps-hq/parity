@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Publish to npm's next tag first, and report production once a version has been promoted to latest",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,8 +1,24 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 09 Nov 2026 12:29:45 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 13:05:07 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.31.0
+
+Mon, 09 Nov 2026 13:05:07 GMT
+
+### Minor changes
+
+- The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered,
+  focused or dragged, with value chips in dark text (ajcraswell@gmail.com)
+- Publish to npm's next tag first, and report production once a version has been promoted to latest
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit
+  helpers, and module exports are checked with instanceof Function (ajcraswell@gmail.com)
 
 ## 0.30.0
 
