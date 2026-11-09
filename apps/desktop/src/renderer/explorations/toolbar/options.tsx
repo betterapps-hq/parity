@@ -51,7 +51,7 @@ import { type Tool, useSelection, useTool } from "../../selection.ts"
  *
  * What's fixed in all of them: the separators run the bar's full height (the app's set `h-5` over the kit's
  * `self-stretch`), the picked tool keeps its rounded corners (the app's `spacing={0}` squares the inner ones), and the
- * picked tool takes the kit's own pressed look rather than a solid block of the primary colour.
+ * picked tool takes the kit's own pressed look rather than a solid block of the primary color.
  */
 
 export type ToolbarOption = "tidied" | "one-bar" | "code"

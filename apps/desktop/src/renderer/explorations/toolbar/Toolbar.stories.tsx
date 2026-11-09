@@ -2,6 +2,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Window } from "../../chrome/chrome-fixtures.tsx"
 import { clearNotifications, frameDesigns, openProjects } from "../../stories/fixtures.tsx"
+import { ToolbarComparison } from "./bars.tsx"
 import { ToolbarStage } from "./stage.tsx"
 
 /**
@@ -117,4 +118,13 @@ export const Audit: Story = {
       </Table>
     </div>
   )
+}
+
+/**
+ * The bars on their own, beside Figma's, Penpot's, Framer's, tldraw's and Excalidraw's, with what the others have in
+ * common.
+ */
+export const Bars: Story = {
+  loaders: [() => openProjects("example")],
+  render: () => <ToolbarComparison />
 }
