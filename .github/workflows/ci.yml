@@ -20,6 +20,12 @@ jobs:
       # they're installed only when one is missing. Bun (for mantine) and Corepack (which brings react-aria's Yarn)
       # come from npm at pinned versions, the same on every system.
       prepare: |
+        # Electron's binary and what electron-builder downloads to package it go where the cache below keeps them. Electron
+        # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
+        echo "electron_config_cache=$GITHUB_WORKSPACE/.cache/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$GITHUB_WORKSPACE/.cache/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$GITHUB_WORKSPACE/.cache/electron"
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
         missing=
         for project in fixtures/*/; do
           if [ ! -d "${project}node_modules" ]; then missing=1; fi
@@ -32,7 +38,12 @@ jobs:
         else
           echo "Every fixture project came from the cache."
         fi
-      cache-path: fixtures/*/node_modules
+      # Electron's downloads share the fixtures' cache and its key, as the template keeps one. After Electron's version
+      # changes, the new one downloads on each run until a fixture's lockfile changes too.
+      cache-path: |
+        fixtures/*/node_modules
+        .cache/electron
+        .cache/electron-builder
       cache-key-files: fixtures/*/*lock*
       # Then the CLI's packed tarball, installed in an empty folder, has to run on each system (PAR-13).
       command: |
@@ -46,7 +57,7 @@ jobs:
         fi
         # Every installer target must build before this can merge. Signing is a separate release task.
         export CSC_IDENTITY_AUTO_DISCOVERY=false
-        pnpm --filter @parity-app/desktop package
+        node scripts/retry.ts pnpm --filter @parity-app/desktop package
         if [ "$RUNNER_OS" = Windows ]; then
           pnpm --filter @parity-app/desktop try-installed
         fi
