@@ -145,6 +145,10 @@ describe("cliTelemetrySetting", () => {
     expect(cliTelemetrySetting({ VITEST: "true" }, saved("all"))).toMatchObject({ level: "off" })
   })
 
+  it("sends only errors and reports from CI, as the app does (PAR-777)", () => {
+    expect(cliTelemetrySetting({ CI: "true" }, saved("all"))).toMatchObject({ level: "all", errorsOnly: true })
+  })
+
   it("refuses a PARITY_TELEMETRY that isn't a level, rather than sending what was meant to be off", () => {
     expect(() => cliTelemetrySetting({ PARITY_TELEMETRY: "of" }, undefined)).toThrow(/PARITY_TELEMETRY is "of"/)
   })

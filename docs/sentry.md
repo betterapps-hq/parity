@@ -32,6 +32,10 @@ Only `parity-desktop` and `parity-cli` have code in this repository. The other t
 Every event is tagged `development`, `ci` or `tester`. Sentry creates an environment the first time an event names it,
 so there's nothing to set up ahead of the SDKs.
 
+`ci` sends only errors and reports, with their breadcrumbs: no spans, logs or replays (PAR-777). Those stay in the run's
+local copy, which the end-to-end suite checks. CI sent 718,000 of `parity-desktop`'s 794,000 spans in the week to
+2026-11-09, which would have run past every plan's 5 million spans a month.
+
 ## Releases and source maps
 
 Each build names its release, so an event points at the code that had the bug, and its stack trace resolves to Parity's
@@ -167,8 +171,8 @@ attribute in a logs widget is picked as a number, as `durationMs`, which the API
   `project.opened`'s `durationMs` stops at the service, and `project.detected` is one step of it.
 - **Rendering is `frame.rendered`,** which PAR-638 renames from `frame.drawn`; the query takes both until no build sends
   the old name.
-- **Test passes with no errors don't show in the table,** since it counts errors. A pass's spans and logs are found by
-  searching either for its `test_run`.
+- **Test passes with no errors don't show in the table,** since it counts errors. A tester's pass's spans and logs are
+  found by searching either for its `test_run`. CI's passes send no spans or logs (PAR-777); they're in the local copy.
 
 ## Secrets
 

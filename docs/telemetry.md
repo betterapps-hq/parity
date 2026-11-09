@@ -103,9 +103,11 @@ The end-to-end suite reads back what the app recorded and checks the main workfl
   own; with autosave off, as it is by default, neither asks the service for anything. `gesture.ended` is under the
   drag's `gesture.ran` span and the window's `document.saved` under Save's `command.ran`, though each is recorded after
   that span ends (PAR-752).
-- **CI's runs still send to Sentry,** as `environment: ci` with `test_run` set to `github-<run>-<attempt>`, and every
-  line of the local copy carries that `testRun`, which the suite checks. The `parity` command it runs sends as an
-  agent's does, with the same tags, and writes its log and outbox inside the copy's profile.
+- **CI's runs send only their errors and reports to Sentry** (PAR-777), as `environment: ci` with `test_run` set to
+  `github-<run>-<attempt>`, each error with its breadcrumbs. Spans and logs stay in the local copy, which is written in
+  full, and every line of it carries that `testRun`, which the suite checks. The editor window doesn't start Session
+  Replay. The `parity` command it runs does the same, with the same tags, and writes its log and outbox inside the
+  copy's profile.
 
 ## Agents and the CLI
 
@@ -172,8 +174,10 @@ two minutes, once; opening it again drew none.
 ## Turning it off
 
 Telemetry is on by default everywhere Parity runs, development and CI included, each tagged with its environment. It's
-either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does. The local copy
-is written either way. Unit tests leave it off.
+either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does. CI is the one
+exception: wherever `CI` is set, only errors and reports go, whatever the level, since its end-to-end runs sent nine in
+ten of `parity-desktop`'s spans (PAR-777). `resolveTelemetry` in `@parity-app/telemetry` decides this with the level, as
+`errorsOnly`. The local copy is written either way. Unit tests leave it off.
 
 - **Settings > Privacy > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
   install ID in `<userData>/telemetry.json`, which the CLI reads too, as each command starts (`desktopDataFolder` in
