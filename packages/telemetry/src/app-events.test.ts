@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vite-plus/test"
-import { lagCheck, memoryRecord, startupTimer, updateRecord } from "./app-events.ts"
+import {
+  hangThresholdMs,
+  lagCheck,
+  mainBlocked,
+  memoryRecord,
+  serviceExit,
+  serviceExited,
+  startupTimer,
+  updateRecord,
+  windowHung
+} from "./app-events.ts"
 
 describe("startupTimer", () => {
   it("gives the timings once every step is in, counting each step's first mark", () => {
@@ -56,6 +66,55 @@ describe("lagCheck", () => {
     const check = lagCheck({ every: 500, threshold: 200, start: 0 })
     expect(check.tick(60_000, true)).toBeUndefined()
     expect(check.tick(60_500)).toBeUndefined()
+  })
+})
+
+describe("serviceExit", () => {
+  it("records a service that failed as not restarted, with its code and how long it ran", () => {
+    expect(serviceExit({ exitCode: 1, ranMs: 1000.4, replaced: false, quitting: false })).toEqual({
+      exitCode: 1,
+      ranMs: 1000,
+      restarted: false
+    })
+  })
+
+  it("records a service a fresh one replaced as restarted, whatever its code", () => {
+    expect(serviceExit({ exitCode: 0, ranMs: 1000.4, replaced: true, quitting: false })).toEqual({
+      exitCode: 0,
+      ranMs: 1000,
+      restarted: true
+    })
+    expect(serviceExit({ exitCode: 15, ranMs: 1000.4, replaced: true, quitting: false })).toEqual({
+      exitCode: 15,
+      ranMs: 1000,
+      restarted: true
+    })
+  })
+
+  it("records nothing as the app quits, or for a service that ended cleanly on its own", () => {
+    expect(serviceExit({ exitCode: 1, ranMs: 1000.4, replaced: false, quitting: true })).toBeUndefined()
+    expect(serviceExit({ exitCode: 0, ranMs: 1000.4, replaced: false, quitting: false })).toBeUndefined()
+  })
+
+  it("gives attributes that service.exited accepts", () => {
+    expect(
+      serviceExited.schema.safeParse(serviceExit({ exitCode: -1, ranMs: 1000.4, replaced: false, quitting: false }))
+        .success
+    ).toBe(true)
+  })
+})
+
+describe("hang events", () => {
+  it("take how long the window or main was stuck as a whole number of milliseconds", () => {
+    expect(windowHung.schema.safeParse({ window: "render", stuckMs: 3200 }).success).toBe(true)
+    expect(mainBlocked.schema.safeParse({ stuckMs: 2400 }).success).toBe(true)
+    expect(mainBlocked.schema.safeParse({ stuckMs: "2400" }).success).toBe(false)
+  })
+
+  it("count main as blocked only once its timer runs over the hang threshold late", () => {
+    const check = lagCheck({ every: 500, threshold: hangThresholdMs, start: 0 })
+    expect(check.tick(500 + hangThresholdMs)).toBeUndefined()
+    expect(check.tick(500 + hangThresholdMs + 500 + hangThresholdMs + 1)).toBe(hangThresholdMs + 1)
   })
 })
 

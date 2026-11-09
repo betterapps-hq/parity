@@ -6,7 +6,10 @@ import {
   createTelemetry,
   type Envelope,
   envelopeSchema,
+  hangThresholdMs,
+  lagCheck,
   registeredEvents,
+  serviceExit,
   isSpanEnvelope,
   type ResolvedTelemetry,
   type RunVariables,
@@ -32,9 +35,6 @@ import { createLogFileSink, createLogFiles } from "./log-files.ts"
  * service send theirs through main, so this is the one place that decides whether anything is sent. See docs/sentry.md.
  */
 const dsn = "https://1367d69a56a94bcd328db394a4a5a2d4@o4512381874274304.ingest.us.sentry.io/4512381906190336"
-
-/** How long a window or main may be stuck before it's reported, in milliseconds. */
-const hangThreshold = 2000
 
 /** A picture of the frame that last failed to draw offscreen, and when, for the errors that follow it. */
 let lastFailedFrame: { attachment: { filename: string; data: Uint8Array; contentType: string }; at: number } | undefined
@@ -207,6 +207,9 @@ const sentryTarget: SentryTarget = {
 /** Where other processes' events go once main has them: Sentry's logs and spans, and the local copy. */
 let forward: Sink | undefined
 
+/** Main's own events, once `startEvents` has started them, which hangs and the service's exits are recorded to. */
+let recorded: Telemetry<typeof registeredEvents> | undefined
+
 /**
  * Starts recording main's own events, and those other processes send, once the app's data folder is known. Main's go
  * to Sentry and the local copy, `<userData>/logs/parity-<date>.jsonl`, which is written at every level, Off included.
@@ -262,6 +265,7 @@ export function startEvents({
   )
 
   scrubber.follow(telemetry)
+  recorded = telemetry
 
   return { run, telemetry, flushLogs: () => logFile.flush() }
 }
@@ -311,7 +315,10 @@ export function applyTelemetry(next: { level: TelemetryLevel; installId: string 
   tagDriver()
 }
 
-/** Reports a window that stops answering, once it answers again, with how long it was stuck. */
+/**
+ * Reports a window that stops answering, once it answers again, with how long it was stuck: as a Sentry message tagged
+ * `hang`, and as `window.hung`, whose `stuckMs` can be searched and charted (PAR-771).
+ */
 export function watchWindowHangs(
   window: BrowserWindow,
   name: string,
@@ -336,7 +343,20 @@ export function watchWindowHangs(
       tags: { process: kind, hang: "window" },
       extra: { stuckMs }
     })
+    recorded?.track("window.hung", { window: kind, stuckMs })
   })
+}
+
+/**
+ * Records a project service exiting, as `service.exited` with its code, how long it ran and whether a fresh one replaced
+ * it, unless the app is quitting or it ended cleanly on its own (PAR-771).
+ */
+export function serviceExited(exit: { exitCode: number; ranMs: number; replaced: boolean; quitting: boolean }): void {
+  const attributes = serviceExit(exit)
+
+  if (attributes) {
+    recorded?.track("service.exited", attributes)
+  }
 }
 
 /** Notes the service starting, or being replaced by a fresh one, for the events that follow. */
@@ -349,13 +369,12 @@ export function serviceStarted(restarted: boolean): void {
 }
 
 /**
- * Reports main's own event loop being blocked, once it runs again. Sentry's native hang detection needs a module built
- * for Electron's ABI, which isn't shipped yet, so this measures how late a timer fires instead: it says how long main
- * was stuck, though not where.
+ * Reports main's own event loop being blocked, once it runs again, as a Sentry message tagged `hang` and as
+ * `main.blocked` (PAR-771). Sentry's native hang detection needs a module built for Electron's ABI, which isn't shipped
+ * yet, so this measures how late a timer fires instead: it says how long main was stuck, though not where.
  */
 function watchMainLoop(): void {
-  const every = 500
-  let expected = performance.now() + every
+  const check = lagCheck({ every: 500, threshold: hangThresholdMs, start: performance.now() })
   // A computer that slept leaves the timer late without main being stuck.
   let slept = false
   void app.whenReady().then(() => {
@@ -363,24 +382,18 @@ function watchMainLoop(): void {
     powerMonitor.on("resume", () => (slept = true))
   })
   setInterval(() => {
-    const now = performance.now()
-    const lateMs = Math.round(now - expected)
-    expected = now + every
+    const stuckMs = check.tick(performance.now(), slept)
+    slept = false
 
-    if (slept) {
-      slept = false
-
+    if (stuckMs === undefined) {
       return
     }
 
-    if (lateMs < hangThreshold) {
-      return
-    }
-
-    Sentry.captureMessage(`Main was blocked for ${(lateMs / 1000).toFixed(1)}s`, {
+    Sentry.captureMessage(`Main was blocked for ${(stuckMs / 1000).toFixed(1)}s`, {
       level: "warning",
       tags: { hang: "main" },
-      extra: { stuckMs: lateMs }
+      extra: { stuckMs }
     })
-  }, every).unref()
+    recorded?.track("main.blocked", { stuckMs })
+  }, 500).unref()
 }
