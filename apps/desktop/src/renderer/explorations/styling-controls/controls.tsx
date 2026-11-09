@@ -13,12 +13,16 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, LayoutTemplate, Link2, Minus, Monitor, Plus, Squircle } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { ChoiceInput } from "../../chrome/fields.tsx"
+import { ChoiceInput, PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
@@ -1198,11 +1202,44 @@ const tagOptions = [
   { value: "strong", label: "Strong" }
 ]
 
+/** A tag's name with the element it writes after it, in code, as the keyword menus show the CSS they write. */
+function TagLabel({ label, tag }: { label: string; tag: string }) {
+  return (
+    <span className="flex w-full min-w-0 items-center gap-2">
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      <span className="shrink-0 font-mono text-2xs text-muted-foreground">{tag}</span>
+    </span>
+  )
+}
+
 export function TextSection({ draft, set }: SectionProps) {
+  // Unset is a paragraph, which is what the text is written as.
+  const items = [
+    { value: "__unset", label: <TagLabel label="Paragraph" tag="p" /> },
+    ...tagOptions.map((option) => ({
+      value: option.value,
+      label: <TagLabel label={option.label} tag={option.value} />
+    }))
+  ]
   return (
     <PanelSection title="Text" description="The headline inside Plans.">
       <Field label="Tag" hint="The element the text is: what screen readers and search engines read it as">
-        <ChoiceInput value={draft.tag} options={tagOptions} placeholder="Paragraph" onChange={(tag) => set({ tag })} />
+        <Select
+          items={items}
+          value={draft.tag ?? "__unset"}
+          onValueChange={(next) => set({ tag: next === null || next === "__unset" ? undefined : next })}
+        >
+          <SelectTrigger size="sm" aria-label="Tag" className="h-7 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <PanelSelectContent>
+            {items.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </PanelSelectContent>
+        </Select>
       </Field>
     </PanelSection>
   )

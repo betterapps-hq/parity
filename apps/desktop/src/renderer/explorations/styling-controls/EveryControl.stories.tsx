@@ -133,7 +133,7 @@ const groups: { name: string; entries: Entry[] }[] = [
       { name: "Text tag", Story: composeStories(textTag).Heading2 },
       { name: "Font family", Story: composeStories(fontFamily).Token, reviewed: true },
       { name: "Weight and style", Story: composeStories(weight).Named, reviewed: true },
-      { name: "Line height and letter spacing", Story: composeStories(lineHeight).Step },
+      { name: "Line height and letter spacing", Story: composeStories(lineHeight).Step, reviewed: true },
       { name: "Align", Story: k.AlignSet, reviewed: true },
       { name: "Case", Story: k.Case, reviewed: true },
       { name: "Wrap", Story: k.Wrap, reviewed: true }
