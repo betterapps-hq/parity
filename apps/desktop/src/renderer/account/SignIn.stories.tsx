@@ -2,17 +2,19 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useLayoutEffect } from "react"
 import { userEvent, within } from "storybook/test"
 import type { AccountState, SignedInAccount } from "../../shared/account.ts"
+import { type HandBack, handBackHtml, handBackText } from "../../shared/hand-back-page.ts"
 import { WorkspaceMenu } from "../start/StartControls.tsx"
 import { setStoryAccount } from "../stories/host.ts"
+import { useResolvedTheme } from "../theme.ts"
 import { accountActions, useAccount } from "./account.ts"
 import { AccountMenu } from "./AccountMenu.tsx"
 import { SignInDialog, SignInScreen, UntilQuitDialog } from "./SignIn.tsx"
 import { WaitingPanel } from "./SignInPanels.tsx"
 
 /**
- * Signing in, as the app builds it from the Sign in explorations (PAR-612), and several accounts from the Home
- * exploration (PAR-669). The host stands in for main: a button waits for a browser that never hands back, and Cancel,
- * switching accounts and Sign out do what they say.
+ * Signing in (PAR-612), several accounts (PAR-669), and the page the browser shows once it hands back (PAR-614). The
+ * host stands in for main: a button waits for a browser that never hands back, and Cancel, switching accounts and Sign
+ * out do what they say.
  */
 const meta = {
   title: "Parity/Sign in",
@@ -316,3 +318,28 @@ export const WorkspaceMenuPersonal: Story = {
 
 /** Signed out: Sign in, so nothing looks signed in. */
 export const WorkspaceMenuSignedOut: Story = { render: () => <HomeHeader state={signedOut} /> }
+
+/** The browser tab once it hands back to a `pnpm dev` copy: the page its loopback serves, in the app's theme. */
+function HandBackPage({ outcome }: { outcome: HandBack }) {
+  const theme = useResolvedTheme()
+
+  return (
+    <iframe
+      title={handBackText[outcome].title}
+      className="block h-screen min-h-[560px] w-full border-0"
+      srcDoc={handBackHtml(outcome, theme)}
+    />
+  )
+}
+
+/**
+ * The browser after it has handed back to a `pnpm dev` copy, once the code is traded: plain HTML with no scripts, in
+ * the system's light or dark. Installed apps hand back through `parity://`, and the browser shows its own prompt.
+ */
+export const BrowserAfterHandingBack: Story = { render: () => <HandBackPage outcome="signed-in" /> }
+
+/** The same page when the code couldn't be traded: Parity's window says why, so the page only points there. */
+export const BrowserAfterAProblem: Story = { render: () => <HandBackPage outcome="problem" /> }
+
+/** Handed back with one more step in Parity: choosing an organization, or single sign-on. */
+export const BrowserWithOneMoreStep: Story = { render: () => <HandBackPage outcome="continue" /> }

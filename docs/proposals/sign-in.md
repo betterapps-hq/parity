@@ -1,11 +1,11 @@
 # Proposal: signing in with WorkOS
 
 Status: draft, 2026-11-05 (PAR-610). `@parity-app/account` is built (PAR-613), and so is the app's side (PAR-612),
-except trying it in an installed build. The screens are the stories under Parity/Explorations/Sign in
-([SignIn.stories.tsx](../../apps/desktop/src/renderer/explorations/SignIn.stories.tsx)), and the account menu is the
-start page's ([page.tsx](../../apps/desktop/src/renderer/explorations/start/page.tsx), `AccountMenu`). The calls made
-are in [decisions.md](../decisions.md#signing-in-goes-through-workos-in-the-browser-par-610), and the work is in Linear,
-PAR-611 to PAR-616.
+except trying it in an installed build. The screens are the stories under Parity/Sign in
+([SignIn.stories.tsx](../../apps/desktop/src/renderer/account/SignIn.stories.tsx)), which replaced the exploration's
+(PAR-798), and the account menu is [AccountMenu.tsx](../../apps/desktop/src/renderer/account/AccountMenu.tsx). The calls
+made are in [decisions.md](../decisions.md#signing-in-goes-through-workos-in-the-browser-par-610), and the work is in
+Linear, PAR-611 to PAR-616.
 
 ## In one line
 
