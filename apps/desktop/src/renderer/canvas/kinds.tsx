@@ -8,11 +8,13 @@ import {
   Frame,
   Grid3x3,
   Image as ImageIcon,
+  type LucideIcon,
   type LucideProps,
   Rows3,
   SquareDashed,
   Type
 } from "lucide-react"
+import { createContext, useContext } from "react"
 import type { ContainerEntry } from "../design-store.ts"
 
 /**
@@ -117,7 +119,20 @@ export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKi
   return kind === "component" ? <Component {...props} /> : <AppWindow {...props} />
 }
 
+/**
+ * How icon layers are drawn: the ids of the project's icon sets, and the one icon every layer from them shows, whatever
+ * it draws (PAR-793). Without it, an icon is drawn as the library component it is.
+ */
+export interface IconLayers {
+  sets: readonly string[]
+  icon: LucideIcon
+}
+
+export const IconLayersContext = createContext<IconLayers | undefined>(undefined)
+
 export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode }) {
+  const iconLayers = useContext(IconLayersContext)
+
   if (node.type === "text") {
     return <Type {...props} />
   }
@@ -127,7 +142,9 @@ export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode })
   }
 
   if (node.type === "component") {
-    return <Box {...props} />
+    const Icon = iconLayers?.sets.some((set) => node.component.startsWith(`${set}/`)) ? iconLayers.icon : Box
+
+    return <Icon {...props} />
   }
 
   if (node.type === "instance") {
