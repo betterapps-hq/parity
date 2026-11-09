@@ -7,14 +7,12 @@ import type { ContainerEntry } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { dropLines, frameDrops } from "./convert-to-frame.ts"
 import { askToConvertToFrame } from "./ConvertToFrameDialog.tsx"
+import { renameAndRecord } from "./inspector-events.ts"
 
 export function renameDesign(session: ProjectSession, entry: ContainerEntry, name: string): void {
   const trimmed = name.trim()
   if (!trimmed || trimmed === entry.container.name) return
-  session.store.updateContainer(entry.key, `Rename ${kindName(entry.container.kind)}`, (container) => ({
-    ...container,
-    name: trimmed
-  }))
+  renameAndRecord(session.store, entry.key, trimmed)
 }
 
 /**
