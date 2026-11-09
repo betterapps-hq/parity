@@ -1,8 +1,10 @@
 import { CodedError, defaultModeSettings, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
+import type { z } from "zod"
+import type { requests } from "./contracts.ts"
 import { type AgentMethod, replies } from "./contracts.ts"
-import { type AgentHost, answerRequest, dispatch, exportPictures } from "./dispatch.ts"
-import type { AgentChangeSet, AgentReport, FrameRequest, PresenceEvent, TabSnapshot } from "./types.ts"
+import { type AgentHost, type Answer, answerRequest, dispatch, exportPictures } from "./dispatch.ts"
+import type { AgentChangeSet, AgentReport, FrameRequest, FrameResult, PresenceEvent, TabSnapshot } from "./types.ts"
 
 /** A tab with one screen, Sign up, holding a title and a Button, in the default modes. */
 function snapshot(): TabSnapshot {
@@ -66,19 +68,22 @@ function snapshot(): TabSnapshot {
   return tab
 }
 
+/** What the fixture host was asked, kept to look at. */
+interface Asked {
+  snapshots: (string | undefined)[]
+  presence: PresenceEvent[]
+  frames: FrameRequest[]
+  applied: { tab: string; label: string; changes: AgentChangeSet }[]
+  saved: number
+  console: boolean[]
+  reports: AgentReport[]
+}
+
 /** The tests' host: the fixture tab, frames drawn as data, and everything asked of it kept to look at. */
 function fixtureHost() {
   const tab = snapshot()
 
-  const asked = {
-    snapshots: [] as (string | undefined)[],
-    presence: [] as PresenceEvent[],
-    frames: [] as FrameRequest[],
-    applied: [] as { tab: string; label: string; changes: AgentChangeSet }[],
-    saved: 0,
-    console: [] as boolean[],
-    reports: [] as AgentReport[]
-  }
+  const asked: Asked = { snapshots: [], presence: [], frames: [], applied: [], saved: 0, console: [], reports: [] }
 
   const host: AgentHost = {
     tabs: async () => [tab.tab],
@@ -98,22 +103,30 @@ function fixtureHost() {
       tokenEdits: 0,
       save: { status: "saved" },
       errors: [],
-      undo: { count: 0, ...(summary ? { labels: [] } : {}) },
-      redo: { count: 0, ...(summary ? { labels: [] } : {}) }
+      undo: summary ? { count: 0, labels: [] } : { count: 0 },
+      redo: summary ? { count: 0, labels: [] } : { count: 0 }
     }),
     presence: (events) => asked.presence.push(...events),
     render: async (_snapshot, request) => {
       asked.frames.push(request)
 
-      return {
+      const frame: FrameResult = {
         width: request.mode.width,
         height: 600,
         nodes: [{ id: "title", x: 0, y: 0, width: request.mode.width + 10, height: 40 }],
         overflowsX: false,
-        unknownComponents: [],
-        ...(request.capture ? { png: "iVBOR" } : {}),
-        ...(request.audit ? { issues: [] } : {})
+        unknownComponents: []
       }
+
+      if (request.capture) {
+        frame.png = "iVBOR"
+      }
+
+      if (request.audit) {
+        frame.issues = []
+      }
+
+      return frame
     },
     iconNames: async () => ({ names: [] }),
     supports: async (queries) => queries.map(() => true),
@@ -147,19 +160,25 @@ function fixtureHost() {
 
 const caller = { name: "Claude Code", id: "session-1" }
 
+/** What an agent sends a method, before its schema fills in the defaults. `copy` takes nothing. */
+type Request<M extends AgentMethod> = M extends keyof typeof requests
+  ? z.input<(typeof requests)[M]>
+  : Record<string, never>
+
 /** Calls `method` through the fixture host, and checks the answer against the schema the CLI reads it with. */
-async function ask(method: AgentMethod, params: Record<string, unknown> = {}) {
+async function ask<M extends AgentMethod>(method: M, params?: Request<M>) {
   const fixture = fixtureHost()
-  const answer = await dispatch(method, params, fixture.host, caller)
+  const answer = await dispatch(method, params ?? {}, fixture.host, caller)
   const checked = replies[method].safeParse(answer)
   expect(checked.error?.issues ?? []).toEqual([])
 
-  return { ...fixture, answer: answer as Record<string, never> }
+  // SAFETY: `dispatch` answered `method`, and its schema just read the answer.
+  return { ...fixture, answer: answer as Answer<M> }
 }
 
 describe("dispatch", () => {
   it("answers each method in the shape its schema in contracts.ts reads", async () => {
-    const methods: [AgentMethod, Record<string, unknown>][] = [
+    const methods: [AgentMethod, Request<AgentMethod>][] = [
       ["tabs", {}],
       ["copy", {}],
       ["open", { root: "D:/app" }],
@@ -189,7 +208,7 @@ describe("dispatch", () => {
 
   it("marks the first resolved mode primary, and only that one (PAR-579)", async () => {
     const { answer } = await ask("state")
-    const modes = answer.modes as { id: string; primary: boolean }[]
+    const modes = answer.modes
     const resolved = resolveModes(defaultModeSettings)
     expect(resolved.length).toBeGreaterThan(1)
     expect(modes.map((mode) => [mode.id, mode.primary])).toEqual(resolved.map((mode, index) => [mode.id, index === 0]))
@@ -244,22 +263,16 @@ describe("dispatch", () => {
       return asking.map(() => false)
     }
 
-    const answer = (await dispatch(
-      "exec",
-      { label: "Recolor", code: 'SetTokens({ background: "bluish" })' },
-      host
-    )) as {
-      ok: boolean
-    }
+    const answer = await dispatch("exec", { label: "Recolor", code: 'SetTokens({ background: "bluish" })' }, host)
 
     expect(queries.map((query) => query.value)).toContain("bluish")
-    expect(answer.ok).toBe(false)
+    expect(answer).toMatchObject({ ok: false })
     expect(asked.applied).toEqual([])
   })
 
   it("keeps a screenshot's PNG as a file, without an editId to retry", async () => {
     const { answer, asked } = await ask("screenshot", { design: "signup", scale: 1 })
-    const shots = answer.screenshots as { path: string; design: string }[]
+    const shots = answer.screenshots
     expect(shots.length).toBeGreaterThan(0)
     expect(shots.map((shot) => shot.path)).toEqual(shots.map((_shot, index) => `D:/shots/1-${index}.png`))
     expect(asked.saved).toBe(1)
@@ -276,13 +289,13 @@ describe("dispatch", () => {
   it("passes status's summary as false unless asked", async () => {
     const { answer } = await ask("status", { tab: "tab-1" })
     expect(answer.tab).toEqual({ id: "tab-1", name: "App" })
-    expect((answer.undo as { labels?: string[] }).labels).toBeUndefined()
+    expect(answer.undo.labels).toBeUndefined()
   })
 
   it("reports the components failing to draw and the exports left out", async () => {
     const { answer } = await ask("components")
     expect(answer.failing).toEqual([
-      { id: "Button", problem: "provider", reason: expect.stringContaining("SidebarProvider") as string }
+      { id: "Button", problem: "provider", reason: expect.stringContaining("SidebarProvider") }
     ])
     expect(answer.leftOut).toEqual([
       { name: "Toaster", path: "src/toaster.tsx", export: "Toaster", reason: "It returns no element" }
@@ -366,10 +379,13 @@ describe("answerRequest", () => {
   /** Answers a `/rpc` body, or gives back the coded error it failed with and what the host was asked. */
   async function refused(body: string) {
     const { host, asked } = fixtureHost()
-    const error: unknown = await answerRequest(body, host).catch((thrown: unknown) => thrown)
-    expect(error).toBeInstanceOf(CodedError)
+    const error = await answerRequest(body, host).catch((cause: unknown) => cause)
 
-    return { error: error as CodedError, asked }
+    if (!(error instanceof CodedError)) {
+      throw new Error(`Expected a CodedError, got ${String(error)}`)
+    }
+
+    return { error, asked }
   }
 
   it("dispatches a body's method and params, showing the caller it names", async () => {
@@ -422,7 +438,9 @@ describe("answerRequest", () => {
     for (const [body, field, message] of cases) {
       const { error, asked } = await refused(JSON.stringify(body))
       expect(error.message).toBe(message)
-      expect(error.details).toEqual({ code: "invalid_input", retryable: false, ...(field ? { field } : {}) })
+      expect(error.details).toEqual(
+        field ? { code: "invalid_input", retryable: false, field } : { code: "invalid_input", retryable: false }
+      )
       expect(asked.snapshots).toEqual([])
     }
   })

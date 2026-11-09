@@ -1,5 +1,6 @@
 import { CodedError, describeRenderStatus, renderProblem, resolveModes, unknownReference } from "@parity-app/core"
 import type { ChangeConflict } from "@parity-app/core"
+import { type TokenFilter } from "./arguments.ts"
 import { callerIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
 import { isAgentMethod, readRequest, requests, rpcRequest } from "./contracts.ts"
@@ -94,7 +95,10 @@ interface Call {
   presence: (tab: string) => AgentHooks["presence"]
 }
 
-const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<Answer<M>> } = {
+/** How the app answers each method. */
+type MethodTable = { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<Answer<M>> }
+
+const methods: MethodTable = {
   tabs: (_params, { host }) => host.tabs(),
   copy: (_params, { host }) => host.copy(),
   open: (params, { host }) => host.open(params.root),
@@ -169,10 +173,18 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
   async tokens(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
 
-    const filter = {
-      ...(params.category === undefined ? {} : { category: params.category }),
-      ...(params.source === undefined ? {} : { source: params.source }),
-      ...(params.search === undefined ? {} : { search: params.search })
+    const filter: TokenFilter = {}
+
+    if (params.category !== undefined) {
+      filter.category = params.category
+    }
+
+    if (params.source !== undefined) {
+      filter.source = params.source
+    }
+
+    if (params.search !== undefined) {
+      filter.search = params.search
     }
 
     return readOnly(snapshot).GetTokens(filter)
@@ -185,7 +197,7 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
   async props(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
 
-    return readOnly(snapshot).Props(params.component, { all: params.all }) as Answer<"props">
+    return readOnly(snapshot).Props(params.component, { all: params.all })
   },
   report: (params, { host }) => report(host, params)
 }
@@ -202,9 +214,9 @@ export async function answerRequest(
   host: AgentHost,
   /** Told who's calling, when the caller says, so telemetry can tag what follows (PAR-630). */
   called?: (caller: Caller) => void
-): Promise<unknown> {
+): Promise<Answer<AgentMethod>> {
   const { method, params, agent, agentId, client } = readRequest(rpcRequest, body)
-  const caller = callerIdentity(agent, agentId, client)
+  const caller = callerIdentity({ agent, agentId, client })
 
   if (caller) {
     called?.(caller)
@@ -218,7 +230,13 @@ export async function answerRequest(
  * defaults. A method the app doesn't have, or params its schema refuses, fail with `invalid_input` naming the field,
  * before the host is asked anything. Its caller gets its own cursor on the canvas.
  */
-export async function dispatch(method: string, params: unknown, host: AgentHost, caller?: Caller): Promise<unknown> {
+export async function dispatch(
+  method: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: an RPC body's params, which the method's schema reads here
+  params: unknown,
+  host: AgentHost,
+  caller?: Caller
+): Promise<Answer<AgentMethod>> {
   if (!isAgentMethod(method)) {
     throw new CodedError(`Unknown method ${method}. Methods: ${Object.keys(methods).join(", ")}`, {
       code: "invalid_input",
@@ -232,15 +250,20 @@ export async function dispatch(method: string, params: unknown, host: AgentHost,
     (tab: string): AgentHooks["presence"] =>
     (events) =>
       host.presence(
-        events.map((event) => ({ tab, ...(caller ? { agent: caller.name, agentId: caller.id } : {}), ...event }))
+        events.map((event) => (caller ? { tab, agent: caller.name, agentId: caller.id, ...event } : { tab, ...event }))
       )
 
-  const run = methods[method] as (params: unknown, call: Call) => Promise<unknown>
+  // SAFETY: `request` is what `method`'s own schema read, so it's the params `methods[method]` takes; TypeScript can't
+  // tie the two to the same method through a union.
+  const run = methods[method] as (params: Params<AgentMethod>, call: Call) => Promise<Answer<AgentMethod>>
 
   return run(request, { host, presence })
 }
 
-function tabRef(snapshot: TabSnapshot): { id: string; name: string } {
+/** The tab an answer is about, by id and name. */
+type TabRef = Pick<TabSummary, "id" | "name">
+
+function tabRef(snapshot: TabSnapshot): TabRef {
   return { id: snapshot.tab.id, name: snapshot.tab.name }
 }
 
@@ -358,22 +381,27 @@ async function exec(
   const tabId = snapshot.tab.id
   const label = request.label || "Agent edit"
 
-  const result = await execute(
-    {
-      label,
-      ...(request.code === undefined ? {} : { code: request.code }),
-      ...(request.editId === undefined ? {} : { editId: request.editId }),
-      ...(request.edits === undefined ? {} : { edits: request.edits })
-    },
-    workspaceSnapshot(snapshot),
-    {
-      presence: presence(tabId),
-      render: renderFor(host, snapshot),
-      iconNames: (set, module) => host.iconNames(tabId, set, module),
-      apply: (changes) => host.apply(tabId, label, changes),
-      supports: (queries) => host.supports(queries)
-    }
-  )
+  const run: ExecRequest = { label }
+
+  if (request.code !== undefined) {
+    run.code = request.code
+  }
+
+  if (request.editId !== undefined) {
+    run.editId = request.editId
+  }
+
+  if (request.edits !== undefined) {
+    run.edits = request.edits
+  }
+
+  const result = await execute(run, workspaceSnapshot(snapshot), {
+    presence: presence(tabId),
+    render: renderFor(host, snapshot),
+    iconNames: (set, module) => host.iconNames(tabId, set, module),
+    apply: (changes) => host.apply(tabId, label, changes),
+    supports: (queries) => host.supports(queries)
+  })
 
   const { changes, screenshots, ...rest } = result
   const hasChanges = changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0
@@ -493,7 +521,7 @@ async function report(host: AgentHost, params: Params<"report">): Promise<Answer
   let state = params.state
 
   if (snapshot && params.design !== undefined) {
-    const options = { mode: "shown", ...(params.state === undefined ? {} : { state: params.state }) }
+    const options = params.state === undefined ? { mode: "shown" } : { mode: "shown", state: params.state }
 
     const result = await execute(
       { label: "Report", code: `await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)})` },
@@ -512,13 +540,13 @@ async function report(host: AgentHost, params: Params<"report">): Promise<Answer
     }
   }
 
-  const named: Record<string, string | undefined> = {
+  const named = {
     tab: tabName,
     design: design ?? params.design,
     state,
     node: params.node,
     test_run: params.testRun
-  }
+  } satisfies Record<string, string | undefined>
 
   const tags: Record<string, string> = {}
 
