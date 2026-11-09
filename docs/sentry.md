@@ -55,8 +55,10 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
   `sourcemaps/build.json` records the version and commit.
 - **`node scripts/upload-sourcemaps.ts <package> --project <name> [--published] [--link-commits]`** creates the release,
   uploads the package's `sourcemaps/` to that Sentry project and finalizes it: `apps/desktop` to `parity-desktop`,
-  `packages/cli` to `parity-cli`. `--link-commits` ties the release to its commit in `betterapps-hq/parity`, which
-  suspect commits and "resolved in the next release" use.
+  `packages/cli` to `parity-cli`. `--link-commits` then ties the release to its commit in `betterapps-hq/parity`, which
+  suspect commits and "resolved in the next release" use. A link that fails is a warning, not a failed upload: until
+  2026-11-09 it ran first and failed every time, with Sentry answering "Unknown repo 'betterapps-hq/parity'", so no
+  build from main and no published one had its maps uploaded.
 - **Electron's native crashes** are symbolicated by Sentry's built-in Electron, Apple and Microsoft symbol servers,
   which `parity-desktop`'s Settings > Debug Files had on from the start, as Sentry does for an Electron project.
 - **Pull requests' preview installers** are named by their commit, so they stay out of a published version's release.
