@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Text layers are green in the layers tree, the design panel and their outline on the canvas, so they stand out among a design's layers.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

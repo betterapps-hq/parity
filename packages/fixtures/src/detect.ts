@@ -6,6 +6,8 @@ import {
   type BuilderDetection,
   type ComponentSource,
   type Detection,
+  type JsonValue,
+  type LibraryInfo,
   type PackageManagerDetection,
   prepareCanvasCss,
   type RendererAdapter,
@@ -13,6 +15,7 @@ import {
   type StylesAdapter,
   type ThemeVariable
 } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import { detectProject, discoverProject, readPackage } from "@parity-app/project"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
@@ -57,8 +60,8 @@ export interface ProjectSnapshot {
   themes: string[]
   breakpoints: Record<string, string>
   components: Record<string, ComponentSource>
-  libraries: Record<string, unknown>[]
-  icons: Record<string, unknown>[]
+  libraries: (Pick<LibraryInfo, "id" | "package" | "version" | "stylesImported"> & { components: number })[]
+  icons: Pick<LibraryInfo, "id" | "package" | "version">[]
   storybook: StorybookInfo | null
   notes: string[]
 }
@@ -184,7 +187,7 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
     builder,
     packageManager: detection.packageManager,
     tools: detection.tools,
-    ...(detection.notice ? { notice: detection.notice } : {}),
+    notice: detection.notice || undefined,
     styles,
     tokens: {
       count: tokens.length,
@@ -236,11 +239,12 @@ function sorted<T>(record: Record<string, T>): Record<string, T> {
 function withoutRoot<T>(value: T, root: string): T {
   const forms = [root, root.replaceAll("\\", "/")]
 
-  return JSON.parse(JSON.stringify(value), (_key, item: unknown) =>
-    typeof item === "string" ? forms.reduce((text, form) => text.replaceAll(form, "<project>"), item) : item
-  ) as T
+  // The snapshot is plain data, so the round trip through JSON gives back a `T` with only its text changed.
+  return JSON.parse(JSON.stringify(value), (_key, item: JsonValue) =>
+    isText(item) ? forms.reduce((text, form) => text.replaceAll(form, "<project>"), item) : item
+  )
 }
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function message(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }

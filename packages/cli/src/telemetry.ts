@@ -261,7 +261,8 @@ export function startCliTelemetry({ serving = false }: { serving?: boolean } = {
 
   if (setting.level === "all") {
     const outbox = createOutbox()
-    sinks.push(createSentrySink(outbox.target, { upload: true }))
+    // CI sends only errors and reports, with their breadcrumbs; its spans and logs stay in the local copy (PAR-777).
+    sinks.push(createSentrySink(outbox.target, { upload: !setting.errorsOnly }))
     hand(outbox, setting.installId, installed, serving)
     showNotice(setting.level)
   }

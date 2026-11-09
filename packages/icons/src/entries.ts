@@ -36,12 +36,16 @@ export function preferredExport(
   return { insert, label: bare ?? insert }
 }
 
-/** The styles a set offers, such as Regular and Filled, with the one shown first. */
-export function iconStyles(icons: LibraryIcons | undefined): { styles: string[]; initial?: string } {
-  const variants = icons?.variants
-  const styles = variants?.styles ?? []
+export interface IconStyles {
+  styles: string[]
+  initial?: string
+}
 
-  return { styles, ...(variants?.default?.style ? { initial: variants.default.style } : {}) }
+/** The styles a set offers, such as Regular and Filled, with the one shown first. */
+export function iconStyles(icons: LibraryIcons | undefined): IconStyles {
+  const variants = icons?.variants
+
+  return { styles: variants?.styles ?? [], initial: variants?.default?.style || undefined }
 }
 
 /**
@@ -68,8 +72,8 @@ export function iconEntries(
       return {
         label: preferred?.label ?? name,
         name,
-        ...(preferred ? { insert: preferred.insert } : {}),
-        ...(props ? { props } : {})
+        insert: preferred?.insert,
+        props
       }
     })
   }
@@ -84,7 +88,7 @@ export function iconEntries(
       continue
     }
 
-    entries.push({ label: variant.label, name, ...(props ? { props } : {}) })
+    entries.push({ label: variant.label, name, props })
   }
 
   return entries

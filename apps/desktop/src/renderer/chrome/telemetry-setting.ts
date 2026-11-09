@@ -13,7 +13,7 @@ export function receiveTelemetry(next: TelemetryState | undefined): TelemetrySta
   state = next
 
   if (next) {
-    followTelemetry(next.level)
+    followTelemetry(next)
   }
 
   for (const listener of listeners) {

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { checkModel } from "./check.ts"
+import { modelParser } from "./check.ts"
 import { uniqueIds } from "./unique.ts"
 
 // The routes lens's model. No standard describes an app's routes, so this is Parity's: a tree of routes, each with its
@@ -46,6 +46,4 @@ export type Route = z.infer<typeof Route>
 
 export type Routes = z.infer<typeof Routes>
 
-export function parseRoutes(value: unknown): Routes {
-  return checkModel(Routes, value)
-}
+export const parseRoutes = modelParser(Routes)

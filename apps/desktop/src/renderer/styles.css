@@ -228,6 +228,17 @@
   filter: drop-shadow(0 2px 6px oklch(0 0 0 / 50%));
 }
 
+/*
+ * An icon's shapes are drawn in the icon's color (PAR-791). The kit's highlighted menu, select and combobox items set
+ * `color` on every element inside them (`focus:**:text-accent-foreground`), the paths inside an icon too, and a path
+ * draws `currentColor` from its own `color`. So an icon colored on its `<svg>`, by an inline color or a `text-*` class,
+ * turned the highlight's text color. Unlayered, so it beats the kit's utilities. An uncolored icon still takes the
+ * highlight's color, since the kit's class colors the `<svg>` as well.
+ */
+.lucide * {
+  color: inherit;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -357,18 +368,25 @@ body,
   --canvas-component: oklch(0.64 0.23 304);
   --canvas-mode: oklch(0.72 0.16 162);
   --canvas-layer: oklch(0.64 0.18 256);
+  /*
+   * Text layers are their own kind, so they stand out among the layers: a leaf green, darker and yellower than modes'
+   * teal so the two stay apart. Its strokes are 3.2:1 on white and 5.7:1 on the dark theme's panels.
+   */
+  --canvas-text: oklch(0.64 0.17 142);
   --canvas-agent: oklch(0.78 0.16 70);
 
   /*
    * Chips over the canvas (a selection's label and size, a spacing value, the inspect label) hold 11px text, which
    * reads only at 4.5:1 on its fill (docs/typography.md, Canvas chip). White on the selection colors is about 3.4:1, so
    * the darker hues' chips take a step of their color at L 0.55 (white on screen and layer 4.9:1, on component 5.5:1,
-   * on spacing 5.5:1) while their strokes keep 0.64. The light hues keep their fill and take near-black text: 7.9:1 on
-   * mode green, 8.8:1 on agent amber, 6.5:1 on tab order's orange.
+   * on spacing 5.5:1) while their strokes keep 0.64. Text's green is lighter for its lightness, so its step is at L 0.52
+   * for white at 5.2:1. The light hues keep their fill and take near-black text: 7.9:1 on mode green, 8.8:1 on agent
+   * amber, 6.5:1 on tab order's orange.
    */
   --canvas-screen-chip: oklch(0.55 0.18 256);
   --canvas-component-chip: oklch(0.55 0.23 304);
   --canvas-layer-chip: oklch(0.55 0.18 256);
+  --canvas-text-chip: oklch(0.52 0.15 142);
   --canvas-spacing-chip: oklch(0.55 0.22 350);
   --canvas-chip-ink: oklch(0.2 0 0);
 
@@ -381,11 +399,13 @@ body,
   /*
    * A kind's color as 12px text on a panel, as the inspector's heading says what's selected: the strokes are 3.4:1 on
    * the light theme's white (component 3.7:1), so text takes the chips' step at L 0.55 there, 4.9:1 (5.5:1). On the dark
-   * theme the strokes already read, at 5.8:1 (5.3:1).
+   * theme the strokes already read, at 5.8:1 (5.3:1). Text's green takes its chip step too, 5.2:1 on white, and reads
+   * at 5.7:1 on the dark theme's panels.
    */
   --canvas-screen-text: light-dark(var(--canvas-screen-chip), var(--canvas-screen));
   --canvas-component-text: light-dark(var(--canvas-component-chip), var(--canvas-component));
   --canvas-layer-text: light-dark(var(--canvas-layer-chip), var(--canvas-layer));
+  --canvas-text-text: light-dark(var(--canvas-text-chip), var(--canvas-text));
 }
 
 body {
