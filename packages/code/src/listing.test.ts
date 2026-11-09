@@ -1,11 +1,11 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { type ComponentList, nextComponentList } from "./component-list.ts"
 import {
   checkedAppFiles,
+  type ComponentReader,
   checkedChanges,
   componentIds,
   correctedSources,
@@ -21,7 +21,7 @@ import {
 import { importAlias, readTsconfig, resolvePathAlias } from "./tsconfig.ts"
 
 /** Exported functions are components; `export const X = Y.Z` is one the parse can't decide. */
-const renderer = {
+const renderer: ComponentReader = {
   componentExtensions: [".tsx"],
   findComponents: (source: string) => [
     ...[...source.matchAll(/export function ([A-Z]\w*)/g)].map((match) => ({
@@ -34,7 +34,7 @@ const renderer = {
       export: match[1]!
     }))
   ]
-} as unknown as RendererAdapter
+}
 
 let root: string
 

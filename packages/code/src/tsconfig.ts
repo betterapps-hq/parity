@@ -60,14 +60,16 @@ export function readTsconfig(root: string): ProjectTsconfig {
       return
     }
 
-    const parsed = ts.getParsedCommandLineOfConfigFile(path, {}, host)
+    // TypeScript keeps every config the `extends` chain reads in this cache, under its own spelling of the path.
+    const extended = new Map<string, ts.ExtendedConfigCacheEntry>()
+    const parsed = ts.getParsedCommandLineOfConfigFile(path, {}, host, extended)
 
     if (!parsed) {
       return
     }
 
-    for (const base of extendedFiles(parsed.options)) {
-      readFile(base)
+    for (const { extendedResult } of extended.values()) {
+      readFile(extendedResult.fileName)
     }
 
     configs.push({
@@ -89,7 +91,7 @@ export function readTsconfig(root: string): ProjectTsconfig {
   const withFiles = configs.filter((config) => config.files.length > 0)
   const app = withFiles.find((config) => config.options.jsx !== undefined) ?? withFiles[0]
 
-  return { configs, ...(app ? { app } : {}), read: [...read] }
+  return app ? { configs, app, read: [...read] } : { configs, read: [...read] }
 }
 
 /**
@@ -148,8 +150,15 @@ export function importAlias(root: string, tsconfig: ProjectTsconfig, path: strin
   return best?.alias
 }
 
+/** One `paths` entry: its pattern, its first target, and the folder that target is relative to. */
+interface PathMapping {
+  pattern: string
+  target: string
+  base: string
+}
+
 /** Every `paths` entry, the app's config first, then the others, since a solution-style root often holds shared ones. */
-function pathMappings(root: string, tsconfig: ProjectTsconfig): { pattern: string; target: string; base: string }[] {
+function pathMappings(root: string, tsconfig: ProjectTsconfig): PathMapping[] {
   const ordered = [
     ...(tsconfig.app ? [tsconfig.app] : []),
     ...tsconfig.configs.filter((config) => config !== tsconfig.app)
@@ -159,6 +168,7 @@ function pathMappings(root: string, tsconfig: ProjectTsconfig): { pattern: strin
     // Without `baseUrl`, paths are relative to the config that declares them, which TypeScript records for us.
     const base =
       config.options.baseUrl ??
+      // SAFETY: TypeScript's config parser sets `pathsBasePath`, an internal option, to the folder of the config with `paths`.
       (config.options as { pathsBasePath?: string }).pathsBasePath ??
       dirname(join(root, config.path))
 
@@ -175,22 +185,6 @@ function realPath(path: string): string {
   } catch {
     return path
   }
-}
-
-/**
- * The configs a parsed config's `extends` chain read, absolute. TypeScript keeps them on the config's own source file,
- * which `CompilerOptions` types only by its index signature.
- */
-function extendedFiles(options: ts.CompilerOptions): string[] {
-  const file = options.configFile
-
-  if (typeof file !== "object" || file === null || Array.isArray(file) || !("extendedSourceFiles" in file)) {
-    return []
-  }
-
-  const extended: unknown = file.extendedSourceFiles
-
-  return Array.isArray(extended) ? extended.filter((path) => typeof path === "string") : []
 }
 
 const host: ts.ParseConfigFileHost = {
