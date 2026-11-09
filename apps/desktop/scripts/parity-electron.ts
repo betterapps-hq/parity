@@ -17,17 +17,28 @@ import {
   rmSync,
   writeFileSync
 } from "node:fs"
+import { createRequire } from "node:module"
 import { dirname, join, resolve } from "node:path"
+import { z } from "zod"
 
 const appDir = resolve(import.meta.dirname, "..")
 const cacheDir = join(appDir, "node_modules/.cache")
+
+/**
+ * The Electron program the `electron` package installed. Its main module gives Node the program's path, though its
+ * types describe the API the app sees, so the path is checked here.
+ */
+export function installedElectron(): string {
+  return z.string().parse(createRequire(import.meta.url)("electron"))
+}
 
 /**
  * The program to run the app with: a copy of Electron named Parity, with Parity's icon. Electron as installed if the
  * copy can't be made, with a warning, since the app still runs.
  */
 export function parityElectron(electron: string): string {
-  const make = { win32: windows, darwin: mac, linux }[process.platform as string]
+  const makers: Partial<Record<NodeJS.Platform, (electron: string) => string>> = { win32: windows, darwin: mac, linux }
+  const make = makers[process.platform]
 
   if (!make) {
     return electron

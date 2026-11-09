@@ -24,6 +24,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium, type CDPSession, type Page } from "playwright-core"
+import { print } from "../../../scripts/output.ts"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
 import { type ReactBuild, reactBuild } from "./react-build.ts"
 
@@ -200,7 +201,7 @@ const profileDir = join(tmpdir(), uiPort === 5320 ? "parity-perf-profile" : `par
 
 await rm(profileDir, { recursive: true, force: true })
 
-console.log(`Starting a copy of the app on ${project}, on React's ${react} build`)
+print(`Starting a copy of the app on ${project}, on React's ${react} build`)
 
 let runner = launch()
 let page: Page | undefined
@@ -213,7 +214,7 @@ try {
   if (!only && soakMinutes === undefined) {
     open.reopen = await opened(page, project)
     // Started again on the same profile, it restores the tab and finds the bitmaps it kept.
-    console.log("Starting the copy again on the same profile")
+    print("Starting the copy again on the same profile")
     await quit(page, runner)
     runner = launch()
     page = await connect()
@@ -225,23 +226,25 @@ try {
     date: new Date().toISOString(),
     project,
     react,
-    ...(process.env.PARITY_TELEMETRY ? { telemetry: process.env.PARITY_TELEMETRY } : {}),
-    ...(css ? { css } : {}),
+    // JSON leaves out what's unset, so a run without these has no such keys.
+    telemetry: process.env.PARITY_TELEMETRY || undefined,
+    css: css || undefined,
     open,
     ...measured
   }
 
   await writeFile(join(outDir, `${label}.json`), JSON.stringify(result, null, 2))
+  // SAFETY: the file is an earlier run's result, which this script wrote from a `Result` as it writes this one.
   const previous = compare ? (JSON.parse(await readFile(join(outDir, `${compare}.json`), "utf8")) as Result) : undefined
   report(result, previous)
-  console.log(`
+  print(`
 Saved ${join(outDir, `${label}.json`)}`)
 } finally {
   await page?.context().browser()?.close()
 
   // The runner stops the app once this script ends, so a kept app lasts until this script is stopped.
   if (keep) {
-    console.log(`The app keeps running, with DevTools on port ${debugPort}, until this script is stopped`)
+    print(`The app keeps running, with DevTools on port ${debugPort}, until this script is stopped`)
   } else {
     stop(runner)
   }
@@ -389,6 +392,7 @@ async function measure(page: Page): Promise<Partial<Measured>> {
   // The app's own module instance, as Vite serves it to the page. Sessions are replaced as they change (the editor
   // mounting, the type checker's results), so the open tab's is looked up each time.
   await page.evaluate(async (url) => {
+    // SAFETY: the URL is the app's own workspace.ts, as Vite serves it, which exports `workspace`.
     const { workspace } = (await import(url)) as { workspace: Workspace }
     Object.defineProperty(window, "perfSession", { get: () => workspace.getActive()?.session })
   }, "/workspace.ts")
@@ -421,7 +425,8 @@ async function measure(page: Page): Promise<Partial<Measured>> {
   // The copy keeps drawing while covered, but not minimized; a run measured then is marked, not mistaken for slow.
   const hiddenSince = () =>
     page.evaluate(() => {
-      const watched = window as unknown as { perfHidden?: boolean }
+      // SAFETY: perfHidden is this script's own mark, unset until the listener below sets it.
+      const watched = window as typeof window & { perfHidden?: boolean }
       const hidden = Boolean(watched.perfHidden) || document.hidden
 
       if (watched.perfHidden === undefined) {
@@ -476,8 +481,8 @@ async function measure(page: Page): Promise<Partial<Measured>> {
   const memoryMb = await memory(page, cdp)
 
   // Last, since it opens another project in a second tab.
-  const hidden = await hiddenTab(page, cdp, census.frames!).catch((error: unknown) => {
-    console.error("The hidden tab wasn't measured:", error)
+  const hidden = await hiddenTab(page, cdp, census.frames!).catch((cause: unknown) => {
+    console.error("The hidden tab wasn't measured:", cause)
 
     return undefined
   })
@@ -490,7 +495,7 @@ async function measure(page: Page): Promise<Partial<Measured>> {
     select,
     edit,
     memoryMb,
-    ...(hidden ? { hidden } : {})
+    hidden
   }
 }
 
@@ -508,6 +513,7 @@ async function opened(page: Page, reopen?: string): Promise<Opening> {
       let start = 0
 
       if (root) {
+        // SAFETY: the URL is the app's own workspace.ts, as Vite serves it, which exports `workspace`.
         const { workspace } = (await import(url)) as { workspace: Workspace }
 
         for (const tab of workspace.getTabs()) {
@@ -583,19 +589,27 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
     }
 
     if (motion !== "zoom" && motion !== "pan" && motion !== "pan at 100%") {
-      ;(window as unknown as PerfWindow).perfSession.selection.set({})
+      // SAFETY: connect() defines perfSession on the window before anything here runs in it.
+      const { perfSession } = window as typeof window & PerfWindow
+      perfSession.selection.set({})
     }
 
     function perfEditor() {
-      return (window as unknown as PerfWindow).perfSession.editor!
+      // SAFETY: connect() defines perfSession on the window before anything here runs in it.
+      return (window as typeof window & PerfWindow).perfSession.editor!
     }
   }, motion)
 
   if (overLayer) {
     // The design draws at 100% before a layer in it is picked.
     await page.waitForTimeout(1500)
-    const outlines = { "zoom at 100%": "none", "zoom hovering a layer": "hover" } as const
-    await pointAtLayer(page, motion in outlines ? outlines[motion as keyof typeof outlines] : "select")
+
+    const outlines = new Map<Motion, "none" | "hover">([
+      ["zoom at 100%", "none"],
+      ["zoom hovering a layer", "hover"]
+    ])
+
+    await pointAtLayer(page, outlines.get(motion) ?? "select")
   }
 
   // Whatever waits for the camera to stop, such as debounced styles, catches up first.
@@ -610,7 +624,8 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
     page.evaluate(
       ([motion, seconds]) =>
         new Promise<{ times: number[]; off?: Run["outlineOff"] }>((resolve, reject) => {
-          const perf = window as unknown as PerfWindow
+          // SAFETY: connect() defines perfSession on the window before anything here runs in it.
+          const perf = window as typeof window & PerfWindow
           const editor = perf.perfSession.editor!
           const start = editor.getCamera()
           const viewport = editor.getViewportScreenBounds()
@@ -639,7 +654,7 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
                 return reject(new Error("The wheel didn't zoom the canvas"))
               }
 
-              return resolve({ times, ...(off ? { off } : {}) })
+              return resolve({ times, off })
             }
 
             const wave = Math.sin(t * Math.PI)
@@ -722,9 +737,9 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
 
               checked++
 
-              const outlines = [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")]
-                .filter((element) => element.style.outline !== "")
-                .map((element) => element.getBoundingClientRect())
+              const outlines = [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")].flatMap((element) =>
+                element.style.outline === "" ? [] : [element.getBoundingClientRect()]
+              )
 
               const distance = Math.min(
                 Infinity,
@@ -784,7 +799,7 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
   const percentile = (p: number) => round(intervals[Math.min(intervals.length - 1, Math.floor(intervals.length * p))]!)
   const count = Math.max(1, frames.length - 1)
 
-  const perFrame: Record<string, number> = {
+  const perFrame: Run["perFrame"] = {
     style: round((metrics.RecalcStyleDuration! * 1000) / count),
     layout: round((metrics.LayoutDuration! * 1000) / count),
     script: round((metrics.ScriptDuration! * 1000) / count),
@@ -807,8 +822,8 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
     frameMs: { p50: percentile(0.5), p90: percentile(0.9), max: round(intervals.at(-1) ?? 0) },
     perFrame,
     styledPerFrame: Math.round(trace.styledElements / count),
-    ...(off ? { outlineOff: off } : {}),
-    ...(hot ? { hot } : {})
+    outlineOff: off,
+    hot
   }
 }
 
@@ -821,12 +836,14 @@ async function moveCamera(page: Page, cdp: CDPSession, motion: Motion): Promise<
 async function pointAtLayer(page: Page, outline: "none" | "hover" | "select"): Promise<void> {
   const found = await page.evaluate(
     async ([url, outline]) => {
-      const perf = window as unknown as PerfWindow
+      // SAFETY: connect() defines perfSession on the window before anything here runs in it.
+      const perf = window as typeof window & PerfWindow
+      // SAFETY: the URL is the app's own module that exports `nodeBox`, as Vite serves it.
       const { nodeBox } = (await import(url)) as { nodeBox: PerfWindow["perfNodeBox"] }
       perf.perfNodeBox = nodeBox
       const { editor, selection } = perf.perfSession
       const first = editor!.getCurrentPageShapesSorted()[0]
-      const key = first && (first.props as { key?: string }).key
+      const key = first && "key" in first.props ? first.props.key : undefined
       const view = editor!.getViewportScreenBounds()
       const middle = { x: view.x + view.w / 2, y: view.y + view.h / 2 }
 
@@ -905,7 +922,8 @@ async function pointAtLayer(page: Page, outline: "none" | "hover" | "select"): P
  */
 async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit"): Promise<Measured["select"]> {
   await page.evaluate(() => {
-    const editor = (window as unknown as PerfWindow).perfSession.editor!
+    // SAFETY: connect() defines perfSession on the window before anything here runs in it.
+    const editor = (window as typeof window & PerfWindow).perfSession.editor!
     editor.zoomToFit({ animation: { duration: 0 } })
   })
   await page.waitForTimeout(1000)
@@ -916,7 +934,8 @@ async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit
     hot
   } = await recorded(cdp, () =>
     page.evaluate(async (change) => {
-      const session = (window as unknown as PerfWindow).perfSession
+      // SAFETY: connect() defines perfSession on the window before anything here runs in it.
+      const session = (window as typeof window & PerfWindow).perfSession
 
       const keys = session.store
         .getEntries()
@@ -964,7 +983,7 @@ async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit
     medianMs: round(sorted[Math.floor(sorted.length / 2)] ?? 0),
     maxMs: round(sorted.at(-1) ?? 0),
     mainMsPerSelect: round((metrics.TaskDuration! * 1000) / Math.max(1, times.length)),
-    ...(hot ? { hot } : {})
+    hot
   }
 }
 
@@ -981,13 +1000,14 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<M
   // Keyed by design, since the shapes' ids aren't kept across sessions.
   const boards = () =>
     page.evaluate(() => {
-      const editor = (window as unknown as PerfWindow).perfSession.editor!
+      // SAFETY: connect() defines perfSession on the window before anything here runs in it.
+      const editor = (window as typeof window & PerfWindow).perfSession.editor!
 
       return Object.fromEntries(
-        editor.getCurrentPageShapes().map((shape) => {
-          const box = editor.getShapePageBounds(shape)!
+        editor.getCurrentPageShapes().flatMap((item) => {
+          const box = editor.getShapePageBounds(item)!
 
-          return [(shape.props as { key: string }).key, `${Math.round(box.w)}×${Math.round(box.h)}`]
+          return "key" in item.props ? [[item.props.key, `${Math.round(box.w)}×${Math.round(box.h)}`]] : []
         })
       )
     })
@@ -1015,6 +1035,7 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<M
 
   const first = await page.evaluate(
     async ([url, root]) => {
+      // SAFETY: the URL is the app's own workspace.ts, as Vite serves it, which exports `workspace`.
       const { workspace } = (await import(url)) as { workspace: Workspace }
       const first = workspace.getActive()!.id
       const tab = await workspace.open(root)
@@ -1033,6 +1054,7 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<M
 
   const back = await page.evaluate(
     async ([url, id, frames]) => {
+      // SAFETY: the URL is the app's own workspace.ts, as Vite serves it, which exports `workspace`.
       const { workspace } = (await import(url)) as { workspace: Workspace }
       const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
       const hosts = () => [...document.querySelectorAll("[data-frame]")].filter((host) => !host.closest("[hidden]"))
@@ -1109,12 +1131,13 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<M
  */
 async function visitEveryBoard(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const editor = (window as unknown as PerfWindow).perfSession.editor!
+    // SAFETY: connect() defines perfSession on the window before anything here runs in it.
+    const editor = (window as typeof window & PerfWindow).perfSession.editor!
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-    const shapes = editor.getCurrentPageShapesSorted()
+    const items = editor.getCurrentPageShapesSorted()
 
-    for (const shape of [...shapes, shapes[0]]) {
-      const bounds = shape && editor.getShapePageBounds(shape)
+    for (const item of [...items, items[0]]) {
+      const bounds = item && editor.getShapePageBounds(item)
 
       if (!bounds) {
         continue
@@ -1155,7 +1178,7 @@ async function soaked(page: Page, cdp: CDPSession, minutes: number): Promise<Soa
     const replay = await replayState(page)
     const reading = { minute: round((Date.now() - started) / 60_000), rounds, nodes, heapMb, windowMb, replay }
     readings.push(reading)
-    console.log(
+    print(
       `  ${reading.minute} min, ${rounds} rounds: ${nodes} nodes, ${heapMb} MB heap, ${windowMb} MB window, replay ${replay}`
     )
   }
@@ -1187,6 +1210,7 @@ async function replayState(page: Page): Promise<ReplayState> {
       throw new Error("replay.ts doesn't import Sentry as perf expects")
     }
 
+    // SAFETY: the URL is the Sentry module replay.ts imports, which exports `getReplay`.
     const { getReplay } = (await import(url)) as {
       getReplay: () => { _replay?: { isEnabled(): boolean; isPaused(): boolean } } | undefined
     }
@@ -1207,7 +1231,7 @@ async function memory(page: Page, cdp: CDPSession): Promise<Record<string, numbe
   // The first reading starts what reads each process's private memory on Windows, so the second is the one kept.
   await page.evaluate(() => window.canvasHost.metrics())
   const processes = await page.evaluate(() => window.canvasHost.metrics())
-  const byRole: Record<string, number> = { "js heap": Math.round(heap / 2 ** 20) }
+  const byRole: Measured["memoryMb"] = { "js heap": Math.round(heap / 2 ** 20) }
 
   for (const usage of processes) {
     byRole[usage.role] = (byRole[usage.role] ?? 0) + Math.round(usage.memory / 2 ** 20)
@@ -1229,6 +1253,8 @@ async function recorded<T>(
   hot?: Hot[]
 }> {
   const events: { name: string; ph: string; dur?: number; args?: { elementCount?: number } }[] = []
+  // SAFETY: Chrome's trace events each have a name and a phase, and a duration and an element count where they apply,
+  // as its Trace Event Format sets out.
   const collect = (event: { value: object[] }) => events.push(...(event.value as typeof events))
   cdp.on("Tracing.dataCollected", collect)
   await cdp.send("Tracing.start", {
@@ -1271,7 +1297,7 @@ async function recorded<T>(
 
   const metrics = Object.fromEntries(Object.keys(after).map((name) => [name, after[name]! - (before[name] ?? 0)]))
 
-  return { frames, metrics, trace: { durations, styledElements }, ...(hot ? { hot } : {}) }
+  return { frames, metrics, trace: { durations, styledElements }, hot }
 }
 
 /**
@@ -1333,53 +1359,53 @@ function report(result: Result, previous: Result | undefined): void {
     return `${before} → ${value}${change}`
   }
 
-  console.log(`\n${result.label}${previous ? ` compared with ${previous.label}` : ""}`)
+  print(`\n${result.label}${previous ? ` compared with ${previous.label}` : ""}`)
   const { census } = result
 
   if (census) {
-    console.log(
+    print(
       `${census.designs} designs, ${census.frames} frames, ${census.frameElements} elements in frames, ` +
         `${census.width}×${census.height} at ${census.pixelRatio}x, ${census.bitmaps} with bitmaps`
     )
   }
 
   if (census && previous?.census && previous.census.frameElements !== census.frameElements) {
-    console.log(
-      `  (the earlier run had ${previous.census.designs} designs and ${previous.census.frameElements} elements)`
-    )
+    print(`  (the earlier run had ${previous.census.designs} designs and ${previous.census.frameElements} elements)`)
   }
 
   if (result.open) {
-    console.log(
+    print(
       `\nopening, ms until every frame shows its design, bitmap or placeholder, then until every frame has its bitmap`
     )
 
+    const opened = new Map(Object.entries(previous?.open ?? {}))
+
     for (const [name, now] of Object.entries(result.open)) {
-      const before = previous?.open?.[name as keyof NonNullable<Result["open"]>]
+      const before = opened.get(name)
       const missing = now.bitmaps < now.frames ? `, ${now.frames - now.bitmaps} of ${now.frames} never got one` : ""
-      console.log(`  ${`${name} usable`.padEnd(18)}${column(now.usableMs, before?.usableMs)}`)
-      console.log(`  ${`${name} previews`.padEnd(18)}${column(now.previewsMs, before?.previewsMs)}${missing}`)
+      print(`  ${`${name} usable`.padEnd(18)}${column(now.usableMs, before?.usableMs)}`)
+      print(`  ${`${name} previews`.padEnd(18)}${column(now.previewsMs, before?.previewsMs)}${missing}`)
     }
   }
 
   for (const run of result.runs ?? []) {
     const before = previous?.runs?.find((candidate) => candidate.name === run.name)
-    console.log(`\n${run.name}${run.hidden ? " (the window was hidden, so these don't count)" : ""}`)
-    console.log(`  fps               ${column(run.fps, before?.fps)}`)
-    console.log(`  frame p50 ms      ${column(run.frameMs.p50, before?.frameMs.p50)}`)
-    console.log(`  frame p90 ms      ${column(run.frameMs.p90, before?.frameMs.p90)}`)
-    console.log(`  frame max ms      ${column(run.frameMs.max, before?.frameMs.max)}`)
+    print(`\n${run.name}${run.hidden ? " (the window was hidden, so these don't count)" : ""}`)
+    print(`  fps               ${column(run.fps, before?.fps)}`)
+    print(`  frame p50 ms      ${column(run.frameMs.p50, before?.frameMs.p50)}`)
+    print(`  frame p90 ms      ${column(run.frameMs.p90, before?.frameMs.p90)}`)
+    print(`  frame max ms      ${column(run.frameMs.max, before?.frameMs.max)}`)
 
     for (const [key, value] of Object.entries(run.perFrame)) {
-      console.log(`  ${`${key} ms/frame`.padEnd(18)}${column(value, before?.perFrame[key])}`)
+      print(`  ${`${key} ms/frame`.padEnd(18)}${column(value, before?.perFrame[key])}`)
     }
 
-    console.log(`  styled/frame      ${column(run.styledPerFrame, before?.styledPerFrame)}`)
+    print(`  styled/frame      ${column(run.styledPerFrame, before?.styledPerFrame)}`)
 
     if (run.outlineOff) {
       const { frames, checked, maxPx } = run.outlineOff
       const was = before?.outlineOff ? ` (was ${before.outlineOff.frames} of ${before.outlineOff.checked})` : ""
-      console.log(`  outline off       ${frames} of ${checked} frames, by up to ${maxPx}px${was}`)
+      print(`  outline off       ${frames} of ${checked} frames, by up to ${maxPx}px${was}`)
     }
 
     printHot(run.hot)
@@ -1393,50 +1419,50 @@ function report(result: Result, previous: Result | undefined): void {
       continue
     }
 
-    console.log(`\n${name}`)
-    console.log(`  median ms         ${column(now.medianMs, before?.medianMs)}`)
-    console.log(`  max ms            ${column(now.maxMs, before?.maxMs)}`)
-    console.log(`  main ms each      ${column(now.mainMsPerSelect, before?.mainMsPerSelect)}`)
+    print(`\n${name}`)
+    print(`  median ms         ${column(now.medianMs, before?.medianMs)}`)
+    print(`  max ms            ${column(now.maxMs, before?.maxMs)}`)
+    print(`  main ms each      ${column(now.mainMsPerSelect, before?.mainMsPerSelect)}`)
     printHot(now.hot)
   }
 
   if (result.hidden) {
     const before = previous?.hidden
-    console.log(`\nwith another tab showing`)
-    console.log(`  nodes shown       ${column(result.hidden.nodesShown, before?.nodesShown)}`)
-    console.log(`  nodes hidden      ${column(result.hidden.nodesHidden, before?.nodesHidden)}`)
-    console.log(`  heap shown MB     ${column(result.hidden.heapShownMb, before?.heapShownMb)}`)
-    console.log(`  heap hidden MB    ${column(result.hidden.heapHiddenMb, before?.heapHiddenMb)}`)
-    console.log(`  back shown ms     ${column(result.hidden.backMs, before?.backMs)}`)
+    print(`\nwith another tab showing`)
+    print(`  nodes shown       ${column(result.hidden.nodesShown, before?.nodesShown)}`)
+    print(`  nodes hidden      ${column(result.hidden.nodesHidden, before?.nodesHidden)}`)
+    print(`  heap shown MB     ${column(result.hidden.heapShownMb, before?.heapShownMb)}`)
+    print(`  heap hidden MB    ${column(result.hidden.heapHiddenMb, before?.heapHiddenMb)}`)
+    print(`  back shown ms     ${column(result.hidden.backMs, before?.backMs)}`)
 
     if (result.hidden.backWokenMs !== undefined) {
-      console.log(`  back woken ms     ${column(result.hidden.backWokenMs, before?.backWokenMs)}`)
-      console.log(`  frames awake      ${column(result.hidden.backAwake ?? 0, before?.backAwake)}`)
+      print(`  back woken ms     ${column(result.hidden.backWokenMs, before?.backWokenMs)}`)
+      print(`  frames awake      ${column(result.hidden.backAwake ?? 0, before?.backAwake)}`)
     }
 
-    console.log(`  back longest ms   ${column(result.hidden.backLongestMs, before?.backLongestMs)}`)
-    console.log(`  boards resized    ${result.hidden.resizedDrawn} once drawn, ${result.hidden.resizedLater} after 3 s`)
+    print(`  back longest ms   ${column(result.hidden.backLongestMs, before?.backLongestMs)}`)
+    print(`  boards resized    ${result.hidden.resizedDrawn} once drawn, ${result.hidden.resizedLater} after 3 s`)
 
     for (const board of result.hidden.resized?.slice(0, 10) ?? []) {
-      console.log(`    ${board}`)
+      print(`    ${board}`)
     }
   }
 
   if (result.soak?.length) {
     const [first, last] = [result.soak[0]!, result.soak.at(-1)!]
-    console.log(`\n${last.minute} minutes, ${last.rounds} rounds, with diagnostics ${result.telemetry ?? "as set"}`)
-    console.log(`  nodes             ${first.nodes} → ${last.nodes}`)
-    console.log(`  heap MB           ${first.heapMb} → ${last.heapMb}`)
-    console.log(`  window MB         ${first.windowMb} → ${last.windowMb}`)
+    print(`\n${last.minute} minutes, ${last.rounds} rounds, with diagnostics ${result.telemetry ?? "as set"}`)
+    print(`  nodes             ${first.nodes} → ${last.nodes}`)
+    print(`  heap MB           ${first.heapMb} → ${last.heapMb}`)
+    print(`  window MB         ${first.windowMb} → ${last.windowMb}`)
     const recording = result.soak.filter((reading) => reading.replay === "recording").length
-    console.log(`  replay recording  ${recording} of ${result.soak.length} readings`)
+    print(`  replay recording  ${recording} of ${result.soak.length} readings`)
   }
 
   if (result.memoryMb) {
-    console.log(`\nmemory MB`)
+    print(`\nmemory MB`)
 
     for (const [role, value] of Object.entries(result.memoryMb)) {
-      console.log(`  ${role.padEnd(13)}${column(value, previous?.memoryMb?.[role])}`)
+      print(`  ${role.padEnd(13)}${column(value, previous?.memoryMb?.[role])}`)
     }
   }
 }
@@ -1446,10 +1472,10 @@ function printHot(hot: Hot[] | undefined): void {
     return
   }
 
-  console.log("  most time in")
+  print("  most time in")
 
   for (const { at, ms } of hot) {
-    console.log(`    ${String(ms).padStart(7)} ms  ${at}`)
+    print(`    ${String(ms).padStart(7)} ms  ${at}`)
   }
 }
 

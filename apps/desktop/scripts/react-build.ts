@@ -23,8 +23,14 @@ export function reactBuild(value: string | undefined): ReactBuild {
   throw new Error(`--react is ${JSON.stringify(value)}, but it takes "production" or "development"`)
 }
 
+/** What a script's arguments say about the React build: the build, and the arguments left once `--react` is out. */
+export interface ReactFlag {
+  build: ReactBuild
+  rest: string[]
+}
+
 /** The build `--react` names among a script's arguments, and the arguments left once it's taken out. */
-export function reactFlag(args: readonly string[]): { build: ReactBuild; rest: string[] } {
+export function reactFlag(args: readonly string[]): ReactFlag {
   const index = args.indexOf("--react")
 
   if (index === -1) {

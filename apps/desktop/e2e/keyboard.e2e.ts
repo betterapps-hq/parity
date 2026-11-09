@@ -195,11 +195,11 @@ describe("nudging", () => {
       const e2e = window.e2e!
       const editor = e2e.session().editor!
 
-      const shape = editor
+      const found = editor
         .getCurrentPageShapes()
         .find((candidate) => candidate.id.endsWith(encodeURIComponent(e2e.key("Pricing"))))!
 
-      return { x: shape.x, y: shape.y }
+      return { x: found.x, y: found.y }
     })
 
     expect(board).toEqual({ x: at.x - 1, y: at.y - 10 })
@@ -355,8 +355,8 @@ describe("paste over selection and paste to replace", () => {
 
     const onTop = await app.page.evaluate(
       ([copy, under]) => {
-        const shapes = window.e2e!.session().editor!.getCurrentPageShapesSorted()
-        const index = (key: string) => shapes.findIndex((shape) => shape.id.endsWith(encodeURIComponent(key)))
+        const items = window.e2e!.session().editor!.getCurrentPageShapesSorted()
+        const index = (key: string) => items.findIndex((item) => item.id.endsWith(encodeURIComponent(key)))
 
         return index(copy) > index(under)
       },

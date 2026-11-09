@@ -4,7 +4,14 @@
 import { writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
+import type { JsonValue } from "@parity-app/core/schema"
 import { chromium, type Page } from "playwright-core"
+import { print } from "../../../scripts/output.ts"
+
+/** A scenario module. What it returns is printed as JSON, so it returns JSON or nothing. */
+interface Scenario {
+  default(page: Page, helpers: { shot(name: string): Promise<string> }): Promise<JsonValue | undefined>
+}
 
 const [file] = process.argv.slice(2)
 
@@ -47,9 +54,8 @@ try {
     }
   })
 
-  const scenario = (await import(pathToFileURL(resolve(file)).href)) as {
-    default(page: Page, helpers: { shot(name: string): Promise<string> }): Promise<unknown>
-  }
+  // SAFETY: a scenario's default export takes the page and the helpers, as the usage at the top says.
+  const scenario = (await import(pathToFileURL(resolve(file)).href)) as Scenario
 
   const result = await scenario.default(page, {
     // Best effort: a window in the background can't always be captured, and that shouldn't stop the scenario.
@@ -67,18 +73,14 @@ try {
       try {
         const cdp = await page.context().newCDPSession(page)
 
-        const { data } = (await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true })) as {
-          data: string
-        }
+        const { data } = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true })
 
         await writeFile(path, Buffer.from(data, "base64"))
         await cdp.detach()
 
         return path
       } catch (error) {
-        console.log(
-          `Screenshot ${name} failed: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`
-        )
+        print(`Screenshot ${name} failed: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`)
 
         return ""
       }
@@ -86,11 +88,11 @@ try {
   })
 
   if (result !== undefined) {
-    console.log(JSON.stringify(result, null, 2))
+    print(JSON.stringify(result, null, 2))
   }
 
   if (errors.length > 0) {
-    console.log(`Page errors:\n${errors.join("\n")}`)
+    print(`Page errors:\n${errors.join("\n")}`)
   }
 } finally {
   await browser.close()

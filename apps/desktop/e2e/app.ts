@@ -179,7 +179,7 @@ export class App {
               })
             ),
             5000
-          ).catch((reason: unknown) => `(the page didn't answer: ${String(reason)})`)
+          ).catch((cause: unknown) => `(the page didn't answer: ${String(cause)})`)
         : "(no page)"
 
       const reason = `Couldn't connect to Parity while ${step}, after ${Math.round((Date.now() - started) / 1000)}s: ${
@@ -435,22 +435,24 @@ export class App {
   /** The outlines the canvas draws over layers, selected or hovered. */
   outlines(): Promise<Box[]> {
     return this.page.evaluate(() =>
-      [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")]
-        .filter((element) => element.style.outline !== "")
-        .map((element) => {
-          const { x, y, width, height } = element.getBoundingClientRect()
+      [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")].flatMap((element) => {
+        if (element.style.outline === "") {
+          return []
+        }
 
-          return { x, y, width, height }
-        })
+        const { x, y, width, height } = element.getBoundingClientRect()
+
+        return [{ x, y, width, height }]
+      })
     )
   }
 
   /** What the canvas writes beside the selection: the layer's name and its size. */
   labels(): Promise<string[]> {
     return this.page.evaluate(() =>
-      [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")]
-        .filter((element) => element.style.outline === "" && element.textContent)
-        .map((element) => element.textContent ?? "")
+      [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")].flatMap((element) =>
+        element.style.outline === "" && element.textContent ? [element.textContent] : []
+      )
     )
   }
 

@@ -139,32 +139,6 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/require-safety-comment-for-type-assertion",
       "no-console"
     ]
-  },
-  {
-    issue: "PAR-751",
-    files: [
-      "apps/desktop/scripts/**",
-      "apps/desktop/e2e/**",
-      "apps/desktop/.storybook/**",
-      "apps/desktop/vite.config.ts",
-      "scripts/**",
-      "vite.config.ts",
-      "beachball.config.cjs"
-    ],
-    rules: [
-      "anti-slop/no-array-filter-map",
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/no-conditional-empty-object-spread",
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-shape-in-symbol-names",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "no-bitwise",
-      "no-console"
-    ]
   }
 ]
 
