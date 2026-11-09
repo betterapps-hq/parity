@@ -204,13 +204,15 @@ export interface ProcessMemory {
 }
 
 /** Which of `process.memory`'s totals each role counts toward, besides `totalBytes`. */
-const roleTotals: Record<string, "mainBytes" | "serviceBytes" | "editorBytes" | "renderBytes"> = {
-  app: "mainBytes",
-  service: "serviceBytes",
-  window: "editorBytes",
-  "this-window": "editorBytes",
-  offscreen: "renderBytes"
-}
+const roleTotals = new Map(
+  Object.entries({
+    app: "mainBytes",
+    service: "serviceBytes",
+    window: "editorBytes",
+    "this-window": "editorBytes",
+    offscreen: "renderBytes"
+  } as const)
+)
 
 /**
  * `process.memory`'s attributes from each process's memory: a whole number of bytes per role, which Sentry's logs can
@@ -224,7 +226,7 @@ export function memoryRecord(
   const totals = { mainBytes: 0, serviceBytes: 0, editorBytes: 0, renderBytes: 0, totalBytes: 0 }
 
   for (const { role, memory } of processes) {
-    const total = roleTotals[role]
+    const total = roleTotals.get(role)
 
     if (total) {
       totals[total] += memory
@@ -289,13 +291,16 @@ export function startupTimer(
   }
 }
 
+/** A check on an event loop: each tick says how late it ran, when that's over the threshold. */
+export interface LagCheck {
+  tick(now: number, skip?: boolean): number | undefined
+}
+
 /**
  * A check on an event loop, from a timer meant to run every `every` milliseconds: each tick says how late it ran when
  * that's over `threshold`. `skip` drops a tick, as after the computer slept.
  */
-export function lagCheck({ every, threshold, start }: { every: number; threshold: number; start: number }): {
-  tick(now: number, skip?: boolean): number | undefined
-} {
+export function lagCheck({ every, threshold, start }: { every: number; threshold: number; start: number }): LagCheck {
   let expected = start + every
 
   return {
@@ -347,8 +352,12 @@ export function updateRecord(
   }
 
   if (next.phase === "error" && previous.phase !== "error") {
-    const stages = { downloading: "download", installing: "install" } as const
-    const stage = stages[previous.phase as keyof typeof stages] ?? "check"
+    const stages: Partial<Record<UpdatePhase["phase"], "download" | "install">> = {
+      downloading: "download",
+      installing: "install"
+    }
+
+    const stage = stages[previous.phase] ?? "check"
 
     return { name: "update.failed", attributes: { ...base, stage, message: next.message } }
   }

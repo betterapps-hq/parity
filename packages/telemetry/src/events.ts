@@ -1,8 +1,8 @@
 import type { z } from "zod"
-import type { Level, Process } from "./envelope.ts"
+import type { Attributes, Level, Process } from "./envelope.ts"
 
 /** An event's attributes: an object of named fields, so each is searchable in Sentry and listed in the catalog. */
-export type AttributesSchema = z.ZodType<Record<string, unknown>>
+export type AttributesSchema = z.ZodType<Attributes, Attributes>
 
 /**
  * A registered event: its name, the schema its attributes follow, its level, the share of them kept, the processes that

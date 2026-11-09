@@ -210,11 +210,25 @@ function compoundTheme(part: string): CompoundTheme | undefined {
     return undefined
   }
 
-  return {
-    root: root || names[0] === "light",
-    ...(name === undefined ? {} : { name }),
-    ...(name !== undefined && attribute !== undefined ? { attribute } : {})
+  const theme: CompoundTheme = { root: root || names[0] === "light" }
+
+  if (name !== undefined) {
+    theme.name = name
+
+    if (attribute !== undefined) {
+      theme.attribute = attribute
+    }
   }
+
+  return theme
+}
+
+/** Attributes by name, with their values, that a frame's body is given. */
+export type FrameAttributes = Record<string, string>
+
+/** The attributes that switch each theme on, by theme. */
+export interface ThemeAttributes {
+  [theme: string]: FrameAttributes
 }
 
 /**
@@ -227,11 +241,9 @@ function compoundTheme(part: string): CompoundTheme | undefined {
  * (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed: a frame's root is the shadow host, which
  * the mode's attributes don't reach.
  */
-export function themeAttributes(
-  declarations: readonly CustomPropertyDeclaration[]
-): Record<string, Record<string, string>> {
+export function themeAttributes(declarations: readonly CustomPropertyDeclaration[]): ThemeAttributes {
   const themes = new Set(themedProperties(declarations).flatMap(({ values }) => Object.keys(values)))
-  const attributes: Record<string, Record<string, string>> = {}
+  const attributes: ThemeAttributes = {}
 
   for (const { selector, atRules } of declarations) {
     if (!isUnconditional(atRules)) {
@@ -259,13 +271,17 @@ export function themeAttributes(
  * that switch on the themes its classes name (see `themeAttributes`); then the mode's own, which win.
  */
 export function frameAttributes(
-  mode: { classNames: readonly string[]; attributes: Readonly<Record<string, string>> },
-  themes: Readonly<Record<string, Record<string, string>>>
-): Record<string, string> {
-  const scheme = { [colorSchemeAttribute]: mode.classNames.includes("dark") ? "dark" : "light" }
-  const switches = mode.classNames.map((className) => themes[className] ?? {})
+  mode: { classNames: readonly string[]; attributes: Readonly<FrameAttributes> },
+  themes: Readonly<ThemeAttributes>
+): FrameAttributes {
+  const attributes: FrameAttributes = {}
+  attributes[colorSchemeAttribute] = mode.classNames.includes("dark") ? "dark" : "light"
 
-  return Object.assign(scheme, ...switches, mode.attributes) as Record<string, string>
+  for (const className of mode.classNames) {
+    Object.assign(attributes, themes[className])
+  }
+
+  return Object.assign(attributes, mode.attributes)
 }
 
 function matchingParen(text: string, open: number): number {
