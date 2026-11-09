@@ -5,13 +5,20 @@ import { readPortless } from "./portless.ts"
 /** What can be done to a process Parity started: a server stopped or restarted, a task canceled or run again. */
 interface Controls {
   stop?(): void
-  restart?(): Promise<unknown>
+  restart?(): Promise<void>
 }
 
 interface Tracked {
   process: ProjectProcess
   controls: Controls
 }
+
+/** What's known of a process as Parity starts it or picks it up again; the rest is filled in as it's listed. */
+export type ProcessEntry = Pick<
+  ProjectProcess,
+  "id" | "kind" | "lifetime" | "name" | "status" | "projectId" | "project"
+> &
+  Partial<Pick<ProjectProcess, "pid" | "url" | "startedBy" | "detail" | "progress">>
 
 /** What a process Parity started reports as it runs, and as it ends. */
 export interface ProcessHandle {
@@ -35,11 +42,7 @@ const ended = new Set<ProcessStatus>(["stopped", "failed", "passed", "canceled"]
  * its time starts over. A task's id names the task for its project, as `typecheck:<project>`, so each task shows its
  * latest run: a new run replaces the last result, which otherwise stays until it's dismissed or the project closes.
  */
-export function trackProcess(
-  entry: Pick<ProjectProcess, "id" | "kind" | "lifetime" | "name" | "status" | "projectId" | "project"> &
-    Partial<Pick<ProjectProcess, "pid" | "url" | "startedBy" | "detail" | "progress">>,
-  controls: Controls = {}
-): ProcessHandle {
+export function trackProcess(entry: ProcessEntry, controls: Controls = {}): ProcessHandle {
   const existing = tracked.get(entry.id)
 
   const process: ProjectProcess = {

@@ -102,7 +102,7 @@ export function startBuilder(
         reportBuilderCrash(builder, error.split("\n")[0] ?? error, log)
         onCrash(error, exit ?? { output: log })
       },
-      ...(onCodeChange ? { onCodeChange } : {}),
+      onCodeChange,
       cores: availableParallelism()
     }
   )
@@ -121,7 +121,17 @@ export function startBuilder(
     }
 
     ended = true
-    exit = { ...(typeof code === "number" ? { exitCode: code } : {}), ...(signal ? { signal } : {}), output: log }
+    const ending: BuilderExit = { output: log }
+
+    if (code !== null && code !== undefined) {
+      ending.exitCode = code
+    }
+
+    if (signal) {
+      ending.signal = signal
+    }
+
+    exit = ending
     running.delete(item)
     const tail = log.trim().slice(-1500)
     client.exited(tail ? `${why}:\n${tail}` : why)
@@ -141,7 +151,7 @@ export function startBuilder(
     }
   })
 
-  return { ...(child.pid ? { pid: child.pid } : {}), session: client.session }
+  return child.pid ? { pid: child.pid, session: client.session } : { session: client.session }
 }
 
 /** Each builder's CPU and memory, for the performance stats. One that doesn't answer in time is left out. */

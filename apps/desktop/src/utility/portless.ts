@@ -70,7 +70,7 @@ function alive(pid: number | undefined): boolean {
     return true
   } catch (error) {
     // It's running, as another user's.
-    return (error as NodeJS.ErrnoException).code === "EPERM"
+    return error instanceof Error && "code" in error && error.code === "EPERM"
   }
 }
 

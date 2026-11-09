@@ -27,8 +27,8 @@ export function startReopening({
   waitMs = 60_000
 }: {
   file: string | undefined
-  open: (root: string) => Promise<unknown>
-  close: (root: string) => Promise<unknown>
+  open: (root: string) => Promise<void>
+  close: (root: string) => Promise<void>
   waitMs?: number
 }): Reopening {
   const unclaimed = new Map<string, ReturnType<typeof setTimeout>>()

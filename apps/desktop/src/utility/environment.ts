@@ -61,7 +61,7 @@ export function readServiceEnvironment(env: NodeJS.ProcessEnv): ServiceEnvironme
     return parseData(serviceEnvironment, set)
   } catch (error) {
     throw new TypeError(
-      `The project service can't start with this environment variable: ${(error as Error).message.slice(1)}`
+      `The project service can't start with this environment variable: ${error instanceof Error ? error.message.slice(1) : String(error)}`
     )
   }
 }
