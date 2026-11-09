@@ -5744,8 +5744,7 @@ window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `
   telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
   nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
   its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
-- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. A render failure
-  thrown in the page arrives as Electron's "Script failed to execute", without the page's message; that's PAR-680.
+- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679.
 
 ## sharp isn't loaded in the app on Linux (PAR-688)
 
@@ -6353,3 +6352,20 @@ preload bridge and then the port), the Base UI parts each board's title mounts (
   board shows at a size it's about to leave.
 - **The rest are issues of their own:** PAR-758 for Session Replay, PAR-759 for the kept bitmaps' requests and PAR-760
   for the boards' title controls. Drawing the boards and frames themselves is left as it is.
+
+## A render page's failure keeps its own message (PAR-680)
+
+When the render page threw inside main's `executeJavaScript`, as `canvasHeight()` or `canvasAudit()` can, Electron
+rejected with only "Script failed to execute", so the Sentry error for the failed capture and the error the service gave
+an agent never said what went wrong. My calls:
+
+- **Main's calls into the page answer with data.** `pageCall` wraps each one in the page in a `try`, and answers with
+  `{ value }` or with `{ error, errorStack }`, the fields a frame's own failure already takes. `pageAnswer` checks the
+  answer, as every other render answer is checked, and throws a `PageError` with the page's message and stack. Wrapping
+  the call in main's script, not in `render.ts`, holds for project code that replaces `window.canvasHeight` too.
+- **The error goes on as it did, with a better message.** The thrown `PageError` crosses to the service and the editor
+  window through `codedErrors`, which carries its message, so the window's `render: failed` Sentry error and the
+  service's answer to an agent say what the page said. No error route was added.
+- **The page's stack goes with `frame.failed`,** recorded under the frame's span as `render threw`, as a guest's own
+  error is. The stack doesn't cross processes, since `codedErrors` sends messages, and an agent never gets the guest's
+  stack.
