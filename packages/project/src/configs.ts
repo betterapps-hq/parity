@@ -81,13 +81,10 @@ function loader(folder: string, source: ConfigSource) {
   const sources: LoadConfigSource[] = [
     {
       files: source.files,
-      ...(source.extensions ? { extensions: source.extensions } : {}),
-      ...(source.jsonc
-        ? {
-            parser: async (path: string) =>
-              path.endsWith(".json") ? parseJsonc(await readFile(path, "utf8")) : undefined
-          }
-        : {})
+      extensions: source.extensions,
+      parser: source.jsonc
+        ? async (path: string) => (path.endsWith(".json") ? parseJsonc(await readFile(path, "utf8")) : undefined)
+        : undefined
     }
   ]
 
@@ -104,7 +101,7 @@ function loader(folder: string, source: ConfigSource) {
   }
 
   // unconfig stops before `stopAt`, so the folder's parent keeps the search in the folder.
-  return createConfigLoader({ sources, cwd, ...(source.here ? { stopAt: dirname(cwd) } : {}) })
+  return createConfigLoader({ sources, cwd, stopAt: source.here ? dirname(cwd) : undefined })
 }
 
 function toPosix(path: string): string {

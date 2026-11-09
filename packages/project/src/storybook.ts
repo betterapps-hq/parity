@@ -57,14 +57,14 @@ export async function findStorybook(
       continue
     }
 
-    ;(stories[key] ??= []).push({ path, ...(parsed.title ? { title: parsed.title } : {}), exports: parsed.exports })
+    ;(stories[key] ??= []).push({ path, title: parsed.title || undefined, exports: parsed.exports })
   }
 
   return {
     configDir: posix.normalize(configDir.replaceAll("\\", "/")),
     main,
-    ...(script ? { script: script[0] } : {}),
-    ...(port ? { port } : {}),
+    script: script?.[0],
+    port: port || undefined,
     stories
   }
 }
@@ -81,7 +81,7 @@ export async function storybookConfig(
   const configDir = (script && commandOption(script[1], ["-c", "--config-dir"])) ?? ".storybook"
   const main = await findConfig(root, join(root, configDir), mainConfig)
 
-  return main ? { configDir, main, ...(script ? { script } : {}) } : undefined
+  return main ? { configDir, main, script } : undefined
 }
 
 async function findStoryFiles(root: string): Promise<string[]> {
@@ -106,13 +106,20 @@ async function findStoryFiles(root: string): Promise<string[]> {
   return found.sort()
 }
 
+/** What a CSF file says: its meta's component and title, and the stories it exports. */
+export interface ParsedStoryFile {
+  component?: string
+  title?: string
+  exports: string[]
+}
+
 /** The meta's component and title, and the stories a CSF file exports. */
-export function parseStoryFile(source: string): { component?: string; title?: string; exports: string[] } {
+export function parseStoryFile(source: string): ParsedStoryFile {
   const component = /\bcomponent\s*:\s*([A-Za-z_$][\w$]*)/.exec(source)?.[1]
   const title = /\btitle\s*:\s*["'`]([^"'`]+)["'`]/.exec(source)?.[1]
   const exports = [...source.matchAll(/export\s+const\s+([A-Za-z_$][\w$]*)/g)].map((match) => match[1]!)
 
-  return { ...(component ? { component } : {}), ...(title ? { title } : {}), exports }
+  return { component: component || undefined, title: title || undefined, exports }
 }
 
 /** What each imported name refers to: the module it comes from and the name it has there. */

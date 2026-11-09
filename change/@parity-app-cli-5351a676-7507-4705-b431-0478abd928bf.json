@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "process.memory sends each role's memory and bitmapCache.used each hit rate as numbers Sentry can chart",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
