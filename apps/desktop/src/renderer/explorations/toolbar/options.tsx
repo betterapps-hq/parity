@@ -293,20 +293,35 @@ function ReviewTools({
   )
 }
 
+/** What Esc does while a review tool is picked, if one is. */
+let escapeReview: (() => void) | undefined
+
+/*
+ * The canvas's shortcuts take Esc on the window while it's captured, and stop it there. Listening from when this module
+ * loads, before the app's window draws, puts this ahead of them, so Esc puts a review tool down rather than stepping
+ * back through the selection.
+ */
+window.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key === "Escape" && escapeReview) {
+      event.stopImmediatePropagation()
+      escapeReview()
+    }
+  },
+  { capture: true }
+)
+
 /** What a click does while a review tool is picked, and the way out, which Esc takes too. */
 function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
   const { doing, hint, icon: Icon } = reviewTools[tool]
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onDone()
-      }
+    escapeReview = onDone
+
+    return () => {
+      escapeReview = undefined
     }
-
-    window.addEventListener("keydown", onKey)
-
-    return () => window.removeEventListener("keydown", onKey)
   }, [onDone])
 
   return (
