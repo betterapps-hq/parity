@@ -1881,28 +1881,10 @@ export function FrameSection({
             />
           </div>
         </Field>
-        <Field label="Preset">
-          <ChoiceInput
-            value={presets.find((preset) => preset.width === frame.width)?.label}
-            options={presets.map((preset) => ({ value: preset.label, label: `${preset.label}, ${preset.width}` }))}
-            placeholder="Custom"
-            onChange={(label) => {
-              const preset = presets.find((other) => other.label === label)
-              if (preset) onChange({ ...frame, width: preset.width })
-            }}
-          />
-        </Field>
       </div>
     </PanelSection>
   )
 }
-
-const presets = [
-  { label: "Desktop", width: 1280 },
-  { label: "Laptop", width: 1024 },
-  { label: "Tablet", width: 768 },
-  { label: "Phone", width: 390 }
-]
 
 /**
  * A number typed, committed on Enter or blur, with a short label inside and a unit after: a ValueField. A length in
