@@ -11,6 +11,7 @@ import {
   type BuilderStartOptions,
   type CodeChange,
   commandOption,
+  type ExportsTarget,
   iconStyleModules,
   type LibraryInfo,
   libraryImports,
@@ -19,6 +20,7 @@ import {
   scriptRunning,
   valueImports
 } from "@parity-app/core"
+import { isComposite, isText } from "@parity-app/core/values/evaluate"
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
 import { gatherChanges, stampChange } from "./code-changes.ts"
@@ -53,7 +55,8 @@ export const viteBuilder: BuilderAdapter = {
 
     const server = await vite.createServer({
       root: options.root,
-      ...(configFile ? { configFile } : {}),
+      // Left undefined, Vite looks for the config file itself, as it does when the key is absent.
+      configFile,
       // Its own dependency cache: the project's own dev server, often running alongside, would otherwise re-optimize
       // into the same folder, and each server would then serve stale dependencies ("Outdated Optimize Dep").
       cacheDir: "node_modules/.vite-parity",
@@ -185,6 +188,7 @@ export function freePort(): Promise<number> {
     const listener = createNetServer()
     listener.once("error", reject)
     listener.listen(0, loopback, () => {
+      // SAFETY: a listener on a TCP port, once listening, has an address object; only pipes give a string.
       const { port } = listener.address() as AddressInfo
       listener.close(() => resolve(port))
     })
@@ -384,8 +388,15 @@ export function guestModuleSource(config: ProjectConfig): string {
   return guestModule(config).source
 }
 
+/** The guest module's source, the modules it imports eagerly, and those of them it can do without. */
+interface GuestModule {
+  source: string
+  imports: string[]
+  optional: ReadonlySet<string>
+}
+
 /** The source and its eager imports share one declaration so startup warms the same graph the browser will load. */
-function guestModule(config: ProjectConfig): { source: string; imports: string[]; optional: ReadonlySet<string> } {
+function guestModule(config: ProjectConfig): GuestModule {
   const imports: string[] = []
   const optional = new Set<string>()
 
@@ -630,10 +641,9 @@ async function loadProjectVite(root: string): Promise<typeof Vite> {
   const file = join(folder, "package.json")
   const { exports } = parseManifest(await readFile(file, "utf8"), file)
 
-  const entry = resolveImportCondition(
-    typeof exports === "object" && exports !== null && !Array.isArray(exports) ? exports["."] : undefined
-  )
+  const entry = resolveImportCondition(isComposite(exports) && !Array.isArray(exports) ? exports["."] : undefined)
 
+  // SAFETY: the file is the ESM entry Vite's own package.json names, so its exports are Vite's API.
   return (await import(pathToFileURL(join(folder, entry)).href)) as typeof Vite
 }
 
@@ -644,15 +654,17 @@ async function isFile(path: string): Promise<boolean> {
   )
 }
 
-function resolveImportCondition(value: unknown): string {
-  if (typeof value === "string") {
-    return value
+function resolveImportCondition(target: ExportsTarget | undefined): string {
+  if (isText(target)) {
+    return target
   }
 
-  if (typeof value === "object" && value !== null) {
+  if (isComposite(target) && !Array.isArray(target)) {
     for (const condition of ["import", "node", "default"]) {
-      if (condition in value) {
-        return resolveImportCondition((value as Record<string, unknown>)[condition])
+      const next = target[condition]
+
+      if (next !== undefined) {
+        return resolveImportCondition(next)
       }
     }
   }

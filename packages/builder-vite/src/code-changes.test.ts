@@ -9,7 +9,7 @@ interface Module {
 
 /** A module graph that stamps a module and its importers, however deep, as Vite's does for HMR. */
 function graph(...files: string[]) {
-  const modules = new Map(files.map((file) => [file, { file, importers: new Set<Module>() } as Module]))
+  const modules = new Map(files.map((file): [string, Module] => [file, { file, importers: new Set<Module>() }]))
   const imports = (importer: string, imported: string) => modules.get(imported)!.importers.add(modules.get(importer)!)
 
   const changes: ChangeGraph<Module> = {
