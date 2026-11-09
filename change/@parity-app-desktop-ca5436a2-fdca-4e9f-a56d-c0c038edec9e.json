@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep what GitHub says about the installed version through the cache it now shares with the CLI",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

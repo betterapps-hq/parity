@@ -2,6 +2,35 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 13:04:55 GMT",
+      "version": "0.45.0",
+      "tag": "@parity-app/desktop_v0.45.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c1d629545de2329688db91ac013bedd2655e1ff4",
+            "comment": "Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit helpers, and module exports are checked with instanceof Function"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0aba5f352906a36662f444280c6459e9273f9ead",
+            "comment": "Keep what GitHub says about the installed version through the cache it now shares with the CLI"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cebe1620a315a3eb7f89a30f2a0ae9ed3c981de7",
+            "comment": "The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered, focused or dragged, with value chips in dark text"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 12:29:40 GMT",
       "version": "0.44.0",
       "tag": "@parity-app/desktop_v0.44.0",

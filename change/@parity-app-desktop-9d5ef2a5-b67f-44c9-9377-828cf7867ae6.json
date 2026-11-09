@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered, focused or dragged, with value chips in dark text",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
