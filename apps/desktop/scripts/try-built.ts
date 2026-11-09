@@ -1,25 +1,24 @@
 import { spawnSync } from "node:child_process"
 // CI-only production startup check (PAR-8). Run the built files outside the checkout, with no UI dev server.
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink } from "node:fs/promises"
-import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { join, relative, resolve, sep } from "node:path"
 import { parseManifest } from "@parity-app/core"
 import { _electron, type ElectronApplication } from "playwright-core"
+import { z } from "zod"
+import { print } from "../../../scripts/output.ts"
+import { agentAnswer, agentConnection } from "./agent-connection.ts"
+import { installedElectron } from "./parity-electron.ts"
+
+/** An agent call that failed and says why. */
+const agentFailure = z.object({ error: z.string() })
 
 if (process.env.CI !== "true") {
   throw new Error("The production app startup check runs only in CI.")
 }
 
 const appDir = resolve(import.meta.dirname, "..")
-const require = createRequire(join(appDir, "package.json"))
-const developmentExecutable: unknown = require("electron")
-
-if (typeof developmentExecutable !== "string") {
-  throw new Error("Electron did not report its executable.")
-}
-
-let executable = developmentExecutable
+let executable = installedElectron()
 const work = await realpath(await mkdtemp(join(tmpdir(), "parity-built-")))
 const stage = join(work, "app")
 const agentFile = join(work, "agent.json")
@@ -140,7 +139,7 @@ try {
   const window = await electron.firstWindow()
   const errors: string[] = []
   window.on("pageerror", (error) => errors.push(error.message))
-  window.on("console", (message) => console.log(`[renderer ${message.type()}] ${message.text()}`))
+  window.on("console", (message) => print(`[renderer ${message.type()}] ${message.text()}`))
   await window.waitForURL("parity://app/index.html")
   await window.waitForFunction(() => document.getElementById("root")?.childElementCount)
 
@@ -157,15 +156,13 @@ try {
 
   while (!connected && Date.now() < deadline) {
     try {
-      const agent: unknown = JSON.parse(await readFile(agentFile, "utf8"))
+      const read = agentConnection.safeParse(JSON.parse(await readFile(agentFile, "utf8")))
 
-      if (!agent || typeof agent !== "object" || !("url" in agent) || !("token" in agent)) {
+      if (!read.success) {
         throw new Error("Not ready")
       }
 
-      if (typeof agent.url !== "string" || typeof agent.token !== "string") {
-        throw new Error("Not ready")
-      }
+      const agent = read.data
 
       const response = await fetch(`${agent.url}/rpc`, {
         method: "POST",
@@ -174,14 +171,12 @@ try {
         signal: AbortSignal.timeout(2000)
       })
 
-      const result: unknown = await response.json()
-      connected = response.ok && !!result && typeof result === "object" && "result" in result && !("error" in result)
+      const reply = await response.json()
+      connected = response.ok && agentAnswer.safeParse(reply).success
 
       if (!connected) {
-        agentProblem =
-          result && typeof result === "object" && "error" in result && typeof result.error === "string"
-            ? result.error
-            : `Unexpected agent response (HTTP ${response.status})`
+        const failure = agentFailure.safeParse(reply)
+        agentProblem = failure.success ? failure.data.error : `Unexpected agent response (HTTP ${response.status})`
       }
     } catch (error) {
       // The service writes its discovery file and connects the renderer after the window starts loading.
@@ -210,7 +205,7 @@ try {
     throw new Error(errors.join("\n"))
   }
 
-  console.log("The production renderer and service started outside the checkout without a dev server.")
+  print("The production renderer and service started outside the checkout without a dev server.")
 } finally {
   await electron?.close()
 

@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process"
 import { readdirSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
-import { type LoggedEvent, parseLogLines } from "@parity-app/telemetry"
+import { type AttributeValue, type LoggedEvent, parseLogLines } from "@parity-app/telemetry"
 import { inject } from "vite-plus/test"
 import { appEnvironment } from "./launch.ts"
 
@@ -41,8 +41,8 @@ export const cliEvents = (): LoggedEvent[] => readFolder(cliLogs())
 /** What an event has to match: its name, and any of its envelope's fields or its attributes. */
 export interface Match {
   name: string
-  attributes?: Record<string, unknown>
-  [field: string]: unknown
+  attributes?: Record<string, AttributeValue>
+  [field: string]: AttributeValue
 }
 
 /** Whether an event is the one a match describes. */
@@ -51,10 +51,10 @@ function matches(event: LoggedEvent, { name, attributes = {}, ...fields }: Match
     return false
   }
 
-  const envelope: Record<string, unknown> = { ...event }
+  const envelope = new Map(Object.entries(event))
 
   return (
-    Object.entries(fields).every(([key, value]) => envelope[key] === value) &&
+    Object.entries(fields).every(([key, value]) => envelope.get(key) === value) &&
     Object.entries(attributes).every(([key, value]) => event.attributes[key] === value)
   )
 }
@@ -70,10 +70,7 @@ export function trace(events: LoggedEvent[], traceId: string | undefined): strin
     return []
   }
 
-  return events
-    .filter((event) => event.traceId === traceId)
-    .map((event) => `${event.process} ${event.name}`)
-    .sort()
+  return events.flatMap((event) => (event.traceId === traceId ? [`${event.process} ${event.name}`] : [])).sort()
 }
 
 /** The `test_run` the suite gives the app on CI, as main writes it on every line of the local copy, or none locally. */

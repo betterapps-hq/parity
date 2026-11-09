@@ -12,7 +12,8 @@ import { join, resolve } from "node:path"
 import { type BuildContext, type BuildOptions, context, type Plugin } from "esbuild"
 import { createServer } from "vite"
 import { currentCommit } from "../../../scripts/commit.ts"
-import { parityElectron } from "./parity-electron.ts"
+import { print } from "../../../scripts/output.ts"
+import { installedElectron, parityElectron } from "./parity-electron.ts"
 import { reactFlag, reactProductionMode } from "./react-build.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
@@ -28,18 +29,18 @@ const frozen = process.env.PARITY_UI_FROZEN === "1"
 const { build: react, rest: args } = reactFlag(process.argv.slice(2))
 const project = resolve(args[0] ?? process.env.PARITY_PROJECT ?? join(repoDir, "examples/shadcn-vite"))
 const debugPort = process.env.PARITY_DEBUG_PORT ?? "9333"
-const installedElectron = (await import("electron")).default as unknown as string
 
 const electronPath =
-  process.env.PARITY_STANDARD_ELECTRON === "1" ? installedElectron : parityElectron(installedElectron)
+  process.env.PARITY_STANDARD_ELECTRON === "1" ? installedElectron() : parityElectron(installedElectron())
 
-console.log(`[dev] React's ${react} build`)
+print(`[dev] React's ${react} build`)
 
 // The UI's Vite config gives the window React's production build in this mode, and the development build otherwise.
 const ui = await createServer({
   configFile: join(appDir, "vite.config.ts"),
   root: join(appDir, "src/renderer"),
-  ...(react === "production" ? { mode: reactProductionMode } : {})
+  // Unset for the development build, which leaves Vite's own mode.
+  mode: react === "production" ? reactProductionMode : undefined
 })
 
 await ui.listen()
@@ -158,9 +159,9 @@ function startElectron(): void {
   }
 
   delete env.ELECTRON_RUN_AS_NODE
-  console.log(`[dev] canvas UI ${rendererUrl}`)
-  console.log(`[dev] project ${project}`)
-  console.log(`[dev] DevTools protocol on port ${debugPort}`)
+  print(`[dev] canvas UI ${rendererUrl}`)
+  print(`[dev] project ${project}`)
+  print(`[dev] DevTools protocol on port ${debugPort}`)
   electron = spawn(electronPath, [uiPort === "5310" ? appDir : join(outDir, "main.mjs")], { stdio: "inherit", env })
   electron.on("exit", () => {
     if (restarting) {
@@ -177,7 +178,7 @@ function restartElectron(): void {
     return
   }
 
-  console.log("[dev] main process or preload changed, restarting Electron")
+  print("[dev] main process or preload changed, restarting Electron")
   restarting = true
   electron.once("exit", () => {
     restarting = false

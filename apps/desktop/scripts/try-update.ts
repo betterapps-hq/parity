@@ -2,12 +2,16 @@
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { createReadStream } from "node:fs"
 import { chmod, cp, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises"
-import { createServer, type Server } from "node:http"
+import { createServer, type OutgoingHttpHeaders, type Server } from "node:http"
+import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
 import { basename, join, relative, resolve, sep } from "node:path"
 import { Transform } from "node:stream"
 import type { UpdateState } from "@parity-app/core"
 import { type Browser, chromium, type Locator, type Page } from "playwright-core"
+import { z } from "zod"
+import { print } from "../../../scripts/output.ts"
+import { agentAnswer, agentConnection } from "./agent-connection.ts"
 
 if (process.env.CI !== "true") {
   throw new Error("Installed update checks run only in CI.")
@@ -65,7 +69,7 @@ async function track(browser: Browser): Promise<void> {
     }
 
     if (!ownedProcesses.has(main.id)) {
-      console.log(`Tracking owned app process ${main.id}`)
+      print(`Tracking owned app process ${main.id}`)
     }
 
     ownedProcesses.add(main.id)
@@ -73,6 +77,12 @@ async function track(browser: Browser): Promise<void> {
     await withTimeout(session.detach()).catch(() => undefined)
   }
 }
+
+/** The restarted app's process and version, as the PowerShell query below prints them. */
+const appSnapshot = z.object({ pid: z.number().int().positive(), version: z.string() })
+
+/** What `exec` answers when its edit was applied. */
+const appliedEdit = z.object({ ok: z.literal(true) })
 
 /** NSIS restarts through Explorer, whose environment need not retain this check's debug/profile variables. */
 function windowsApp(): { pid: number; version: string } | undefined {
@@ -97,22 +107,13 @@ function windowsApp(): { pid: number; version: string } | undefined {
     return undefined
   }
 
-  const snapshot: unknown = JSON.parse(result.stdout)
+  const snapshot = appSnapshot.safeParse(JSON.parse(result.stdout))
 
-  if (
-    !snapshot ||
-    typeof snapshot !== "object" ||
-    !("pid" in snapshot) ||
-    typeof snapshot.pid !== "number" ||
-    !Number.isSafeInteger(snapshot.pid) ||
-    snapshot.pid <= 0 ||
-    !("version" in snapshot) ||
-    typeof snapshot.version !== "string"
-  ) {
+  if (!snapshot.success) {
     throw new Error("Invalid restarted app process information.")
   }
 
-  return { pid: snapshot.pid, version: snapshot.version }
+  return snapshot.data
 }
 
 function run(command: string, args: string[], cwd = appDir): void {
@@ -201,12 +202,17 @@ async function serve(): Promise<string> {
         }
       }
 
-      response.writeHead(range ? 206 : 200, {
+      const headers: OutgoingHttpHeaders = {
         "content-type": name.endsWith(".yml") ? "text/yaml" : "application/octet-stream",
         "content-length": end - start + 1,
-        "accept-ranges": "bytes",
-        ...(range ? { "content-range": `bytes ${start}-${end}/${size}` } : {})
-      })
+        "accept-ranges": "bytes"
+      }
+
+      if (range) {
+        headers["content-range"] = `bytes ${start}-${end}/${size}`
+      }
+
+      response.writeHead(range ? 206 : 200, headers)
       const source = createReadStream(file, { start, end })
       source.on("error", () => response.destroy())
 
@@ -217,7 +223,8 @@ async function serve(): Promise<string> {
             new Transform({
               transform(chunk: Buffer, _encoding, done) {
                 if (!changed && chunk.length) {
-                  chunk[0] = chunk[0]! ^ 255
+                  // Every bit flipped, as a byte's complement.
+                  chunk[0] = 255 - chunk[0]!
                   changed = true
                 }
 
@@ -238,33 +245,26 @@ async function serve(): Promise<string> {
     })
   })
   await new Promise<void>((resolveListen) => feed!.listen(0, "127.0.0.1", resolveListen))
-  const address = feed.address()
+  // SAFETY: a server listening on a TCP port, as the feed now is, reports an `AddressInfo`; only a pipe's address is a
+  // string, and it's null only before listening.
+  const { port } = feed.address() as AddressInfo
 
-  if (!address || typeof address === "string") {
-    throw new Error("No local update feed port")
-  }
-
-  return `http://127.0.0.1:${address.port}/`
+  return `http://127.0.0.1:${port}/`
 }
 
-async function agent(method: string, params: Record<string, unknown> = {}): Promise<void> {
+async function agent(method: string, params: Record<string, string> = {}): Promise<void> {
   const deadline = Date.now() + 60_000
   let problem = "The agent is not ready."
 
   while (Date.now() < deadline) {
     try {
-      const connection: unknown = JSON.parse(await readFile(agentFile, "utf8"))
+      const read = agentConnection.safeParse(JSON.parse(await readFile(agentFile, "utf8")))
 
-      if (
-        !connection ||
-        typeof connection !== "object" ||
-        !("url" in connection) ||
-        !("token" in connection) ||
-        typeof connection.url !== "string" ||
-        typeof connection.token !== "string"
-      ) {
+      if (!read.success) {
         throw new Error("Not ready")
       }
+
+      const connection = read.data
 
       const response = await fetch(`${connection.url}/rpc`, {
         method: "POST",
@@ -273,16 +273,13 @@ async function agent(method: string, params: Record<string, unknown> = {}): Prom
         signal: AbortSignal.timeout(5000)
       })
 
-      const answer: unknown = await response.json()
+      const answer = agentAnswer.safeParse(await response.json())
 
-      if (!response.ok || !answer || typeof answer !== "object" || "error" in answer || !("result" in answer)) {
+      if (!response.ok || !answer.success) {
         throw new Error("The agent call did not succeed.")
       }
 
-      if (
-        method === "exec" &&
-        (!answer.result || typeof answer.result !== "object" || !("ok" in answer.result) || answer.result.ok !== true)
-      ) {
+      if (method === "exec" && !appliedEdit.safeParse(answer.data.result).success) {
         throw new Error("The edit was not applied.")
       }
 
@@ -442,7 +439,7 @@ try {
   })
   appProcess.stdout?.on("data", (chunk: Buffer) => process.stdout.write(chunk))
   appProcess.stderr?.on("data", (chunk: Buffer) => process.stderr.write(chunk))
-  appProcess.on("exit", (code, signal) => console.log(`Original app exited: code=${code}, signal=${signal}`))
+  appProcess.on("exit", (code, signal) => print(`Original app exited: code=${code}, signal=${signal}`))
   let page: Page | undefined
   let originalEndpoint = ""
   const startupDeadline = Date.now() + 60_000
@@ -488,7 +485,7 @@ try {
   await page.waitForURL("parity://app/index.html")
   await page.waitForFunction(() => window.canvasHost?.appVersion === "999.0.0")
   stage = "rejecting the corrupt startup download"
-  console.log(stage)
+  print(stage)
   const rejected = await waitForUpdate(page, "error")
 
   if (rejected.phase !== "error" || !/sha512|checksum/i.test(rejected.message)) {
@@ -510,7 +507,7 @@ try {
 
   corrupt = false
   stage = "downloading a valid update"
-  console.log(stage)
+  print(stage)
   await updateToast(page).getByRole("button", { name: "Try again", exact: true }).click()
   await waitForUpdate(page, "ready")
   await later(page)
@@ -521,14 +518,14 @@ try {
 
   await page.getByRole("application", { name: "tldraw", exact: true }).waitFor()
   stage = "creating unsaved work"
-  console.log(stage)
+  print(stage)
   await agent("exec", {
     label: "Update test unsaved work",
     code: 'CreateDesign({ name: "Update smoke", file: "update-smoke.par" })'
   })
   await openUpdate(page)
   stage = "cancelling restart with unsaved work"
-  console.log(stage)
+  print(stage)
   const about = page.getByRole("dialog", { name: "Parity", exact: true })
   await about.getByRole("button", { name: "Restart to update", exact: true }).click()
   const save = page.getByRole("dialog", { name: /Save changes to/ })
@@ -543,12 +540,12 @@ try {
   }
 
   stage = "saving work and restarting"
-  console.log(stage)
+  print(stage)
   await about.getByRole("button", { name: "Restart to update", exact: true }).click()
   await save.getByRole("button", { name: "Save", exact: true }).click()
   const deadline = Date.now() + 120_000
   stage = "waiting for the installed new version"
-  console.log(stage)
+  print(stage)
   let newPage: Page | undefined
   let relaunched = false
   let lastRelaunch = "No connection to the updated app."
@@ -565,7 +562,7 @@ try {
           // Windows version resources include a fourth build component; the release version must still match exactly.
           if (/^999\.0\.1(?:\.\d+)?$/.test(next.version)) {
             relaunched = true
-            console.log(`Restarted Windows app: PID ${next.pid}, executable version ${next.version}`)
+            print(`Restarted Windows app: PID ${next.pid}, executable version ${next.version}`)
             break
           }
         }
@@ -614,7 +611,7 @@ try {
     }
 
     if (lastRelaunch !== reportedRelaunch) {
-      console.log(lastRelaunch)
+      print(lastRelaunch)
       reportedRelaunch = lastRelaunch
     }
 
@@ -636,7 +633,7 @@ try {
     await withTimeout(newPage.evaluate(() => window.canvasHost.quit())).catch(() => undefined)
   }
 
-  console.log(
+  print(
     "Real installed update passed: corrupt download rejected, Later retained, Cancel respected, work saved, version 999.0.1 relaunched."
   )
 } catch (error) {
@@ -661,14 +658,14 @@ try {
   throw error
 } finally {
   clearTimeout(watchdog)
-  console.log(`Cleaning up installed update check after: ${stage}`)
+  print(`Cleaning up installed update check after: ${stage}`)
   await cleanup()
 }
 
 async function cleanup(): Promise<void> {
   const problems: unknown[] = []
 
-  const attempt = async (step: () => unknown): Promise<void> => {
+  const attempt = async <Result>(step: () => Result): Promise<void> => {
     try {
       await step()
     } catch (error) {

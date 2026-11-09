@@ -10,6 +10,9 @@ import { execFileSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, join, matchesGlob } from "node:path"
+import { parseData, plainObject } from "@parity-app/core/schema"
+import { z } from "zod"
+import { print } from "./output.ts"
 
 export interface WorkspacePackage {
   name: string
@@ -86,10 +89,10 @@ export function releasesFor(packages: WorkspacePackage[], files: string[], ignor
  */
 export function onlyVersionChanged(before: string, after: string): boolean {
   const withoutVersion = (text: string): string => {
-    const json = JSON.parse(text) as Record<string, unknown>
-    delete json.version
+    const fields = new Map(Object.entries(parseData(plainObject, JSON.parse(text))))
+    fields.delete("version")
 
-    return JSON.stringify(json)
+    return JSON.stringify(Object.fromEntries(fields))
   }
 
   return withoutVersion(before) === withoutVersion(after)
@@ -97,39 +100,22 @@ export function onlyVersionChanged(before: string, after: string): boolean {
 
 /** A fix may consume its change files in the same PR: require a newer version and its generated changelog entry. */
 export function versionedRelease(before: string, after: string, changelog: string): string | undefined {
-  const previous: unknown = JSON.parse(before)
-  const next: unknown = JSON.parse(after)
-  const log: unknown = JSON.parse(changelog)
+  const previous = versioned.safeParse(JSON.parse(before))
+  const next = namedVersion.safeParse(JSON.parse(after))
+  const log = changelogFile.safeParse(JSON.parse(changelog))
 
-  if (
-    !previous ||
-    typeof previous !== "object" ||
-    !("version" in previous) ||
-    typeof previous.version !== "string" ||
-    !next ||
-    typeof next !== "object" ||
-    !("version" in next) ||
-    typeof next.version !== "string" ||
-    !("name" in next) ||
-    typeof next.name !== "string" ||
-    !log ||
-    typeof log !== "object" ||
-    !("name" in log) ||
-    log.name !== next.name ||
-    !("entries" in log) ||
-    !Array.isArray(log.entries)
-  ) {
+  if (!previous.success || !next.success || !log.success || log.data.name !== next.data.name) {
     return undefined
   }
 
   const pattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 
-  if (!pattern.test(previous.version) || !pattern.test(next.version)) {
+  if (!pattern.test(previous.data.version) || !pattern.test(next.data.version)) {
     return undefined
   }
 
-  const oldParts = previous.version.split(".").map(BigInt)
-  const newParts = next.version.split(".").map(BigInt)
+  const oldParts = previous.data.version.split(".").map(BigInt)
+  const newParts = next.data.version.split(".").map(BigInt)
   const difference = newParts.findIndex((part, index) => part !== oldParts[index])
   const newer = newParts[difference]
   const older = oldParts[difference]
@@ -138,12 +124,35 @@ export function versionedRelease(before: string, after: string, changelog: strin
     return undefined
   }
 
-  const entry: unknown = log.entries[0]
+  const entry = versioned.safeParse(log.data.entries[0])
 
-  return entry && typeof entry === "object" && "version" in entry && entry.version === next.version
-    ? next.name
-    : undefined
+  return entry.success && entry.data.version === next.data.version ? next.data.name : undefined
 }
+
+/** A package.json, or a changelog entry, as far as its version. */
+const versioned = z.object({ version: z.string() })
+
+/** A package.json's name and version. */
+const namedVersion = versioned.extend({ name: z.string() })
+
+/** A package's CHANGELOG.json, as Beachball writes it: its name and its entries, newest first. */
+const changelogFile = z.object({ name: z.string(), entries: z.array(z.json()) })
+
+/** A change file in `change/`, as far as the package it's for. */
+const changeFile = z.object({ packageName: z.string() })
+
+/** A workspace package's package.json, as far as which package it is and what it depends on. */
+const manifest = z.object({
+  name: z.string(),
+  private: z.boolean().optional(),
+  dependencies: z.record(z.string(), z.string()).optional(),
+  devDependencies: z.record(z.string(), z.string()).optional(),
+  peerDependencies: z.record(z.string(), z.string()).optional(),
+  optionalDependencies: z.record(z.string(), z.string()).optional()
+})
+
+/** The part of beachball.config.cjs this script reads. */
+const beachballSettings = z.object({ branch: z.string(), ignorePatterns: z.array(z.string()).optional() })
 
 const root = join(import.meta.dirname, "..")
 
@@ -182,26 +191,26 @@ export function listChangeFiles(range: string[], cwd = root): string[] {
 }
 
 function readWorkspace(): WorkspacePackage[] {
-  const found: { dir: string; json: Record<string, unknown> }[] = []
+  const found: { dir: string; json: z.output<typeof manifest> }[] = []
 
   for (const parent of ["apps", "packages"]) {
     for (const name of readdirSync(join(root, parent))) {
       const file = join(root, parent, name, "package.json")
 
       if (existsSync(file)) {
-        found.push({ dir: `${parent}/${name}`, json: JSON.parse(readFileSync(file, "utf8")) })
+        found.push({ dir: `${parent}/${name}`, json: parseData(manifest, JSON.parse(readFileSync(file, "utf8"))) })
       }
     }
   }
 
-  const names = new Set(found.map(({ json }) => String(json.name)))
+  const names = new Set(found.map(({ json }) => json.name))
 
   return found.map(({ dir, json }) => {
-    const kinds = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]
-    const declared = kinds.flatMap((kind) => Object.keys((json[kind] as Record<string, string> | undefined) ?? {}))
+    const kinds = [json.dependencies, json.devDependencies, json.peerDependencies, json.optionalDependencies]
+    const declared = kinds.flatMap((kind) => Object.keys(kind ?? {}))
 
     return {
-      name: String(json.name),
+      name: json.name,
       dir,
       private: json.private === true,
       dependencies: declared.filter((name) => names.has(name))
@@ -209,13 +218,15 @@ function readWorkspace(): WorkspacePackage[] {
   })
 }
 
-interface BeachballConfig {
-  branch: string
-  ignorePatterns?: string[]
+function beachballConfig(): z.output<typeof beachballSettings> {
+  return parseData(beachballSettings, createRequire(import.meta.url)(join(root, "beachball.config.cjs")))
 }
 
-function beachballConfig(): BeachballConfig {
-  return createRequire(import.meta.url)(join(root, "beachball.config.cjs")) as BeachballConfig
+/** What a branch changed, and the packages its change files cover and its release commits released. */
+interface Changes {
+  files: string[]
+  covered: Set<string>
+  released: Set<string>
 }
 
 /**
@@ -223,7 +234,7 @@ function beachballConfig(): BeachballConfig {
  * reads the index, so a commit counts what it stages and not the edits other sessions leave in a folder they share;
  * `committed` reads only the branch's commits, as a push or CI checks them.
  */
-function changes(branch: string, committed: boolean): { files: string[]; covered: Set<string>; released: Set<string> } {
+function changes(branch: string, committed: boolean): Changes {
   const base = git("merge-base", branch, "HEAD").trim()
   const range = committed ? [base, "HEAD"] : ["--cached", base]
   const now = (file: string): string => git("show", `${committed ? "HEAD" : ""}:${file}`)
@@ -235,7 +246,7 @@ function changes(branch: string, committed: boolean): { files: string[]; covered
 
   const files = lines(git("diff", "--name-only", "--no-renames", ...range)).filter((file) => !bumped.includes(file))
   const changeFiles = listChangeFiles(range)
-  const covered = new Set(changeFiles.map((file) => (JSON.parse(now(file)) as { packageName: string }).packageName))
+  const covered = new Set(changeFiles.map((file) => parseData(changeFile, JSON.parse(now(file))).packageName))
   const released = new Set<string>()
 
   for (const file of bumped) {
@@ -296,13 +307,13 @@ function main(): void {
     }
 
     if (needed.length === 0) {
-      console.log("No change file needed: nothing changed ships in the desktop app or the CLI.")
+      print("No change file needed: nothing changed ships in the desktop app or the CLI.")
 
       return
     }
 
     if (missing.length === 0) {
-      console.log(`No change file needed: ${needed.join(" and ")} already have staged or committed release coverage.`)
+      print(`No change file needed: ${needed.join(" and ")} already have staged or committed release coverage.`)
 
       return
     }

@@ -28,9 +28,9 @@ const boards = () =>
       window
         .e2e!.session()
         .editor!.getCurrentPageShapes()
-        .flatMap((shape) =>
-          shape.type === "canvas-container" && "key" in shape.props && "w" in shape.props && "h" in shape.props
-            ? [[shape.props.key, [Math.round(Number(shape.props.w)), Math.round(Number(shape.props.h))]]]
+        .flatMap((item) =>
+          item.type === "canvas-container" && "key" in item.props && "w" in item.props && "h" in item.props
+            ? [[item.props.key, [Math.round(Number(item.props.w)), Math.round(Number(item.props.h))]]]
             : []
         )
     )

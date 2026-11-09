@@ -130,12 +130,24 @@ const telemetrySetting = new TelemetrySetting({
 const appManifest = (): JsonValue => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8"))
 const built = builtRelease(appManifest)
 const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
+const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
+
+/** What GitHub says this version is: a beta, or promoted to everyone, kept between runs. */
+const installedBuild = new InstalledBuild({
+  version: app.getVersion(),
+  packaged: installed,
+  metadata: appManifest,
+  read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
+  save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
+})
 
 // Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
 const telemetryStart = startTelemetry(process.env, {
   sending: telemetrySetting.get(),
   installed,
   published: installed && built.published,
+  // As last saved: a version promoted while it runs reports `production` from its next start (PAR-779).
+  promoted: installedBuild.known.channel === "stable",
   commit: built.commit ?? environment.PARITY_COMMIT,
   rendererName: (contents) => {
     const window = BrowserWindow.fromWebContents(contents)
@@ -147,6 +159,9 @@ const telemetryStart = startTelemetry(process.env, {
     return isRenderWindow(window) ? "render" : "window"
   }
 })
+
+// Asks GitHub whether this version has been promoted, so the next start's environment follows it.
+void installedBuild.get()
 
 const rendererUrl = environment.PARITY_RENDERER_URL
 
@@ -782,16 +797,6 @@ ipcMain.handle(
     return account.use(email)
   })
 )
-
-const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
-
-const installedBuild = new InstalledBuild({
-  version: app.getVersion(),
-  packaged: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
-  metadata: appManifest,
-  read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
-  save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
-})
 
 ipcMain.handle(ipc.buildInfo, (event) => {
   updateOwner(event)

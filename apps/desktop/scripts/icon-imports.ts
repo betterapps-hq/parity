@@ -140,14 +140,17 @@ export function iconImportsPlugin(): Plugin {
   }
 }
 
+/** A Rolldown plugin that rewrites code as it's bundled, by its name and its `transform`. */
+interface DependencyIconImports {
+  name: string
+  transform: (code: string, id: string) => { code: string; map: null } | undefined
+}
+
 /**
  * Rewrites the icon imports of the dependencies Vite prebundles, as `iconImportsPlugin` does the app's. Their imports
  * of lucide-react's own files are left for Vite to serve, since the package isn't prebundled.
  */
-export function dependencyIconImports(
-  exports: Map<string, IconExport>,
-  dist: string
-): { name: string; transform: (code: string, id: string) => { code: string; map: null } | undefined } {
+export function dependencyIconImports(exports: Map<string, IconExport>, dist: string): DependencyIconImports {
   return {
     name: "parity:dependency-icon-imports",
     transform(code, id) {

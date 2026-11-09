@@ -18,6 +18,7 @@ import { parseManifest } from "@parity-app/core"
 import { build, type BuildOptions } from "esbuild"
 import { currentCommit } from "../../../scripts/commit.ts"
 import { separateSourceMaps } from "../../../scripts/sourcemaps.ts"
+import { installedElectron } from "./parity-electron.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const out = join(appDir, "out")
@@ -124,7 +125,7 @@ function checkShippedSharp(): void {
     .then((webp) => { if (webp.toString("latin1", 8, 12) !== "WEBP") throw new Error("not a WebP"); console.log("sharp loads in Electron") })
     .catch((error) => { console.error(error); process.exit(1) })`
 
-  const electron = require("electron") as unknown as string
+  const electron = installedElectron()
   execFileSync(electron, ["-e", script], { stdio: "inherit", env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } })
 
   if (process.platform !== "darwin") {
