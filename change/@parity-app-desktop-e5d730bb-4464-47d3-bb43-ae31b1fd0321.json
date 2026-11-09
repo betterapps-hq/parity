@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Brings the rest of the desktop renderer up to Buildkit's lint rules: its top-level files and its agent, stories, start and account folders",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

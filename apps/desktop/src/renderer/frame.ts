@@ -12,6 +12,7 @@ import {
   viewportHeightProperty,
   viewportWidthProperty
 } from "@parity-app/core"
+import { hasFlag } from "./bits.ts"
 import { unrecordedShadow } from "./shadow.ts"
 
 export interface FrameEnvironment {
@@ -239,8 +240,8 @@ function watchFrameStyles(shadow: ShadowRoot): void {
   watched.add(shadow)
   new MutationObserver((records) => {
     for (const record of records) {
-      if (record.type === "attributes") {
-        rewriteStyleAttribute(record.target as Element)
+      if (record.type === "attributes" && record.target instanceof Element) {
+        rewriteStyleAttribute(record.target)
       } else if (record.type === "characterData") {
         rewriteStyleText(record.target)
       } else {
@@ -349,6 +350,8 @@ export function findNodeElements(host: Element, nodeId: string): HTMLElement[] {
   const drawn = drawnNodes(host)
 
   if (drawn) {
+    // SAFETY: read as HTML elements, as the fallback's `querySelector<HTMLElement>` below reads them; an SVG element at
+    // a node's top level has the style and layout callers read.
     return drawn.elements(nodeId) as HTMLElement[]
   }
 
@@ -599,5 +602,5 @@ export function allFrames(root: Node): HTMLElement[] {
 function inPageOrder(hosts: HTMLElement[]): HTMLElement[] {
   return hosts.length < 2
     ? hosts
-    : hosts.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
+    : hosts.sort((a, b) => (hasFlag(a.compareDocumentPosition(b), Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1))
 }

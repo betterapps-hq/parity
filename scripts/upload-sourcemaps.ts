@@ -8,7 +8,7 @@
 //   --link-commits  ties the release to its commit through Sentry's GitHub integration, for suspect commits and
 //                   "resolved in next release"; only for a commit on main
 import { execFileSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { appendFileSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { parseArgs } from "node:util"
 import { telemetryRelease } from "@parity-app/telemetry"
@@ -41,6 +41,11 @@ const build = JSON.parse(readFileSync(join(sourceMaps, "build.json"), "utf8")) a
 const release = telemetryRelease({ project, version: build.version, published: values.published, commit: build.commit })
 
 console.log(`Uploading source maps for ${release}`)
+
+// For the step after it, which asks Sentry whether the release ended up with its maps and commits (PAR-774).
+if (process.env.GITHUB_OUTPUT) {
+  appendFileSync(process.env.GITHUB_OUTPUT, `release=${release}\n`)
+}
 
 sentry("releases", "new", release, ...where)
 

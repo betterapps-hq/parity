@@ -1,8 +1,9 @@
+import type * as Sentry from "@sentry/electron/renderer"
 import { Component } from "react"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 const eventId = "0123456789abcdef0123456789abcdef"
-const sentry = vi.hoisted(() => ({ captureException: vi.fn<(error: unknown, hint: unknown) => string>() }))
+const sentry = vi.hoisted(() => ({ captureException: vi.fn<typeof Sentry.captureException>() }))
 
 vi.mock("@sentry/electron/renderer", () => sentry)
 
