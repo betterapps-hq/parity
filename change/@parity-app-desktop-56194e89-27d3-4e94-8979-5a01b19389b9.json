@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Report a problem opened from a part's fallback lists the error it sends, such as The",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
