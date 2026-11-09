@@ -64,19 +64,29 @@ function rootLayer(design: TreeDesign): Layer {
  */
 function layersInside(layer: Layer, library: ComponentLibrary): Layer[] {
   const { node, path, within } = layer
+
   if (node.type === "instance") {
     const component = library.get(node.design)
-    if (!component || within.includes(component.id)) return []
+
+    if (!component || within.includes(component.id)) {
+      return []
+    }
+
     const root = { node: component.root, path: `${path}/${component.root.id}`, within: [...within, component.id] }
+
     return layersInside({ ...root, holder: layer }, library)
   }
+
   const holder = layer.holder
+
   const fills =
     node.type === "layout" && node.slot !== undefined && holder?.node.type === "instance"
       ? (holder.node.slots?.[node.slot] ?? [])
       : []
+
   if (holder && fills.length > 0) {
     const prefix = holder.path.slice(0, holder.path.length - holder.node.id.length)
+
     return fills.map((fill) => ({
       node: fill,
       path: `${prefix}${fill.id}`,
@@ -84,7 +94,9 @@ function layersInside(layer: Layer, library: ComponentLibrary): Layer[] {
       holder: holder.holder
     }))
   }
+
   const prefix = path.slice(0, path.length - node.id.length)
+
   return childNodes(node).map((child) => ({ node: child, path: `${prefix}${child.id}`, within, holder: layer.holder }))
 }
 
@@ -96,6 +108,7 @@ function layerRow<D extends TreeDesign>(
   expanded: boolean
 ): Omit<TreeRow<D>, "position" | "siblings"> {
   const { node, path, within } = layer
+
   return { id: layerRowId(design.key, path), depth, design, node, path, within, hasChildren, expanded }
 }
 
@@ -109,15 +122,24 @@ export function treeRows<D extends TreeDesign>(
   designs.forEach((design, index) => {
     const open = expanded.has(design.key)
     rows.push(designRow(design, index, designs.length, open))
-    if (!open) return
+
+    if (!open) {
+      return
+    }
+
     const visit = (layer: Layer, depth: number, position: number, siblings: number) => {
       const children = layersInside(layer, library)
       const shown = children.length > 0 && expanded.has(layerRowId(design.key, layer.path))
       rows.push({ ...layerRow(design, layer, depth, children.length > 0, shown), position, siblings })
-      if (shown) children.forEach((child, at) => visit(child, depth + 1, at + 1, children.length))
+
+      if (shown) {
+        children.forEach((child, at) => visit(child, depth + 1, at + 1, children.length))
+      }
     }
+
     visit(rootLayer(design), 1, 1, 1)
   })
+
   return rows
 }
 
@@ -133,18 +155,28 @@ export function searchRows<D extends TreeDesign>(
 ): TreeRow<D>[] {
   const needle = search.trim().toLocaleLowerCase()
   const matches = (design: D, node?: DesignNode) => label(design, node).toLocaleLowerCase().includes(needle)
+
   // Each found subtree, built bottom up so a row knows whether anything inside it matched before it's kept.
   const found = (design: D, layer: Layer, depth: number): TreeRow<D>[] => {
     const children = layersInside(layer, library)
     const inside = children.map((child) => found(design, child, depth + 1)).filter((rows) => rows.length > 0)
-    if (inside.length === 0 && !matches(design, layer.node)) return []
+
+    if (inside.length === 0 && !matches(design, layer.node)) {
+      return []
+    }
+
     inside.forEach((rows, index) => Object.assign(rows[0]!, { position: index + 1, siblings: inside.length }))
     const row = layerRow(design, layer, depth, children.length > 0, inside.length > 0)
+
     return [{ ...row, position: 1, siblings: 1 }, ...inside.flat()]
   }
-  const shown = designs
-    .map((design) => ({ design, inside: found(design, rootLayer(design), 1) }))
-    .filter(({ design, inside }) => inside.length > 0 || matches(design))
+
+  const shown = designs.flatMap((design) => {
+    const inside = found(design, rootLayer(design), 1)
+
+    return inside.length > 0 || matches(design) ? [{ design, inside }] : []
+  })
+
   return shown.flatMap(({ design, inside }, index) => [
     designRow(design, index, shown.length, inside.length > 0),
     ...inside
@@ -153,6 +185,7 @@ export function searchRows<D extends TreeDesign>(
 
 function designRow<D extends TreeDesign>(design: D, index: number, count: number, expanded: boolean): TreeRow<D> {
   const position = index + 1
+
   return { id: design.key, depth: 0, design, within: [], hasChildren: true, expanded, position, siblings: count }
 }
 
@@ -172,22 +205,34 @@ export const closedTree: Expansion = { opened: new Set(), revealed: new Set() }
 
 /** Every open row's id. */
 export function expandedRows(expansion: Expansion): ReadonlySet<string> {
-  if (expansion.revealed.size === 0) return expansion.opened
+  if (expansion.revealed.size === 0) {
+    return expansion.opened
+  }
+
   return new Set([...expansion.opened, ...expansion.revealed])
 }
 
 /** A row opened or closed by hand; `open` says which, or it flips. Closing it closes it however it was opened. */
 export function toggleRow(expansion: Expansion, id: string, open?: boolean): Expansion {
   const isOpen = expansion.opened.has(id) || expansion.revealed.has(id)
+
   if (open ?? !isOpen) {
-    if (expansion.opened.has(id)) return expansion
+    if (expansion.opened.has(id)) {
+      return expansion
+    }
+
     return { ...expansion, opened: new Set(expansion.opened).add(id) }
   }
-  if (!isOpen) return expansion
+
+  if (!isOpen) {
+    return expansion
+  }
+
   const opened = new Set(expansion.opened)
   const revealed = new Set(expansion.revealed)
   opened.delete(id)
   revealed.delete(id)
+
   return { opened, revealed }
 }
 
@@ -207,13 +252,25 @@ function findLayers(
 ): { layer: Layer; above: Layer[] }[] {
   const wanted = new Set(paths)
   const found: { layer: Layer; above: Layer[] }[] = []
+
   const visit = (layer: Layer, above: Layer[]) => {
-    if (wanted.has(layer.path)) found.push({ layer, above })
+    if (wanted.has(layer.path)) {
+      found.push({ layer, above })
+    }
+
     const { node } = layer
-    if (node.type === "instance" && !node.slots && !paths.some((path) => path.startsWith(`${layer.path}/`))) return
-    for (const child of layersInside(layer, library)) visit(child, [...above, layer])
+
+    if (node.type === "instance" && !node.slots && !paths.some((path) => path.startsWith(`${layer.path}/`))) {
+      return
+    }
+
+    for (const child of layersInside(layer, library)) {
+      visit(child, [...above, layer])
+    }
   }
+
   visit(rootLayer(design), [])
+
   return found
 }
 
@@ -225,26 +282,49 @@ export function branchIds(row: TreeRow, library: ComponentLibrary): string[] {
   const { design, path } = row
   const start = path === undefined ? rootLayer(design) : findLayers(design, [path], library)[0]?.layer
   const ids = path === undefined ? [design.key] : []
+
   const visit = (layer: Layer) => {
     const children = layersInside(layer, library)
-    if (children.length === 0) return
+
+    if (children.length === 0) {
+      return
+    }
+
     ids.push(layerRowId(design.key, layer.path))
     children.forEach(visit)
   }
-  if (start) visit(start)
+
+  if (start) {
+    visit(start)
+  }
+
   return ids
 }
 
 /** The rows beside `rows[index]` with layers of their own, itself included: what `*` opens, as trees do. */
 export function siblingIds(rows: readonly TreeRow[], index: number): string[] {
   const row = rows[index]
-  if (!row) return []
-  const ids: string[] = []
-  const take = (candidate: TreeRow) => {
-    if (candidate.depth === row.depth && candidate.hasChildren) ids.push(candidate.id)
+
+  if (!row) {
+    return []
   }
-  for (let at = index; at >= 0 && rows[at]!.depth >= row.depth; at--) take(rows[at]!)
-  for (let at = index + 1; at < rows.length && rows[at]!.depth >= row.depth; at++) take(rows[at]!)
+
+  const ids: string[] = []
+
+  const take = (candidate: TreeRow) => {
+    if (candidate.depth === row.depth && candidate.hasChildren) {
+      ids.push(candidate.id)
+    }
+  }
+
+  for (let at = index; at >= 0 && rows[at]!.depth >= row.depth; at--) {
+    take(rows[at]!)
+  }
+
+  for (let at = index + 1; at < rows.length && rows[at]!.depth >= row.depth; at++) {
+    take(rows[at]!)
+  }
+
   return ids
 }
 
@@ -256,9 +336,13 @@ export function siblingIds(rows: readonly TreeRow[], index: number): string[] {
 export function revealIds(design: TreeDesign, paths: readonly string[], library: ComponentLibrary): string[] {
   const { key, container } = design
   const ids = new Set([key, layerRowId(key, container.root.id)])
+
   for (const { above } of findLayers(design, paths, library)) {
-    for (const layer of above) ids.add(layerRowId(key, layer.path))
+    for (const layer of above) {
+      ids.add(layerRowId(key, layer.path))
+    }
   }
+
   return [...ids]
 }
 
@@ -269,7 +353,12 @@ export function revealIds(design: TreeDesign, paths: readonly string[], library:
  */
 export function revealRows(expansion: Expansion, ids: readonly string[], inTree: boolean): Expansion {
   const revealed = new Set(inTree ? [...expansion.revealed, ...ids] : ids)
-  for (const id of expansion.opened) revealed.delete(id)
+
+  for (const id of expansion.opened) {
+    revealed.delete(id)
+  }
+
   const same = revealed.size === expansion.revealed.size && [...revealed].every((id) => expansion.revealed.has(id))
+
   return same ? expansion : { ...expansion, revealed }
 }

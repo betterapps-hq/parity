@@ -20,7 +20,10 @@ const files: Record<string, unknown> = {
 }
 
 const read = async (path: string) => {
-  if (!(path in files)) throw new Error(`No file ${path}`)
+  if (!(path in files)) {
+    throw new Error(`No file ${path}`)
+  }
+
   return structuredClone(files[path])
 }
 
@@ -47,6 +50,7 @@ describe("readDesignTokens", () => {
       },
       resolutionOrder: [{ $ref: "#/sets/base" }, { $ref: "#/modifiers/theme" }]
     }
+
     const tokens = await readDesignTokens(resolver, read, "tokens")
     expect(tokens.find((token) => token.path === "color.primary")).toEqual({
       path: "color.primary",
@@ -65,6 +69,7 @@ describe("readDesignTokens", () => {
 
   it("writes composite values as CSS, following aliases inside them", async () => {
     const px = (value: number) => ({ value, unit: "px" })
+
     const tokens = await readDesignTokens(
       {
         line: { $type: "color", $value: "#e5e5e5" },
@@ -100,6 +105,7 @@ describe("readDesignTokens", () => {
       },
       read
     )
+
     expect(Object.fromEntries(tokens.map((token) => [token.path, token.values.default]))).toEqual({
       line: "#e5e5e5",
       card: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
@@ -116,6 +122,7 @@ describe("readDesignTokens with malformed tokens", () => {
   async function readSkipping(document: unknown) {
     const skipped: SkippedToken[] = []
     const tokens = await readDesignTokens(document, read, "", (entry) => skipped.push(entry))
+
     return { paths: tokens.map((token) => token.path), tokens, skipped }
   }
 
@@ -162,6 +169,7 @@ describe("readDesignTokens with malformed tokens", () => {
       },
       resolutionOrder: [{ $ref: "#/sets/base" }, { $ref: "#/modifiers/theme" }]
     })
+
     expect(tokens).toEqual([{ path: "radius", type: "dimension", values: { default: "4px" } }])
     expect(skipped).toEqual([
       { path: "bad", problem: "/$value: expected a string or an object" },
@@ -175,6 +183,7 @@ describe("readDesignTokens with malformed tokens", () => {
       modifiers: { theme: { contexts: "light" } },
       resolutionOrder: [{ $ref: "#/sets/base" }, { sources: 5 }, "#/sets/broken"]
     })
+
     expect(paths).toEqual(["gap"])
     expect(skipped).toEqual([
       { path: "/sets/broken", problem: "/sources: expected an array" },

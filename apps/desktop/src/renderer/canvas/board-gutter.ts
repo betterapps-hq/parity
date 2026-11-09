@@ -15,6 +15,7 @@ const px = (length: number) => `${length}px`
  */
 function line(zoom: number, along: "width" | "height"): GutterStyle {
   const scale = gutterScale(zoom)
+
   return { [along]: `${100 / scale}%`, transform: `scale(${scale})` }
 }
 
@@ -27,6 +28,7 @@ export const boardParts = {
   /** The board: its sides and bottom, and its corners. The first row's band sits above its frames. */
   board: (zoom: number): GutterStyle => {
     const { side, radius } = boardLayoutAt(zoom)
+
     return { padding: `0 ${px(side)} ${px(side)}`, borderRadius: px(radius) }
   },
   /** The board's edge, a screen pixel wide at any zoom, as the Frames exploration draws it. It takes no room. */
@@ -41,6 +43,7 @@ export const boardParts = {
   /** A later row of states, below a dashed line. */
   nextRow: (zoom: number): GutterStyle => {
     const { before, line, after } = boardLayoutAt(zoom).rowDivider
+
     return { marginTop: px(before), paddingTop: px(line + after) }
   },
   /**
@@ -59,6 +62,7 @@ export const boardParts = {
   /** The first companion frame, after the dashed line. */
   dividedFrame: (zoom: number): GutterStyle => {
     const { before, line, after } = boardLayoutAt(zoom).divider
+
     return { marginLeft: px(before), paddingLeft: px(line + after) }
   },
   /** A later companion frame. */
@@ -70,6 +74,7 @@ export const boardParts = {
   /** A later row's state label, beside the top of its frames, just outside the board. */
   nextStateLabel: (zoom: number): GutterStyle => {
     const { side, rowDivider } = boardLayoutAt(zoom)
+
     return { top: px(rowDivider.line + rowDivider.after), marginRight: px(side) }
   }
 } satisfies Record<string, (zoom: number) => GutterStyle>
@@ -83,9 +88,11 @@ const appliers = new Map<BoardPart, (style: CSSStyleDeclaration, zoom: number) =
 /** Keeps a part of a board laid out for the zoom, as `boardParts` says, live as the camera moves, as labels are. */
 export function useGutterStyle(ref: RefObject<HTMLElement | null>, part: BoardPart): void {
   let apply = appliers.get(part)
+
   if (!apply) {
     apply = (style, zoom) => void Object.assign(style, boardParts[part](zoom))
     appliers.set(part, apply)
   }
+
   useZoomStyle(ref, apply)
 }

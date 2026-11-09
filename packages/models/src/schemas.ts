@@ -27,5 +27,6 @@ export function lensModelJsonSchema(name: LensModelName): Record<string, unknown
   const { version, schema } = lensModels[name]
   // `input`, so fields with defaults or transforms describe what a document may hold rather than what parsing returns.
   const { $schema, ...rest } = z.toJSONSchema(schema, { io: "input", unrepresentable: "any" })
+
   return { $schema, $id: `urn:parity:model:${name}:${version}`, ...rest }
 }

@@ -12,25 +12,36 @@ const designName = process.argv.slice(2).find((arg) => !arg.startsWith("--"))
 const outDir = resolve(import.meta.dirname, "../../../.inspect")
 
 const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`)
+
 try {
   const page = browser
     .contexts()
     .flatMap((context) => context.pages())
     .find((candidate) => !candidate.url().startsWith("devtools://"))
-  if (!page) throw new Error("No canvas window found")
+
+  if (!page) {
+    throw new Error("No canvas window found")
+  }
 
   const errors: string[] = []
   page.on("pageerror", (error) => errors.push(error.message))
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   await page.waitForSelector(".container-view", { state: "attached", timeout: 30_000 })
 
   let restore: (() => Promise<void>) | undefined
+
   if (designName) {
     await selectDesign(page, designName)
-    if (showAll) restore = await showEverything(page, designName)
+
+    if (showAll) {
+      restore = await showEverything(page, designName)
+    }
   }
+
   await page.waitForTimeout(800)
 
   const report = await page.evaluate(() =>
@@ -41,9 +52,11 @@ try {
         modes: [...row.querySelectorAll<HTMLElement>(".mode-tile")].map((tile) => {
           const shadow = tile.querySelector<HTMLElement>("[data-frame]")?.shadowRoot
           const body = shadow?.firstElementChild as HTMLElement | null | undefined
+
           const unknown = [...(shadow?.querySelectorAll("div") ?? [])]
             .map((element) => element.textContent ?? "")
             .filter((text) => text.startsWith("Unknown component"))
+
           return {
             mode: tile.dataset.mode,
             primary: tile.dataset.primary === "true",
@@ -85,21 +98,32 @@ async function selectDesign(page: Page, name: string): Promise<void> {
 async function showEverything(page: Page, name: string): Promise<() => Promise<void>> {
   await page.getByRole("tab", { name: "Design" }).click()
   const switches = page.locator("aside [role=switch]")
+
   const before = await switches.evaluateAll((elements) =>
     elements.map((element) => element.getAttribute("aria-checked") === "true")
   )
+
   await page.getByRole("button", { name: "Show all", exact: true }).click()
   const allStates = page.getByRole("switch").first()
-  if ((await allStates.getAttribute("aria-checked")) !== "true") await allStates.click()
+
+  if ((await allStates.getAttribute("aria-checked")) !== "true") {
+    await allStates.click()
+  }
+
   await page.waitForTimeout(1200)
   await selectDesign(page, name)
 
   return async () => {
     await selectDesign(page, name)
     const now = page.locator("aside [role=switch]")
+
     for (const [index, wasOn] of before.entries()) {
       const element = now.nth(index)
-      if ((await element.isDisabled()) || (await element.getAttribute("aria-checked")) === String(wasOn)) continue
+
+      if ((await element.isDisabled()) || (await element.getAttribute("aria-checked")) === String(wasOn)) {
+        continue
+      }
+
       await element.click()
     }
   }

@@ -10,6 +10,7 @@ export async function checkStartFolders(
   from = import.meta.dirname
 ): Promise<{ missing: string[]; example?: string }> {
   const [missing, example] = await Promise.all([missingFolders(roots), exampleFolder(from)])
+
   return { missing, ...(example ? { example } : {}) }
 }
 
@@ -19,6 +20,7 @@ export async function checkStartFolders(
  */
 export async function missingFolders(roots: readonly string[]): Promise<string[]> {
   const found = await Promise.all(roots.map(async (root) => ((await isGone(root)) ? root : undefined)))
+
   return found.filter((root) => root !== undefined)
 }
 
@@ -27,6 +29,7 @@ async function isGone(path: string): Promise<boolean> {
     return !(await stat(path)).isDirectory()
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
+
     return code === "ENOENT" || code === "ENOTDIR"
   }
 }
@@ -41,14 +44,21 @@ const examplePath = join("examples", "shadcn-vite")
 export async function exampleFolder(from: string): Promise<string | undefined> {
   for (let folder = from; ; folder = dirname(folder)) {
     const example = join(folder, examplePath)
-    if ((await exists(join(example, "package.json"))) && (await exists(join(example, "node_modules")))) return example
-    if (dirname(folder) === folder) return undefined
+
+    if ((await exists(join(example, "package.json"))) && (await exists(join(example, "node_modules")))) {
+      return example
+    }
+
+    if (dirname(folder) === folder) {
+      return undefined
+    }
   }
 }
 
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path)
+
     return true
   } catch {
     return false

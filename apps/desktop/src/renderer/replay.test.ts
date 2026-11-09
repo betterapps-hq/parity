@@ -29,6 +29,7 @@ describe("Session Replay's secrets (PAR-679)", () => {
       timestamp: 1,
       data: { tag: "breadcrumb", payload: { category: "ui.click", message: `button "Copy ${key}"` } }
     }
+
     expect(replayPrivacy.beforeAddRecordingEvent(click)).toEqual({
       type: 5,
       timestamp: 1,
@@ -41,6 +42,7 @@ describe("Session Replay's secrets (PAR-679)", () => {
 function fakeRecorder({ enabled = true } = {}) {
   const asked: string[] = []
   let paused = false
+
   return {
     asked,
     isEnabled: () => enabled,
@@ -61,16 +63,22 @@ function fakeTimers() {
   let now = 0
   const due = new Map<number, { at: number; run: () => void }>()
   let next = 0
+
   return {
     later: ((run: () => void, ms: number) => {
       due.set(++next, { at: now + ms, run })
+
       return next
     }) as unknown as typeof setTimeout,
     cancel: ((id: number) => void due.delete(id)) as unknown as typeof clearTimeout,
     elapse(ms: number) {
       now += ms
+
       for (const [id, timer] of due) {
-        if (timer.at > now) continue
+        if (timer.at > now) {
+          continue
+        }
+
         due.delete(id)
         timer.run()
       }

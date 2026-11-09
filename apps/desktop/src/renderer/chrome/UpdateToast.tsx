@@ -1,5 +1,6 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { CircleAlert, CircleCheck, Download, ExternalLink, LoaderCircle, RotateCw, X } from "lucide-react"
+
 export type UpdateNotice =
   | { kind: "downloading"; version: string; percent: number; transferred: number; total: number }
   | { kind: "ready" | "manual"; version: string }
@@ -13,6 +14,7 @@ interface Props {
 }
 
 const megabytes = new Intl.NumberFormat("en", { maximumFractionDigits: 1 })
+
 const titles = {
   downloading: "Updating Parity",
   ready: "Update ready",
@@ -28,24 +30,40 @@ export function UpdateToast({ notice, onDismiss, onAction }: Props) {
   const manual = notice.kind === "manual"
   const result = notice.kind === "checking" || notice.kind === "current" || notice.kind === "error"
   let Icon = Download
-  if (notice.kind === "checking") Icon = LoaderCircle
-  else if (notice.kind === "error") Icon = CircleAlert
-  else if (notice.kind === "ready" || notice.kind === "current") Icon = CircleCheck
+
+  if (notice.kind === "checking") {
+    Icon = LoaderCircle
+  } else if (notice.kind === "error") {
+    Icon = CircleAlert
+  } else if (notice.kind === "ready" || notice.kind === "current") {
+    Icon = CircleCheck
+  }
+
   let action = "Restart to update"
-  if (notice.kind === "error") action = "Try again"
-  else if (manual) action = "Download update"
+
+  if (notice.kind === "error") {
+    action = "Try again"
+  } else if (manual) {
+    action = "Download update"
+  }
+
   const percent = downloading && Number.isFinite(notice.percent) ? Math.min(100, Math.max(0, notice.percent)) : 0
   const knownSize = downloading && Number.isFinite(notice.total) && notice.total > 0
   let description = "version" in notice ? `Restart to install version ${notice.version}.` : ""
-  if (downloading) description = `Downloading version ${notice.version}`
-  else if (manual) description = `Version ${notice.version} is ready to download.`
-  else if (notice.kind === "checking")
+
+  if (downloading) {
+    description = `Downloading version ${notice.version}`
+  } else if (manual) {
+    description = `Version ${notice.version} is ready to download.`
+  } else if (notice.kind === "checking") {
     description = notice.beta ? "Looking for beta and stable releases." : "Looking for stable releases."
-  else if (notice.kind === "current")
+  } else if (notice.kind === "current") {
     description = notice.beta
       ? "No newer beta or stable release is available."
       : "No newer stable release is available."
-  else if (notice.kind === "error") description = "Try again in a moment."
+  } else if (notice.kind === "error") {
+    description = "Try again in a moment."
+  }
 
   return (
     <div

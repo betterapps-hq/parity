@@ -29,6 +29,7 @@ export function startTelemetry(): Telemetry<typeof registeredEvents> {
     beforeSend: (event) => scrubber.value({ ...event, tags: { process: "service", ...event.tags } })
   })
   const run = readTelemetryRun(process.env[telemetryRunVariable])
+
   const telemetry = recordInvalidData(
     createTelemetry({
       events: registeredEvents,
@@ -38,7 +39,9 @@ export function startTelemetry(): Telemetry<typeof registeredEvents> {
       onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
     })
   )
+
   scrubber.follow(telemetry)
+
   return telemetry
 }
 
@@ -72,6 +75,7 @@ const record = (envelope: unknown) =>
   mainProcess.request("record", envelope).catch(() => {
     // Main went away; the event is lost with it.
   })
+
 const toMain: Sink = { event: record, span: record }
 
 /**
@@ -79,14 +83,25 @@ const toMain: Sink = { event: record, span: record }
  * then goes to main. Other messages are the worker's channel's.
  */
 export function recordFromWorker(message: unknown): void {
-  if (typeof message !== "object" || message === null || !(workerTelemetryKey in message)) return
+  if (typeof message !== "object" || message === null || !(workerTelemetryKey in message)) {
+    return
+  }
+
   const read = envelopeSchema.safeParse((message as Record<string, unknown>)[workerTelemetryKey])
-  if (!read.success) return
+
+  if (!read.success) {
+    return
+  }
+
   const envelope = read.data
+
   for (const sink of [scopeSink, toMain]) {
     try {
-      if (isSpanEnvelope(envelope)) sink.span(envelope)
-      else sink.event(envelope)
+      if (isSpanEnvelope(envelope)) {
+        sink.span(envelope)
+      } else {
+        sink.event(envelope)
+      }
     } catch (error) {
       console.warn("[telemetry] couldn't record the worker's event:", error)
     }

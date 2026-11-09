@@ -54,6 +54,7 @@ function Card({ item, line, children }: { item: PortalEvent; line?: ReactNode; c
 /** An event as a plain row, for replies and other small things, worded as the org sees it, with what was said. */
 function Row({ id }: { id: string }) {
   const item = event(id)
+
   return (
     <div className="-mx-3">
       <ActivityRow item={{ ...item, ...item.forTeam, unread: false }} />
@@ -196,6 +197,7 @@ export function ActivityPage() {
               ] as const
             ).map(([id, detail]) => {
               const shown = portalProject(id)
+
               return (
                 <div key={id} className="flex items-center gap-3">
                   <CanvasArt

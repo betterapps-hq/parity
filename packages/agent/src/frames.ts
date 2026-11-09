@@ -18,11 +18,17 @@ export type DesignName = (id: string) => string | undefined
 /** Every node's id in a design, mapped to the name it shows in the layers. */
 export function nodeNames(container: ContainerSpec, designName: DesignName = () => undefined): Map<string, string> {
   const names = new Map<string, string>()
+
   const collect = (node: DesignNode) => {
     names.set(node.id, nodeLabel(node, designName))
-    for (const entry of childEntries(node)) entry.nodes.forEach(collect)
+
+    for (const entry of childEntries(node)) {
+      entry.nodes.forEach(collect)
+    }
   }
+
   collect(container.root)
+
   return names
 }
 
@@ -42,16 +48,23 @@ export function frameProblems(
   const name = (id: string) => names.get(id) ?? names.get(id.split("/")[0]!)
   const found: Problem[] = []
   const add = (problem: Omit<Problem, "state" | "mode">) => found.push({ state: state.id, mode: mode.id, ...problem })
-  if (frame.error) add({ kind: "render-error", problem: `render error: ${frame.error}` })
+
+  if (frame.error) {
+    add({ kind: "render-error", problem: `render error: ${frame.error}` })
+  }
+
   for (const component of frame.unknownComponents) {
     add({ kind: "unknown-component", problem: `"${component}" isn't one of the project's components` })
   }
+
   const size = frameSize(container, mode)
+
   const layout = layoutFindings(frame.nodes, {
     width: size.width,
     height: size.height ?? frame.height,
     fixedHeight: size.height !== undefined
   })
+
   for (const finding of layout) {
     const label = name(finding.node)
     const by = finding.container.node
@@ -66,10 +79,12 @@ export function frameProblems(
       overflow: finding.overflow
     })
   }
+
   // Content wider than the frame that no node accounts for, such as a component's own element.
   if (frame.overflowsX && !layout.some((finding) => finding.kind === "frame-overflow" && finding.overflow.right)) {
     add({ kind: "content-wider", problem: `content is wider than the ${size.width}px frame` })
   }
+
   return found
 }
 
@@ -86,19 +101,28 @@ export function accessibilityFindings(
   const found: AccessibilityFinding[] = []
   const contrast = new Map<AccessibilityFinding, FrameContrast>()
   const seen = new Set<string>()
+
   for (const { nodes, ...issue } of frame.issues ?? []) {
     for (const { id, ...about } of nodes) {
       // Inside an instance, ids carry the instance's as a prefix; the instance is the layer in this design.
       const node = names.has(id) ? id : id.split("/")[0]!
       const name = names.get(node)
       const once = `${issue.rule}\n${name ? node : ""}`
-      if (seen.has(once)) continue
+
+      if (seen.has(once)) {
+        continue
+      }
+
       seen.add(once)
       const finding = { state: state.id, mode: mode.id, ...issue, ...(name ? { node, name } : {}), ...about }
       found.push(finding)
-      if (finding.contrast && frame.contrast && id === node) contrast.set(finding, frame.contrast)
+
+      if (finding.contrast && frame.contrast && id === node) {
+        contrast.set(finding, frame.contrast)
+      }
     }
   }
+
   return { found, contrast }
 }
 
@@ -115,19 +139,29 @@ export function addContrastFixes(
   preferred: ReadonlySet<string>
 ): void {
   const fixes = new Map<string, ReturnType<typeof contrastFix> | "unreachable">()
+
   for (const [finding, frame] of inFrame) {
     const node = finding.node!
+
     if (!fixes.has(node)) {
       const readings = frames.flatMap((each) => {
         const reading = each.texts.find((text) => text.id === node)
+
         return reading ? [{ ...reading, tokens: each.tokens }] : []
       })
+
       const reachable =
         locateNode(container.root, node)?.node.type !== "instance" && readings.every((reading) => reading.follows)
+
       fixes.set(node, reachable ? contrastFix(readings, { preferred }) : "unreachable")
     }
+
     const fix = fixes.get(node)
-    if (fix === "unreachable") continue
+
+    if (fix === "unreachable") {
+      continue
+    }
+
     finding.contrast = {
       ...finding.contrast!,
       fix: fix ? { token: fix.token, color: frame.tokens[fix.token]!, ratio: Math.min(...fix.ratios) } : "none"

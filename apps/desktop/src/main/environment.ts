@@ -23,6 +23,7 @@ const mainEnvironment = z.object({
     .regex(/^\d+x\d+$/, "expected a size such as 1440x900")
     .transform((size) => {
       const [width = 0, height = 0] = size.split("x").map(Number)
+
       return { width, height }
     })
     .pipe(z.object({ width: z.int().min(1), height: z.int().min(1) }))
@@ -54,6 +55,7 @@ export type MainEnvironment = z.infer<typeof mainEnvironment>
  */
 export function readEnvironment(env: NodeJS.ProcessEnv): MainEnvironment {
   const set = Object.fromEntries(Object.entries(env).filter(([, value]) => value !== ""))
+
   try {
     return parseData(mainEnvironment, set)
   } catch (error) {

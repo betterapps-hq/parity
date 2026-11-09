@@ -3,6 +3,7 @@ import {
   addVariant,
   type ContainerSpec,
   type DesignNode,
+  type LayoutNode,
   defaultModeSettings,
   editNode,
   findNode,
@@ -10,9 +11,11 @@ import {
   resetOverride,
   setSlot
 } from "@parity-app/core"
-import type { StyleSelection } from "@parity-app/editor"
+import { styleSelection } from "@parity-app/editor"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
+import type { Token } from "@parity-app/tokens"
 import { afterEach, describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 import { ChangePreview } from "../canvas/change-preview.ts"
 import { DesignStore } from "../design-store.ts"
 import { setWindowTelemetry } from "../report-error.ts"
@@ -41,13 +44,14 @@ afterEach(() => {
 
 describe("changedFields", () => {
   it("lists each field a change sets, with what the layer showed there before", () => {
-    const node = {
-      type: "element",
+    const node: DesignNode = {
+      type: "component",
       id: "badge",
       component: "Badge",
       props: { variant: "outline" },
       style: { padding: [2, 2] }
-    } as unknown as DesignNode
+    }
+
     expect(
       changedFields(node, { props: { variant: "solid", size: "sm" }, style: { padding: [3, 3] }, hidden: true })
     ).toEqual([
@@ -61,7 +65,8 @@ describe("changedFields", () => {
 
 describe("changedFields of an instance", () => {
   it("reads a prop from the instance's arguments, where a change to it goes", () => {
-    const node = { type: "instance", id: "card", design: "card", args: { title: "Hello" } } as unknown as DesignNode
+    const node: DesignNode = { type: "instance", id: "card", design: "card", args: { title: "Hello" } }
+
     expect(changedFields(node, { props: { title: "Bye" } })).toEqual([
       { field: "props.title", from: "Hello", to: "Bye" }
     ])
@@ -69,18 +74,32 @@ describe("changedFields of an instance", () => {
 })
 
 describe("rowChanged", () => {
-  const layer = (id: string, gap?: number) => ({
-    id,
-    node: {
-      type: "layout",
-      id,
-      children: [],
-      ...(gap === undefined ? {} : { style: { gap } })
-    } as unknown as DesignNode,
-    parent: undefined,
-    base: true
-  })
-  const selection = (...layers: ReturnType<typeof layer>[]) => ({ layers }) as unknown as StyleSelection
+  const layer = (id: string, gap?: number) => {
+    const node: LayoutNode = { type: "layout", id, children: [] }
+
+    if (gap !== undefined) {
+      node.style = { gap }
+    }
+
+    return node
+  }
+
+  // The selection the Style panel would make of these layers, from a design that holds just them.
+  const selection = (...layers: LayoutNode[]) => {
+    const container: ContainerSpec = {
+      id: "home",
+      name: "home",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "root", children: layers },
+      states: [{ id: "default", name: "Default" }]
+    }
+
+    return styleSelection(
+      container,
+      layers.map((node) => node.id),
+      undefined
+    )!
+  }
 
   it("counts a change to layers whose values differ, and not setting the value a field already had", () => {
     expect(rowChanged(selection(layer("a", 1), layer("b", 2)), selection(layer("a", 2), layer("b", 3)), "gap")).toBe(
@@ -139,6 +158,7 @@ describe("a component prop previewed by being made", () => {
         check: true
       })
     )
+
     const home: ContainerSpec = {
       id: "home",
       name: "home",
@@ -150,28 +170,41 @@ describe("a component prop previewed by being made", () => {
       },
       states: [{ id: "default", name: "Default" }]
     }
+
     const store = new DesignStore(
       [{ path: "app.par", document: { version: 3, containers: [home] } }],
       defaultModeSettings,
       "app.par",
       { saveDocument: async () => undefined, autosave: () => false }
     )
+
     // The layer as the panel shows it now: a preview shows by being made, so it shows the previewed size.
     const node = () => findNode(store.getEntry(key)!.container.root, "icon")!
+
     const change: LayerChange = (label, value, gesture, shown = node()) => {
       store.updateContainer(key, label, (current) => editNode(current, "default", "icon", value), { gesture })
-      if (shown) recordLayerChange(key, ["icon"], "default", shown, value, gesture)
+
+      if (shown) {
+        recordLayerChange(key, ["icon"], "default", shown, value, gesture)
+      }
     }
+
     const prop = new PreviewedProp(new ChangePreview(store, key))
     const size = (to: number) => ({ props: { size: to } })
+
     const recorded = () =>
       sink.named("inspector.changed").map(({ attributes }) => ({ from: attributes.from, to: attributes.to }))
+
     return { node, change, prop, size, recorded }
   }
 
   it("records nothing as it's previewed, and the change once, from the size before the first preview", () => {
     const { node, change, prop, size, recorded } = setup()
-    for (const to of [20, 24, 28]) prop.show(node(), change, "Change size", size(to))
+
+    for (const to of [20, 24, 28]) {
+      prop.show(node(), change, "Change size", size(to))
+    }
+
     expect(recorded()).toEqual([])
     prop.commit(node(), change, "Change size", size(28))
     expect(recorded()).toEqual([{ from: "16", to: "28" }])
@@ -201,6 +234,7 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
         check: true
       })
     )
+
     const card: ContainerSpec = {
       id: "card",
       name: "Card",
@@ -219,13 +253,16 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
         { id: "closed", name: "Closed", overrides: { title: { hidden: true } } }
       ]
     }
+
     const store = new DesignStore(
       [{ path: "app.par", document: { version: 3, containers: [card] } }],
       defaultModeSettings,
       "app.par",
       { saveDocument: async () => undefined, autosave: () => false }
     )
+
     const recorded = () => sink.named("inspector.changed").map((event) => event.attributes)
+
     return { store, recorded }
   }
 
@@ -275,7 +312,7 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
     })
     const [event] = recorded()
     expect(event).toMatchObject({ field: "params.size", design: key, layers: [], from: "null" })
-    expect(JSON.parse(event!.to as string)).toMatchObject({
+    expect(JSON.parse(z.string().parse(event!.to))).toMatchObject({
       type: "variant",
       options: [
         { id: expect.any(String), name: "Small" },
@@ -291,11 +328,11 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
       read: statesValue
     })
     const [event] = recorded()
-    expect(JSON.parse(event!.from as string)).toEqual([
+    expect(JSON.parse(z.string().parse(event!.from))).toEqual([
       { id: "default", name: "Default" },
       { id: "closed", name: "Closed" }
     ])
-    expect(JSON.parse(event!.to as string)).toHaveLength(3)
+    expect(JSON.parse(z.string().parse(event!.to))).toHaveLength(3)
   })
 
   it("records a layout made a slot, with its name", () => {
@@ -305,6 +342,7 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
       layers: ["body"],
       read: (current) => {
         const node = findNode(current.root, "body")
+
         return node?.type === "layout" ? node.slot : undefined
       }
     })
@@ -316,12 +354,14 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
   it("records a state's change reset, from what the state showed to what the design does", () => {
     const { store, recorded } = setup()
     const field = { kind: "hidden" } as const
+
     const shown = (current: ContainerSpec) =>
       nodeOnBoard(
         current,
         findNode(current.root, "title")!,
         current.states.find((state) => state.id === "closed")!
       )
+
     updateAndRecord(store, key, "Reset change", (current) => resetOverride(current, "closed", "title", field), {
       field: "hidden",
       layers: ["title"],
@@ -336,7 +376,8 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
 
 describe("fieldValue", () => {
   it("reads an instance's prop from its arguments, and a layer's visibility as shown when it has none", () => {
-    const instance = { type: "instance", id: "card", design: "card", args: { title: "Hello" } } as DesignNode
+    const instance: DesignNode = { type: "instance", id: "card", design: "card", args: { title: "Hello" } }
+
     expect(fieldValue(instance, { kind: "props", key: "title" })).toBe("Hello")
     expect(fieldValue(instance, { kind: "hidden" })).toBe(false)
   })
@@ -352,13 +393,24 @@ describe("applyToken", () => {
         check: true
       })
     )
-    let values: Record<string, string> = { default: "#000", dark: "#fff" }
+
+    let token: Token = {
+      name: "primary",
+      category: "color",
+      source: "semantic",
+      values: { default: "#000", dark: "#fff" }
+    }
+
     const store = {
-      get: () => [{ name: "primary", category: "color", source: "semantic", values }] as never,
+      get: () => [token],
       set: (changes: { theme: string; value: string }[]) => {
-        values = { ...values, ...Object.fromEntries(changes.map(({ theme, value }) => [theme, value])) }
+        token = {
+          ...token,
+          values: { ...token.values, ...Object.fromEntries(changes.map(({ theme, value }) => [theme, value])) }
+        }
       }
     }
+
     applyToken(store, "primary", { default: "#111", dark: "#fff" })
     applyToken(store, "primary", { default: "#111" })
     expect(sink.named("inspector.changed").map((event) => event.attributes)).toEqual([

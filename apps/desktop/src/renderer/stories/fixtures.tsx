@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { userEvent, waitFor, within } from "storybook/test"
 import { Box } from "tldraw"
 import type { ProjectInfo, ServiceMethods } from "../../shared/protocol.ts"
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { ProjectContext } from "../canvas/context.ts"
 import { setTabOrderShown } from "../canvas/tab-order.ts"
 import { forgetRecentPicks } from "../chrome/ActionsSearch.tsx"
@@ -57,14 +57,25 @@ export async function openProjects(...names: ProjectName[]): Promise<void> {
   forgetLastAction()
   forgetRecentPicks()
   await workspace.flush().catch(() => undefined)
-  for (const tab of workspace.getTabs()) await workspace.close(tab.id)
+
+  for (const tab of workspace.getTabs()) {
+    await workspace.close(tab.id)
+  }
+
   const opening = names.map((name, index) => workspace.open(roots[name], index === 0))
   const tabs = await Promise.all(opening.filter((_, index) => names[index] !== "slow"))
-  if (names[0]) workspace.activate(roots[names[0]])
+
+  if (names[0]) {
+    workspace.activate(roots[names[0]])
+  }
+
   // Props are read a moment after a project opens; waiting for them shows each panel as it settles.
   for (const tab of tabs) {
     for (let tries = 0; tab.session && tries < 100; tries++) {
-      if (Object.keys(tab.session.components.get()).length > 0) break
+      if (Object.keys(tab.session.components.get()).length > 0) {
+        break
+      }
+
       await pause(50)
     }
   }
@@ -78,7 +89,11 @@ export function example(): ProjectSession {
 /** An open tab's project. */
 export function sessionAt(root: string): ProjectSession {
   const session = workspace.getTab(root)?.session
-  if (!session) throw new Error(`${root} isn't open`)
+
+  if (!session) {
+    throw new Error(`${root} isn't open`)
+  }
+
   return session
 }
 
@@ -87,7 +102,11 @@ export function design(name: string): string {
   const entry = example()
     .store.getEntries()
     .find((candidate) => candidate.container.name === name)
-  if (!entry) throw new Error(`The example has no design named ${name}`)
+
+  if (!entry) {
+    throw new Error(`The example has no design named ${name}`)
+  }
+
   return entry.key
 }
 
@@ -104,23 +123,31 @@ export function node(designName: string, name: string): string {
     ) {
       return current.id
     }
+
     return childNodes(current).reduce<string | undefined>((found, child) => found ?? find(child), undefined)
   }
+
   const entry = example().store.getEntry(design(designName))
   const found = entry && find(entry.container.root)
-  if (!found) throw new Error(`${designName} has no layer named ${name}`)
+
+  if (!found) {
+    throw new Error(`${designName} has no layer named ${name}`)
+  }
+
   return found
 }
 
 /** A project in another folder, as the service would open it: the example's components and designs under its name. */
 export function projectAt(folder: string, change: Partial<ProjectInfo> = {}): ProjectInfo {
   const name = folder.split(/[\\/]/).at(-1) ?? folder
+
   return { ...projectInfo(roots.example), id: folder, root: folder, name, ...change }
 }
 
 /** A project in another folder with no designs yet, which opens quicker than a copy of the example. */
 export function blankProjectAt(folder: string): ProjectInfo {
   const info = projectAt(folder)
+
   return { ...info, documents: [], mainDocument: `${info.name}.par` }
 }
 
@@ -135,7 +162,10 @@ export async function openAlso(...projects: ProjectInfo[]): Promise<void> {
     "project.open": (params, usual) => projects.find((project) => project.root === params.root) ?? usual(),
     "project.components": (params, usual) => (ids.has(params.projectId) ? (components ??= usual()) : usual())
   })
-  for (const project of projects) await workspace.open(project.root, false)
+
+  for (const project of projects) {
+    await workspace.open(project.root, false)
+  }
 }
 
 /**
@@ -144,28 +174,43 @@ export async function openAlso(...projects: ProjectInfo[]): Promise<void> {
  */
 export async function frameDesigns(...names: string[]): Promise<void> {
   const editor = await until(() => example().editor)
+
   const measure = () => {
-    const bounds = names.flatMap((name) => editor.getShapePageBounds(shapeIdFor(design(name))) ?? [])
+    const bounds = names.flatMap((name) => editor.getShapePageBounds(canvasIdFor(design(name))) ?? [])
+
     return bounds.length > 0 ? Box.Common(bounds) : undefined
   }
+
   // Boards size themselves once their frames render, which they do only in view. The canvas first fits itself to every
   // board, which draws them all: wait for that, then for their sizes to settle, and frame them again if they change.
   const settled = async () => {
     let last = ""
+
     for (let tries = 0; tries < 40; tries++) {
       await pause(150)
       const now = JSON.stringify(measure())
-      if (tries > 3 && now === last) return now
+
+      if (tries > 3 && now === last) {
+        return now
+      }
+
       last = now
     }
+
     return last
   }
+
   await pause(1200)
   let framed = ""
+
   for (let pass = 0; pass < 4; pass++) {
     const now = await settled()
     const box = measure()
-    if (!box || now === framed) return
+
+    if (!box || now === framed) {
+      return
+    }
+
     // Small components show at their real size rather than blown up to fill the canvas.
     editor.zoomToBounds(box, { inset: 48, targetZoom: 1 })
     framed = now
@@ -195,7 +240,11 @@ export function onCanvas(designs: string[], setup?: () => unknown, then?: () => 
 export function layerElement(designName: string, layerName: string): HTMLElement {
   const host = findFrames(document, design(designName))[0]
   const element = host && findNodeElement(host, node(designName, layerName))
-  if (!element) throw new Error(`${layerName} in ${designName} isn't on the canvas`)
+
+  if (!element) {
+    throw new Error(`${layerName} in ${designName} isn't on the canvas`)
+  }
+
   return element
 }
 
@@ -216,7 +265,11 @@ export function ProjectStage({
   const theme = useResolvedTheme()
   const id = project ? roots[project] : active
   const session = useTabs().find((tab) => tab.id === id)?.session
-  if (!session) return null
+
+  if (!session) {
+    return null
+  }
+
   return (
     <TooltipProvider>
       <ProjectContext value={session}>
@@ -258,17 +311,23 @@ export function preferring(change: Partial<Preferences>): void {
 export function failingToDraw(errors: Record<string, string>): void {
   const guest = example().loaded.guest
   const real = guest.renderStatus
-  if (!real) return
+
+  if (!real) {
+    return
+  }
+
   const failing = Object.fromEntries(Object.entries(errors).map(([id, error]) => [id, { error }]))
   let seen: Record<string, ComponentRenderStatus> | undefined
   let merged: Record<string, ComponentRenderStatus> = failing
   guest.renderStatus = {
     get: () => {
       const now = real.get()
+
       if (now !== seen) {
         seen = now
         merged = { ...now, ...failing }
       }
+
       return merged
     },
     subscribe: real.subscribe
@@ -297,7 +356,10 @@ export function never<T>(): Promise<T> {
  * dismissed, and the dialogs it left open, since whether they're open outlives the story.
  */
 export function restore(): void {
-  for (const step of undo.splice(0).reverse()) step()
+  for (const step of undo.splice(0).reverse()) {
+    step()
+  }
+
   resetHost()
   clearNotifications()
   // From inside the dialog, as a person would press it, so the canvas's own Escape handling leaves it alone.
@@ -317,6 +379,7 @@ export function clearNotifications(): void {
 export async function typeInto(field: HTMLInputElement, text: string): Promise<void> {
   field.focus()
   const value = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!
+
   for (const character of text) {
     value.set!.call(field, field.value + character)
     field.dispatchEvent(new InputEvent("input", { bubbles: true, data: character, inputType: "insertText" }))
@@ -330,11 +393,16 @@ export async function holdToast(text: string | RegExp): Promise<void> {
     () => {
       const toasts = [...document.querySelectorAll<HTMLElement>("[data-sonner-toast]")]
       const found = toasts.find((candidate) => within(candidate).queryByText(text))
-      if (!found) throw new Error(`No notification says ${String(text)}`)
+
+      if (!found) {
+        throw new Error(`No notification says ${String(text)}`)
+      }
+
       return found
     },
     { timeout: 8000 }
   )
+
   await userEvent.hover(shown)
 }
 
@@ -347,7 +415,11 @@ export function tooltip(): HTMLElement | null {
 export function findTooltip(options?: { timeout?: number }): Promise<HTMLElement> {
   return waitFor(() => {
     const shown = tooltip()
-    if (!shown) throw new Error("No tooltip is showing")
+
+    if (!shown) {
+      throw new Error("No tooltip is showing")
+    }
+
     return shown
   }, options)
 }
@@ -355,7 +427,11 @@ export function findTooltip(options?: { timeout?: number }): Promise<HTMLElement
 async function until<T>(get: () => T | undefined): Promise<T> {
   for (;;) {
     const value = get()
-    if (value) return value
+
+    if (value) {
+      return value
+    }
+
     await pause(50)
   }
 }

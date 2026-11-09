@@ -14,10 +14,12 @@ let root: string
 /** A project folder with these files, and Vite installed unless told otherwise. */
 async function fixture(files: Record<string, string>, { vite = true } = {}) {
   await writeFile(join(root, "package.json"), JSON.stringify({ name: "fixture", type: "module" }))
+
   for (const [path, content] of Object.entries(files)) {
     await mkdir(dirname(join(root, path)), { recursive: true })
     await writeFile(join(root, path), content)
   }
+
   if (vite) {
     await mkdir(join(root, "node_modules"))
     // A junction needs no special rights on Windows; elsewhere it's an ordinary symlink.
@@ -90,6 +92,7 @@ describe("viteBuilder.detect", () => {
 describe("viteBuilder.start", () => {
   it("gives each server its own port on 127.0.0.1, so a second one beside it serves its own guest", async () => {
     await fixture({ "guest.js": "export function createGuest() {}\n" })
+
     const options = {
       root,
       config: { styles: [], components: {}, documents: [], libraries: [] },
@@ -97,12 +100,15 @@ describe("viteBuilder.start", () => {
       rendererGuestPath: join(root, "guest.js"),
       allowedOrigins: []
     }
+
     const first = await viteBuilder.start(options)
     const second = await viteBuilder.start(options)
+
     try {
       const urls = [new URL(first.guestUrl), new URL(second.guestUrl)]
       expect(urls.map((url) => url.hostname)).toEqual(["127.0.0.1", "127.0.0.1"])
       expect(urls[0].port).not.toBe(urls[1].port)
+
       for (const url of urls) {
         const response = await fetch(url)
         expect(response.status).toBe(200)
@@ -116,6 +122,7 @@ describe("viteBuilder.start", () => {
   it("serves on the port it's given when that's free, and on another one when it's taken", async () => {
     await fixture({ "guest.js": "export function createGuest() {}\n" })
     const port = await freePort()
+
     const options = {
       root,
       config: { styles: [], components: {}, documents: [], libraries: [] },
@@ -124,10 +131,13 @@ describe("viteBuilder.start", () => {
       allowedOrigins: [],
       port
     }
+
     const first = await viteBuilder.start(options)
+
     try {
       expect(new URL(first.guestUrl).port).toBe(String(port))
       const second = await viteBuilder.start(options)
+
       try {
         expect(new URL(second.guestUrl).port).not.toBe(String(port))
       } finally {

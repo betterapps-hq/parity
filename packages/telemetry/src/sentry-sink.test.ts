@@ -25,17 +25,20 @@ const events = [
 /** A Sentry that keeps what it's given. */
 function fakeSentry() {
   const sent = { breadcrumbs: [] as unknown[], events: [] as Event[], logs: [] as unknown[] }
+
   const target: SentryTarget = {
     addBreadcrumb: (breadcrumb) => sent.breadcrumbs.push(breadcrumb),
     captureEvent: (event) => sent.events.push(event),
     log: (log) => sent.logs.push(log)
   }
+
   return { sent, target }
 }
 
 function telemetryInto(target: SentryTarget, options?: Parameters<typeof createSentrySink>[1]) {
   let time = Date.parse("2026-11-06T17:00:00.000Z")
   let byte = 0
+
   return createTelemetry({
     events,
     context: { process: "service", installId: "install", sessionId: "session", project: "/work/site" },

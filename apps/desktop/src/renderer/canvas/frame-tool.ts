@@ -10,7 +10,7 @@ import {
 import { useSyncExternalStore } from "react"
 import { getPreferences } from "../chrome/preferences.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { shapeIdFor } from "./CanvasEditor.tsx"
+import { canvasIdFor } from "./CanvasEditor.tsx"
 import { followPress, gestures } from "./gesture.ts"
 import type { Point } from "./hit.ts"
 import { viewCenter } from "./new-screen.ts"
@@ -37,7 +37,10 @@ const listeners = new Set<() => void>()
 
 function show(next: FrameDrawing | undefined): void {
   drawing = next
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 /** The frame being drawn, for the overlay to draw. */
@@ -45,6 +48,7 @@ export function useFrameDrawing(): FrameDrawing | undefined {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => drawing
@@ -54,14 +58,17 @@ export function useFrameDrawing(): FrameDrawing | undefined {
 /** Adds a frame, selects it, and goes back to the move tool, as one undo step. Returns its key. */
 function addFrame(session: ProjectSession, at: Point, size: { width: number; height: number }): string {
   const { store, selection } = session
+
   const frame = drawnFrame(
     store.getEntries().map((entry) => entry.container),
     at,
     size
   )
+
   const key = store.addContainer(store.mainPath, frame, "Draw frame")
   selection.set({ design: key })
   selection.setTool("select")
+
   return key
 }
 
@@ -71,28 +78,40 @@ function addFrame(session: ProjectSession, at: Point, size: { width: number; hei
  */
 export function drawFrame(session: ProjectSession, area: HTMLElement, event: PointerEvent): void {
   const { editor, store } = session
-  if (!editor) return
+
+  if (!editor) {
+    return
+  }
+
   const toPage = (point: { clientX: number; clientY: number }) =>
     editor.screenToPage({ x: point.clientX, y: point.clientY })
+
   const from = toPage(event)
+
   const boxes = store.getEntries().flatMap((entry) => {
-    const bounds = editor.getShapePageBounds(shapeIdFor(entry.key))
+    const bounds = editor.getShapePageBounds(canvasIdFor(entry.key))
+
     return bounds ? [bounds] : []
   })
+
   const toArea = (page: Point) => {
     const screen = editor.pageToScreen(page)
     const rect = area.getBoundingClientRect()
+
     return { x: screen.x - rect.left, y: screen.y - rect.top }
   }
+
   let last: { x: number; y: number; width: number; height: number } | undefined
   followPress(gestures.frameDraw, store, event, {
     cursor: "crosshair",
     move(moveEvent) {
       const free = toPage(moveEvent)
       const snapping = snaps(moveEvent, getPreferences().snapping)
+
       const { point, guides } = snapping
         ? snapToEdges(free, boxes, snapReach / editor.getZoomLevel())
         : { point: free, guides: {} }
+
       last = draggedBox(from, point)
       const topLeft = toArea({ x: last.x, y: last.y })
       const bottomRight = toArea({ x: last.x + last.width, y: last.y + last.height })
@@ -107,7 +126,10 @@ export function drawFrame(session: ProjectSession, area: HTMLElement, event: Poi
     },
     end(kept) {
       show(undefined)
-      if (kept && last) addFrame(session, { x: last.x, y: last.y }, last)
+
+      if (kept && last) {
+        addFrame(session, { x: last.x, y: last.y }, last)
+      }
     },
     click() {
       addFrame(session, { x: Math.round(from.x), y: Math.round(from.y) }, clickedFrameSize)
@@ -121,10 +143,13 @@ export function drawFrame(session: ProjectSession, area: HTMLElement, event: Poi
  */
 export function placeFrame(session: ProjectSession, preset: FramePreset, frame?: string): void {
   const size = { width: preset.width, height: preset.height }
+
   if (frame) {
     session.store.updateContainer(frame, `Resize frame to ${preset.name}`, (design) => withFrameSize(design, size))
+
     return
   }
+
   const middle = viewCenter(session)
   addFrame(session, { x: middle.x - size.width / 2, y: middle.y - size.height / 2 }, size)
 }

@@ -24,14 +24,20 @@ const Boundary = class Boundary {}
 function build(specs: Spec[]) {
   const elements = new Map<string, FakeElement>()
   const outside = new Set<FakeElement>()
+
   const make = (spec: Spec, parent: FakeElement | null): Fiber => {
     const fiber: Fiber = { child: null, sibling: null, type: null, stateNode: null, memoizedProps: {} }
     let children: Spec[] = []
     let below = parent
+
     if ("host" in spec) {
       const element: FakeElement = { nodeType: 1, tag: spec.host, parentElement: spec.outside ? null : parent }
       elements.set(String((spec.props?.id ?? spec.host) as unknown), element)
-      if (spec.outside) outside.add(element)
+
+      if (spec.outside) {
+        outside.add(element)
+      }
+
       Object.assign(fiber, { type: spec.host, stateNode: element, memoizedProps: spec.props ?? {} })
       children = spec.children ?? []
       below = element
@@ -47,11 +53,14 @@ function build(specs: Spec[]) {
     } else {
       Object.assign(fiber, { stateNode: { nodeType: 3, data: spec.text }, memoizedProps: spec.text })
     }
+
     const made = children.map((child) => make(child, below))
     fiber.child = made[0] ?? null
     made.forEach((child, index) => (child.sibling = made[index + 1] ?? null))
+
     return fiber
   }
+
   const root: Fiber & { tag: number } = {
     tag: 3,
     child: null,
@@ -60,21 +69,29 @@ function build(specs: Spec[]) {
     stateNode: {},
     memoizedProps: {}
   }
+
   const top = specs.map((spec) => make(spec, null))
   root.child = top[0] ?? null
   top.forEach((child, index) => (child.sibling = top[index + 1] ?? null))
+
   const drawn = indexDrawnNodes(root, {
     nodeOf: (fiber) => {
-      if (fiber.stateNode instanceof Boundary) return (fiber.stateNode as { nodeId: string }).nodeId
+      if (fiber.stateNode instanceof Boundary) {
+        return (fiber.stateNode as { nodeId: string }).nodeId
+      }
+
       const id =
         typeof fiber.type === "string"
           ? (fiber.memoizedProps as Record<string, unknown>)["data-canvas-node"]
           : undefined
+
       return typeof id === "string" ? id : undefined
     },
     inside: (element) => !outside.has(element as unknown as FakeElement)
   })
+
   const element = (id: string) => elements.get(id) as unknown as Element
+
   return { drawn: drawn!, element, root }
 }
 
@@ -92,6 +109,7 @@ describe("text a design node draws outside its elements", () => {
         children: [{ component: "Price", children: [{ text: "$" }, { host: "strong", children: [{ text: "24" }] }] }]
       }
     ])
+
     expect(words(drawn.texts("label"))).toEqual(["Email"])
     expect(drawn.elements("label")).toEqual([])
     expect(words(drawn.texts("price"))).toEqual(["$"])
@@ -113,6 +131,7 @@ describe("text a design node draws outside its elements", () => {
         ]
       }
     ])
+
     expect(drawn.texts("title")).toEqual([])
     expect(words(drawn.texts("caption"))).toEqual(["Everyone"])
     expect(words(drawn.texts("group"))).toEqual(["Everyone"])
@@ -134,6 +153,7 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(drawn.ids).toEqual(["row"])
     expect(tags(drawn.elements("row"))).toEqual(["tr"])
     expect(drawn.nodeOf(element("td"))).toBe("row")
@@ -144,6 +164,7 @@ describe("finding the DOM a design node draws", () => {
       { boundary: "pair", children: [{ component: "Pair", children: [{ host: "h3" }, { host: "p" }] }] },
       { boundary: "nothing", children: [{ component: "Nothing" }] }
     ])
+
     expect(tags(drawn.elements("pair"))).toEqual(["h3", "p"])
     expect(drawn.elements("nothing")).toEqual([])
     expect(drawn.ids).toEqual(["pair", "nothing"])
@@ -167,6 +188,7 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(drawn.ids).toEqual(["email"])
     expect(tags(drawn.elements("email"))).toEqual(["label"])
     expect(drawn.nodeOf(element("input"))).toBe("email")
@@ -197,6 +219,7 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(drawn.ids).toEqual(["row", "card", "title"])
     expect(tags(drawn.elements("row"))).toEqual(["div"])
     expect(tags(drawn.elements("card"))).toEqual(["section"])
@@ -221,6 +244,7 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(tags(drawn.elements("provider"))).toEqual(["p", "p"])
     expect(drawn.nodeOf(element("second"))).toBe("second")
     expect(drawn.parent("second")).toBe("provider")
@@ -247,15 +271,18 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(tags(drawn.elements("dialog"))).toEqual(["button", "nav"])
     expect(drawn.ids).toEqual(["dialog"])
   })
 
   it("makes one node of a slot drawn twice, with both copies", () => {
     const item = { host: "li", props: { "data-canvas-node": "item" } }
+
     const { drawn } = build([
       { boundary: "list", children: [{ component: "List", children: [{ host: "ul", children: [item, item] }] }] }
     ])
+
     expect(drawn.ids).toEqual(["list", "item"])
     expect(tags(drawn.elements("item"))).toEqual(["li", "li"])
   })
@@ -268,9 +295,11 @@ describe("finding the DOM a design node draws", () => {
 
 describe("where a component puts the style it's given", () => {
   const style = { width: "320px", margin: "8px" }
+
   /** The component fiber of a layer whose component draws `drawn`, given `props`. */
   const layer = (drawn: Spec[], props: Record<string, unknown> = { style }) =>
     build([{ boundary: "field", children: [{ component: "Field", props, children: drawn }] }]).root.child!.child!
+
   const isLayer = (fiber: Fiber) => fiber.stateNode instanceof Boundary
 
   it("finds it on the root, with the component's own styles beside it", () => {
@@ -278,6 +307,7 @@ describe("where a component puts the style it's given", () => {
     const card = layer([
       { host: "section", props: { style: { padding: "12px", ...style } }, children: [{ text: "Hi" }] }
     ])
+
     expect(stylePlacement(card, isLayer)).toBe("root")
   })
 
@@ -292,6 +322,7 @@ describe("where a component puts the style it's given", () => {
         ]
       }
     ])
+
     expect(stylePlacement(field, isLayer)).toBe("inner")
   })
 
@@ -300,6 +331,7 @@ describe("where a component puts the style it's given", () => {
       { host: "h3", children: [{ host: "span", props: { style } }] },
       { host: "p", props: { style } }
     ])
+
     expect(stylePlacement(pair, isLayer)).toBe("root")
   })
 
@@ -313,6 +345,7 @@ describe("where a component puts the style it's given", () => {
     const card = layer([
       { host: "section", children: [{ boundary: "inner", children: [{ host: "div", props: { style } }] }] }
     ])
+
     expect(stylePlacement(card, isLayer)).toBe("none")
   })
 

@@ -151,6 +151,7 @@ const verbs: Record<Notice["kind"], { verb: string; icon: LucideIcon; color: str
 /** Who did it, wearing a mark for what kind of thing it is. */
 function NoticeAvatar({ notice }: { notice: Notice }) {
   const { icon: Icon, color } = verbs[notice.kind]
+
   return (
     <span className="relative h-fit shrink-0">
       <Avatar person={notice.who} size={28} />
@@ -174,6 +175,7 @@ function NoticeAvatar({ notice }: { notice: Notice }) {
  */
 export function NoticeRow({ notice, onOpen }: { notice: Notice; onOpen?: () => void }) {
   const { verb } = verbs[notice.kind]
+
   return (
     <div
       className={`group/notice relative flex gap-3 rounded-lg px-2.5 py-2.5 hover:bg-muted/40 ${notice.unread ? "" : "opacity-80"}`}
@@ -234,8 +236,10 @@ export function Inbox({ initial = notices, className = "" }: { initial?: Notice[
   const [settings, setSettings] = useState(false)
   const [paused, setPaused] = useState<string>()
   const shown = items.filter(views.find((candidate) => candidate.id === view)!.matches)
+
   const read = (id: string) =>
     setItems((current) => current.map((item) => (item.id === id ? { ...item, unread: false } : item)))
+
   return (
     <div
       className={`flex w-[25rem] flex-col overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-2xl ${className}`}
@@ -270,6 +274,7 @@ export function Inbox({ initial = notices, className = "" }: { initial?: Notice[
           <div className="flex gap-1 border-b px-3 py-2">
             {views.map(({ id, title, icon: Icon, matches }) => {
               const unread = items.filter((item) => item.unread && matches(item)).length
+
               return (
                 <button
                   key={id}
@@ -336,17 +341,18 @@ export function NoticeToast({ notice, onDismiss }: { notice: Notice; onDismiss?:
   const [replying, setReplying] = useState(false)
   const [sent, setSent] = useState(false)
   let reply: ReactNode
-  if (sent)
+
+  if (sent) {
     reply = (
       <span className="flex items-center gap-1.5 pl-10 text-xs text-muted-foreground">
         <Check className="size-3.5 text-emerald-400" /> Replied
       </span>
     )
-  else if (replying)
+  } else if (replying) {
     reply = (
       <Composer placeholder={`Reply to ${notice.who.name.split(" ")[0]}`} focusOnMount onSend={() => setSent(true)} />
     )
-  else
+  } else {
     reply = (
       <div className="flex gap-2 pl-10">
         <Button size="xs" onClick={() => setReplying(true)}>
@@ -357,6 +363,8 @@ export function NoticeToast({ notice, onDismiss }: { notice: Notice; onDismiss?:
         </Button>
       </div>
     )
+  }
+
   return (
     <div className="flex w-[23rem] flex-col gap-2.5 rounded-xl border bg-popover p-3 text-popover-foreground shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in-0">
       <div className="flex gap-3">
@@ -447,8 +455,10 @@ export function NotificationSettings({ className = "" }: { className?: string })
   const [project, setProject] = useState<Preferences>()
   const own = scope === "project" ? project : everywhere
   const shown = own ?? everywhere
+
   const set = (change: Partial<Preferences>) =>
     scope === "project" ? setProject({ ...shown, ...change }) : setEverywhere({ ...everywhere, ...change })
+
   return (
     <div className={`flex flex-col gap-4 p-3 text-popover-foreground ${className}`}>
       <div className="flex gap-1 rounded-lg bg-muted p-0.5">
@@ -566,6 +576,7 @@ export function NotificationSettings({ className = "" }: { className?: string })
  */
 export function EmailDigest() {
   const forYou = notices.filter((notice) => notice.unread || notice.action)
+
   return (
     <div className="w-[36rem] overflow-hidden rounded-xl bg-white text-neutral-900 shadow-2xl">
       <div className="flex items-center gap-2.5 border-b border-neutral-200 px-8 py-5">

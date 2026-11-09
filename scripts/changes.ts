@@ -24,17 +24,30 @@ export interface WorkspacePackage {
 export function bundledBy(packages: WorkspacePackage[]): Map<string, string[]> {
   const byName = new Map(packages.map((pkg) => [pkg.name, pkg]))
   const bundlers = new Map<string, string[]>()
+
   for (const release of packages.filter((pkg) => !pkg.private)) {
     const seen = new Set<string>()
+
     const visit = (name: string): void => {
       const pkg = byName.get(name)
-      if (!pkg?.private || seen.has(name)) return
+
+      if (!pkg?.private || seen.has(name)) {
+        return
+      }
+
       seen.add(name)
       bundlers.set(name, [...(bundlers.get(name) ?? []), release.name])
-      for (const dependency of pkg.dependencies) visit(dependency)
+
+      for (const dependency of pkg.dependencies) {
+        visit(dependency)
+      }
     }
-    for (const dependency of release.dependencies) visit(dependency)
+
+    for (const dependency of release.dependencies) {
+      visit(dependency)
+    }
   }
+
   return bundlers
 }
 
@@ -45,14 +58,25 @@ export function bundledBy(packages: WorkspacePackage[]): Map<string, string[]> {
 export function releasesFor(packages: WorkspacePackage[], files: string[], ignorePatterns: string[]): string[] {
   const bundlers = bundledBy(packages)
   const releases = new Set<string>()
+
   for (const file of files) {
-    if (ignorePatterns.some((pattern) => matchesGlob(file, pattern))) continue
+    if (ignorePatterns.some((pattern) => matchesGlob(file, pattern))) {
+      continue
+    }
+
     const owner = packages
       .filter((pkg) => file.startsWith(`${pkg.dir}/`))
       .sort((a, b) => b.dir.length - a.dir.length)[0]
-    if (!owner) continue
-    for (const release of owner.private ? (bundlers.get(owner.name) ?? []) : [owner.name]) releases.add(release)
+
+    if (!owner) {
+      continue
+    }
+
+    for (const release of owner.private ? (bundlers.get(owner.name) ?? []) : [owner.name]) {
+      releases.add(release)
+    }
   }
+
   return [...releases].sort()
 }
 
@@ -64,8 +88,10 @@ export function onlyVersionChanged(before: string, after: string): boolean {
   const withoutVersion = (text: string): string => {
     const json = JSON.parse(text) as Record<string, unknown>
     delete json.version
+
     return JSON.stringify(json)
   }
+
   return withoutVersion(before) === withoutVersion(after)
 }
 
@@ -74,6 +100,7 @@ export function versionedRelease(before: string, after: string, changelog: strin
   const previous: unknown = JSON.parse(before)
   const next: unknown = JSON.parse(after)
   const log: unknown = JSON.parse(changelog)
+
   if (
     !previous ||
     typeof previous !== "object" ||
@@ -91,17 +118,28 @@ export function versionedRelease(before: string, after: string, changelog: strin
     log.name !== next.name ||
     !("entries" in log) ||
     !Array.isArray(log.entries)
-  )
+  ) {
     return undefined
+  }
+
   const pattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
-  if (!pattern.test(previous.version) || !pattern.test(next.version)) return undefined
+
+  if (!pattern.test(previous.version) || !pattern.test(next.version)) {
+    return undefined
+  }
+
   const oldParts = previous.version.split(".").map(BigInt)
   const newParts = next.version.split(".").map(BigInt)
   const difference = newParts.findIndex((part, index) => part !== oldParts[index])
   const newer = newParts[difference]
   const older = oldParts[difference]
-  if (newer === undefined || older === undefined || newer <= older) return undefined
+
+  if (newer === undefined || older === undefined || newer <= older) {
+    return undefined
+  }
+
   const entry: unknown = log.entries[0]
+
   return entry && typeof entry === "object" && "version" in entry && entry.version === next.version
     ? next.name
     : undefined
@@ -127,13 +165,17 @@ export function listChangeFiles(range: string[], cwd = root): string[] {
     cwd,
     encoding: "utf8"
   })
+
   // Each line reads `:<old mode> <new mode> <old blob> <new blob> <status>\t<path>`.
   const entries = lines(raw).map((line) => {
     const [meta = "", path = ""] = line.split("\t")
     const [, , before = "", after = "", status = ""] = meta.split(" ")
+
     return { path, before, after, status }
   })
+
   const deleted = new Set(entries.filter((entry) => entry.status === "D").map((entry) => entry.before))
+
   return entries
     .filter((entry) => entry.status === "M" || (entry.status === "A" && !deleted.has(entry.after)))
     .map((entry) => entry.path)
@@ -141,16 +183,23 @@ export function listChangeFiles(range: string[], cwd = root): string[] {
 
 function readWorkspace(): WorkspacePackage[] {
   const found: { dir: string; json: Record<string, unknown> }[] = []
+
   for (const parent of ["apps", "packages"]) {
     for (const name of readdirSync(join(root, parent))) {
       const file = join(root, parent, name, "package.json")
-      if (existsSync(file)) found.push({ dir: `${parent}/${name}`, json: JSON.parse(readFileSync(file, "utf8")) })
+
+      if (existsSync(file)) {
+        found.push({ dir: `${parent}/${name}`, json: JSON.parse(readFileSync(file, "utf8")) })
+      }
     }
   }
+
   const names = new Set(found.map(({ json }) => String(json.name)))
+
   return found.map(({ dir, json }) => {
     const kinds = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]
     const declared = kinds.flatMap((kind) => Object.keys((json[kind] as Record<string, string> | undefined) ?? {}))
+
     return {
       name: String(json.name),
       dir,
@@ -178,28 +227,38 @@ function changes(branch: string, committed: boolean): { files: string[]; covered
   const base = git("merge-base", branch, "HEAD").trim()
   const range = committed ? [base, "HEAD"] : ["--cached", base]
   const now = (file: string): string => git("show", `${committed ? "HEAD" : ""}:${file}`)
+
   // A package.json that only changed version, as a release bumps it, doesn't count.
   const bumped = lines(git("diff", "--name-only", "--diff-filter=M", ...range, "--", "*package.json")).filter((file) =>
     onlyVersionChanged(git("show", `${base}:${file}`), now(file))
   )
+
   const files = lines(git("diff", "--name-only", "--no-renames", ...range)).filter((file) => !bumped.includes(file))
   const changeFiles = listChangeFiles(range)
   const covered = new Set(changeFiles.map((file) => (JSON.parse(now(file)) as { packageName: string }).packageName))
   const released = new Set<string>()
+
   for (const file of bumped) {
     const changelog = file.replace(/package\.json$/, "CHANGELOG.json")
-    if (!files.includes(changelog)) continue
+
+    if (!files.includes(changelog)) {
+      continue
+    }
+
     const release = versionedRelease(git("show", `${base}:${file}`), now(file), now(changelog))
+
     if (release) {
       covered.add(release)
       released.add(release)
     }
   }
+
   return { files, covered, released }
 }
 
 function option(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`)
+
   return index === -1 ? undefined : process.argv[index + 1]
 }
 
@@ -213,10 +272,15 @@ function main(): void {
   const missing = needed.filter((name) => !covered.has(name))
 
   // Beachball checks ordinary change files; a consumed release is checked by version + generated changelog instead.
-  if (command === "releasing") process.exit(released.size > 0 && needed.every((name) => released.has(name)) ? 0 : 1)
+  if (command === "releasing") {
+    process.exit(released.size > 0 && needed.every((name) => released.has(name)) ? 0 : 1)
+  }
 
   if (command === "check") {
-    if (missing.length === 0) return
+    if (missing.length === 0) {
+      return
+    }
+
     console.error(`Change files are needed for ${missing.join(" and ")}, which ship what changed.`)
     console.error('Run `pnpm changefile --type patch --message "what changed, for the changelog"` after staging.')
     process.exit(1)
@@ -225,18 +289,24 @@ function main(): void {
   if (command === "write") {
     const type = option("type")
     const message = option("message")
+
     if (!type || !message) {
       console.error('Usage: pnpm changefile --type <patch|minor|none> --message "what changed, for the changelog"')
       process.exit(1)
     }
+
     if (needed.length === 0) {
       console.log("No change file needed: nothing changed ships in the desktop app or the CLI.")
+
       return
     }
+
     if (missing.length === 0) {
       console.log(`No change file needed: ${needed.join(" and ")} already have staged or committed release coverage.`)
+
       return
     }
+
     const require = createRequire(import.meta.url)
     const beachball = join(dirname(require.resolve("beachball/package.json")), "bin/beachball.js")
     const packages = missing.flatMap((name) => ["--package", name])
@@ -248,6 +318,7 @@ function main(): void {
         stdio: "inherit"
       }
     )
+
     return
   }
 
@@ -257,4 +328,6 @@ function main(): void {
   process.exit(1)
 }
 
-if (process.argv[1] && import.meta.filename === process.argv[1]) main()
+if (process.argv[1] && import.meta.filename === process.argv[1]) {
+  main()
+}

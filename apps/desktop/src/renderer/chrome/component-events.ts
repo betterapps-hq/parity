@@ -25,12 +25,20 @@ type Store = Pick<DesignStore, "getEntry" | "updateContainer" | "updateContainer
 export function detachAndRecord(store: Store, key: string, instanceId: string): void {
   const root = store.getEntry(key)?.container.root
   const instance = root && findNode(root, instanceId)
-  if (instance?.type !== "instance") return
+
+  if (instance?.type !== "instance") {
+    return
+  }
+
   const library = store.getComponentLibrary()
+
   const changed = changes(store, [key], () =>
     store.updateContainer(key, "Detach instance", (container) => detachInstance(container, instanceId, library))
   )
-  if (changed) recordComponentChange("detach", key, [instanceId], instance.design)
+
+  if (changed) {
+    recordComponentChange("detach", key, [instanceId], instance.design)
+  }
 }
 
 /**
@@ -45,19 +53,28 @@ export function pushAndRecord(
   inner?: { key: string; path: string }
 ): void {
   const main = store.getEntry(mainKey)
-  if (!main) return
+
+  if (!main) {
+    return
+  }
+
   const changed = changes(store, [key, mainKey], () =>
     store.updateContainers([key, mainKey], `Push to ${main.container.name}`, ([design, component]) => {
       const pushed = pushOverrides(design!, instanceId, component!, inner && [inner.key])
+
       return [pushed.container, pushed.component]
     })
   )
-  if (changed) recordComponentChange("push", key, [inner?.path ?? instanceId], main.container.id)
+
+  if (changed) {
+    recordComponentChange("push", key, [inner?.path ?? instanceId], main.container.id)
+  }
 }
 
 /** Makes a change and says whether any of the designs with these keys is different afterwards. */
 function changes(store: Pick<DesignStore, "getEntry">, keys: readonly string[], change: () => void): boolean {
   const before = keys.map((key) => store.getEntry(key)?.container)
   change()
+
   return keys.some((key, index) => store.getEntry(key)?.container !== before[index])
 }

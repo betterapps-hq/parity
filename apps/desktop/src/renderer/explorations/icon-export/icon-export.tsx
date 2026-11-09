@@ -46,6 +46,7 @@ export function iconFileName(name: string): string {
     .replace(/[^a-zA-Z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase()
+
   return `${kebab || "icon"}.svg`
 }
 
@@ -63,15 +64,22 @@ export function IconExport({
   const session = useProject()
   const library = iconLibraries(session.info.libraries)[0]
   const style = library ? iconStyles(library).initial : undefined
+
   const catalog = useMemo(
     () => (library ? iconCatalog(session.loaded, library, style) : undefined),
     [session.loaded, library, style]
   )
+
   const [query, setQuery] = useState(initialQuery)
   const [open, setOpen] = useState(initiallyOpen)
-  if (!library || !catalog) return <p className="p-6 text-sm text-muted-foreground">The project has no icon set.</p>
+
+  if (!library || !catalog) {
+    return <p className="p-6 text-sm text-muted-foreground">The project has no icon set.</p>
+  }
+
   const all = catalog.entries
   const matches = catalog.search(query)
+
   return (
     <div className="flex flex-col gap-3 p-6">
       <div className="flex items-center gap-2">
@@ -155,6 +163,7 @@ function ExportChoices({
   const [size, setSize] = useState<(typeof sizes)[number]>(24)
   const [color, setColor] = useState<"current" | "black">("current")
   const icons = which === "matching" && searching ? matches : all
+
   return (
     <>
       <FieldGroup className="gap-5">

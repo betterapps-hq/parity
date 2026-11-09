@@ -47,8 +47,10 @@ export interface SkeletonOptions {
 
 /** How much of the frame a surface covers to count as its background. */
 const coversFrame = 0.9
+
 /** How much of a line of text its bar fills, top to bottom, as a skeleton draws text. */
 const textBar = 0.6
+
 /** How strongly text and media show, in their own color: about as dark as text is drawn this small. */
 const textOpacity = 0.35
 const mediaOpacity = 0.2
@@ -61,17 +63,27 @@ export function frameSkeleton(
 ): FrameSkeleton {
   const area = frame.width * frame.height
   let background: string | undefined
-  const shown: { box: Shape; style: Style; order: number }[] = []
+  const shown: { box: Rect; style: Style; order: number }[] = []
   drawn.forEach((box, order) => {
     const clipped = clip(box, frame)
-    if (!clipped || clipped.width < smallest || clipped.height < smallest) return
-    if (box.kind === "surface" && box.color && (clipped.width * clipped.height) / area >= coversFrame) {
-      background = box.color
+
+    if (!clipped || clipped.width < smallest || clipped.height < smallest) {
       return
     }
+
+    if (box.kind === "surface" && box.color && (clipped.width * clipped.height) / area >= coversFrame) {
+      background = box.color
+
+      return
+    }
+
     const drawnAs = draw(box, clipped)
-    if (drawnAs) shown.push({ ...drawnAs, order })
+
+    if (drawnAs) {
+      shown.push({ ...drawnAs, order })
+    }
   })
+
   const kept =
     shown.length <= most
       ? shown
@@ -79,10 +91,16 @@ export function frameSkeleton(
           .sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height)
           .slice(0, most)
           .sort((a, b) => a.order - b.order)
-  return { width: frame.width, height: frame.height, ...(background ? { background } : {}), layers: layer(kept) }
+
+  const layers = layer(kept)
+
+  return background
+    ? { width: frame.width, height: frame.height, background, layers }
+    : { width: frame.width, height: frame.height, layers }
 }
 
-interface Shape {
+/** A box as a skeleton draws it: a rectangle with rounded corners. */
+interface Rect {
   x: number
   y: number
   width: number
@@ -93,30 +111,53 @@ interface Shape {
 type Style = Omit<SkeletonLayer, "path">
 
 /** How a box is drawn, or nothing for one that draws nothing. */
-function draw(box: DrawnBox, shape: Shape): { box: Shape; style: Style } | undefined {
+function draw(box: DrawnBox, rect: Rect): { box: Rect; style: Style } | undefined {
   if (box.kind === "text") {
-    if (!box.color) return undefined
-    const height = shape.height * textBar
+    if (!box.color) {
+      return undefined
+    }
+
+    const height = rect.height * textBar
+
     return {
-      box: { ...shape, y: shape.y + (shape.height - height) / 2, height, radius: height / 2 },
+      box: { ...rect, y: rect.y + (rect.height - height) / 2, height, radius: height / 2 },
       style: { fill: box.color, opacity: textOpacity }
     }
   }
-  if (box.kind === "media") return { box: shape, style: { fill: box.color ?? "currentColor", opacity: mediaOpacity } }
-  if (!box.color && !box.border) return undefined
-  return {
-    box: shape,
-    style: { ...(box.color ? { fill: box.color } : {}), ...(box.border ? { stroke: box.border } : {}), opacity: 1 }
+
+  if (box.kind === "media") {
+    return { box: rect, style: { fill: box.color ?? "currentColor", opacity: mediaOpacity } }
   }
+
+  if (!box.color && !box.border) {
+    return undefined
+  }
+
+  // Fill, then stroke, then opacity, so equal styles are written alike and share a layer.
+  const paint: Omit<Style, "opacity"> = {}
+
+  if (box.color) {
+    paint.fill = box.color
+  }
+
+  if (box.border) {
+    paint.stroke = box.border
+  }
+
+  return { box: rect, style: { ...paint, opacity: 1 } }
 }
 
 /** The part of a box inside the frame, its corners no rounder than half its shorter side. */
-function clip(box: DrawnBox, frame: { width: number; height: number }): Shape | undefined {
+function clip(box: DrawnBox, frame: { width: number; height: number }): Rect | undefined {
   const x = Math.max(0, box.x)
   const y = Math.max(0, box.y)
   const width = Math.min(frame.width, box.x + box.width) - x
   const height = Math.min(frame.height, box.y + box.height) - y
-  if (width <= 0 || height <= 0) return undefined
+
+  if (width <= 0 || height <= 0) {
+    return undefined
+  }
+
   return { x, y, width, height, radius: Math.min(box.radius ?? 0, width / 2, height / 2) }
 }
 
@@ -124,35 +165,50 @@ function clip(box: DrawnBox, frame: { width: number; height: number }): Shape | 
  * Puts boxes drawn alike in one layer, keeping every box in front of the boxes it overlaps that were drawn before it:
  * a box joins the last layer drawn its way unless a layer after that one overlaps it.
  */
-function layer(boxes: { box: Shape; style: Style }[]): SkeletonLayer[] {
-  const layers: { style: Style; key: string; boxes: Shape[] }[] = []
+function layer(boxes: { box: Rect; style: Style }[]): SkeletonLayer[] {
+  const layers: { style: Style; key: string; boxes: Rect[] }[] = []
+
   for (const { box, style } of boxes) {
     const key = `${style.fill}|${style.stroke}|${style.opacity}`
     let joined = false
+
     for (let index = layers.length - 1; index >= 0; index--) {
       const candidate = layers[index]!
+
       if (candidate.key === key) {
         candidate.boxes.push(box)
         joined = true
         break
       }
-      if (candidate.boxes.some((other) => overlaps(box, other))) break
+
+      if (candidate.boxes.some((other) => overlaps(box, other))) {
+        break
+      }
     }
-    if (!joined) layers.push({ style, key, boxes: [box] })
+
+    if (!joined) {
+      layers.push({ style, key, boxes: [box] })
+    }
   }
+
   return layers.map(({ style, boxes }) => ({ path: boxes.map(outline).join(""), ...style }))
 }
 
-function overlaps(a: Shape, b: Shape): boolean {
+function overlaps(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 }
 
 /** A box as path commands, clockwise from its top left corner. */
-function outline({ x, y, width, height, radius }: Shape): string {
+function outline({ x, y, width, height, radius }: Rect): string {
   const n = (value: number) => String(Math.round(value * 10) / 10)
-  if (radius < 0.5) return `M${n(x)} ${n(y)}h${n(width)}v${n(height)}h${n(-width)}Z`
+
+  if (radius < 0.5) {
+    return `M${n(x)} ${n(y)}h${n(width)}v${n(height)}h${n(-width)}Z`
+  }
+
   const r = n(radius)
   const arc = (dx: number, dy: number) => `a${r} ${r} 0 0 1 ${n(dx)} ${n(dy)}`
+
   return (
     `M${n(x + radius)} ${n(y)}h${n(width - 2 * radius)}${arc(radius, radius)}v${n(height - 2 * radius)}` +
     `${arc(-radius, radius)}h${n(-(width - 2 * radius))}${arc(-radius, -radius)}v${n(-(height - 2 * radius))}` +

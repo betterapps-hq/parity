@@ -46,6 +46,7 @@ export function FieldWithProp({
   const session = useProject()
   const { store } = session
   const { key, container } = entry
+
   // Each change records the prop the field uses, before and after (PAR-713).
   const update = (label: string, change: Parameters<typeof store.updateContainer>[2]) =>
     updateAndRecord(store, key, label, change, {
@@ -53,6 +54,7 @@ export function FieldWithProp({
       layers: [nodeId],
       read: (current) => findNode(current.root, nodeId)?.bind?.[field]
     })
+
   if (bound !== undefined) {
     return (
       <div className="group relative min-w-0">
@@ -84,7 +86,9 @@ export function FieldWithProp({
       </div>
     )
   }
+
   const props = bindableProps(container, field)
+
   return (
     <div className="flex min-w-0 items-start gap-1">
       <div className="min-w-0 flex-1">{children}</div>

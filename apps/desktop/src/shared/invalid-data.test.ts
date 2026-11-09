@@ -44,9 +44,11 @@ describe("recordInvalidData", () => {
 
   it("names an unnamed schema by the function that checked with it, and cuts long data short", () => {
     start()
+
     function readNames(value: unknown) {
       return parseData(z.array(z.number()), value)
     }
+
     expect(() => readNames(["x".repeat(3000)])).toThrow("/0: expected a number")
     const [event] = sink.named("data.invalid")
     expect(event?.attributes.schema).toBe("readNames")

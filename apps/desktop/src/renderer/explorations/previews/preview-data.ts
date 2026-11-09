@@ -441,13 +441,18 @@ export function tokensOfKind(kind: PreviewKind, from: SampleToken[] = allTokens)
 /** A token by its name. */
 export function token(name: string): SampleToken {
   const found = allTokens.find((candidate) => candidate.name === name)
-  if (!found) throw new Error(`No sample token named ${name}`)
+
+  if (!found) {
+    throw new Error(`No sample token named ${name}`)
+  }
+
   return found
 }
 
 /** What a sample token comes to, by name, or undefined when there's no such token: the lookup value checks take. */
 export function sampleValue(name: string): string | undefined {
   const found = allTokens.find((candidate) => candidate.name === name)
+
   return found ? drawn(found) : undefined
 }
 
@@ -861,7 +866,11 @@ export const components: SampleComponent[] = [
 
 export function component(name: string): SampleComponent {
   const found = components.find((candidate) => candidate.name === name)
-  if (!found) throw new Error(`No sample component named ${name}`)
+
+  if (!found) {
+    throw new Error(`No sample component named ${name}`)
+  }
+
   return found
 }
 

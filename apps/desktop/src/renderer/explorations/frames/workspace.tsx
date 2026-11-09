@@ -131,17 +131,22 @@ const contentHeights: Record<Content, (width: number) => number> = {
 function boxOf(design: Design): Box {
   if (design.kind === "frame") {
     const w = design.content === "text" ? (design.text?.length ?? 0) * 18 + 16 : design.width
+
     return { x: design.x, y: design.y, w, h: design.height ?? contentHeights[design.content](design.width) }
   }
+
   const widths = design.modes.map((id, index) => {
     const width = index === 0 ? design.width : previewWidth(design, id)
+
     return width * (index ? companionScale(width) : 1)
   })
+
   const heights = design.modes.map((id, index) =>
     index === 0
       ? (design.height ?? contentHeights[design.content](design.width))
       : contentHeights[design.content](previewWidth(design, id))
   )
+
   return {
     x: design.x,
     y: design.y,
@@ -152,17 +157,33 @@ function boxOf(design: Design): Box {
 
 /** A board's companion preview is as wide as its mode; a component's draws at its own width in every mode. */
 function previewWidth(design: Design, id: string): number {
-  if (design.content === "plan-card") return 320
-  if (design.content === "pricing") return mode(id).width
+  if (design.content === "plan-card") {
+    return 320
+  }
+
+  if (design.content === "pricing") {
+    return mode(id).width
+  }
+
   return mode(id).width
 }
 
 /** What a design draws in a mode, at a width. */
 function drawContent(design: Design, modeId: string, width: number): ReactNode {
   const theme = isDark(mode(modeId)) ? "dark" : "light"
-  if (design.content === "pricing") return <PricingPage width={width} theme={theme} />
-  if (design.content === "plan-card") return <PlanCard theme={theme} />
-  if (design.content === "welcome") return <WelcomeSketch width={width} height={design.height ?? 440} />
+
+  if (design.content === "pricing") {
+    return <PricingPage width={width} theme={theme} />
+  }
+
+  if (design.content === "plan-card") {
+    return <PlanCard theme={theme} />
+  }
+
+  if (design.content === "welcome") {
+    return <WelcomeSketch width={width} height={design.height ?? 440} />
+  }
+
   return <div style={{ width, height: design.height ?? 400, ...designSurface(theme) }} />
 }
 
@@ -170,12 +191,15 @@ function drawContent(design: Design, modeId: string, width: number): ReactNode {
 function nextName(designs: Design[], base: string): string {
   const pattern = new RegExp(`^${base} (\\d+)$`)
   const highest = Math.max(0, ...designs.map((each) => Number(pattern.exec(each.name)?.[1] ?? 0)))
+
   return `${base} ${highest + 1}`
 }
 
 let counter = 0
+
 function newId(prefix: string): string {
   counter += 1
+
   return `${prefix}-${Date.now().toString(36)}-${counter}`
 }
 
@@ -218,6 +242,7 @@ export function FramesWorkspace({ start }: { start: Start }) {
   const [drawing, setDrawing] = useState(start.drawing)
   const [guides, setGuides] = useState<{ x?: number; y?: number }>({})
   const stage = useRef<HTMLDivElement>(null)
+
   const gesture = useRef<
     | { type: "draw"; from: Point; at: Point }
     | { type: "move"; id: string; from: Point; origin: Point; moved: boolean }
@@ -233,15 +258,21 @@ export function FramesWorkspace({ start }: { start: Start }) {
     },
     [doc]
   )
+
   const undo = useCallback(() => {
     setPast((history) => {
       const last = history.at(-1)
-      if (last) setDoc(last)
+
+      if (last) {
+        setDoc(last)
+      }
+
       return history.slice(0, -1)
     })
   }, [])
 
   const design = doc.designs.find((each) => each.id === selected)
+
   const update = (id: string, patch: Partial<Design>) =>
     setDoc((current) => ({
       ...current,
@@ -251,10 +282,13 @@ export function FramesWorkspace({ start }: { start: Start }) {
   // The canvas point under a point on the screen.
   const toCanvas = (clientX: number, clientY: number): Point => {
     const box = stage.current?.getBoundingClientRect()
+
     return { x: (clientX - (box?.left ?? 0) - view.x) / view.zoom, y: (clientY - (box?.top ?? 0) - view.y) / view.zoom }
   }
+
   const middle = (): Point => {
     const box = stage.current?.getBoundingClientRect()
+
     return toCanvas((box?.left ?? 0) + (box?.width ?? 0) / 2, (box?.top ?? 0) + (box?.height ?? 0) / 2)
   }
 
@@ -263,10 +297,21 @@ export function FramesWorkspace({ start }: { start: Start }) {
     const reach = 6 / view.zoom
     let x: number | undefined
     let y: number | undefined
+
     for (const box of doc.designs.map(boxOf)) {
-      for (const edge of [box.x, box.x + box.w]) if (Math.abs(point.x - edge) < reach) x = edge
-      for (const edge of [box.y, box.y + box.h]) if (Math.abs(point.y - edge) < reach) y = edge
+      for (const edge of [box.x, box.x + box.w]) {
+        if (Math.abs(point.x - edge) < reach) {
+          x = edge
+        }
+      }
+
+      for (const edge of [box.y, box.y + box.h]) {
+        if (Math.abs(point.y - edge) < reach) {
+          y = edge
+        }
+      }
     }
+
     return { point: { x: x ?? point.x, y: y ?? point.y }, guides: { x, y } }
   }
 
@@ -275,16 +320,27 @@ export function FramesWorkspace({ start }: { start: Start }) {
     // The previews are the ones on this canvas; states, params and instances are the example design's, if it has one.
     const previews = of.modes.slice(1).map((id) => mode(id).name)
     const entry = entries.find((each) => each.container.name === of.example)
-    if (entry) return { ...frameDrops(entry.container, entries), previews }
+
+    if (entry) {
+      return { ...frameDrops(entry.container, entries), previews }
+    }
+
     return { kept: "Default", states: [], previews, params: [], instances: [] }
   }
+
   const convertNow = (of: Design, kind: Kind) => {
     const before = doc
     change((current) => ({
       ...current,
       designs: current.designs.map((each) => {
-        if (each.id !== of.id) return each
-        if (kind === "frame") return { ...each, kind, modes: [], height: boxOf(each).h - 90 }
+        if (each.id !== of.id) {
+          return each
+        }
+
+        if (kind === "frame") {
+          return { ...each, kind, modes: [], height: boxOf(each).h - 90 }
+        }
+
         return { ...each, kind, modes: each.kind === "frame" ? [primaryMode.id] : each.modes }
       })
     }))
@@ -294,26 +350,39 @@ export function FramesWorkspace({ start }: { start: Start }) {
       action: { label: "Undo", onClick: () => setDoc(before) }
     })
   }
+
   const convert = (of: Design, kind: Kind) => {
-    if (kind === of.kind) return
-    if (kind === "frame" && dropLines(dropsOf(of)).length > 0) setConfirm(of.id)
-    else convertNow(of, kind)
+    if (kind === of.kind) {
+      return
+    }
+
+    if (kind === "frame" && dropLines(dropsOf(of)).length > 0) {
+      setConfirm(of.id)
+    } else {
+      convertNow(of, kind)
+    }
   }
 
   const remove = (id: string) => {
     change((current) => ({ designs: current.designs.filter((each) => each.id !== id) }))
-    if (selected === id) setSelected(undefined)
+
+    if (selected === id) {
+      setSelected(undefined)
+    }
   }
+
   const duplicate = (of: Design) => {
     const copy = { ...of, id: newId(of.kind), name: `${of.name} copy`, x: of.x + 40, y: of.y + 40 }
     change((current) => ({ ...current, designs: [...current.designs, copy] }))
     setSelected(copy.id)
   }
+
   const add = (made: Design) => {
     change((current) => ({ ...current, designs: [...current.designs, made] }))
     setSelected(made.id)
     setTool("select")
   }
+
   const addAtMiddle = (kind: Kind, name: string, width: number, height: number) => {
     const at = middle()
     add({
@@ -339,34 +408,58 @@ export function FramesWorkspace({ start }: { start: Start }) {
   // Keys for the canvas, wherever focus is, as long as nothing is being typed in.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (typing(event.target) || event.altKey) return
+      if (typing(event.target) || event.altKey) {
+        return
+      }
+
       const mod = event.ctrlKey || event.metaKey
-      if (mod && event.key.toLowerCase() === "z") undo()
-      else if (mod && event.key.toLowerCase() === "d" && design) duplicate(design)
-      else if (mod) return
-      else if (event.key === "Escape") {
-        if (tool !== "select") setTool("select")
-        else setSelected(undefined)
-      } else if ((event.key === "Delete" || event.key === "Backspace") && selected) remove(selected)
-      else if (event.key === "Enter" && design?.content === "text") setEditing(design.id)
-      else {
+
+      if (mod && event.key.toLowerCase() === "z") {
+        undo()
+      } else if (mod && event.key.toLowerCase() === "d" && design) {
+        duplicate(design)
+      } else if (mod) {
+        return
+      } else if (event.key === "Escape") {
+        if (tool !== "select") {
+          setTool("select")
+        } else {
+          setSelected(undefined)
+        }
+      } else if ((event.key === "Delete" || event.key === "Backspace") && selected) {
+        remove(selected)
+      } else if (event.key === "Enter" && design?.content === "text") {
+        setEditing(design.id)
+      } else {
         const picked = toolForKey(event.key)
-        if (!picked) return
+
+        if (!picked) {
+          return
+        }
+
         setTool(picked)
       }
+
       setTooltip(undefined)
       event.preventDefault()
     }
+
     window.addEventListener("keydown", onKey)
+
     return () => window.removeEventListener("keydown", onKey)
   })
 
   // Ctrl or ⌘ with the wheel, or a pinch, zooms around the pointer; the wheel alone pans.
   useEffect(() => {
     const element = stage.current
-    if (!element) return undefined
+
+    if (!element) {
+      return undefined
+    }
+
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
+
       if (event.ctrlKey || event.metaKey) {
         const box = element.getBoundingClientRect()
         const px = event.clientX - box.left
@@ -374,33 +467,45 @@ export function FramesWorkspace({ start }: { start: Start }) {
         setView((now) => {
           const zoom = Math.min(4, Math.max(0.05, now.zoom * Math.exp(-event.deltaY * 0.01)))
           const ratio = zoom / now.zoom
+
           return { zoom, x: px - (px - now.x) * ratio, y: py - (py - now.y) * ratio }
         })
-      } else setView((now) => ({ ...now, x: now.x - event.deltaX, y: now.y - event.deltaY }))
+      } else {
+        setView((now) => ({ ...now, x: now.x - event.deltaX, y: now.y - event.deltaY }))
+      }
     }
+
     element.addEventListener("wheel", onWheel, { passive: false })
+
     return () => element.removeEventListener("wheel", onWheel)
   }, [])
 
   // A toast the story starts with, as just after a change, whose Undo goes back a step.
   useEffect(() => {
-    if (!start.toast) return undefined
+    if (!start.toast) {
+      return undefined
+    }
+
     const id = toast.success(start.toast.title, {
       description: start.toast.description,
       duration: Infinity,
       action: { label: "Undo", onClick: () => undo() }
     })
+
     return () => void toast.dismiss(id)
   }, [start.toast, undo])
 
   const stepZoom = (direction: 1 | -1) => {
     const levels = [0.1, 0.25, 0.5, 1, 2, 4]
+
     const next =
       direction > 0
         ? (levels.find((level) => level > view.zoom + 0.001) ?? 4)
         : (levels.findLast((level) => level < view.zoom - 0.001) ?? 0.1)
+
     zoomTo(next)
   }
+
   const zoomTo = (zoom: number) => {
     const box = stage.current?.getBoundingClientRect()
     const px = (box?.width ?? 0) / 2
@@ -410,12 +515,16 @@ export function FramesWorkspace({ start }: { start: Start }) {
 
   // A press on the canvas itself, not on a design: what it does depends on the tool.
   const onStageDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
+    if (event.button !== 0) {
+      return
+    }
+
     setTooltip(undefined)
     setDrawing(undefined)
     setRenaming(undefined)
     const at = toCanvas(event.clientX, event.clientY)
     capture(event.currentTarget, event.pointerId)
+
     if (tool === "hand") {
       gesture.current = { type: "pan", from: { x: event.clientX, y: event.clientY }, origin: { x: view.x, y: view.y } }
     } else if (tool === "frame") {
@@ -437,25 +546,44 @@ export function FramesWorkspace({ start }: { start: Start }) {
         modes: []
       })
       setEditing(id)
-    } else if (tool === "select") setSelected(undefined)
+    } else if (tool === "select") {
+      setSelected(undefined)
+    }
   }
 
   // A press on a design: selects it, and with the move tool starts moving it. With the frame or hand tool the
   // press goes on to the canvas, so a frame can be drawn over a design and the hand pans from anywhere.
   const onItemDown = (id: string, origin: Point) => (event: ReactPointerEvent) => {
-    if (event.button !== 0 || (tool !== "select" && tool !== "interact" && tool !== "text")) return
+    if (event.button !== 0 || (tool !== "select" && tool !== "interact" && tool !== "text")) {
+      return
+    }
+
     event.stopPropagation()
     setTooltip(undefined)
     setSelected(id)
-    if (editing && editing !== id) setEditing(undefined)
-    if (tool !== "select") return
-    if (stage.current) capture(stage.current, event.pointerId)
+
+    if (editing && editing !== id) {
+      setEditing(undefined)
+    }
+
+    if (tool !== "select") {
+      return
+    }
+
+    if (stage.current) {
+      capture(stage.current, event.pointerId)
+    }
+
     gesture.current = { type: "move", id, from: { x: event.clientX, y: event.clientY }, origin, moved: false }
   }
 
   const onStageMove = (event: ReactPointerEvent) => {
     const now = gesture.current
-    if (!now) return
+
+    if (!now) {
+      return
+    }
+
     if (now.type === "pan") {
       setView((current) => ({
         ...current,
@@ -470,8 +598,15 @@ export function FramesWorkspace({ start }: { start: Start }) {
     } else {
       const dx = (event.clientX - now.from.x) / view.zoom
       const dy = (event.clientY - now.from.y) / view.zoom
-      if (!now.moved && Math.hypot(dx, dy) * view.zoom < 3) return
-      if (!now.moved) setPast((history) => [...history, doc])
+
+      if (!now.moved && Math.hypot(dx, dy) * view.zoom < 3) {
+        return
+      }
+
+      if (!now.moved) {
+        setPast((history) => [...history, doc])
+      }
+
       now.moved = true
       const x = Math.round(now.origin.x + dx)
       const y = Math.round(now.origin.y + dy)
@@ -485,7 +620,11 @@ export function FramesWorkspace({ start }: { start: Start }) {
     const now = gesture.current
     gesture.current = undefined
     setGuides({})
-    if (now?.type !== "draw") return
+
+    if (now?.type !== "draw") {
+      return
+    }
+
     setDrawing(undefined)
     const width = Math.round(Math.abs(now.at.x - now.from.x))
     const height = Math.round(Math.abs(now.at.y - now.from.y))
@@ -505,6 +644,7 @@ export function FramesWorkspace({ start }: { start: Start }) {
   }
 
   const confirming = doc.designs.find((each) => each.id === confirm)
+
   const cursor = {
     frame: "crosshair",
     text: "text",
@@ -512,6 +652,7 @@ export function FramesWorkspace({ start }: { start: Start }) {
     select: "default",
     interact: "default"
   }[tool]
+
   const place = (point: Point) => ({ left: view.x + point.x * view.zoom, top: view.y + point.y * view.zoom })
 
   return (
@@ -546,13 +687,16 @@ export function FramesWorkspace({ start }: { start: Start }) {
             onPointerDown: onItemDown(each.id, each),
             onRenamed: (name: string | undefined) => {
               setRenaming(undefined)
-              if (name && name !== each.name)
+
+              if (name && name !== each.name) {
                 change((current) => ({
                   ...current,
                   designs: current.designs.map((d) => (d.id === each.id ? { ...d, name, named: false } : d))
                 }))
+              }
             }
           }
+
           return (
             <div key={each.id} className="absolute" style={place(each)}>
               {each.kind === "frame" ? (
@@ -569,7 +713,10 @@ export function FramesWorkspace({ start }: { start: Start }) {
                       onText={(text) => update(each.id, each.named ? { text, name: text || "Text" } : { text })}
                       onDone={() => {
                         setEditing(undefined)
-                        if (!each.text?.trim()) remove(each.id)
+
+                        if (!each.text?.trim()) {
+                          remove(each.id)
+                        }
                       }}
                     />
                   ) : (
@@ -583,6 +730,7 @@ export function FramesWorkspace({ start }: { start: Start }) {
                   zoom={view.zoom}
                   previews={each.modes.map((id, index): Preview => {
                     const width = index === 0 ? each.width : previewWidth(each, id)
+
                     return { mode: mode(id), width, content: drawContent(each, id, width) }
                   })}
                   states={each.example === "Pricing" ? ["Monthly", "Yearly"] : ["Default"]}
@@ -654,7 +802,9 @@ export function FramesWorkspace({ start }: { start: Start }) {
                     each.id === design.id ? { ...each, width: preset.width, height: preset.height } : each
                   )
                 }))
-              } else addAtMiddle("frame", nextName(doc.designs, "Frame"), preset.width, preset.height)
+              } else {
+                addAtMiddle("frame", nextName(doc.designs, "Frame"), preset.width, preset.height)
+              }
             },
             onNewScreen: () => addAtMiddle("screen", nextName(doc.designs, "Untitled screen"), 1280, 800),
             onNewComponent: () => addAtMiddle("component", nextName(doc.designs, "Untitled component"), 320, 200)
@@ -699,6 +849,7 @@ export function FramesWorkspace({ start }: { start: Start }) {
 /** A frame's root, from its size, for the inspector's style sections: 4 pixels to a step, as the example's tokens. */
 function frameRoot(design: Design): DesignNode {
   const text = design.content === "text"
+
   return {
     id: design.id,
     type: "layout",
@@ -724,12 +875,15 @@ function DesignInspector({
 }) {
   const { store } = useProject()
   const entries = useContainerEntries(store)
+
   if (design.kind === "frame") {
     return (
       <FrameInspector name={design.name} root={frameRoot(design)} onKind={onKind} onRename={onRename} onSize={onSize} />
     )
   }
+
   const entry = entries.find((each) => each.container.name === design.example)
+
   return (
     <>
       <KindHeader kind={design.kind} name={design.name} onKind={onKind} onRename={onRename} />
@@ -745,8 +899,10 @@ function LayersList({ doc, selected, onSelect }: { doc: Doc; selected?: string; 
     { label: "Components", kind: "component", items: doc.designs.filter((each) => each.kind === "component") },
     { label: "Frames", kind: "frame", items: doc.designs.filter((each) => each.kind === "frame") }
   ]
+
   const row =
     "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none hover:bg-accent/60 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+
   return (
     <div className="flex flex-col gap-3 p-2">
       {groups.map(({ label, kind, items }) => (
@@ -818,7 +974,11 @@ function Editable({
   const ref = useRef<HTMLSpanElement>(null)
   useLayoutEffect(() => {
     const element = ref.current
-    if (!element || !editing) return
+
+    if (!element || !editing) {
+      return
+    }
+
     element.textContent = text
     element.focus()
     const range = document.createRange()
@@ -829,7 +989,11 @@ function Editable({
     // Only when editing starts: afterwards the text is what's typed.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [editing])
-  if (!editing) return <>{text}</>
+
+  if (!editing) {
+    return <>{text}</>
+  }
+
   return (
     <span
       ref={ref}
@@ -845,7 +1009,10 @@ function Editable({
       onBlur={onDone}
       onKeyDown={(event) => {
         event.stopPropagation()
-        if (event.key === "Escape") event.currentTarget.blur()
+
+        if (event.key === "Escape") {
+          event.currentTarget.blur()
+        }
       }}
     />
   )

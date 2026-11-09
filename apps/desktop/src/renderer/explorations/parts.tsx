@@ -57,11 +57,13 @@ export function ExploreWindow({
         </div>
         {tabs.map((tab) => {
           const selected = tab.id === active
+
           const label = tab.home ? (
             <House className="size-4" aria-label="Home" />
           ) : (
             <span className="min-w-0 flex-1 truncate">{tab.title}</span>
           )
+
           return (
             <div
               key={tab.id}
@@ -157,6 +159,7 @@ export function Avatar({ person, size = 24, className = "" }: { person: Person; 
 /** A few people, overlapping. */
 export function AvatarStack({ people, size = 22, max = 4 }: { people: Person[]; size?: number; max?: number }) {
   const shown = people.slice(0, max)
+
   return (
     <span className="flex items-center">
       {shown.map((person, index) => (
@@ -184,6 +187,7 @@ export function AvatarStack({ people, size = 22, max = 4 }: { people: Person[]; 
 export function ParityMark({ size = 32 }: { size?: number }) {
   const id = `parity-${useId().replaceAll(/[^\w-]/g, "")}`
   const full = size > 40
+
   return (
     <svg width={size} height={size} viewBox="0 0 1024 1024" fill="none" aria-label="Parity">
       <defs>
@@ -319,8 +323,14 @@ export function MicrosoftMark({ size = 16 }: { size?: number }) {
 
 /** Where a project lives: GitHub, Azure DevOps or a folder on this computer. */
 export function SourceIcon({ type, className = "size-3.5" }: { type: Project["source"]["type"]; className?: string }) {
-  if (type === "github") return <GitHubMark className={className} />
-  if (type === "azure") return <AzureDevOpsMark className={className} />
+  if (type === "github") {
+    return <GitHubMark className={className} />
+  }
+
+  if (type === "azure") {
+    return <AzureDevOpsMark className={className} />
+  }
+
   return <HardDrive className={className} />
 }
 
@@ -357,6 +367,7 @@ function Bar({
 /** A screen of the given kind, drawn small in plain blocks: enough to tell a dashboard from a docs page at a glance. */
 export function MiniScreen({ kind, hue, dark = false }: { kind: ScreenKind; hue: number; dark?: boolean }) {
   const c = screenColors(hue, dark)
+
   return (
     <div className="absolute inset-0 flex overflow-hidden" style={{ background: c.page }}>
       {screens[kind](c)}
@@ -620,6 +631,7 @@ function dark(c: Colors): boolean {
  */
 export function ProjectThumb({ project, className = "" }: { project: Project; className?: string }) {
   const glow = accent(project.hue, 0.6, 0.14)
+
   return (
     <div
       className={`relative aspect-[16/10] overflow-hidden rounded-lg bg-[#0f0f12] ${className}`}

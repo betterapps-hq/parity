@@ -174,10 +174,16 @@ export interface CodeChange {
   stamp: number
 }
 
+/** A module as a build loaded it: its exports by name, whatever the customer's package exports. */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a customer's package can export anything; the renderer reads it by name
+export type ModuleExports = Record<string, unknown>
+
 /** What a builder passes to the renderer's `createGuest`. */
 export interface GuestInit {
-  components: Record<string, unknown>
+  /** The project's components by id, as its modules export them. */
+  components: ModuleExports
   /** Components loaded the first time they're drawn: each resolves to the component, or one that shows why it can't. */
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- a component is whatever the customer's module exports
   lazyComponents?: Record<string, () => Promise<unknown>>
   /**
    * Icon packages by library id, whole: an icon is `lucide/Heart`, or `heroicons/16/solid/CogIcon` in a style kept in
@@ -200,9 +206,9 @@ export interface GuestInit {
 /** One icon package, and how its icons are drawn. */
 export interface GuestIconSet {
   /** The package's module: its exports are the icons, or the data a renderer draws. */
-  module: Record<string, unknown>
+  module: ModuleExports
   /** The modules of styles it keeps in modules of their own, by the key its icons' ids name each with. */
-  styles?: Record<string, Record<string, unknown>>
+  styles?: Record<string, ModuleExports>
   /** Exports that are icons, as a regular expression. Defaults to every export that can be one. */
   match?: string
   /** Exports that look like icons but aren't. */
@@ -214,7 +220,7 @@ export interface GuestIconSet {
 export interface GuestDecorators {
   list: { library: string; decorator: LibraryDecorator }[]
   /** Modules by specifier; a module that failed to load is the error it failed with. */
-  modules: Record<string, Record<string, unknown> | { loadError: string }>
+  modules: Record<string, ModuleExports | { loadError: string }>
 }
 
 /** The renderer's guest runtime, loaded into the canvas from the customer's build. */
@@ -274,7 +280,7 @@ export interface MountOptions {
    * An error the frame hit. `layer` is set when a component's boundary caught it: that component draws its error box
    * in its place and the rest of the frame draws. Without it, the error stopped the frame drawing.
    */
-  onError?(error: unknown, layer?: { nodeId: string; component: string }): void
+  onError?(cause: unknown, layer?: { nodeId: string; component: string }): void
   /**
    * The frame's failing layers, each time they change: one entry for each node whose component is drawing its error
    * box, empty once they all draw again. Not called after the frame is unmounted.

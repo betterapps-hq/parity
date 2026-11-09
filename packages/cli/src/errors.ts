@@ -34,8 +34,10 @@ export function operationError(error: unknown, fields?: readonly string[]): Oper
   const message = error instanceof Error ? error.message : String(error)
   const details = errorDetails(error) ?? { code: "app_error", retryable: false }
   const field = details.field
+
   const known =
     field !== undefined && (details.code === "invalid_input" || !fields || fields.includes(field.split("/")[0]!))
+
   return {
     code: details.code,
     message,
@@ -47,8 +49,15 @@ export function operationError(error: unknown, fields?: readonly string[]): Oper
 
 /** Renames the top-level field a path points at, for an adapter whose names differ from the contract's. */
 export function renamePath(error: OperationError, names: Record<string, string>): OperationError {
-  if (!error.path) return error
+  if (!error.path) {
+    return error
+  }
+
   const [, first = "", ...rest] = error.path.split("/")
-  if (!Object.hasOwn(names, first)) return error
+
+  if (!Object.hasOwn(names, first)) {
+    return error
+  }
+
   return { ...error, path: ["", names[first], ...rest].join("/") }
 }

@@ -129,12 +129,14 @@ const toggleUses = Object.values(
     .reduce<Record<string, { project: string; version: string; boards: string[] }>>((all, use) => {
       const entry = (all[use.project] ??= { project: use.project, version: use.version, boards: [] })
       entry.boards.push(use.board)
+
       return all
     }, {})
 ).sort((a, b) => b.version.localeCompare(a.version))
 
 function ComponentCard({ name, uses, changed }: { name: string; uses: number; changed?: string }) {
   const picked = name === "Toggle"
+
   return (
     <div className={`flex flex-col gap-2 rounded-xl border bg-card p-2 ${picked ? "ring-2 ring-foreground/40" : ""}`}>
       <div className="grid h-24 place-items-center rounded-lg bg-[oklch(0.97_0.005_280)]">{previews[name]}</div>
@@ -154,6 +156,7 @@ function ComponentCard({ name, uses, changed }: { name: string; uses: number; ch
 /** The picked component: where it lives, what its last release changed, and which projects are behind. */
 function ToggleDetail() {
   const behind = toggleUses.filter((use) => use.version !== "2.4")
+
   return (
     <aside className="flex w-[24rem] shrink-0 flex-col overflow-y-auto border-l bg-background">
       <section className="flex flex-col gap-3 border-b px-5 py-5">
@@ -180,6 +183,7 @@ function ToggleDetail() {
         {toggleUses.map((use) => {
           const shown = portalProject(use.project)
           const old = use.version !== "2.4"
+
           return (
             <div key={use.project} className="flex items-center gap-3 py-1.5 text-sm">
               <span className="flex min-w-0 flex-1 flex-col">
@@ -218,6 +222,7 @@ function ToggleDetail() {
 
 export function LibraryPage() {
   const library = portalProject("library")
+
   return (
     <PortalPage active="libraries" path="kestrel/libraries/kestrel-ui">
       <div className="flex h-full">

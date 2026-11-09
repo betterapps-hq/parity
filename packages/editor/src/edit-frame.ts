@@ -55,12 +55,18 @@ export function editFrame(
   modes: ModeSettings
 ): EditFrame | undefined {
   const container = picked.design === undefined ? undefined : design(picked.design)
-  if (!container || picked.design === undefined) return undefined
-  const viewport = modeViewport(modes, picked.mode)
-  return {
-    design: picked.design,
-    container,
-    state: editingState(container, picked.state),
-    ...(viewport === undefined ? {} : { viewport })
+
+  if (!container || picked.design === undefined) {
+    return undefined
   }
+
+  const viewport = modeViewport(modes, picked.mode)
+
+  const frame: EditFrame = { design: picked.design, container, state: editingState(container, picked.state) }
+
+  if (viewport !== undefined) {
+    frame.viewport = viewport
+  }
+
+  return frame
 }

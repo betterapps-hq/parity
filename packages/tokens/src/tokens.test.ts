@@ -9,6 +9,7 @@ describe("extractTokens", () => {
       ":host { --background: oklch(1 0 0); --radius: 0.625rem; --tw-ring: 0; }",
       ".dark { --background: oklch(0.145 0 0); }"
     ].join("\n")
+
     const tokens = extractTokens(css)
     expect(tokens.find((t) => t.name === "background")).toEqual({
       name: "background",
@@ -30,6 +31,7 @@ describe("extractTokens with at-rules", () => {
       ":root { --app-surface: #ffffff; --app-accent: #228be6; --app-radius: 12px; }",
       "@media (prefers-color-scheme: dark) { :root { --app-surface: #1a1b1e; --app-accent: #4dabf7; } }"
     ].join("\n")
+
     const values = Object.fromEntries(extractTokens(css).map((token) => [token.name, token.values]))
     expect(values).toEqual({
       "app-accent": { default: "#228be6", dark: "#4dabf7" },
@@ -46,6 +48,7 @@ describe("extractTokens with at-rules", () => {
       "@media (prefers-color-scheme: dark) { :root { --c: #00f; } }",
       ".dark { --c: #000; }"
     ].join("\n")
+
     expect(extractTokens(css).find((t) => t.name === "c")?.values).toEqual({ default: "#fff", dark: "#000" })
   })
 
@@ -59,6 +62,7 @@ describe("extractTokens with at-rules", () => {
       "@layer base { :host { --c: #fff; } }",
       "@supports (color: oklch(0 0 0)) { @layer base { :host { --c: oklch(1 0 0); } .dark { --c: oklch(0 0 0); } } }"
     ].join("\n")
+
     expect(extractTokens(css).find((t) => t.name === "c")?.values).toEqual({
       default: "oklch(1 0 0)",
       dark: "oklch(0 0 0)"
@@ -81,6 +85,7 @@ describe("library tokens in frames", () => {
       },
       async () => ({})
     )
+
     const css = describedTokenCss(described)
     expect(css).toContain("--fontSizeBase300--line-height: var(--lineHeightBase300);")
     // The project's own declaration, later in the stylesheet, wins over the library's.

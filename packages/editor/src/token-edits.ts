@@ -22,19 +22,25 @@ export function tokenKey(name: string, theme: string): string {
 
 /** Edits laid over earlier ones. A token keeps the original from its first edit. */
 export function withTokenEdits(edits: TokenEdits, changes: readonly TokenEdit[]): TokenEdits {
-  if (changes.length === 0) return edits
+  if (changes.length === 0) {
+    return edits
+  }
+
   const next = new Map(edits)
+
   for (const change of changes) {
     const key = tokenKey(change.name, change.theme)
     const earlier = next.get(key)
     const original = earlier ? earlier.original : change.original
-    next.set(key, {
-      name: change.name,
-      theme: change.theme,
-      value: change.value,
-      ...(original === undefined ? {} : { original })
-    })
+    const edit: TokenEdit = { name: change.name, theme: change.theme, value: change.value }
+
+    if (original !== undefined) {
+      edit.original = original
+    }
+
+    next.set(key, edit)
   }
+
   return next
 }
 
@@ -49,13 +55,21 @@ function valueOf(edits: TokenEdits, key: string, known: TokenEdit): string | und
  * undefined.
  */
 export function tokenDifferences(from: TokenEdits, to: TokenEdits): TokenWrite[] {
-  if (from === to) return []
+  if (from === to) {
+    return []
+  }
+
   const differences: TokenWrite[] = []
+
   for (const key of new Set([...from.keys(), ...to.keys()])) {
     const known = (to.get(key) ?? from.get(key))!
     const value = valueOf(to, key, known)
-    if (value !== valueOf(from, key, known)) differences.push({ name: known.name, theme: known.theme, value })
+
+    if (value !== valueOf(from, key, known)) {
+      differences.push({ name: known.name, theme: known.theme, value })
+    }
   }
+
   return differences
 }
 
@@ -72,13 +86,22 @@ export function withTokenOverrides(
   differences: readonly TokenWrite[],
   baseline: readonly Token[]
 ): readonly TokenChange[] {
-  if (differences.length === 0) return overrides
+  if (differences.length === 0) {
+    return overrides
+  }
+
   const next = new Map(overrides.map((override) => [tokenKey(override.name, override.theme), override]))
+
   for (const { name, theme, value } of differences) {
     const key = tokenKey(name, theme)
-    if (value === baseline.find((token) => token.name === name)?.values[theme]) next.delete(key)
-    else next.set(key, { name, theme, value: value ?? "" })
+
+    if (value === baseline.find((token) => token.name === name)?.values[theme]) {
+      next.delete(key)
+    } else {
+      next.set(key, { name, theme, value: value ?? "" })
+    }
   }
+
   return [...next.values()]
 }
 
@@ -97,13 +120,25 @@ export function sameTokenValues(current: TokenEdits, saved: TokenEdits): boolean
 
 /** The project's tokens with these edits applied, as the Tokens panel lists them. */
 export function tokensWithEdits(tokens: readonly Token[], edits: TokenEdits): Token[] {
-  if (edits.size === 0) return [...tokens]
+  if (edits.size === 0) {
+    return [...tokens]
+  }
+
   const byName = Map.groupBy(edits.values(), (edit) => edit.name)
+
   return tokens.map((token) => {
     const mine = byName.get(token.name)
-    if (!mine) return token
+
+    if (!mine) {
+      return token
+    }
+
     const values = { ...token.values }
-    for (const edit of mine) values[edit.theme] = edit.value
+
+    for (const edit of mine) {
+      values[edit.theme] = edit.value
+    }
+
     return { ...token, values }
   })
 }

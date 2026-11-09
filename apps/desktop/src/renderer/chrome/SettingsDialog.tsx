@@ -35,6 +35,11 @@ const scales: Option<`${Preferences["exportScale"]}`>[] = [
   { value: "3", label: "3x" }
 ]
 
+const scaleValues = { "1": 1, "2": 2, "3": 3 } as const satisfies Record<
+  `${Preferences["exportScale"]}`,
+  Preferences["exportScale"]
+>
+
 /** What the switch shares. It reads the same on and off, so turning it doesn't move the dialog (PAR-703). */
 const telemetryDetail = "Errors and crashes, sent to the Parity team to help fix bugs."
 
@@ -51,6 +56,7 @@ export function SettingsDialog() {
   const preferences = usePreferences()
   const updates = useUpdates()
   const [updateError, setUpdateError] = useState("")
+
   return (
     <Dialog open={open} onOpenChange={(next) => !next && closeDialog()}>
       <DialogContent className="max-h-[calc(100%-2rem)] gap-0 overflow-y-auto sm:max-w-lg">
@@ -77,8 +83,11 @@ export function SettingsDialog() {
               checked={preferences.autosave}
               onCheckedChange={(autosave) => {
                 setPreferences({ autosave })
+
                 // Turning it on saves what's waiting now, rather than at the next edit.
-                if (autosave) void workspace.flush().catch(() => undefined)
+                if (autosave) {
+                  void workspace.flush().catch(() => undefined)
+                }
               }}
               aria-label="Save automatically"
             />
@@ -115,12 +124,10 @@ export function SettingsDialog() {
             label="Editor"
             detail="Where View code opens a component's file. Automatic uses the first one installed."
           >
-            <Select
+            <Select<CodeEditorChoice>
               items={editorChoices}
               value={preferences.codeEditor}
-              onValueChange={(codeEditor) =>
-                codeEditor && setPreferences({ codeEditor: codeEditor as CodeEditorChoice })
-              }
+              onValueChange={(codeEditor) => codeEditor && setPreferences({ codeEditor })}
             >
               <SelectTrigger size="sm" className="w-36" aria-label="Editor">
                 <SelectValue />
@@ -140,8 +147,8 @@ export function SettingsDialog() {
             <Choice
               label="Image scale"
               options={scales}
-              value={String(preferences.exportScale) as `${Preferences["exportScale"]}`}
-              onChange={(scale) => setPreferences({ exportScale: Number(scale) as Preferences["exportScale"] })}
+              value={`${preferences.exportScale}`}
+              onChange={(scale) => setPreferences({ exportScale: scaleValues[scale] })}
             />
           </Row>
         </Section>
@@ -173,7 +180,11 @@ export function SettingsDialog() {
 function TelemetrySection({ open }: { open: boolean }) {
   const telemetry = useTelemetry(open)
   const [error, setError] = useState("")
-  if (!telemetry) return null
+
+  if (!telemetry) {
+    return null
+  }
+
   const detail = (
     <>
       {telemetryDetail}
@@ -185,6 +196,7 @@ function TelemetrySection({ open }: { open: boolean }) {
       )}
     </>
   )
+
   return (
     <Section title="Privacy">
       <Row label="Share diagnostics" detail={detail}>
@@ -202,6 +214,7 @@ function TelemetrySection({ open }: { open: boolean }) {
     </Section>
   )
 }
+
 interface Option<T extends string> {
   value: T
   label: string
@@ -229,6 +242,7 @@ function Choice<T extends string>({
       spacing={0}
       value={[value]}
       disabled={disabled}
+      // SAFETY: the group's items are the options, whose values are all T.
       onValueChange={([next]) => next && onChange(next as T)}
       aria-label={label}
     >
@@ -248,13 +262,17 @@ function Choice<T extends string>({
 
 /** A save that failed, under the section it belongs to. */
 function Problem({ message }: { message: string }) {
-  if (!message) return null
+  if (!message) {
+    return null
+  }
+
   return (
     <p role="alert" className="type-message text-destructive">
       {message}
     </p>
   )
 }
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-t pt-4 pb-2 first-of-type:border-t-0">

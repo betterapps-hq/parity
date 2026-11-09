@@ -92,7 +92,10 @@ export function FramesToolbar({
         value={[tool]}
         onValueChange={([value]) => {
           const picked = groups.flat().find((spec) => spec.id === value)
-          if (picked) onTool(picked.id)
+
+          if (picked) {
+            onTool(picked.id)
+          }
         }}
         aria-label="Tools"
         className="gap-0.5"

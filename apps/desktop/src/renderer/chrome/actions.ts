@@ -70,9 +70,12 @@ import { lastAction, rememberAction, repeatLastAction } from "./repeat.ts"
  * window, even in a text field; the rest act on the canvas, so typing and menus keep their keys. `available` says when
  * one applies: otherwise its keys do what they'd do anyway, as Tab moving focus.
  */
+/** What running an action gives back: nothing, or a promise of when it's done, which `command.ran` waits for. */
+export type ActionResult = void | Promise<void>
+
 export interface Action {
   /** `event` is the key that ran it, for an action that acts on which of its keys was pressed. */
-  run(event?: KeyboardEvent): unknown
+  run(event?: KeyboardEvent): ActionResult
   available?(): boolean
   scope?: "app"
   /** It acts on the key pressed, as the arrows nudge each their own way, so only its keys run it, not the search. */
@@ -84,30 +87,43 @@ const hasSession = () => !!activeSession()
 const hasEditor = () => !!activeSession()?.editor
 const hasDesign = () => !!current()?.design
 const hasSomething = () => !!current()?.design || !!current()?.note
+
 const layers = () => {
   const selection = current()
+
   return selection ? selectedNodes(selection).length : 0
 }
+
 const designs = () => {
   const selection = current()
+
   return selection && layers() === 0 ? selectedDesigns(selection).length : 0
 }
+
 const hasLayer = () => layers() > 0
 const hasDesigns = () => (activeSession()?.store.getEntries().length ?? 0) > 0
 const oneLayer = () => layers() === 1
+
 /** Whether a command that copies, moves or changes layers can act on the selected ones, as the canvas menu says. */
 const can = (command: LayerCommand) => {
   const session = activeSession()
   const selection = session?.selection.get()
   const root = selection?.design ? session?.store.getEntry(selection.design)?.container.root : undefined
+
   return !!selection && layerCommands(selection, root)[command]
 }
+
 const alignable = () => layers() > 0 || designs() > 1
+
 /** Makes an empty screen or component in the active tab, right of everything (see `createDesign`). */
 const newDesign = (kind: ContainerKind) => {
   const session = activeSession()
-  if (session) createDesign(session, kind)
+
+  if (session) {
+    createDesign(session, kind)
+  }
 }
+
 const tool = (name: Tool): Action => ({
   run: () => activeSession()?.selection.setTool(name),
   available: hasSession
@@ -238,7 +254,10 @@ const repeatable: readonly Command[] = [
  * was right-clicked, so Repeat follows the last change.
  */
 function rememberCommand(command: Command): void {
-  if (!repeatable.includes(command)) return
+  if (!repeatable.includes(command)) {
+    return
+  }
+
   const action = keymapActions[command]
   rememberAction({
     label: keymap[command].label,

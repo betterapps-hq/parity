@@ -20,15 +20,18 @@ function startSentry(): { sent: () => Promise<string> } {
     transport: () => ({
       send: async (envelope) => {
         envelopes.push(envelope)
+
         return {}
       },
       flush: async () => true
     }),
     ...sentryScrubbing(createScrubber(), Sentry)
   })
+
   return {
     sent: async () => {
       await Sentry.flush(1000)
+
       return JSON.stringify(envelopes)
     }
   }

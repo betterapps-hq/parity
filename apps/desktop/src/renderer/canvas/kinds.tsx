@@ -53,6 +53,7 @@ function kindOf(color: string): keyof typeof kindColors | undefined {
 /** The chip that goes with a selection color from `kindColors`. */
 export function chipFor(color: string): ChipColors {
   const kind = kindOf(color)
+
   return kind ? chipColors[kind] : { background: color, color: "white" }
 }
 
@@ -66,12 +67,16 @@ const textColors: Partial<Record<keyof typeof kindColors, string>> = {
 /** The text color that goes with a selection color from `kindColors`, or the color itself for one without. */
 export function textFor(color: string): string {
   const kind = kindOf(color)
+
   return (kind && textColors[kind]) ?? color
 }
 
 /** A design's color. A frame is a layout on the canvas, so it's selected in the layer color. */
 export function designColor(kind: ContainerKind | undefined): string {
-  if (kind === "frame") return kindColors.layer
+  if (kind === "frame") {
+    return kindColors.layer
+  }
+
   return kind === "component" ? kindColors.component : kindColors.screen
 }
 
@@ -98,18 +103,39 @@ export function designNamer(
 
 /** Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. */
 export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKind | undefined }) {
-  if (kind === "frame") return <Frame {...props} />
+  if (kind === "frame") {
+    return <Frame {...props} />
+  }
+
   return kind === "component" ? <Component {...props} /> : <AppWindow {...props} />
 }
 
 export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode }) {
-  if (node.type === "text") return <Type {...props} />
-  if (node.type === "image") return <ImageIcon {...props} />
-  if (node.type === "component") return <Box {...props} />
-  if (node.type === "instance") return <Diamond {...props} />
+  if (node.type === "text") {
+    return <Type {...props} />
+  }
+
+  if (node.type === "image") {
+    return <ImageIcon {...props} />
+  }
+
+  if (node.type === "component") {
+    return <Box {...props} />
+  }
+
+  if (node.type === "instance") {
+    return <Diamond {...props} />
+  }
+
   // A slot is a hole each instance fills.
-  if (node.slot !== undefined) return <SquareDashed {...props} />
-  if (node.style?.display === "grid") return <Grid3x3 {...props} />
+  if (node.slot !== undefined) {
+    return <SquareDashed {...props} />
+  }
+
+  if (node.style?.display === "grid") {
+    return <Grid3x3 {...props} />
+  }
+
   return node.style?.direction === "row" ? <Columns3 {...props} /> : <Rows3 {...props} />
 }
 

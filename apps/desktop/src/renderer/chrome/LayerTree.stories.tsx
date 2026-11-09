@@ -31,6 +31,7 @@ const meta = {
 } satisfies Meta<typeof LayerTree>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The Layers panel's row for a design, or for one of its layers. */
@@ -38,7 +39,11 @@ function row(designName: string, layerName?: string): HTMLElement {
   const key = design(designName)
   const id = layerName ? `layer-${key}/${node(designName, layerName)}` : `layer-${key}`
   const element = document.getElementById(id)
-  if (!element) throw new Error(`The Layers panel shows no row for ${layerName ?? designName}`)
+
+  if (!element) {
+    throw new Error(`The Layers panel shows no row for ${layerName ?? designName}`)
+  }
+
   return element
 }
 
@@ -46,7 +51,11 @@ function row(designName: string, layerName?: string): HTMLElement {
 function innerRow(designName: string, instanceName: string, componentName: string, layerName: string): HTMLElement {
   const path = `${node(designName, instanceName)}/${node(componentName, layerName)}`
   const element = document.getElementById(`layer-${design(designName)}/${path}`)
-  if (!element) throw new Error(`The Layers panel shows no row for ${layerName} in ${instanceName}`)
+
+  if (!element) {
+    throw new Error(`The Layers panel shows no row for ${layerName} in ${instanceName}`)
+  }
+
   return element
 }
 
@@ -57,18 +66,25 @@ function innerRow(designName: string, instanceName: string, componentName: strin
 async function scrollUntil(find: () => HTMLElement): Promise<HTMLElement> {
   const scroller = (await waitFor(() => within(document.body).getByRole("tree", { name: "Layers" }))).parentElement!
   scroller.scrollTop = 0
+
   for (let step = 0; step < 200; step++) {
     try {
       const found = find()
       found.scrollIntoView({ block: "center" })
+
       return found
     } catch {
       const before = scroller.scrollTop
       scroller.scrollTop += 200
-      if (scroller.scrollTop === before) scroller.scrollTop = 0
+
+      if (scroller.scrollTop === before) {
+        scroller.scrollTop = 0
+      }
+
       await new Promise((resolve) => requestAnimationFrame(resolve))
     }
   }
+
   return find()
 }
 
@@ -83,6 +99,7 @@ async function selectUsersValue(): Promise<void> {
 async function scrollTo(designName: string, layerName?: string): Promise<HTMLElement> {
   const found = await waitFor(() => row(designName, layerName))
   found.scrollIntoView({ block: "center" })
+
   return found
 }
 
@@ -394,6 +411,7 @@ export const HiddenByAVariant: Story = {
       example().store.updateContainer(card, "Add density variant", (current) => {
         const added = addVariant(current, "density", ["Comfortable", "Compact"])
         const compact = added.params!.density!.options![1]!.id
+
         const hidden = editNode(
           added,
           { state: added.states[0]!.id, variant: { param: "density", option: compact } },
@@ -402,6 +420,7 @@ export const HiddenByAVariant: Story = {
             hidden: true
           }
         )
+
         return { ...hidden, view: { ...hidden.view, variants: { density: compact } } }
       })
     }
@@ -651,11 +670,13 @@ export const TextOnTheCanvas: Story = {
         text: "Launch checklist: pricing copy signed off by Friday",
         position: { x: 0, y: -1600 }
       })
+
       const note = store.addNote(store.mainPath, {
         id: "note-review",
         text: "Review the empty states with design before handoff",
         position: { x: 0, y: -1400 }
       })
+
       selection.set({ note })
     }
   ],
@@ -674,11 +695,13 @@ export const LargeProject: Story = {
     async () => {
       await openProjects("example")
       const { store, selection } = example()
+
       for (let index = 0; index < 100; index++) {
         const taken = store.getEntries().map((entry) => entry.container.id)
         const screen = newDesign("screen", taken, { x: index * 400, y: 6000 })
         store.addContainer(store.mainPath, { ...screen, name: `Screen ${index + 1}` })
       }
+
       const taken = store.getEntries().map((entry) => entry.container.id)
       const key = store.addContainer(store.mainPath, largeScreen(taken))
       selection.set({ design: key, node: "large-40-15-title" })
@@ -690,6 +713,7 @@ export const LargeProject: Story = {
 function largeScreen(taken: string[]): ContainerSpec {
   const screen = newDesign("screen", taken, { x: 0, y: 4000 })
   const text = (id: string, value: string): DesignNode => ({ type: "text", id, text: value })
+
   const sections = Array.from({ length: 50 }, (_, section): DesignNode => ({
     type: "layout",
     id: `large-${section + 1}`,
@@ -706,7 +730,9 @@ function largeScreen(taken: string[]): ContainerSpec {
       ]
     }))
   }))
+
   const root = screen.root.type === "layout" ? { ...screen.root, children: sections } : screen.root
+
   return { ...screen, name: "Large list", root }
 }
 

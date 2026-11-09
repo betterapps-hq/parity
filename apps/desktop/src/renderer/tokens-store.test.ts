@@ -56,6 +56,7 @@ export function declared(sheet, name, theme = "default") {
 
 beforeAll(async () => {
   const renderer = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: renderer, loader: "ts", sourcefile: "entry.ts" },
     bundle: true,
@@ -65,6 +66,7 @@ beforeAll(async () => {
     platform: "browser",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage()
   page.on("pageerror", (error) => errors.push(error.message))
@@ -75,9 +77,11 @@ beforeAll(async () => {
     route.fulfill({ contentType: "text/html", body: `<script src="http://parity.test/tokens.js"></script>` })
   )
   await page.goto("http://parity.test/")
+
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof tokens === "object")))
+  if (!(await page.evaluate(() => typeof tokens === "object"))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
 })
 
 afterAll(async () => {
@@ -105,8 +109,10 @@ describe("editing tokens", () => {
       steps.redone = [seen(), project.store.previews().length]
       await store.flush()
       steps.saved = [written, store.hasUnsaved()]
+
       return steps
     })
+
     expect(result.edited).toEqual(["red", "pink", "Edit primary", true, 0])
     expect(result.listed).toEqual({ default: "red", dark: "pink" })
     expect(result.undone).toEqual(["black", "white", false, "black"])
@@ -131,6 +137,7 @@ describe("editing tokens", () => {
       const edited = declared(project.sheet, "radius", "dark")
       const previewed = project.store.previews()
       store.undo()
+
       return [
         edited,
         declared(project.sheet, "radius", "dark"),
@@ -139,6 +146,7 @@ describe("editing tokens", () => {
         project.store.previews()
       ]
     })
+
     // The sheet measures the previewed rem against the frame's root (PAR-156), while the override keeps the value as
     // typed. Frames drawn elsewhere are sent no override for it any more, so they draw the compiled value.
     expect(result).toEqual([
@@ -160,8 +168,10 @@ describe("editing tokens", () => {
       const again = guest(store)
       const shown = declared(again.sheet, "primary")
       await store.flush()
+
       return [shown, written.length, store.hasUnsaved()]
     })
+
     expect(result).toEqual(["red", 1, false])
   })
 })
@@ -180,8 +190,10 @@ describe("animation keyframes", () => {
           }
         }`)
       const named = (name: string) => keyframesNamed(sheet.cssRules, name) ?? null
+
       return { bounce: named("bounce"), spin: named("spin"), pulse: named("pulse") }
     })
+
     expect(frames.bounce).toEqual([
       { transform: "translateY(-25%)", easing: "cubic-bezier(0.8, 0, 1, 1)", offset: 0 },
       { transform: "none", easing: "cubic-bezier(0, 0, 0.2, 1)", offset: 0.5 },

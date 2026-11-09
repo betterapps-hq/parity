@@ -25,6 +25,7 @@ const meta = {
 } satisfies Meta<typeof TokensPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Opens the example on the Tokens tab. */
@@ -51,13 +52,25 @@ async function search(canvasElement: HTMLElement, text: string): Promise<void> {
 function rowOf(canvasElement: HTMLElement, token: string): HTMLElement {
   const canvas = within(canvasElement)
   const row = canvas.queryByRole("button", { name: token }) ?? canvas.getByText(token).closest("button")
-  if (!row) throw new Error(`No token named ${token} shows`)
+
+  if (!row) {
+    throw new Error(`No token named ${token} shows`)
+  }
+
   return row
+}
+
+/** The element with the keyboard, or none when it's on the page itself or isn't HTML. */
+function focused(): HTMLElement | null {
+  const active = document.activeElement
+
+  return active instanceof HTMLElement ? active : null
 }
 
 /** Opens a token's detail by resting the pointer on its row. */
 async function open(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
   await userEvent.hover(rowOf(canvasElement, token))
+
   return within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
 }
 
@@ -65,13 +78,18 @@ async function open(canvasElement: HTMLElement, token: string): Promise<HTMLElem
 async function edit(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
   const dialog = await open(canvasElement, token)
   await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
+
   return dialog
 }
 
 /** Replaces a value in the detail being edited: `default` is the root (light) theme's, otherwise the theme's key. */
 async function retype(dialog: HTMLElement, theme: string, value: string): Promise<void> {
   const field = dialog.querySelector<HTMLInputElement>(`input[name="${theme}"]`)
-  if (!field) throw new Error(`The editor has no value for ${theme}`)
+
+  if (!field) {
+    throw new Error(`The editor has no value for ${theme}`)
+  }
+
   await enter(field, value)
 }
 
@@ -127,6 +145,7 @@ export const Copying: Story = {
     const canvas = within(canvasElement)
     // Stands in for the clipboard while the checks run, then puts it back so the story copies for real.
     const writes = spyOn(navigator.clipboard, "writeText").mockResolvedValue()
+
     try {
       await canvas.findByText("primary")
       const row = rowOf(canvasElement, "primary")
@@ -249,13 +268,18 @@ export const Narrow: Story = {
   // The width is the app's layout, which outlives the story, so it's put back after.
   beforeEach: () => {
     setLayout({ leftWidth: 232 })
+
     return () => setLayout({ leftWidth: 256 })
   },
   play: async ({ canvasElement }) => {
     const panel = within(canvasElement)
     await panel.findByText("Semantic colors")
     const filters = panel.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))
-    for (const filter of filters) await expect(filter.scrollWidth).toBeLessThanOrEqual(filter.clientWidth + 1)
+
+    for (const filter of filters) {
+      await expect(filter.scrollWidth).toBeLessThanOrEqual(filter.clientWidth + 1)
+    }
+
     const tabs = panel.getByRole("tablist")
     await expect(tabs.scrollWidth).toBeLessThanOrEqual(tabs.clientWidth + 1)
   }
@@ -301,7 +325,7 @@ export const DetailFromTheKeyboard: Story = {
     row.focus()
     await userEvent.keyboard("{ArrowRight}")
     const dialog = await within(document.body).findByRole("dialog")
-    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+    await waitFor(() => expect(dialog).toContainElement(focused()))
     await userEvent.keyboard("{Escape}")
     await waitFor(() => expect(row).toHaveFocus())
     // Opened by a hover, focus stays on the row until the arrow moves it in.
@@ -309,7 +333,7 @@ export const DetailFromTheKeyboard: Story = {
     const hovered = await within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
     await expect(row).toHaveFocus()
     await userEvent.keyboard("{ArrowRight}")
-    await waitFor(() => expect(hovered).toContainElement(document.activeElement as HTMLElement))
+    await waitFor(() => expect(hovered).toContainElement(focused()))
     await userEvent.keyboard("{Escape}")
     // A spacing step's Edit is disabled, so the arrow passes over it to the first control that can take the keyboard.
     await search(canvasElement, "spacing-4")
@@ -318,7 +342,7 @@ export const DetailFromTheKeyboard: Story = {
     const derived = await within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
     step.focus()
     await userEvent.keyboard("{ArrowRight}")
-    await waitFor(() => expect(derived).toContainElement(document.activeElement as HTMLElement))
+    await waitFor(() => expect(derived).toContainElement(focused()))
   }
 }
 
@@ -449,13 +473,19 @@ export const ReferenceLoop: Story = {
     await within(first).findByText("Applied. Saving writes it to src/index.css.")
     // Resting on --chart-1's row opens its own detail; this one stays, as something in it has focus.
     await userEvent.hover(rowOf(canvasElement, "chart-1"))
+
     const dialog = await waitFor(() => {
       const found = within(document.body)
         .getAllByRole("dialog")
         .find((open) => within(open).queryByRole("heading", { name: "chart-1" }))
-      if (!found) throw new Error("chart-1's detail isn't open")
+
+      if (!found) {
+        throw new Error("chart-1's detail isn't open")
+      }
+
       return found
     })
+
     await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
     await retype(dialog, "default", "var(--primary)")
     await within(dialog).findByText("primary is built on chart-1, so this would loop.")
@@ -557,6 +587,7 @@ export const DescribedOnly: Story = {
       list.scrollTop = list.scrollHeight
       // A page out of sight sends no scroll events of its own, so the list hears of it here.
       list.dispatchEvent(new Event("scroll"))
+
       return expect(within(canvasElement).getByText("Described only")).toBeInTheDocument()
     })
     await within(canvasElement).findByText("color.brand-accent")
@@ -569,7 +600,10 @@ export const StylesheetError: Story = {
     async () => {
       await openTokens()
       const { styles } = example().info
-      if (styles) styles.error = "Couldn't compile src/index.css: Cannot apply unknown utility class `bg-brand`"
+
+      if (styles) {
+        styles.error = "Couldn't compile src/index.css: Cannot apply unknown utility class `bg-brand`"
+      }
     }
   ]
 }

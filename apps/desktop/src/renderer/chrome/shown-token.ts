@@ -10,21 +10,29 @@ const listeners = new Map<string, (name: string) => void>()
 export function showToken(root: string, name: string): void {
   setLayout({ left: true, leftTab: "tokens" })
   const listener = listeners.get(root)
-  if (listener) listener(name)
-  else pending.set(root, name)
+
+  if (listener) {
+    listener(name)
+  } else {
+    pending.set(root, name)
+  }
 }
 
 /** The token waiting for the project at `root`'s Tokens panel, which is just opening, taken so it's shown once. */
 export function takeShownToken(root: string): string | undefined {
   const name = pending.get(root)
   pending.delete(root)
+
   return name
 }
 
 /** Calls `listener` with each token shown in the project at `root` while its Tokens panel is open. */
 export function onShowToken(root: string, listener: (name: string) => void): () => void {
   listeners.set(root, listener)
+
   return () => {
-    if (listeners.get(root) === listener) listeners.delete(root)
+    if (listeners.get(root) === listener) {
+      listeners.delete(root)
+    }
   }
 }

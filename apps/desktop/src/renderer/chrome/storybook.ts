@@ -16,6 +16,7 @@ export async function openInStorybook(session: ProjectSession, component?: strin
   const progress = toast.loading("Opening Storybook…", {
     description: "If it isn't running yet, it starts first; that can take a minute."
   })
+
   try {
     const { url } = await request("storybook.open", { projectId: session.id, component })
     window.open(url, "_blank")

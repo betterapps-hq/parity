@@ -13,6 +13,7 @@ export const storedAccount = z.strictObject({
   person: accountPerson,
   provider: signInProvider
 })
+
 export type StoredAccount = z.infer<typeof storedAccount>
 
 /** Every account kept, in the order they were added, and the one Parity was last in, to start in it. */
@@ -20,6 +21,7 @@ export const storedAccounts = z.strictObject({
   current: z.string().optional(),
   accounts: z.array(storedAccount)
 })
+
 export type StoredAccounts = z.infer<typeof storedAccounts>
 
 /** The part of Electron's `safeStorage` the store uses, so tests can stand in for the keychain. */
@@ -50,45 +52,72 @@ export interface SessionStore {
  */
 export function sessionStore(file: string, encryption: Encryption, platform: NodeJS.Platform): SessionStore {
   const persistent = async () => {
-    if (!(await encryption.isAsyncEncryptionAvailable())) return false
-    if (platform !== "linux") return true
+    if (!(await encryption.isAsyncEncryptionAvailable())) {
+      return false
+    }
+
+    if (platform !== "linux") {
+      return true
+    }
+
     const backend = encryption.getSelectedStorageBackend?.()
+
     return backend !== undefined && backend !== "basic_text" && backend !== "unknown"
   }
+
   const clear = () => rmSync(file, { force: true })
+
   const write = async (kept: StoredAccounts) => {
     if (kept.accounts.length === 0) {
       clear()
+
       return
     }
+
     await writeFile(file, await encryption.encryptStringAsync(JSON.stringify(kept)), { mode: 0o600 })
   }
+
   const read = async () => {
-    if (!(await persistent())) return undefined
+    if (!(await persistent())) {
+      return undefined
+    }
+
     let encrypted: Buffer
+
     try {
       encrypted = await readFile(file)
     } catch {
       return undefined
     }
+
     try {
       const { result, shouldReEncrypt } = await encryption.decryptStringAsync(encrypted)
       const kept = storedAccounts.parse(JSON.parse(result))
+
       // The keychain's key was rotated: write it again with the new one.
-      if (shouldReEncrypt) await write(kept)
+      if (shouldReEncrypt) {
+        await write(kept)
+      }
+
       return kept
     } catch {
       // Unreadable, as after the keychain changed or from a build that kept one account: sign in again.
       clear()
+
       return undefined
     }
   }
+
   return {
     persistent,
     read,
     async update(change) {
-      if (!(await persistent())) return false
+      if (!(await persistent())) {
+        return false
+      }
+
       await write(change((await read()) ?? { accounts: [] }))
+
       return true
     },
     clear
@@ -98,14 +127,17 @@ export function sessionStore(file: string, encryption: Encryption, platform: Nod
 /** What's kept with `account` in its place, or added at the end. */
 export function withAccount(kept: StoredAccounts, account: StoredAccount): StoredAccounts {
   const { email } = account.person
+
   const accounts = kept.accounts.some((each) => each.person.email === email)
     ? kept.accounts.map((each) => (each.person.email === email ? account : each))
     : [...kept.accounts, account]
+
   return { ...kept, accounts }
 }
 
 /** What's kept without the account signed in as `email`. */
 export function withoutAccount(kept: StoredAccounts, email: string): StoredAccounts {
   const accounts = kept.accounts.filter((each) => each.person.email !== email)
+
   return kept.current === email ? { accounts } : { ...kept, accounts }
 }

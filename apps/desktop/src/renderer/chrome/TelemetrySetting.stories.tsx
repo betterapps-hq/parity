@@ -13,11 +13,13 @@ function Preview({ telemetry, dialog }: { telemetry: TelemetryState; dialog: "se
   useEffect(() => {
     setStoryTelemetry(telemetry)
     openDialog(dialog)
+
     return () => {
       closeDialog()
       receiveTelemetry(undefined)
     }
   }, [telemetry, dialog])
+
   return (
     <>
       <SettingsDialog />
@@ -31,7 +33,9 @@ const meta = {
   component: Preview,
   args: { telemetry: defaultTelemetry, dialog: "settings" }
 } satisfies Meta<typeof Preview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Everything is sent until someone turns it down. */

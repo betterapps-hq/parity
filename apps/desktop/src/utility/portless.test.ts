@@ -74,6 +74,7 @@ describe("findRoutedServer", () => {
     ],
     address: (hostname) => `https://${hostname}`
   }
+
   const answering = (bases: string[]) => (base: string) => Promise.resolve(bases.includes(base))
 
   it("finds the only routed server that serves what's wanted, by its first name, whatever named it", async () => {

@@ -4,8 +4,10 @@ import { type Envelope, type LoggedEvent, parseLogLines, type Sink } from "@pari
 
 /** How large a log file grows before the next one starts. */
 export const logFileBytes = 5 * 2 ** 20
+
 /** How many log files are kept, newest first. */
 export const logFilesKept = 10
+
 /** How long events wait to be written together, in milliseconds. */
 const flushMs = 1000
 
@@ -20,7 +22,11 @@ interface LogFile {
 
 function readName(name: string): LogFile | undefined {
   const match = fileName.exec(name)
-  if (!match?.[1]) return undefined
+
+  if (!match?.[1]) {
+    return undefined
+  }
+
   return { name, date: match[1], part: match[2] ? Number(match[2]) : 1 }
 }
 
@@ -29,11 +35,13 @@ const nameOf = (date: string, part: number) => `parity-${date}${part > 1 ? `.${p
 /** The log files in a folder, oldest first. */
 function logFiles(folder: string): LogFile[] {
   let names: string[]
+
   try {
     names = readdirSync(folder)
   } catch {
     return []
   }
+
   return names
     .map(readName)
     .filter((file) => file !== undefined)
@@ -71,21 +79,25 @@ export function createLogFiles({
   /** The file the next `bytes` go to, rolling on to another when they don't fit. */
   function fileFor(bytes: number): string {
     const date = new Date(now()).toISOString().slice(0, 10)
+
     if (!current || current.file.date !== date) {
       mkdirSync(folder, { recursive: true })
       const last = logFiles(folder).findLast((file) => file.date === date)
       const file = last ?? { name: nameOf(date, 1), date, part: 1 }
       current = { file, size: sizeOf(join(folder, file.name)) }
     }
+
     if (current.size > 0 && current.size + bytes > maxBytes) {
       const part = current.file.part + 1
       current = { file: { name: nameOf(date, part), date, part }, size: 0 }
     }
+
     return join(folder, current.file.name)
   }
 
   function prune(): void {
     const files = logFiles(folder)
+
     for (const file of files.slice(0, Math.max(0, files.length - keep))) {
       rmSync(join(folder, file.name), { force: true })
     }
@@ -94,13 +106,22 @@ export function createLogFiles({
   return {
     /** Writes `text`, whole lines, to the current file. */
     append(text: string): void {
-      if (!text) return
+      if (!text) {
+        return
+      }
+
       const bytes = Buffer.byteLength(text)
       const path = fileFor(bytes)
       const started = current?.size === 0
       appendFileSync(path, text)
-      if (current) current.size += bytes
-      if (started) prune()
+
+      if (current) {
+        current.size += bytes
+      }
+
+      if (started) {
+        prune()
+      }
     }
   }
 }
@@ -124,6 +145,7 @@ export function createLogFileSink(
     timer = undefined
     const text = waiting
     waiting = ""
+
     try {
       files.append(text)
     } catch (error) {
@@ -134,8 +156,10 @@ export function createLogFileSink(
 
   function write(envelope: Envelope): void {
     waiting += `${JSON.stringify(testRun ? { ...envelope, testRun } : envelope)}\n`
-    if (envelope.level === "fatal") flush()
-    else if (!timer) {
+
+    if (envelope.level === "fatal") {
+      flush()
+    } else if (!timer) {
       timer = setTimeout(flush, delayMs)
       timer.unref?.()
     }
@@ -147,6 +171,7 @@ export function createLogFileSink(
 /** Every event in the folder's log files, oldest first, for a report (PAR-635). A file that can't be read is skipped. */
 export function readLogEvents(folder: string): LoggedEvent[] {
   const events: LoggedEvent[] = []
+
   for (const file of logFiles(folder)) {
     try {
       events.push(...parseLogLines(readFileSync(join(folder, file.name), "utf8")))
@@ -154,5 +179,6 @@ export function readLogEvents(folder: string): LoggedEvent[] {
       // Deleted as the oldest while it was being read.
     }
   }
+
   return events.sort((a, b) => a.time.localeCompare(b.time))
 }

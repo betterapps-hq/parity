@@ -82,17 +82,21 @@ export function loadedDebugIds(
  * sender captures, as it would in the command, and the frame resolves through that bundle's uploaded source map.
  */
 export function adoptDebugIds(batch: Batch, global: DebugIdGlobal = globalThis as DebugIdGlobal): void {
-  if (batch.debugIds) global._sentryDebugIds = { ...global._sentryDebugIds, ...batch.debugIds }
+  if (batch.debugIds) {
+    global._sentryDebugIds = { ...global._sentryDebugIds, ...batch.debugIds }
+  }
 }
 
 /** Keeps what the CLI's Sentry sink sends, in order, until it's written. */
 export function createOutbox() {
   let items: OutboxItem[] = []
+
   const target: SentryTarget = {
     addBreadcrumb: (breadcrumb) => items.push({ kind: "breadcrumb", breadcrumb }),
     captureEvent: (event) => items.push({ kind: "event", event }),
     log: (log) => items.push({ kind: "log", log })
   }
+
   return {
     /** The target `createSentrySink` sends to. */
     target,
@@ -110,6 +114,7 @@ export function createOutbox() {
     take(): OutboxItem[] {
       const taken = items
       items = []
+
       return taken
     }
   }
@@ -121,6 +126,7 @@ export function thrownError(error: unknown): ThrownError {
   if (error instanceof Error) {
     return { name: error.name, message: error.message, ...(error.stack ? { stack: error.stack } : {}) }
   }
+
   return { name: "Error", message: String(error) }
 }
 
@@ -134,7 +140,10 @@ let written = 0
  * as the process exits. Nothing is written for an empty batch.
  */
 export function writeBatch(folder: string, batch: Batch): string | undefined {
-  if (batch.items.length === 0) return undefined
+  if (batch.items.length === 0) {
+    return undefined
+  }
+
   mkdirSync(folder, { recursive: true })
   // The count keeps a process's batches in order when two are written in the same millisecond.
   written += 1
@@ -142,6 +151,7 @@ export function writeBatch(folder: string, batch: Batch): string | undefined {
   const partial = join(folder, `${name}.partial`)
   writeFileSync(partial, JSON.stringify(batch))
   renameSync(partial, join(folder, name))
+
   return name
 }
 
@@ -158,19 +168,26 @@ export interface BatchTarget {
 }
 
 const lockName = ".sending"
+
 /** A lock that hasn't been touched in this long is from a sender that died. */
 const staleLockMs = 2 * 60 * 1000
 
 function takeLock(folder: string, now: number): boolean {
   const lock = join(folder, lockName)
+
   try {
     closeSync(openSync(lock, "wx"))
+
     return true
   } catch {
     try {
-      if (now - statSync(lock).mtimeMs < staleLockMs) return false
+      if (now - statSync(lock).mtimeMs < staleLockMs) {
+        return false
+      }
+
       rmSync(lock, { force: true })
       closeSync(openSync(lock, "wx"))
+
       return true
     } catch {
       return false
@@ -200,29 +217,38 @@ export async function sendBatches(
   { now = () => Date.now(), timeoutMs = 10_000 } = {}
 ): Promise<number> {
   let sent = 0
+
   while (waiting(folder).length > 0 && takeLock(folder, now())) {
     try {
       for (let names = waiting(folder); names.length > 0; names = waiting(folder)) {
         for (const name of names) {
           const file = join(folder, name)
           let text: string
+
           try {
             text = readFileSync(file, "utf8")
             rmSync(file, { force: true })
           } catch {
             continue
           }
+
           const batch = readBatch(text)
-          if (!batch || now() - Number.parseInt(name, 10) > keptMs) continue
+
+          if (!batch || now() - Number.parseInt(name, 10) > keptMs) {
+            continue
+          }
+
           target.send(batch)
           sent += 1
         }
+
         await target.flush(timeoutMs)
       }
     } finally {
       rmSync(join(folder, lockName), { force: true })
     }
   }
+
   return sent
 }
 
@@ -230,7 +256,11 @@ export async function sendBatches(
 function readBatch(text: string): Batch | undefined {
   try {
     const value = JSON.parse(text) as Partial<Batch>
-    if (typeof value.run !== "object" || value.run === null || !Array.isArray(value.items)) return undefined
+
+    if (typeof value.run !== "object" || value.run === null || !Array.isArray(value.items)) {
+      return undefined
+    }
+
     return value as Batch
   } catch {
     return undefined

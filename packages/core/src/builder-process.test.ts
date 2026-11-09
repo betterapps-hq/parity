@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import type { BuilderAdapter, BuilderStartOptions, RendererAdapter } from "./adapters.ts"
 import {
   type BuilderProcessClientOptions,
-  type BuilderProcessOptions,
   type BuilderProcessReply,
   type BuilderProcessRequest,
   builderProcessOptions,
@@ -40,6 +39,7 @@ const startOptions: BuilderStartOptions = {
 function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>) {
   const started: BuilderStartOptions[] = []
   const close = vi.fn<() => Promise<void>>(() => Promise.resolve())
+
   const builder: BuilderAdapter = {
     id: "vite",
     name: "Vite",
@@ -47,6 +47,7 @@ function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>) {
     async start(options) {
       started.push(options)
       await start?.(options)
+
       return {
         guestUrl: `http://127.0.0.1:${options.port ?? 5173}/guest`,
         toolVersion: "8.0.0",
@@ -54,6 +55,7 @@ function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>) {
       }
     }
   }
+
   return { builder, started, close }
 }
 
@@ -67,10 +69,12 @@ function connect(
   times: () => ProcessTimes = () => ({ cpu: 0, uptime: 1, memory: 0 })
 ) {
   const later = (deliver: () => void) => setTimeout(deliver, 0)
+  // SAFETY: requests and replies are plain JSON data (strings, numbers, arrays, objects), so a JSON copy has their type.
   // oxlint-disable-next-line unicorn/prefer-structured-clone -- messages cross the process boundary as JSON
   const copy = <T>(message: T): T => JSON.parse(JSON.stringify(message)) as T
   const exit = vi.fn<(reason: string) => void>((reason) => later(() => client.exited(reason)))
   const kill = vi.fn<() => void>(() => exit("killed"))
+
   const serve = serveBuilderProcess(
     {
       send: (reply: BuilderProcessReply) => later(() => client.receive(copy(reply))),
@@ -79,7 +83,9 @@ function connect(
     },
     [builder]
   )
+
   const sent: BuilderProcessRequest[] = []
+
   const client = connectBuilderProcess(
     {
       send: (request) => {
@@ -91,6 +97,7 @@ function connect(
     builderProcessOptions(builder, startOptions),
     settings
   )
+
   return { client, sent, exit, kill }
 }
 
@@ -108,7 +115,7 @@ describe("builderProcessOptions", () => {
     })
     expect(structuredClone(options)).toEqual(options)
     // oxlint-disable-next-line unicorn/prefer-structured-clone -- the test checks the options survive JSON
-    expect(JSON.parse(JSON.stringify(options)) as BuilderProcessOptions).toEqual(options)
+    expect(JSON.parse(JSON.stringify(options))).toEqual(options)
   })
 })
 
@@ -139,6 +146,7 @@ describe("a builder in its own process", () => {
       ...(await start(options)),
       codeChanges: (listener) => {
         tell = listener
+
         return () => undefined
       }
     })
@@ -201,6 +209,7 @@ describe("a builder in its own process", () => {
       { cpu: 2_000_000, uptime: 4000, memory: 300 },
       { cpu: 3_000_000, uptime: 5000, memory: 310 }
     ]
+
     const { client } = connect(fakeBuilder().builder, { cores: 4 }, () => readings.shift()!)
     const session = await client.session
     // Two seconds of CPU in four: half a core, an eighth of four.

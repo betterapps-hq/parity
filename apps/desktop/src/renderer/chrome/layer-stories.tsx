@@ -35,6 +35,7 @@ export const slotted = (designName: string, slots: Record<string, string>, layer
         container
       )
     )
+
     return layersSelection(key, [node(designName, layerName)])
   })
 
@@ -65,5 +66,6 @@ export const filledInstance = (selected: "instance" | "slot" = "instance") =>
         { slot: "features" }
       )
     }))
+
     return layersSelection(page, [selected === "slot" ? `${starter}/${node("Plan card", "Features")}` : starter])
   })

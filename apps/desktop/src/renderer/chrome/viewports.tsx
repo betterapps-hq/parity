@@ -23,17 +23,20 @@ import {
 import { type Token } from "@parity-app/tokens"
 import { Laptop, Monitor, type LucideProps, Smartphone, Tablet } from "lucide-react"
 import { type ReactElement, type ReactNode, useState } from "react"
+
 const deviceIcons = { phone: Smartphone, tablet: Tablet, laptop: Laptop, desktop: Monitor }
 
 /** A viewport's icon: the device it says it is, or the one its width suggests. */
 export function ViewportIcon({ option, ...props }: { option: VariableOption } & LucideProps) {
   const Icon = deviceIcons[option.device ?? deviceForWidth(option.width ?? 1280)]
+
   return <Icon {...props} />
 }
 
 /** A mode's viewport icon, from the viewport option it uses. */
 export function ModeViewportIcon({ of: mode, ...props }: { of: ResolvedMode } & Omit<LucideProps, "mode">) {
   const option = mode.options.find(({ variable }) => variable.kind === "viewport")?.option
+
   return <ViewportIcon option={option ?? { id: mode.viewport, name: mode.name, width: mode.width }} {...props} />
 }
 
@@ -53,7 +56,13 @@ export interface PresetGroup {
   presets: ViewportPreset[]
 }
 
-const breakpointNames: Record<string, string> = { sm: "Small", md: "Medium", lg: "Large", xl: "XL", "2xl": "2XL" }
+const breakpointNames = new Map([
+  ["sm", "Small"],
+  ["md", "Medium"],
+  ["lg", "Large"],
+  ["xl", "XL"],
+  ["2xl", "2XL"]
+])
 
 /**
  * Sizes to pick from when adding a mode or a viewport: the project's breakpoint tokens, each library's breakpoints
@@ -61,25 +70,39 @@ const breakpointNames: Record<string, string> = { sm: "Small", md: "Medium", lg:
  */
 export function viewportPresets(tokens: readonly Token[], libraries: readonly LibraryInfo[]): PresetGroup[] {
   const groups: PresetGroup[] = []
+
   const breakpoints = tokens
     .filter((token) => token.category === "breakpoint")
     .flatMap((token) => {
       const width = lengthToPixels(token.values.default ?? Object.values(token.values)[0] ?? "")
-      if (width === undefined) return []
+
+      if (width === undefined) {
+        return []
+      }
+
       const id = token.name.replace(/^breakpoint-/, "")
+
       const preset: ViewportPreset = {
         key: `token:${token.name}`,
-        name: breakpointNames[id] ?? id,
+        name: breakpointNames.get(id) ?? id,
         width,
         device: deviceForWidth(width),
         breakpoint: true
       }
+
       return [preset]
     })
     .sort((a, b) => a.width - b.width)
-  if (breakpoints.length > 0) groups.push({ title: "Breakpoints from tokens", presets: breakpoints })
+
+  if (breakpoints.length > 0) {
+    groups.push({ title: "Breakpoints from tokens", presets: breakpoints })
+  }
+
   for (const library of libraries) {
-    if (!library.breakpoints?.length) continue
+    if (!library.breakpoints?.length) {
+      continue
+    }
+
     groups.push({
       title: `${library.name} breakpoints`,
       presets: library.breakpoints.map((breakpoint) => ({
@@ -91,11 +114,13 @@ export function viewportPresets(tokens: readonly Token[], libraries: readonly Li
       }))
     })
   }
+
   const kinds: { title: string; devices: DeviceKind[] }[] = [
     { title: "Phones", devices: ["phone"] },
     { title: "Tablets", devices: ["tablet"] },
     { title: "Laptops and desktops", devices: ["laptop", "desktop"] }
   ]
+
   for (const { title, devices } of kinds) {
     groups.push({
       title,
@@ -104,6 +129,7 @@ export function viewportPresets(tokens: readonly Token[], libraries: readonly Li
         .map((preset) => ({ key: `device:${preset.id}`, ...preset }))
     })
   }
+
   return groups
 }
 
@@ -116,9 +142,17 @@ export function withViewport(
   preset: ViewportPreset
 ): { settings: ModeSettings; option: string } | undefined {
   const variable = settings.variables.find((candidate) => candidate.kind === "viewport")
-  if (!variable) return undefined
+
+  if (!variable) {
+    return undefined
+  }
+
   const existing = variable.options.find((option) => option.width === preset.width && option.name === preset.name)
-  if (existing) return { settings, option: existing.id }
+
+  if (existing) {
+    return { settings, option: existing.id }
+  }
+
   const option: VariableOption = {
     id: uniqueId(
       preset.name,
@@ -126,9 +160,13 @@ export function withViewport(
     ),
     name: preset.name,
     width: preset.width,
-    ...(preset.height ? { height: preset.height } : {}),
     device: preset.device
   }
+
+  if (preset.height) {
+    option.height = preset.height
+  }
+
   return {
     option: option.id,
     settings: {
@@ -155,6 +193,7 @@ export function ViewportPicker({
 }) {
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={trigger} />
@@ -168,6 +207,7 @@ export function ViewportPicker({
               <CommandGroup key={group.title} heading={group.title}>
                 {group.presets.map((preset) => {
                   const Icon = deviceIcons[preset.device]
+
                   return (
                     <CommandItem
                       key={preset.key}

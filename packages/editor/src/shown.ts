@@ -41,5 +41,6 @@ export function shownNode(container: ContainerSpec, id: string, view: BoardView 
  */
 export function boardReader(container: ContainerSpec, view: BoardView = {}): (node: DesignNode) => DesignNode {
   const scope = scopeOf(container, { state: view.state })
+
   return (node) => drawnNode(node, scope, view.viewport)
 }

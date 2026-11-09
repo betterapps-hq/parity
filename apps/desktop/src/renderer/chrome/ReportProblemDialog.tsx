@@ -20,6 +20,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { TriangleAlert } from "lucide-react"
 import { useId, useState, useSyncExternalStore } from "react"
+import type { ProblemReportRequest } from "../../shared/protocol.ts"
 import { reportIds } from "../telemetry.ts"
 import { useTabs } from "../workspace.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
@@ -47,12 +48,15 @@ export interface ReportProblemViewProps {
   /** The open projects' names, listed with what's attached. */
   projects: string[]
   crash?: LastCrash
+  /** The part whose fallback opened the dialog, as it's titled in the window, when its error goes with the report. */
+  caught?: string
   onSend: () => void
 }
 
 /** What goes with every report, besides the screenshot and the crash. */
 function attachments(projects: string[]): string[] {
   const opened = projects.length === 0 ? "No open projects" : `Open projects: ${projects.join(", ")}`
+
   return [
     "The last minute of this window, as a replay",
     "The last hour of logs",
@@ -63,13 +67,15 @@ function attachments(projects: string[]): string[] {
 
 /** Help > Report a problem, and the same offer after a crash: what happened, and what goes with it. */
 export function ReportProblemView(props: ReportProblemViewProps) {
-  const { state, crash } = props
+  const { state, crash, caught } = props
   const ids = { text: useId(), screenshot: useId() }
   const busy = state.phase === "sending"
   const title = crash ? "Parity closed unexpectedly" : "Report a problem"
+
   const intro = crash
     ? `Parity stopped ${lowerFirst(crash.when)}. Tell us what you were doing and we'll send it with the crash.`
     : "Tell us what happened. We'll send it with what's needed to find the cause."
+
   if (state.phase === "sent") {
     return (
       <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -85,6 +91,7 @@ export function ReportProblemView(props: ReportProblemViewProps) {
       </Dialog>
     )
   }
+
   return (
     <Dialog open={props.open} onOpenChange={(next) => !busy && props.onOpenChange(next)}>
       <DialogContent className="sm:max-w-lg">
@@ -136,6 +143,7 @@ export function ReportProblemView(props: ReportProblemViewProps) {
               </h3>
               <ul className="grid list-disc gap-0.5 pl-5 type-description text-muted-foreground">
                 {crash && <li>The crash report from {lowerFirst(crash.when)}</li>}
+                {caught && <li>The error from {caught}</li>}
                 {attachments(props.projects).map((item) => (
                   <li key={item}>{item}</li>
                 ))}
@@ -169,14 +177,26 @@ export function ReportProblemView(props: ReportProblemViewProps) {
 
 /**
  * What the dialog opened with: the window's screenshot, taken first so the dialog isn't in it, the crash if any, and
- * the Sentry event of the error a part of the window caught, when it's opened from that part's fallback (PAR-704).
+ * the Sentry event of the error a part of the window caught, when it's opened from that part's fallback (PAR-704), with
+ * the part's label to name it by (PAR-757).
  */
-let opened: { screenshot?: string; crash?: LastCrash; crashTime?: string; eventId?: string } = {}
+interface Opened {
+  screenshot?: string
+  crash?: LastCrash
+  crashTime?: string
+  eventId?: string
+  caught?: string
+}
+
+let opened: Opened = {}
 const openedListeners = new Set<() => void>()
 
-function setOpened(next: typeof opened): void {
+function setOpened(next: Opened): void {
   opened = next
-  for (const listener of openedListeners) listener()
+
+  for (const listener of openedListeners) {
+    listener()
+  }
 }
 
 /** What the report is about, besides what the person writes. */
@@ -185,22 +205,42 @@ interface ReportSubject {
   crash?: { time: string }
   /** The Sentry event of the error a fallback caught, which the feedback is linked to (PAR-704). */
   eventId?: string
+  /** The label of the part whose fallback caught that error, which the dialog names it by (PAR-757). */
+  label?: string
 }
 
 /** Help > Report a problem, and the same report offered after a crash or from an error's fallback. */
-export async function openReport({ crash, eventId }: ReportSubject = {}): Promise<void> {
+export async function openReport({ crash, eventId, label }: ReportSubject = {}): Promise<void> {
   let screenshot: string | undefined
   await menusClosed()
+
   try {
     screenshot = (await window.canvasHost.report.prepare()).screenshot
   } catch {
     // The report goes without a screenshot.
   }
-  setOpened({
-    ...(screenshot ? { screenshot } : {}),
-    ...(crash ? { crash: { when: crashTime(crash.time) }, crashTime: crash.time } : {}),
-    ...(eventId ? { eventId } : {})
-  })
+
+  const next: Opened = {}
+
+  if (screenshot) {
+    next.screenshot = screenshot
+  }
+
+  if (crash) {
+    next.crash = { when: crashTime(crash.time) }
+    next.crashTime = crash.time
+  }
+
+  // The dialog names the error only when the report is linked to it.
+  if (eventId) {
+    next.eventId = eventId
+
+    if (label) {
+      next.caught = label
+    }
+  }
+
+  setOpened(next)
   openDialog("report")
 }
 
@@ -209,6 +249,7 @@ async function menusClosed(): Promise<void> {
   for (let waited = 0; waited < 500 && document.querySelector('[role="menu"]'); waited += 50) {
     await new Promise((resolve) => setTimeout(resolve, 50))
   }
+
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 }
 
@@ -224,6 +265,7 @@ function useOpened() {
   return useSyncExternalStore(
     (listener) => {
       openedListeners.add(listener)
+
       return () => openedListeners.delete(listener)
     },
     () => opened
@@ -233,35 +275,51 @@ function useOpened() {
 /** The dialog as the app shows it: sends through main, which attaches the logs, versions and projects. */
 export function ReportProblemDialog() {
   const open = useOpenDialog() === "report"
-  const { screenshot: screenshotUrl, crash, crashTime: crashIso, eventId } = useOpened()
+  const { screenshot: screenshotUrl, crash, crashTime: crashIso, eventId, caught } = useOpened()
+
   const projects = useTabs()
     .filter((tab) => !tab.blank && tab.status !== "error")
     .map((tab) => tab.title)
+
   const [state, setState] = useState<ReportPhase>({ phase: "editing" })
   const [description, setDescription] = useState("")
   const [screenshot, setScreenshot] = useState(true)
+
   const send = async () => {
-    if (description.trim() === "") return
+    if (description.trim() === "") {
+      return
+    }
+
     setState({ phase: "sending" })
+
     try {
-      await window.canvasHost.report.send({
+      const report: ProblemReportRequest = {
         message: description.trim(),
         screenshot: screenshot && screenshotUrl !== undefined,
         afterCrash: crashIso !== undefined,
-        ...(eventId ? { eventId } : {}),
         ...(await reportIds())
-      })
+      }
+
+      if (eventId) {
+        report.eventId = eventId
+      }
+
+      await window.canvasHost.report.send(report)
       setState({ phase: "sent" })
     } catch (error) {
       console.warn("[report] couldn't send the report:", error)
       setState({ phase: "failed" })
     }
   }
+
   return (
     <ReportProblemView
       open={open}
       onOpenChange={(next) => {
-        if (next) return
+        if (next) {
+          return
+        }
+
         closeDialog()
         setOpened({})
         // The next report starts afresh.
@@ -277,6 +335,7 @@ export function ReportProblemDialog() {
       {...(screenshotUrl ? { screenshotUrl } : {})}
       projects={projects}
       {...(crash ? { crash } : {})}
+      {...(caught ? { caught } : {})}
       onSend={() => void send()}
     />
   )

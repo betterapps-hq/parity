@@ -141,11 +141,16 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
 
   const add = () => {
     const value = draft.trim().replace(/,$/, "")
-    if (!value) return
+
+    if (!value) {
+      return
+    }
+
     const person = mentionable.find(({ person }) => person.name.toLowerCase() === value.toLowerCase())?.person
     setChips([...chips, person?.name ?? value])
     setDraft("")
   }
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault()
@@ -154,9 +159,11 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
       setChips(chips.slice(0, -1))
     }
   }
+
   const invite = () => {
     const invited = chips.map((chip): Member => {
       const person = mentionable.find((option) => option.person.name === chip)?.person
+
       return {
         person,
         email: person ? `${chip.split(" ")[0]!.toLowerCase()}@buildkit.dev` : chip,
@@ -164,9 +171,11 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
         invited: "Just now"
       }
     })
+
     setMembers([...members, ...invited])
     setChips([])
   }
+
   const noPush = members.filter((member) => member.noPush && member.role === "edit")
 
   return (
@@ -380,11 +389,13 @@ const targets = [
 export function CopyLinkMenu() {
   const [copied, setCopied] = useState<string>()
   const target = targets.find((candidate) => candidate.id === copied)
+
   return (
     <div className="flex flex-col gap-3">
       <div className="w-80 rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl">
         {targets.map((candidate) => {
           const Icon = candidate.icon
+
           return (
             <button
               key={candidate.id}
@@ -454,6 +465,7 @@ export function LinkUnfurl() {
 export function RequestAccess() {
   const [role, setRole] = useState<Role>("comment")
   const [sent, setSent] = useState(false)
+
   return (
     <div className="flex w-96 flex-col items-center gap-5 rounded-xl border bg-popover p-6 text-center text-popover-foreground shadow-2xl">
       <span className="grid size-11 place-items-center rounded-full bg-muted">
@@ -501,6 +513,7 @@ export function RequestAccess() {
 /** A request for access, as the owner gets it: who, what they asked for and why, and the answer. */
 export function AccessRequest() {
   const [answer, setAnswer] = useState<string>()
+
   return (
     <div className="flex w-[26rem] flex-col gap-3 rounded-xl border bg-popover p-4 text-popover-foreground shadow-2xl">
       <div className="flex items-start gap-2.5">

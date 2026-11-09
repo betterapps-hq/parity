@@ -29,6 +29,7 @@ export function DesignTab() {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
+
   return (
     <FieldTarget value={selectionKey(selected)}>
       <FirstStateName value={entry?.container.states[0]?.name ?? "Default"}>
@@ -42,7 +43,11 @@ function SelectedPanel() {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
-  if (selected.note) return <NotePanel noteKey={selected.note} />
+
+  if (selected.note) {
+    return <NotePanel noteKey={selected.note} />
+  }
+
   if (!entry) {
     return (
       <div className="type-empty flex flex-col items-center gap-2 px-6 py-12 text-center text-muted-foreground">
@@ -53,12 +58,20 @@ function SelectedPanel() {
       </div>
     )
   }
+
   if (selected.nodes && selected.nodes.length > 1) {
     // Another set of layers starts its fields afresh, as another layer does, rather than keeping what was typed.
     return <MultiLayerPanel key={selected.nodes.join(",")} entry={entry} ids={selected.nodes} />
   }
-  if (selected.designs && selected.designs.length > 1) return <ArrangePanel keys={selected.designs} />
-  if (selected.node) return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+
+  if (selected.designs && selected.designs.length > 1) {
+    return <ArrangePanel keys={selected.designs} />
+  }
+
+  if (selected.node) {
+    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+  }
+
   return <DesignPanel entry={entry} />
 }
 
@@ -84,12 +97,15 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
               className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
               onBlur={(event) => {
                 const name = event.currentTarget.value.trim()
+
                 if (name && name !== container.name) {
                   renameAndRecord(store, key, name)
                 }
               }}
               onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur()
+                if (event.key === "Enter") {
+                  event.currentTarget.blur()
+                }
               }}
             />
           }
@@ -123,6 +139,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
  */
 function FrameStyles({ entry }: { entry: ContainerEntry }) {
   const editor = useStyleEditor(entry, [entry.container.root.id])
+
   return editor ? <StyleSections editor={editor} node={entry.container.root} /> : null
 }
 
@@ -135,6 +152,7 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
   const { primary, all } = containerModes(settings, container)
   const shown = new Set(container.view?.modes ?? [])
   const kind = kindName(container.kind)
+
   const setModes = (modes: string[]) =>
     store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
 
@@ -158,6 +176,7 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
           {all.map((mode, index) => {
             const isMain = mode.id === primary.id
             const isSelected = selected.mode === mode.id
+
             return (
               <div
                 key={mode.id}
@@ -232,7 +251,11 @@ function OptionChip({ children }: { children: React.ReactNode }) {
 function NotePanel({ noteKey }: { noteKey: string }) {
   const { store } = useProject()
   const note = useNotes(store).find((entry) => entry.key === noteKey)
-  if (!note) return null
+
+  if (!note) {
+    return null
+  }
+
   return (
     <PanelSection title="Text on the canvas">
       <textarea
@@ -241,6 +264,7 @@ function NotePanel({ noteKey }: { noteKey: string }) {
         rows={5}
         onBlur={(event) => {
           const text = event.currentTarget.value
+
           if (text !== note.note.text) {
             store.updateNote(noteKey, text.trim() ? "Edit text" : "Delete text", (current) =>
               text.trim() ? { ...current, text } : undefined

@@ -20,15 +20,23 @@ const crashEventsKept = 200
 /** The events in a log file's text, one JSON object a line. Lines that aren't events, as one cut short, are skipped. */
 export function parseLogLines(text: string): LoggedEvent[] {
   const events: LoggedEvent[] = []
+
   for (const line of text.split("\n")) {
-    if (!line.trim()) continue
+    if (!line.trim()) {
+      continue
+    }
+
     try {
       const event = JSON.parse(line) as LoggedEvent
-      if (typeof event?.name === "string" && typeof event.time === "string") events.push(event)
+
+      if (typeof event?.name === "string" && typeof event.time === "string") {
+        events.push(event)
+      }
     } catch {
       // A line cut short by a crash or a full disk.
     }
   }
+
   return events
 }
 
@@ -49,15 +57,31 @@ export interface Crash {
  */
 export function lastRunCrash(events: readonly LoggedEvent[], current: string): Crash | undefined {
   let last: string | undefined
+
   for (const event of events) {
-    if (event.sessionId !== current && event.process === "main") last = event.sessionId
+    if (event.sessionId !== current && event.process === "main") {
+      last = event.sessionId
+    }
   }
-  if (!last) return undefined
+
+  if (!last) {
+    return undefined
+  }
+
   const run = events.filter((event) => event.sessionId === last)
-  if (run.some((event) => event.name === "app.quit")) return undefined
+
+  if (run.some((event) => event.name === "app.quit")) {
+    return undefined
+  }
+
   const lastEvent = run.at(-1)
-  if (!lastEvent) return undefined
+
+  if (!lastEvent) {
+    return undefined
+  }
+
   const error = run.findLast((event) => event.level === "error" || event.level === "fatal")
+
   return {
     sessionId: last,
     time: lastEvent.time,
@@ -96,6 +120,7 @@ export function diagnosticFiles({
 }): DiagnosticFile[] {
   const since = now - reportLogsMs
   const recent = events.filter((event) => Date.parse(event.time) >= since)
+
   const files: DiagnosticFile[] = [
     {
       name: "logs.jsonl",
@@ -105,14 +130,24 @@ export function diagnosticFiles({
     { name: "versions.json", contentType: "application/json", text: JSON.stringify(versions, null, 2) },
     { name: "projects.json", contentType: "application/json", text: JSON.stringify(openProjects(recent), null, 2) }
   ]
-  if (crash) files.push({ name: "crash.json", contentType: "application/json", text: JSON.stringify(crash, null, 2) })
+
+  if (crash) {
+    files.push({ name: "crash.json", contentType: "application/json", text: JSON.stringify(crash, null, 2) })
+  }
+
   return files
 }
 
 /** The projects events were recorded in, by root, in the order they first appear. */
 export function openProjects(events: readonly LoggedEvent[]): string[] {
   const roots = new Set<string>()
-  for (const event of events) if (event.project) roots.add(event.project)
+
+  for (const event of events) {
+    if (event.project) {
+      roots.add(event.project)
+    }
+  }
+
   return [...roots]
 }
 

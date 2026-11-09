@@ -26,6 +26,7 @@ describe("frames on screen", () => {
       frame({ bitmap: "data:image/webp;base64,AAAA" }),
       frame({ modeId: "desktop", mode: "Desktop", width: 1280, height: 800 })
     ])
+
     expect({ filename, contentType }).toEqual({ filename: "frames.json", contentType: "application/json" })
     expect(JSON.parse(data as string)).toEqual([
       expect.objectContaining({ mode: "Mobile Light", bitmap: true }),
@@ -39,6 +40,7 @@ describe("frames on screen", () => {
       frame({ modeId: "desktop", bitmap: "data:image/webp;base64,AAAA" }),
       frame({ bitmap: "data:image/webp;base64,UklG" })
     ]
+
     const drawn = { key: "designs/settings.parity.json#settings", state: "default", mode: "mobile-light" }
     expect(bitmapAttachment(frames, drawn)).toEqual({
       filename: "frame.webp",

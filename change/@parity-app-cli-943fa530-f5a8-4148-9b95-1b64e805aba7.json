@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Core meets Buildkit's lint rules; nothing users see changes",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

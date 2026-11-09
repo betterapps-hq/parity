@@ -16,11 +16,13 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The picker on its own, with what was picked last beside it. */
 function PickerWithResult({ initialQuery }: { initialQuery?: string }) {
   const [picked, setPicked] = useState<string[]>([])
+
   return (
     <Stage className="flex items-start gap-8">
       <div className="rounded-xl border bg-popover shadow-2xl">

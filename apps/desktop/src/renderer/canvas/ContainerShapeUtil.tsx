@@ -21,7 +21,7 @@ import {
 import { moveDesigns } from "../chrome/arrange.ts"
 import { getPreferences } from "../chrome/preferences.ts"
 import { useContainerEntry } from "../design-store.ts"
-import { isRestingFar, isTabHidden, isZoomSettled, shapeIdFor } from "./CanvasEditor.tsx"
+import { isRestingFar, isTabHidden, isZoomSettled, canvasIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
 import { type BoardRest, boardDormant } from "./frame-sleep.ts"
@@ -99,6 +99,7 @@ export class ContainerShapeUtil extends ShapeUtil<ContainerShape> {
     const path = new Path2D()
     const radius = frameShapes.has(shape.id) ? 0 : boardLayoutAt(this.editor.getZoomLevel()).radius
     path.roundRect(0, 0, shape.props.w, shape.props.h, radius)
+
     return path
   }
 }
@@ -111,10 +112,12 @@ const boardMeasures = new WeakMap<Editor, ReturnType<typeof measureTogether>>()
 
 function boardSizes(editor: Editor): ReturnType<typeof measureTogether> {
   let measures = boardMeasures.get(editor)
+
   if (!measures) {
     measures = measureTogether((writes) => editor.run(writes, { history: "ignore" }))
     boardMeasures.set(editor, measures)
   }
+
   return measures
 }
 
@@ -132,12 +135,17 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
 
   const frame = entry?.container.kind === "frame"
   useLayoutEffect(() => {
-    if (!frame) return undefined
+    if (!frame) {
+      return undefined
+    }
+
     frameShapes.add(shape.id)
+
     return () => void frameShapes.delete(shape.id)
   }, [frame, shape.id])
 
   const [drawn, setDrawn] = useState(false)
+
   // Its frames sleep zoomed far out, except on the selected board, and in a tab hidden a while once they've been drawn;
   // they wake near the view (see frame-sleep.ts).
   const rest = useMemo<BoardRest & { near: Atom<boolean> }>(
@@ -164,31 +172,51 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   // Boards measure together, so the canvas's boards are laid out once rather than once each (PAR-726).
   useLayoutEffect(() => {
     const element = ref.current
-    if (!element) return undefined
+
+    if (!element) {
+      return undefined
+    }
+
     const size = {
       read: () =>
         element.getClientRects().length === 0 ? undefined : { w: element.offsetWidth, h: element.offsetHeight },
       write: ({ w, h }: { w: number; h: number }) => {
         const current = editor.getShape(shape.id)
-        if (current?.type !== "canvas-container") return
+
+        if (current?.type !== "canvas-container") {
+          return
+        }
+
         setDrawn(true)
+
         if (Math.abs(current.props.w - w) >= 1 || Math.abs(current.props.h - h) >= 1) {
           editor.updateShape({ id: shape.id, type: "canvas-container", props: { w, h } })
         }
+
         setBoardSized(editor, shape.id, true)
       }
     }
+
     let cancel: (() => void) | undefined
+
     const measure = () => {
       cancel = boardSizes(editor)(element, size)
     }
+
     const observer = new ResizeObserver(() => {
-      if (isZoomSettled(editor)) measure()
+      if (isZoomSettled(editor)) {
+        measure()
+      }
     })
+
     observer.observe(element)
+
     const stop = react("board size once the zoom settles", () => {
-      if (isZoomSettled(editor)) unsafe__withoutCapture(measure)
+      if (isZoomSettled(editor)) {
+        unsafe__withoutCapture(measure)
+      }
     })
+
     return () => {
       stop()
       observer.disconnect()
@@ -203,17 +231,29 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   const present = !!entry
   useLayoutEffect(() => {
     const element = ref.current
-    if (!element || !drawn) return undefined
+
+    if (!element || !drawn) {
+      return undefined
+    }
+
     const stop = react("board out of view", () => {
       const bounds = editor.getShapePageBounds(shape.id)
       const viewport = editor.getViewportPageBounds()
       const near = Box.ExpandBy(viewport, Math.max(viewport.w, viewport.h) / 4)
       const selected = editor.getSelectedShapeIds().includes(shape.id)
       const away = !!bounds && !Box.Collides(near, bounds) && !selected
-      if (element.hasAttribute("data-away") !== away) element.toggleAttribute("data-away", away)
-      if (element.hasAttribute("data-live") !== selected) element.toggleAttribute("data-live", selected)
+
+      if (element.hasAttribute("data-away") !== away) {
+        element.toggleAttribute("data-away", away)
+      }
+
+      if (element.hasAttribute("data-live") !== selected) {
+        element.toggleAttribute("data-live", selected)
+      }
+
       rest.near.set(!away)
     })
+
     return () => {
       stop()
       element.removeAttribute("data-away")
@@ -228,38 +268,57 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
    */
   const dragByTitle = (event: ReactPointerEvent) => {
     // A locked design's title is left to the canvas, as its board is: it's selected and moved only from Layers.
-    if (session.store.getEntry(shape.props.key)?.container.locked) return
+    if (session.store.getEntry(shape.props.key)?.container.locked) {
+      return
+    }
+
     event.stopPropagation()
-    if (event.button !== 0) return
+
+    if (event.button !== 0) {
+      return
+    }
+
     const key = shape.props.key
     const current = selection.get()
+
     const group = selectedDesigns(current).filter(
       (candidate) => candidate === key || !session.store.getEntry(candidate)?.container.locked
     )
+
     if (event.shiftKey) {
       const next = group.includes(key) ? group.filter((candidate) => candidate !== key) : [...group, key]
       selection.set(designsSelection(next))
+
       return
     }
+
     const moving = group.includes(key) ? group : [key]
-    if (!group.includes(key)) selection.set({ design: key })
+
+    if (!group.includes(key)) {
+      selection.set({ design: key })
+    }
+
     const target = event.currentTarget as HTMLElement
     target.setPointerCapture(event.pointerId)
     const start = editor.screenToPage({ x: event.clientX, y: event.clientY })
+
     const origins = new Map(
       moving.flatMap((candidate) => {
-        const found = editor.getShape(shapeIdFor(candidate))
+        const found = editor.getShape(canvasIdFor(candidate))
+
         return found ? [[candidate, { x: found.x, y: found.y }] as const] : []
       })
     )
+
     const origin = origins.get(key) ?? { x: shape.x, y: shape.y }
-    const others = new Set(moving.map(shapeIdFor))
+    const others = new Set(moving.map(canvasIdFor))
+
     const place = (dx: number, dy: number) =>
       editor.run(
         () => {
           for (const [candidate, position] of origins) {
             editor.updateShape({
-              id: shapeIdFor(candidate),
+              id: canvasIdFor(candidate),
               type: "canvas-container",
               x: position.x + dx,
               y: position.y + dy
@@ -268,6 +327,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
         },
         { history: "ignore" }
       )
+
     followPress(gestures.titleDrag, session.store, event, {
       moves: { designs: moving },
       cursor: "grabbing",
@@ -282,23 +342,40 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
         // It locks to the edges and centers of the designs around it; Ctrl or Cmd moves freely.
         const snapping = snaps(moveEvent, getPreferences().snapping)
         const next = snapping ? snapPosition(editor, shape.id, free, others) : free
-        if (!snapping) clearSnaps(editor)
+
+        if (!snapping) {
+          clearSnaps(editor)
+        }
+
         place(next.x - origin.x, next.y - origin.y)
       },
       end(kept) {
         clearSnaps(editor)
         target.style.cursor = ""
-        if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId)
+
+        if (target.hasPointerCapture(event.pointerId)) {
+          target.releasePointerCapture(event.pointerId)
+        }
+
         // Put back while the canvas still knows the move is the title's, so it isn't saved.
-        if (!kept) place(0, 0)
+        if (!kept) {
+          place(0, 0)
+        }
+
         designDrag.active = false
-        if (!kept) return
+
+        if (!kept) {
+          return
+        }
+
         const positions = new Map(
           [...origins.keys()].flatMap((candidate) => {
-            const found = editor.getShape(shapeIdFor(candidate))
+            const found = editor.getShape(canvasIdFor(candidate))
+
             return found ? [[candidate, { x: found.x, y: found.y }] as const] : []
           })
         )
+
         moveDesigns(session, positions, `Move ${session.store.designsLabel(positions.keys())}`)
       }
     })
@@ -311,6 +388,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       </div>
     )
   }
+
   return (
     <ContainerView
       ref={ref}

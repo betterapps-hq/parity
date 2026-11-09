@@ -98,7 +98,10 @@ export class PageError extends Error {
     super(failure.error)
     this.name = "PageError"
     this.failure = failure
-    if (failure.errorStack) this.stack = failure.errorStack
+
+    if (failure.errorStack) {
+      this.stack = failure.errorStack
+    }
   }
 }
 
@@ -120,6 +123,10 @@ export function pageCall(call: string): string {
 /** What `pageCall` answered with: the value the page gave, or the `PageError` it threw. */
 export function pageAnswer(value: unknown): unknown {
   const read = parseData(answer, value)
-  if ("error" in read) throw new PageError(read)
+
+  if ("error" in read) {
+    throw new PageError(read)
+  }
+
   return read.value
 }

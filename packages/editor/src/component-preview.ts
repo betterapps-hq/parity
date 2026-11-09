@@ -1,6 +1,7 @@
 import {
   type ComponentInfo,
   type ComponentLibrary,
+  type ComponentNode,
   type ComponentProp,
   type ComponentSource,
   type DesignNode,
@@ -16,10 +17,13 @@ import { componentExample } from "./composition.ts"
 
 /** The element a component preview is drawn in, whose box the picture is cropped to. */
 export const previewRootId = "parity-preview"
+
 /** How wide a component's preview may be drawn, in pixels; a narrower one is drawn at its own width. */
 export const previewMaxWidth = 640
+
 /** Room around a component in its preview, so its shadow and focus ring aren't cut off. */
 export const previewPadding = 8
+
 /** The width of the frame a preview is drawn in: the widest preview with its room around it. */
 export const previewFrameWidth = previewMaxWidth + 2 * previewPadding
 
@@ -33,7 +37,7 @@ export interface PreviewContext {
   /** The viewport option of the mode it's drawn in, whose responsive patches apply. */
   viewport: string
   /** Props laid over the component's own, as one of its variants' (PAR-208). */
-  props?: Record<string, unknown>
+  props?: ComponentNode["props"]
 }
 
 /**
@@ -45,6 +49,7 @@ export interface PreviewContext {
 export function componentPreviewTree(component: string, context: PreviewContext): RenderNode[] {
   const example = componentExample(component, context.info, context.sources)
   const placed = drawnOpen(context.props ? withProps(example, component, context.props) : example, context.sources)
+
   return previewFrame(resolveDesign(placed, undefined, context.viewport, context.library))
 }
 
@@ -75,6 +80,7 @@ function previewFrame(children: RenderNode[]): RenderNode[] {
 export function slotPreviewTree(slot: InstanceSlot, library: ComponentLibrary, viewport: string): RenderNode[] {
   const { slot: _slot, bind: _bind, ...layout } = slot.node
   const drawn: LayoutNode = { ...layout, children: slot.fill.length > 0 ? slot.fill : slot.node.children }
+
   return previewFrame(resolveDesign(drawn, undefined, viewport, library))
 }
 
@@ -97,48 +103,75 @@ export const previewValue = "parity-preview"
  */
 export function drawnOpen(node: DesignNode, sources: Record<string, ComponentSource>): DesignNode {
   const tree = structuredClone(node)
+
   const declares = (layer: DesignNode, prop: OpenProp) =>
     layer.type === "component" && (sources[layer.component]?.openProps?.includes(prop) ?? false)
+
   const chooseItems = (layer: DesignNode) => {
     if (layer.type === "component" && declares(layer, "defaultValue") && !("value" in (layer.props ?? {}))) {
       const items = inside(layer).filter((child) => declares(child, "value"))
       const chosen = layer.props?.defaultValue
       const choices = Array.isArray(chosen) ? chosen : [chosen]
+
       const choosesOne = items.some(
         (item) => item.type === "component" && item.props?.value !== undefined && choices.includes(item.props.value)
       )
+
       const item = items[0]
+
       if (!choosesOne && item?.type === "component") {
         const first: unknown = Array.isArray(chosen) ? chosen[0] : chosen
         const value = item.props?.value ?? first ?? previewValue
         item.props = { ...item.props, value }
         let defaultValue: unknown = value
-        if (Array.isArray(chosen)) defaultValue = chosen.includes(value) ? chosen : [...chosen, value]
+
+        if (Array.isArray(chosen)) {
+          defaultValue = chosen.includes(value) ? chosen : [...chosen, value]
+        }
+
         layer.props = { ...layer.props, defaultValue }
       }
     }
-    for (const child of children(layer)) chooseItems(child)
+
+    for (const child of children(layer)) {
+      chooseItems(child)
+    }
   }
+
   const openFirst = (layer: DesignNode): boolean => {
     let opened = false
     const given = layer.type === "component" ? (layer.props ?? {}) : {}
+
     if (layer.type === "component" && declares(layer, "defaultOpen") && !("open" in given || "defaultOpen" in given)) {
       layer.props = { ...given, defaultOpen: true }
       opened = true
     }
+
     let within = false
-    for (const child of children(layer)) within ||= openFirst(child)
+
+    for (const child of children(layer)) {
+      within ||= openFirst(child)
+    }
+
     return opened || within
   }
+
   chooseItems(tree)
   openFirst(tree)
+
   return tree
 }
 
 /** A layer's children, in every slot, in order. */
 function children(node: DesignNode): DesignNode[] {
-  if (node.type === "layout") return node.children
-  if (node.type === "component") return Object.values(node.slots ?? {}).flat()
+  if (node.type === "layout") {
+    return node.children
+  }
+
+  if (node.type === "component") {
+    return Object.values(node.slots ?? {}).flat()
+  }
+
   return []
 }
 
@@ -148,10 +181,14 @@ function inside(node: DesignNode): DesignNode[] {
 }
 
 /** The example with props laid over the component's own, on its first layer of that component, outermost first. */
-function withProps(node: DesignNode, component: string, props: Record<string, unknown>): DesignNode {
+function withProps(node: DesignNode, component: string, props: NonNullable<ComponentNode["props"]>): DesignNode {
   const tree = structuredClone(node)
   const target = [tree, ...inside(tree)].find((layer) => layer.type === "component" && layer.component === component)
-  if (target?.type === "component") target.props = { ...target.props, ...props }
+
+  if (target?.type === "component") {
+    target.props = { ...target.props, ...props }
+  }
+
   return tree
 }
 
@@ -168,9 +205,11 @@ export interface PreviewVariants {
 export function previewVariants(info: ComponentInfo | undefined): PreviewVariants | undefined {
   const choices = (prop: ComponentProp) => prop.kind === "enum" && (prop.options?.length ?? 0) > 1
   const props = info?.props ?? []
+
   const prop =
     props.find((candidate) => candidate.group === "variant" && choices(candidate)) ??
     props.find((candidate) => candidate.group === "own" && choices(candidate))
+
   return prop ? { prop: prop.name, options: prop.options! } : undefined
 }
 
@@ -186,10 +225,15 @@ export function missingProps(
   sources: Record<string, ComponentSource>
 ): string[] {
   const example = componentExample(component, info, sources)
+
   const layer = [example, ...inside(example)].find(
     (candidate) => candidate.type === "component" && candidate.component === component
   )
-  if (layer?.type !== "component") return []
+
+  if (layer?.type !== "component") {
+    return []
+  }
+
   return (info?.props ?? [])
     .filter((prop) => prop.required && prop.kind !== "function")
     .filter((prop) => layer.props?.[prop.name] === undefined && !layer.slots?.[prop.name]?.length)
@@ -206,20 +250,34 @@ export type PreviewProblem = "failed" | "needs-props" | "needs-provider" | "serv
 export function previewProblem(drawn: { error: string } | { empty: true }, missing: readonly string[]): PreviewProblem {
   if ("error" in drawn) {
     const problem = renderProblem(drawn.error)
-    if (problem === "provider") return "needs-provider"
-    if (problem === "server" || problem === "async") return "server-only"
+
+    if (problem === "provider") {
+      return "needs-provider"
+    }
+
+    if (problem === "server" || problem === "async") {
+      return "server-only"
+    }
   }
-  if (missing.length > 0) return "needs-props"
+
+  if (missing.length > 0) {
+    return "needs-props"
+  }
+
   return "error" in drawn ? "failed" : "draws-nothing"
 }
 
 /** How many times each component is placed in a project's designs, by its name, counting layers in slots too. */
 export function componentUses(roots: readonly DesignNode[]): Map<string, number> {
   const uses = new Map<string, number>()
+
   for (const root of roots) {
     walkNodes(root, (node) => {
-      if (node.type === "component") uses.set(node.component, (uses.get(node.component) ?? 0) + 1)
+      if (node.type === "component") {
+        uses.set(node.component, (uses.get(node.component) ?? 0) + 1)
+      }
     })
   }
+
   return uses
 }

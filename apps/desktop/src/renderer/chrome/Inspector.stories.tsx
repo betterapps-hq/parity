@@ -19,6 +19,7 @@ const meta = {
 } satisfies Meta<typeof Inspector>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const pricing = () => ({ design: design("Pricing") })

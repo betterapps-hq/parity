@@ -9,7 +9,9 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 const brand = "aP9rK"
@@ -37,6 +39,7 @@ describe("typing in a length field", () => {
     await selectBrand()
     await width().click()
     await width().press("ControlOrMeta+a")
+
     for (const [key, shown] of [
       ["3", 3],
       ["2", 32],
@@ -47,6 +50,7 @@ describe("typing in a length field", () => {
       await expect.poll(drawnWidth).toBe(shown)
       expect(await brandWidth()).toBe(8)
     }
+
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(80)
     expect(await drawnWidth()).toBe(320)
@@ -99,9 +103,13 @@ describe("typing in a length field", () => {
       const e2e = window.e2e!
       e2e.session().store.updateContainer(e2e.key("Pricing"), "Agent", (container) => {
         const edit = (node: typeof container.root): typeof container.root => {
-          if (node.id === brand) return { ...node, style: { ...node.style, width: 10 } }
+          if (node.id === brand) {
+            return { ...node, style: { ...node.style, width: 10 } }
+          }
+
           return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
         }
+
         return { ...container, root: edit(container.root) }
       })
     }, brand)
@@ -116,6 +124,7 @@ describe("stepping and scrubbing", () => {
   it("steps a length with Up and Down, ten with Shift, as one undo step however slowly (PAR-441)", async () => {
     await selectBrand()
     await width().click()
+
     // Each press is made at once, and the run is one undo step, with pauses longer than a second between presses.
     for (const [key, steps] of [
       ["ArrowUp", 9],
@@ -126,6 +135,7 @@ describe("stepping and scrubbing", () => {
       await expect.poll(brandWidth, { interval: 10 }).toBe(steps)
       await app.page.waitForTimeout(1200)
     }
+
     expect(await width().inputValue()).toBe("72")
     await width().press("Escape")
     await app.page.keyboard.press("Control+z")
@@ -145,11 +155,13 @@ describe("stepping and scrubbing", () => {
     const label = app.page.getByText("Width", { exact: true }).first()
     const box = (await label.boundingBox())!
     const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+
     const during = await app.drag(from, { x: from.x + 20, y: from.y }, async () => ({
       drawn: await drawnWidth(),
       stored: await brandWidth(),
       shown: await width().inputValue()
     }))
+
     // Ten steps further, on the canvas and in the field, with the design unchanged until the release.
     expect(during).toEqual({ drawn: 72, stored: 8, shown: "72" })
     await expect.poll(brandWidth).toBe(18)
@@ -181,16 +193,20 @@ describe("number props (PAR-203)", () => {
   // App sidebar's Seats bar, a nova/Progress whose value is 70.
   const seats = "LiOql"
   const valueField = () => app.page.locator('input[aria-label="value"]')
+
   const storedValue = async () => {
     const node = await app.node("App sidebar", seats)
+
     return node?.type === "component" ? node.props?.value : undefined
   }
+
   /** The value the bar is drawn with, which the component sets on its progressbar. */
   const drawnValue = () =>
     app.page.evaluate((seats) => {
       const e2e = window.e2e!
       const element = window.e2eModules!.frames.findNodeElement(e2e.frame(e2e.key("App sidebar")), seats)
       const bar = element?.matches('[role="progressbar"]') ? element : element?.querySelector('[role="progressbar"]')
+
       return bar?.getAttribute("aria-valuenow")
     }, seats)
 
@@ -204,6 +220,7 @@ describe("number props (PAR-203)", () => {
     await selectSeats()
     await valueField().click()
     await valueField().press("ControlOrMeta+a")
+
     for (const [key, shown] of [
       ["2", "2"],
       ["5", "25"]
@@ -211,6 +228,7 @@ describe("number props (PAR-203)", () => {
       await app.page.keyboard.press(key)
       await expect.poll(drawnValue).toBe(shown)
     }
+
     await valueField().press("Enter")
     await expect.poll(storedValue).toBe(25)
     expect(await drawnValue()).toBe("25")

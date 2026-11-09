@@ -9,6 +9,7 @@ const box = (left: number, top: number, width: number, height: number): Rect => 
   right: left + width,
   bottom: top + height
 })
+
 const column: Flow = { direction: "column", wraps: false, reversed: false, linesReversed: false }
 const row: Flow = { direction: "row", wraps: false, reversed: false, linesReversed: false }
 const grid: Flow = { direction: "row", wraps: true, reversed: false, linesReversed: false }
@@ -27,6 +28,7 @@ function board(kind: "instance" | "layout"): DesignNode {
     kind === "instance"
       ? { type: "instance", id, design: "stat-card" }
       : { type: "layout", id, children: [{ type: "text", id: `${id}-label`, text: id }] }
+
   return {
     type: "layout",
     id: "root",
@@ -44,7 +46,11 @@ function measured(kind: "instance" | "layout"): FrameLayout {
     { id: "stats", box: box(16, 16, 800, 100), flow: grid },
     ...cards.flatMap((id, index): MeasuredLayer[] => {
       const at = cardBox(index)
-      if (kind === "instance") return [{ id, box: at }]
+
+      if (kind === "instance") {
+        return [{ id, box: at }]
+      }
+
       return [
         { id, box: at, flow: column },
         { id: `${id}-label`, box: box(at.left + 13, at.top + 13, 50, 18) }
@@ -53,6 +59,7 @@ function measured(kind: "instance" | "layout"): FrameLayout {
     { id: "panel", box: panelBox, flow: row },
     { id: "panel-label", box: box(17, 133, 40, 18) }
   ]
+
   return frameLayout({ left: 0, top: 0, width: 832 }, layers)
 }
 
@@ -158,12 +165,15 @@ describe("what can't take a drop", () => {
       { id: "hidden", box: box(0, 0, 0, 0) },
       { id: "last", box: box(100, 0, 100, 100) }
     ])
+
     expect(layout.layers.map((layer) => layer.id)).toEqual(["row", "first", "last"])
+
     const root: DesignNode = {
       type: "layout",
       id: "row",
       children: ["first", "hidden", "last"].map((id) => ({ type: "text", id, text: id }))
     }
+
     const found = dropTargetAt({
       layout,
       frame: layout.frame,
@@ -173,6 +183,7 @@ describe("what can't take a drop", () => {
       source: "other",
       ids: ["moved"]
     })
+
     expect(found?.target).toMatchObject({ parent: "row", index: 3 })
   })
 
@@ -182,6 +193,7 @@ describe("what can't take a drop", () => {
       { id: "unmeasured", box: undefined, flow: column },
       { id: "collapsed", box: box(0, 0, 0, 0), flow: column }
     ])
+
     expect([...layout.boxes.keys()]).toEqual(["shown"])
     expect([...layout.flows.keys()]).toEqual(["shown"])
   })

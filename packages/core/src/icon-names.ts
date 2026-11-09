@@ -45,6 +45,7 @@ export interface IconStyleModule {
  */
 export function iconStyleModules(icons: LibraryIcons | undefined, packageName: string): IconStyleModule[] {
   const variants = icons?.variants
+
   return Object.entries(variants?.modules ?? {}).flatMap(([style, specifier]) =>
     style === variants?.default?.style || specifier === (icons?.import ?? packageName)
       ? []
@@ -71,64 +72,110 @@ export function iconVariants(
 ): Map<string, IconVariant> {
   const pattern = variants.pattern ? new RegExp(variants.pattern) : undefined
   const sizes = new Set(variants.sizes ?? [])
+
   const parsed = names.flatMap((name): Parsed[] => {
-    if (!pattern) return [{ name, base: name, digits: "" }]
+    if (!pattern) {
+      return [{ name, base: name, digits: "" }]
+    }
+
     const groups = pattern.exec(name)?.groups
-    if (!groups) return []
-    return [
-      { name, base: groups.name ?? name, digits: groups.size ?? "", ...(groups.style ? { style: groups.style } : {}) }
-    ]
+
+    if (!groups) {
+      return []
+    }
+
+    const entry: Parsed = { name, base: groups.name ?? name, digits: groups.size ?? "" }
+
+    if (groups.style) {
+      entry.style = groups.style
+    }
+
+    return [entry]
   })
+
   // Every name as written without a size, digits and all.
   const bare = new Set(parsed.map(({ base, digits }) => base + digits))
+
   // The ways digits split into the rest of a name and a size the set has, longest size first; `020` isn't a size. A
   // set that doesn't list its sizes takes any number.
   const splits = ({ base, digits }: Parsed) =>
     digits.split("").flatMap((_, at) => {
       const size = digits.slice(at)
+
       return String(Number(size)) === size && (sizes.size === 0 || sizes.has(Number(size)))
         ? [{ label: base + digits.slice(0, at), size: Number(size) }]
         : []
     })
+
   const read = new Map<string, Reading>()
+
   for (const entry of parsed) {
     const copy = entry.digits ? splits(entry).find((split) => bare.has(split.label)) : undefined
     read.set(entry.name, { ...(copy ?? { label: entry.base + entry.digits }), style: entry.style })
   }
+
   // A name with digits that no export has at a size, and that ends in a size, is an icon shipped only at fixed sizes.
   const sized = new Set([...read.values()].flatMap((reading) => (reading.size === undefined ? [] : [reading.label])))
+
   for (const entry of parsed) {
     const reading = read.get(entry.name)!
-    if (!entry.digits || reading.size !== undefined || sized.has(reading.label)) continue
+
+    if (!entry.digits || reading.size !== undefined || sized.has(reading.label)) {
+      continue
+    }
+
     const fixed = splits(entry)[0]
-    if (fixed) read.set(entry.name, { ...fixed, style: entry.style, fixed: true })
+
+    if (fixed) {
+      read.set(entry.name, { ...fixed, style: entry.style, fixed: true })
+    }
   }
+
   // Each of those is listed once per style, at the size nearest the set's default, the larger of two as near.
   const preferred = variants.default?.size ?? 20
   const distance = (size: number) => Math.abs(size - preferred) - (size > preferred ? 0.5 : 0)
   const nearest = new Map<string, string>()
+
   for (const [name, reading] of read) {
-    if (!reading.fixed) continue
+    if (!reading.fixed) {
+      continue
+    }
+
     const key = `${reading.label}\u0000${reading.style ?? ""}`
     const current = nearest.get(key)
-    if (!current || distance(reading.size!) < distance(read.get(current)!.size!)) nearest.set(key, name)
+
+    if (!current || distance(reading.size!) < distance(read.get(current)!.size!)) {
+      nearest.set(key, name)
+    }
   }
+
   const listed = new Set(nearest.values())
   const result = new Map<string, IconVariant>()
+
   for (const [name, { label, size, style }] of read) {
-    result.set(name, {
-      label,
-      ...(size === undefined ? {} : { size }),
-      ...(style === undefined ? {} : { style }),
-      listed: size === undefined || listed.has(name)
-    })
+    // `listed` stays last, after the optional fields, as libraries' files have it.
+    const variant: Omit<IconVariant, "listed"> = { label }
+
+    if (size !== undefined) {
+      variant.size = size
+    }
+
+    if (style !== undefined) {
+      variant.style = style
+    }
+
+    result.set(name, { ...variant, listed: size === undefined || listed.has(name) })
   }
+
   return result
 }
 
 /** Compares two strings by their UTF-16 code units, as `sort` does without a comparer. */
 export function byCodeUnit(a: string, b: string): number {
-  if (a < b) return -1
+  if (a < b) {
+    return -1
+  }
+
   return a > b ? 1 : 0
 }
 
@@ -143,22 +190,32 @@ export function shorterName(a: string, b: string): number {
  * it's exported under in the module's order, so aliases the pattern leaves out (Hugeicons' `Gear` and `Cog` for
  * `Settings01Icon`) still find it. A group the pattern matches none of is left out.
  */
-export function iconAliases(
-  module: Record<string, unknown>,
+export function iconAliases<Export>(
+  module: Record<string, Export>,
   icons: Pick<LibraryIcons, "match" | "exclude"> | undefined,
-  drawable: (value: unknown, name: string) => boolean
+  drawable: (value: Export, name: string) => boolean
 ): { name: string; names: string[] }[] {
   const pattern = icons?.match ? new RegExp(icons.match) : /^[A-Z]/
   const excluded = new Set(icons?.exclude)
-  const byValue = new Map<unknown, string[]>()
+  const byValue = new Map<Export, string[]>()
+
   for (const [name, value] of Object.entries(module)) {
-    if (!/^[A-Z]/.test(name) || excluded.has(name) || !drawable(value, name)) continue
+    if (!/^[A-Z]/.test(name) || excluded.has(name) || !drawable(value, name)) {
+      continue
+    }
+
     const group = byValue.get(value)
-    if (group) group.push(name)
-    else byValue.set(value, [name])
+
+    if (group) {
+      group.push(name)
+    } else {
+      byValue.set(value, [name])
+    }
   }
+
   return [...byValue.values()].flatMap((names) => {
     const name = names.filter((candidate) => pattern.test(candidate)).sort(shorterName)[0]
+
     return name ? [{ name, names }] : []
   })
 }

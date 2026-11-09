@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const select = (selection: Parameters<ReturnType<typeof example>["selection"]["set"]>[0]) => () =>

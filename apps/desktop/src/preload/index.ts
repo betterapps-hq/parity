@@ -22,6 +22,7 @@ const service = createChannel<WindowMethods, ServiceMethods>({
   notServing: () => new Error("The canvas window isn't ready yet"),
   disconnected: () => new Error("The project service restarted")
 })
+
 const reconnectListeners = new Set<() => void>()
 const showUpdateListeners = new Set<() => void>()
 let pendingShowUpdate = false
@@ -29,16 +30,30 @@ let connections = 0
 
 // A native menu action may arrive after load but before React mounts and subscribes.
 ipcRenderer.on(ipc.showUpdates, () => {
-  if (showUpdateListeners.size === 0) pendingShowUpdate = true
-  else for (const listener of showUpdateListeners) listener()
+  if (showUpdateListeners.size === 0) {
+    pendingShowUpdate = true
+  } else {
+    for (const listener of showUpdateListeners) {
+      listener()
+    }
+  }
 })
 
 ipcRenderer.on(ipc.port, (event) => {
   const next = event.ports[0]
-  if (!next) return
+
+  if (!next) {
+    return
+  }
+
   service.connect(domPort(next))
   connections++
-  if (connections > 1) for (const listener of reconnectListeners) listener()
+
+  if (connections > 1) {
+    for (const listener of reconnectListeners) {
+      listener()
+    }
+  }
 })
 
 /**
@@ -50,13 +65,19 @@ function windowHandlers(
 ): Handlers<WindowMethods> {
   const answer = async (method: WindowMethod, params: unknown) => {
     const reply = await handler(method, params)
-    if ("error" in reply) throw plainErrors.decode(reply.error, reply.details)
+
+    if ("error" in reply) {
+      throw plainErrors.decode(reply.error, reply.details)
+    }
+
     return reply.result
   }
+
   return Object.fromEntries(
     windowMethods.map((method) => [method, (params: unknown) => answer(method, params)])
   ) as Handlers<WindowMethods>
 }
+
 const host: CanvasHost = {
   appVersion:
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
@@ -79,16 +100,19 @@ const host: CanvasHost = {
     subscribe: (listener) => {
       const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
       ipcRenderer.on(ipc.updateChanged, changed)
+
       return () => {
         ipcRenderer.removeListener(ipc.updateChanged, changed)
       }
     },
     onShow: (listener) => {
       showUpdateListeners.add(listener)
+
       if (pendingShowUpdate) {
         pendingShowUpdate = false
         listener()
       }
+
       return () => {
         showUpdateListeners.delete(listener)
       }
@@ -99,6 +123,7 @@ const host: CanvasHost = {
     subscribe: (listener) => {
       const changed = (_event: Electron.IpcRendererEvent, state: unknown) => listener(state)
       ipcRenderer.on(ipc.accountChanged, changed)
+
       return () => {
         ipcRenderer.removeListener(ipc.accountChanged, changed)
       }
@@ -142,6 +167,7 @@ const host: CanvasHost = {
     subscribe: (listener) => {
       const changed = (_event: Electron.IpcRendererEvent, change: ConsoleChange) => listener(change)
       ipcRenderer.on(ipc.consoleChanged, changed)
+
       return () => {
         ipcRenderer.removeListener(ipc.consoleChanged, changed)
       }
@@ -159,4 +185,5 @@ const host: CanvasHost = {
 }
 
 contextBridge.exposeInMainWorld("canvasHost", host)
+
 exposeTelemetry()

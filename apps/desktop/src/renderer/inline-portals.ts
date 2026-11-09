@@ -19,7 +19,10 @@ let sheet: CSSStyleSheet | undefined
  * is left out.
  */
 export function inlinePortalSheet(): CSSStyleSheet {
-  if (sheet) return sheet
+  if (sheet) {
+    return sheet
+  }
+
   sheet = new CSSStyleSheet()
   sheet.replaceSync(`@layer canvas-inline-portals {
   [${portalAttribute}], [${portalAttribute}] * { transition: none !important; animation: none !important; }
@@ -38,6 +41,7 @@ export function inlinePortalSheet(): CSSStyleSheet {
   }
   [${placedAttribute}="out"] { display: none !important; }
 }`)
+
   return sheet
 }
 
@@ -50,11 +54,16 @@ export function inlinePortals(host: Element, into: Element): () => void {
   const moved = [...document.body.children].filter(
     (element) => element !== host && !["SCRIPT", "STYLE", "LINK", "TEMPLATE"].includes(element.tagName)
   )
+
   for (const element of moved) {
     element.setAttribute(portalAttribute, "")
     into.append(element)
   }
-  for (const element of moved) placeInFlow(element)
+
+  for (const element of moved) {
+    placeInFlow(element)
+  }
+
   return () => {
     for (const element of moved) {
       element.removeAttribute(portalAttribute)
@@ -70,12 +79,20 @@ export function inlinePortals(host: Element, into: Element): () => void {
 function placeInFlow(root: Element): void {
   const walk = (element: Element) => {
     const { position } = getComputedStyle(element)
+
     if (position === "fixed" || position === "absolute") {
       element.setAttribute(placedAttribute, drawsSomething(element) ? "flow" : "out")
-      if (element.getAttribute(placedAttribute) === "out") return
+
+      if (element.getAttribute(placedAttribute) === "out") {
+        return
+      }
     }
-    for (const child of element.children) walk(child)
+
+    for (const child of element.children) {
+      walk(child)
+    }
   }
+
   walk(root)
 }
 

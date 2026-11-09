@@ -55,6 +55,7 @@ describe("the line a component's export is on", () => {
       "",
       "export { Badge, badgeVariants }"
     ].join("\n")
+
     expect(exportLine(source, "Badge")).toBe(1)
     expect(exportLine(source, "badgeVariants")).toBe(5)
   })

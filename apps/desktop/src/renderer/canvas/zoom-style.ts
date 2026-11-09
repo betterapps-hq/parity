@@ -15,11 +15,17 @@ export function useZoomStyle(
   const editor = useMaybeEditor()
   useLayoutEffect(() => {
     const style = ref.current?.style
-    if (!style) return undefined
-    if (!editor) {
-      apply(style, 1)
+
+    if (!style) {
       return undefined
     }
+
+    if (!editor) {
+      apply(style, 1)
+
+      return undefined
+    }
+
     return react("zoom style", () => apply(style, editor.getZoomLevel()))
   }, [editor, ref, apply])
 }

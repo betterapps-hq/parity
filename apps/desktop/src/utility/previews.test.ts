@@ -20,6 +20,7 @@ const open = vi.hoisted(() => ({
 const project: PreviewProjects = {
   codeServedAt: (_projectId, guestUrl) => {
     const code = open.snapshots.get(guestUrl)
+
     return code && { code, fingerprint: code.then(({ fingerprint }) => fingerprint), sources: {} }
   },
   previewProject: () => ({
@@ -35,6 +36,7 @@ const project: PreviewProjects = {
 vi.mock("./render.ts", () => ({
   renderPreview: (job: RenderJob) => {
     open.draws.push(JSON.stringify(job.tree))
+
     return open.draw(job)
   }
 }))
@@ -55,6 +57,7 @@ async function startService(): Promise<ReturnType<typeof componentPreviews>> {
       check: true
     })
   )
+
   return (await import("./previews.ts")).componentPreviews(project)
 }
 
@@ -65,6 +68,7 @@ async function picture(width: number, height: number): Promise<string> {
   const png = await sharp({ create: { width, height, channels: 3, background: "#ffffff" } })
     .png()
     .toBuffer()
+
   return png.toString("base64")
 }
 
@@ -145,6 +149,7 @@ describe("component previews", () => {
       preview("Button", "http://localhost:5002"),
       preview("Badge", "http://localhost:5002")
     ])
+
     expect(badge?.image).toBeDefined()
     // Until it's made again, Button's last picture stands in for it.
     expect(button?.image).toBeUndefined()

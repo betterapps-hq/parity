@@ -10,7 +10,9 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 // Dashboard's four stat cards, in a grid of four columns.
@@ -119,10 +121,13 @@ describe("dragging an absolutely placed layer", () => {
       const key = e2e.key("Calendar")
       e2e.session().store.updateContainer(key, "Set up insets", (container) => {
         const edit = (node: typeof container.root): typeof container.root => {
-          if (node.id === review)
+          if (node.id === review) {
             return { ...node, style: { ...node.style, left: -2, right: "spacing", top: "spacing" } }
+          }
+
           return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
         }
+
         return { ...container, root: edit(container.root) }
       })
     }, review)
@@ -146,6 +151,7 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
         indicator.type === "gaps" ? `gaps:${indicator.gaps.length}` : indicator.type
       )
     )
+
   /** Distance labels on the overlay reading 32px, the gap between the slots. */
   const distances = () =>
     app.page
@@ -158,12 +164,14 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
     await app.selectLayer("Calendar", review)
     const from = center(await app.box("Calendar", review))
     const before = await distances()
+
     // 6px down is within 8 of where it's evenly spaced, so it stays.
     const during = await app.drag(from, { x: from.x, y: from.y + 6 }, async () => ({
       indicators: await indicators(),
       distances: await distances(),
       style: await app.style("Calendar", review)
     }))
+
     // Marks in the three gaps, Planning to Review, Review to Lunch and Lunch to Usability, and a guide along its left,
     // which lines up with Planning's, whose distance to it shows.
     expect(during?.indicators).toEqual(expect.arrayContaining(["points", "gaps:3"]))
@@ -179,12 +187,14 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
     await app.selectLayer("Calendar", review)
     const before = await app.box("Calendar", review)
     const from = center(before)
+
     // 36px down puts its bottom 4px past the Lunch slot's top, so it locks there: top 48, not 49. That's 8 steps down,
     // half its 16 steps of height. The design is written only when it's dropped (PAR-551).
     const during = await app.drag(from, { x: from.x, y: from.y + 36 }, async () => ({
       style: await app.style("Calendar", review),
       box: await app.box("Calendar", review)
     }))
+
     expect(during?.style).toMatchObject({ top: 40 })
     expect(during?.box.y).toBeCloseTo(before.y + before.height / 2, 0)
     await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 48, left: 0, right: 0, height: 16 })
@@ -331,6 +341,7 @@ describe("resize handles", () => {
     expect(box.height).toBeLessThan(24)
     const handles = await app.handles()
     expect(handles).toHaveLength(8)
+
     const inside = handles.filter(
       (handle) =>
         handle.y < box.y + box.height - 0.5 &&
@@ -338,9 +349,14 @@ describe("resize handles", () => {
         handle.x < box.x + box.width - 0.5 &&
         handle.x + handle.width > box.x + 0.5
     )
+
     // Only the left and right strips, which straddle the button's ends as on any layer wide enough.
     expect(inside).toHaveLength(2)
-    for (const handle of inside) expect(handle.width).toBeLessThanOrEqual(8)
+
+    for (const handle of inside) {
+      expect(handle.width).toBeLessThanOrEqual(8)
+    }
+
     // A press 3px inside its top edge, where its top handle was, moves it past Export.
     const from = { x: box.x + box.width / 2, y: box.y + 3 }
     await app.drag(from, at(await app.box("Dashboard", "DQRUg"), 0.2, 0.5))
@@ -357,12 +373,19 @@ describe("empty layouts (PAR-193)", () => {
       const key = e2e.key("Dashboard")
       e2e.session().store.updateContainer(key, "Add an empty row", (container) => {
         const edit = (node: typeof container.root): typeof container.root => {
-          if (node.type !== "layout") return node
+          if (node.type !== "layout") {
+            return node
+          }
+
           const children = node.children.map(edit)
-          if (node.id === "JWWeK")
+
+          if (node.id === "JWWeK") {
             children.push({ type: "layout", id: "empty", style: { direction: "row" }, children: [] })
+          }
+
           return { ...node, children }
         }
+
         return { ...container, root: edit(container.root) }
       })
     })
@@ -396,7 +419,11 @@ async function titleOf(design: string): Promise<Box> {
     .locator(".design-title > div > button")
     .filter({ hasText: new RegExp(`^${design}$`) })
     .boundingBox()
-  if (!box) throw new Error(`${design}'s title isn't drawn`)
+
+  if (!box) {
+    throw new Error(`${design}'s title isn't drawn`)
+  }
+
   return box
 }
 
@@ -404,12 +431,17 @@ describe("dragging a design by its title", () => {
   /** Where tldraw has the design's board on the page. */
   async function board(design: string): Promise<{ x: number; y: number }> {
     const key = await app.key(design)
+
     return app.page.evaluate((key) => {
       const shape = window
         .e2e!.session()
         .editor!.getCurrentPageShapes()
         .find((candidate) => candidate.id.endsWith(encodeURIComponent(key)))
-      if (!shape) throw new Error(`No board for ${key}`)
+
+      if (!shape) {
+        throw new Error(`No board for ${key}`)
+      }
+
       return { x: shape.x, y: shape.y }
     }, key)
   }
@@ -444,10 +476,12 @@ describe("the cursor over the canvas (PAR-193)", () => {
     await app.show("Dashboard", zoom)
     const from = center(await titleOf("Dashboard"))
     const to = { x: from.x + 120, y: from.y + 40 }
+
     const cursors = await app.drag(from, to, async () => [
       await app.cursorAt(to),
       await app.cursorAt({ x: to.x + 200, y: to.y + 200 })
     ])
+
     expect(cursors).toEqual(["grabbing", "grabbing"])
   })
 
@@ -484,18 +518,23 @@ describe("duplicating a design", () => {
     await expect.poll(async () => (await app.designs()).length).toBe(before.length + 1)
     const copy = (await app.designs()).find((design) => !before.some((other) => other.key === design.key))!
     expect((await app.selection()).design).toBe(copy.key)
+
     const bounds = await app.page.evaluate(() => {
       const editor = window.e2e!.session().editor!
+
       return editor.getCurrentPageShapes().map((shape) => {
         const { minX, minY, maxX, maxY } = editor.getShapePageBounds(shape)!
+
         return { id: shape.id, minX, minY, maxX, maxY }
       })
     })
+
     const dashboard = before.find((design) => design.name === "Dashboard")!
     // Top-aligned with the original, to its right.
     expect(copy.position.y).toBe(dashboard.position.y)
     expect(copy.position.x).toBeGreaterThan(dashboard.position.x)
     const mine = bounds.find((shape) => shape.id.endsWith(encodeURIComponent(copy.key)))!
+
     const near = bounds.filter(
       (other) =>
         other !== mine &&
@@ -504,6 +543,7 @@ describe("duplicating a design", () => {
         other.minY < mine.maxY + 160 &&
         other.maxY + 160 > mine.minY
     )
+
     expect(near).toEqual([])
     await app.page.keyboard.press("Control+z")
     await expect.poll(async () => (await app.designs()).length).toBe(before.length)
@@ -561,6 +601,7 @@ async function duplicated(act: () => Promise<void>): Promise<string> {
   await expect.poll(async () => (await app.designs()).length).toBe(before.length + 1)
   const copy = (await app.designs()).find((design) => !before.some((other) => other.key === design.key))!
   expect((await app.selection()).design).toBe(copy.key)
+
   return copy.key
 }
 
@@ -570,6 +611,7 @@ function boundsOf(key: string): Promise<PageBounds> {
     const editor = window.e2e!.session().editor!
     const shape = editor.getCurrentPageShapes().find((candidate) => candidate.id.endsWith(encodeURIComponent(key)))!
     const { minX, minY, maxX, maxY } = editor.getShapePageBounds(shape)!
+
     return { minX, minY, maxX, maxY }
   }, key)
 }
@@ -578,6 +620,7 @@ function boundsOf(key: string): Promise<PageBounds> {
 async function copyBounds(design: string): Promise<PageBounds> {
   const original = await boundsOf(await app.key(design))
   const shift = original.maxX - original.minX + 160
+
   return { ...original, minX: original.minX + shift, maxX: original.maxX + shift }
 }
 
@@ -585,6 +628,7 @@ async function copyBounds(design: string): Promise<PageBounds> {
 function inView(bounds: PageBounds): Promise<boolean> {
   return app.page.evaluate((bounds) => {
     const view = window.e2e!.session().editor!.getViewportPageBounds()
+
     return bounds.minX >= view.minX && bounds.minX < view.maxX && bounds.minY >= view.minY && bounds.minY < view.maxY
   }, bounds)
 }

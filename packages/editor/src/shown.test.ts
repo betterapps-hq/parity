@@ -9,6 +9,7 @@ describe("a layer as the board shows it", () => {
   for (const { name, design, state, variants } of cases) {
     it(`reads each of the design's layers as core evaluates it: ${name}`, () => {
       const container = variants ? { ...design, view: { ...design.view, variants } } : design
+
       for (const viewport of [undefined, ...viewports]) {
         const read = boardReader(container, { state, viewport })
         walkNodes(container.root, (node) => {

@@ -28,6 +28,7 @@ function design(key: string, root: DesignNode, more: Partial<ContainerSpec> = {}
     states: [{ id: "default", name: "Default" }],
     ...more
   }
+
   return { key, container }
 }
 
@@ -42,6 +43,7 @@ const pricing = design(
     layout("plans", [layout("basic", [text("basic-price", "$9")]), layout("pro", [text("pro-price", "$29")])])
   ])
 )
+
 const about = design("about", layout("main", [text("story", "Our story")]))
 const designs = [pricing, about]
 
@@ -51,12 +53,16 @@ const id = (node: string) => layerRowId("pricing", node)
 function outline(rows: TreeRow[]): string[] {
   return rows.map((row) => {
     const name = row.node ? (row.node.name ?? (row.node.type === "text" ? row.node.text : row.node.id)) : row.design.key
+
     return `${"  ".repeat(row.depth)}${name}${row.expanded ? " (open)" : ""} ${row.position}/${row.siblings}`
   })
 }
 
 const label = (target: TreeDesign, node?: DesignNode) => {
-  if (!node) return target.container.name
+  if (!node) {
+    return target.container.name
+  }
+
   return node.name ?? (node.type === "text" ? node.text : node.id)
 }
 
@@ -191,6 +197,7 @@ describe("opening and closing rows", () => {
 // A card component holds a title and a badge, itself an instance of the badge component. The team screen places the
 // card twice, the lead's copy with a title of its own, and an instance of a component that doesn't exist.
 const badge = design("badge", layout("badge-root", [text("badge-label", "New")]))
+
 const card = design(
   "card",
   layout("card-root", [
@@ -199,6 +206,7 @@ const card = design(
   ]),
   { kind: "component", params: { heading: { type: "text", default: "Card" } } }
 )
+
 const team = design(
   "team",
   layout("team-page", [
@@ -207,6 +215,7 @@ const team = design(
     { type: "instance", id: "lost", design: "gone" }
   ])
 )
+
 const library: ComponentLibrary = new Map([badge, card].map((entry) => [entry.container.id, entry.container]))
 const inTeam = (path: string) => layerRowId("team", path)
 
@@ -233,14 +242,17 @@ describe("an instance's layers", () => {
     const looped = design("card", layout("card-root", [{ type: "instance", id: "again", design: "card" }]), {
       kind: "component"
     })
+
     const loops: ComponentLibrary = new Map([["card", looped.container]])
     const rows = treeRows([looped], new Set(["card", layerRowId("card", "card-root")]), loops)
     expect(rows.find((row) => row.path === "again")).toMatchObject({ hasChildren: true })
+
     const opened = treeRows(
       [looped],
       new Set(["card", layerRowId("card", "card-root"), layerRowId("card", "again")]),
       loops
     )
+
     expect(opened.find((row) => row.path === "again/again")).toMatchObject({ hasChildren: false })
     const page = treeRows([team], new Set(["team", inTeam("team-page")]), library)
     expect(page.find((row) => row.path === "lost")).toMatchObject({ hasChildren: false })
@@ -283,6 +295,7 @@ describe("an instance's layers", () => {
       ]),
       { kind: "component" }
     )
+
     const screen = design(
       "home",
       layout("home-page", [
@@ -290,8 +303,10 @@ describe("an instance's layers", () => {
         { type: "instance", id: "empty", design: "panel" }
       ])
     )
+
     const panels: ComponentLibrary = new Map([["panel", panel.container]])
     const at = (path: string) => layerRowId("home", path)
+
     const open = new Set([
       "home",
       at("home-page"),
@@ -300,6 +315,7 @@ describe("an instance's layers", () => {
       at("empty"),
       at("empty/panel-body")
     ])
+
     expect(outline(treeRows([screen], open, panels))).toEqual([
       "home (open) 1/1",
       "  home-page (open) 1/1",

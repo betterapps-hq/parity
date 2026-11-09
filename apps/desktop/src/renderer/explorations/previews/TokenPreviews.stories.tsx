@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**
@@ -39,6 +40,7 @@ export const EveryKind: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+
     for (const name of ["radius-xl", "shadow-lg", "durationNormal", "chakra-z-index-modal", "opacity-scrim"]) {
       await expect(canvas.getByText(name)).toBeInTheDocument()
     }
@@ -110,6 +112,7 @@ export const Copying: Story = {
     const canvas = within(canvasElement)
     // Stands in for the clipboard while the checks run, then puts it back so the story copies for real.
     const writes = spyOn(navigator.clipboard, "writeText").mockResolvedValue()
+
     try {
       await userEvent.click(canvas.getByRole("button", { name: "Copy --radius-md" }))
       await expect(writes).toHaveBeenLastCalledWith("--radius-md")

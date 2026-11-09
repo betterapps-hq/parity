@@ -32,6 +32,7 @@ const meta = {
 } satisfies Meta<typeof StatusBar>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)
@@ -63,6 +64,7 @@ export const Everything: Story = {
     async () => {
       await openProjects("example")
       preferring({ performanceStats: true })
+
       const base = {
         projectId: roots.example,
         project: "shadcn-vite",
@@ -70,12 +72,13 @@ export const Everything: Story = {
         canStop: true,
         canRestart: true
       } as const
+
       running.processes.push(
         {
           ...base,
           id: `storybook:${roots.example}`,
           kind: "storybook",
-          shape: "server",
+          lifetime: "server",
           name: "Storybook",
           status: "starting",
           startedAt: Date.now() - 9000,
@@ -85,7 +88,7 @@ export const Everything: Story = {
           ...base,
           id: `e2e:${roots.example}`,
           kind: "e2e",
-          shape: "task",
+          lifetime: "task",
           name: "Playwright",
           status: "canceled",
           startedAt: Date.now() - 300_000,
@@ -348,14 +351,20 @@ export const UnreadableDesignFile: Story = {
   ],
   play: async () => {
     await waitFor(() => expect(workspace.getActive()?.session?.errors).toHaveLength(1))
+
     const editor = await waitFor(
       () => {
         const mounted = workspace.getActive()?.session?.editor
-        if (!mounted) throw new Error("The canvas hasn't mounted yet")
+
+        if (!mounted) {
+          throw new Error("The canvas hasn't mounted yet")
+        }
+
         return mounted
       },
       { timeout: 10000 }
     )
+
     // The boards size themselves as their frames render; then the canvas fits them all in.
     await new Promise((resolve) => setTimeout(resolve, 1500))
     editor.zoomToFit()

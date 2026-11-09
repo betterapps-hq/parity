@@ -42,6 +42,7 @@ export default defineConfig({
           bundles: globSync("*.mjs.map", { cwd: dist }).map((map) => map.slice(0, -".map".length)),
           maps: ["*.mjs.map"]
         })
+
         const published = process.env.npm_command === "publish"
         writeFileSync(join(dist, "build.json"), JSON.stringify({ published, commit }, null, 2))
       }

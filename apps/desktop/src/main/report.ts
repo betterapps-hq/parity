@@ -104,32 +104,42 @@ export function createReports({
   // Read once, as the app starts, before this run's own events could be mistaken for it.
   let crash: Crash | undefined = offerCrash ? lastRunCrash(readEvents(), sessionId) : undefined
   let offered = false
+
   /** The last hour of the local copy, the versions and the open projects, with the crash when one goes with them. */
   const diagnostics = (withCrash: Crash | undefined): Attachment[] => {
     flushLogs()
+
     const files = diagnosticFiles({
       events: readEvents(),
       now: Date.now(),
       versions: versions(),
       ...(withCrash ? { crash: withCrash } : {})
     })
+
     return files.map((file) => ({
       filename: file.name,
       contentType: file.contentType,
       data: scrubber.value(file.text)
     }))
   }
+
   return {
     async prepare(window) {
       const image = await window.webContents.capturePage()
       screenshots.set(window, image)
+
       return image.isEmpty() ? {} : { screenshot: image.toDataURL() }
     },
     async send(window, report) {
       const attachments = diagnostics(report.afterCrash ? crash : undefined)
       const image = screenshots.get(window)
-      if (report.screenshot && image && !image.isEmpty()) attachments.unshift(screenshotFile(image))
+
+      if (report.screenshot && image && !image.isEmpty()) {
+        attachments.unshift(screenshotFile(image))
+      }
+
       screenshots.delete(window)
+
       const feedbackId = await sendFeedback(
         {
           message: report.message,
@@ -141,26 +151,40 @@ export function createReports({
         },
         attachments
       )
-      if (report.afterCrash) crash = undefined
+
+      if (report.afterCrash) {
+        crash = undefined
+      }
+
       telemetry.track("report.sent", {
         feedbackId,
         screenshot: attachments.some((attachment) => attachment.filename === "screenshot.png"),
         afterCrash: report.afterCrash,
         by: "person"
       })
+
       return feedbackId
     },
     async sendForAgent(window, problem) {
-      if (level() === "off") throw new CodedError(reportsOff, { code: "app_error" })
+      if (level() === "off") {
+        throw new CodedError(reportsOff, { code: "app_error" })
+      }
+
       const attachments = diagnostics(undefined)
+
       const frames = problem.frames.map((frame) => ({
         filename: frame.name,
         contentType: "image/png",
         data: Buffer.from(frame.png, "base64")
       }))
+
       attachments.unshift(...frames)
       const image = await window.webContents.capturePage()
-      if (!image.isEmpty()) attachments.unshift(screenshotFile(image))
+
+      if (!image.isEmpty()) {
+        attachments.unshift(screenshotFile(image))
+      }
+
       const feedbackId = await sendFeedback(
         {
           message: problem.message,
@@ -171,7 +195,9 @@ export function createReports({
         },
         attachments
       )
+
       telemetry.track("report.sent", { feedbackId, screenshot: !image.isEmpty(), afterCrash: false, by: "agent" })
+
       return {
         feedbackId,
         link: feedbackLink(feedbackId),
@@ -181,8 +207,12 @@ export function createReports({
       }
     },
     takeLastCrash() {
-      if (!crash || offered) return undefined
+      if (!crash || offered) {
+        return undefined
+      }
+
       offered = true
+
       return { time: crash.time }
     }
   }
@@ -194,22 +224,36 @@ export function createReports({
  */
 async function sendFeedback(report: Feedback, attachments: Attachment[]): Promise<string> {
   const options = Sentry.getClient()?.getOptions()
-  if (!options) throw new CodedError("Sentry isn't running, so the report can't be sent", { code: "app_error" })
+
+  if (!options) {
+    throw new CodedError("Sentry isn't running, so the report can't be sent", { code: "app_error" })
+  }
+
   const wasEnabled = options.enabled
   options.enabled = true
+
   try {
     const feedbackId = Sentry.withScope((scope) => {
-      if (report.traceId) scope.setPropagationContext({ traceId: report.traceId, sampleRand: Math.random() })
+      if (report.traceId) {
+        scope.setPropagationContext({ traceId: report.traceId, sampleRand: Math.random() })
+      }
+
       scope.setTags(report.tags)
+
       if (report.replayId) {
         const replayId = report.replayId
         scope.addEventProcessor((event) => {
           // Sentry shows the replay beside a feedback that names it.
           const feedback = event.contexts?.feedback
-          if (feedback) feedback.replay_id = replayId
+
+          if (feedback) {
+            feedback.replay_id = replayId
+          }
+
           return event
         })
       }
+
       return Sentry.captureFeedback(
         {
           message: report.message,
@@ -221,9 +265,11 @@ async function sendFeedback(report: Feedback, attachments: Attachment[]): Promis
         scope
       )
     })
+
     if (!(await Sentry.flush(sendTimeoutMs))) {
       throw new CodedError("The report didn't reach Sentry in time", { code: "app_error", retryable: true })
     }
+
     return feedbackId
   } finally {
     options.enabled = wasEnabled
@@ -232,7 +278,10 @@ async function sendFeedback(report: Feedback, attachments: Attachment[]): Promis
 
 /** Where the person sent their report from, for its `report` tag. */
 function reportFrom(report: ProblemReport): string {
-  if (report.afterCrash) return "after crash"
+  if (report.afterCrash) {
+    return "after crash"
+  }
+
   return report.eventId ? "error fallback" : "help menu"
 }
 

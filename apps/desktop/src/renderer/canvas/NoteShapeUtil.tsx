@@ -62,6 +62,7 @@ export class NoteShapeUtil extends ShapeUtil<NoteShape> {
   override getIndicatorPath(shape: NoteShape) {
     const path = new Path2D()
     path.rect(0, 0, shape.props.w, shape.props.h)
+
     return path
   }
 }
@@ -75,31 +76,49 @@ function NoteContent({ shape }: { shape: NoteShape }) {
 
   useLayoutEffect(() => {
     const element = ref.current
-    if (!element) return undefined
+
+    if (!element) {
+      return undefined
+    }
+
     const observer = new ResizeObserver(() => {
       const current = editor.getShape(shape.id)
+
       // A note tldraw has culled, or in a tab that isn't showing, isn't drawn and has no size to give.
-      if (current?.type !== "canvas-note" || element.getClientRects().length === 0) return
+      if (current?.type !== "canvas-note" || element.getClientRects().length === 0) {
+        return
+      }
+
       const w = Math.max(element.offsetWidth, 24)
       const h = Math.max(element.offsetHeight, 24)
-      if (Math.abs(current.props.w - w) < 1 && Math.abs(current.props.h - h) < 1) return
+
+      if (Math.abs(current.props.w - w) < 1 && Math.abs(current.props.h - h) < 1) {
+        return
+      }
+
       editor.run(() => editor.updateShape({ id: shape.id, type: "canvas-note", props: { w, h } }), {
         history: "ignore"
       })
     })
+
     observer.observe(element)
+
     return () => observer.disconnect()
   }, [editor, shape.id])
 
   const commit = (text: string) => {
     editor.setEditingShape(null)
     store.updateNote(shape.props.key, text.trim() ? "Edit text" : "Delete text", (current) => {
-      if (!text.trim()) return undefined
+      if (!text.trim()) {
+        return undefined
+      }
+
       return current.text === text ? current : { ...current, text }
     })
   }
 
   const style = { width: note?.width, maxWidth: note?.width ? undefined : 720 }
+
   // A note is people's own text, so it's the font's own regular rather than the interface's 450, and its editor keeps
   // the letters the note shows in rather than a field's (docs/typography.md).
   return (
@@ -118,6 +137,7 @@ function NoteContent({ shape }: { shape: NoteShape }) {
           onBlur={(event) => commit(event.currentTarget.value)}
           onKeyDown={(event) => {
             event.stopPropagation()
+
             if (event.key === "Escape" || (event.key === "Enter" && (event.metaKey || event.ctrlKey))) {
               event.currentTarget.blur()
             }

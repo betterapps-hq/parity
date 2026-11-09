@@ -3,15 +3,27 @@ import { type Command, keymap, shortcutFor } from "./keymap.ts"
 import { formatKeys, matches } from "./keys.ts"
 
 /** A key event as the browser sends one: `key` is what the layout types, `code` the physical key. */
-const press = (key: string, code: string, held: Partial<Record<"ctrl" | "meta" | "shift" | "alt", boolean>> = {}) =>
-  ({
+function press(
+  key: string,
+  code: string,
+  held: Partial<Record<"ctrl" | "meta" | "shift" | "alt", boolean>> = {}
+): KeyboardEvent {
+  const event = {
     key,
     code,
     ctrlKey: held.ctrl ?? false,
     metaKey: held.meta ?? false,
     shiftKey: held.shift ?? false,
     altKey: held.alt ?? false
-  }) as KeyboardEvent
+  } satisfies Partial<KeyboardEvent>
+
+  // SAFETY: `matches` and `shortcutFor` read only the key, the code and the modifier flags, which this sets; Node has no
+  // KeyboardEvent to construct a real one.
+  return event as KeyboardEvent
+}
+
+/** Every command the keymap binds. */
+const commands = Object.keys(keymap).filter((name): name is Command => name in keymap)
 
 describe("matches", () => {
   it("needs exactly the modifiers written", () => {
@@ -66,7 +78,6 @@ describe("matches", () => {
 
 describe("shortcutFor", () => {
   it("finds the command any of a binding's keys runs", () => {
-    const commands = Object.keys(keymap) as Command[]
     expect(shortcutFor(press("y", "KeyY", { ctrl: true }), commands)).toBe("redo")
     expect(shortcutFor(press("F2", "F2"), commands)).toBe("rename")
     expect(shortcutFor(press("r", "KeyR", { ctrl: true }), commands)).toBe("rename")
@@ -74,7 +85,6 @@ describe("shortcutFor", () => {
   })
 
   it("runs Figma's keys for nudging, selecting and pasting over", () => {
-    const commands = Object.keys(keymap) as Command[]
     expect(shortcutFor(press("ArrowRight", "ArrowRight"), commands)).toBe("nudge")
     expect(shortcutFor(press("ArrowUp", "ArrowUp", { shift: true }), commands)).toBe("bigNudge")
     expect(shortcutFor(press("ArrowUp", "ArrowUp", { alt: true }), commands)).toBeUndefined()
@@ -88,7 +98,6 @@ describe("shortcutFor", () => {
   })
 
   it("makes a new screen with Ctrl+Alt+N and a new component with Shift as well, apart from N for the next one", () => {
-    const commands = Object.keys(keymap) as Command[]
     expect(shortcutFor(press("n", "KeyN", { ctrl: true, alt: true }), commands)).toBe("newScreen")
     expect(shortcutFor(press("N", "KeyN", { ctrl: true, alt: true, shift: true }), commands)).toBe("newComponent")
     expect(shortcutFor(press("n", "KeyN", { meta: true, alt: true }), commands)).toBe("newScreen")
@@ -96,7 +105,6 @@ describe("shortcutFor", () => {
   })
 
   it("copies as a PNG with Ctrl+Shift+C, apart from Copy and Copy style", () => {
-    const commands = Object.keys(keymap) as Command[]
     expect(shortcutFor(press("C", "KeyC", { ctrl: true, shift: true }), commands)).toBe("copyAsPng")
     expect(shortcutFor(press("C", "KeyC", { meta: true, shift: true }), commands)).toBe("copyAsPng")
     expect(shortcutFor(press("c", "KeyC", { ctrl: true }), commands)).toBe("copy")
@@ -105,6 +113,7 @@ describe("shortcutFor", () => {
 
   it("never gives two commands the same keys", () => {
     const seen = new Map<string, string>()
+
     for (const [command, binding] of Object.entries(keymap)) {
       for (const keys of binding.keys) {
         expect(seen.get(keys), `${keys} is ${seen.get(keys)} and ${command}`).toBeUndefined()

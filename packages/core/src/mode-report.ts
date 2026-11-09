@@ -80,16 +80,19 @@ export function modesReport(settings: ModeSettings): ModesReport {
       variable.options.map((option): ViewportReport => {
         const width = option.width ?? defaultWidth
         const window = frameViewport({ width }, { options: [{ variable, option }] })
-        return {
-          id: option.id,
-          name: option.name,
-          width,
-          height: window.height,
-          ...(option.device ? { device: option.device } : {})
+
+        const report: ViewportReport = { id: option.id, name: option.name, width, height: window.height }
+
+        if (option.device) {
+          report.device = option.device
         }
+
+        return report
       })
     )
+
   const resolved = resolveModes(settings)
+
   return {
     variables: structuredClone(settings.variables),
     viewports,
@@ -118,25 +121,28 @@ function modeReport(mode: ResolvedMode, primary: boolean): ModeReport {
 export function designModes(settings: ModeSettings, design: ContainerSpec, frames = false): DesignModes {
   const shown = shownModes(settings, design)
   const state = design.view?.state ?? design.states[0]!.id
-  return {
+
+  const report: DesignModes = {
     id: design.id,
     name: design.name,
     state,
     states: design.view?.allStates ? design.states.map((each) => each.id) : [state],
     main: shown.main.id,
-    beside: shown.beside.map((mode) => mode.id),
-    ...(frames
-      ? {
-          frames: [shown.main, ...shown.beside].map((mode) => {
-            const geometry = frameGeometry(design, mode)
-            return {
-              mode: mode.id,
-              width: geometry.width,
-              ...(geometry.height === undefined ? {} : { height: geometry.height }),
-              window: geometry.viewport
-            }
-          })
-        }
-      : {})
+    beside: shown.beside.map((mode) => mode.id)
   }
+
+  if (frames) {
+    report.frames = [shown.main, ...shown.beside].map((mode) => frameReport(design, mode))
+  }
+
+  return report
+}
+
+function frameReport(design: ContainerSpec, mode: ResolvedMode): FrameReport {
+  const { width, height, viewport } = frameGeometry(design, mode)
+
+  // Agents read this as JSON, so `height` keeps its place before `window` when it's there.
+  return height === undefined
+    ? { mode: mode.id, width, window: viewport }
+    : { mode: mode.id, width, height, window: viewport }
 }

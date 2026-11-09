@@ -114,6 +114,7 @@ const shimDir = join(tmpdir(), "parity-fixtures-bin")
 
 // Scaffolders run as if from a plain terminal: pnpm's own `npm_*` variables would tell them pnpm is in charge.
 const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH"
+
 const env: NodeJS.ProcessEnv = {
   ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toLowerCase().startsWith("npm_"))),
   [pathKey]: `${shimDir}${delimiter}${process.env[pathKey] ?? ""}`,
@@ -140,13 +141,19 @@ async function overlay(dir: string, name: string): Promise<void> {
 }
 
 async function remove(dir: string, ...paths: string[]): Promise<void> {
-  for (const path of paths) await rm(join(dir, path), { recursive: true, force: true })
+  for (const path of paths) {
+    await rm(join(dir, path), { recursive: true, force: true })
+  }
 }
 
 /** Edits a scaffolded file, failing when the scaffolder no longer writes what's expected. */
 async function replaceIn(dir: string, path: string, from: string, to: string): Promise<void> {
   const source = await readFile(join(dir, path), "utf8")
-  if (!source.includes(from)) throw new Error(`${path} no longer contains ${from}`)
+
+  if (!source.includes(from)) {
+    throw new Error(`${path} no longer contains ${from}`)
+  }
+
   await writeFile(join(dir, path), source.replace(from, to))
 }
 
@@ -175,6 +182,7 @@ function addDependencies(
 
 function run(cwd: string, command: string, extraEnv: NodeJS.ProcessEnv = {}): Promise<void> {
   console.log(`\n> ${command}   (in fixtures/${relative(fixturesDir, cwd).replaceAll("\\", "/")})`)
+
   return new Promise((done, fail) => {
     // Package managers are .cmd scripts on Windows, which only start through a shell. Commands come from this file.
     const child = spawn(command, {
@@ -183,6 +191,7 @@ function run(cwd: string, command: string, extraEnv: NodeJS.ProcessEnv = {}): Pr
       stdio: ["ignore", "inherit", "inherit"],
       env: { ...env, ...extraEnv }
     })
+
     child.on("error", fail)
     child.on("close", (code) => (code === 0 ? done() : fail(new Error(`${command} exited with ${code}`))))
   })
@@ -194,8 +203,15 @@ function run(cwd: string, command: string, extraEnv: NodeJS.ProcessEnv = {}): Pr
  */
 async function installCommand(name: string): Promise<string> {
   const project = projects[name]
-  if (project) return project.install
-  if (await exists(join(fixturesDir, name, "package-lock.json"))) return "npm ci"
+
+  if (project) {
+    return project.install
+  }
+
+  if (await exists(join(fixturesDir, name, "package-lock.json"))) {
+    return "npm ci"
+  }
+
   throw new Error(`fixtures/${name} has no package-lock.json, so install-projects can't tell how to install it`)
 }
 
@@ -209,6 +225,7 @@ async function exists(path: string): Promise<boolean> {
 const args = process.argv.slice(2)
 const install = args.includes("--install")
 const names = args.filter((arg) => !arg.startsWith("--"))
+
 // Installing covers every project in fixtures/, since the detection tests open them all. Generating covers only the
 // ones this file makes.
 const known = install
@@ -217,23 +234,36 @@ const known = install
       .map((entry) => entry.name)
       .sort()
   : Object.keys(projects)
+
 for (const name of names) {
-  if (!known.includes(name)) throw new Error(`No project named ${name}. Known: ${known.join(", ")}`)
+  if (!known.includes(name)) {
+    throw new Error(`No project named ${name}. Known: ${known.join(", ")}`)
+  }
 }
+
 // Yarn comes through Corepack, at the version each project's `packageManager` names.
 await mkdir(shimDir, { recursive: true })
+
 await mkdir(fixturesDir, { recursive: true })
+
 await run(fixturesDir, `corepack enable yarn --install-directory "${shimDir}"`)
+
 for (const name of names.length > 0 ? names : known) {
   const dir = join(fixturesDir, name)
+
   if (install) {
     await run(dir, await installCommand(name))
     continue
   }
+
   const project = projects[name]!
   const expected = await readFile(join(dir, "expected.json"), "utf8").catch(() => undefined)
   await rm(dir, { recursive: true, force: true })
   await project.generate(dir)
-  if (expected !== undefined) await writeFile(join(dir, "expected.json"), expected)
+
+  if (expected !== undefined) {
+    await writeFile(join(dir, "expected.json"), expected)
+  }
+
   console.log(`\nGenerated fixtures/${name}`)
 }

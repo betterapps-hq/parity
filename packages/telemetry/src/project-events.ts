@@ -7,11 +7,14 @@ const name = z.string().describe("The project's name, from its package.json or i
 const root = z.string().describe("The project's folder")
 const code = z.string().optional().describe("The `CodedError` code, when the failure has one")
 const durationMs = z.number().nonnegative().describe("How long it took, in milliseconds")
+
 const reopen = z
   .boolean()
   .describe("Whether it was reopened as Parity started, because it was open last time (PAR-179)")
+
 const version = (tool: string) =>
   z.string().optional().describe(`The ${tool} version installed, once detection found it`)
+
 const count = (what: string) => z.number().int().nonnegative().describe(what)
 const builder = z.string().describe("The builder's name, as Vite")
 

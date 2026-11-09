@@ -9,7 +9,9 @@ const sentry = vi.hoisted(() => {
     addEventProcessor:
       vi.fn<(processor: (event: { contexts?: Record<string, Record<string, unknown>> }) => unknown) => void>()
   }
+
   const options = { enabled: false }
+
   return {
     scope,
     options,
@@ -26,7 +28,9 @@ const sentry = vi.hoisted(() => {
 })
 
 vi.mock("@sentry/electron/main", () => sentry)
+
 vi.mock("electron", () => ({ app: { getVersion: () => "1.2.3" } }))
+
 vi.mock("./telemetry.ts", () => ({ scrubber: { value: (text: string) => text } }))
 
 const { createReports, feedbackLink, reportsOff } = await import("./report.ts")
@@ -38,6 +42,7 @@ const window = {
 
 function reports(level: TelemetryLevel = "all") {
   const track = vi.fn<(name: string, attributes: Record<string, unknown>) => void>()
+
   const created = createReports({
     readEvents: () => [],
     flushLogs: () => undefined,
@@ -46,6 +51,7 @@ function reports(level: TelemetryLevel = "all") {
     telemetry: { track } as never,
     level: () => level
   })
+
   return { created, track }
 }
 

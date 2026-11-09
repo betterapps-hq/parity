@@ -10,12 +10,15 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 const subtitle = "so61t"
 const title = "crd2J"
 const heading = "Kr88n"
+
 const original =
   "Start free, then upgrade when you need more seats, history and control. Every plan includes unlimited viewers."
 
@@ -47,7 +50,11 @@ function selected(): Promise<string> {
 
 async function editorBox(): Promise<Box> {
   const box = await editor().boundingBox()
-  if (!box) throw new Error("The text editor isn't drawn")
+
+  if (!box) {
+    throw new Error("The text editor isn't drawn")
+  }
+
   return box
 }
 
@@ -57,14 +64,20 @@ function wordBox(design: string, id: string, word: string): Promise<Box> {
     ([design, id, word]) => {
       const e2e = window.e2e!
       const element = window.e2eModules!.frames.findNodeElement(e2e.frame(e2e.key(design)), id)
+
       for (const node of element?.childNodes ?? []) {
-        if (!(node instanceof Text) || !node.data.includes(word)) continue
+        if (!(node instanceof Text) || !node.data.includes(word)) {
+          continue
+        }
+
         const range = document.createRange()
         range.setStart(node, node.data.indexOf(word))
         range.setEnd(node, node.data.indexOf(word) + word.length)
         const { x, y, width, height } = range.getBoundingClientRect()
+
         return { x, y, width, height }
       }
+
       throw new Error(`${id} doesn't draw "${word}"`)
     },
     [design, id, word] as const
@@ -77,7 +90,11 @@ function fontSizes(id: string): Promise<{ layer: number; editor: number }> {
     const e2e = window.e2e!
     const element = window.e2eModules!.frames.findNodeElement(e2e.frame(e2e.key("Pricing")), id)
     const textarea = document.querySelector("textarea.text-editor")
-    if (!element || !textarea) throw new Error("Nothing to measure")
+
+    if (!element || !textarea) {
+      throw new Error("Nothing to measure")
+    }
+
     return {
       layer: parseFloat(getComputedStyle(element).fontSize),
       editor: parseFloat(getComputedStyle(textarea).fontSize)
@@ -192,10 +209,14 @@ describe("leaving the editor", () => {
 
 describe("auto width, auto height and fixed text", () => {
   const sizing = (name: string) => app.page.getByRole("button", { name, exact: true })
+
   const pressed = async () => {
     for (const name of ["Auto width", "Auto height", "Fixed size"]) {
-      if ((await sizing(name).getAttribute("aria-pressed")) === "true") return name
+      if ((await sizing(name).getAttribute("aria-pressed")) === "true") {
+        return name
+      }
     }
+
     return undefined
   }
 

@@ -40,6 +40,7 @@ export function TextEditor() {
   const composing = useRef(false)
   const done = useRef(false)
   const [openedAt] = useState(() => performance.now())
+
   /** Records how the edit ended, as `text.edited` (PAR-640). */
   const record = (outcome: "committed" | "unchanged" | "cancelled", how?: TextEditEnd, length = 0) =>
     track("text.edited", {
@@ -56,10 +57,13 @@ export function TextEditor() {
   const mounted = useRef(false)
   useEffect(() => {
     mounted.current = true
+
     return () => {
       mounted.current = false
       setTimeout(() => {
-        if (!mounted.current && !done.current) record("cancelled")
+        if (!mounted.current && !done.current) {
+          record("cancelled")
+        }
       })
     }
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- Once per mount, for the layer it opened on.
@@ -71,15 +75,21 @@ export function TextEditor() {
     const entry = store.getEntry(editing.design)
     // The text as the frame shows it: the state's and the variant's, or the param's default it's bound to.
     const shown = entry && textToEdit(entry.container, editing.state, editing.node, store.getLibrary(editing.design))
+
     const find = () => {
       const host = area && selectionFrame(area, editing.design, editing)
+
       return host && nodeInFrames(area, editing.design, editing.node, host).find((item) => item.picked)?.element
     }
+
     const element = find()
+
     if (!textarea || !area || !element || !shown) {
       selection.setEditing(undefined)
+
       return undefined
     }
+
     const { node, text } = shown
     const autoWidth = node.type === "text" && textSizing(node.style ?? {}) === "auto-width"
     const grows = autoWidth || noWrap(getComputedStyle(element))
@@ -92,21 +102,28 @@ export function TextEditor() {
     let hidden = hide(element)
     let last = ""
     let frame = 0
+
     const tick = () => {
       const current = find() ?? hidden.element
+
       if (current !== hidden.element) {
         hidden.restore()
         hidden = hide(current)
       }
+
       const next = editorLayout(current, area.getBoundingClientRect(), grows, hidden.color)
       const serialized = JSON.stringify(next)
+
       if (serialized !== last) {
         last = serialized
         setLayout(next)
       }
+
       frame = requestAnimationFrame(tick)
     }
+
     tick()
+
     return () => {
       cancelAnimationFrame(frame)
       hidden.restore()
@@ -117,20 +134,34 @@ export function TextEditor() {
   useEffect(() => {
     const textarea = ref.current
     const range = opened.current?.range
-    if (!shown || !textarea || !range) return
+
+    if (!shown || !textarea || !range) {
+      return
+    }
+
     textarea.focus({ preventScroll: true })
     textarea.setSelectionRange(range.start, range.end)
   }, [shown])
 
   const commit = (how: TextEditEnd) => {
-    if (done.current) return
+    if (done.current) {
+      return
+    }
+
     done.current = true
     const text = ref.current?.value ?? ""
     selection.setEditing(undefined)
     const original = opened.current?.text
+
     // Written to the state it was read from, by the same rule (see `textToEdit`).
-    if (original === undefined || !store.getEntry(editing.design)) return record("cancelled", how, text.length)
-    if (text === original) return record("unchanged", how, text.length)
+    if (original === undefined || !store.getEntry(editing.design)) {
+      return record("cancelled", how, text.length)
+    }
+
+    if (text === original) {
+      return record("unchanged", how, text.length)
+    }
+
     record("committed", how, text.length)
     // A text frame named after its text follows it (see `textFrameRenamed`), in the same step.
     store.updateContainer(editing.design, "Edit text", (container) =>
@@ -172,8 +203,12 @@ export function TextEditor() {
       }}
       onKeyDown={(event) => {
         event.stopPropagation()
+
         // An input method uses Enter and Escape itself while composing, to take or drop what's being composed.
-        if (composing.current || event.nativeEvent.isComposing) return
+        if (composing.current || event.nativeEvent.isComposing) {
+          return
+        }
+
         if (event.key === "Escape" || (event.key === "Enter" && !event.shiftKey)) {
           event.preventDefault()
           commit(event.key === "Escape" ? "escape" : "enter")
@@ -193,6 +228,7 @@ function hide(element: HTMLElement): { element: HTMLElement; color: string; rest
   const color = getComputedStyle(element).color
   const previous = element.style.color
   element.style.color = "transparent"
+
   return { element, color, restore: () => (element.style.color = previous) }
 }
 
@@ -207,20 +243,24 @@ function editorLayout(element: HTMLElement, area: DOMRect, grows: boolean, color
   // The element's own scale, the camera's and the frame's together.
   const scale = element.offsetWidth > 0 ? rect.width / element.offsetWidth : 1
   const side = (name: string) => (parseFloat(computed.getPropertyValue(name)) || 0) * scale
+
   const inset = {
     left: side("border-left-width") + side("padding-left"),
     right: side("border-right-width") + side("padding-right"),
     top: side("border-top-width") + side("padding-top"),
     bottom: side("border-bottom-width") + side("padding-bottom")
   }
+
   const content = new DOMRect(
     rect.left + inset.left,
     rect.top + inset.top,
     Math.max(0, rect.width - inset.left - inset.right),
     Math.max(0, rect.height - inset.top - inset.bottom)
   )
+
   const text = grows ? (textBounds(element) ?? content) : content
   const scaled = (value: string) => (value === "normal" ? "normal" : `${parseFloat(value) * scale}px`)
+
   const style: CSSProperties = {
     fontFamily: computed.fontFamily,
     fontSize: parseFloat(computed.fontSize) * scale,
@@ -242,11 +282,13 @@ function editorLayout(element: HTMLElement, area: DOMRect, grows: boolean, color
     overflowWrap: computed.overflowWrap as CSSProperties["overflowWrap"],
     wordBreak: computed.wordBreak as CSSProperties["wordBreak"]
   }
+
   // A maximum width still wraps auto width text, as in Figma.
   if (grows && computed.maxWidth !== "none" && computed.maxWidth.endsWith("px")) {
     const borderBox = computed.boxSizing === "border-box"
     style.maxWidth = parseFloat(computed.maxWidth) * scale - (borderBox ? inset.left + inset.right : 0)
   }
+
   return {
     box: {
       x: text.left - area.left,
@@ -262,7 +304,11 @@ function editorLayout(element: HTMLElement, area: DOMRect, grows: boolean, color
 /** The text an element draws, from its text nodes in order. */
 function drawnText(element: Element): string {
   let text = ""
-  for (const node of textNodes(element)) text += node.data
+
+  for (const node of textNodes(element)) {
+    text += node.data
+  }
+
   return text
 }
 
@@ -270,10 +316,15 @@ function drawnText(element: Element): string {
 function textBounds(element: Element): DOMRect | undefined {
   const range = document.createRange()
   let bounds: { left: number; top: number; right: number; bottom: number } | undefined
+
   for (const node of textNodes(element)) {
     range.selectNodeContents(node)
     const rect = range.getBoundingClientRect()
-    if (rect.width === 0 && rect.height === 0) continue
+
+    if (rect.width === 0 && rect.height === 0) {
+      continue
+    }
+
     bounds = bounds
       ? {
           left: Math.min(bounds.left, rect.left),
@@ -283,6 +334,7 @@ function textBounds(element: Element): DOMRect | undefined {
         }
       : { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
   }
+
   return bounds && new DOMRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top)
 }
 
@@ -290,26 +342,34 @@ function textBounds(element: Element): DOMRect | undefined {
 function offsetAt(element: Element, point: Point): number | undefined {
   const range = document.createRange()
   let before = 0
+
   for (const node of textNodes(element)) {
     for (let index = 0; index < node.length; index++) {
       range.setStart(node, index)
       range.setEnd(node, index + 1)
+
       for (const rect of range.getClientRects()) {
         if (point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom) {
           return before + index
         }
       }
     }
+
     before += node.length
   }
+
   return undefined
 }
 
 function textNodes(element: Element): Text[] {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
   const nodes: Text[] = []
+
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (node instanceof Text) nodes.push(node)
+    if (node instanceof Text) {
+      nodes.push(node)
+    }
   }
+
   return nodes
 }

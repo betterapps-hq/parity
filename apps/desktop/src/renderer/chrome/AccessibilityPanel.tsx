@@ -1,7 +1,7 @@
 import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail, TokenFix } from "@parity-app/agent"
 import { type ContainerSpec, findNode, mapNode, type ModeSettings, shownModes } from "@parity-app/core"
-import { kindName } from "@parity-app/editor"
+import { kindName, type Selection } from "@parity-app/editor"
 import {
   ArrowUpRight,
   ChevronRight,
@@ -39,6 +39,7 @@ type Check = { container: ContainerSpec; modes: ModeSettings } &
     | { status: "done"; findings: AccessibilityFinding[]; frames: number; warnings: string[] }
     | { status: "failed"; error: string }
   )
+
 type DoneCheck = Extract<Check, { status: "done" }>
 
 const checks = new Map<string, Check>()
@@ -47,13 +48,17 @@ const checkKey = (session: ProjectSession, design: string) => `${session.id}\n${
 
 function setCheck(key: string, check: Check): void {
   checks.set(key, check)
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 function useCheck(key: string): Check | undefined {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => checks.get(key)
@@ -62,8 +67,14 @@ function useCheck(key: string): Check | undefined {
 
 /** The findings to show for a check: its own, or while it checks again, the last check's. */
 function findingsOf(check: Check | undefined): DoneCheck | undefined {
-  if (check?.status === "done") return check
-  if (check?.status === "checking") return check.previous
+  if (check?.status === "done") {
+    return check
+  }
+
+  if (check?.status === "checking") {
+    return check.previous
+  }
+
   return undefined
 }
 
@@ -71,8 +82,15 @@ function findingsOf(check: Check | undefined): DoneCheck | undefined {
 async function runCheck(session: ProjectSession, entry: ContainerEntry): Promise<void> {
   const key = checkKey(session, entry.key)
   const checked = { container: entry.container, modes: session.store.getModes() }
+  const checking: Check = { ...checked, status: "checking" }
   const previous = findingsOf(checks.get(key))
-  setCheck(key, { ...checked, status: "checking", ...(previous ? { previous } : {}) })
+
+  if (previous) {
+    checking.previous = previous
+  }
+
+  setCheck(key, checking)
+
   try {
     const result = await request("accessibility.check", { projectId: session.id, design: entry.key })
     setCheck(key, { ...checked, status: "done", ...result })
@@ -113,11 +131,13 @@ interface RuleGroup {
 
 function groupFindings(findings: AccessibilityFinding[]): RuleGroup[] {
   const groups = new Map<string, RuleGroup & { byNode: Map<string, LayerGroup> }>()
+
   for (const finding of findings) {
     let group = groups.get(finding.rule)
+
     if (!group) {
       const { rule, impact, help, helpUrl } = finding
-      const words = ruleWords[rule]
+      const words = ruleWords.get(rule)
       group = {
         rule,
         impact,
@@ -129,25 +149,40 @@ function groupFindings(findings: AccessibilityFinding[]): RuleGroup[] {
       }
       groups.set(finding.rule, group)
     }
+
     // A layer's problem can differ by frame, such as its contrast in dark mode, so each problem is its own entry.
     const key = `${finding.node ?? ""}\n${finding.detail}`
     let layer = group.byNode.get(key)
+
     if (!layer) {
       const { name, detail, contrast } = finding
-      layer = { nodes: finding.node ? [finding.node] : [], name, detail, ...(contrast ? { contrast } : {}), frames: [] }
+      layer = { nodes: finding.node ? [finding.node] : [], name, detail, frames: [] }
+
+      if (contrast) {
+        layer.contrast = contrast
+      }
+
       group.byNode.set(key, layer)
     }
+
     layer.frames.push({ state: finding.state, mode: finding.mode })
   }
+
   return [...groups.values()]
     .map(({ byNode, ...group }) => {
       const alike = new Map<string, LayerGroup>()
+
       for (const layer of byNode.values()) {
         const same = JSON.stringify([layer.name, layer.detail, layer.frames])
         const existing = alike.get(same)
-        if (existing) existing.nodes.push(...layer.nodes)
-        else alike.set(same, layer)
+
+        if (existing) {
+          existing.nodes.push(...layer.nodes)
+        } else {
+          alike.set(same, layer)
+        }
       }
+
       return { ...group, layers: [...alike.values()] }
     })
     .sort((a, b) => impactOrder.indexOf(a.impact) - impactOrder.indexOf(b.impact) || b.layers.length - a.layers.length)
@@ -158,6 +193,7 @@ export function AccessibilityPanel() {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
+
   if (!entry) {
     return (
       <div className="type-empty flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto px-6 py-12 text-center text-muted-foreground">
@@ -167,6 +203,7 @@ export function AccessibilityPanel() {
       </div>
     )
   }
+
   return <DesignCheck entry={entry} />
 }
 
@@ -179,7 +216,9 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
 
   // The first look at a design checks it; after that, checking again is the person's call.
   useEffect(() => {
-    if (!checks.has(key)) void runCheck(session, entry)
+    if (!checks.has(key)) {
+      void runCheck(session, entry)
+    }
   }, [entry, key, session])
 
   const checking = check?.status === "checking"
@@ -187,10 +226,16 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
   // While checking again, the last check's findings show faded, like out-of-date ones.
   const shown = findingsOf(check)
   let refreshLabel = "Check again"
-  if (checking) refreshLabel = "Checking"
-  else if (stale) refreshLabel = "Check again, out of date"
+
+  if (checking) {
+    refreshLabel = "Checking"
+  } else if (stale) {
+    refreshLabel = "Check again, out of date"
+  }
+
   const faded = stale || (checking && !!shown)
   const checkAgain = () => void runCheck(session, entry)
+
   return (
     <>
       {/* The findings scroll above the note, which stays at the panel's foot. */}
@@ -272,8 +317,10 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
 function changedSince(check: Check, container: ContainerSpec, modes: ModeSettings): boolean {
   const shown = (settings: ModeSettings, design: ContainerSpec) => {
     const { main, beside } = shownModes(settings, design)
+
     return [main, ...beside].map((mode) => mode.id).join(" ")
   }
+
   return (
     check.container.root !== container.root ||
     check.container.states !== container.states ||
@@ -285,6 +332,7 @@ function changedSince(check: Check, container: ContainerSpec, modes: ModeSetting
 /** Shows the order Tab moves through the design, numbered on the canvas. */
 function TabOrderSwitch() {
   const shown = useTabOrderShown()
+
   return (
     <div className="flex items-center gap-2 border-b px-4 py-2">
       <Keyboard className="size-3.5 shrink-0 text-muted-foreground" />
@@ -303,20 +351,38 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
   const modes = [shown.main, ...shown.beside]
   const modeName = (id: string) => modes.find((mode) => mode.id === id)?.name ?? id
   const stateName = (id: string) => check.container.states.find((state) => state.id === id)?.name ?? id
+
   // Name only what varies: the states when there's one mode, the modes when there's one state.
   const frameName = ({ state, mode }: Frame) => {
-    if (modes.length === 1) return stateName(state)
-    if (check.container.states.length === 1) return modeName(mode)
+    if (modes.length === 1) {
+      return stateName(state)
+    }
+
+    if (check.container.states.length === 1) {
+      return modeName(mode)
+    }
+
     return `${stateName(state)} in ${modeName(mode)}`
   }
+
   let every = "Every state and mode"
-  if (modes.length === 1) every = "Every state"
-  else if (check.container.states.length === 1) every = "Every mode"
+
+  if (modes.length === 1) {
+    every = "Every state"
+  } else if (check.container.states.length === 1) {
+    every = "Every mode"
+  }
+
   const frames = check.frames === 1 ? "1 preview" : `${check.frames} previews`
+
   const toggle = (rule: string) =>
     setCollapsed((current) => {
       const next = new Set(current)
-      if (!next.delete(rule)) next.add(rule)
+
+      if (!next.delete(rule)) {
+        next.add(rule)
+      }
+
       return next
     })
 
@@ -366,6 +432,7 @@ function ImpactTally({ groups }: { groups: RuleGroup[] }) {
       {impactOrder.map((impact) => {
         const count = groups.filter((group) => group.impact === impact).length
         const { icon: Icon, label, tone } = impactLooks[impact]
+
         return (
           <li
             key={impact}
@@ -407,6 +474,7 @@ function RuleSection({
 }) {
   const { icon: Icon, label, tone } = impactLooks[group.impact]
   const layers = group.layers.reduce((count, layer) => count + Math.max(layer.nodes.length, 1), 0)
+
   return (
     <section className="border-b">
       <button
@@ -486,24 +554,30 @@ function LayerRow({
   const name = layer.name ?? `The ${kindName(container.kind)}`
   const view = entry.container.view
   const shownState = view?.state ?? entry.container.states[0]?.id
+
   const select = (frame: Frame) => {
     if (!view?.allStates && frame.state !== shownState) {
       const state = container.states.find((candidate) => candidate.id === frame.state)?.name ?? frame.state
       store.updateView(entry.key, `Show ${state}`, (current) => ({ ...current, state: frame.state }))
     }
-    selection.set(
-      layer.nodes.length > 0
-        ? {
-            design: entry.key,
-            node: layer.nodes[0],
-            ...(layer.nodes.length > 1 ? { nodes: layer.nodes } : {}),
-            state: frame.state,
-            mode: frame.mode
-          }
-        : { design: entry.key }
-    )
+
+    if (layer.nodes.length === 0) {
+      selection.set({ design: entry.key })
+
+      return
+    }
+
+    const picked: Selection = { design: entry.key, node: layer.nodes[0], state: frame.state, mode: frame.mode }
+
+    if (layer.nodes.length > 1) {
+      picked.nodes = layer.nodes
+    }
+
+    selection.set(picked)
   }
+
   const inEvery = layer.frames.length === allFrames && allFrames > 1
+
   return (
     <li className="relative -mx-2 rounded-md px-2 py-1.5 hover:bg-accent">
       <button
@@ -574,6 +648,7 @@ function Detail({ text }: { text: string }) {
 /** The failing colours as a sample of text, with the ratio found and the ratio needed. */
 function ContrastSample({ contrast }: { contrast: ContrastDetail }) {
   const { foreground, background, ratio, required, fontSize, bold } = contrast
+
   return (
     <div className="mt-1.5 flex items-center gap-2.5">
       <span
@@ -620,6 +695,7 @@ function ContrastFixRow({
   const session = useProject()
   const { undoLabel } = useHistory(session.store)
   const [appliedHere, setAppliedHere] = useState(false)
+
   if (fix === "none") {
     return (
       <p className="type-description relative mt-1.5 text-muted-foreground">
@@ -627,14 +703,20 @@ function ContrastFixRow({
       </p>
     )
   }
+
   const step = `Use ${fix.token}`
   // Another row's fix can take the same step name, so each row knows whether the last step was its own.
   const applied = appliedHere && undoLabel === step
+
   // A fix is only known to work once it's checked, so the design is checked again as soon as it changes.
   const checkChanged = () => {
     const changed = session.store.getEntry(entry.key)
-    if (changed) void runCheck(session, changed)
+
+    if (changed) {
+      void runCheck(session, changed)
+    }
   }
+
   const apply = () => {
     setAppliedHere(true)
     session.store.updateContainer(entry.key, step, (container) => ({
@@ -646,6 +728,7 @@ function ContrastFixRow({
     }))
     checkChanged()
   }
+
   return (
     <div className="relative mt-1.5 flex items-center gap-2.5">
       <span

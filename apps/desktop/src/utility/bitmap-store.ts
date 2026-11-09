@@ -35,6 +35,7 @@ export interface ServedCode {
   fingerprint: Promise<string>
   sources: Readonly<Record<string, Pick<ComponentSource, "path" | "export">>>
 }
+
 const folder = environment().PARITY_BITMAP_DIR
 
 /** Writes since the cache was last swept; it's swept again after this many, and when the service starts. */
@@ -53,15 +54,24 @@ export async function storedBitmap(
   served: ServedCode,
   job: RenderJob
 ): Promise<{ webp: string; height: number } | undefined> {
-  if (!folder) return undefined
+  if (!folder) {
+    return undefined
+  }
+
   const file = bitmapFile(await served.fingerprint, served, job)
+
   try {
     const webp = await readFile(file)
     const height = Number(webpText(webp, heightKeyword))
+
     // Every bitmap kept says how tall its frame was; one that doesn't isn't one this version wrote.
-    if (!(height > 0)) return undefined
+    if (!(height > 0)) {
+      return undefined
+    }
+
     const now = new Date()
     void utimes(file, now, now).catch(() => undefined)
+
     return { webp: webp.toString("base64"), height }
   } catch {
     return undefined
@@ -73,14 +83,19 @@ export async function storedBitmap(
  * beside its name and then renamed, so a reader never finds half a file.
  */
 export async function storeBitmap(served: ServedCode, job: RenderJob, webp: Uint8Array, height: number): Promise<void> {
-  if (!folder) return
+  if (!folder) {
+    return
+  }
+
   try {
     const file = bitmapFile(await served.fingerprint, served, job)
     await writeWhole(file, withWebpText(webp, heightKeyword, String(height)))
   } catch (error) {
     console.warn(`[service] couldn't keep a frame bitmap: ${message(error)}`)
+
     return
   }
+
   wrote()
 }
 
@@ -102,24 +117,31 @@ export type PreviewRecord = z.infer<typeof previewRecord>
 
 /** Each component's latest preview by id, for a project, as kept in its `previews/index.json`. */
 const indexes = new Map<string, Promise<Map<string, PreviewRecord>>>()
+
 /** Index writes by project, one after another, so a later one never lands under an earlier one. */
 const indexWrites = new Map<string, Promise<void>>()
 
 /** The index of a project's component previews, read from disk the first time it's asked for. */
 export function previewIndex(projectId: string): Promise<Map<string, PreviewRecord>> {
   let index = indexes.get(projectId)
+
   if (!index) {
     index = readIndex(projectId)
     indexes.set(projectId, index)
   }
+
   return index
 }
 
 /** A preview's pictures, when both are on disk for its key, with the large one's size read from its header. */
 export async function storedPreview(projectId: string, key: string): Promise<PreviewImage | undefined> {
-  if (!folder) return undefined
+  if (!folder) {
+    return undefined
+  }
+
   const thumb = await stat(previewFile(projectId, key, "thumb")).catch(() => undefined)
   const size = thumb?.isFile() ? await pictureSize(previewFile(projectId, key, "large")) : undefined
+
   return size && previewImage(projectId, key, size)
 }
 
@@ -135,7 +157,10 @@ export async function storePreview(
   pictures?: Record<PreviewSize, Buffer>,
   size?: { width: number; height: number }
 ): Promise<PreviewImage | undefined> {
-  if (!folder) return undefined
+  if (!folder) {
+    return undefined
+  }
+
   try {
     if (pictures) {
       await writeWhole(previewFile(projectId, record.key, "thumb"), pictures.thumb)
@@ -143,15 +168,22 @@ export async function storePreview(
     }
   } catch (error) {
     console.warn(`[service] couldn't keep a component preview: ${message(error)}`)
+
     return undefined
   }
+
   const index = await previewIndex(projectId)
   index.set(component, record)
   const write = (indexWrites.get(projectId) ?? Promise.resolve()).then(() => writeIndex(projectId, index))
   indexWrites.set(projectId, write)
   await write
-  if (!pictures || !size) return undefined
+
+  if (!pictures || !size) {
+    return undefined
+  }
+
   wrote()
+
   return previewImage(projectId, record.key, size)
 }
 
@@ -171,10 +203,15 @@ function previewImage(projectId: string, key: string, size: { width: number; hei
 /** A WebP's size, from its header; nothing when it isn't one or can't be read. */
 async function pictureSize(file: string): Promise<{ width: number; height: number } | undefined> {
   const handle = await open(file).catch(() => undefined)
-  if (!handle) return undefined
+
+  if (!handle) {
+    return undefined
+  }
+
   try {
     const header = Buffer.alloc(30)
     const { bytesRead } = await handle.read(header, 0, 30, 0)
+
     return webpSize(header.subarray(0, bytesRead))
   } finally {
     await handle.close()
@@ -186,9 +223,13 @@ async function pictureSize(file: string): Promise<{ width: number; height: numbe
  * for 30 days, and the least recently used bitmaps and previews once there's more than 200 MB.
  */
 export function sweepBitmaps(now = Date.now()): Promise<void> {
-  if (!folder) return Promise.resolve()
+  if (!folder) {
+    return Promise.resolve()
+  }
+
   writes = 0
   sweeping ??= sweep(folder, now).finally(() => (sweeping = undefined))
+
   return sweeping
 }
 
@@ -197,7 +238,10 @@ export function sweepBitmaps(now = Date.now()): Promise<void> {
  * they're needed, and previews are made again.
  */
 export async function clearBitmaps(): Promise<void> {
-  if (!folder) return
+  if (!folder) {
+    return
+  }
+
   await sweeping
   await Promise.all(indexWrites.values())
   indexes.clear()
@@ -206,24 +250,47 @@ export async function clearBitmaps(): Promise<void> {
 
 async function sweep(root: string, now: number): Promise<void> {
   const files: CachedFile[] = []
+
   const list = async (project: string, path: string) => {
     for (const name of await readdir(path).catch(() => [])) {
       const file = join(path, name)
       const info = await stat(file).catch(() => undefined)
-      if (info?.isDirectory() && name === previewsName) await list(project, file)
-      if (!info?.isFile()) continue
+
+      if (info?.isDirectory() && name === previewsName) {
+        await list(project, file)
+      }
+
+      if (!info?.isFile()) {
+        continue
+      }
+
       const partial = name.endsWith(".partial")
       files.push({ path: file, project, size: info.size, used: info.mtimeMs, ...(partial ? { partial } : {}) })
     }
   }
-  for (const project of await readdir(root).catch(() => [])) await list(project, join(root, project))
+
+  for (const project of await readdir(root).catch(() => [])) {
+    await list(project, join(root, project))
+  }
+
   const removed = cacheRemovals(files, now)
-  for (const path of removed) await rm(path, { force: true }).catch(() => undefined)
+
+  for (const path of removed) {
+    await rm(path, { force: true }).catch(() => undefined)
+  }
+
   // A project's index that went names pictures it no longer has; read again, it's empty.
-  if (removed.some((path) => path.endsWith(indexName))) indexes.clear()
+  if (removed.some((path) => path.endsWith(indexName))) {
+    indexes.clear()
+  }
+
   for (const project of await readdir(root).catch(() => [])) {
     const previews = join(root, project, previewsName)
-    if ((await readdir(previews).catch(() => ["?"])).length === 0) await rm(previews, { recursive: true, force: true })
+
+    if ((await readdir(previews).catch(() => ["?"])).length === 0) {
+      await rm(previews, { recursive: true, force: true })
+    }
+
     if ((await readdir(join(root, project)).catch(() => ["?"])).length === 0) {
       await rm(join(root, project), { recursive: true, force: true }).catch(() => undefined)
     }
@@ -241,14 +308,23 @@ const indexFile = jsonText(z.object({ format: z.literal(indexFormat), components
 
 async function readIndex(projectId: string): Promise<Map<string, PreviewRecord>> {
   const index = new Map<string, PreviewRecord>()
-  if (!folder) return index
+
+  if (!folder) {
+    return index
+  }
+
   const text = await readFile(join(previewFolder(projectId), indexName), "utf8").catch(() => undefined)
   // None yet, one a crash cut short or one of another format: every preview is looked for again.
   const read = text === undefined ? undefined : indexFile.safeParse(text).data
+
   for (const [component, value] of Object.entries(read?.components ?? {})) {
     const record = previewRecord.safeParse(value)
-    if (record.success) index.set(component, record.data)
+
+    if (record.success) {
+      index.set(component, record.data)
+    }
   }
+
   return index
 }
 
@@ -265,6 +341,7 @@ async function writeIndex(projectId: string, index: Map<string, PreviewRecord>):
 /** Writes a file beside its name and then renames it, so a reader never finds half a file. */
 export async function writeWhole(file: string, contents: Uint8Array): Promise<void> {
   const partial = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.partial`
+
   try {
     await mkdir(join(file, ".."), { recursive: true })
     await writeFile(partial, contents)
@@ -276,7 +353,9 @@ export async function writeWhole(file: string, contents: Uint8Array): Promise<vo
 }
 
 function wrote(): void {
-  if (++writes >= sweepEvery) void sweepBitmaps()
+  if (++writes >= sweepEvery) {
+    void sweepBitmaps()
+  }
 }
 
 function message(error: unknown): string {
@@ -307,5 +386,6 @@ function bitmapFile(fingerprint: string, served: ServedCode, job: RenderJob): st
     .update("\0")
     .update(bitmapName(job, served.sources))
     .digest("hex")
+
   return join(projectFolder(job.projectId), `${name.slice(0, 40)}.webp`)
 }

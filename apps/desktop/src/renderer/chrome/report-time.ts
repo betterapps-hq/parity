@@ -4,8 +4,15 @@ export function crashTime(iso: string, now = new Date()): string {
   const clock = time.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
   const day = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
   const daysAgo = Math.round((day(now) - day(time)) / 86_400_000)
-  if (daysAgo === 0) return `Today at ${clock}`
-  if (daysAgo === 1) return `Yesterday at ${clock}`
+
+  if (daysAgo === 0) {
+    return `Today at ${clock}`
+  }
+
+  if (daysAgo === 1) {
+    return `Yesterday at ${clock}`
+  }
+
   return `${time.toLocaleDateString(undefined, { month: "long", day: "numeric" })} at ${clock}`
 }
 

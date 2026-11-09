@@ -38,8 +38,12 @@ export function isUnconditional(atRules: readonly EnclosingAtRule[]): boolean {
  * Parity's own Light mode is the frame without a theme.
  */
 function colorSchemeOf(atRule: EnclosingAtRule): string | undefined {
-  if (atRule.name !== "media") return undefined
+  if (atRule.name !== "media") {
+    return undefined
+  }
+
   const scheme = colorSchemeQuery(atRule.prelude)
+
   return scheme === "light" ? "default" : scheme
 }
 
@@ -71,26 +75,48 @@ export function themeOfSelector(
   options: ThemeOptions = {}
 ): string | undefined {
   let scheme: string | undefined
+
   for (const atRule of atRules) {
-    if (unconditionalAtRules.has(atRule.name) || (options.tailwindTheme && atRule.name === "theme")) continue
+    if (unconditionalAtRules.has(atRule.name) || (options.tailwindTheme && atRule.name === "theme")) {
+      continue
+    }
+
     const picked = colorSchemeOf(atRule)
-    if (picked === undefined || (scheme !== undefined && scheme !== picked)) return undefined
+
+    if (picked === undefined || (scheme !== undefined && scheme !== picked)) {
+      return undefined
+    }
+
     scheme = picked
   }
+
   const inTailwindTheme = options.tailwindTheme === true && atRules.at(-1)?.name === "theme"
   let theme: string | undefined
-  if (selector.trim() !== "") theme = listTheme(selector)
-  else if (inTailwindTheme) theme = "default"
-  if (theme === undefined || scheme === undefined) return theme
+
+  if (selector.trim() !== "") {
+    theme = listTheme(selector)
+  } else if (inTailwindTheme) {
+    theme = "default"
+  }
+
+  if (theme === undefined || scheme === undefined) {
+    return theme
+  }
+
   // Inside a colour-scheme query, the root takes the query's theme; a theme's own selector must agree with it.
   return theme === "default" || theme === scheme ? scheme : undefined
 }
 
 function listTheme(selector: string): string | undefined {
   const themes = splitTopLevel(selector, ",").map((part) => compoundTheme(part.trim()))
-  if (themes.some((theme) => theme?.root && theme.name === undefined)) return "default"
+
+  if (themes.some((theme) => theme?.root && theme.name === undefined)) {
+    return "default"
+  }
+
   const names = new Set(themes.map((theme) => (theme ? (theme.name ?? "default") : undefined)))
   const [only] = names
+
   return names.size === 1 ? only : undefined
 }
 
@@ -110,35 +136,80 @@ function compoundTheme(part: string): CompoundTheme | undefined {
   const names: string[] = []
   let attribute: string | undefined
   let rest = part
+
   while (rest.length > 0) {
     const match = simpleSelector.exec(rest)
-    if (!match?.groups) return undefined
+
+    if (!match?.groups) {
+      return undefined
+    }
+
     const { groups } = match
+
     if (groups.functional) {
       const open = groups.functional.length
       const close = matchingParen(rest, open - 1)
-      if (close === -1) return undefined
+
+      if (close === -1) {
+        return undefined
+      }
+
       const inner = rest.slice(open, close).trim()
       rest = rest.slice(close + 1)
-      if (groups.functional === ":not(") continue
-      if (groups.functional === ":host(") root = true
+
+      if (groups.functional === ":not(") {
+        continue
+      }
+
+      if (groups.functional === ":host(") {
+        root = true
+      }
+
       const nested = compoundTheme(inner)
-      if (!nested) return undefined
+
+      if (!nested) {
+        return undefined
+      }
+
       root ||= nested.root
-      if (nested.name !== undefined) names.push(nested.name)
+
+      if (nested.name !== undefined) {
+        names.push(nested.name)
+      }
+
       attribute ??= nested.attribute
       continue
     }
+
     rest = rest.slice(match[0].length)
-    if (groups.root) root = true
+
+    if (groups.root) {
+      root = true
+    }
+
     const value = groups.double ?? groups.single ?? groups.bare
-    if (value !== undefined) attribute = groups.attribute
+
+    if (value !== undefined) {
+      attribute = groups.attribute
+    }
+
     const name = groups.className ?? value
-    if (name !== undefined) names.push(name)
+
+    if (name !== undefined) {
+      names.push(name)
+    }
   }
-  if (names.length > 1) return undefined
+
+  if (names.length > 1) {
+    return undefined
+  }
+
   const name = names[0] === "light" ? undefined : names[0]
-  if (!root && names.length === 0) return undefined
+
+  if (!root && names.length === 0) {
+    return undefined
+  }
+
   return {
     root: root || names[0] === "light",
     ...(name === undefined ? {} : { name }),
@@ -161,15 +232,24 @@ export function themeAttributes(
 ): Record<string, Record<string, string>> {
   const themes = new Set(themedProperties(declarations).flatMap(({ values }) => Object.keys(values)))
   const attributes: Record<string, Record<string, string>> = {}
+
   for (const { selector, atRules } of declarations) {
-    if (!isUnconditional(atRules)) continue
+    if (!isUnconditional(atRules)) {
+      continue
+    }
+
     for (const part of splitTopLevel(selector, ",")) {
       const theme = compoundTheme(part.trim())
-      if (!theme?.name || !theme.attribute || theme.root || !themes.has(theme.name)) continue
+
+      if (!theme?.name || !theme.attribute || theme.root || !themes.has(theme.name)) {
+        continue
+      }
+
       const set = (attributes[theme.name] ??= {})
       set[theme.attribute] ??= theme.name
     }
   }
+
   return attributes
 }
 
@@ -184,15 +264,21 @@ export function frameAttributes(
 ): Record<string, string> {
   const scheme = { [colorSchemeAttribute]: mode.classNames.includes("dark") ? "dark" : "light" }
   const switches = mode.classNames.map((className) => themes[className] ?? {})
+
   return Object.assign(scheme, ...switches, mode.attributes) as Record<string, string>
 }
 
 function matchingParen(text: string, open: number): number {
   let depth = 0
+
   for (let index = open; index < text.length; index++) {
-    if (text[index] === "(") depth++
-    else if (text[index] === ")" && --depth === 0) return index
+    if (text[index] === "(") {
+      depth++
+    } else if (text[index] === ")" && --depth === 0) {
+      return index
+    }
   }
+
   return -1
 }
 
@@ -202,20 +288,30 @@ function splitTopLevel(text: string, separator: string): string[] {
   let depth = 0
   let quote: string | undefined
   let start = 0
+
   for (let index = 0; index < text.length; index++) {
     const char = text[index]!
+
     if (quote) {
-      if (char === "\\") index++
-      else if (char === quote) quote = undefined
-    } else if (char === '"' || char === "'") quote = char
-    else if (char === "(" || char === "[") depth++
-    else if (char === ")" || char === "]") depth--
-    else if (char === separator && depth === 0) {
+      if (char === "\\") {
+        index++
+      } else if (char === quote) {
+        quote = undefined
+      }
+    } else if (char === '"' || char === "'") {
+      quote = char
+    } else if (char === "(" || char === "[") {
+      depth++
+    } else if (char === ")" || char === "]") {
+      depth--
+    } else if (char === separator && depth === 0) {
       parts.push(text.slice(start, index))
       start = index + 1
     }
   }
+
   parts.push(text.slice(start))
+
   return parts
 }
 
@@ -240,22 +336,38 @@ export function themedProperties(
 ): ThemedProperty[] {
   const themed = declarations.flatMap((declaration) => {
     const theme = themeOfSelector(declaration.selector, declaration.atRules, options)
+
     return theme === undefined ? [] : [{ ...declaration, theme, scheme: fromColorScheme(declaration.atRules) }]
   })
+
   const rootNames = new Set(themed.flatMap(({ theme, name }) => (theme === "default" ? [name] : [])))
   const themes = new Set(themed.flatMap(({ theme, name }) => (rootNames.has(name) ? [theme] : [])))
   const properties = new Map<string, ThemedProperty>()
   const fromScheme = new Set<string>()
+
   for (const { name, value, theme, scheme } of themed) {
-    if (!themes.has(theme)) continue
+    if (!themes.has(theme)) {
+      continue
+    }
+
     const property = properties.get(name) ?? { name, values: {}, first: value }
     const key = `${theme}\n${name}`
-    if (scheme && property.values[theme] !== undefined && !fromScheme.has(key)) continue
+
+    if (scheme && property.values[theme] !== undefined && !fromScheme.has(key)) {
+      continue
+    }
+
     property.values[theme] = value
-    if (scheme) fromScheme.add(key)
-    else fromScheme.delete(key)
+
+    if (scheme) {
+      fromScheme.add(key)
+    } else {
+      fromScheme.delete(key)
+    }
+
     properties.set(name, property)
   }
+
   return [...properties.values()]
 }
 
@@ -283,25 +395,68 @@ export function categorize(name: string, value: string): TokenCategory {
     .toLowerCase()
     .split(/[-_]/)
     .filter(Boolean)
+
   const has = (...sequence: string[]) =>
     words.some((_, index) => sequence.every((word, offset) => words[index + offset] === word))
-  if (has("breakpoint") || has("breakpoints") || has("screen") || has("screens")) return "breakpoint"
+
+  if (has("breakpoint") || has("breakpoints") || has("screen") || has("screens")) {
+    return "breakpoint"
+  }
+
   // Tailwind names sizes `--text-sm`; `--heading-text-wrap`, `--text-color`, `--text-shadow-sm` and a bare `--text`
   // (usually the text colour) aren't sizes.
   const textSize =
     words[0] === "text" && words.length > 1 && !["wrap", "color", "decoration", "shadow"].includes(words[1]!)
-  if (has("font", "size") || has("font", "sizes") || textSize) return "font-size"
-  if (has("line", "height") || has("leading") || has("line", "heights")) return "leading"
-  if (has("font", "weight") || has("font", "weights")) return "font-weight"
-  if (has("letter", "spacing") || has("tracking")) return "tracking"
-  if (has("font", "family") || has("font") || has("fonts")) return "font"
-  if (has("radius") || has("radii") || has("rounded")) return "radius"
-  if (has("shadow") || has("shadows") || has("elevation")) return "shadow"
-  if (has("spacing") || has("space") || has("gap")) return "spacing"
-  if (has("blur") || has("perspective") || has("aspect")) return "effect"
+
+  if (has("font", "size") || has("font", "sizes") || textSize) {
+    return "font-size"
+  }
+
+  if (has("line", "height") || has("leading") || has("line", "heights")) {
+    return "leading"
+  }
+
+  if (has("font", "weight") || has("font", "weights")) {
+    return "font-weight"
+  }
+
+  if (has("letter", "spacing") || has("tracking")) {
+    return "tracking"
+  }
+
+  if (has("font", "family") || has("font") || has("fonts")) {
+    return "font"
+  }
+
+  if (has("radius") || has("radii") || has("rounded")) {
+    return "radius"
+  }
+
+  if (has("shadow") || has("shadows") || has("elevation")) {
+    return "shadow"
+  }
+
+  if (has("spacing") || has("space") || has("gap")) {
+    return "spacing"
+  }
+
+  if (has("blur") || has("perspective") || has("aspect")) {
+    return "effect"
+  }
+
   const moving = ["duration", "easing", "curve", "ease", "transition", "animation", "animate", "delay"]
-  if (moving.some((word) => has(word))) return "motion"
-  if (has("container") && !has("color")) return "container"
-  if (has("color") || has("colors") || has("palette") || isColor(value)) return "color"
+
+  if (moving.some((word) => has(word))) {
+    return "motion"
+  }
+
+  if (has("container") && !has("color")) {
+    return "container"
+  }
+
+  if (has("color") || has("colors") || has("palette") || isColor(value)) {
+    return "color"
+  }
+
   return "other"
 }

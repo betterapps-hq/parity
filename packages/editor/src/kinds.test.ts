@@ -122,6 +122,7 @@ describe("turning a design into a frame", () => {
       root: { type: "component", id: "cta", component: "Button" },
       states: [pricing.states[0]!]
     }
+
     const { design } = turnInto(button, "frame", defaultModeSettings)
     expect(design.root).toMatchObject({ type: "layout", children: [button.root] })
     expect(design.root.id).not.toBe("cta")
@@ -138,6 +139,7 @@ describe("turning a frame into a screen or a component", () => {
       expect(dropped).toEqual({ states: [], modes: [], params: [], variants: [] })
       expect(reread(design)).toEqual(design)
     }
+
     const { size: _size, ...unsized } = sketch
     expect(turnInto(unsized, "screen", defaultModeSettings).design).not.toHaveProperty("frames")
   })
@@ -195,6 +197,7 @@ describe("a frame inside another design", () => {
       ["app.par", { version: 3, containers: [pricing, sketch] }],
       ["more.par", { version: 3, containers: [card] }]
     ])
+
     const moved = moveFrameInto(
       documents,
       { path: "app.par", id: "sketch" },
@@ -204,6 +207,7 @@ describe("a frame inside another design", () => {
       },
       4
     )
+
     expect(moved.documents.get("app.par")!.containers).toEqual([pricing])
     const into = moved.documents.get("more.par")!.containers[0]!
     expect(findNode(into.root, moved.layer)).toMatchObject({ type: "layout", name: "Sketch" })

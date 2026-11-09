@@ -97,19 +97,34 @@ export function SpacingHandles({
   // While Alt or Alt+Shift drags a side, every side it changes is shaded.
   const shaded = (handle: SpacingHandle) => {
     const key = spacingKey(handle)
+
     if (dragging) {
-      if (dragging.key === key) return true
+      if (dragging.key === key) {
+        return true
+      }
+
       // A layout has one gap, so every gap changes with the one dragged.
-      if (handle.kind === "gap") return dragging.key.startsWith("gap:")
+      if (handle.kind === "gap") {
+        return dragging.key.startsWith("gap:")
+      }
+
       return !!dragging.sides?.includes(handle.side)
     }
+
     const lit = [hovered, focused, typing?.key]
-    if (handle.kind === "gap") return lit.some((other) => other?.startsWith("gap:"))
+
+    if (handle.kind === "gap") {
+      return lit.some((other) => other?.startsWith("gap:"))
+    }
+
     return lit.includes(key)
   }
 
   const commit = (handle: SpacingHandle, text: string) => {
-    if (!typing) return
+    if (!typing) {
+      return
+    }
+
     const reason = onType(handle, text, typing.keys)
     setTyping(reason ? { ...typing, reason } : undefined)
   }
@@ -132,19 +147,27 @@ export function SpacingHandles({
         const scaleName = spacingScaleName(value, unit)
         const across = isAcross(handle)
         const active = dragging?.key === key || hovered === key || focused === key
+
         const step = (event: ReactKeyboardEvent) => {
           const keys = sidesHeld(event)
           // Shift steps ten, unless it's part of the keys for every side.
           const by = event.shiftKey && !keys.every ? 10 : 1
+
           if (event.key === "Enter") {
             setTyping({ key, text: startText(value), keys })
-          } else if (event.key === "ArrowUp" || event.key === "ArrowRight") onStep(handle, by, keys)
-          else if (event.key === "ArrowDown" || event.key === "ArrowLeft") onStep(handle, -by, keys)
-          else return
+          } else if (event.key === "ArrowUp" || event.key === "ArrowRight") {
+            onStep(handle, by, keys)
+          } else if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
+            onStep(handle, -by, keys)
+          } else {
+            return
+          }
+
           // The canvas's own keys would nudge the layer.
           event.preventDefault()
           event.stopPropagation()
         }
+
         return (
           <div key={key}>
             <div
@@ -195,7 +218,10 @@ export function SpacingHandles({
                 onBlur={() => setFocused((current) => (current === key ? undefined : current))}
                 onKeyDown={step}
                 onPointerDown={(event) => {
-                  if (event.button !== 0) return
+                  if (event.button !== 0) {
+                    return
+                  }
+
                   event.stopPropagation()
                   event.preventDefault()
                   const keys = sidesHeld(event)
@@ -283,17 +309,24 @@ function TypeBox(props: {
   const [unit, setUnit] = useState<BoxUnit>("px")
   const plain = plainNumber.test(props.text)
   const commit = () => props.onCommit(plain ? `${props.text.trim()}${unit}` : props.text)
+
   // Switching the unit keeps the length, so 16px becomes 1rem.
   const switchUnit = () => {
     const next = unit === "px" ? "rem" : "px"
-    if (plain) props.onChange(inUnit(Number(props.text) * boxUnits[unit], next))
+
+    if (plain) {
+      props.onChange(inUnit(Number(props.text) * boxUnits[unit], next))
+    }
+
     setUnit(next)
     ref.current?.focus()
   }
+
   useEffect(() => {
     ref.current?.focus()
     ref.current?.select()
   }, [])
+
   return (
     <div className="absolute z-20" style={props.style}>
       <div
@@ -311,13 +344,22 @@ function TypeBox(props: {
           onChange={(event) => props.onChange(event.currentTarget.value)}
           onKeyDown={(event) => {
             event.stopPropagation()
-            if (event.key === "Enter") commit()
-            else if (event.key === "Escape") props.onCancel()
+
+            if (event.key === "Enter") {
+              commit()
+            } else if (event.key === "Escape") {
+              props.onCancel()
+            }
           }}
           onBlur={(event) => {
             // Moving to the list or the unit keeps the box open.
-            if (event.relatedTarget instanceof Element && event.relatedTarget.closest("[data-spacing-picker]")) return
-            if (!open) commit()
+            if (event.relatedTarget instanceof Element && event.relatedTarget.closest("[data-spacing-picker]")) {
+              return
+            }
+
+            if (!open) {
+              commit()
+            }
           }}
         />
         {plain && (
@@ -336,7 +378,10 @@ function TypeBox(props: {
           open={open}
           onOpenChange={(next) => {
             setOpen(next)
-            if (!next) ref.current?.focus()
+
+            if (!next) {
+              ref.current?.focus()
+            }
           }}
         >
           <PopoverTrigger
@@ -429,6 +474,10 @@ function place(box: { x: number; y: number; w: number; h: number }): CSSProperti
 /** Beside the bar: to its right for a bar that's dragged up and down, below it otherwise. */
 function labelPlace(handle: SpacingHandle): CSSProperties {
   const { bar } = handle
-  if (isAcross(handle)) return { left: bar.x + bar.w + 6, top: bar.y + bar.h / 2, transform: "translateY(-50%)" }
+
+  if (isAcross(handle)) {
+    return { left: bar.x + bar.w + 6, top: bar.y + bar.h / 2, transform: "translateY(-50%)" }
+  }
+
   return { left: bar.x + bar.w / 2, top: bar.y + bar.h + 6, transform: "translateX(-50%)" }
 }

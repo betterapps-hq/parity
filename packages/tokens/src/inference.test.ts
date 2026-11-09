@@ -27,17 +27,25 @@ describe("inferTokenKind", () => {
     const byLibrary = Map.groupBy(labelled, (token) => token.library)
     const accuracy: Record<string, string> = {}
     const misses: string[] = []
+
     for (const [library, tokens] of byLibrary) {
       const values = new Map(tokens.map((token) => [token.name, token.values.default]))
       let right = 0
+
       for (const token of tokens) {
         const value = resolveReferences(token.values.default, (name) => values.get(name))
         const kind = inferTokenKind(token.name, value)
-        if (kind === token.label) right++
-        else misses.push(`${library} ${token.name} = ${value}: ${kind}, not ${token.label}`)
+
+        if (kind === token.label) {
+          right++
+        } else {
+          misses.push(`${library} ${token.name} = ${value}: ${kind}, not ${token.label}`)
+        }
       }
+
       accuracy[library] = `${((100 * right) / tokens.length).toFixed(1)}% of ${tokens.length}`
     }
+
     console.log("Token kinds inferred as each library files them:", accuracy)
     expect(misses).toEqual([])
   })

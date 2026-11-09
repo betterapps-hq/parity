@@ -10,7 +10,9 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 describe("a component that ignores its props", () => {
@@ -67,14 +69,18 @@ describe("other layers found from React's tree", () => {
   it("outlines a field around its input, not the input its props reach", async () => {
     await app.show("Members", 1)
     const field = await app.box("Members", "email")
+
     const input = await app.page.evaluate(() => {
       const e2e = window.e2e!
+
       const { x, y, width, height } = e2e
         .frame(e2e.key("Members"))
         .shadowRoot!.querySelector("input[type=email]")!
         .getBoundingClientRect()
+
       return { x, y, width, height }
     })
+
     expect(input.height).toBeLessThan(field.height)
     await app.page.mouse.move(center(input).x, center(input).y, { steps: 4 })
     await expect.poll(() => app.hovered()).toBe("email")
@@ -115,11 +121,13 @@ describe("selecting what you point at", () => {
     const box = await app.box("Dashboard", users)
     await app.click(center(box))
     await expect.poll(async () => (await app.selection()).node).toBe(main)
+
     // The stat card takes three double-clicks.
     for (const level of [content, stats, users]) {
       await app.page.mouse.dblclick(center(box).x, center(box).y)
       await expect.poll(async () => (await app.selection()).node).toBe(level)
     }
+
     await app.page.keyboard.press("Escape")
     await app.page.keyboard.press("Escape")
     await app.page.keyboard.press("Escape")
@@ -131,11 +139,14 @@ describe("selecting what you point at", () => {
 
   it("selects the board with a click on a frame's background", async () => {
     await app.show("Sign in", 0.5)
+
     const frame = await app.page.evaluate(() => {
       const e2e = window.e2e!
       const { x, y } = e2e.frame(e2e.key("Sign in")).getBoundingClientRect()
+
       return { x, y }
     })
+
     await app.click({ x: frame.x + 12, y: frame.y + 12 })
     await expect.poll(() => app.selection()).toEqual({ design: await app.key("Sign in") })
   })
@@ -143,26 +154,33 @@ describe("selecting what you point at", () => {
   it("moves the board by its own background around the frames, and by its title", async () => {
     await app.show("Sign in", 0.5)
     const before = await position("Sign in")
+
     const around = await app.page.evaluate(() => {
       const e2e = window.e2e!
       const key = e2e.key("Sign in")
       const board = document.querySelector(`.container-view[data-design="${CSS.escape(key)}"]`)!.getBoundingClientRect()
       const frame = e2e.frame(key).getBoundingClientRect()
+
       return { x: (board.left + frame.left) / 2, y: frame.top + frame.height / 2 }
     })
+
     // 40 by 20 on screen is 80 by 40 on the page at half size, give or take what snapping to other designs adds.
     const moved = async () => {
       const now = await position("Sign in")
+
       return Math.abs(now.x - before.x - 80) <= 16 && Math.abs(now.y - before.y - 40) <= 16
     }
+
     await app.drag(around, { x: around.x + 40, y: around.y + 20 })
     await expect.poll(moved).toBe(true)
     await app.page.keyboard.press("Control+z")
     await expect.poll(() => position("Sign in")).toEqual(before)
+
     const title = (await app.page
       .locator(".design-title > div > button")
       .filter({ hasText: /^Sign in$/ })
       .boundingBox())!
+
     await app.drag(center(title), { x: center(title).x + 40, y: center(title).y + 20 })
     await expect.poll(moved).toBe(true)
   })
@@ -170,13 +188,16 @@ describe("selecting what you point at", () => {
   it("moves the board by its background as one undo step, however long the drag pauses (PAR-441)", async () => {
     await app.show("Sign in", 0.5)
     const before = await position("Sign in")
+
     const around = await app.page.evaluate(() => {
       const e2e = window.e2e!
       const key = e2e.key("Sign in")
       const board = document.querySelector(`.container-view[data-design="${CSS.escape(key)}"]`)!.getBoundingClientRect()
       const frame = e2e.frame(key).getBoundingClientRect()
+
       return { x: (board.left + frame.left) / 2, y: frame.top + frame.height / 2 }
     })
+
     // Moves, a pause longer than a second, then more moves, which grouping by time made two undo steps.
     await app.drag(around, { x: around.x + 20, y: around.y + 10 }, async () => {
       await app.page.waitForTimeout(1500)
@@ -192,16 +213,21 @@ describe("selecting what you point at", () => {
 
   it("selects the top-level layers a box from a frame's background touches, with tldraw's box drawn meanwhile", async () => {
     await app.show("Sign in", 0.5)
+
     const frame = await app.page.evaluate(() => {
       const e2e = window.e2e!
       const { x, y, height } = e2e.frame(e2e.key("Sign in")).getBoundingClientRect()
+
       return { x, y, height }
     })
+
     const target = await app.box("Sign in", card)
+
     // From the background below and left of everything, to the card's middle: the card and the terms, not the brand.
     const during = await app.drag({ x: frame.x + 12, y: frame.y + frame.height - 12 }, center(target), () =>
       app.page.evaluate(() => window.e2e!.session().editor!.getInstanceState().brush !== null)
     )
+
     expect(during).toBe(true)
     await expect.poll(async () => (await app.selection()).nodes).toEqual([card, terms])
     expect((await app.selection()).nodes).not.toContain(brand)

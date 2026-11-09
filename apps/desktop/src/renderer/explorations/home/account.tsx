@@ -64,7 +64,11 @@ import type { Account, Member, Person, Role, SentInvitation, Team } from "./data
 /** An email that, when it's cut short, keeps its domain: the part that tells your accounts apart. */
 function Email({ address }: { address: string }) {
   const at = address.lastIndexOf("@")
-  if (at < 0) return <span className="min-w-0 truncate">{address}</span>
+
+  if (at < 0) {
+    return <span className="min-w-0 truncate">{address}</span>
+  }
+
   return (
     <span className="flex min-w-0">
       <span className="min-w-0 truncate">{address.slice(0, at)}</span>
@@ -213,11 +217,13 @@ export function AccountMenu({
   const [open, setOpen] = useState(defaultOpen)
   const list = useRef<HTMLDivElement>(null)
   const several = accounts.length > 1
+
   // Each action closes the panel first, so the keyboard goes back to your picture before anything moves.
   const then = (action: () => void) => () => {
     setOpen(false)
     action()
   }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -248,10 +254,18 @@ export function AccountMenu({
                   const here = each === account
                   // With one account the row is your name and email; with several, the email and where it opens.
                   let detail = email
-                  if (several) detail = each.ended ? "Session ended" : whereIn(each)
+
+                  if (several) {
+                    detail = each.ended ? "Session ended" : whereIn(each)
+                  }
+
                   // The account you're in is shaded once there's another to tell it from.
                   let shade = "hover:bg-accent/60"
-                  if (here) shade = several ? "bg-accent" : ""
+
+                  if (here) {
+                    shade = several ? "bg-accent" : ""
+                  }
+
                   const who = (
                     <>
                       <span className={each.ended ? "opacity-50" : ""}>
@@ -265,6 +279,7 @@ export function AccountMenu({
                       </span>
                     </>
                   )
+
                   return (
                     <li
                       key={email}
@@ -357,11 +372,16 @@ export function AddAccountDialog({
     added.current = onAdd
   })
   useEffect(() => {
-    if (!waiting) return
+    if (!waiting) {
+      return
+    }
+
     const timer = setTimeout(() => added.current(waiting), 2500)
+
     return () => clearTimeout(timer)
   }, [waiting])
   const [only] = signedIn
+
   return (
     // As signing in from Home does: only Cancel, Escape or the close button end it.
     <Dialog open disablePointerDismissal onOpenChange={(open) => !open && onClose()}>
@@ -431,13 +451,28 @@ const looksLikeEmail = (text: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)
 
 /** Why the addresses can't be sent, or nothing when they can: none, one that isn't an address, or someone already in. */
 function problemWith(emails: readonly string[], team?: Team): string | undefined {
-  if (emails.length === 0) return "Enter an email address."
+  if (emails.length === 0) {
+    return "Enter an email address."
+  }
+
   const wrong = emails.find((email) => !looksLikeEmail(email))
-  if (wrong) return `“${wrong}” isn't an email address.`
+
+  if (wrong) {
+    return `“${wrong}” isn't an email address.`
+  }
+
   const member = team?.members.find((person) => emails.includes(person.email))
-  if (member && team) return `${member.name} is already in ${team.name}.`
+
+  if (member && team) {
+    return `${member.name} is already in ${team.name}.`
+  }
+
   const invited = team?.invitations.find((invitation) => emails.includes(invitation.email))
-  if (invited) return `${invited.email} is already invited.`
+
+  if (invited) {
+    return `${invited.email} is already invited.`
+  }
+
   return undefined
 }
 
@@ -467,8 +502,11 @@ function EmailsField({
   const hint = useId()
   const input = useRef<HTMLInputElement>(null)
   useEffect(() => {
-    if (focusFirst) input.current?.focus()
+    if (focusFirst) {
+      input.current?.focus()
+    }
   }, [focusFirst])
+
   return (
     <Field {...(problem ? { "data-invalid": true } : {})}>
       <FieldLabel htmlFor={field} className={showLabel ? "" : "sr-only"}>
@@ -559,74 +597,113 @@ export function PeopleDialog({
   // The row whose Undo takes the keyboard: the one just removed, left or revoked, and only then, so a search, a
   // scroll or a tab that brings a waiting row back doesn't take focus from where it is.
   const [undoFocus, setUndoFocus] = useState<string>()
+
   const pend = (set: typeof setRemoved, item: string) => {
     set((pending) => toggle(pending, item))
     setUndoFocus(item)
   }
+
   const list = useRef<HTMLUListElement>(null)
   const admin = team.role === "Admin"
   const managed = !!team.directory
   const canInvite = admin && !managed
   const searchable = team.members.length > 12
+
   // Admins as they'll be once the dialog closes, so pending removals and your own leaving can't leave it with none.
   const otherAdmins = team.members.filter(
     (member) => member.role === "Admin" && member.email !== you.email && !removed.has(member.email)
   )
+
   const onlyAdmin = admin && otherAdmins.length === 0
   const leaving = removed.has(you.email)
   // The order is set when People opens, so a role change updates its row in place rather than moving it out of
   // sight; anyone new goes at the end. It's you, the admins, then everyone else again next time.
   const [order] = useState(() => [...team.members].sort(byStanding(you)).map((member) => member.email))
+
   const ordered = useMemo(() => {
     const placed = new Set(order)
     const byEmail = new Map(team.members.map((member) => [member.email, member]))
+
     return [
       ...order.flatMap((email) => byEmail.get(email) ?? []),
       ...team.members.filter((member) => !placed.has(member.email))
     ]
   }, [order, team.members])
+
   const words = query.trim().toLowerCase()
+
   const matches = words
     ? ordered.filter((member) => member.name.toLowerCase().includes(words) || member.email.includes(words))
     : ordered
+
   const shown = matches.slice(0, limit)
+
   // The next page loads when the end of the list scrolls into view. A ref callback, since the dialog's contents mount
   // after the dialog itself.
   const watchEnd = useCallback((element: HTMLLIElement | null) => {
-    if (!element) return
+    if (!element) {
+      return
+    }
+
     const watcher = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) setLimit((loaded) => loaded + page)
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setLimit((loaded) => loaded + page)
+      }
     })
+
     watcher.observe(element)
+
     return () => watcher.disconnect()
   }, [])
+
   const toggle = (set: ReadonlySet<string>, item: string) => {
     const next = new Set(set)
-    if (!next.delete(item)) next.add(item)
+
+    if (!next.delete(item)) {
+      next.add(item)
+    }
+
     return next
   }
+
   const close = () => {
     for (const member of team.members) {
-      if (removed.has(member.email) && member.email !== you.email) onRemove(member)
+      if (removed.has(member.email) && member.email !== you.email) {
+        onRemove(member)
+      }
     }
-    for (const email of revoked) onRevoke(email)
+
+    for (const email of revoked) {
+      onRevoke(email)
+    }
+
     onClose()
-    if (removed.has(you.email)) onLeave()
+
+    if (removed.has(you.email)) {
+      onLeave()
+    }
   }
+
   const invite = (event: FormEvent) => {
     event.preventDefault()
     const emails = addresses(text)
     const wrong = problemWith(emails, team)
     setProblem(wrong)
-    if (wrong) return
+
+    if (wrong) {
+      return
+    }
+
     onInvite(emails)
     setSaid(emails.length === 1 ? `Invited ${emails[0]}` : `Invited ${emails.length} people`)
     setText("")
   }
+
   const changeRole = (member: Member, role: Role) => {
     onRole(member, role)
     setSaid(`${member.name} is ${role === "Admin" ? "an admin" : "a member"} now`)
   }
+
   const search = searchable && (
     <InputGroup className="mb-2">
       <InputGroupAddon>
@@ -644,7 +721,10 @@ export function PeopleDialog({
         }}
         // Escape clears what's typed first, as search fields do, and closes the dialog once it's empty.
         onKeyDown={(event) => {
-          if (event.key !== "Escape" || !query) return
+          if (event.key !== "Escape" || !query) {
+            return
+          }
+
           event.preventDefault()
           event.stopPropagation()
           setQuery("")
@@ -668,6 +748,7 @@ export function PeopleDialog({
       )}
     </InputGroup>
   )
+
   const rows = (
     <ul
       ref={list}
@@ -679,6 +760,7 @@ export function PeopleDialog({
         const isYou = member.email === you.email
         const gone = removed.has(member.email)
         let role: ReactNode = <StaticRole role={member.role} />
+
         if (gone) {
           role = (
             <UndoButton
@@ -709,6 +791,7 @@ export function PeopleDialog({
             />
           )
         }
+
         return (
           // The list loads as it scrolls, so each row says where it sits among everyone who matches.
           <li key={member.email} aria-setsize={matches.length} aria-posinset={index + 1}>
@@ -742,14 +825,17 @@ export function PeopleDialog({
       )}
     </ul>
   )
+
   let description = admin
     ? "Invite people by email. They join as members."
     : "Only admins can invite people or change roles."
+
   if (managed) {
     description = `${team.directory} adds and removes ${team.name}'s ${count(team.members.length)} people. ${
       admin ? "Admins change roles here." : "Only admins can change roles."
     }`
   }
+
   return (
     <Dialog open onOpenChange={(open) => !open && close()}>
       <DialogContent
@@ -859,6 +945,7 @@ function InvitationRow({
   onUndo: () => void
 }) {
   const now = useNow()
+
   return (
     <li>
       <Item size="sm" className="px-0">
@@ -920,10 +1007,14 @@ function UndoButton({
 }) {
   const button = useRef<HTMLButtonElement>(null)
   useEffect(() => {
-    if (!takeFocus) return
+    if (!takeFocus) {
+      return
+    }
+
     button.current?.focus()
     onFocused()
   }, [takeFocus, onFocused])
+
   return (
     <Button
       ref={button}
@@ -1095,15 +1186,20 @@ export function NewOrganizationDialog({
   const nameField = useId()
   const nameHint = useId()
   const ready = useId()
+
   const create = (event: FormEvent) => {
     event.preventDefault()
+
     if (!name.trim()) {
       setNameProblem("Enter a name.")
+
       return
     }
+
     onCreate(name.trim())
     setStep("invite")
   }
+
   const invite = (event: FormEvent) => {
     event.preventDefault()
     const emails = addresses(text)
@@ -1111,8 +1207,12 @@ export function NewOrganizationDialog({
     const made: Team = { id: "", name, role: "Admin", members: [{ ...you, role: "Admin" }], invitations: [], notes: [] }
     const wrong = problemWith(emails, made)
     setProblem(wrong)
-    if (!wrong) onInvite(emails)
+
+    if (!wrong) {
+      onInvite(emails)
+    }
   }
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md" {...(finalFocus ? { finalFocus } : {})}>

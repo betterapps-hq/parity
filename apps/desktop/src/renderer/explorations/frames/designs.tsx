@@ -34,6 +34,7 @@ type Palette = (typeof palettes)[DesignTheme]
 /** The project's background and text color in a theme: what a frame or a preview is filled with. */
 export function designSurface(theme: DesignTheme): CSSProperties {
   const palette = palettes[theme]
+
   return { background: palette.background, color: palette.foreground }
 }
 
@@ -92,6 +93,7 @@ function Plan({ plan, palette }: { plan: (typeof plans)[number]; palette: Palett
 export function PricingPage({ width, theme }: { width: number; theme: DesignTheme }) {
   const palette = palettes[theme]
   const narrow = width < 600
+
   return (
     <div className="flex flex-col font-sans" style={{ width, ...designSurface(theme) }}>
       <header
@@ -155,6 +157,7 @@ export function PricingPage({ width, theme }: { width: number; theme: DesignThem
 /** The example's Plan card component, at its own size. */
 export function PlanCard({ theme = "light" }: { theme?: DesignTheme }) {
   const palette = palettes[theme]
+
   return (
     <div className="w-[320px] p-px font-sans" style={designSurface(theme)}>
       <Plan plan={plans[1]!} palette={palette} />
@@ -168,6 +171,7 @@ export function PlanCard({ theme = "light" }: { theme?: DesignTheme }) {
  */
 export function WelcomeSketch({ width = 720, height = 440 }: { width?: number; height?: number }) {
   const palette = palettes.light
+
   return (
     <div className="flex gap-8 p-10 font-sans" style={{ width, height, ...designSurface("light") }}>
       <div className="flex flex-1 flex-col gap-4">

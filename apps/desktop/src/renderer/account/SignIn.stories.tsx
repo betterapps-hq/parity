@@ -18,7 +18,9 @@ const meta = {
   title: "Parity/Sign in",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const ada = { email: "ada@kestrel.dev", name: "Ada Lovelace" }
@@ -29,14 +31,19 @@ const url = "https://api.workos.com/user_management/authorize?client_id=client_s
 function Seeded({ state, dialog, children }: { state: AccountState; dialog?: boolean; children: ReactNode }) {
   useLayoutEffect(() => {
     setStoryAccount(state)
-    if (dialog) accountActions.open()
+
+    if (dialog) {
+      accountActions.open()
+    }
   }, [state, dialog])
+
   return children
 }
 
 /** The window below its title bar, showing the sign-in screen as the first launch does. */
 function Screen({ state }: { state: AccountState }) {
   const { state: shown } = useAccount()
+
   return (
     <Seeded state={state}>
       <div className="flex h-screen min-h-[600px] flex-col bg-background text-foreground">
@@ -164,6 +171,7 @@ const own: SignedInAccount = {
   organizations: [kestrel, engines],
   provider: "GoogleOAuth"
 }
+
 const work: SignedInAccount = {
   email: "ada.lovelace@contoso.com",
   name: "Ada Lovelace",
@@ -176,8 +184,13 @@ const work: SignedInAccount = {
 /** Signed in to `accounts`, in the first whose session is still going, as main says it. */
 function signedInTo(accounts: SignedInAccount[], untilQuit = false): AccountState {
   const here = accounts.find((each) => !each.ended)
-  if (!here) return { ...signedOut, accounts }
+
+  if (!here) {
+    return { ...signedOut, accounts }
+  }
+
   const { provider: _provider, ended: _ended, ...person } = here
+
   return { ...signedOut, account: { ...person, untilQuit }, accounts }
 }
 

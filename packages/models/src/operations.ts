@@ -49,9 +49,13 @@ export const Operations = z
   .superRefine((model, context) => uniqueIds(model.operations, ["operations"], context))
 
 export type JsonSchema = z.infer<typeof JsonSchema>
+
 export type HttpMethod = z.infer<typeof HttpMethod>
+
 export type OperationError = z.infer<typeof OperationError>
+
 export type Operation = z.infer<typeof Operation>
+
 export type Operations = z.infer<typeof Operations>
 
 export function parseOperations(value: unknown): Operations {

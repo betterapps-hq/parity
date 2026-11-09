@@ -5,7 +5,7 @@ import { AppWindow } from "../App.tsx"
 import { showConsole } from "../chrome/ConsolePanel.tsx"
 import { setLayout } from "../chrome/layout.ts"
 import { design, example, onCanvas } from "../stories/fixtures.tsx"
-import { shapeIdFor } from "./CanvasEditor.tsx"
+import { canvasIdFor } from "./CanvasEditor.tsx"
 
 /**
  * Designs on the canvas, each on its board: the title above it, then a frame for each mode it shows, side by side, and
@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Screens in the modes they show beside their main one: dark desktop and light mobile next to light desktop. */
@@ -46,8 +47,11 @@ export const EveryStateZoomedOut: Story = onCanvas(
   () => example().store.updateView(design("Button"), "Show every state", (view) => ({ ...view, allStates: true })),
   () => {
     const { editor } = example()
-    const bounds = editor?.getShapePageBounds(shapeIdFor(design("Button")))
-    if (editor && bounds) editor.zoomToBounds(bounds, { targetZoom: 1 / 3 })
+    const bounds = editor?.getShapePageBounds(canvasIdFor(design("Button")))
+
+    if (editor && bounds) {
+      editor.zoomToBounds(bounds, { targetZoom: 1 / 3 })
+    }
   }
 )
 
@@ -120,8 +124,12 @@ export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], () =>
 /** Free text notes beside a design, for comments and to-dos on the canvas. */
 export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
   const { store, editor } = example()
-  const bounds = editor?.getShapePageBounds(shapeIdFor(design("Pricing")))
-  if (!editor || !bounds) return
+  const bounds = editor?.getShapePageBounds(canvasIdFor(design("Pricing")))
+
+  if (!editor || !bounds) {
+    return
+  }
+
   const notes = [
     store.addNote(store.mainPath, {
       id: "story-note-plans",
@@ -135,8 +143,9 @@ export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
       position: { x: bounds.maxX + 80, y: bounds.y + 260 }
     })
   ]
+
   await new Promise((resolve) => setTimeout(resolve, 300))
-  const boxes = [bounds, ...notes.flatMap((key) => editor.getShapePageBounds(shapeIdFor(key)) ?? [])]
+  const boxes = [bounds, ...notes.flatMap((key) => editor.getShapePageBounds(canvasIdFor(key)) ?? [])]
   editor.zoomToBounds(Box.Common(boxes), { inset: 48 })
 })
 

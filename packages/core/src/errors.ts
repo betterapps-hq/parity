@@ -46,9 +46,10 @@ const errorDetailsSchema = z.object({
   /** The request field at fault, as a path: `design`, `state`, `edits/0/find`. */
   field: z.string().min(1).optional().catch(undefined),
   /** Valid references to use instead of an unknown or ambiguous one, at most `alternativeLimit` of them. */
+  // An item that isn't a string reads as `null` and is dropped, so the strings around it still count.
   alternatives: z
-    .array(z.unknown())
-    .transform((items) => items.filter((item) => typeof item === "string").slice(0, alternativeLimit))
+    .array(z.string().nullable().catch(null))
+    .transform((items) => items.filter((item) => item !== null).slice(0, alternativeLimit))
     .optional()
     .catch(undefined)
 })
@@ -75,11 +76,15 @@ export function unknownReference(
   candidates: readonly string[],
   field?: string
 ): CodedError {
-  return new CodedError(message, {
-    code,
-    ...(field === undefined ? {} : { field }),
-    alternatives: closest(reference, candidates)
-  })
+  const details: Omit<ErrorDetails, "retryable"> = { code }
+
+  if (field !== undefined) {
+    details.field = field
+  }
+
+  details.alternatives = closest(reference, candidates)
+
+  return new CodedError(message, details)
 }
 
 /**
@@ -88,36 +93,49 @@ export function unknownReference(
  */
 export function closest(reference: string, candidates: readonly string[], limit = alternativeLimit): string[] {
   const unique = [...new Set(candidates)]
-  if (unique.length <= limit) return unique
+
+  if (unique.length <= limit) {
+    return unique
+  }
+
   const wanted = reference.toLowerCase()
+
   const ranked = unique.map((candidate, index) => {
     const lower = candidate.toLowerCase()
     const near = wanted.length > 0 && (lower.includes(wanted) || wanted.includes(lower))
+
     return { candidate, index, near: near ? 0 : 1, distance: near ? 0 : editDistance(wanted, lower) }
   })
+
   ranked.sort((a, b) => a.near - b.near || a.distance - b.distance || a.index - b.index)
+
   return ranked.slice(0, limit).map(({ candidate }) => candidate)
 }
 
 /** How many single-character insertions, deletions or substitutions turn one string into the other. */
 function editDistance(a: string, b: string): number {
   let previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+
   for (let i = 1; i <= a.length; i++) {
     const row = [i]
+
     for (let j = 1; j <= b.length; j++) {
       row[j] = Math.min(previous[j]! + 1, row[j - 1]! + 1, previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1))
     }
+
     previous = row
   }
+
   return previous[b.length]!
 }
 
 /** A thrown value's details, when it carries them. */
-export function errorDetails(error: unknown): ErrorDetails | undefined {
-  return error instanceof CodedError ? error.details : undefined
+export function errorDetails(cause: unknown): ErrorDetails | undefined {
+  return cause instanceof CodedError ? cause.details : undefined
 }
 
 /** Details that came from another process, checked before they're trusted. Anything malformed reads as none. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: details from another process are parsed here
 export function readErrorDetails(value: unknown): ErrorDetails | undefined {
   return errorDetailsSchema.safeParse(value).data
 }

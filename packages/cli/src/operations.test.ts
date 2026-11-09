@@ -29,6 +29,7 @@ const { requests, run, mcp } = fixture
 const tab = { id: "project", name: "Project" }
 const screenshot: ExecReply = { ok: true, applied: false, output: [], warnings: [], created: {}, screenshots: [] }
 const problems: ProblemsResponse = { tab, design: { id: "home", name: "Home" }, problems: [], frames: 1, warnings: [] }
+
 const accessibility: AccessibilityResponse = {
   tab,
   design: { id: "home", name: "Home" },
@@ -36,11 +37,13 @@ const accessibility: AccessibilityResponse = {
   frames: 1,
   warnings: []
 }
+
 const consoleReply = { tab, entries: [] }
 const consoleResult: ConsoleResponse = { ...consoleReply, total: 0, truncated: false }
 const noTokens = { tokens: [], total: 0, truncated: false }
 const components: ComponentsResponse = { components: ["Button", "Card"] }
 const props: PropsResponse = { component: "Button", known: true, props: [] }
+
 const sidebar: PropsResponse = {
   component: "nova/Sidebar",
   path: "@buildkit/nova",
@@ -62,6 +65,7 @@ const sidebar: PropsResponse = {
     }
   }
 }
+
 const status: StatusResponse = {
   tab,
   revision: "a1b2c3d4:3",
@@ -74,6 +78,7 @@ const status: StatusResponse = {
   undo: { count: 3 },
   redo: { count: 0 }
 }
+
 const modes: ModesResponse = {
   tab,
   variables: [
@@ -95,6 +100,7 @@ const modes: ModesResponse = {
   ],
   designs: [{ id: "home", name: "Home", state: "default", states: ["default"], main: "mobile-light", beside: [] }]
 }
+
 const reported: ReportResponse = {
   feedbackId: "0a1b2c",
   link: "https://sentry.io/organizations/better-apps/projects/parity-desktop/events/0a1b2c/",
@@ -103,7 +109,9 @@ const reported: ReportResponse = {
   tags: { tab: "Project", design: "home", state: "default", node: "title" },
   attachments: ["screenshot.png", "home default mobile-light.png", "events.jsonl"]
 }
+
 const project = resolve("some/../project")
+
 interface Case {
   name: string
   cli: string[]
@@ -119,6 +127,7 @@ interface Case {
   /** MCP's text when it differs: data results are compact JSON there. */
   mcpText?: string
 }
+
 const cases: Case[] = [
   {
     name: "tabs",
@@ -279,6 +288,7 @@ const cases: Case[] = [
     text: describeReport(reported)
   }
 ]
+
 function expectedReply(text: string, structured: unknown, isError = false, images: Screenshot[] = []) {
   return {
     jsonrpc: "2.0",
@@ -293,17 +303,21 @@ function expectedReply(text: string, structured: unknown, isError = false, image
     }
   }
 }
+
 /** An invalid request's structured failure, pointing at the field. */
 function invalid(message: string, path?: string) {
   return { error: { code: "invalid_input", message, retryable: false, ...(path ? { path } : {}) } }
 }
+
 /** What reaches the app: each transport's request, with the tab the CLI routed it to; `tabs` asks no more than routing. */
 function expectRequests(method: string, params: Record<string, unknown>) {
   const { routing } = operations[method as keyof typeof operations]
   const sent = routing === "tab" || routing === "tab-or-any" ? { tab: fixtureTab.id, ...params } : params
   expect(requests).toHaveLength(routing === "copies" ? 0 : 2)
-  for (const request of requests)
+
+  for (const request of requests) {
     expect(request).toEqual(expect.objectContaining({ method, params: sent, agent: "Contract Caller" }))
+  }
 }
 
 describe("remaining transport contracts", processTests, () => {
@@ -320,10 +334,12 @@ describe("remaining transport contracts", processTests, () => {
     "keeps $name JSON output and explicit tab selection",
     async (entry) => {
       fixture.response = { result: entry.result }
+
       const [cli, protocol] = await Promise.all([
         run([...entry.cli, "--json", "--tab", "project"]),
         mcp({ ...entry.input, tab: "project" }, entry.tool)
       ])
+
       expect(cli.code).toBe(0)
       expect(JSON.parse(cli.stdout)).toEqual(entry.structured)
       expect(toolReply(protocol.stdout)).toEqual(expectedReply(entry.mcpText ?? entry.text, entry.structured))
@@ -339,11 +355,13 @@ describe("remaining transport contracts", processTests, () => {
         error: "Shop is still opening",
         details: { code: "tab_not_ready", retryable: true }
       }
+
       const [cli, json, protocol] = await Promise.all([
         run(entry.cli),
         run([...entry.cli, "--json"]),
         mcp(entry.input, entry.tool)
       ])
+
       expect(cli.code).toBe(1)
       expect(cli.stderr.trim()).toBe("Shop is still opening")
       const failure = { error: { code: "tab_not_ready", message: "Shop is still opening", retryable: true } }
@@ -593,14 +611,17 @@ describe("remaining transport contracts", processTests, () => {
     const shots = [{ path: "/shot.png", png: "AA==", design: "home", state: "default", mode: "desktop" }]
     const result = { ...screenshot, screenshots: shots }
     fixture.response = { result }
+
     const [cli, protocol] = await Promise.all([
       run(["screenshot", "home", "--json"]),
       mcp({ design: "home" }, "screenshot")
     ])
+
     const structured = {
       ...result,
       screenshots: [{ path: "/shot.png", design: "home", state: "default", mode: "desktop" }]
     }
+
     expect(JSON.parse(cli.stdout)).toEqual(structured)
     expect(toolReply(protocol.stdout)).toEqual(
       expectedReply(describeExec(execResponse(result)), structured, false, shots)
@@ -610,10 +631,12 @@ describe("remaining transport contracts", processTests, () => {
   it("bounds tokens to the limit, the first ones, and says how many there were", async () => {
     const token = (name: string) => ({ name, category: "color", source: "semantic", values: { default: "#000" } })
     fixture.response = { result: [token("a"), token("b"), token("c")] }
+
     const [cli, protocol] = await Promise.all([
       run(["tokens", "--limit", "2", "--json"]),
       mcp({ limit: 2 }, "get_tokens")
     ])
+
     const structured = { tokens: [token("a"), token("b")], total: 3, truncated: true }
     expect(JSON.parse(cli.stdout)).toEqual(structured)
     expect(toolReply(protocol.stdout)).toEqual(expectedReply(describeTokens(structured), structured))
@@ -630,11 +653,14 @@ describe("remaining transport contracts", processTests, () => {
       first: last,
       last
     })
+
     fixture.response = { result: { tab, entries: [entry("one", 1), entry("two", 2), entry("three", 3)] } }
+
     const [cli, protocol] = await Promise.all([
       run(["console", "--limit", "2", "--json"]),
       mcp({ limit: 2 }, "get_console")
     ])
+
     const structured = { tab, entries: [entry("two", 2), entry("three", 3)], total: 3, truncated: true }
     expect(JSON.parse(cli.stdout)).toEqual(structured)
     expect(toolReply(protocol.stdout)).toEqual(
@@ -701,11 +727,13 @@ describe("remaining transport contracts", processTests, () => {
     }
   ])("signals $tool failures consistently with full details", async ({ cli: args, tool, result, text }) => {
     fixture.response = { result }
+
     const [cli, json, protocol] = await Promise.all([
       run(args),
       run([...args, "--json"]),
       mcp({ design: "home" }, tool)
     ])
+
     expect(cli.code).toBe(1)
     expect(cli.stdout.trim()).toBe(text)
     expect(json.code).toBe(1)
@@ -734,6 +762,7 @@ describe("remaining transport contracts", processTests, () => {
       run(["skill", path, "--json"]),
       mcp({ path }, "read_skill")
     ])
+
     expect(cli.code).toBe(1)
     const failure = JSON.parse(json.stdout)
     expect(failure.error).toEqual(expect.objectContaining({ code: "invalid_input", path: "/path" }))
@@ -780,6 +809,7 @@ describe("remaining transport contracts", processTests, () => {
     },
     { tool: "get_modes", input: { mode: "mobile" }, error: "Unknown input field mode", path: "/mode" }
   ]
+
   it.each(malformedMcp)("rejects malformed MCP $tool arguments without RPC", async ({ tool, input, error, path }) => {
     const protocol = await mcp(input, tool)
     expect(toolReply(protocol.stdout)).toEqual(expectedReply(error, invalid(error, path), true))
@@ -796,6 +826,7 @@ describe("remaining transport contracts", processTests, () => {
         params: { name: "get_tabs", arguments: [] }
       }) + "\n"
     )
+
     expect(toolReply(protocol.stdout)).toEqual(
       expectedReply("Operation input must be an object", invalid("Operation input must be an object"), true)
     )
@@ -815,7 +846,8 @@ describe("remaining transport contracts", processTests, () => {
         }
       })
     )
-    for (const entry of cases)
+
+    for (const entry of cases) {
       expect(toolReply(protocol.stdout)).toEqual(
         expect.objectContaining({
           result: {
@@ -825,6 +857,7 @@ describe("remaining transport contracts", processTests, () => {
           }
         })
       )
+    }
   })
 
   // Published from the zod schemas (PAR-590): clients that take anyOf but not oneOf, and pattern, still read them.
@@ -870,11 +903,13 @@ describe("remaining transport contracts", processTests, () => {
     const fromVariable = await run(["report", "Wrong colour", "--state", "error"], "", { PARITY_TEST_RUN: "pass-7" })
     expect(fromVariable.code).toBe(0)
     await run(["report", "Wrong colour", "--test-run", "pass-8"], "", { PARITY_TEST_RUN: "pass-7" })
+
     const sent = (testRun: string, state?: string) =>
       expect.objectContaining({
         method: "report",
         params: { tab: fixtureTab.id, message: "Wrong colour", ...(state ? { state } : {}), testRun }
       })
+
     expect(requests).toEqual([sent("pass-7", "error"), sent("pass-8")])
   })
 

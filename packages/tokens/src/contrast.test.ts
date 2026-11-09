@@ -13,6 +13,7 @@ const light = {
   "neutral-600": "#525252",
   "neutral-400": "#a1a1a1"
 }
+
 const dark = {
   foreground: "#fafafa",
   "muted-foreground": "#a1a1a1",
@@ -59,6 +60,7 @@ describe("contrastFix", () => {
     const fix = contrastFix([frame("#737373", "#f5f5f5", light), frame("#a1a1a1", "#171717", dark)], {
       current: "muted-foreground"
     })
+
     expect(fix?.token).toBe("primary")
     expect(fix?.ratios).toEqual([16.44, 14.23])
   })
@@ -68,6 +70,7 @@ describe("contrastFix", () => {
       current: "muted-foreground",
       preferred: new Set(["foreground", "muted-foreground", "primary", "destructive"])
     })
+
     expect(fix?.token).toBe("primary")
   })
 

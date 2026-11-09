@@ -61,6 +61,7 @@ export function DesignRender({
   const onPhone = mobile ? phoneScreens[kind] : undefined
   const Screen = onPhone ?? screens[kind]
   const size = onPhone ? phone : desktop
+
   return (
     <Scaled width={size.width} height={size.height} className={className} style={style}>
       <div className="size-full overflow-hidden bg-(--r-bg) text-(--r-fg) antialiased" style={lookVars(look)}>

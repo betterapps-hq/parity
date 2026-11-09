@@ -18,13 +18,25 @@ export type TokenMap = ReadonlyMap<string, Token>
  */
 export function comesTo(tokens: TokenMap, name: string, theme = "default", depth = 0): string | undefined {
   const token = tokens.get(name)
-  if (!token) return undefined
+
+  if (!token) {
+    return undefined
+  }
+
   const value = token.values[theme] ?? token.values.default ?? ""
-  if (depth > 8) return value
+
+  if (depth > 8) {
+    return value
+  }
+
   if (token.derived) {
     const base = px(comesTo(tokens, token.derived.from, theme, depth + 1) ?? "")
-    if (Number.isFinite(base)) return `${Number((base * token.derived.factor).toFixed(2))}px`
+
+    if (Number.isFinite(base)) {
+      return `${Number((base * token.derived.factor).toFixed(2))}px`
+    }
   }
+
   return substituteReferences(value, (reference) => comesTo(tokens, reference, theme, depth + 1))
 }
 
@@ -43,6 +55,7 @@ export function inTokenOrder(
   const byName = new Map(tokens.map((token) => [token.name, token]))
   const types = matchDescribed(described, tokens).byName
   const lookup = defaultValues(tokens)
+
   return orderTokens(
     tokens,
     (token) => ({

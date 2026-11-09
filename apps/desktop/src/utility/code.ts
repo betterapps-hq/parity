@@ -11,7 +11,14 @@ const largestFile = 1024 * 1024
 export async function readProjectFile(root: string, path: string): Promise<{ text: string }> {
   const file = resolve(root, path)
   const inside = relative(root, file)
-  if (!inside || inside.startsWith("..") || isAbsolute(inside)) throw new Error(`${path} isn't in the project's folder`)
-  if ((await stat(file)).size > largestFile) throw new Error(`${path} is too big to show; open it in your editor`)
+
+  if (!inside || inside.startsWith("..") || isAbsolute(inside)) {
+    throw new Error(`${path} isn't in the project's folder`)
+  }
+
+  if ((await stat(file)).size > largestFile) {
+    throw new Error(`${path} is too big to show; open it in your editor`)
+  }
+
   return { text: await readFile(file, "utf8") }
 }

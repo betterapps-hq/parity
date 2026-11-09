@@ -6,12 +6,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { describeLogs, type LogEvent, readLogs } from "./logs.ts"
 
 let folder: string
+
 beforeEach(() => {
   folder = mkdtempSync(join(tmpdir(), "parity-logs-"))
 })
+
 afterEach(() => rmSync(folder, { recursive: true, force: true }))
 
 const trace = "4bf92f3577b34da6a3ce929d0e0e4736"
+
 const event = (name: string, overrides: Partial<LogEvent> = {}): LogEvent => ({
   process: "main",
   installId: "install",
@@ -22,6 +25,7 @@ const event = (name: string, overrides: Partial<LogEvent> = {}): LogEvent => ({
   attributes: {},
   ...overrides
 })
+
 const lines = (...events: LogEvent[]) => events.map((value) => `${JSON.stringify(value)}\n`).join("")
 
 /** Two runs over two days and a rolled-over file, with a line a crash cut short. */
@@ -131,10 +135,12 @@ describe("the skill's example", () => {
     const guide = readFileSync(new URL("../skills/guide/checking.md", import.meta.url), "utf8")
     const example = /`parity logs ([^`]*)`/.exec(guide)?.[1]
     expect(example).toBeDefined()
+
     const { values } = parseArgs({
       args: example?.split(" ") ?? [],
       options: { level: { type: "string" }, since: { type: "string" } }
     })
+
     const now = Date.parse("2026-11-06T09:01:00.000Z")
     expect(names(readLogs(values, { folder, now }))).toEqual(["render.failed"])
   })

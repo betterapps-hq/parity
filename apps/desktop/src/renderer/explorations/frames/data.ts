@@ -8,7 +8,11 @@ export const modes: readonly ResolvedMode[] = resolveModes(defaultModeSettings)
 
 export function mode(id: string): ResolvedMode {
   const found = modes.find((candidate) => candidate.id === id)
-  if (!found) throw new Error(`No mode ${id}`)
+
+  if (!found) {
+    throw new Error(`No mode ${id}`)
+  }
+
   return found
 }
 
@@ -37,8 +41,10 @@ export const framePresets: readonly FramePreset[] = modes.reduce<FramePreset[]>(
   const option = each.options.find(({ variable }) => variable.kind === "viewport")?.option
   const name = option?.name ?? each.name
   const found = presets.find((preset) => preset.name === name)
-  if (found) found.modes.push(each.name)
-  else {
+
+  if (found) {
+    found.modes.push(each.name)
+  } else {
     presets.push({
       mode: each,
       name,
@@ -47,5 +53,6 @@ export const framePresets: readonly FramePreset[] = modes.reduce<FramePreset[]>(
       modes: [each.name]
     })
   }
+
   return presets
 }, [])

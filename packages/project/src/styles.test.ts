@@ -69,6 +69,7 @@ describe("stylesheetImports", () => {
       'import App from "./App"',
       'import "@mantine/core/styles.css"'
     ].join("\n")
+
     expect(stylesheetImports(source)).toEqual(["./reset.css", "../theme/site.scss", "@mantine/core/styles.css"])
   })
 })

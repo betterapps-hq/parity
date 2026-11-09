@@ -16,7 +16,10 @@ const scrubber = createScrubber()
 
 /** The commit a checkout run from source is at, which names its release, or none outside a Git checkout. */
 function commitOf(folder: string | undefined): string | undefined {
-  if (!folder) return undefined
+  if (!folder) {
+    return undefined
+  }
+
   try {
     return execFileSync("git", ["rev-parse", "HEAD"], { cwd: folder, encoding: "utf8", windowsHide: true }).trim()
   } catch {
@@ -29,6 +32,7 @@ const releases = new Map<string, string>()
 function releaseOf(run: Batch["run"]): string {
   const key = `${run.version}|${run.published}|${run.commit ?? run.source ?? ""}`
   let release = releases.get(key)
+
   if (release === undefined) {
     release = telemetryRelease({
       project: "parity-cli",
@@ -38,6 +42,7 @@ function releaseOf(run: Batch["run"]): string {
     })
     releases.set(key, release)
   }
+
   return release
 }
 
@@ -48,12 +53,17 @@ function send(batch: Batch): void {
   adoptDebugIds(batch)
   // Logs take these from the client's options as they're captured, so each batch sets them before its own.
   const options = Sentry.getClient()?.getOptions()
-  if (options) Object.assign(options, { environment: run.environment, release })
+
+  if (options) {
+    Object.assign(options, { environment: run.environment, release })
+  }
+
   Sentry.withScope((scope) => {
     scope.clearBreadcrumbs()
     scope.setTags(run.tags)
     scope.setUser(run.user)
     const labelled = { environment: run.environment, release }
+
     for (const item of batch.items) {
       switch (item.kind) {
         case "breadcrumb":
@@ -64,7 +74,10 @@ function send(batch: Batch): void {
           break
         case "log":
           Sentry.withScope((inner) => {
-            if (item.log.traceId) inner.setPropagationContext({ traceId: item.log.traceId, sampleRand: Math.random() })
+            if (item.log.traceId) {
+              inner.setPropagationContext({ traceId: item.log.traceId, sampleRand: Math.random() })
+            }
+
             // A log takes no scope tags, so the run's tags go in its attributes, to filter logs as errors are.
             Sentry.logger[item.log.level](item.log.message, { ...run.tags, ...item.log.attributes })
           })
@@ -90,6 +103,7 @@ function send(batch: Batch): void {
 }
 
 const folder = process.argv[2]
+
 if (folder) {
   Sentry.init({
     dsn,

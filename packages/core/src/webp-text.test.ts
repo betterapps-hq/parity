@@ -11,20 +11,24 @@ function layout(webp: Uint8Array) {
   const view = new DataView(webp.buffer, webp.byteOffset, webp.byteLength)
   const types: string[] = []
   let at = 12
+
   while (at + 8 <= webp.length) {
     const size = view.getUint32(at + 4, true)
     types.push(String.fromCharCode(...webp.subarray(at, at + 4)))
     at += 8 + size + (size % 2)
   }
+
   return { types, whole: view.getUint32(4, true) + 8 === webp.length && at === webp.length }
 }
 
 /** The canvas size and alpha flag the extended header gives. */
 function extended(webp: Uint8Array) {
   const view = new DataView(webp.buffer, webp.byteOffset, webp.byteLength)
-  const width = (view.getUint32(24, true) & 0xffffff) + 1
-  const height = (view.getUint32(27, true) & 0xffffff) + 1
-  return { width, height, alpha: (webp[20]! & 0x10) !== 0 }
+  // Each size is the low 24 bits, less one; the alpha flag is bit 4 of the first byte.
+  const width = (view.getUint32(24, true) % 2 ** 24) + 1
+  const height = (view.getUint32(27, true) % 2 ** 24) + 1
+
+  return { width, height, alpha: Math.floor(webp[20]! / 2 ** 4) % 2 === 1 }
 }
 
 describe("withWebpText", () => {

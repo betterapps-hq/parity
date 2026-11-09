@@ -20,7 +20,10 @@ export const accent = { "--parity": "oklch(0.7 0.16 275)" } as CSSProperties
 
 /** When it was opened, or where it is when that isn't known. */
 function openedLine(project: KnownProject, now: number): string {
-  if (project.opened === undefined) return project.root.slice(0, -project.name.length - 1) || project.root
+  if (project.opened === undefined) {
+    return project.root.slice(0, -project.name.length - 1) || project.root
+  }
+
   return `Opened ${whenLabel(project.opened, now)}`
 }
 
@@ -46,6 +49,7 @@ function ProjectMenu({
   className?: string
 }) {
   const actions = useStartActions()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -99,6 +103,7 @@ export function ProjectCard({
   const [hovered, setHovered] = useState(false)
   const name = useScreenName(project, screen)
   const open = () => (project.missing ? folderMissing(project, onRemove) : actions.open(project.root))
+
   return (
     <article
       className="group/card relative flex min-w-0 flex-col gap-2.5"
@@ -173,6 +178,10 @@ export function ProjectCard({
  */
 function screenUnder(art: HTMLElement | null, x: number, y: number, count: number): number {
   const box = art?.getBoundingClientRect()
-  if (!box || count < 2 || y > box.bottom || box.width === 0) return 0
+
+  if (!box || count < 2 || y > box.bottom || box.width === 0) {
+    return 0
+  }
+
   return Math.min(count - 1, Math.max(0, Math.floor(((x - box.left) / box.width) * count)))
 }

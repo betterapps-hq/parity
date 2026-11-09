@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
-import { imageLimit, imageTypes } from "@parity-app/editor"
+import { imageExtension, imageLimit } from "@parity-app/editor"
 import type { ServiceMethods } from "../shared/protocol.ts"
 import { applyProjectEdit } from "./edits.ts"
 import type { OpenProject } from "./projects.ts"
@@ -14,23 +14,38 @@ export async function importImage(
   project: OpenProject,
   { name, type, data }: ServiceMethods["images.import"]["params"]
 ): Promise<ServiceMethods["images.import"]["result"]> {
-  const extension = Object.hasOwn(imageTypes, type) ? imageTypes[type] : undefined
-  if (!extension) throw new Error(`${type} images can't be added. Use a PNG, JPEG, GIF, WebP or SVG.`)
+  const extension = imageExtension(type)
+
+  if (!extension) {
+    throw new Error(`${type} images can't be added. Use a PNG, JPEG, GIF, WebP or SVG.`)
+  }
+
   const bytes = Buffer.from(data, "base64")
-  if (bytes.length > imageLimit) throw new Error("The image is larger than 20 MB")
+
+  if (bytes.length > imageLimit) {
+    throw new Error("The image is larger than 20 MB")
+  }
+
   const hash = createHash("sha256").update(bytes).digest("hex").slice(0, 8)
+
   const base =
     name
       .replaceAll(/[^a-z0-9-]+/gi, "-")
       .replaceAll(/^-|-$/g, "")
       .toLowerCase() || "image"
+
   const file = `${base}-${hash}.${extension}`
   const path = `public/images/${file}`
   const saved = { src: `/images/${file}`, path }
-  if (existsSync(join(project.info.root, path))) return saved
+
+  if (existsSync(join(project.info.root, path))) {
+    return saved
+  }
+
   const edit = await applyProjectEdit(project, {
     label: "Add image",
     files: [{ kind: "create", path, content: bytes }]
   })
+
   return { ...saved, edit }
 }

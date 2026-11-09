@@ -12,17 +12,31 @@ export const reactProductionMode = "react-production"
 
 /** The build a `--react` flag names, where none is the development build. */
 export function reactBuild(value: string | undefined): ReactBuild {
-  if (value === undefined || value === "development") return "development"
-  if (value === "production") return "production"
+  if (value === undefined || value === "development") {
+    return "development"
+  }
+
+  if (value === "production") {
+    return "production"
+  }
+
   throw new Error(`--react is ${JSON.stringify(value)}, but it takes "production" or "development"`)
 }
 
 /** The build `--react` names among a script's arguments, and the arguments left once it's taken out. */
 export function reactFlag(args: readonly string[]): { build: ReactBuild; rest: string[] } {
   const index = args.indexOf("--react")
-  if (index === -1) return { build: "development", rest: [...args] }
+
+  if (index === -1) {
+    return { build: "development", rest: [...args] }
+  }
+
   const value = args[index + 1]
-  if (value === undefined || value.startsWith("--")) throw new Error('--react needs "production" or "development"')
+
+  if (value === undefined || value.startsWith("--")) {
+    throw new Error('--react needs "production" or "development"')
+  }
+
   return { build: reactBuild(value), rest: args.filter((_, at) => at !== index && at !== index + 1) }
 }
 
@@ -48,7 +62,10 @@ const noModule = /(?!)/
  * would be taken in and never drawn again, where without it the page reloads.
  */
 export function reactBuildConfig(build: ReactBuild): ReactBuildConfig {
-  if (build === "development") return { react: {}, alias: {}, dependencies: {} }
+  if (build === "development") {
+    return { react: {}, alias: {}, dependencies: {} }
+  }
+
   return {
     react: { include: noModule },
     alias: { "react/jsx-dev-runtime": jsxDevRuntimeStandIn },

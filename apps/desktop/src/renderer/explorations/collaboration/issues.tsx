@@ -69,16 +69,27 @@ export function LinearMark({ size = 16, className }: { size?: number; className?
 
 /** A tracker's own mark, in its colors where it has them. */
 export function TrackerMark({ id, size = 16, className = "" }: { id: TrackerId; size?: number; className?: string }) {
-  if (id === "github") return <GitHubMark size={size} className={className} />
-  if (id === "azure") return <AzureDevOpsMark size={size} className={className} />
+  if (id === "github") {
+    return <GitHubMark size={size} className={className} />
+  }
+
+  if (id === "azure") {
+    return <AzureDevOpsMark size={size} className={className} />
+  }
+
   return <LinearMark size={size} className={`text-[#8b93f8] ${className}`} />
 }
 
 /** An issue's status as its tracker words it: grey while open, amber while someone's on it, violet once done. */
 function IssueStatus({ status }: { status: LinkedIssue["status"] }) {
   let tone = "bg-muted text-muted-foreground"
-  if (status.done) tone = "bg-[oklch(0.62_0.18_300/0.18)] text-[oklch(0.8_0.12_300)]"
-  else if (status.active) tone = "bg-[oklch(0.8_0.14_75/0.16)] text-[oklch(0.85_0.12_75)]"
+
+  if (status.done) {
+    tone = "bg-[oklch(0.62_0.18_300/0.18)] text-[oklch(0.8_0.12_300)]"
+  } else if (status.active) {
+    tone = "bg-[oklch(0.8_0.14_75/0.16)] text-[oklch(0.85_0.12_75)]"
+  }
+
   return <span className={`shrink-0 rounded-full px-1.5 py-px text-[11px] font-medium ${tone}`}>{status.label}</span>
 }
 
@@ -96,6 +107,7 @@ export function IssueLink({
   onResolve?: () => void
 }) {
   const tracker = trackers[issue.tracker]
+
   return (
     <>
       <div className="flex items-center gap-2 border-b py-1.5 pr-1.5 pl-3 text-xs">
@@ -129,8 +141,10 @@ function suggestedTitle(thread: ThreadData): string {
     .replace(/\{([^}]+)\}/g, "$1")
     .replace(/@[A-Z][a-z]+(?: [A-Z][a-z]+)?\s*/g, "")
     .trim()
+
   const sentence = /^[^.?!]+[.?!]?/.exec(text)?.[0] ?? text
   const title = sentence.charAt(0).toUpperCase() + sentence.slice(1)
+
   return title.length > 72 ? `${title.slice(0, 71).trimEnd()}…` : title
 }
 
@@ -138,15 +152,28 @@ let nextNumber = 142
 
 /** What a tracker calls the place an issue goes. */
 function placeLabel(id: TrackerId): string {
-  if (id === "github") return "Repository"
-  if (id === "linear") return "Team"
+  if (id === "github") {
+    return "Repository"
+  }
+
+  if (id === "linear") {
+    return "Team"
+  }
+
   return "Project"
 }
 
 function newKey(tracker: Tracker, place: string): string {
   const number = nextNumber++
-  if (tracker.id === "linear") return `${/\(([A-Z]+)\)/.exec(place)?.[1] ?? "ISS"}-${number}`
-  if (tracker.id === "azure") return `#${1000 + number}`
+
+  if (tracker.id === "linear") {
+    return `${/\(([A-Z]+)\)/.exec(place)?.[1] ?? "ISS"}-${number}`
+  }
+
+  if (tracker.id === "azure") {
+    return `#${1000 + number}`
+  }
+
   return `#${300 + number}`
 }
 
@@ -193,10 +220,12 @@ export function IssueDialog({
   const [title, setTitle] = useState(() => suggestedTitle(thread))
   const [withComments, setWithComments] = useState(true)
   const [query, setQuery] = useState("")
+
   const choose = (id: TrackerId) => {
     setChosen(id)
     setPlace(trackers[id].places[0]!)
   }
+
   const create = () => {
     onLink({
       tracker: chosen,
@@ -207,10 +236,13 @@ export function IssueDialog({
     })
     onOpenChange(false)
   }
+
   const matches = existing[chosen].filter((issue) =>
     `${issue.key} ${issue.title}`.toLowerCase().includes(query.trim().toLowerCase())
   )
+
   const comments = thread.comments.length
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 p-0 sm:max-w-md">
@@ -353,6 +385,7 @@ export function OrgTrackers({ added, onChange }: { added: Tracker[]; onChange: (
       <div className="flex flex-col p-1.5">
         {Object.values(trackers).map((tracker) => {
           const on = added.some((candidate) => candidate.id === tracker.id)
+
           return (
             <div key={tracker.id} className="flex items-center gap-3 rounded-lg px-2.5 py-2">
               <span className="grid size-8 place-items-center rounded-lg border bg-background">

@@ -47,10 +47,21 @@ function meta(component: SampleComponent): { text: string; tone?: string } | und
     "server-only": "text-muted-foreground",
     "draws-nothing": "text-muted-foreground"
   }
-  if (component.state in problem) return { text: stateWords[component.state].long, tone: problem[component.state] }
+
+  if (component.state in problem) {
+    return { text: stateWords[component.state].long, tone: problem[component.state] }
+  }
+
   const variants = Object.values(component.variants ?? {}).reduce((sum, options) => sum + options.length, 0)
-  if (variants > 0) return { text: `${Object.keys(component.variants!).join(" and ")}, ${variants} options` }
-  if (component.family && component.group !== "kit") return { text: component.family }
+
+  if (variants > 0) {
+    return { text: `${Object.keys(component.variants!).join(" and ")}, ${variants} options` }
+  }
+
+  if (component.family && component.group !== "kit") {
+    return { text: component.family }
+  }
+
   return undefined
 }
 
@@ -67,7 +78,8 @@ function ComponentItem({
   const hover = useHoverCard(card ?? false)
   const about = meta(component)
   let item: ReactNode
-  if (view === "grid")
+
+  if (view === "grid") {
     item = (
       <button
         type="button"
@@ -83,7 +95,7 @@ function ComponentItem({
         </span>
       </button>
     )
-  else if (view === "list")
+  } else if (view === "list") {
     item = (
       <button
         type="button"
@@ -101,7 +113,7 @@ function ComponentItem({
         </span>
       </button>
     )
-  else
+  } else {
     item = (
       <button
         type="button"
@@ -114,6 +126,8 @@ function ComponentItem({
         <span className="truncate">{component.name}</span>
       </button>
     )
+  }
+
   return (
     <Popover open={hover.open} onOpenChange={hover.setOpen} modal={false}>
       <PopoverTrigger render={item} onClick={(event) => event.preventBaseUIHandler()} />
@@ -149,13 +163,16 @@ export function ComponentsPanel({
   const [view, setView] = useState(initialView)
   const [query, setQuery] = useState(initialQuery)
   const needle = query.trim().toLowerCase()
+
   const shown = components.filter(
     (component) =>
       (!needle || component.name.toLowerCase().includes(needle)) &&
       // A provider or another export that draws nothing stays out unless it's searched for by name.
       (component.state !== "draws-nothing" || needle.length > 0)
   )
+
   const groups = Map.groupBy(shown, (component) => component.group)
+
   return (
     <>
       <div className="flex items-center gap-1 px-2 pt-2">
@@ -262,8 +279,13 @@ function Problem({ component }: { component: SampleComponent }) {
       act: ["Open file"]
     }
   }
+
   const entry = actions[component.state]
-  if (!entry) return null
+
+  if (!entry) {
+    return null
+  }
+
   return (
     <div className="flex flex-col gap-2 border-t p-3">
       <p className="text-xs">{entry.say}</p>
@@ -291,6 +313,7 @@ export function ComponentCard({ component, insert = true }: { component: SampleC
   const [variant, setVariant] = useState<string>()
   const [axis, options] = Object.entries(component.variants ?? {})[0] ?? []
   const drawn = component.state === "ready" || component.state === "stale"
+
   return (
     <div className="flex flex-col">
       <div className="p-2">
@@ -417,13 +440,14 @@ export function InsertPicker({ highlighted = "Project card", query }: { highligh
   const basic = basics.find((entry) => entry.label === active)
   const groups = Map.groupBy(insertable, (component) => component.group)
   let detail: ReactNode = <div className="flex-1" />
-  if (current)
+
+  if (current) {
     detail = (
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ComponentCard component={current} insert={false} />
       </div>
     )
-  else if (basic)
+  } else if (basic) {
     detail = (
       <div className="flex flex-1 flex-col gap-2 p-3">
         <span className="grid h-44 place-items-center rounded-md border bg-muted/40 [&>*]:scale-[3]">{basic.art}</span>
@@ -433,6 +457,8 @@ export function InsertPicker({ highlighted = "Project card", query }: { highligh
         <span className="px-1 text-xs text-muted-foreground">Goes where a paste would: into the selected layout.</span>
       </div>
     )
+  }
+
   return (
     <div className="flex h-[490px] w-[760px] overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-2xl">
       <Command value={active} onValueChange={setActive} loop className="w-[400px] shrink-0 rounded-none border-r">

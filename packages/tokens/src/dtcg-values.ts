@@ -35,6 +35,7 @@ const colorObject = z.object({
     .regex(/^#[\da-f]{6}$/i, "expected a 6-digit hex color such as #0a0a0a")
     .optional()
 })
+
 const color = z.union([css, colorObject])
 
 const dimensionObject = z.object({
@@ -42,6 +43,7 @@ const dimensionObject = z.object({
   // DTCG names px and rem; libgen also writes em, and CSS takes any unit.
   unit: z.string().regex(/^([a-z]+|%)$/i, "expected a unit such as px or rem")
 })
+
 const dimension = z.union([css, dimensionObject])
 
 const duration = z.union([css, z.object({ value: finiteNumber, unit: z.enum(["ms", "s"]) })])
@@ -71,6 +73,7 @@ const shadowLayer = z.object({
   spread: dimension.default("0"),
   inset: z.boolean().default(false)
 })
+
 const shadow = z.union([css, shadowLayer, z.array(z.union([css, shadowLayer])).min(1)])
 
 const gradient = z.union([css, z.array(z.object({ color, position: finiteNumber })).min(1)])
@@ -105,29 +108,60 @@ export const valueTypes: ReadonlyMap<string, z.ZodType<string>> = new Map<string
 
 /** A value of a type Parity has no schema for, or of no type, written by its shape. */
 export function untypedCss(value: unknown): string {
-  if (typeof value === "string") return value
-  if (typeof value === "number") return String(value)
-  if (Array.isArray(value)) return value.map(untypedCss).join(" ")
+  if (typeof value === "string") {
+    return value
+  }
+
+  if (typeof value === "number") {
+    return String(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(untypedCss).join(" ")
+  }
+
   const asColor = colorObject.safeParse(value)
-  if (asColor.success) return colorCss(asColor.data)
+
+  if (asColor.success) {
+    return colorCss(asColor.data)
+  }
+
   const asDimension = dimensionObject.safeParse(value)
-  if (asDimension.success) return dimensionCss(asDimension.data)
+
+  if (asDimension.success) {
+    return dimensionCss(asDimension.data)
+  }
+
   return JSON.stringify(value) ?? ""
 }
 
 const colorFunctions = new Set(["hsl", "hwb", "lab", "lch", "oklab", "oklch"])
 
 function colorCss(value: z.infer<typeof color>): string {
-  if (typeof value === "string") return value
+  if (typeof value === "string") {
+    return value
+  }
+
   const alpha = value.alpha !== undefined && value.alpha < 1 ? value.alpha : undefined
-  if (value.hex && alpha === undefined) return value.hex
+
+  if (value.hex && alpha === undefined) {
+    return value.hex
+  }
+
   const slash = alpha === undefined ? "" : ` / ${alpha}`
+
   if (value.colorSpace === "srgb") {
     const [r, g, b] = value.components.map((part) => (part === "none" ? part : Math.round(part * 255)))
+
     return `rgb(${r} ${g} ${b}${slash})`
   }
+
   const components = value.components.join(" ")
-  if (colorFunctions.has(value.colorSpace)) return `${value.colorSpace}(${components}${slash})`
+
+  if (colorFunctions.has(value.colorSpace)) {
+    return `${value.colorSpace}(${components}${slash})`
+  }
+
   return `color(${value.colorSpace} ${components}${slash})`
 }
 
@@ -153,36 +187,56 @@ function strokeStyleCss(value: z.infer<typeof strokeStyle>): string {
 }
 
 function borderCss(value: z.infer<typeof border>): string {
-  if (typeof value === "string") return value
+  if (typeof value === "string") {
+    return value
+  }
+
   return `${dimensionCss(value.width)} ${strokeStyleCss(value.style)} ${colorCss(value.color)}`
 }
 
 function transitionCss(value: z.infer<typeof transition>): string {
-  if (typeof value === "string") return value
+  if (typeof value === "string") {
+    return value
+  }
+
   return `${dimensionCss(value.duration)} ${cubicBezierCss(value.timingFunction)} ${dimensionCss(value.delay)}`
 }
 
 function shadowCss(value: z.infer<typeof shadow>): string {
-  if (typeof value === "string") return value
+  if (typeof value === "string") {
+    return value
+  }
+
   const layers = Array.isArray(value) ? value : [value]
+
   return layers.map((layer) => (typeof layer === "string" ? layer : shadowLayerCss(layer))).join(", ")
 }
 
 function shadowLayerCss(layer: z.infer<typeof shadowLayer>): string {
   const lengths = [layer.offsetX, layer.offsetY, layer.blur, layer.spread].map(dimensionCss).join(" ")
+
   return `${layer.inset ? "inset " : ""}${lengths} ${colorCss(layer.color)}`
 }
 
 function gradientCss(value: z.infer<typeof gradient>): string {
-  if (typeof value === "string") return value
+  if (typeof value === "string") {
+    return value
+  }
+
   const stops = value.map((stop) => `${colorCss(stop.color)} ${Math.round(stop.position * 1000) / 10}%`)
+
   return `linear-gradient(${stops.join(", ")})`
 }
 
 function typographyCss(value: z.infer<typeof typography>): string {
-  if (typeof value === "string") return value
+  if (typeof value === "string") {
+    return value
+  }
+
   const { lineHeight } = value
+
   const line =
     lineHeight === undefined ? "" : `/${typeof lineHeight === "object" ? dimensionCss(lineHeight) : lineHeight}`
+
   return `${value.fontWeight} ${dimensionCss(value.fontSize)}${line} ${fontFamilyCss(value.fontFamily)}`
 }

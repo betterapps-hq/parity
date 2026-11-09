@@ -14,6 +14,7 @@ import {
   withLibraryCanvas
 } from "./library.ts"
 import { componentLibrary, resolveDesign } from "./render.ts"
+import type { JsonValue } from "./schema.ts"
 import { isSampleRender } from "./values/evaluate.ts"
 
 describe("parseLibraryManifest", () => {
@@ -28,6 +29,7 @@ describe("parseLibraryManifest", () => {
         { id: "sm", name: "Small", width: 640 }
       ]
     })
+
     expect(manifest).toEqual({
       version: 3,
       id: "nova",
@@ -59,6 +61,7 @@ describe("parseLibraryManifest", () => {
         }
       ]
     }
+
     const manifest = parseLibraryManifest({ version: 3, name: "Nova", tokens: "tokens.resolver.json", canvas })
     expect(manifest.tokens).toBe("tokens.resolver.json")
     expect(libraryCanvas(manifest).containers[0]?.position).toEqual({ x: 120, y: 40 })
@@ -104,6 +107,7 @@ describe("libraryDesigns", () => {
     },
     states: [{ id: "default", name: "Default" }]
   }
+
   const settingsList: ContainerSpec = {
     id: "settings-list",
     name: "Settings list",
@@ -117,6 +121,7 @@ describe("libraryDesigns", () => {
     },
     states: [{ id: "default", name: "Default" }]
   }
+
   const screen: ContainerSpec = {
     id: "showcase",
     name: "Showcase",
@@ -124,6 +129,7 @@ describe("libraryDesigns", () => {
     root: { type: "instance", id: "list", design: "settings-list" },
     states: []
   }
+
   const manifest = { canvas: { version: 3 as const, containers: [settingsRow, settingsList, screen] } }
 
   it("names a library's component designs by the library, with their instances following, and leaves out screens", () => {
@@ -138,6 +144,7 @@ describe("libraryDesigns", () => {
 
   it("renders where an app places one, linked or detached", () => {
     const library = componentLibrary(libraryDesigns(manifest, "nova"))
+
     const page: ContainerSpec = {
       id: "settings",
       name: "Settings",
@@ -145,6 +152,7 @@ describe("libraryDesigns", () => {
       root: { type: "layout", id: "page", children: [{ type: "instance", id: "row", design: "nova/settings-row" }] },
       states: []
     }
+
     const linked = resolveDesign(page.root, undefined, "desktop", library)
     expect(JSON.stringify(linked)).toContain('"component":"nova/Switch"')
     expect(JSON.stringify(linked)).toContain("Notifications")
@@ -227,12 +235,15 @@ describe("library manifest fields", () => {
   it("reads each icon shape: one export per icon, data drawn by one component, and styles in names", () => {
     const lucide = parseLibraryManifest({ version: 3, name: "Lucide", icons: { render: "export", exclude: ["Icon"] } })
     expect(lucide.icons).toEqual({ render: "export", exclude: ["Icon"] })
+
     const huge = parseLibraryManifest({
       version: 3,
       name: "Hugeicons",
       icons: { render: { import: "@hugeicons/react", component: "HugeiconsIcon", prop: "icon" }, match: "Icon$" }
     })
+
     expect(huge.icons?.render).toEqual({ import: "@hugeicons/react", component: "HugeiconsIcon", prop: "icon" })
+
     const fluentIcons = parseLibraryManifest({
       version: 3,
       name: "Fluent icons",
@@ -241,11 +252,13 @@ describe("library manifest fields", () => {
         variants: { pattern: "^(?<name>.+?)(?<size>\\d+)?(?<style>Regular|Filled)$", styles: ["Regular", "Filled"] }
       }
     })
+
     expect(new RegExp(fluentIcons.icons!.variants!.pattern!).exec("Add24Filled")?.groups).toMatchObject({
       name: "Add",
       size: "24",
       style: "Filled"
     })
+
     const hero = parseLibraryManifest({
       version: 3,
       name: "Heroicons",
@@ -258,6 +271,7 @@ describe("library manifest fields", () => {
         }
       }
     })
+
     expect(hero.icons?.variants?.modules?.["24 Solid"]).toBe("@heroicons/react/24/solid")
     expect(() =>
       parseLibraryManifest({ version: 3, name: "x", icons: { render: "export", variants: { modules: { Solid: 1 } } } })
@@ -270,6 +284,7 @@ describe("library manifest fields", () => {
       name: "Lucide",
       icons: { render: "export", tags: { Settings: ["cog", "gear"] }, tagSource: "lucide-static@1.63.0/tags.json" }
     })
+
     expect(lucide.icons?.tags).toEqual({ Settings: ["cog", "gear"] })
     expect(lucide.icons?.tagSource).toBe("lucide-static@1.63.0/tags.json")
     expect(() =>
@@ -283,6 +298,7 @@ describe("library manifest fields", () => {
       name: "Phosphor",
       icons: { render: "export", prefer: ["GearIcon"] }
     })
+
     expect(phosphor.icons?.prefer).toEqual(["GearIcon"])
     expect(() => parseLibraryManifest({ version: 3, name: "x", icons: { render: "export", prefer: [1] } })).toThrow(
       /\/icons\/prefer\/0/
@@ -305,8 +321,9 @@ describe("library manifest fields", () => {
   })
 
   it("checks a decorator's values when the file loads, and says where a value form is wrong", () => {
-    const decorated = (value: unknown) => () =>
+    const decorated = (value: JsonValue) => () =>
       parseLibraryManifest({ version: 3, name: "x", decorators: [{ attributes: { "data-x": value } }] })
+
     const at = "/decorators/0/attributes/data-x"
     expect(decorated({ $frame: "window" })).toThrow(`${at}/$frame: expected one of "root", "host"`)
     expect(decorated({ $call: { export: "createTheme" } })).toThrow(`${at}/$call/import: expected a string`)
@@ -321,13 +338,17 @@ describe("library manifest fields", () => {
     expect(parseLibraryManifest({ version: 3, name: "x", decorators: [{ style: plain }] }).decorators).toEqual([
       { style: plain }
     ])
-    const forms = [
+
+    const forms: JsonValue[] = [
       { $import: "pkg", export: "theme" },
       { $call: { import: "pkg", export: "make" }, args: [{ $frame: "host" }], methods: [{ method: "create" }] },
       { $global: "theme", values: { dark: "dark" }, default: "light" },
       { $function: { $frame: "body" } }
     ]
-    for (const value of forms) expect(decorated(value)).not.toThrow()
+
+    for (const value of forms) {
+      expect(decorated(value)).not.toThrow()
+    }
   })
 
   it("points at the decorators in a manifest's edits where they sit", () => {
@@ -341,6 +362,7 @@ describe("library manifest fields", () => {
         "/version: expected 3"
       )
     }
+
     expect(withLibraryCanvas(fluent, { version: 3, containers: [] }).version).toBe(3)
   })
 
@@ -356,6 +378,7 @@ describe("library manifest fields", () => {
       decorators: [{ wrap: { import: "bootstrap-provider", component: "Provider" } }],
       designs: [{ root: { props: { value: { $import: "lazy-design-module", export: "value" } } } }]
     }
+
     expect(libraryImports(library)).toEqual(["bootstrap-provider"])
   })
 
@@ -382,6 +405,7 @@ describe("library manifest fields", () => {
         variants: { modules: { Solid: "@real/pkg/solid" } }
       }
     }
+
     const aliased = (specifier: string) => specifier.replace(/^@real\/pkg/, "@alias/pkg")
     expect(libraryImports(manifest).sort()).toEqual([
       "@real/pkg",
@@ -416,6 +440,7 @@ describe("library manifest fields", () => {
     expect(libraryImports(remapLibraryImports(manifest, aliased)).sort()).toEqual(
       libraryImports(manifest).sort().map(aliased)
     )
+
     // Ordinary component data is not a module reference, even when its keys look like manifest fields.
     const data = {
       decorators: [
@@ -432,6 +457,7 @@ describe("library manifest fields", () => {
         }
       ]
     }
+
     expect(remapLibraryImports(data, aliased).decorators[0]?.wrap.props).toEqual(data.decorators[0]?.wrap.props)
     expect(libraryImports(data)).toEqual(["@real/pkg"])
   })
@@ -475,9 +501,11 @@ describe("imports in library designs and samples", () => {
         ]
       }
     }
+
     const mapped = remapLibraryImports(manifest, (name) =>
       name === "real" ? "alias" : name.replace(/^real\//, "alias/")
     )
+
     expect(mapped.components.import).toBe("alias")
     expect(mapped.components.list.Button.sample.props).toEqual({
       data: { import: "real" },
@@ -542,6 +570,7 @@ describe("parts, samples and hand edits", () => {
         }
       }
     })
+
     const child = manifest.components?.list.DateInput?.sample?.children?.[0]
     expect(isSampleRender(child) && child.pass).toEqual(["segment"])
     expect(() =>
@@ -562,6 +591,7 @@ describe("parts, samples and hand edits", () => {
         Added: { as: "function", group: "Menu" }
       }
     })
+
     const { manifest, orphans } = applyLibraryEdits(generated, edits)
     expect(manifest.components?.list.MenuItem).toMatchObject({
       parents: ["Menu", "MenuContent"],

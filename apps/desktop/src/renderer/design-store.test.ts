@@ -20,25 +20,34 @@ function setup({ autosave = false, failing = false, home = design("home") } = {}
   const tokenWrites: TokenWrite[][] = []
   let fail = failing
   let stylesheetFailure: string | undefined
+
   const store = new DesignStore(
     [{ path: "app.par", document: { version: 3, containers: [home] } }],
     defaultModeSettings,
     "app.par",
     {
       saveDocument: async (path, document) => {
-        if (fail) throw new Error("The disk is full")
+        if (fail) {
+          throw new Error("The disk is full")
+        }
+
         writes.push({ path, document })
       },
       autosave: () => autosave
     }
   )
+
   store.writeTokensWith({
     path: "src/index.css",
     write: async (changes) => {
-      if (stylesheetFailure) throw new Error(stylesheetFailure)
+      if (stylesheetFailure) {
+        throw new Error(stylesheetFailure)
+      }
+
       tokenWrites.push(changes)
     }
   })
+
   return {
     store,
     writes,
@@ -66,16 +75,20 @@ afterEach(() => {
 describe("library designs", () => {
   it("reach the designs that place them, and are never written to the project's files", async () => {
     const row = { ...design("nova/settings-row"), kind: "component" as const }
+
     const home = {
       ...design("home"),
       root: { type: "instance" as const, id: "row", design: "nova/settings-row" }
     }
+
     const writes: string[][] = []
+
     const persistence = {
       saveDocument: async (_path: string, document: CanvasDocument) =>
         void writes.push(document.containers.map((container) => container.id)),
       autosave: () => false
     }
+
     const store = new DesignStore(
       [{ path: "app.par", document: { version: 3, containers: [home] } }],
       defaultModeSettings,
@@ -83,6 +96,7 @@ describe("library designs", () => {
       persistence,
       [row]
     )
+
     expect(store.getComponentLibrary().get("nova/settings-row")).toBe(row)
     // What agents' snapshots carry, to build the same library.
     expect(store.getLibraryDesigns()).toEqual([row])
@@ -171,16 +185,19 @@ describe("saving", () => {
 describe("gestures", () => {
   const rename = (store: DesignStore, name: string, gesture?: string) =>
     store.updateContainer("app.par#home", "Rename", (container) => ({ ...container, name }), { gesture })
+
   const name = (store: DesignStore) => store.getEntry("app.par#home")?.container.name
 
   it("makes a gesture's changes one step until it ends, and gives each gesture its own id", () => {
     vi.useFakeTimers()
     const { store } = setup()
     const first = store.beginGesture()
+
     for (const step of ["One", "Two", "Three"]) {
       rename(store, step, first)
       vi.advanceTimersByTime(5000)
     }
+
     store.endGesture(first)
     rename(store, "Four", first)
     const second = store.beginGesture()
@@ -197,6 +214,7 @@ describe("gestures", () => {
 
   it("makes a live drag one step, though it took a side back mid-drag, and none once Escape cancels it", () => {
     vi.useFakeTimers()
+
     // As an absolutely placed layer moved live writes: each move, and back to the checkpoint when a side it moved
     // comes back to where it began.
     const live = (escape: boolean) => {
@@ -210,10 +228,16 @@ describe("gestures", () => {
       rename(store, "Top 4", gesture)
       vi.advanceTimersByTime(3000)
       rename(store, "Top 6", gesture)
-      if (escape) store.revert(checkpoint)
+
+      if (escape) {
+        store.revert(checkpoint)
+      }
+
       store.endGesture(gesture)
+
       return store
     }
+
     const dropped = live(false)
     expect(name(dropped)).toBe("Top 6")
     dropped.undo()
@@ -230,22 +254,36 @@ describe("gestures", () => {
 describe("reverting to a checkpoint", () => {
   const rename = (store: DesignStore, name: string, gesture?: string) =>
     store.updateContainer("app.par#home", "Rename", (container) => ({ ...container, name }), { gesture })
+
   const name = (store: DesignStore) => store.getEntry("app.par#home")?.container.name
+
   /** A checkpoint for a gesture renaming home, "resize". */
   const start = (store: DesignStore) => {
     const checkpoint = store.checkpoint("app.par#home", "resize")
-    if (!checkpoint) throw new Error("No design home")
+
+    if (!checkpoint) {
+      throw new Error("No design home")
+    }
+
     return checkpoint
   }
 
   it("keeps every step before the gesture when its first change pushed the oldest out at the undo limit", () => {
     const { store } = setup()
-    for (let step = 1; step <= historyLimit; step++) rename(store, String(step))
+
+    for (let step = 1; step <= historyLimit; step++) {
+      rename(store, String(step))
+    }
+
     const checkpoint = start(store)
     rename(store, "During", "resize")
     store.revert(checkpoint)
     expect(name(store)).toBe(String(historyLimit))
-    for (let step = 0; step < historyLimit; step++) store.undo()
+
+    for (let step = 0; step < historyLimit; step++) {
+      store.undo()
+    }
+
     expect(name(store)).toBe("home")
     expect(store.getHistory().canUndo).toBe(false)
   })
@@ -255,11 +293,13 @@ describe("reverting to a checkpoint", () => {
     const { store } = setup()
     rename(store, "Before")
     const checkpoint = start(store)
+
     // Written as a pointer moves, some more than a second apart.
     for (const step of ["One", "Two", "Three"]) {
       rename(store, step, "resize")
       vi.advanceTimersByTime(1500)
     }
+
     store.revert(checkpoint)
     expect(name(store)).toBe("Before")
     expect(store.getHistory()).toMatchObject({ canUndo: true, undoLabel: "Rename", canRedo: false })
@@ -389,6 +429,7 @@ describe("token edits", () => {
       saveDocument: async () => undefined,
       autosave: () => false
     })
+
     store.changeTokens("Edit --primary", [primary("red")])
     await expect(store.flush()).rejects.toThrow(
       "Couldn't write --primary to the stylesheet: Nothing here can write to the stylesheet"
@@ -417,6 +458,7 @@ describe("recording undo and redo", () => {
         check: true
       })
     )
+
     try {
       const { store } = setup()
       store.updateContainer("app.par#home", "Rename screen", (container) => ({ ...container, name: "Start" }))

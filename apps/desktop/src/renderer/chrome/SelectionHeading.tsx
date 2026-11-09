@@ -34,6 +34,7 @@ export function SelectionHeading({
   name: ReactNode
 }) {
   const more = detail && detail !== kind ? detail : undefined
+
   return (
     <>
       <Hint label={more} wait>

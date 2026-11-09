@@ -19,7 +19,10 @@ export async function passLink(
   fetch: Fetch
 ): Promise<boolean> {
   for (const copy of copies) {
-    if (copy.app === self) continue
+    if (copy.app === self) {
+      continue
+    }
+
     try {
       const response = await fetch(new URL("/auth/link", copy.url).href, {
         method: "POST",
@@ -27,10 +30,14 @@ export async function passLink(
         body: JSON.stringify({ link }),
         signal: AbortSignal.timeout(5000)
       })
-      if (passedLinkAnswer.safeParse(await response.json()).data?.taken) return true
+
+      if (passedLinkAnswer.safeParse(await response.json()).data?.taken) {
+        return true
+      }
     } catch {
       // A copy that quit, or one from before sign-in, which has no such route.
     }
   }
+
   return false
 }

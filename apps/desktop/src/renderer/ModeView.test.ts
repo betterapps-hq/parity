@@ -69,6 +69,7 @@ export function show(container, { interactive = false, scale = 1, asleep = false
 
 beforeAll(async () => {
   const renderer = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: renderer, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -79,10 +80,13 @@ beforeAll(async () => {
     jsx: "automatic",
     define: { "process.env.NODE_ENV": '"development"', "import.meta.url": '"http://parity.test/app.js"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 900 } })
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   page.on("pageerror", (error) => errors.push(error.message))
   // A file a component moves to, as the project's dev server would build it: a component drawing plain text.
@@ -118,9 +122,11 @@ beforeAll(async () => {
     })
   )
   await page.goto("http://parity.test/")
+
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof app === "object")))
+  if (!(await page.evaluate(() => typeof app === "object"))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
 })
 
 afterAll(async () => {
@@ -161,7 +167,11 @@ function focused() {
   return page.evaluate(() => {
     const host = document.querySelector("[data-frame]")!
     const inside = host.shadowRoot!.activeElement
-    if (inside) return `frame ${inside.localName}`
+
+    if (inside) {
+      return `frame ${inside.localName}`
+    }
+
     return document.activeElement === document.body ? "nothing" : `#${document.activeElement!.id}`
   })
 }
@@ -252,6 +262,7 @@ describe("a frame asleep", () => {
   const frame = () =>
     page.evaluate(() => {
       const host = document.querySelector<HTMLElement>("[data-frame]")!
+
       return {
         design: host.dataset.design,
         elements: host.shadowRoot?.querySelectorAll("*").length ?? 0,
@@ -277,15 +288,18 @@ describe("a frame asleep", () => {
 describe("what the canvas reads from an inert frame", () => {
   it("still finds the layers under the pointer, by their boxes", async () => {
     await show(card)
+
     const path = await page.evaluate((container) => {
       const host = document.querySelector<HTMLElement>("[data-frame]")!
       const box = host.shadowRoot!.querySelector("[data-canvas-node='cancel']")!.getBoundingClientRect()
+
       // @ts-expect-error The bundle's global.
       return app.hitInFrame({ key: "card.par#card", path: "card.par", container }, host, {
         x: box.left + 2,
         y: box.top + 2
       }).path
     }, card)
+
     expect(path).toEqual(["root", "actions", "cancel"])
   })
 
@@ -294,6 +308,7 @@ describe("what the canvas reads from an inert frame", () => {
       // @ts-expect-error The bundle's global.
       (app.tabOrder(document.querySelector("[data-frame]")) as HTMLElement[]).map((element) => element.localName)
     )
+
     expect(order).toEqual(["input", "button"])
   })
 
@@ -301,8 +316,10 @@ describe("what the canvas reads from an inert frame", () => {
     const flows = await page.evaluate(() => {
       // @ts-expect-error The bundle's global.
       const drawn = app.frameDrawn(document.querySelector("#area"), "card", {}, 4)
+
       return { save: drawn.flow("save"), actions: drawn.flow("actions"), two: drawn.flow("two") }
     })
+
     expect(flows).toEqual({
       save: { direction: "row", wraps: false, reversed: false, linesReversed: false },
       actions: { direction: "column", wraps: false, reversed: false, linesReversed: false },
@@ -316,6 +333,7 @@ describe("what the canvas reads from an inert frame", () => {
         // @ts-expect-error The bundle's global.
         app.frameDrawn(document.querySelector("#area"), "card", {}, 4).insets("badge")
       )
+
     // The card is 374px wide, inside the frame body's margins: 93.5 steps, less the badge's 20 and its left inset of 2.
     const expected = { top: 10, left: 2, right: 71.5, bottom: expect.any(Number) }
     expect(await insets()).toEqual(expected)
@@ -352,6 +370,7 @@ describe("a component that failed, moved to another file", () => {
       root: { type: "layout", id: "root", children: [{ type: "component", id: "broken", component: "Broken" }] },
       states: [{ id: "default", name: "Default" }]
     }
+
     const drawn = () => page.evaluate(() => document.querySelector("[data-frame]")!.shadowRoot!.textContent)
     await show(broken, { shows: "failing" })
     await expect.poll(failedBox).toBe("Not built yet")
@@ -378,6 +397,7 @@ describe("a component that fails to draw (PAR-165)", () => {
     },
     states: [{ id: "default", name: "Default" }]
   }
+
   const drawn = () => page.evaluate(() => document.querySelector("[data-frame]")!.shadowRoot!.textContent)
   const failures = () => page.evaluate(() => document.querySelector("#failures")!.textContent)
 

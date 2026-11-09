@@ -63,6 +63,7 @@ export async function savedDetection(
   // None yet, one cut short, or one this version can't read: the checker reads the project again.
   const text = await readFile(cacheFile(root), "utf8").catch(() => undefined)
   const saved = text === undefined ? undefined : savedText.safeParse(text).data
+
   return saved?.fingerprint === fingerprint ? { fingerprint, saved } : { fingerprint }
 }
 
@@ -77,7 +78,10 @@ export async function saveDetection(
   fingerprint: string,
   found: Omit<SavedDetection, "fingerprint">
 ): Promise<void> {
-  if ((await fingerprintOf(root, files, discovered)) !== fingerprint) return
+  if ((await fingerprintOf(root, files, discovered)) !== fingerprint) {
+    return
+  }
+
   try {
     await mkdir(cacheDir, { recursive: true })
     await writeFile(cacheFile(root), JSON.stringify({ fingerprint, ...found }))

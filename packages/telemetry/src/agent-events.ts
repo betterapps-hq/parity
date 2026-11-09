@@ -13,6 +13,7 @@ const count = (meaning: string) => z.number().int().nonnegative().describe(meani
 
 /** How an agent reached the app: the `parity` command, or the MCP server it serves. */
 export const agentTransports = ["cli", "mcp"] as const
+
 export type AgentTransport = (typeof agentTransports)[number]
 
 export const agentCalled = defineEvent(
@@ -138,22 +139,32 @@ export type AgentCallStart = z.input<typeof agentCalled.schema>
  */
 export function agentCallStart(body: string, scrubber: Pick<Scrubber, "value"> = scrubWithoutSecrets): AgentCallStart {
   let sent: Record<string, unknown> | undefined
+
   try {
     sent = record(scrubber.value(JSON.parse(body) as unknown))
   } catch {
     sent = undefined
   }
-  if (!sent) return { method: "unreadable", transport: "cli" }
+
+  if (!sent) {
+    return { method: "unreadable", transport: "cli" }
+  }
+
   const method = text(sent.method) ?? "unreadable"
   const agent = text(sent.agent)
   const client = text(sent.client)
   let transport: AgentTransport = client === undefined ? "cli" : "mcp"
-  if (sent.transport === "cli" || sent.transport === "mcp") transport = sent.transport
+
+  if (sent.transport === "cli" || sent.transport === "mcp") {
+    transport = sent.transport
+  }
+
   const params = record(sent.params)
   const snippet = method === "exec" ? text(params?.code) : undefined
   const rest = snippet === undefined ? params : { ...params, code: undefined }
   const json = rest ? JSON.stringify(rest) : "{}"
   const input = json === "{}" ? undefined : cut(json, inputLimit)
+
   return {
     method,
     transport,
@@ -167,6 +178,7 @@ export function agentCallStart(body: string, scrubber: Pick<Scrubber, "value"> =
 /** A failure's code, whether it says to retry and how many alternatives it offers, from its `details`. */
 function failureAttributes(details: unknown, code: string | undefined): Record<string, unknown> {
   const { retryable, alternatives } = record(details) ?? {}
+
   return {
     ...(code ? { code } : {}),
     ...(typeof retryable === "boolean" ? { retryable } : {}),
@@ -176,13 +188,22 @@ function failureAttributes(details: unknown, code: string | undefined): Record<s
 
 /** The warning groups' categories with how many places each, in the order they came: `overlap:2 unknown_prop:1`. */
 function warningCategories(groups: unknown): string | undefined {
-  if (!Array.isArray(groups)) return undefined
+  if (!Array.isArray(groups)) {
+    return undefined
+  }
+
   const counts = new Map<string, number>()
+
   for (const group of groups) {
     const { category, count: places } = record(group) ?? {}
-    if (typeof category !== "string") continue
+
+    if (typeof category !== "string") {
+      continue
+    }
+
     counts.set(category, (counts.get(category) ?? 0) + (typeof places === "number" ? places : 1))
   }
+
   return counts.size > 0 ? [...counts].map(([category, places]) => `${category}:${places}`).join(" ") : undefined
 }
 
@@ -194,14 +215,20 @@ export function agentCallAnswered(result: unknown, resultBytes: number): SpanEnd
   const answer = record(result)
   const warnings = warningCategories(answer?.warningGroups)
   const attributes: Record<string, unknown> = { resultBytes, ...(warnings ? { warnings } : {}) }
-  if (answer?.ok !== false) return { outcome: "ok", attributes }
+
+  if (answer?.ok !== false) {
+    return { outcome: "ok", attributes }
+  }
+
   const details = record(answer.details)
   const code = text(details?.code) ?? "execution_failed"
+
   return { outcome: "error", attributes: { ...attributes, ...failureAttributes(details, code) } }
 }
 
 /** How a failed call's span ends: its code, whether to retry, and how many alternatives it offered. */
 export function agentCallFailed(error: unknown): SpanEnd {
   const details = record(error)?.details
+
   return { outcome: "error", attributes: failureAttributes(details, errorCode(error)) }
 }

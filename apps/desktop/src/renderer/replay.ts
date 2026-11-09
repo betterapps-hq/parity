@@ -38,28 +38,47 @@ export function pageHolds(
 ): () => () => void {
   let holds = 0
   let paused: PageRecorder | undefined
+
   const resume = () => {
-    if (holds > 0 || !paused) return
+    if (holds > 0 || !paused) {
+      return
+    }
+
     // Replay resumes on its own when someone clicks, and stops for good if diagnostics are turned off.
-    if (paused.isPaused() && paused === recorder()) paused.resume()
+    if (paused.isPaused() && paused === recorder()) {
+      paused.resume()
+    }
+
     paused = undefined
   }
+
   return () => {
     if (holds++ === 0 && !paused) {
       const current = recorder()
+
       if (current?.isEnabled() && !current.isPaused()) {
         current.pause()
         paused = current
       }
     }
+
     let held = true
+
     const release = () => {
-      if (!held) return
+      if (!held) {
+        return
+      }
+
       held = false
       cancel(timer)
-      if (--holds === 0) later(resume, 0)
+
+      if (--holds === 0) {
+        later(resume, 0)
+      }
     }
+
     const timer = later(release, longestMs)
+
     return release
   }
 }
@@ -97,16 +116,27 @@ export const replayPrivacy = {
  */
 export function followTelemetry(level: TelemetryLevel): void {
   if (level === "off") {
-    if (recording) void Sentry.getReplay()?.stop()
+    if (recording) {
+      void Sentry.getReplay()?.stop()
+    }
+
     recording = false
+
     return
   }
-  if (recording) return
+
+  if (recording) {
+    return
+  }
+
   recording = true
+
   if (added) {
     Sentry.getReplay()?.start()
+
     return
   }
+
   added = true
   // Names, values and pictures are what make a bug findable, as in every other event, so only secrets are hidden. A project's frames and icons are
   // left out, as boxes their size, and their shadow roots are attached where the recorder can't see them (shadow.ts): it

@@ -117,6 +117,7 @@ export interface ComponentSource {
  * what opens or chooses its items by value (an accordion, a navigation menu, tabs) and `value` on those items.
  */
 export const openProps = ["defaultOpen", "defaultValue", "value"] as const
+
 export type OpenProp = (typeof openProps)[number]
 
 /** A component library installed in the project, such as Buildkit's shadcn styles. */

@@ -32,28 +32,47 @@ export async function codeSnapshot(root: string, salt: string): Promise<CodeSnap
   const hash = createHash("sha256").update(salt).update("\0")
   const listed: [string, string][] = []
   await list(resolve(root), resolve(root), listed)
+
   for (const lockfile of await findLockfiles(root)) {
-    if (lockfile.startsWith("../")) listed.push([lockfile, resolve(root, lockfile)])
+    if (lockfile.startsWith("../")) {
+      listed.push([lockfile, resolve(root, lockfile)])
+    }
   }
+
   listed.sort(([a], [b]) => a.localeCompare(b, "en"))
   const files = new Map<string, string>()
+
   for (const [path, absolute] of listed) {
     const info = await stat(absolute).catch(() => undefined)
     const stamp = info ? `${info.size}:${Math.trunc(info.mtimeMs)}` : "-"
     hash.update(`${path}\0${stamp}\0`)
-    if (info) files.set(path, stamp)
+
+    if (info) {
+      files.set(path, stamp)
+    }
   }
+
   return { fingerprint: hash.digest("hex"), files, salt }
 }
 
 async function list(root: string, folder: string, files: [string, string][]): Promise<void> {
   const entries = await opendir(folder).catch(() => undefined)
-  if (!entries) return
+
+  if (!entries) {
+    return
+  }
+
   for await (const entry of entries) {
-    if (files.length >= mostFiles) return
+    if (files.length >= mostFiles) {
+      return
+    }
+
     const absolute = join(folder, entry.name)
+
     if (entry.isDirectory()) {
-      if (!entry.name.startsWith(".") && !skippedFolders.has(entry.name)) await list(root, absolute, files)
+      if (!entry.name.startsWith(".") && !skippedFolders.has(entry.name)) {
+        await list(root, absolute, files)
+      }
     } else if (entry.isFile() && !entry.name.endsWith(".par")) {
       files.push([relative(root, absolute).replaceAll("\\", "/"), absolute])
     }

@@ -71,9 +71,15 @@ function Button({ variant = "default", children = "Button" }: { variant?: string
 
 function Badge({ variant = "default", children = "Badge" }: { variant?: string; children?: ReactNode }) {
   let tone = "bg-(--a-primary) text-(--a-primary-fg)"
-  if (variant === "outline") tone = "border border-(--a-border)"
-  else if (variant === "secondary") tone = "bg-(--a-muted)"
-  else if (variant === "destructive") tone = "bg-(--a-destructive) text-white"
+
+  if (variant === "outline") {
+    tone = "border border-(--a-border)"
+  } else if (variant === "secondary") {
+    tone = "bg-(--a-muted)"
+  } else if (variant === "destructive") {
+    tone = "bg-(--a-destructive) text-white"
+  }
+
   return (
     <span className={`inline-flex h-[22px] items-center rounded-md px-2 text-xs font-medium whitespace-nowrap ${tone}`}>
       {children}
@@ -426,7 +432,11 @@ export function BitmapStandIn({
   const cropped = !page && fit < least
   const scale = page ? width / naturalWidth : Math.max(fit, least)
   let left = 0
-  if (!page) left = cropped ? pad : (width - naturalWidth * scale) / 2
+
+  if (!page) {
+    left = cropped ? pad : (width - naturalWidth * scale) / 2
+  }
+
   return (
     <span
       aria-hidden
@@ -488,8 +498,13 @@ const stateTones: Partial<Record<PreviewState, string>> = {
 /** The icon a component's kind has everywhere: a diamond for a component design, a page for a page. */
 export function KindIcon({ component, className = "size-3.5" }: { component: SampleComponent; className?: string }) {
   let Icon = ComponentIcon
-  if (component.group === "designs") Icon = Diamond
-  else if (component.group === "pages") Icon = MonitorSmartphone
+
+  if (component.group === "designs") {
+    Icon = Diamond
+  } else if (component.group === "pages") {
+    Icon = MonitorSmartphone
+  }
+
   return (
     <Icon
       className={`${className} shrink-0`}
@@ -519,6 +534,7 @@ export function ComponentPreview({
 }) {
   const large = width >= 160
   const frame = `relative shrink-0 overflow-hidden rounded-md ${className}`
+
   if (state === "ready" || state === "stale") {
     return (
       <span className={`${frame} border border-white/10`} style={{ width, height }}>
@@ -537,6 +553,7 @@ export function ComponentPreview({
       </span>
     )
   }
+
   if (state === "making") {
     return (
       <span
@@ -557,7 +574,9 @@ export function ComponentPreview({
       </span>
     )
   }
+
   const Icon = stateIcons[state]
+
   return (
     <span
       className={`${frame} flex flex-col items-center justify-center gap-1.5 bg-muted/60 ${state === "needs-props" ? "border border-dashed border-muted-foreground/40" : "border"}`}

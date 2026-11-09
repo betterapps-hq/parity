@@ -45,6 +45,7 @@ export interface JobFrame {
 /** The job that draws `frame` with `guest`. */
 export function renderJob(guest: JobGuest, frame: JobFrame): RenderJob {
   const { audit, colorTokens, tokens } = frame
+
   return {
     projectId: guest.projectId,
     guestUrl: guest.guestUrl,
@@ -106,6 +107,7 @@ export interface FrameKeys {
 /** A frame's names in the canvas's memory, for the job that draws it with `guest`. */
 export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
   const { mode } = job
+
   const drawn = [
     guest.id,
     JSON.stringify(drawnComponents(job.tree, {}, job.components)),
@@ -113,6 +115,7 @@ export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
     JSON.stringify([mode.classNames, mode.attributes, mode.globals]),
     JSON.stringify(job.tree)
   ].join("|")
+
   const key = [
     drawn,
     JSON.stringify(job.previews ?? []),
@@ -122,6 +125,7 @@ export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
     mode.viewport.height,
     job.scale
   ].join("|")
+
   return { drawn, key }
 }
 
@@ -143,6 +147,7 @@ export function bitmapName(
     ...(job.inlinePortals ? { inlinePortals: true } : {}),
     ...(job.previews ? { previews: job.previews } : {})
   }
+
   return `${JSON.stringify(drawn)}\0${JSON.stringify(drawnComponents(job.tree, served, job.components))}`
 }
 
@@ -185,21 +190,37 @@ export function drawnComponents(
   given: RenderJob["components"] = {}
 ): [string, string | null][] {
   const ids = new Set<string>()
+
   const visit = (value: unknown): void => {
     if (Array.isArray(value)) {
-      for (const item of value) visit(item)
+      for (const item of value) {
+        visit(item)
+      }
     } else if (value && typeof value === "object") {
       const node = value as { kind?: unknown; component?: unknown }
-      if (node.kind === "component" && typeof node.component === "string") ids.add(node.component)
-      for (const child of Object.values(value)) visit(child)
+
+      if (node.kind === "component" && typeof node.component === "string") {
+        ids.add(node.component)
+      }
+
+      for (const child of Object.values(value)) {
+        visit(child)
+      }
     }
   }
+
   visit(tree)
+
   const own = <T>(record: Readonly<Record<string, T>>, id: string) =>
     Object.hasOwn(record, id) ? record[id] : undefined
+
   return [...ids].sort().map((id) => {
     const source: GuestComponentSource | undefined = own(given, id) ?? own(served, id)
-    if (!source) return [id, null]
+
+    if (!source) {
+      return [id, null]
+    }
+
     // A component whose code changed since its guest loaded (PAR-165) names the version, so its old bitmap isn't kept.
     return [id, `${source.path}#${source.export}${source.version === undefined ? "" : `@${source.version}`}`]
   })
@@ -233,6 +254,7 @@ export function frameBox(
   scale: number
 ): { x: number; y: number; width: number; height: number } {
   const css = (value: number) => Math.round((value / scale) * 10) / 10
+
   return {
     x: css(box.left - origin.left),
     y: css(box.top - origin.top),

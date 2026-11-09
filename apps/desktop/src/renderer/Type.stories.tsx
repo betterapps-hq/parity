@@ -28,6 +28,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 interface Role {
@@ -320,6 +321,7 @@ function measure(element: Element): string {
   const style = getComputedStyle(element)
   const px = (value: string) => (value === "normal" ? "normal" : String(Math.round(Number.parseFloat(value) * 10) / 10))
   const tracking = style.letterSpacing === "normal" || style.letterSpacing === "0px" ? "" : ` ${style.letterSpacing}`
+
   return `${px(style.fontSize)}/${px(style.lineHeight)} ${style.fontWeight}${tracking}`
 }
 
@@ -332,8 +334,12 @@ function Specimen({ children }: { children: ReactNode }) {
   const [spec, setSpec] = useState("")
   useLayoutEffect(() => {
     const text = sample.current?.querySelector("[data-sample]") ?? sample.current?.querySelector("h3")
-    if (text) setSpec(measure(text))
+
+    if (text) {
+      setSpec(measure(text))
+    }
   }, [])
+
   return (
     <div className="flex flex-col gap-1.5">
       <div ref={sample}>{children}</div>

@@ -17,6 +17,7 @@ export interface StaticSpanSdk<Callback> {
  */
 export function sentryScrubbing<Callback>(scrubber: Pick<Scrubber, "value">, sdk: StaticSpanSdk<Callback>) {
   const scrub = <T>(item: T): T => scrubber.value(item)
+
   return {
     traceLifecycle: "static" as const,
     beforeSend: scrub,

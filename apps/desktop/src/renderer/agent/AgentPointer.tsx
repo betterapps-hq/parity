@@ -30,6 +30,7 @@ export function AgentPointer({ palette, pressed }: { palette?: AgentPalette; pre
   const gradient = `agent-pointer-${useId().replaceAll(/[^\w-]/g, "")}`
   const color = palette?.color ?? fallbackColor
   const [from, through, to] = palette?.stops ?? [color, color, color]
+
   return (
     <>
       <span
@@ -102,14 +103,41 @@ export function AgentBadge({
 
 /** The icon for a kind of action an agent takes. */
 export function ActionIcon({ kind, className }: { kind?: PresenceEvent["kind"]; className?: string }) {
-  if (kind === "read") return <Eye className={className} />
-  if (kind === "write") return <PenLine className={className} />
-  if (kind === "move") return <Move className={className} />
-  if (kind === "screenshot") return <Camera className={className} />
-  if (kind === "measure") return <Ruler className={className} />
-  if (kind === "accessibility") return <Accessibility className={className} />
-  if (kind === "problems") return <TriangleAlert className={className} />
-  if (kind === "console") return <SquareTerminal className={className} />
-  if (kind === "board") return <LayoutGrid className={className} />
+  if (kind === "read") {
+    return <Eye className={className} />
+  }
+
+  if (kind === "write") {
+    return <PenLine className={className} />
+  }
+
+  if (kind === "move") {
+    return <Move className={className} />
+  }
+
+  if (kind === "screenshot") {
+    return <Camera className={className} />
+  }
+
+  if (kind === "measure") {
+    return <Ruler className={className} />
+  }
+
+  if (kind === "accessibility") {
+    return <Accessibility className={className} />
+  }
+
+  if (kind === "problems") {
+    return <TriangleAlert className={className} />
+  }
+
+  if (kind === "console") {
+    return <SquareTerminal className={className} />
+  }
+
+  if (kind === "board") {
+    return <LayoutGrid className={className} />
+  }
+
   return <Sparkles className={className} />
 }

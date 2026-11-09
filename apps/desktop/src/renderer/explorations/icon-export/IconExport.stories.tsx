@@ -21,6 +21,7 @@ const meta = {
 } satisfies Meta<typeof IconExport>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The set with nothing searched: the dialog offers every icon. */

@@ -29,6 +29,7 @@ const meta = {
 } satisfies Meta<typeof RedlineView>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 interface Box {

@@ -124,9 +124,11 @@ describe("reading a monorepo's packages", () => {
         workspace: "../../packages/ui"
       }
     ])
+
     const fromUi = Object.fromEntries(
       Object.entries(project.components).filter(([, source]) => source.library === "ui")
     )
+
     expect(fromUi).toEqual({
       "ui/Button": {
         path: "@acme/ui",

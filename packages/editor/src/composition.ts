@@ -37,10 +37,14 @@ export interface ComponentComposition {
  * The components it has to go inside: `listed` by its library, outermost first; `none`, when its library lists none or
  * it has drawn on its own; `unknown`, when nothing says, or it fails to draw for want of a provider no library names.
  */
-export type CompositionParents =
-  | { status: "listed"; chain: CompositionParent[]; from?: ParentSignal }
-  | { status: "none" }
-  | { status: "unknown"; reason: string }
+export type CompositionParents = ListedParents | { status: "none" } | { status: "unknown"; reason: string }
+
+/** The parents a component's library lists, outermost first. */
+export interface ListedParents {
+  status: "listed"
+  chain: CompositionParent[]
+  from?: ParentSignal
+}
 
 export interface CompositionParent {
   component: string
@@ -79,13 +83,20 @@ export interface CompositionContext {
 export function componentComposition(component: string, context: CompositionContext): ComponentComposition {
   const source = context.sources[component]
   const status = context.renderStatus?.[component]
+
   const holds = Object.entries(context.sources)
     .filter(([, other]) => other.parents?.at(-1) === component)
     .map(([id]) => id)
     .sort()
+
   let role: ComponentComposition["role"] = "component"
-  if (source?.visual === false) role = "provider"
-  else if (holds.length > 0) role = "wrapper"
+
+  if (source?.visual === false) {
+    role = "provider"
+  } else if (holds.length > 0) {
+    role = "wrapper"
+  }
+
   return {
     component,
     role,
@@ -110,25 +121,41 @@ export function componentExample(
 ): DesignNode {
   const taken = new Set<string>()
   const part = nodeForItem({ kind: "component", component }, info, taken)
+
   return numbered(withLibraryContext(part, sources, [], taken), { next: 1 })
 }
 
 function parentsOf(source: ComponentSource | undefined, status: ComponentRenderStatus | undefined): CompositionParents {
   if (source?.parents?.length) {
     const optional = new Set(source.optionalParents ?? [])
-    return {
-      status: "listed",
-      chain: source.parents.map((component) => ({
-        component,
-        ...(optional.has(component) ? { optional: true as const } : {})
-      })),
-      ...(source.parentsFrom ? { from: source.parentsFrom } : {})
+
+    const chain = source.parents.map((component) => {
+      const parent: CompositionParent = { component }
+
+      if (optional.has(component)) {
+        parent.optional = true
+      }
+
+      return parent
+    })
+
+    const listed: ListedParents = { status: "listed", chain }
+
+    if (source.parentsFrom) {
+      listed.from = source.parentsFrom
     }
+
+    return listed
   }
+
   if (status && "error" in status && renderProblem(status.error) === "provider") {
     return { status: "unknown", reason: describeRenderStatus(status) }
   }
-  if (source?.library || (status && "drawn" in status)) return { status: "none" }
+
+  if (source?.library || (status && "drawn" in status)) {
+    return { status: "none" }
+  }
+
   return {
     status: "unknown",
     reason: "The project's own components don't say what they need around them, and it hasn't drawn yet."
@@ -137,40 +164,64 @@ function parentsOf(source: ComponentSource | undefined, status: ComponentRenderS
 
 function slotsOf(source: ComponentSource | undefined, info: ComponentInfo | undefined): CompositionSlot[] {
   const slots = new Map<string, CompositionSlot>()
+
   for (const prop of info?.props ?? []) {
-    if (prop.kind !== "node") continue
+    if (prop.kind !== "node") {
+      continue
+    }
+
     slots.set(prop.name, { name: prop.name, key: prop.name, kind: prop.name === "children" ? "children" : "element" })
   }
+
   const sample = source?.sample
+
   for (const [name, value] of Object.entries(sample?.props ?? {})) {
-    if (isSampleElement(value)) slots.set(name, { name, key: name, kind: "element" })
+    if (isSampleElement(value)) {
+      slots.set(name, { name, key: name, kind: "element" })
+    }
   }
+
   const render = renderSlotOf(sample)
+
   if (render) {
     slots.set(render.prop, { name: render.prop, key: renderSlotKey(render.prop, render.render), kind: "render" })
   }
+
   // A library part whose sample holds children takes them, though its props haven't been read yet.
   if (!slots.has("children") && sample?.children?.some((child) => !isSampleRender(child))) {
     slots.set("children", { name: "children", key: "children", kind: "children" })
   }
+
   return [...slots.values()].sort((a, b) => Number(b.name === "children") - Number(a.name === "children"))
 }
 
 function exampleStatus(status: ComponentRenderStatus | undefined): Omit<CompositionExample, "node"> {
-  if (!status) return { status: "untried" }
-  if ("drawn" in status) return { status: "drawn" }
+  if (!status) {
+    return { status: "untried" }
+  }
+
+  if ("drawn" in status) {
+    return { status: "drawn" }
+  }
+
   return { status: "failing", reason: describeRenderStatus(status) }
 }
 
 /** A node with its layers' ids replaced by `p1`, `p2` and on, in the order they're met. */
 function numbered(node: DesignNode, count: { next: number }): DesignNode {
   const id = `p${count.next++}`
-  if (node.type === "layout") return { ...node, id, children: node.children.map((child) => numbered(child, count)) }
+
+  if (node.type === "layout") {
+    return { ...node, id, children: node.children.map((child) => numbered(child, count)) }
+  }
+
   if (node.type === "component" && node.slots) {
     const slots = Object.entries(node.slots).map(
       ([slot, children]) => [slot, children.map((child) => numbered(child, count))] as const
     )
+
     return { ...node, id, slots: Object.fromEntries(slots) }
   }
+
   return { ...node, id }
 }

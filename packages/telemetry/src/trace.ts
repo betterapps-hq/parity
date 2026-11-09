@@ -15,7 +15,10 @@ function hex(bytes: Uint8Array): string {
 function randomId(length: number, random: RandomBytes): string {
   for (;;) {
     const id = hex(random(length))
-    if (/[^0]/.test(id)) return id
+
+    if (/[^0]/.test(id)) {
+      return id
+    }
   }
 }
 
@@ -43,10 +46,21 @@ const traceparent = /^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})(
  */
 export function parseTraceparent(header: string): TraceContext | undefined {
   const match = traceparent.exec(header.trim())
-  if (!match) return undefined
+
+  if (!match) {
+    return undefined
+  }
+
   const [, version, traceId, spanId, , rest] = match
-  if (version === "ff" || (version === "00" && rest !== undefined)) return undefined
-  if (!traceId || !spanId || !/[^0]/.test(traceId) || !/[^0]/.test(spanId)) return undefined
+
+  if (version === "ff" || (version === "00" && rest !== undefined)) {
+    return undefined
+  }
+
+  if (!traceId || !spanId || !/[^0]/.test(traceId) || !/[^0]/.test(spanId)) {
+    return undefined
+  }
+
   return { traceId, spanId }
 }
 
@@ -72,25 +86,42 @@ const sentryTrace = /^([0-9a-f]{32})-([0-9a-f]{16})(-[01])?$/
  * repeated headers, given as arrays, are read by their first.
  */
 export function readTraceHeaders(headers: unknown): TraceContext | undefined {
-  if (typeof headers !== "object" || headers === null) return undefined
+  if (typeof headers !== "object" || headers === null) {
+    return undefined
+  }
+
   const first = (value: unknown) => (Array.isArray(value) ? (value as unknown[])[0] : value)
   const sentry = first((headers as Record<string, unknown>)["sentry-trace"])
+
   if (typeof sentry === "string") {
     const match = sentryTrace.exec(sentry.trim())
     const [, traceId, spanId] = match ?? []
-    if (traceId && spanId && /[^0]/.test(traceId) && /[^0]/.test(spanId)) return { traceId, spanId }
+
+    if (traceId && spanId && /[^0]/.test(traceId) && /[^0]/.test(spanId)) {
+      return { traceId, spanId }
+    }
+
     return undefined
   }
+
   const parent = first((headers as Record<string, unknown>).traceparent)
+
   return typeof parent === "string" ? parseTraceparent(parent) : undefined
 }
 
 /** What a failure says its code is: a coded error's `details.code`, or an error's own `code`, such as Node's. */
 export function errorCode(error: unknown): string | undefined {
-  if (typeof error !== "object" || error === null) return undefined
+  if (typeof error !== "object" || error === null) {
+    return undefined
+  }
+
   const { details, code } = error as { details?: { code?: unknown }; code?: unknown }
   const coded = typeof details === "object" && details !== null ? details.code : undefined
-  if (typeof coded === "string") return coded
+
+  if (typeof coded === "string") {
+    return coded
+  }
+
   return typeof code === "string" ? code : undefined
 }
 
@@ -118,6 +149,7 @@ export async function endWhenSettled<T>(
   settled: SettledAs<T> = {}
 ): Promise<T> {
   let result: T
+
   try {
     result = await work()
   } catch (error) {
@@ -128,11 +160,16 @@ export async function endWhenSettled<T>(
       const code = errorCode(error)
       span.end("error", code === undefined ? undefined : { code })
     }
+
     throw error
   }
+
   if (settled.result) {
     const { outcome, attributes } = settled.result(result)
     span.end(outcome, attributes)
-  } else span.end("ok")
+  } else {
+    span.end("ok")
+  }
+
   return result
 }

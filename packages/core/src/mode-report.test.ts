@@ -61,6 +61,7 @@ describe("modesReport", () => {
       ],
       modes: [{ id: "phone", name: "Phone", values: { viewport: "phone" } }]
     }
+
     const report = modesReport(settings)
     expect(report.viewports[0]).toEqual({ id: "phone", name: "Phone", width: 390, height: 700 })
     expect(report.modes[0]).toMatchObject({ viewport: "phone", width: 390, height: 700, values: { viewport: "phone" } })
@@ -85,6 +86,7 @@ describe("designModes", () => {
       view: { mode: "mobile-light", modes: ["desktop-dark", "missing"], state: "empty", allStates: true },
       frames: { mobile: { width: 390, height: 600 } }
     }
+
     expect(designModes(defaultModeSettings, shown, true)).toEqual({
       id: "home",
       name: "Home",
@@ -109,6 +111,7 @@ describe("designModes", () => {
       view: { mode: "mobile-light", modes: ["desktop-dark"] },
       frames: { desktop: { width: 1000 } }
     }
+
     expect(designModes(defaultModeSettings, frame, true)).toEqual({
       id: "home",
       name: "Home",

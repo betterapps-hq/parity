@@ -71,6 +71,7 @@ export const reactFinder: ComponentFinder = {
   }),
   program(root, files) {
     const setup = reactFinder.programSetup(root, readTsconfig(root))
+
     return ts.createProgram({
       rootNames: [...files.map((file) => resolve(root, file)), ...setup.rootNames],
       options: setup.options,
@@ -81,6 +82,7 @@ export const reactFinder: ComponentFinder = {
     const entries = files.map((file) => resolve(root, file))
     const report = findComponents({ entries, root, defaultExports: true, ...(program ? { program } : {}) })
     const pathOf = (entry: string) => relative(root, entry).replaceAll("\\", "/")
+
     return {
       components: report.components.map((component) => ({
         name: component.name,
@@ -124,8 +126,13 @@ export async function findAll(
   const sources = componentIds(found)
   const program = finder.program(root, [...files, ...finder.propsFiles(root, sources)])
   const { added, confirmed, removed } = checkedChanges(sources, finder.check(root, files, program).components)
-  for (const id of removed) delete sources[id]
+
+  for (const id of removed) {
+    delete sources[id]
+  }
+
   Object.assign(sources, confirmed, added)
+
   return appComponents(root, sources, finder.props(root, sources, program))
 }
 
@@ -136,10 +143,16 @@ export function appComponents(
   props: Record<string, ComponentInfo>
 ): AppComponent[] {
   const tsconfig = readTsconfig(root)
+
   return Object.entries(sources).flatMap(([id, source]) => {
     const role = componentRole(source)
-    if (!role) return []
+
+    if (!role) {
+      return []
+    }
+
     const info = props[id]
+
     return [
       {
         id,

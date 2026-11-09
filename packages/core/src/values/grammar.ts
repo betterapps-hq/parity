@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { fileObject, finiteNumber, plainObject } from "../schema.ts"
-import { frameParts, valueForms } from "./evaluate.ts"
+import { frameParts, isComposite, valueForms } from "./evaluate.ts"
 
 const primitives = [z.string(), finiteNumber, z.boolean(), z.null()] as const
 
@@ -37,7 +37,6 @@ export const decoratorValue: z.ZodType<unknown> = z.lazy(() =>
     plain(valueForms, decoratorValue)
   ])
 )
-export type DecoratorValue = unknown
 
 /**
  * A sample's value, which a design node's props copy: JSON, and values the package makes (`$call`), as an example
@@ -49,6 +48,7 @@ export const sampleValue: z.ZodType<unknown> = z.lazy(() =>
 
 /** Something the package exports, such as a theme object. */
 const importedValue = fileObject({ $import: z.string(), export: z.string().optional() })
+
 export type ImportedValue = z.infer<typeof importedValue>
 
 /**
@@ -66,7 +66,9 @@ function made(value: z.ZodType<unknown>) {
     methods: z.array(fileObject({ method: z.string(), args: z.array(value).optional() })).optional()
   })
 }
+
 const madeValue = made(decoratorValue)
+
 export type MadeValue = z.infer<typeof madeValue>
 
 /** Picked by the frame's global, which is the mode's option for that variable, else `default`. */
@@ -75,14 +77,18 @@ const globalValue = fileObject({
   values: z.record(z.string(), decoratorValue),
   default: decoratorValue.optional()
 })
+
 export type GlobalValue = z.infer<typeof globalValue>
 
 /** Part of the frame itself. */
 const frameValue = fileObject({ $frame: z.enum(frameParts) })
+
 export type FrameValue = z.infer<typeof frameValue>
 
 /** A function returning the value it holds. */
 const functionValue = fileObject({ $function: decoratorValue })
+
+export type FunctionValue = z.infer<typeof functionValue>
 
 /**
  * An object with a form's key is that form. Any other object is refused as another type of value would be, which
@@ -92,7 +98,7 @@ function form(key: string, schema: z.ZodType) {
   return z
     .unknown()
     .superRefine((value, context) => {
-      if (!(typeof value === "object" && value !== null && key in value)) {
+      if (!(isComposite(value) && key in value)) {
         context.addIssue({ code: "invalid_type", expected: "object", input: value })
       }
     })

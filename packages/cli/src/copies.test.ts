@@ -23,6 +23,7 @@ interface FakeCopy {
 
 const shop = "/work/shop"
 const blog = "/work/blog"
+
 const person: FakeCopy = {
   app: process.pid,
   startedAt: 1000,
@@ -30,6 +31,7 @@ const person: FakeCopy = {
   focusedAt: 5000,
   requests: []
 }
+
 const session: FakeCopy = {
   app: process.ppid,
   startedAt: 2000,
@@ -37,6 +39,7 @@ const session: FakeCopy = {
   focusedAt: 6000,
   requests: []
 }
+
 /** A copy that quit without removing its entry: no process, nothing listening. */
 const gone = { version: 1, url: "http://127.0.0.1:9", token: "gone", app: 2 ** 31 - 2, startedAt: 500 }
 
@@ -45,26 +48,39 @@ const bin = join(import.meta.dirname, "bin.ts")
 
 beforeAll(async () => {
   registry = await mkdtemp(join(tmpdir(), "parity-copies-"))
+
   for (const copy of [person, session]) {
     copy.server = createServer(async (request, reply) => {
       const chunks: Buffer[] = []
-      for await (const chunk of request) chunks.push(Buffer.from(chunk))
+
+      for await (const chunk of request) {
+        chunks.push(Buffer.from(chunk))
+      }
+
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
         method: string
         params: Record<string, unknown>
       }
+
       reply.setHeader("content-type", "application/json")
+
       if (body.method === "copy") {
         reply.end(JSON.stringify({ result: { tabs: copy.tabs, focusedAt: copy.focusedAt } }))
+
         return
       }
+
       copy.requests.push({ method: body.method, params: body.params })
       const tab = { id: body.params.tab, name: "x", root: body.params.tab, active: true, status: "ready", designs: 0 }
       reply.end(JSON.stringify({ result: emptyState(tab) }))
     })
     await new Promise<void>((resolve) => copy.server!.listen(0, "127.0.0.1", resolve))
     const address = copy.server.address()
-    if (!address || typeof address === "string") throw new Error("No port")
+
+    if (!address || typeof address === "string") {
+      throw new Error("No port")
+    }
+
     const entry = {
       version: 1,
       url: `http://127.0.0.1:${address.port}`,
@@ -72,13 +88,19 @@ beforeAll(async () => {
       app: copy.app,
       startedAt: copy.startedAt
     }
+
     await writeFile(join(registry, `${copy.app}.json`), JSON.stringify(entry))
   }
 })
+
 afterAll(async () => {
-  for (const copy of [person, session]) await new Promise((resolve) => copy.server?.close(resolve))
+  for (const copy of [person, session]) {
+    await new Promise((resolve) => copy.server?.close(resolve))
+  }
+
   await rm(registry, { recursive: true, force: true })
 })
+
 beforeEach(async () => {
   person.requests.length = 0
   session.requests.length = 0
@@ -99,6 +121,7 @@ function run(args: string[], cwd = tmpdir(), input?: string) {
       },
       stdio: ["pipe", "pipe", "pipe"]
     })
+
     // A process that exits before reading its input closes the pipe; its code and output say what happened.
     child.stdin.on("error", () => undefined)
     child.stdin.end(input ?? "")
@@ -117,9 +140,11 @@ async function tool(name: string, input: Record<string, unknown>, cwd = tmpdir()
     { jsonrpc: "2.0", id: 1, method: "initialize", params: { clientInfo: { name: "Copies" } } },
     { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name, arguments: input } }
   ]
+
   const lines = messages.map((message) => JSON.stringify(message) + "\n").join("")
   const { stdout } = await run(["mcp"], cwd, lines)
   const reply = toolReply(stdout) as { result?: { structuredContent?: unknown } } | undefined
+
   return reply?.result?.structuredContent
 }
 
@@ -131,12 +156,14 @@ describe("routing between copies", processTests, () => {
       { method: "state", params: { tab: blog } },
       { method: "state", params: { tab: blog } }
     ])
+
     const [tabs, listed, state, unknown] = await Promise.all([
       run(["tabs"]),
       tool("get_tabs", {}),
       run(["state", "--tab", "docs"]),
       tool("get_app_state", { tab: "docs" })
     ])
+
     expect(listed).toEqual(JSON.parse(tabs.stdout))
     expect(unknown).toEqual(JSON.parse(state.stdout))
   })
@@ -163,6 +190,7 @@ describe("routing between copies", processTests, () => {
     const folder = join(registry, "work")
     await mkdir(folder, { recursive: true })
     person.tabs = [{ id: folder, name: "work", root: folder, active: false, status: "ready", designs: 0 }]
+
     try {
       expect((await run(["state"], folder)).code).toBe(0)
       expect(person.requests).toEqual([{ method: "state", params: { tab: folder } }])

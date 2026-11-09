@@ -1,8 +1,6 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
-import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { pathToFileURL } from "node:url"
 import { findComponents } from "@parity-app/code"
 import { categorize, describedCategories, describedTokenCss, readDesignTokens } from "@parity-app/tokens"
 import { describe, expect, it } from "vite-plus/test"
@@ -10,7 +8,9 @@ import { checkAnatomy, readAnatomy } from "./anatomy.ts"
 import { readExamples } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
 import { compareComponents, loader, mergeManifest, selectComponents } from "./index.ts"
+import { isFunction, isRecord, isText, type LiveObject } from "./live.ts"
 import { completeChains, guessParent, type PartRelation, relateParts, spelledOut } from "./parts.ts"
+import { foundComponent, loadFrom, testReact } from "./react-for-tests.ts"
 import { cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
 const demo = join(import.meta.dirname, "fixtures/demo").replaceAll("\\", "/")
@@ -21,6 +21,7 @@ describe("findComponents", () => {
     root: demo,
     compilerOptions: { baseUrl: demo, paths: { react: ["./react.d.ts"] } }
   })
+
   const byName = Object.fromEntries(report.components.map((component) => [component.name, component]))
 
   it("finds functions, forwardRef, memo and class components, and what each was found as", () => {
@@ -78,6 +79,7 @@ describe("cssTokens", () => {
     @theme inline { --color-primary: var(--primary); --text-sm: 0.875rem; --text-sm--line-height: 1.25rem }
     .mantine-Button-root { --button-height: 36px }
   `
+
   const tokens = new Map(cssTokens(css).map((token) => [token.var, token]))
 
   it("reads the root, dark themes however they're written, and Tailwind's @theme", () => {
@@ -117,6 +119,7 @@ describe("toDtcg", () => {
       ],
       "mui-"
     )
+
     const read = await readDesignTokens(document, async () => ({}))
     const primary = read.find((token) => token.parity?.var === "mui-palette-primary-main")
     expect(primary?.path).toBe("color.primary.main")
@@ -133,46 +136,47 @@ describe("toDtcg", () => {
   })
 })
 
-/** As much of React as the parts test uses; libgen doesn't depend on React's types. */
-interface ReactLike {
-  createContext(value: boolean): { Provider: unknown; Consumer: unknown }
-  createElement(type: unknown, props?: Record<string, unknown> | null, ...children: unknown[]): unknown
-  useContext(context: unknown): boolean
-}
-
 describe("parts", () => {
   // React from a workspace package that depends on it; libgen loads the project's own copy in real use.
-  const fromRenderer = createRequire(join(import.meta.dirname, "../../renderer-react/package.json"))
-  const load = async (specifier: string) =>
-    (await import(pathToFileURL(fromRenderer.resolve(specifier)).href)) as Record<string, unknown>
+  const load = loadFrom(join(import.meta.dirname, "../../renderer-react/package.json"))
 
   it("places each part inside what its error names, nearest last, and keeps samples that make it render", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const AccordionContext = React.createContext(false)
     const ItemContext = React.createContext(false)
+
     const library = {
-      Accordion: ({ children }: { children?: unknown }) =>
+      Accordion: ({ children }: LiveObject) =>
         React.createElement(AccordionContext.Provider, { value: true }, children),
-      AccordionItem: ({ children }: { children?: unknown }) => {
-        if (!React.useContext(AccordionContext)) throw new Error("`AccordionItem` must be used within `Accordion`")
+      AccordionItem: ({ children }: LiveObject) => {
+        if (!React.useContext(AccordionContext)) {
+          throw new Error("`AccordionItem` must be used within `Accordion`")
+        }
+
         return React.createElement(ItemContext.Provider, { value: true }, children)
       },
       AccordionTrigger: () => {
-        if (!React.useContext(ItemContext)) throw new Error("`AccordionTrigger` must be used within `AccordionItem`")
+        if (!React.useContext(ItemContext)) {
+          throw new Error("`AccordionTrigger` must be used within `AccordionItem`")
+        }
+
         return React.createElement("button", null, "Open")
       },
       Badge: () => React.createElement("span", null, "New"),
       BadgeContext: AccordionContext.Consumer,
-      Field: (props: Record<string, unknown>) => React.createElement("input", props)
+      Field: (props: LiveObject) => React.createElement("input", props)
     }
+
     const loadLibrary = async (specifier: string) => (specifier === "demo" ? library : load(specifier))
-    const found = (name: string) =>
-      ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
+
+    const found = foundComponent
+
     const { relations, tried } = await relateParts(
       loadLibrary,
       "demo",
       ["Accordion", "AccordionItem", "AccordionTrigger", "Badge", "BadgeContext", "Field"].map(found)
     )
+
     expect(tried).toBe(true)
     expect(relations.get("AccordionTrigger")).toMatchObject({
       parents: ["Accordion", "AccordionItem"],
@@ -192,23 +196,26 @@ describe("parts", () => {
   })
 
   it("takes the chain the examples show when the error names nothing, and leaves out where they happen to be", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const MenuContext = React.createContext(false)
     const SubContext = React.createContext(false)
+
     const missing = () => {
       throw new Error("Context is missing.")
     }
+
     const library = {
-      Menu: ({ children }: { children?: unknown }) =>
-        React.createElement(MenuContext.Provider, { value: true }, children),
-      MenuContent: ({ children }: { children?: unknown }) => (React.useContext(MenuContext) ? children : missing()),
-      MenuSub: ({ children }: { children?: unknown }) =>
+      Menu: ({ children }: LiveObject) => React.createElement(MenuContext.Provider, { value: true }, children),
+      MenuContent: ({ children }: LiveObject) => (React.useContext(MenuContext) ? children : missing()),
+      MenuSub: ({ children }: LiveObject) =>
         React.useContext(MenuContext) ? React.createElement(SubContext.Provider, { value: true }, children) : missing(),
       MenuSubTrigger: () => (React.useContext(SubContext) ? React.createElement("button", null, "More") : missing()),
-      Card: ({ children }: { children?: unknown }) => React.createElement("div", null, children),
+      Card: ({ children }: LiveObject) => React.createElement("div", null, children),
       Badge: () => React.createElement("span", null, "New")
     }
+
     const names = Object.keys(library)
+
     const uses = readExamples(
       [
         {
@@ -219,16 +226,16 @@ describe("parts", () => {
       ],
       names
     )
+
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      names.map(
-        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
-      ),
+      names.map(foundComponent),
       [],
       {},
       uses
     )
+
     expect(relations.get("MenuSubTrigger")).toMatchObject({
       parents: ["Menu", "MenuContent", "MenuSub"],
       parentsFrom: "example"
@@ -239,65 +246,77 @@ describe("parts", () => {
   })
 
   it("gives a part whose children must be a string its text as the children prop", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
+
     const library = {
-      Highlight: ({ children }: { children?: unknown }) => {
-        if (typeof children !== "string") throw new Error("The children prop of Highlight must be a string")
+      Highlight: ({ children }: LiveObject) => {
+        if (!isText(children)) {
+          throw new Error("The children prop of Highlight must be a string")
+        }
+
         return React.createElement("mark", null, children)
       }
     }
+
     const uses = readExamples(
       [{ path: "highlight-demo.tsx", text: `<Highlight>Spotlight bulb</Highlight>` }],
       ["Highlight"]
     )
+
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      [{ name: "Highlight", export: "Highlight", samples: {} } as unknown as Parameters<typeof relateParts>[2][number]],
+      [foundComponent("Highlight")],
       [],
       {},
       uses
     )
+
     // A text layer is an element on the canvas, so the text goes in the prop.
     expect(relations.get("Highlight")?.sample).toEqual({ props: { children: "Spotlight bulb" } })
   })
 
   it("places a part that needs the parts around it, and a collection's item that only draws a placeholder alone", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const TableContext = React.createContext(false)
+
     // Like React Aria: an item outside its collection draws a placeholder, and a body needs a header beside it.
     const library = {
-      Table: ({ children }: { children?: unknown[] }) => {
-        const header = ([] as unknown[])
-          .concat(children)
-          .some((child) => (child as { type?: unknown })?.type === library.TableHeader)
+      Table: ({ children }: LiveObject) => {
+        const header = [children].flat().some((child) => isRecord(child) && child.type === library.TableHeader)
+
         return React.createElement(TableContext.Provider, { value: header }, children)
       },
-      TableHeader: ({ children }: { children?: unknown }) => React.createElement("thead", null, children),
-      TableBody: ({ children }: { children?: unknown }) => {
-        if (!React.useContext(TableContext)) throw new Error("Cannot read properties of undefined (reading 'key')")
+      TableHeader: ({ children }: LiveObject) => React.createElement("thead", null, children),
+      TableBody: ({ children }: LiveObject) => {
+        if (!React.useContext(TableContext)) {
+          throw new Error("Cannot read properties of undefined (reading 'key')")
+        }
+
         return React.createElement("tbody", null, children)
       },
       Column: () => React.createElement("th", null, "Name"),
-      Row: ({ children }: { children?: unknown }) =>
+      Row: ({ children }: LiveObject) =>
         React.useContext(TableContext) ? React.createElement("tr", null, children) : React.createElement("item", null)
     }
+
     const names = Object.keys(library)
     const table = `<Table><TableHeader><Column>Name</Column></TableHeader><TableBody><Row>Ada</Row></TableBody></Table>`
+
     const uses = readExamples(
       ["a", "b"].map((path) => ({ path: `${path}.tsx`, text: table })),
       names
     )
+
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      names.map(
-        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
-      ),
+      names.map(foundComponent),
       [],
       {},
       uses
     )
+
     expect(relations.get("Row")).toMatchObject({
       parents: ["Table", "TableBody"],
       parentsFrom: "example",
@@ -308,24 +327,32 @@ describe("parts", () => {
   })
 
   it("marks levels some examples leave out, and it renders without, as optional", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const MenuContext = React.createContext(false)
     const ContentContext = React.createContext(false)
+
     const library = {
-      Menu: ({ children }: { children?: unknown }) =>
-        React.createElement(MenuContext.Provider, { value: true }, children),
-      MenuContent: ({ children }: { children?: unknown }) => {
-        if (!React.useContext(MenuContext)) throw new Error("Context is missing.")
+      Menu: ({ children }: LiveObject) => React.createElement(MenuContext.Provider, { value: true }, children),
+      MenuContent: ({ children }: LiveObject) => {
+        if (!React.useContext(MenuContext)) {
+          throw new Error("Context is missing.")
+        }
+
         return React.createElement(ContentContext.Provider, { value: true }, children)
       },
-      MenuGroup: ({ children }: { children?: unknown }) => React.createElement("div", null, children),
+      MenuGroup: ({ children }: LiveObject) => React.createElement("div", null, children),
       MenuItem: () => {
-        if (!React.useContext(ContentContext)) throw new Error("Context is missing.")
+        if (!React.useContext(ContentContext)) {
+          throw new Error("Context is missing.")
+        }
+
         return React.createElement("div", null, "Copy")
       }
     }
+
     const names = Object.keys(library)
     const menu = (inner: string) => `<Menu><MenuContent>${inner}</MenuContent></Menu>`
+
     const uses = readExamples(
       [
         { path: "a.tsx", text: menu(`<MenuGroup><MenuItem>Copy</MenuItem></MenuGroup>`) },
@@ -334,16 +361,16 @@ describe("parts", () => {
       ],
       names
     )
+
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      names.map(
-        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
-      ),
+      names.map(foundComponent),
       [],
       {},
       uses
     )
+
     expect(relations.get("MenuItem")).toMatchObject({
       parents: ["Menu", "MenuContent", "MenuGroup"],
       optionalParents: ["MenuGroup"],
@@ -352,46 +379,53 @@ describe("parts", () => {
   })
 
   it("places a part no example shows where the package renders it, and calls a parent's function children", async () => {
-    const React = (await load("react")) as unknown as ReactLike & { createContext: ReactLike["createContext"] }
+    const React = await testReact(load)
     const Positioner = React.createContext(false)
     const Segments = React.createContext(false)
+
     const library = {
-      Select: ({ children }: { children?: unknown }) => React.createElement("div", null, children),
-      SelectContent: ({ children }: { children?: unknown }) =>
-        React.createElement(Positioner.Provider, { value: true }, children),
+      Select: ({ children }: LiveObject) => React.createElement("div", null, children),
+      SelectContent: ({ children }: LiveObject) => React.createElement(Positioner.Provider, { value: true }, children),
       SelectScrollUpButton: () => {
-        if (!React.useContext(Positioner)) throw new Error("Context is missing.")
+        if (!React.useContext(Positioner)) {
+          throw new Error("Context is missing.")
+        }
+
         return React.createElement("button", null, "Up")
       },
-      DateInput: ({ children }: { children?: unknown }) => {
-        if (typeof children !== "function") throw new Error("children is not a function")
-        return React.createElement(
-          Segments.Provider,
-          { value: true },
-          (children as (segment: string) => unknown)("day")
-        )
+      DateInput: ({ children }: LiveObject) => {
+        if (!isFunction(children)) {
+          throw new Error("children is not a function")
+        }
+
+        return React.createElement(Segments.Provider, { value: true }, children("day"))
       },
-      DateSegment: ({ segment }: { segment?: string }) => {
-        if (!React.useContext(Segments) || !segment) throw new Error("DateSegment needs a segment")
+      DateSegment: ({ segment }: LiveObject) => {
+        if (!React.useContext(Segments) || !segment) {
+          throw new Error("DateSegment needs a segment")
+        }
+
         return React.createElement("span", null, segment)
       }
     }
+
     const names = Object.keys(library)
+
     const uses = readExamples(
       [{ path: "date.tsx", text: `<DateInput>{(segment) => <DateSegment segment={segment} />}</DateInput>` }],
       names
     )
+
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      names.map(
-        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
-      ),
+      names.map(foundComponent),
       [],
       {},
       uses,
       new Map([["SelectScrollUpButton", ["SelectContent"]]])
     )
+
     expect(relations.get("SelectScrollUpButton")).toMatchObject({ parents: ["SelectContent"], parentsFrom: "source" })
     expect(relations.get("SelectScrollUpButton")?.inside).toBeUndefined()
     expect(relations.get("DateInput")?.sample?.children).toEqual([
@@ -419,9 +453,11 @@ describe("parts", () => {
         ].join("\n")
       }
     ]
+
     const names = ["Card", "Menu.Root", "Menu.Portal", "Menu.Popup", "Menu.Item", "Menu.Group", "Menu.GroupLabel"]
     const anatomy = readAnatomy(docs, names)
     expect(anatomy.get("Menu.Item")).toEqual([["Menu.Popup", "Menu.Portal", "Menu.Root"]])
+
     const check = checkAnatomy(anatomy, {
       "Menu.Root": {},
       "Menu.Portal": { parents: ["Menu.Root"] },
@@ -430,6 +466,7 @@ describe("parts", () => {
       "Menu.Group": { parents: ["Menu.Root", "Menu.Item"] },
       "Menu.GroupLabel": { parents: ["Menu.Root", "Menu.Portal", "Menu.Popup", "Menu.Group"] }
     })
+
     // Portals aren't counted either way: chains leave them out on purpose.
     expect(check).toMatchObject({ parts: 5, placed: 4, complete: 4 })
     expect(check.differ).toEqual([
@@ -451,6 +488,7 @@ describe("parts", () => {
       function Card() { return _jsx(Button, {}) }
       export { Toast, ToastTitle, Button, ToastList, Toaster, Card }`
     )
+
     try {
       const names = ["Toast", "ToastTitle", "Button", "ToastList", "Toaster", "Card"]
       const renders = await readRenders(dir, names)
@@ -519,6 +557,7 @@ describe("loading a package", () => {
   it("loads through main when the module entry doesn't run in Node, as Recharts' es6 build doesn't", async () => {
     const dir = await mkdtemp(join(tmpdir(), "parity-loader-"))
     const pkg = join(dir, "node_modules", "charts")
+
     try {
       await mkdir(join(pkg, "es6"), { recursive: true })
       await mkdir(join(pkg, "lib"))
@@ -558,6 +597,7 @@ describe("regenerating", () => {
     Old: { as: "function", fingerprint: "b" },
     Card: { as: "function", fingerprint: "c" }
   } as const
+
   const after = {
     Button: { as: "forwardRef", fingerprint: "d", props: { "size?": "333333", "tone?": "444444" } },
     Card: { as: "function", fingerprint: "c" },
@@ -589,27 +629,35 @@ describe("regenerating", () => {
 
 describe("errors from the app", () => {
   // React from a workspace package that depends on it; libgen loads the project's own copy in real use.
-  const fromRenderer = createRequire(join(import.meta.dirname, "../../renderer-react/package.json"))
-  const load = async (specifier: string) =>
-    (await import(pathToFileURL(fromRenderer.resolve(specifier)).href)) as Record<string, unknown>
+  const load = loadFrom(join(import.meta.dirname, "../../renderer-react/package.json"))
 
   it("puts the parent an app error names in the part's chain, and takes an input's label off", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const RootContext = React.createContext(false)
+
     const library = {
-      Root: ({ children }: { children?: unknown }) =>
-        React.createElement(RootContext.Provider, { value: true }, children),
-      Item: ({ children }: { children?: unknown }) => {
-        if (!React.useContext(RootContext)) throw new Error("`Item` must be used within `Root`")
+      Root: ({ children }: LiveObject) => React.createElement(RootContext.Provider, { value: true }, children),
+      Item: ({ children }: LiveObject) => {
+        if (!React.useContext(RootContext)) {
+          throw new Error("`Item` must be used within `Root`")
+        }
+
         return React.createElement("li", null, children)
       },
       // Closed on the server, so they draw nothing there and need nothing.
       Content: () => null,
       Search: () => null,
-      Validity: ({ children }: { children: (state: string) => unknown }) => children("valid")
+      Validity: ({ children }: LiveObject) => {
+        if (!isFunction(children)) {
+          throw new TypeError("children is not a function")
+        }
+
+        return children("valid")
+      }
     }
-    const found = (name: string) =>
-      ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
+
+    const found = foundComponent
+
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
@@ -625,6 +673,7 @@ describe("errors from the app", () => {
         Search: "input is a void element tag and must neither have `children` nor use `dangerouslySetInnerHTML`."
       }
     )
+
     expect(relations.get("Content")).toMatchObject({ parents: ["Root", "Item"], parentsFrom: "app" })
     expect(relations.get("Search")?.sample).toEqual({ children: [] })
     // Children that must be a function get one.
@@ -642,6 +691,7 @@ describe("finishing parents and samples", () => {
       ["Sheet", { parents: ["SheetTrigger"] }],
       ["SheetTrigger", { parents: ["Sheet"] }]
     ])
+
     completeChains(relations)
     expect(relations.get("SubmenuTrigger")).toEqual({
       parents: ["MenuTrigger", "Menu", "MenuSection"],
@@ -659,6 +709,7 @@ describe("finishing parents and samples", () => {
         children: [{ component: "Row" }, { component: "Row", children: [{ component: "Cell", children: ["Ada"] }] }]
       }
     ]
+
     expect(spelledOut(table, "Row")).toEqual([{ component: "Cell", children: ["Ada"] }])
     expect(spelledOut(table, "Cell")).toEqual(["Ada"])
     expect(spelledOut(table, "Footer")).toBeUndefined()

@@ -19,6 +19,7 @@ describe("layoutFindings", () => {
       { id: "page", x: 0, y: 0, width: 375, height: 400 },
       { id: "pay", parent: "page", x: 340, y: 20, width: 60, height: 32 }
     ]
+
     expect(layoutFindings(nodes, phone)).toEqual([
       {
         kind: "frame-overflow",
@@ -43,12 +44,14 @@ describe("layoutFindings", () => {
       { id: "card", x: 20, y: 20, width: 200, height: 100 },
       { id: "badge", parent: "card", x: 200, y: 10, width: 30, height: 20 }
     ]
+
     expect(layoutFindings(nodes, phone)).toEqual([])
   })
 
   it("names the nearest ancestor that clips, at each level of nested clipping", () => {
     const card = { x: 20, y: 20, width: 300, height: 200 }
     const list = { x: 40, y: 40, width: 300, height: 100 }
+
     const nodes: MeasuredNode[] = [
       { id: "card", ...card },
       { id: "list", parent: "card", ...list, clipped: true, clip: { node: "card", ...card } },
@@ -63,6 +66,7 @@ describe("layoutFindings", () => {
         clip: { node: "list", ...list }
       }
     ]
+
     expect(layoutFindings(nodes, phone)).toEqual([
       { kind: "clipped", node: "list", box: list, container: { node: "card", box: card }, overflow: { right: 20 } },
       {
@@ -90,6 +94,7 @@ describe("layoutFindings", () => {
       // Positioned further out than the row reaches, so it's its own problem.
       { id: "tip", parent: "right", x: 400, y: 0, width: 40, height: 20 }
     ]
+
     expect(layoutFindings(nodes, phone).map(({ node, overflow }) => ({ node, overflow }))).toEqual([
       { node: "row", overflow: { right: 40 } },
       { node: "tip", overflow: { right: 65 } }
@@ -106,6 +111,7 @@ describe("layoutFindings", () => {
     const nodes: MeasuredNode[] = [
       { id: "wide", x: 0, y: 0, width: 400, height: 20, clipped: true, clip: { x: 0, y: 0, width: 399.8, height: 20 } }
     ]
+
     expect(layoutFindings(nodes, phone).map((finding) => finding.kind)).toEqual(["frame-overflow"])
   })
 
@@ -134,10 +140,12 @@ describe("describing findings", () => {
 
   it("names the ancestor that clips", () => {
     const list = { x: 0, y: 0, width: 100, height: 100 }
+
     const [finding] = layoutFindings(
       [{ id: "item", x: 0, y: 90, width: 100, height: 30, clip: { node: "list", ...list } }],
       phone
     )
+
     expect(describeLayoutFinding(finding!, name)).toBe(
       "20px at the bottom cut off by Results (list), which clips its overflow"
     )

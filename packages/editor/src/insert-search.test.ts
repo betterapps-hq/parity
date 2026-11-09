@@ -11,7 +11,7 @@ import {
   nameWords
 } from "./insert-search.ts"
 
-const sources: Record<string, { origin: InsertOrigin; sourceName: string }> = {
+const sources = {
   basics: { origin: "basic", sourceName: "Basics" },
   designs: { origin: "design", sourceName: "Local components" },
   "project:kit": { origin: "kit", sourceName: "UI kit" },
@@ -19,11 +19,12 @@ const sources: Record<string, { origin: InsertOrigin; sourceName: string }> = {
   "project:pages": { origin: "page", sourceName: "Pages" },
   nova: { origin: "library", sourceName: "Shadcn Nova" },
   radix: { origin: "library", sourceName: "Radix Primitives" }
-}
+} satisfies Record<string, { origin: InsertOrigin; sourceName: string }>
 
-function option(source: string, key: string, extra: Partial<InsertOption> = {}): InsertOption {
+function option(source: keyof typeof sources, key: string, extra: Partial<InsertOption> = {}): InsertOption {
   const name = key.split("/").at(-1)!
-  return { key, name, source, ...sources[source]!, ...extra }
+
+  return { key, name, source, ...sources[source], ...extra }
 }
 
 /** The example project as the audit found it (docs/proposals/editor-experience.md, task 22), in the panel's order. */
@@ -156,6 +157,7 @@ describe("compareRanked", () => {
     expect(isLate(hidden, { tier: 1 })).toBe(true)
     expect(isLate(hidden, { tier: 0 })).toBe(false)
     expect(isLate({}, { tier: 3 })).toBe(false)
+
     // As the Components panel orders a source's families for `dialog`: Dialog's, AlertDialog's, then internal parts.
     const families = [
       { name: "Internal parts", tier: 1, late: true },
@@ -163,6 +165,7 @@ describe("compareRanked", () => {
       { name: "dialog", tier: 0, late: false },
       { name: "providers", tier: 0, late: false }
     ]
+
     const ordered = [...families].sort(compareRanked).map((family) => family.name)
     expect(ordered).toEqual(["dialog", "providers", "alert-dialog", "Internal parts"])
   })
@@ -185,6 +188,7 @@ describe("insertRows", () => {
 
   it("leaves out internal parts, providers and app plumbing", () => {
     const shown = names(insertRows(example))
+
     for (const name of ["App", "ThemeProvider", "DialogOverlay", "ProgressIndicator", "TooltipProvider"]) {
       expect(shown).not.toContain(name)
     }
@@ -235,6 +239,7 @@ describe("insertRows", () => {
       option("project", "(portal)/ErrorPage", { name: "ErrorPage", description: "(portal)" }),
       option("project", "app/ErrorPage", { name: "ErrorPage", description: "app" })
     ])
+
     expect(rows.map((row) => row.key)).toEqual(["(portal)/ErrorPage", "app/ErrorPage"])
   })
 
@@ -243,6 +248,7 @@ describe("insertRows", () => {
       option("designs", "badge-design", { name: "Badge" }),
       option("project:kit", "Badge", { description: "badge" })
     ])
+
     expect(rows.map((row) => row.key)).toEqual(["badge-design", "Badge"])
   })
 
@@ -258,11 +264,13 @@ describe("insertRows", () => {
     // of the Stat card design; `alert` is a word of AlertDialogTrigger and the description of nothing.
     expect(names(insertRows(example, "avatar"))).toEqual(["Avatar", "AvatarBadge"])
     expect(names(insertRows(example, "card"))).toEqual(["Card", "Stat card"])
+
     const described = [
       option("nova", "nova/Accordion", { description: "accordion" }),
       option("nova", "nova/Item", { description: "accordion" }),
       option("project:kit", "AccordionPanel", { description: "panels" })
     ]
+
     // The kit's AccordionPanel has `accordion` in its name; Nova's Item only in its file.
     expect(names(insertRows(described, "accordion"))).toEqual(["Accordion", "AccordionPanel", "Item"])
   })

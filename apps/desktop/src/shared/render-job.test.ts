@@ -31,6 +31,7 @@ const modes: ModeSettings = {
   ],
   modes: [{ id: "desktop", name: "Desktop", values: { viewport: "desktop" } }]
 }
+
 const mode = resolveModes(modes)[0]!
 
 function design(height?: number): ContainerSpec {
@@ -47,6 +48,7 @@ function design(height?: number): ContainerSpec {
 /** The frame an agent's call asks the offscreen window for, as `Measure` sends it. */
 async function agentRequest(container: ContainerSpec): Promise<FrameRequest> {
   const requests: FrameRequest[] = []
+
   const result = await execute(
     { label: "Measure", code: `await Measure("page")` },
     {
@@ -67,11 +69,14 @@ async function agentRequest(container: ContainerSpec): Promise<FrameRequest> {
       presence: () => undefined,
       render: async (request) => {
         requests.push(request)
+
         return { width: request.mode.width, height: 100, nodes: [], overflowsX: false, unknownComponents: [] }
       }
     }
   )
+
   expect(result.ok).toBe(true)
+
   return requests[0]!
 }
 
@@ -85,11 +90,13 @@ describe("renderJobMode", () => {
     const bitmap = renderJobMode(mode, live)
     const request = await agentRequest(container)
     expect(request.viewport).toEqual(live.viewport)
+
     const agent = renderJobMode(request.mode, {
       width: request.mode.width,
       ...(request.height === undefined ? {} : { height: request.height }),
       viewport: request.viewport
     })
+
     for (const job of [bitmap, agent]) {
       expect(job.width).toBe(1280)
       expect(job.height).toBeUndefined()
@@ -112,6 +119,7 @@ describe("drawnComponents", () => {
     Card: { path: "src/card.tsx", export: "Card", library: undefined },
     Unused: { path: "src/unused.tsx", export: "Unused" }
   }
+
   const tree = [
     {
       kind: "component",
@@ -154,22 +162,26 @@ const guest: JobGuest = {
   guestUrl: "http://localhost:5001",
   theme: [{ name: "--x", value: "1" }]
 }
+
 const drawsText: JobFrame = {
   tree: [{ nodeId: "a", type: "text", text: "Sign in" }],
   mode,
   frame: { width: 320, height: 200, viewport: { width: 320, height: 200 } },
   scale: 0.25
 }
+
 const token = { name: "--x", theme: "light", value: "2" }
 
 describe("renderJob", () => {
   it("leaves out what a frame doesn't have: given components, previewed tokens, and colors when not auditing", () => {
     const job = renderJob(guest, { ...drawsText, tokens: [], colorTokens: ["--x"] })
     expect(Object.keys(job)).toEqual(["projectId", "guestUrl", "theme", "tree", "mode", "scale"])
+
     const audited = renderJob(
       { ...guest, components: { Card: { path: "src/card.tsx", export: "Card" } } },
       { ...drawsText, tokens: [token], audit: true, colorTokens: ["--x"], inlinePortals: true }
     )
+
     expect(audited).toMatchObject({ audit: true, colorTokens: ["--x"], inlinePortals: true, previews: [token] })
     expect(audited.components).toEqual({ Card: { path: "src/card.tsx", export: "Card" } })
   })
@@ -187,6 +199,7 @@ describe("renderJob", () => {
         design: { key: "app.par#pricing", state: "default", mode: "desktop" }
       }
     )
+
     expect(serviceChecks["frames.capture"]({ job }).job).toEqual(job)
     expect(
       serviceChecks["previews.make"]({ preview: { component: "Card", job }, priority: "idle" }).preview.job
@@ -197,6 +210,7 @@ describe("renderJob", () => {
 describe("a job's names", () => {
   const job = renderJob(guest, drawsText)
   const drawing = { id: 1 }
+
   const names = (named: RenderJob) => ({
     memory: frameKeys(named, drawing),
     bitmap: bitmapName(named, {}),
@@ -234,6 +248,7 @@ describe("a job's names", () => {
       { ...job, mode: { ...job.mode, viewport: { width: 320, height: 640 } } },
       { ...job, scale: 0.5 }
     ]
+
     for (const changed of changes) {
       const [before, after] = [names(job), names(changed)]
       expect(after.memory.key).not.toBe(before.memory.key)

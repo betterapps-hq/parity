@@ -9,7 +9,9 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 describe("the designs' console", () => {
@@ -24,6 +26,7 @@ describe("the designs' console", () => {
     await expect.poll(() => badge.count(), { timeout: 10_000 }).toBe(1)
     await badge.click()
     const panel = app.page.getByRole("region", { name: "Console" })
+
     try {
       const members = panel.getByRole("region", { name: "Members" })
       await expect.poll(() => members.getByText("Picked Ada Lovelace").count()).toBe(1)

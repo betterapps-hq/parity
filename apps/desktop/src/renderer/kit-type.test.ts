@@ -109,17 +109,21 @@ const typeClass =
 function scanKit(): Record<string, string[]> {
   const folder = fileURLToPath(new URL("../../node_modules/@buildkitgg/shadcn-baseui-kit/dist/ui/", import.meta.url))
   const found: Record<string, string[]> = {}
+
   for (const file of readdirSync(folder)
     .filter((name) => name.endsWith(".js"))
     .sort()) {
     const counts = new Map<string, number>()
+
     for (const [, name] of readFileSync(folder + file, "utf8").matchAll(typeClass)) {
       counts.set(name!, (counts.get(name!) ?? 0) + 1)
     }
+
     if (counts.size > 0) {
       found[file] = [...counts].map(([name, count]) => (count === 1 ? name : `${name}×${count}`)).sort()
     }
   }
+
   return found
 }
 

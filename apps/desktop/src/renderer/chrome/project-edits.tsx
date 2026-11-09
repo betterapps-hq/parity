@@ -1,7 +1,8 @@
-import { toast } from "sonner"
+import { type ExternalToast, toast } from "sonner"
 import type { ProjectEditResult } from "../../shared/protocol.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
+import type { Attributes } from "./event-attributes.ts"
 
 /**
  * Says the service changed the project's files: which ones and why, with the diff to look at and Undo. `afterUndo`
@@ -11,9 +12,12 @@ import { request } from "../service.ts"
 export function announceEdit(
   projectId: string,
   edit: ProjectEditResult,
-  options: { id?: string; afterUndo?: () => Promise<unknown> } = {}
+  options: { id?: string; afterUndo?: () => Promise<void> } = {}
 ): void {
-  if (edit.files.length === 0) return
+  if (edit.files.length === 0) {
+    return
+  }
+
   const id = options.id ?? edit.id
   track("projectEdit.applied", { files: paths(edit), outcome: "ok" })
   showEdit(`Changed ${files(edit)}`, edit, id, () => void undo(projectId, edit, id, options.afterUndo))
@@ -24,31 +28,46 @@ export function announceEdit(
  * in place, since a notification takes its height when it's set. Shown, it stays until it's hidden, to be read.
  */
 function showEdit(title: string, edit: ProjectEditResult, id: string, undo?: () => void, open = false): void {
-  toast.success(title, {
+  const shown: ExternalToast = {
     id,
     description: <EditDetails edit={edit} open={open} toggle={() => showEdit(title, edit, id, undo, !open)} />,
-    duration: open ? Number.POSITIVE_INFINITY : 10_000,
-    ...(undo ? { action: { label: "Undo", onClick: undo } } : {})
-  })
+    duration: open ? Number.POSITIVE_INFINITY : 10_000
+  }
+
+  if (undo) {
+    shown.action = { label: "Undo", onClick: undo }
+  }
+
+  toast.success(title, shown)
 }
 
 async function undo(
   projectId: string,
   edit: ProjectEditResult,
   id: string,
-  afterUndo: (() => Promise<unknown>) | undefined
+  afterUndo: (() => Promise<void>) | undefined
 ): Promise<void> {
   toast.loading(`Putting back ${files(edit)}…`, { id, description: undefined, action: undefined })
   let undone: ProjectEditResult
+
   try {
     undone = await request("project.undoEdit", { projectId, id: edit.id })
   } catch (error) {
+    const failed: Attributes<"projectEdit.undone"> = { files: paths(edit), outcome: "error" }
     const code = errorCode(error)
-    track("projectEdit.undone", { files: paths(edit), outcome: "error", ...(code ? { code } : {}) })
+
+    if (code) {
+      failed.code = code
+    }
+
+    track("projectEdit.undone", failed)
     reportError(error, { operation: "project.undoEdit", title: "Couldn't undo it", id, description: message(error) })
+
     return
   }
+
   track("projectEdit.undone", { files: paths(undone), outcome: "ok" })
+
   // The files are back by now, so a failure from here on isn't a failed undo.
   try {
     await afterUndo?.()
@@ -106,11 +125,18 @@ function lineClass(line: string): string | undefined {
   if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("@@") || line.startsWith("\\")) {
     return "text-muted-foreground"
   }
-  if (line.startsWith("+")) return "text-emerald-600 dark:text-emerald-400"
-  if (line.startsWith("-")) return "text-destructive"
+
+  if (line.startsWith("+")) {
+    return "text-emerald-600 dark:text-emerald-400"
+  }
+
+  if (line.startsWith("-")) {
+    return "text-destructive"
+  }
+
   return undefined
 }
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function message(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }

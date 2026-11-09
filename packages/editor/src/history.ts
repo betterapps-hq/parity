@@ -129,6 +129,7 @@ export function openDesigns(
     modes,
     tokens: noTokenEdits
   }
+
   return {
     current,
     saved: current,
@@ -167,25 +168,37 @@ export function recordChange(
   options: ChangeOptions = {}
 ): DesignStep | undefined {
   const before = history.current
+
   if (next.documents === before.documents && next.modes === before.modes && next.tokens === before.tokens) {
     return undefined
   }
+
   const { gesture } = options
   let { past, future } = history
+
   if (options.history !== false) {
     const last = past.at(-1)
+
     if (gesture && last?.gesture === gesture) {
       if (sameSnapshot(last.before, next)) {
         // Back where the gesture's step began: the step goes, and so does the difference, and Redo is as it was.
         return restore({ ...history, past: past.slice(0, -1), future: last.redo ?? [] }, keepViews(last.before, next))
       }
     } else {
-      if (gesture && sameSnapshot(before, next)) return undefined
+      if (gesture && sameSnapshot(before, next)) {
+        return undefined
+      }
+
       past = [...past, gesture ? { label, before, gesture, redo: future } : { label, before }]
-      if (past.length > historyLimit) past = past.slice(1)
+
+      if (past.length > historyLimit) {
+        past = past.slice(1)
+      }
     }
+
     future = []
   }
+
   return restore({ ...history, past, future }, next, options.persist !== false)
 }
 
@@ -194,10 +207,14 @@ export function recordChange(
  * what Redo had before it is gone for good. The same history when it has no step.
  */
 export function endGesture(history: DesignHistory, gesture: string): DesignHistory {
-  if (!history.past.some((step) => step.gesture === gesture)) return history
+  if (!history.past.some((step) => step.gesture === gesture)) {
+    return history
+  }
+
   const past = history.past.map((step) =>
     step.gesture === gesture ? { label: step.label, before: step.before } : step
   )
+
   return { ...history, past }
 }
 
@@ -212,13 +229,18 @@ export function reloadFile(
   document: CanvasDocument,
   force = false
 ): DesignStep | undefined {
-  if (!force && unsavedPaths(history).includes(path)) return undefined
+  if (!force && unsavedPaths(history).includes(path)) {
+    return undefined
+  }
+
   const { current } = history
+
   const next: DesignSnapshot = {
     ...current,
     documents: new Map(current.documents).set(path, withoutModes(document)),
     modes: path === history.mainPath ? (document.modes ?? defaultModeSettings) : current.modes
   }
+
   return recordChange(history, `Reload ${path}`, next, { persist: false })
 }
 
@@ -246,29 +268,43 @@ export function revertTo(history: DesignHistory, checkpoint: Checkpoint): Design
   const { path, container, gesture } = checkpoint
   // Steps from before the checkpoint, known by what they undo to, since a gesture ending since makes its step anew.
   const earlier = new Set(checkpoint.past.map((step) => step.before))
+
   // Only the gesture's design goes back, in its file as the file is now, so other designs' changes there stay.
   const withDesign = (snapshot: DesignSnapshot): DesignSnapshot => {
     const document = snapshot.documents.get(path)
-    if (!document) return snapshot
+
+    if (!document) {
+      return snapshot
+    }
+
     const containers = document.containers.map((each) => (each.id === container.id ? container : each))
+
     return { ...snapshot, documents: new Map(snapshot.documents).set(path, { ...document, containers }) }
   }
+
   // Undo as the checkpoint saw it, whole, since a gesture's own steps can push its oldest out at the limit, then what
   // else changed since, which keeps the limit.
   const others = history.past
     .filter((step) => !earlier.has(step.before) && step.gesture !== gesture)
     .map((step) => ({ ...step, before: withDesign(step.before) }))
+
   const past = [...checkpoint.past, ...others].slice(-historyLimit)
   const future = others.length === 0 ? checkpoint.future : history.future
   const current = history.current
+
   return restore({ ...history, past, future }, keepViews(withDesign(current), current))
 }
 
 /** Goes back a step, keeping what each design shows. Undefined when there's nothing to undo. */
 export function undoChange(history: DesignHistory): DesignStep | undefined {
   const entry = history.past.at(-1)
-  if (!entry) return undefined
+
+  if (!entry) {
+    return undefined
+  }
+
   const current = history.current
+
   return restore(
     {
       ...history,
@@ -282,8 +318,13 @@ export function undoChange(history: DesignHistory): DesignStep | undefined {
 /** Goes forward a step undone, keeping what each design shows. Undefined when there's nothing to redo. */
 export function redoChange(history: DesignHistory): DesignStep | undefined {
   const entry = history.future.at(-1)
-  if (!entry) return undefined
+
+  if (!entry) {
+    return undefined
+  }
+
   const current = history.current
+
   return restore(
     {
       ...history,
@@ -299,8 +340,15 @@ export function unsavedPaths(history: DesignHistory): string[] {
   const { current, saved } = history
   const paths = new Set([...current.documents.keys(), ...saved.documents.keys()])
   const unsaved = [...paths].filter((path) => current.documents.get(path) !== saved.documents.get(path))
-  if (current.modes !== saved.modes && !unsaved.includes(history.mainPath)) unsaved.push(history.mainPath)
-  if (tokensUnsaved(history)) unsaved.push(history.stylesheet)
+
+  if (current.modes !== saved.modes && !unsaved.includes(history.mainPath)) {
+    unsaved.push(history.mainPath)
+  }
+
+  if (tokensUnsaved(history)) {
+    unsaved.push(history.stylesheet)
+  }
+
   return unsaved
 }
 
@@ -318,12 +366,16 @@ export function startSave(history: DesignHistory): DesignHistory {
  */
 export function fileWrite(history: DesignHistory, path: string): FileWrite | undefined {
   const { current, saved } = history
+
   if (path === history.stylesheet && !current.documents.has(path)) {
     const changes = tokenWrites(current.tokens, saved.tokens)
+
     return changes.length === 0 ? undefined : { kind: "tokens", path, tokens: current.tokens, changes }
   }
+
   const document = current.documents.get(path)
   const modes = current.modes
+
   return { kind: "document", path, document, modes, content: fileContent(history.mainPath, path, document, modes) }
 }
 
@@ -337,14 +389,20 @@ export function writeSucceeded(history: DesignHistory, write: FileWrite): Design
   const failures = new Map(history.failures)
   failures.delete(write.path)
   let { saved, tokenFailure } = history
+
   if (write.kind === "tokens") {
     saved = { ...saved, tokens: write.tokens }
     tokenFailure = undefined
   } else {
     const documents = new Map(saved.documents)
-    if (write.document) documents.set(write.path, write.document)
+
+    if (write.document) {
+      documents.set(write.path, write.document)
+    }
+
     saved = { ...saved, documents, modes: write.path === history.mainPath ? write.modes : saved.modes }
   }
+
   return withSaveState({ ...history, saved, failures, tokenFailure, writing: history.writing - 1 })
 }
 
@@ -352,10 +410,11 @@ export function writeSucceeded(history: DesignHistory, write: FileWrite): Design
  * A write failed: the file keeps its changes, unsaved, and the save state says why. A failed write to the stylesheet
  * names the tokens and the file.
  */
-export function writeFailed(history: DesignHistory, write: FileWrite, error: unknown): DesignHistory {
-  const reason = error instanceof Error ? error.message : String(error)
+export function writeFailed(history: DesignHistory, write: FileWrite, cause: unknown): DesignHistory {
+  const reason = cause instanceof Error ? cause.message : String(cause)
   const failures = new Map(history.failures)
   let { tokenFailure } = history
+
   if (write.kind === "tokens") {
     const { changes, path } = write
     const what = changes.length === 1 ? `--${changes[0]!.name}` : `${changes.length} token values`
@@ -364,6 +423,7 @@ export function writeFailed(history: DesignHistory, write: FileWrite, error: unk
   } else {
     failures.set(write.path, reason)
   }
+
   return withSaveState({ ...history, failures, tokenFailure, writing: history.writing - 1 })
 }
 
@@ -380,41 +440,67 @@ export function mergedDocument(history: DesignHistory): CanvasDocument {
   const { documents, modes } = history.current
   const all = [...documents.values()]
   const notes = all.flatMap((document) => document.notes ?? [])
+
   // Two files may place the same table or reuse a link id; the first keeps it, so the copy still opens.
   const objects = firstOfEach(
     all.flatMap((document) => document.objects ?? []),
     (object) => JSON.stringify([object.kind, object.ref])
   )
+
   const links = firstOfEach(
     all.flatMap((document) => document.links ?? []),
     (link) => link.id
   )
+
   const custom = JSON.stringify(modes) !== JSON.stringify(defaultModeSettings)
   const main = documents.get(history.mainPath)
   const detection = main?.detection
   const sources = main?.sources
-  return {
-    version: 3,
-    containers: all.flatMap((document) => document.containers),
-    ...(notes.length > 0 ? { notes } : {}),
-    ...(custom ? { modes } : {}),
-    ...(detection ? { detection } : {}),
-    ...(objects.length > 0 ? { objects } : {}),
-    ...(links.length > 0 ? { links } : {}),
-    ...(sources ? { sources } : {})
+
+  const merged: CanvasDocument = { version: 3, containers: all.flatMap((document) => document.containers) }
+
+  if (notes.length > 0) {
+    merged.notes = notes
   }
+
+  if (custom) {
+    merged.modes = modes
+  }
+
+  if (detection) {
+    merged.detection = detection
+  }
+
+  if (objects.length > 0) {
+    merged.objects = objects
+  }
+
+  if (links.length > 0) {
+    merged.links = links
+  }
+
+  if (sources) {
+    merged.sources = sources
+  }
+
+  return merged
 }
 
 function firstOfEach<T>(items: T[], key: (item: T) => string): T[] {
   const seen = new Set<string>()
+
   return items.filter((item) => !seen.has(key(item)) && seen.add(key(item)))
 }
 
 /** A document without the modes, which the history keeps apart. */
 export function withoutModes(document: CanvasDocument): CanvasDocument {
-  if (!document.modes) return document
+  if (!document.modes) {
+    return document
+  }
+
   const copy = { ...document }
   delete copy.modes
+
   return copy
 }
 
@@ -428,6 +514,7 @@ function restore(history: DesignHistory, next: DesignSnapshot, persist = true): 
   const documents = persist ? adoptSaved(history.saved, next.documents, changed) : next.documents
   let { saved, failures, tokenFailure } = history
   const current: DesignSnapshot = { documents, modes: next.modes, tokens: next.tokens }
+
   if (sameTokenValues(current.tokens, saved.tokens) && (tokenFailure || failures.has(history.stylesheet))) {
     // Back at what the stylesheet holds, so nothing is left that failed to write.
     tokenFailure = undefined
@@ -435,20 +522,35 @@ function restore(history: DesignHistory, next: DesignSnapshot, persist = true): 
     remaining.delete(history.stylesheet)
     failures = remaining
   }
-  if (next.modes !== previous.modes && !changed.includes(history.mainPath)) changed.push(history.mainPath)
+
+  if (next.modes !== previous.modes && !changed.includes(history.mainPath)) {
+    changed.push(history.mainPath)
+  }
+
   const writes: string[] = []
+
   if (!persist) {
     // It came from the files, so they already hold it.
     const savedDocuments = new Map(saved.documents)
-    for (const path of changed) savedDocuments.set(path, next.documents.get(path)!)
+
+    for (const path of changed) {
+      savedDocuments.set(path, next.documents.get(path)!)
+    }
+
     saved = { ...saved, documents: savedDocuments, modes: next.modes !== previous.modes ? next.modes : saved.modes }
   } else {
     writes.push(...changed)
-    if (next.tokens !== previous.tokens) writes.push(history.stylesheet)
+
+    if (next.tokens !== previous.tokens) {
+      writes.push(history.stylesheet)
+    }
   }
+
   const { past, future } = history
+
   const moved =
     next.documents !== previous.documents || next.modes !== previous.modes || next.tokens !== previous.tokens
+
   const state = withSaveState({
     ...history,
     revision: moved ? history.revision + 1 : history.revision,
@@ -463,6 +565,7 @@ function restore(history: DesignHistory, next: DesignSnapshot, persist = true): 
       redoLabel: future.at(-1)?.label
     }
   })
+
   return { history: state, writes }
 }
 
@@ -476,23 +579,36 @@ function adoptSaved(
   changed: readonly string[]
 ): ReadonlyMap<string, CanvasDocument> {
   let adopted: Map<string, CanvasDocument> | undefined
+
   for (const path of changed) {
     const document = documents.get(path)
     const file = saved.documents.get(path)
-    if (!document || !file || document === file || !sameDocument(document, file)) continue
+
+    if (!document || !file || document === file || !sameDocument(document, file)) {
+      continue
+    }
+
     adopted ??= new Map(documents)
     adopted.set(path, file)
   }
+
   return adopted ?? documents
 }
 
 /** Whether two snapshots say the same: the same files, each the same with views compared tidied, modes and tokens. */
 function sameSnapshot(a: DesignSnapshot, b: DesignSnapshot): boolean {
-  if (a.documents.size !== b.documents.size) return false
+  if (a.documents.size !== b.documents.size) {
+    return false
+  }
+
   for (const [path, document] of a.documents) {
     const other = b.documents.get(path)
-    if (!other || !sameDocument(document, other)) return false
+
+    if (!other || !sameDocument(document, other)) {
+      return false
+    }
   }
+
   return sameValue(a.modes, b.modes) && sameTokenValues(a.tokens, b.tokens)
 }
 
@@ -507,43 +623,75 @@ function fileContent(
   document: CanvasDocument | undefined,
   modes: ModeSettings
 ): CanvasDocument | undefined {
-  if (path !== mainPath) return document
+  if (path !== mainPath) {
+    return document
+  }
+
   const custom = JSON.stringify(modes) !== JSON.stringify(defaultModeSettings)
-  if (!document && !custom) return undefined
+
+  if (!document && !custom) {
+    return undefined
+  }
+
   const base = document ?? { version: 3, containers: [] }
+
   return custom ? { ...base, modes } : base
 }
 
 function withSaveState(history: DesignHistory): DesignHistory {
   const failure = saveFailure(history)
   let next: SaveState
-  if (history.writing > 0) next = { status: "saving" }
-  else if (failure) next = { status: "failed", error: failure }
-  else next = unsavedPaths(history).length > 0 ? { status: "unsaved" } : { status: "saved" }
+
+  if (history.writing > 0) {
+    next = { status: "saving" }
+  } else if (failure) {
+    next = { status: "failed", error: failure }
+  } else {
+    next = unsavedPaths(history).length > 0 ? { status: "unsaved" } : { status: "saved" }
+  }
+
   const previous = history.saveState
+
   const same =
     next.status === previous.status &&
     (next.status !== "failed" || (previous.status === "failed" && previous.error === next.error))
+
   return same ? history : { ...history, saveState: next }
 }
 
 /** Undo restores content, not what's being looked at: each design keeps the state and modes it shows now. */
 function keepViews(restored: DesignSnapshot, current: DesignSnapshot): DesignSnapshot {
   const documents = new Map(restored.documents)
+
   for (const [path, document] of restored.documents) {
     const now = current.documents.get(path)
-    if (!now) continue
+
+    if (!now) {
+      continue
+    }
+
     const containers = document.containers.map((container) => {
       const shown = now.containers.find((candidate) => candidate.id === container.id)
-      if (!shown || shown.view === container.view) return container
+
+      if (!shown || shown.view === container.view) {
+        return container
+      }
+
       const next = { ...container }
-      if (shown.view) next.view = shown.view
-      else delete next.view
+
+      if (shown.view) {
+        next.view = shown.view
+      } else {
+        delete next.view
+      }
+
       return next
     })
+
     if (containers.some((container, index) => container !== document.containers[index])) {
       documents.set(path, { ...document, containers })
     }
   }
+
   return { ...restored, documents }
 }

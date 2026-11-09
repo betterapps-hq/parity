@@ -8,7 +8,7 @@ import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 
 // Extracting measures the designs on the canvas, which there isn't one of here.
-vi.mock("../canvas/CanvasEditor.tsx", () => ({ shapeIdFor: (key: string) => key }))
+vi.mock("../canvas/CanvasEditor.tsx", () => ({ canvasIdFor: (key: string) => key }))
 
 const sink = createTestSink()
 const recorded = () => sink.named("component.changed").map((event) => event.attributes)
@@ -55,6 +55,7 @@ function setup() {
     },
     states: [{ id: "default", name: "Default" }]
   }
+
   return new DesignStore(
     [{ path: "app.par", document: { version: 3, containers: [card, home] } }],
     defaultModeSettings,
@@ -94,6 +95,7 @@ describe("component.changed (PAR-728)", () => {
 
   it("records layers made a component, with the component made", () => {
     const store = setup()
+    // SAFETY: making a component reads only the session's store, and its editor, which a test leaves out.
     const key = extractIntoComponent({ store } as ProjectSession, store.getEntry("app.par#home")!, ["note"], "Note")
     const made = store.getEntry(key)!.container
     expect(made).toMatchObject({ name: "Note", kind: "component" })

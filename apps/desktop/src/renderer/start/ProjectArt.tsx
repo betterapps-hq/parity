@@ -27,6 +27,7 @@ export function ProjectArt({
 }) {
   const picture = usePicture(project.root) ?? fallback
   const shown = picture?.screens[screen] ?? picture?.screens[0]
+
   return (
     <Backdrop hue={projectHue(project.root)}>
       {shown ? <ScreenArt screen={shown} labels={labels} /> : <Placeholder project={project} />}
@@ -83,6 +84,7 @@ function ScreenArt({ screen, labels }: { screen: PictureScreen; labels: boolean 
   const { main, phone } = screen
   const top = labels ? 0.15 : 0.08
   const height = 0.92 - top
+
   return (
     <>
       <Frame frame={main} slot={mainSlot(screen, top, height, labels)} label={labels ? screen.name : undefined} />
@@ -102,8 +104,14 @@ function ScreenArt({ screen, labels }: { screen: PictureScreen; labels: boolean 
  * Where frames are named, the phone stands clear of the main frame, so its name reads on the backdrop.
  */
 function mainSlot({ main, phone }: PictureScreen, top: number, height: number, labels: boolean): Slot {
-  if (phone) return { left: labels ? 0.05 : 0.06, top, width: labels ? 0.66 : 0.71, height }
-  if (main.width < 600) return { left: 0.3, top, width: 0.4, height, phone: true }
+  if (phone) {
+    return { left: labels ? 0.05 : 0.06, top, width: labels ? 0.66 : 0.71, height }
+  }
+
+  if (main.width < 600) {
+    return { left: 0.3, top, width: 0.4, height, phone: true }
+  }
+
   return { left: 0.08, top, width: 0.84, height }
 }
 
@@ -115,6 +123,7 @@ function Frame({ frame, slot, label }: { frame: PictureFrame; slot: Slot; label?
   const ratio = frame.width / frame.height
   // The share of the picture's width it takes: its slot's width, or less where its slot's height holds it back.
   const width = Math.min(slot.width, (slot.height / artRatio) * ratio)
+
   return (
     <div
       className="absolute"
@@ -143,6 +152,7 @@ function Placeholder({ project }: { project: KnownProject }) {
   const hue = projectHue(project.root)
   const ink = `oklch(0.66 0.15 ${hue})`
   const initial = /[\p{L}\p{N}]/u.exec(project.name)?.[0]?.toUpperCase() ?? "?"
+
   return (
     <>
       <div className="absolute top-[13%] left-[7%] flex aspect-[16/10] w-[66%] flex-col overflow-hidden rounded-[5px] bg-background shadow-lg ring-1 ring-neutral-500/60">

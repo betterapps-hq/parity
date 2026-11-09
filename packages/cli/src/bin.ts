@@ -148,6 +148,7 @@ const { positionals, values } = parseArgs({
 })
 
 const [command, ...rest] = positionals
+
 /** The running command's input fields, which a failure's path can point at. */
 let fields: readonly string[] | undefined
 
@@ -158,7 +159,11 @@ try {
 } catch (error) {
   reportCliFailure(error)
   const failure = operationError(error, fields)
-  if (values.json) print({ error: failure })
+
+  if (values.json) {
+    print({ error: failure })
+  }
+
   console.error(failure.message)
   process.exitCode = 1
 }
@@ -166,9 +171,12 @@ try {
 async function main(): Promise<void> {
   if (!command || values.help) {
     console.log(usage)
+
     return
   }
+
   const limit = values.limit === undefined ? undefined : Number(values.limit)
+
   switch (command) {
     case "tabs":
       return show(operations.tabs, {})
@@ -183,9 +191,11 @@ async function main(): Promise<void> {
     case "skill":
       fields = skillOperation.fields
       console.log(await skillOperation.run({ path: rest[0] }, readSkill))
+
       return
     case "mcp":
       serveMcp()
+
       return
     case "lib":
       if (rest[0] === "check") {
@@ -196,6 +206,7 @@ async function main(): Promise<void> {
           ...(values.record ? { record: true } : {})
         })
       }
+
       return runLib(rest[0], {
         ...(values.root ? { root: values.root } : {}),
         ...(values.out ? { out: values.out } : {}),
@@ -214,20 +225,36 @@ async function main(): Promise<void> {
       fields = executeOperation.fields
       const editId = values["edit-id"]
       let code: string | undefined
-      if (rest[0]) code = await readFile(rest[0], "utf8")
-      else if (!editId) code = (await stdin()) || undefined
+
+      if (rest[0]) {
+        code = await readFile(rest[0], "utf8")
+      } else if (!editId) {
+        code = (await stdin()) || undefined
+      }
+
       let edits: unknown
+
       try {
         edits = values.edits === undefined ? undefined : JSON.parse(values.edits)
       } catch {
         throw invalidInput("edits", "edits must be JSON: a list of {find, replace}")
       }
+
       const result = await executeOperation.run({ tab: values.tab, label: values.label, code, editId, edits }, call)
-      if (values.json) print(executeOperation.structured(result))
-      else console.log(describeExec(result))
-      if (executeOperation.failed(result)) process.exitCode = 1
+
+      if (values.json) {
+        print(executeOperation.structured(result))
+      } else {
+        console.log(describeExec(result))
+      }
+
+      if (executeOperation.failed(result)) {
+        process.exitCode = 1
+      }
+
       return
     }
+
     case "screenshot":
       return show(
         operations.screenshot,
@@ -265,6 +292,7 @@ async function main(): Promise<void> {
       return show(operations.props, { tab: values.tab, component: rest[0], all: values.all }, describeProps)
     case "logs": {
       fields = logsFields
+
       const result = readLogs({
         level: values.level,
         process: values.process,
@@ -274,17 +302,29 @@ async function main(): Promise<void> {
         session: values.session,
         limit
       })
-      if (values.json) print(result)
-      else console.log(describeLogs(result))
+
+      if (values.json) {
+        print(result)
+      } else {
+        console.log(describeLogs(result))
+      }
+
       return
     }
+
     case "diagnostics": {
       fields = ["out"]
       const result = writeDiagnostics(values.out ? { out: values.out } : {})
-      if (values.json) print(result)
-      else console.log(describeDiagnostics(result))
+
+      if (values.json) {
+        print(result)
+      } else {
+        console.log(describeDiagnostics(result))
+      }
+
       return
     }
+
     case "report":
       return show(
         operations.report,
@@ -321,9 +361,16 @@ async function show<Result>(
 ): Promise<void> {
   fields = operation.fields
   const result = await operation.run(input, call)
-  if (values.json || !describe) print(operation.structured(result))
-  else console.log(describe(result))
-  if (operation.failed(result)) process.exitCode = 1
+
+  if (values.json || !describe) {
+    print(operation.structured(result))
+  } else {
+    console.log(describe(result))
+  }
+
+  if (operation.failed(result)) {
+    process.exitCode = 1
+  }
 }
 
 function print(value: unknown): void {
@@ -332,6 +379,10 @@ function print(value: unknown): void {
 
 async function stdin(): Promise<string> {
   const chunks: Buffer[] = []
-  for await (const chunk of process.stdin) chunks.push(chunk as Buffer)
+
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk as Buffer)
+  }
+
   return Buffer.concat(chunks).toString("utf8")
 }

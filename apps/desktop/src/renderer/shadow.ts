@@ -16,6 +16,9 @@ const nativeAttachShadow =
  * out (`replay.ts`).
  */
 export function unrecordedShadow(host: Element): ShadowRoot {
-  if (host.shadowRoot) return host.shadowRoot
+  if (host.shadowRoot) {
+    return host.shadowRoot
+  }
+
   return nativeAttachShadow ? nativeAttachShadow.call(host, { mode: "open" }) : host.attachShadow({ mode: "open" })
 }

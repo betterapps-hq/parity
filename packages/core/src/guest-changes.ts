@@ -29,12 +29,15 @@ export function guestChanges<Source extends GuestComponentSource>(
   after: Readonly<Record<string, Source>>
 ): GuestChanges<Source> {
   const add: Record<string, Source> = {}
+
   for (const [id, source] of Object.entries(after)) {
     const was = Object.hasOwn(before, id) ? before[id] : undefined
+
     if (!was || was.path !== source.path || was.export !== source.export || was.version !== source.version) {
       add[id] = source
     }
   }
+
   return { add, drop: Object.keys(before).filter((id) => !Object.hasOwn(after, id)) }
 }
 
@@ -50,9 +53,15 @@ export function codeChangeVersions(
   versions: Readonly<Record<string, number>> = {}
 ): Record<string, number> {
   const changed = new Set(paths.map(withoutDot))
-  const next = { ...versions }
-  for (const [id, source] of Object.entries(sources)) if (changed.has(withoutDot(source.path))) next[id] = stamp
-  return next
+  const next = new Map(Object.entries(versions))
+
+  for (const [id, source] of Object.entries(sources)) {
+    if (changed.has(withoutDot(source.path))) {
+      next.set(id, stamp)
+    }
+  }
+
+  return Object.fromEntries(next)
 }
 
 /** Sources with the versions their code has reached, for a guest; one whose code hasn't changed has none. */
@@ -63,6 +72,7 @@ export function versionedSources<Source extends Pick<ComponentSource, "path" | "
   return Object.fromEntries(
     Object.entries(sources).map(([id, source]) => {
       const version = versions[id]
+
       return [id, version === undefined ? source : { ...source, version }]
     })
   )

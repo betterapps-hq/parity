@@ -26,6 +26,7 @@ describe("component roles", () => {
       "app/routes/orders.$id.tsx",
       "src/routes/settings/profile.tsx"
     ]
+
     const notPages = [
       "src/app/(portal)/orders/order-table.tsx",
       "src/components/page.tsx",
@@ -35,6 +36,7 @@ describe("component roles", () => {
       "src/routes/-page-route.tsx",
       "src/routes/orders/-components/row.tsx"
     ]
+
     expect(pages.filter((path) => componentRole(own(path)) !== "page")).toEqual([])
     expect(notPages.filter((path) => componentRole(own(path)) === "page")).toEqual([])
   })
@@ -62,6 +64,7 @@ describe("grouping components", () => {
       ],
       "file"
     )
+
     expect(groups).toEqual([
       { name: "button", ids: ["Button"] },
       { name: "card", ids: ["CardHeader", "Card"] }
@@ -79,6 +82,7 @@ describe("grouping components", () => {
       ],
       "folder"
     )
+
     expect(groups).toEqual([
       { name: "app/(portal)/orders", ids: ["OrderTable"] },
       { name: "components", ids: ["Overview", "OverviewChart", "StatCard"] },
@@ -95,6 +99,7 @@ describe("grouping components", () => {
       ],
       "route"
     )
+
     expect(groups).toEqual([
       { name: "/", ids: ["HomePage"] },
       { name: "/(portal)", ids: ["(portal)/ErrorPage"] },

@@ -12,6 +12,7 @@ let detections: typeof DetectionCache
 const button = { path: "src/button.tsx", export: "Button" }
 const sources = { Button: button }
 const files = ["src/button.tsx"]
+
 const found = {
   sources,
   props: { Button: { name: "Button", path: "src/button.tsx", props: [] } },

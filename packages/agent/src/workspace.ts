@@ -139,35 +139,55 @@ type Values = Record<string, unknown>
  */
 function discardedPatches(before: ContainerSpec, removed: DesignNode, after: ContainerSpec): DiscardedNode[] {
   const nodes = new Map<string, DiscardedNode>()
+
   const entry = (id: string): DiscardedNode => {
     let found = nodes.get(id)
+
     if (!found) {
       const name = findNode(before.root, id.split("/")[0]!)?.name
       found = { id, ...(name ? { name } : {}) }
       nodes.set(id, found)
     }
+
     return found
   }
+
   const visit = (node: DesignNode) => {
     const viewports = Object.keys(node.responsive ?? {})
-    if (viewports.length > 0) entry(node.id).viewports = viewports
-    for (const child of childNodes(node)) visit(child)
-  }
-  visit(removed)
-  for (const state of before.states) {
-    const kept = after.states.find((candidate) => candidate.id === state.id)?.overrides ?? {}
-    for (const key of Object.keys(state.overrides ?? {})) {
-      if (!(key in kept)) (entry(key).states ??= []).push(state.id)
+
+    if (viewports.length > 0) {
+      entry(node.id).viewports = viewports
+    }
+
+    for (const child of childNodes(node)) {
+      visit(child)
     }
   }
-  for (const [param, spec] of Object.entries(before.params ?? {})) {
-    for (const option of spec.options ?? []) {
-      const kept = after.params?.[param]?.options?.find((candidate) => candidate.id === option.id)?.overrides ?? {}
-      for (const key of Object.keys(option.overrides ?? {})) {
-        if (!(key in kept)) (entry(key).variants ??= []).push(`${param}=${option.id}`)
+
+  visit(removed)
+
+  for (const state of before.states) {
+    const kept = after.states.find((candidate) => candidate.id === state.id)?.overrides ?? {}
+
+    for (const key of Object.keys(state.overrides ?? {})) {
+      if (!(key in kept)) {
+        ;(entry(key).states ??= []).push(state.id)
       }
     }
   }
+
+  for (const [param, spec] of Object.entries(before.params ?? {})) {
+    for (const option of spec.options ?? []) {
+      const kept = after.params?.[param]?.options?.find((candidate) => candidate.id === option.id)?.overrides ?? {}
+
+      for (const key of Object.keys(option.overrides ?? {})) {
+        if (!(key in kept)) {
+          ;(entry(key).variants ??= []).push(`${param}=${option.id}`)
+        }
+      }
+    }
+  }
+
   return [...nodes.values()]
 }
 
@@ -221,6 +241,7 @@ export class AgentWorkspace {
     const path = (value: string) => readArgument(nodeReference, value, "path")
     const parent = (value: string) => readArgument(nodeReference, value, "parent")
     const text = (value: string, name: string) => readArgument(z.string(), value, name)
+
     return {
       document: "document",
       Designs: () => this.listDesigns(),
@@ -295,8 +316,10 @@ export class AgentWorkspace {
     "changes" | "created" | "output" | "warnings" | "warningGroups" | "screenshots" | "discarded"
   > {
     this.flush()
+
     for (const path of this.changed) {
       const document = this.documents.get(path)!
+
       try {
         parseCanvasDocument(document)
       } catch (error) {
@@ -304,9 +327,12 @@ export class AgentWorkspace {
           cause: error
         })
       }
+
       this.found.push(...this.lint(document))
     }
+
     const groups = groupWarnings([...this.found, ...overlapWarnings(this.boards(), this.touched)])
+
     return {
       changes: {
         designs: [...this.changed].flatMap((path) => this.designChanges(path)),
@@ -335,29 +361,50 @@ export class AgentWorkspace {
         container
       ])
     )
+
     const after = this.documents.get(path)?.containers ?? []
     const changes: DesignChange[] = []
+
     for (const container of after) {
       const base = before.get(container.id)
-      if (!base || !isDeepStrictEqual(base, container))
+
+      if (!base || !isDeepStrictEqual(base, container)) {
         changes.push({ path, id: container.id, base: base ?? null, after: container })
+      }
     }
+
     const kept = new Set(after.map((container) => container.id))
-    for (const [id, base] of before) if (!kept.has(id)) changes.push({ path, id, base, after: null })
+
+    for (const [id, base] of before) {
+      if (!kept.has(id)) {
+        changes.push({ path, id, base, after: null })
+      }
+    }
+
     return changes
   }
 
   emit(event: AgentEvent): void {
-    if ((event.kind === "write" || event.kind === "move") && event.design) this.touched.add(event.design)
+    if ((event.kind === "write" || event.kind === "move") && event.design) {
+      this.touched.add(event.design)
+    }
+
     this.pending.push({ label: this.label, ...event })
-    if (this.flushScheduled) return
+
+    if (this.flushScheduled) {
+      return
+    }
+
     this.flushScheduled = true
     queueMicrotask(() => this.flush())
   }
 
   flush(): void {
     this.flushScheduled = false
-    if (this.pending.length > 0) this.hooks.presence(this.pending.splice(0))
+
+    if (this.pending.length > 0) {
+      this.hooks.presence(this.pending.splice(0))
+    }
   }
 
   // Reading -----------------------------------------------------------------------------------------------------------
@@ -375,6 +422,7 @@ export class AgentWorkspace {
   private listDesigns() {
     return this.all().map(({ path, container }) => {
       const bounds = this.snapshot.bounds[key(path, container.id)]
+
       return {
         id: container.id,
         name: container.name,
@@ -397,29 +445,43 @@ export class AgentWorkspace {
   private getDesign(reference: string): ContainerSpec {
     const found = this.findDesign(reference)
     this.emit({ kind: "read", design: key(found.path, found.container.id) })
+
     return structuredClone(found.container)
   }
 
   /** `Get(path, options?)`, `Get(path, visit, options?)` or `Get(visit)`. */
   private get(args: unknown[]): unknown {
     const [first, second, third] = args
-    if (isVisit(first)) return this.visit(undefined, first)
+
+    if (isVisit(first)) {
+      return this.visit(undefined, first)
+    }
+
     const reference = readArgument(getPath, first, "path")
-    if (isVisit(second)) return this.visit(reference, second, readFields(getOptions, third, "options"))
+
+    if (isVisit(second)) {
+      return this.visit(reference, second, readFields(getOptions, third, "options"))
+    }
+
     const options = readFields(getOptions, second, "options") ?? {}
+
     if (shownRead(options)) {
       const { layer, read } = this.shownLayer(reference, options)
       this.emit(read)
+
       return elide(structuredClone(layer.node), options.depth)
     }
+
     const design = this.tryDesign(reference)
     const found = design ? { ...design, node: design.container.root } : this.findNode(reference)
     this.emit({ kind: "read", design: key(found.path, found.container.id), node: design ? undefined : found.node.id })
+
     return elide(structuredClone(found.node), options.depth)
   }
 
   private visit(reference: string | undefined, visit: Visit, options: GetOptions = {}): unknown[] {
     const results: unknown[] = []
+
     /** Calls `visit` on one node, and says whether to go on into its children. */
     const call = (
       design: string,
@@ -430,6 +492,7 @@ export class AgentWorkspace {
       parent: string | undefined
     ): boolean => {
       let skip = false
+
       const value = visit(structuredClone(node), {
         design,
         path: `${design}/${path}`,
@@ -440,43 +503,65 @@ export class AgentWorkspace {
           skip = true
         }
       })
-      if (value !== undefined) results.push(value)
+
+      if (value !== undefined) {
+        results.push(value)
+      }
+
       return !skip
     }
+
     if (reference !== undefined && shownRead(options)) {
       const { container, layer: start, read } = this.shownLayer(reference, options)
       this.emit({ kind: "read", design: read.design })
+
       const walk = (layer: ShownLayer, depth: number, index: number, parent: string | undefined) => {
-        if (!call(container.id, layer.node, layer.path, depth, index, parent)) return
+        if (!call(container.id, layer.node, layer.path, depth, index, parent)) {
+          return
+        }
+
         for (const [position, child] of layer.children.entries()) {
           // Its index in its slot, as the stored walk gives it.
           const index = layer.children.slice(0, position).filter((sibling) => sibling.slot === child.slot).length
           walk(child, depth + 1, index, layer.path)
         }
       }
+
       walk(start, 0, 0, undefined)
+
       return results
     }
+
     const scopes = reference
       ? [
           this.tryDesign(reference) ??
             (() => {
               const found = this.findNode(reference)
+
               return { ...found, start: found.node }
             })()
         ]
       : this.all()
+
     for (const scope of scopes) {
       const start = "start" in scope ? (scope.start as DesignNode) : scope.container.root
       this.emit({ kind: "read", design: key(scope.path, scope.container.id) })
+
       const walk = (node: DesignNode, depth: number, index: number, parent: string | undefined) => {
-        if (!call(scope.container.id, node, node.id, depth, index, parent)) return
+        if (!call(scope.container.id, node, node.id, depth, index, parent)) {
+          return
+        }
+
         for (const entry of childEntries(node)) {
-          for (const [childIndex, child] of entry.nodes.entries()) walk(child, depth + 1, childIndex, node.id)
+          for (const [childIndex, child] of entry.nodes.entries()) {
+            walk(child, depth + 1, childIndex, node.id)
+          }
         }
       }
+
       walk(start, 0, 0, undefined)
     }
+
     return results
   }
 
@@ -490,33 +575,49 @@ export class AgentWorkspace {
     const found = this.findLayer(reference)
     const { container } = found
     const mode = this.designMode(container, options.mode)
+
     const context: EvalContext = {
       state: this.shownState(container, options.state),
       viewport: mode.viewport,
       library: this.library()
     }
+
     const located = locateEffective(container, found.layer, context)
+
     if (!located) {
       throw new CodedError(`No layer "${found.layer}" in ${container.id}`, { code: "unknown_node", field: "path" })
     }
+
     const layer = drawnLayer(located.shown, found.layer, located.scope, mode.viewport, located.location.slot)
     const design = key(found.path, container.id)
     const node = found.layer === container.root.id ? undefined : found.layer.split("/")[0]
+
     return { container, layer, read: { kind: "read" as const, design, ...(node ? { node } : {}) } }
   }
 
   /** A layer by reference, as a path `locateEffective` takes: a design's root, its node, or a node inside an instance. */
   private findLayer(reference: string): Located & { layer: string } {
     const design = this.tryDesign(reference)
-    if (design) return { ...design, layer: design.container.root.id }
+
+    if (design) {
+      return { ...design, layer: design.container.root.id }
+    }
+
     for (let slash = reference.indexOf("/"); slash > 0; slash = reference.indexOf("/", slash + 1)) {
       const found = this.tryDesign(reference.slice(0, slash))
-      if (!found) continue
+
+      if (!found) {
+        continue
+      }
+
       const [first = "", ...inner] = reference.slice(slash + 1).split("/")
       const node = resolveInDesign(found.container, first)
+
       return { ...found, layer: [node.id, ...inner].join("/") }
     }
+
     const found = this.findNode(reference)
+
     return { ...found, layer: found.node.id }
   }
 
@@ -533,9 +634,11 @@ export class AgentWorkspace {
    */
   private tokensAndKeywords(): { name: string; category: string; source: string; values: Record<string, string> }[] {
     const names = new Set(this.snapshot.tokens.map((token) => token.name))
+
     const keywords = Object.entries(radiusKeywords)
       .filter(([name]) => !names.has(name))
       .map(([name, value]) => ({ name, category: "radius", source: "keyword", values: { default: value } }))
+
     return [...this.snapshot.tokens, ...keywords]
   }
 
@@ -564,12 +667,14 @@ export class AgentWorkspace {
       reference === undefined
         ? this.all().map(({ container }) => designModes(this.modes, container))
         : [designModes(this.modes, this.findDesign(reference).container, true)]
+
     return { settings: structuredClone(this.modes), ...modesReport(this.modes), designs }
   }
 
   private selection() {
     const { design, node, mode } = this.snapshot.selection
     const located = design ? this.all().find((entry) => key(entry.path, entry.container.id) === design) : undefined
+
     return { design: located?.container.id, node, mode }
   }
 
@@ -582,6 +687,7 @@ export class AgentWorkspace {
     const path = spec.file ?? this.snapshot.mainDocument
     const size = frameSizeInput(spec, kind, spec.name)
     const ids = new Set<string>()
+
     // Without a root, a frame starts as the editor starts one, and anything else as a page.
     const page = {
       type: "layout",
@@ -589,13 +695,16 @@ export class AgentWorkspace {
       style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
       children: []
     }
+
     const root =
       !spec.root && kind === "frame"
         ? newDesign("frame", [], { x: 0, y: 0 }).root
         : this.prepareNode(spec.root ?? page, ids, "root")
+
     if (kind === "frame" && root.type !== "layout") {
       throw new CodedError("A frame's root is a layout", { code: "invalid_input", field: "root" })
     }
+
     const design: ContainerSpec = {
       id,
       name: spec.name,
@@ -605,6 +714,7 @@ export class AgentWorkspace {
       states: [{ id: "default", name: spec.baseState ?? "Default" }],
       ...(size ? { size } : {})
     }
+
     // A frame's board is as big as the frame; other designs get room for a page.
     const room = kind === "frame" ? estimateSize(design, this.modes) : { width: 1400, height: 1000 }
     const place = spec.x === undefined || spec.y === undefined ? this.findEmptySpace(room) : undefined
@@ -614,20 +724,27 @@ export class AgentWorkspace {
     this.changed.add(path)
     this.created[spec.name] = id
     this.emit({ kind: "write", design: key(path, id) })
+
     return id
   }
 
   private updateDesign(reference: string, update: DesignUpdate): void {
     const { path, container: found } = this.findDesign(reference)
     let container = found
+
     if (update.kind && update.kind !== (found.kind ?? "screen")) {
       const turned = turnInto(found, update.kind, this.modes)
       container = turned.design
       const lost = describeDropped(turned.dropped)
-      if (lost) this.warn("kind_changed", `${found.name} is a frame now. ${lost}`)
+
+      if (lost) {
+        this.warn("kind_changed", `${found.name} is a frame now. ${lost}`)
+      }
     }
+
     const frame = container.kind === "frame"
     const viewKeys = (["mode", "showModes", "state", "allStates"] as const).filter((name) => update[name] !== undefined)
+
     if (frame && viewKeys.length > 0) {
       const message = `${container.name} is a frame, shown only in the primary mode and its one state`
       throw new CodedError(`${message}, so it takes no ${viewKeys.join(" or ")}.`, {
@@ -635,8 +752,10 @@ export class AgentWorkspace {
         field: viewKeys[0]
       })
     }
+
     const size = frameSizeInput(update, container.kind ?? "screen", container.name, container.size)
     const modeIds = new Set(this.modes.modes.map((mode) => mode.id))
+
     for (const mode of [...(update.showModes ?? []), ...(update.mode ? [update.mode] : [])]) {
       if (!modeIds.has(mode)) {
         throw unknownReference("unknown_mode", `No mode "${mode}". Modes: ${[...modeIds].join(", ")}`, mode, [
@@ -644,14 +763,23 @@ export class AgentWorkspace {
         ])
       }
     }
-    if (update.state) findState(container, update.state)
+
+    if (update.state) {
+      findState(container, update.state)
+    }
+
     const main = update.mode ?? shownModes(this.modes, container).main.id
     const primary = this.modes.modes[0]?.id
     const from = container.position
     const to = { x: update.x ?? from.x, y: update.y ?? from.y }
-    if (to.x !== from.x || to.y !== from.y) this.emit({ kind: "move", design: key(path, container.id), from, to })
+
+    if (to.x !== from.x || to.y !== from.y) {
+      this.emit({ kind: "move", design: key(path, container.id), from, to })
+    }
+
     // A move alone shows as the board being dragged, not as a change to it.
     const onlyMoved = Object.keys(update).every((name) => name === "x" || name === "y")
+
     const next: ContainerSpec = {
       ...container,
       ...(update.name ? { name: update.name } : {}),
@@ -669,6 +797,7 @@ export class AgentWorkspace {
             }
           })
     }
+
     this.setContainer(path, next, undefined, undefined, !onlyMoved)
   }
 
@@ -690,48 +819,72 @@ export class AgentWorkspace {
     if (parent === "document") {
       const placed = readFields(documentPlacement, given, "options")
       const name = z.object({ name: z.string() }).safeParse(input).data?.name ?? "Untitled"
+
       return this.createDesign({ name, ...placed, root: input })
     }
+
     const options = readFields(placeOptions, given, "options") ?? {}
     const target = this.tryDesign(parent)
     const found = target ? { ...target, node: target.container.root } : this.findNode(parent)
     const node = this.prepareNode(input, nodeIds(found.container.root), "node")
     const root = insertNode(found.container.root, found.node.id, node, options)
     this.setContainer(found.path, { ...found.container, root }, node.id)
+
     return node.id
   }
 
   private update(path: string, input: UpdateChange, options: z.infer<typeof updateOptions> = {}): void {
     const { path: file, container, node } = this.findNode(path)
     const { args, ...change } = input
-    if (args) change.props = { ...change.props, ...args }
+
+    if (args) {
+      change.props = { ...change.props, ...args }
+    }
+
     const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
     const base = stateId === container.states[0]!.id
     const renames = (["name", "tag", "component"] as const).filter((name) => change[name] !== undefined)
+
     if (!base && renames.length > 0) {
       throw new CodedError("A state can only change hidden, text, props, style and unset", {
         code: "invalid_input",
         field: renames[0]
       })
     }
+
     if (node.type === "component" && change.props) {
       this.checkProps(change.component ?? node.component, change.props, `${container.id}/${node.id}`)
     }
+
     let next = editNode(container, stateId, node.id, toChange(change))
+
     if (base && renames.length > 0) {
       next = {
         ...next,
         root: mapNode(next.root, node.id, (current) => {
           const updated = { ...current }
-          if (change.name === null) delete updated.name
-          else if (change.name !== undefined) updated.name = change.name
-          if (updated.type === "text" && change.tag === null) delete updated.tag
-          else if (updated.type === "text" && change.tag) updated.tag = change.tag
-          if (updated.type === "component" && change.component !== undefined) updated.component = change.component
+
+          if (change.name === null) {
+            delete updated.name
+          } else if (change.name !== undefined) {
+            updated.name = change.name
+          }
+
+          if (updated.type === "text" && change.tag === null) {
+            delete updated.tag
+          } else if (updated.type === "text" && change.tag) {
+            updated.tag = change.tag
+          }
+
+          if (updated.type === "component" && change.component !== undefined) {
+            updated.component = change.component
+          }
+
           return updated
         })
       }
     }
+
     this.setContainer(file, next, node.id, base ? undefined : stateId)
   }
 
@@ -742,6 +895,7 @@ export class AgentWorkspace {
     const ids = nodeIds(container.root)
     const replacement = this.prepareNode(input, ids, "node")
     let next: ContainerSpec
+
     if (parent) {
       const withoutOld = deleteNode(container, node.id)
       const root = insertNode(withoutOld.root, parent.id, replacement, { index: location.index, slot: location.slot })
@@ -753,11 +907,14 @@ export class AgentWorkspace {
         states: container.states.map((state) => ({ id: state.id, name: state.name }))
       }
     }
+
     this.setContainer(file, next, replacement.id)
     const nodes = discardedPatches(container, node, next)
+
     if (nodes.length > 0) {
       this.discarded.push({ design: container.id, replaced: node.id, replacement: replacement.id, nodes })
     }
+
     return replacement.id
   }
 
@@ -765,11 +922,13 @@ export class AgentWorkspace {
     const from = this.findNode(path)
     const target = this.tryDesign(parent)
     const to = target ? { ...target, node: target.container.root } : this.findNode(parent)
+
     if (from.path !== to.path || from.container.id !== to.container.id) {
       throw new Error(
         "Move works within one design. To move a layer to another design, Copy it there and Delete the original."
       )
     }
+
     const root = moveNode(from.container.root, from.node.id, to.node.id, options)
     this.setContainer(from.path, { ...from.container, root }, from.node.id)
   }
@@ -779,18 +938,34 @@ export class AgentWorkspace {
     const target = this.tryDesign(parent)
     const to = target ? { ...target, node: target.container.root } : this.findNode(parent)
     const copy = withFreshIds(structuredClone(source.node), nodeIds(to.container.root))
-    if (options.name) copy.name = options.name
+
+    if (options.name) {
+      copy.name = options.name
+    }
+
     const root = insertNode(to.container.root, to.node.id, copy, options)
     this.setContainer(to.path, { ...to.container, root }, copy.id)
-    if (copy.name) this.created[copy.name] = copy.id
+
+    if (copy.name) {
+      this.created[copy.name] = copy.id
+    }
+
     return copy.id
   }
 
   private delete(path: string): void {
     const design = this.tryDesign(path)
-    if (design) throw new Error(`"${path}" is a design; use DeleteDesign`)
+
+    if (design) {
+      throw new Error(`"${path}" is a design; use DeleteDesign`)
+    }
+
     const { path: file, container, node } = this.findNode(path)
-    if (node.id === container.root.id) throw new Error("A design's root can't be deleted; use Replace or DeleteDesign")
+
+    if (node.id === container.root.id) {
+      throw new Error("A design's root can't be deleted; use Replace or DeleteDesign")
+    }
+
     this.setContainer(file, deleteNode(container, node.id), node.id)
   }
 
@@ -801,6 +976,7 @@ export class AgentWorkspace {
         .filter((variable) => variable.kind === "viewport")
         .flatMap((variable) => variable.options.map((option) => option.id))
     )
+
     if (!viewports.has(viewport)) {
       throw unknownReference(
         "unknown_viewport",
@@ -810,16 +986,28 @@ export class AgentWorkspace {
         "viewport"
       )
     }
+
     const { path: file, container, node } = this.findNode(path)
     const patch = input === null ? undefined : stripNulls(input)
+
     const root = mapNode(container.root, node.id, (current) => {
       const responsive = { ...current.responsive }
-      if (patch) responsive[viewport] = { ...responsive[viewport], ...patch }
-      else delete responsive[viewport]
+
+      if (patch) {
+        responsive[viewport] = { ...responsive[viewport], ...patch }
+      } else {
+        delete responsive[viewport]
+      }
+
       const next = { ...current, responsive }
-      if (Object.keys(responsive).length === 0) delete (next as Values).responsive
+
+      if (Object.keys(responsive).length === 0) {
+        delete (next as Values).responsive
+      }
+
       return next
     })
+
     this.setContainer(file, { ...container, root }, node.id)
   }
 
@@ -830,6 +1018,7 @@ export class AgentWorkspace {
     const added = addState(container, spec.name)
     const next = this.applyChanges(added.container, added.id, spec.changes)
     this.setContainer(path, next, undefined, added.id)
+
     return added.id
   }
 
@@ -853,8 +1042,10 @@ export class AgentWorkspace {
     changes: Record<string, PatchInput | null> | undefined
   ): ContainerSpec {
     let next = container
+
     for (const [reference, value] of Object.entries(changes ?? {})) {
       const node = resolveInDesign(next, reference)
+
       if (value === null) {
         const state = findState(next, stateId)
         const overrides = { ...state.overrides }
@@ -867,8 +1058,10 @@ export class AgentWorkspace {
         }
         continue
       }
+
       next = editNode(next, stateId, node.id, toChange(value))
     }
+
     return next
   }
 
@@ -886,17 +1079,27 @@ export class AgentWorkspace {
    */
   private setTokens(values: z.infer<typeof tokenValues>): void {
     const changes: TokenChange[] = []
+
     for (const [rawName, value] of Object.entries(values)) {
       const name = rawName.replace(/^--/, "")
       const themes = typeof value === "string" ? { default: value } : value
-      for (const [theme, themed] of Object.entries(themes)) changes.push({ name, theme, value: themed.trim() })
+
+      for (const [theme, themed] of Object.entries(themes)) {
+        changes.push({ name, theme, value: themed.trim() })
+      }
     }
+
     // Checked with the whole call's values in, so one token may refer to another set beside it.
     const reading = this.tokenReading([...this.tokenChanges, ...changes])
+
     for (const change of changes) {
       const problem = reading.problem(change, () => true)
-      if (problem) throw refusedToken(change, problem)
+
+      if (problem) {
+        throw refusedToken(change, problem)
+      }
     }
+
     this.tokenChanges.push(...changes)
   }
 
@@ -906,22 +1109,36 @@ export class AgentWorkspace {
    */
   async checkTokenKinds(): Promise<void> {
     const hooks = this.hooks
-    if (!hooks.supports || this.tokenChanges.length === 0) return
+
+    if (!hooks.supports || this.tokenChanges.length === 0) {
+      return
+    }
+
     const latest = new Map(this.tokenChanges.map((change) => [`${change.name} ${change.theme}`, change]))
     const reading = this.tokenReading(this.tokenChanges)
     const asked: { property: string; value: string }[] = []
+
     for (const change of latest.values()) {
       reading.problem(change, (property, value) => {
         asked.push({ property, value })
+
         return true
       })
     }
-    if (asked.length === 0) return
+
+    if (asked.length === 0) {
+      return
+    }
+
     const answers = await hooks.supports(asked)
     const known = new Map(asked.map((query, index) => [`${query.property}\n${query.value}`, answers[index] ?? false]))
+
     for (const change of latest.values()) {
       const problem = reading.problem(change, (property, value) => known.get(`${property}\n${value}`) ?? true)
-      if (problem) throw refusedToken(change, problem)
+
+      if (problem) {
+        throw refusedToken(change, problem)
+      }
     }
   }
 
@@ -932,10 +1149,13 @@ export class AgentWorkspace {
    */
   private tokenReading(changes: readonly TokenChange[]) {
     const tokens = new Map(this.snapshot.tokens.map((token) => [token.name, { ...token, values: { ...token.values } }]))
+
     for (const change of [...this.snapshot.tokenOverrides, ...changes]) {
       const token = tokens.get(change.name)
-      if (token) token.values[change.theme] = change.value
-      else {
+
+      if (token) {
+        token.values[change.theme] = change.value
+      } else {
         tokens.set(change.name, {
           name: change.name,
           category: categorize(change.name, change.value),
@@ -944,23 +1164,40 @@ export class AgentWorkspace {
         })
       }
     }
+
     const comesTo = (name: string, theme: string, depth = 0): string | undefined => {
       const token = tokens.get(name)
-      if (!token) return undefined
+
+      if (!token) {
+        return undefined
+      }
+
       const value = token.values[theme] ?? token.values.default ?? Object.values(token.values)[0] ?? ""
-      if (depth > 8) return value
+
+      if (depth > 8) {
+        return value
+      }
+
       if (token.derived) {
         const base = comesTo(token.derived.from, theme, depth + 1)
-        if (base !== undefined) return `calc(${base} * ${token.derived.factor})`
+
+        if (base !== undefined) {
+          return `calc(${base} * ${token.derived.factor})`
+        }
       }
+
       return substituteReferences(value, (reference) => comesTo(reference, theme, depth + 1))
     }
+
     const lookup = (name: string, theme = "default") => comesTo(name, theme)
+
     // A token's kind comes from what the project has, not what the call types, as the detail's does.
     const kindOf = (name: string) => {
       const known = this.snapshot.tokens.find((token) => token.name === name) ?? tokens.get(name)!
+
       return previewKind(known, undefined, lookup)
     }
+
     return {
       problem: (change: TokenChange, supports: CssSupports) =>
         checkTokenEdit({
@@ -979,20 +1216,31 @@ export class AgentWorkspace {
 
   private frameMode(modeId: string | undefined): ResolvedMode {
     const modes = resolveModes(this.modes)
-    if (!modeId) return modes[0]!
+
+    if (!modeId) {
+      return modes[0]!
+    }
+
     const mode = modes.find((candidate) => candidate.id === modeId)
+
     if (!mode) {
       const ids = modes.map((candidate) => candidate.id)
       throw unknownReference("unknown_mode", `No mode "${modeId}". Modes: ${ids.join(", ")}`, modeId, ids, "mode")
     }
+
     return mode
   }
 
   /** The mode a design is drawn in: the one named, else its main one. A frame is drawn only in the primary mode. */
   private designMode(container: ContainerSpec, modeId: string | undefined): ResolvedMode {
     const main = shownModes(this.modes, container).main
-    if (!modeId) return main
+
+    if (!modeId) {
+      return main
+    }
+
     const mode = this.frameMode(modeId)
+
     if (container.kind === "frame" && mode.id !== main.id) {
       throw new CodedError(`${container.name} is a frame, drawn only in the primary mode, ${main.id}.`, {
         code: "invalid_input",
@@ -1000,6 +1248,7 @@ export class AgentWorkspace {
         alternatives: [main.id]
       })
     }
+
     return mode
   }
 
@@ -1019,10 +1268,12 @@ export class AgentWorkspace {
     const designKey = key(path, container.id)
     this.emit({ kind: look, design: designKey, state: state.id, mode: mode.id })
     this.flush()
+
     const tree = resolveDesign(boardRoot(container), state, mode.viewport, this.library(), {
       params: container.params,
       choices: container.view?.variants
     })
+
     const frame = await this.hooks.render({
       design: designKey,
       state: state.id,
@@ -1035,14 +1286,20 @@ export class AgentWorkspace {
       ...(look === "accessibility" ? { audit: true, colorTokens: this.colorTokens().map((token) => token.name) } : {}),
       tokens: this.tokenValues()
     })
+
     return { container, state, mode, frame }
   }
 
   private async measure(reference: string, options: MatrixOptions = {}) {
     const one = this.oneFrame(this.findDesign(reference).container, options)
     const { container, state, mode, frame } = await this.render(reference, one, "measure")
-    if (frame.error) throw new Error(`The frame failed to render: ${frame.error}`)
+
+    if (frame.error) {
+      throw new Error(`The frame failed to render: ${frame.error}`)
+    }
+
     const names = nodeNames(container, this.designName)
+
     return {
       state: state.id,
       mode: mode.id,
@@ -1059,6 +1316,7 @@ export class AgentWorkspace {
    */
   private oneFrame(container: ContainerSpec, options: NonNullable<MatrixOptions>): FrameOptions {
     const shown = shownModes(this.modes, container)
+
     const choices = {
       state: {
         ids: container.states.map((state) => state.id),
@@ -1074,14 +1332,21 @@ export class AgentWorkspace {
         matrix: 'a list, "shown" or "all"'
       }
     }
+
     const one: FrameOptions = {}
+
     for (const field of ["state", "mode"] as const) {
       const value = options[field]
-      if (value === undefined) continue
+
+      if (value === undefined) {
+        continue
+      }
+
       if (typeof value === "string" && value !== "all" && !(field === "mode" && value === "shown")) {
         one[field] = value
         continue
       }
+
       const given = Array.isArray(value) ? "a list" : JSON.stringify(value)
       const { ids, listed, matrix: takes } = choices[field]
       throw new CodedError(
@@ -1090,18 +1355,21 @@ export class AgentWorkspace {
         { code: "invalid_input", field, alternatives: ids.slice(0, alternativeLimit) }
       )
     }
+
     return one
   }
 
   private async problems(reference: string, options: MatrixOptions = {}): Promise<Problem[]> {
     const { container } = this.findDesign(reference)
     const found: Problem[] = []
+
     for (const state of this.statesFor(container, options.state)) {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "problems")
         found.push(...frameProblems(container, state, mode, frame, this.designName))
       }
     }
+
     return found
   }
 
@@ -1109,16 +1377,23 @@ export class AgentWorkspace {
     const { container } = this.findDesign(reference)
     const scale = Math.min(Math.max(options.scale ?? 1, 0.25), 3)
     let count = 0
+
     for (const state of this.statesFor(container, options.state)) {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "screenshot", scale)
-        if (frame.error)
+
+        if (frame.error) {
           this.warn(
             "render_failed",
             `failed to render: ${frame.error}`,
             `${container.name} (${state.name}, ${mode.name})`
           )
-        if (!frame.png) continue
+        }
+
+        if (!frame.png) {
+          continue
+        }
+
         this.screenshots.push({
           design: container.id,
           state: state.id,
@@ -1131,6 +1406,7 @@ export class AgentWorkspace {
         count++
       }
     }
+
     return count
   }
 
@@ -1149,9 +1425,11 @@ export class AgentWorkspace {
     const contrast: FrameContrast[] = []
     // Each contrast failure on a layer of this design, with what its frame measured.
     const inFrame = new Map<AccessibilityFinding, FrameContrast>()
+
     for (const state of this.statesFor(container, options.state)) {
       for (const mode of this.modesFor(container, options.mode)) {
         const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "accessibility")
+
         if (frame.error) {
           this.warn(
             "render_failed",
@@ -1160,33 +1438,55 @@ export class AgentWorkspace {
           )
           continue
         }
-        if (frame.contrast) contrast.push(frame.contrast)
+
+        if (frame.contrast) {
+          contrast.push(frame.contrast)
+        }
+
         const read = accessibilityFindings(names, state, mode, frame)
         found.push(...read.found)
-        for (const [finding, measured] of read.contrast) inFrame.set(finding, measured)
+
+        for (const [finding, measured] of read.contrast) {
+          inFrame.set(finding, measured)
+        }
       }
     }
+
     const preferred = new Set(
       this.colorTokens()
         .filter((token) => token.source === "semantic")
         .map((token) => token.name)
     )
+
     addContrastFixes(container, inFrame, contrast, preferred)
+
     return found
   }
 
   private statesFor(container: ContainerSpec, option: string | string[] | undefined): StateSpec[] {
-    if (option === "all") return container.states
+    if (option === "all") {
+      return container.states
+    }
+
     const ids = option === undefined ? [container.view?.state ?? container.states[0]!.id] : [option].flat()
+
     return ids.map((id) => findState(container, id))
   }
 
   private modesFor(container: ContainerSpec, option: string | string[] | undefined): ResolvedMode[] {
     const shown = shownModes(this.modes, container)
+
     // Every mode a frame can be drawn in is its one.
-    if (option === "all") return container.kind === "frame" ? [shown.main] : shown.all
-    if (option === "shown") return [shown.main, ...shown.beside]
+    if (option === "all") {
+      return container.kind === "frame" ? [shown.main] : shown.all
+    }
+
+    if (option === "shown") {
+      return [shown.main, ...shown.beside]
+    }
+
     const ids = option === undefined ? [shown.main.id] : [option].flat()
+
     return ids.map((id) => this.designMode(container, id))
   }
 
@@ -1208,6 +1508,7 @@ export class AgentWorkspace {
   private findEmptySpace(options: SpaceOptions): { x: number; y: number } {
     const boards = this.boards()
     const near = options.near === undefined ? undefined : this.findDesign(options.near).container.id
+
     return emptySpace(
       boards,
       options,
@@ -1218,6 +1519,7 @@ export class AgentWorkspace {
   private findRepeats(reference: string) {
     const { path, container } = this.findDesign(reference)
     this.emit({ kind: "read", design: key(path, container.id) })
+
     return findRepeats(container.root)
   }
 
@@ -1228,15 +1530,18 @@ export class AgentWorkspace {
   ): string {
     const { path, container } = this.findDesign(reference)
     const occurrences = [nodes].flat().map((node) => resolveInDesign(container, node).id)
+
     const id = uniqueId(
       options.name,
       this.all().map((entry) => entry.container.id)
     )
+
     const top = Math.min(
       ...this.all().map(
         (entry) => this.snapshot.bounds[key(entry.path, entry.container.id)]?.y ?? entry.container.position.y
       )
     )
+
     const { component, design } = extractComponent(container, occurrences, {
       id,
       name: options.name,
@@ -1245,6 +1550,7 @@ export class AgentWorkspace {
       library: this.library(),
       paramNames: options.params
     })
+
     this.setContainer(path, design)
     const file = options.file ?? this.snapshot.mainDocument
     const target = this.documents.get(file) ?? { version: 3, containers: [] }
@@ -1252,6 +1558,7 @@ export class AgentWorkspace {
     this.changed.add(file)
     this.created[options.name] = id
     this.emit({ kind: "write", design: key(file, id) })
+
     return id
   }
 
@@ -1269,10 +1576,12 @@ export class AgentWorkspace {
    */
   private tokenValues(): TokenChange[] {
     const values = new Map<string, TokenChange>()
+
     for (const change of [...this.snapshot.tokenOverrides, ...this.tokenChanges]) {
       const at = `${change.name} ${change.theme}`
       values.set(at, { name: change.name, theme: change.theme, value: change.value })
     }
+
     return [...values.values()]
   }
 
@@ -1289,14 +1598,19 @@ export class AgentWorkspace {
   private prepareNode(input: unknown, taken: Set<string>, name: string): DesignNode {
     const node = readArgument(nodeTree, withNewIds(input, taken), name)
     walkNodes(node, (each) => {
-      if (each.name !== undefined) this.created[each.name] = each.id
+      if (each.name !== undefined) {
+        this.created[each.name] = each.id
+      }
+
       this.inserted.add(each.id)
     })
+
     return node
   }
 
   private findDesign(reference: string): Located {
     const found = this.tryDesign(reference)
+
     if (!found) {
       const all = this.all()
       throw unknownReference(
@@ -1309,11 +1623,13 @@ export class AgentWorkspace {
         "design"
       )
     }
+
     return found
   }
 
   private tryDesign(reference: string): Located | undefined {
     const all = this.all()
+
     return (
       all.find(({ path, container }) => key(path, container.id) === reference) ??
       all.find(({ container }) => container.id === reference) ??
@@ -1324,16 +1640,24 @@ export class AgentWorkspace {
   /** A node by `designId/nodeId`, or by node id alone when only one design has it. */
   private findNode(reference: string): Located & { node: DesignNode } {
     const slash = reference.lastIndexOf("/")
+
     if (slash > 0) {
       const design = this.findDesign(reference.slice(0, slash))
       const node = resolveInDesign(design.container, reference.slice(slash + 1))
+
       return { ...design, node }
     }
+
     const matches = this.all().flatMap((entry) => {
       const location = locateNode(entry.container.root, reference)
+
       return location ? [{ ...entry, node: location.node }] : []
     })
-    if (matches.length === 1) return matches[0]!
+
+    if (matches.length === 1) {
+      return matches[0]!
+    }
+
     if (matches.length > 1) {
       throw new CodedError(
         `"${reference}" is in ${matches.map((match) => match.container.id).join(" and ")}; write it as design/node, e.g. "${matches[0]!.container.id}/${reference}"`,
@@ -1346,6 +1670,7 @@ export class AgentWorkspace {
         }
       )
     }
+
     throw new CodedError(`No node "${reference}". Paths are a node id, or design/node.`, { code: "unknown_node" })
   }
 
@@ -1356,7 +1681,11 @@ export class AgentWorkspace {
       containers: document.containers.map((candidate) => (candidate.id === container.id ? container : candidate))
     })
     this.changed.add(path)
-    if (!show) return
+
+    if (!show) {
+      return
+    }
+
     this.emit({
       kind: "write",
       design: key(path, container.id),
@@ -1380,16 +1709,23 @@ export class AgentWorkspace {
         "component"
       )
     }
+
     const { component: _component, ...composition } = componentComposition(component, {
       sources: this.snapshot.sources ?? {},
       props: this.snapshot.props,
       ...(this.snapshot.renderStatus ? { renderStatus: this.snapshot.renderStatus } : {})
     })
+
     const info = this.snapshot.props[component]
-    if (!info) return { component, known: false, props: [], composition }
+
+    if (!info) {
+      return { component, known: false, props: [], composition }
+    }
+
     const props = info.props.filter(
       (prop) => options.all || ((prop.group === "variant" || prop.group === "own") && prop.kind !== "function")
     )
+
     return {
       component,
       path: info.path,
@@ -1404,6 +1740,7 @@ export class AgentWorkspace {
   private async icons(id: string, options: IconOptions = {}): Promise<IconMatch[]> {
     const sets = this.snapshot.iconSets ?? []
     const set = sets.find((candidate) => candidate.id === id)
+
     if (!set) {
       throw unknownReference(
         "unknown_icon_set",
@@ -1414,8 +1751,13 @@ export class AgentWorkspace {
         sets.map((candidate) => candidate.id)
       )
     }
-    if (!this.hooks.iconNames) throw new Error("Icon names can't be read here")
+
+    if (!this.hooks.iconNames) {
+      throw new Error("Icon names can't be read here")
+    }
+
     const style = iconStyle(set, options.style)
+
     return findIcons(set, await this.hooks.iconNames(set.id, styleModule(set, style)), style, options)
   }
 
@@ -1457,14 +1799,29 @@ function key(path: string, id: string): string {
 
 function resolveInDesign(container: ContainerSpec, reference: string): DesignNode {
   const byId = locateNode(container.root, reference)?.node
-  if (byId) return byId
-  const byName: DesignNode[] = []
-  const visit = (node: DesignNode) => {
-    if (node.name === reference) byName.push(node)
-    for (const entry of childEntries(node)) entry.nodes.forEach(visit)
+
+  if (byId) {
+    return byId
   }
+
+  const byName: DesignNode[] = []
+
+  const visit = (node: DesignNode) => {
+    if (node.name === reference) {
+      byName.push(node)
+    }
+
+    for (const entry of childEntries(node)) {
+      entry.nodes.forEach(visit)
+    }
+  }
+
   visit(container.root)
-  if (byName.length === 1) return byName[0]!
+
+  if (byName.length === 1) {
+    return byName[0]!
+  }
+
   if (byName.length > 1) {
     throw new CodedError(`${byName.length} layers in ${container.id} are named "${reference}"; use an id`, {
       code: "ambiguous_reference",
@@ -1474,6 +1831,7 @@ function resolveInDesign(container: ContainerSpec, reference: string): DesignNod
       )
     })
   }
+
   throw new CodedError(`No layer "${reference}" in ${container.id}`, { code: "unknown_node" })
 }
 
@@ -1497,14 +1855,17 @@ interface ShownLayer {
 function drawnLayer(node: DesignNode, path: string, scope: EvalScope, viewport: string, slot?: string): ShownLayer {
   const where = slot === undefined ? { path } : { path, slot }
   const prefix = path.slice(0, path.length - node.id.length)
+
   const children = childEntries(node).flatMap((entry) =>
     entry.nodes.map((child) =>
       drawnLayer(drawnNode(child, scope, viewport), `${prefix}${child.id}`, scope, viewport, entry.slot)
     )
   )
+
   if (node.type === "layout") {
     return { ...where, node: { ...node, children: children.map((child) => child.node) }, children }
   }
+
   if (node.type === "component" && node.slots) {
     const slots = Object.fromEntries(
       Object.keys(node.slots).map((name) => [
@@ -1512,18 +1873,28 @@ function drawnLayer(node: DesignNode, path: string, scope: EvalScope, viewport: 
         children.filter((child) => child.slot === name).map((child) => child.node)
       ])
     )
+
     return { ...where, node: { ...node, slots }, children }
   }
+
   return { ...where, node, children }
 }
 
 function elide(node: DesignNode, depth: number | undefined, level = 0): unknown {
-  if (depth === undefined) return node
-  const copy = { ...node } as Values
-  if (node.type === "layout") {
-    if (level < depth) copy.children = node.children.map((child) => elide(child, depth, level + 1))
-    else copy.children = node.children.length > 0 ? ["…"] : []
+  if (depth === undefined) {
+    return node
   }
+
+  const copy = { ...node } as Values
+
+  if (node.type === "layout") {
+    if (level < depth) {
+      copy.children = node.children.map((child) => elide(child, depth, level + 1))
+    } else {
+      copy.children = node.children.length > 0 ? ["…"] : []
+    }
+  }
+
   if (node.type === "component" && node.slots) {
     copy.slots = Object.fromEntries(
       Object.entries(node.slots).map(([slot, nodes]) => [
@@ -1532,17 +1903,34 @@ function elide(node: DesignNode, depth: number | undefined, level = 0): unknown 
       ])
     )
   }
+
   return copy
 }
 
 /** A patch as `editNode` takes it, where `undefined` takes away what `null` did. */
 function toChange(change: PatchInput): NodeChange {
   const result: NodeChange = {}
-  if (change.hidden !== undefined) result.hidden = change.hidden ?? undefined
-  if (change.text !== undefined) result.text = change.text ?? undefined
-  if (change.props) result.props = nullsToUndefined(change.props)
-  if (change.style) result.style = nullsToUndefined(change.style)
-  if (change.unset) result.unset = change.unset
+
+  if (change.hidden !== undefined) {
+    result.hidden = change.hidden ?? undefined
+  }
+
+  if (change.text !== undefined) {
+    result.text = change.text ?? undefined
+  }
+
+  if (change.props) {
+    result.props = nullsToUndefined(change.props)
+  }
+
+  if (change.style) {
+    result.style = nullsToUndefined(change.style)
+  }
+
+  if (change.unset) {
+    result.unset = change.unset
+  }
+
   return result
 }
 
@@ -1562,6 +1950,7 @@ function withoutNulls<T extends object>(values: T): { [K in keyof T]?: Exclude<T
 /** A patch as a viewport keeps it: without what's `null` in it, nor in its props and style. */
 function stripNulls(patch: PatchInput): NodePatch {
   const { props, style, ...rest } = withoutNulls(patch)
+
   return { ...rest, ...(props ? { props: withoutNulls(props) } : {}), ...(style ? { style: withoutNulls(style) } : {}) }
 }
 
@@ -1571,12 +1960,21 @@ function stripNulls(patch: PatchInput): NodePatch {
  */
 function withNewIds(value: unknown, taken: Set<string>): unknown {
   const node = plainObject.safeParse(value).data
-  if (!node) return value
+
+  if (!node) {
+    return value
+  }
+
   const id = generateId(taken)
   taken.add(id)
   const copy: Values = { ...node, id }
-  if (Array.isArray(copy.children)) copy.children = copy.children.map((child) => withNewIds(child, taken))
+
+  if (Array.isArray(copy.children)) {
+    copy.children = copy.children.map((child) => withNewIds(child, taken))
+  }
+
   const slots = plainObject.safeParse(copy.slots).data
+
   if (slots) {
     copy.slots = Object.fromEntries(
       Object.entries(slots).map(([slot, children]) => [
@@ -1585,7 +1983,11 @@ function withNewIds(value: unknown, taken: Set<string>): unknown {
       ])
     )
   }
-  if (copy.type === "layout" && copy.children === undefined) copy.children = []
+
+  if (copy.type === "layout" && copy.children === undefined) {
+    copy.children = []
+  }
+
   return copy
 }
 
@@ -1598,6 +2000,7 @@ function withOverrides(state: StateSpec, overrides: Record<string, NodePatch>): 
 /** A token value refused as the token detail refuses it, naming the token, its theme and the problem. */
 function refusedToken(change: TokenChange, problem: string): CodedError {
   const field = `SetTokens/${change.name}/${change.theme}`
+
   return new CodedError(`${field}: ${problem}`, { code: "invalid_input", field })
 }
 
@@ -1612,15 +2015,24 @@ function frameSizeInput(
   current: FrameSize = {}
 ): FrameSize | undefined {
   const given = (["width", "height"] as const).filter((side) => input[side] !== undefined)
-  if (given.length === 0) return undefined
+
+  if (given.length === 0) {
+    return undefined
+  }
+
   if (kind !== "frame") {
     throw new CodedError(`${name} is a ${kind}; only a frame takes a width and height.`, {
       code: "invalid_input",
       field: given[0]
     })
   }
+
   const size: FrameSize = { ...current }
-  for (const side of given) size[side] = input[side]
+
+  for (const side of given) {
+    size[side] = input[side]
+  }
+
   return size
 }
 
@@ -1632,8 +2044,10 @@ function describeDropped(dropped: DroppedParts): string | undefined {
     ["Params", dropped.params],
     ["Variants", dropped.variants]
   ] as const
+
   const said = lines
     .filter(([, names]) => names.length > 0)
     .map(([what, names]) => `${what} dropped: ${names.join(", ")}.`)
+
   return said.length > 0 ? said.join(" ") : undefined
 }

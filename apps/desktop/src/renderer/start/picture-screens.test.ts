@@ -12,6 +12,7 @@ function design(name: string, kind?: ContainerSpec["kind"], beside: string[] = [
     ...(kind ? { kind } : {}),
     view: { modes: beside, ...(main ? { mode: main } : {}) }
   } as unknown as ContainerSpec
+
   return { key: `app.par#${container.id}`, container }
 }
 
@@ -27,6 +28,7 @@ describe("picturedScreens", () => {
       design("Settings", "screen", ["tablet-light"]),
       design("Pricing", undefined, ["mobile-light"])
     ]
+
     expect(shown(designs)).toEqual([
       ["Dashboard", "desktop-light", "mobile-light"],
       ["Pricing", "desktop-light", "mobile-light"],
@@ -41,6 +43,7 @@ describe("picturedScreens", () => {
       design("Hero", "frame"),
       ...["A", "B", "C"].map((name) => design(name))
     ]
+
     expect(shown(designs, defaultModeSettings, 2).map(([name]) => name)).toEqual(["A", "B"])
     expect(shown([design("Card", "component")])).toEqual([])
   })
@@ -70,6 +73,7 @@ describe("isPhone", () => {
       ],
       modes: ["narrow", "fold", "wide"].map((id) => ({ id, name: id, values: { viewport: id } }))
     }
+
     expect(resolveModes(settings).map(isPhone)).toEqual([true, true, false])
   })
 })

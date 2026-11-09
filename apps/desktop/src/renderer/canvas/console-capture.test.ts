@@ -11,10 +11,12 @@ function fakeWindow() {
   const written: string[] = []
   const listeners = new Map<string, (event: Event) => void>()
   const later: (() => void)[] = []
+
   const write =
     (level: string) =>
     (...args: unknown[]) =>
       written.push(`${level} ${args.join(" ")}`)
+
   const target: CaptureTarget = {
     console: {
       log: write("log"),
@@ -26,9 +28,12 @@ function fakeWindow() {
     addEventListener: (type, listener) => listeners.set(type, listener),
     setTimeout: (run) => later.push(run)
   }
+
   const dispatch = (type: string, path: object[]) =>
     listeners.get(type)!({ composedPath: () => path } as unknown as Event)
+
   const endTask = () => later.splice(0).forEach((run) => run())
+
   return { target, written, dispatch, endTask }
 }
 
@@ -71,6 +76,7 @@ describe("which frame a console message comes from", () => {
       "    at onClick (http://127.0.0.1:5173/src/member-row.tsx?t=17:9:58)",
       "    at http://127.0.0.1:5173/node_modules/.vite/deps/react-dom.js:120:9"
     ].join("\n")
+
     expect(callSite(stack)).toEqual({ source: "http://127.0.0.1:5173/src/member-row.tsx?t=17", line: 9 })
     // Parity's own call has none, so the console's own source stands.
     expect(callSite(stack.split("\n").slice(0, 3).join("\n"))).toBeUndefined()

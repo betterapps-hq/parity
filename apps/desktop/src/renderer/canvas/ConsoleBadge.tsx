@@ -12,11 +12,16 @@ import { useProject } from "./context.ts"
 export function ConsoleBadge({ design, name }: { design: string; name: string }) {
   const session = useProject()
   const { errors, warnings } = useDesignCounts(session.id, design)
-  if (errors === 0 && warnings === 0) return null
+
+  if (errors === 0 && warnings === 0) {
+    return null
+  }
+
   const said = [
     errors > 0 && `${errors} ${errors === 1 ? "error" : "errors"}`,
     warnings > 0 && `${warnings} ${warnings === 1 ? "warning" : "warnings"}`
   ].filter(Boolean)
+
   return (
     <Hint label={`${said.join(" and ")} from ${name}`} detail="Click to show them in the console">
       <button

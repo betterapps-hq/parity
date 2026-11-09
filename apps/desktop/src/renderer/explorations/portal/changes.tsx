@@ -160,6 +160,7 @@ function fromConsole(name: ConsolePart): Touched {
 }
 
 const dashboard = portalProject("dashboard")
+
 /** Before Claude Code's version the brand token was blue. */
 const consoleLook = (n: number, to: number): Look => (n < to ? { ...dashboard.look, hue: 250 } : dashboard.look)
 const consoleBoards = (["Billing", "Overview", "Sign in"] as const).map((name) => deliverable("dashboard", name))
@@ -523,7 +524,10 @@ function Number({ n, active }: { n: number; active?: boolean }) {
 
 /** Where a change's number sits: on its corner, or beside it when it would cover a small place. */
 function numberPlace(right: boolean | undefined, area: Area): string {
-  if (right) return "top-1/2 left-full ml-1 -translate-y-1/2"
+  if (right) {
+    return "top-1/2 left-full ml-1 -translate-y-1/2"
+  }
+
   return parseFloat(area.width) >= 15 ? "-top-2 -left-2" : "top-1/2 right-full mr-1 -translate-y-1/2"
 }
 
@@ -554,10 +558,16 @@ function Board({
         const areas = before ? (was ?? now) : now
         // The before side marks only what isn't where it was: moves and removals, or the change you're looking at.
         const shown = before ? Boolean(change.kind) || active : true
-        if (!shown) return []
+
+        if (!shown) {
+          return []
+        }
+
         const dashed = before || change.kind === "Removed"
+
         return areas.map((area, index) => {
           const key = `${change.n}-${index}`
+
           return (
             <button
               key={key}
@@ -651,8 +661,10 @@ function VersionPicker({
   onPick: (n: number) => void
 }) {
   const { versions, named } = comparison
+
   const describe = (n: number) =>
     named[n] ?? (n === versions[0]!.n ? "now" : versions.find((version) => version.n === n)!.label)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -763,8 +775,14 @@ function TokenChange({ token }: { token: NonNullable<Comparison["token"]> }) {
 }
 
 function viewLabel(view: View): string {
-  if (view === "before") return "Before"
-  if (view === "after") return "After"
+  if (view === "before") {
+    return "Before"
+  }
+
+  if (view === "after") {
+    return "After"
+  }
+
   return "Side by side"
 }
 
@@ -772,9 +790,11 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
   const project = portalProject(comparison.project)
   const [from, setFrom] = useState(comparison.from)
   const [to, setTo] = useState(comparison.to)
+
   const shown = comparison.sides
     ? comparison.changes
     : comparison.changes.filter((change) => change.at > from && change.at <= to)
+
   const marksOn = (board: string): Mark[] =>
     shown.flatMap((change) =>
       change.board === board
@@ -783,6 +803,7 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
             .filter((place) => place.board === board)
             .map((place): Mark => ({ change, areas: place.areas, was: place.was }))
     )
+
   const versionsShown = new Set(shown.map((change) => change.at)).size > 1
   const also = comparison.also.filter((item) => item.at > from && item.at <= to)
   const [view, setView] = useState<View>("both")
@@ -791,6 +812,7 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
   const [asking, setAsking] = useState(false)
   const boards = comparison.boards.filter((board) => marksOn(board.name).length)
   const sides = view === "both" ? (["before", "after"] as const) : ([view] as const)
+
   return (
     <PortalWindow path={`kestrel/${comparison.slug}/compare/${comparison.compare ?? `v${from}...v${to}`}`}>
       <div className="flex h-full flex-col">
@@ -885,6 +907,7 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
                   <ol className="-mx-2 flex flex-col">
                     {shown.map((change) => {
                       const active = focus === undefined ? undefined : focus === change.n
+
                       return (
                         <li key={change.n} className="group relative">
                           <button
@@ -997,10 +1020,12 @@ function Foot({
   const [ticked, setTicked] = useState(
     () => new Set(you.as === "reviewer" ? you.boards?.filter((board) => !board.open).map((board) => board.name) : [])
   )
+
   let ask: string
   let placeholder: string
   let primary: ReactNode
   let note: ReactNode
+
   if (you.as === "reviewer") {
     ask = "Ask for changes"
     placeholder = "What should change? It goes to everyone who made these versions."
@@ -1021,6 +1046,7 @@ function Foot({
     primary = "Update the design"
     note = you.note
   }
+
   return (
     <>
       {you.as !== "drift" && (
@@ -1039,8 +1065,13 @@ function Foot({
                 checked={ticked.has(board.name)}
                 onChange={(input) => {
                   const next = new Set(ticked)
-                  if (input.target.checked) next.add(board.name)
-                  else next.delete(board.name)
+
+                  if (input.target.checked) {
+                    next.add(board.name)
+                  } else {
+                    next.delete(board.name)
+                  }
+
                   setTicked(next)
                 }}
                 className="size-3.5 accent-foreground"

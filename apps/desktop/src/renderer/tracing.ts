@@ -13,6 +13,7 @@ import {
 } from "@parity-app/telemetry"
 
 type Events = typeof registeredEvents
+
 type TraceName = EventName<Events>
 
 /**
@@ -52,15 +53,22 @@ export interface Trace {
 
 /** Starts a trace of its own for an action or gesture. */
 export function startTrace<Name extends TraceName>(name: Name, attributes: EventAttributes<Events, Name>): Trace {
-  if (!telemetry) return { context: undefined, end: () => undefined }
+  if (!telemetry) {
+    return { context: undefined, end: () => undefined }
+  }
+
   const span = telemetry.startSpan(name, attributes)
   const previous = current
   current = span
+
   return {
     context: contextOf(span),
     end(outcome, learned) {
       span.end(outcome, learned)
-      if (current === span) current = previous
+
+      if (current === span) {
+        current = previous
+      }
     }
   }
 }
@@ -76,14 +84,19 @@ export interface Step extends Trace {
  * started it, such as opening a project. Unlike `startTrace`, it isn't the trace the window is in until `within` says.
  */
 export function startStep<Name extends TraceName>(name: Name, attributes: EventAttributes<Events, Name>): Step {
-  if (!telemetry) return { context: undefined, end: () => undefined, within: (work) => work() }
+  if (!telemetry) {
+    return { context: undefined, end: () => undefined, within: (work) => work() }
+  }
+
   const span = telemetry.startSpan(name, attributes, current ? { parent: current } : undefined)
+
   return {
     context: contextOf(span),
     end: (outcome, learned) => span.end(outcome, learned),
     within(work) {
       const previous = current
       current = span
+
       try {
         return work()
       } finally {
@@ -99,9 +112,11 @@ export function startStep<Name extends TraceName>(name: Name, attributes: EventA
  */
 export function keepTrace(): <T>(work: () => T) => T {
   const kept = current
+
   return (work) => {
     const previous = current
     current = kept
+
     try {
       return work()
     } finally {
@@ -120,6 +135,7 @@ export type CommandAttributes = EventAttributes<Events, "command.ran">
 export function tracedCommand<T>(attributes: CommandAttributes, work: () => T): T {
   const trace = startTrace("command.ran", attributes)
   let result: T
+
   try {
     result = work()
   } catch (error) {
@@ -127,10 +143,14 @@ export function tracedCommand<T>(attributes: CommandAttributes, work: () => T): 
     trace.end("error", code === undefined ? undefined : { code })
     throw error
   }
+
   if (result instanceof Promise) {
     endWhenSettled(trace, () => result).catch(() => {
       // Its caller has the failure.
     })
-  } else trace.end("ok")
+  } else {
+    trace.end("ok")
+  }
+
   return result
 }

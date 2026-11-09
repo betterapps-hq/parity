@@ -28,6 +28,7 @@ const meta = {
 } satisfies Meta<typeof UnsavedPrompt>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)
@@ -79,7 +80,10 @@ export const QuittingWithSeveralUnsaved: Story = {
     async () => {
       await exampleEdited()
       await openAlso(...others.slice(0, 2).map(blankProjectAt))
-      for (const root of others.slice(0, 2)) addNote(sessionAt(root), "Check the spacing on mobile")
+
+      for (const root of others.slice(0, 2)) {
+        addNote(sessionAt(root), "Check the spacing on mobile")
+      }
     }
   ],
   play: async () => {

@@ -31,10 +31,17 @@ function rowId(design: string, node?: string): string {
 
 /** The rows a selection highlights: the design's own row for the design or its root, else each selected layer's. */
 function selectedRows(selected: Selection, root: string | undefined): Set<string> {
-  if (!selected.design) return new Set()
+  if (!selected.design) {
+    return new Set()
+  }
+
   const nodes = selectedNodes(selected).filter((id) => id !== root)
   const design = selected.design
-  if (nodes.length === 0) return new Set(selected.designs ?? [design])
+
+  if (nodes.length === 0) {
+    return new Set(selected.designs ?? [design])
+  }
+
   return new Set(nodes.map((id) => rowId(design, id)))
 }
 
@@ -49,13 +56,18 @@ export function ContainerLayers() {
   // A new selection opens its design and every layer around it, as LayerTree's does, without a row for the root.
   const [revealed, setRevealed] = useState<string>()
   const revealKey = `${selected.design ?? ""}/${selected.node ?? ""}`
+
   if (revealed !== revealKey) {
     setRevealed(revealKey)
     const entry = selected.design ? store.getEntry(selected.design) : undefined
+
     if (entry) {
       const ancestors = selected.node ? (locateNode(entry.container.root, selected.node)?.ancestors ?? []) : []
       const ids = [entry.key, ...ancestors.slice(1).map((ancestor) => rowId(entry.key, ancestor.id))]
-      if (!ids.every((id) => expanded.has(id))) setExpanded(new Set([...expanded, ...ids]))
+
+      if (!ids.every((id) => expanded.has(id))) {
+        setExpanded(new Set([...expanded, ...ids]))
+      }
     }
   }
 
@@ -80,30 +92,51 @@ export function ContainerLayers() {
     ],
     [entries]
   )
+
   const rows = useMemo(() => {
     const list: Row[] = []
+
     for (const entry of groups.flatMap((group) => group.entries)) {
       const top = childNodes(entry.container.root)
       list.push({ id: entry.key, depth: 0, entry, hasChildren: top.length > 0 })
-      if (!expanded.has(entry.key)) continue
+
+      if (!expanded.has(entry.key)) {
+        continue
+      }
+
       const visit = (node: DesignNode, depth: number) => {
         const id = rowId(entry.key, node.id)
         const children = childNodes(node)
         list.push({ id, depth, entry, node, hasChildren: children.length > 0 })
-        if (expanded.has(id)) for (const child of children) visit(child, depth + 1)
+
+        if (expanded.has(id)) {
+          for (const child of children) {
+            visit(child, depth + 1)
+          }
+        }
       }
-      for (const node of top) visit(node, 1)
+
+      for (const node of top) {
+        visit(node, 1)
+      }
     }
+
     return list
   }, [groups, expanded])
 
   const toggle = (id: string, open?: boolean) =>
     setExpanded((current) => {
       const next = new Set(current)
-      if (open ?? !next.has(id)) next.add(id)
-      else next.delete(id)
+
+      if (open ?? !next.has(id)) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+
       return next
     })
+
   const select = (row: Row) =>
     selection.set(row.node ? { design: row.entry.key, node: row.node.id } : { design: row.entry.key })
 
@@ -111,27 +144,46 @@ export function ContainerLayers() {
     selected,
     selected.design ? store.getEntry(selected.design)?.container.root.id : undefined
   )
+
   const focused = rows.find((row) => highlighted.has(row.id))?.id
 
   const onKeyDown = (event: KeyboardEvent) => {
     const index = rows.findIndex((row) => row.id === focused)
     const row = rows[index]
-    if (!row) return
+
+    if (!row) {
+      return
+    }
+
     const move = (target: Row | undefined) => {
-      if (!target) return
+      if (!target) {
+        return
+      }
+
       event.preventDefault()
       select(target)
     }
-    if (event.key === "ArrowDown") move(rows[index + 1])
-    else if (event.key === "ArrowUp") move(rows[index - 1])
-    else if (event.key === "ArrowRight") {
+
+    if (event.key === "ArrowDown") {
+      move(rows[index + 1])
+    } else if (event.key === "ArrowUp") {
+      move(rows[index - 1])
+    } else if (event.key === "ArrowRight") {
       event.preventDefault()
-      if (row.hasChildren && !expanded.has(row.id)) toggle(row.id, true)
-      else move(rows[index + 1]?.depth === row.depth + 1 ? rows[index + 1] : undefined)
+
+      if (row.hasChildren && !expanded.has(row.id)) {
+        toggle(row.id, true)
+      } else {
+        move(rows[index + 1]?.depth === row.depth + 1 ? rows[index + 1] : undefined)
+      }
     } else if (event.key === "ArrowLeft") {
       event.preventDefault()
-      if (row.hasChildren && expanded.has(row.id)) toggle(row.id, false)
-      else move(rows.slice(0, index).findLast((candidate) => candidate.depth < row.depth))
+
+      if (row.hasChildren && expanded.has(row.id)) {
+        toggle(row.id, false)
+      } else {
+        move(rows.slice(0, index).findLast((candidate) => candidate.depth < row.depth))
+      }
     }
   }
 
@@ -217,8 +269,12 @@ function LayerRow({
   const viewports = Object.keys(own.responsive ?? {})
   const hidden = row.node ? (nodeOnBoard(container, row.node, state).hidden ?? false) : false
   let background = "hover:bg-accent/40"
-  if (selected) background = "bg-accent text-accent-foreground"
-  else if (hovered) background = "bg-accent/40"
+
+  if (selected) {
+    background = "bg-accent text-accent-foreground"
+  } else if (hovered) {
+    background = "bg-accent/40"
+  }
 
   return (
     <div

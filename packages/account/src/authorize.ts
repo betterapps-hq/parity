@@ -48,6 +48,7 @@ export async function startSignIn(
   const state = base64Url(random(32))
   const verifier = codeVerifier(random(32))
   const url = authorizeUrl({ ...options, state, codeChallenge: await codeChallenge(verifier) })
+
   return { url, pending: { state, verifier, redirectUri: options.redirectUri } }
 }
 
@@ -62,11 +63,20 @@ export function authorizeUrl(options: SignInOptions & { state: string; codeChall
   query.set("state", options.state)
   query.set("code_challenge", options.codeChallenge)
   query.set("code_challenge_method", "S256")
-  if (options.loginHint) query.set("login_hint", options.loginHint)
-  if (options.organizationId) query.set("organization_id", options.organizationId)
+
+  if (options.loginHint) {
+    query.set("login_hint", options.loginHint)
+  }
+
+  if (options.organizationId) {
+    query.set("organization_id", options.organizationId)
+  }
+
   // Written as WorkOS's own SDK writes a nested object, with the `qs` library's brackets.
-  for (const [key, value] of Object.entries(options.providerQueryParams ?? {}))
+  for (const [key, value] of Object.entries(options.providerQueryParams ?? {})) {
     query.set(`provider_query_params[${key}]`, value)
+  }
+
   return url.href
 }
 
@@ -78,11 +88,16 @@ export function codeVerifier(bytes: Uint8Array): string {
 /** The S256 code challenge for a verifier: its SHA-256, base64url-encoded without padding (RFC 7636). */
 export async function codeChallenge(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))
+
   return base64Url(new Uint8Array(digest))
 }
 
 function base64Url(bytes: Uint8Array): string {
   let binary = ""
-  for (const byte of bytes) binary += String.fromCharCode(byte)
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "")
 }

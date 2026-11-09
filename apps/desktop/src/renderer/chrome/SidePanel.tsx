@@ -31,12 +31,17 @@ export function SidePanel({ side, label, tabs, defaultTab, children }: SidePanel
   const tabKey = side === "left" ? "leftTab" : "rightTab"
   const saved = layout[tabKey]
   const current = tabs.some((tab) => tab.value === saved) ? saved! : defaultTab
-  if (!open) return <CollapsedRail side={side} label={label} tabs={tabs} current={current} />
+
+  if (!open) {
+    return <CollapsedRail side={side} label={label} tabs={tabs} current={current} />
+  }
+
   const Close = side === "left" ? PanelLeftClose : PanelRightClose
   // Every tab's icon takes 34 pixels with its gap; the open tab's name about 7.5 a letter, plus its padding. The rest of
   // the row is the panel's padding and its collapse button.
   const named = tabs.find((tab) => tab.value === current)?.label ?? ""
   const roomForName = width - 52 >= tabs.length * 34 + 26 + named.length * 7.5
+
   return (
     <aside
       className={`relative flex shrink-0 flex-col bg-background ${side === "left" ? "border-r" : "border-l"}`}
@@ -52,12 +57,14 @@ export function SidePanel({ side, label, tabs, defaultTab, children }: SidePanel
           <TabsList className="min-w-0 bg-transparent" aria-label={label}>
             {tabs.map(({ value, label: name, icon: Icon }) => {
               const named = value === current && roomForName
+
               const trigger = (
                 <TabsTrigger key={value} value={value} aria-label={name} className="flex-none">
                   <Icon />
                   {named && <span className="truncate">{name}</span>}
                 </TabsTrigger>
               )
+
               return named ? (
                 trigger
               ) : (
@@ -99,6 +106,7 @@ function CollapsedRail({
   const tabKey = side === "left" ? "leftTab" : "rightTab"
   const Open = side === "left" ? PanelLeftOpen : PanelRightOpen
   const tooltipSide = side === "left" ? "right" : "left"
+
   return (
     <aside
       className={`flex w-12 shrink-0 flex-col items-center gap-1 bg-background py-2 ${side === "left" ? "border-r" : "border-l"}`}
@@ -141,6 +149,7 @@ function ResizeEdge({ side, width }: { side: "left" | "right"; width: number }) 
   const [min, max] = panelLimits[side]
   const key = side === "left" ? "leftWidth" : "rightWidth"
   const resize = (next: number) => setLayout({ [key]: Math.round(Math.min(max, Math.max(min, next))) })
+
   return (
     <Hint label="Drag to resize" detail="Double-click to reset." side={side === "left" ? "right" : "left"} wait>
       <button
@@ -154,24 +163,36 @@ function ResizeEdge({ side, width }: { side: "left" | "right"; width: number }) 
           const step = event.shiftKey ? 48 : 16
           const outward = side === "left" ? "ArrowRight" : "ArrowLeft"
           const inward = side === "left" ? "ArrowLeft" : "ArrowRight"
-          if (event.key === outward) resize(width + step)
-          else if (event.key === inward) resize(width - step)
-          else return
+
+          if (event.key === outward) {
+            resize(width + step)
+          } else if (event.key === inward) {
+            resize(width - step)
+          } else {
+            return
+          }
+
           event.preventDefault()
         }}
         onPointerDown={(event) => {
-          if (event.button !== 0) return
+          if (event.button !== 0) {
+            return
+          }
+
           event.preventDefault()
           const target = event.currentTarget
           target.setPointerCapture(event.pointerId)
           const startX = event.clientX
+
           const move = (moveEvent: PointerEvent) =>
             resize(width + (moveEvent.clientX - startX) * (side === "left" ? 1 : -1))
+
           const end = () => {
             target.removeEventListener("pointermove", move)
             target.removeEventListener("pointerup", end)
             target.removeEventListener("pointercancel", end)
           }
+
           target.addEventListener("pointermove", move)
           target.addEventListener("pointerup", end)
           target.addEventListener("pointercancel", end)

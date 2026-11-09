@@ -53,8 +53,10 @@ const library: ComponentLibrary = new Map([
 
 const shownText = (design: ContainerSpec, picked: string | undefined, id = "title") =>
   textToEdit(design, picked, id, library)?.text
+
 const baseTitle = (design: ContainerSpec) => {
   const title = findNode(design.root, "title")
+
   return title && editableText(title)
 }
 
@@ -225,15 +227,19 @@ describe("withTextSizing", () => {
     // A state's style before the switch, with a value Resizing doesn't own.
     const state = { foreground: "red" }
     const design = { width: 40, height: 10, grow: true }
+
     for (const sizing of ["auto-width", "auto-height", "fixed"] as const) {
       for (const column of [false, true]) {
         const edited = { ...state, ...withTextSizing(design, sizing, measured, { explicit: true, column }) }
+
         const reset = Object.fromEntries(
-          Object.entries(edited).filter(([key]) => !(textSizingKeys as readonly string[]).includes(key))
+          Object.entries(edited).filter(([key]) => !textSizingKeys.some((sizingKey) => sizingKey === key))
         )
+
         expect(reset).toEqual(state)
       }
     }
+
     expect(withTextSizing(design, "auto-width", measured, { explicit: true })).toHaveProperty("grow", false)
   })
 

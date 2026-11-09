@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

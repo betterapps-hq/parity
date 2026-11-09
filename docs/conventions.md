@@ -23,6 +23,10 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 
 - **No `any`.** A value that's truly unknown is `unknown`, narrowed before use (lint enforces this).
 - **Avoid `as` assertions.** Narrow with a type guard, or check and throw when the assumption fails. `as const` is fine.
+  One that stays has a `// SAFETY:` comment before it saying why it holds (lint enforces this).
+- **No `typeof` checks, even in a type guard** (lint enforces this). Parse a value with its zod schema, or tell values
+  apart with `instanceof`, `Array.isArray` or `in`. Values from running code, such as the modules libgen loads, are
+  libgen's `Live`, checked with the guards in `packages/libgen/src/live.ts`.
 - **Lint rules aren't relaxed.** Buildkit's base config, with its anti-slop rules, applies everywhere. Turn a rule off
   on one line only for a very good reason, such as a bitwise hash, with a comment saying why.
 - **String-literal unions, not enums,** which Node can't strip anyway (see decisions.md, "Developing Parity").
@@ -30,7 +34,11 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 - **No barrel files,** apart from a package's own entry, `src/index.ts`.
 - **Components are function declarations,** not arrow functions or `React.FC`.
 - **Data from outside is checked where it comes in:** a file, an IPC message or a project's config is checked against
-  its schema once, and trusted after that.
+  its schema once, and trusted after that. Build a reader for one with `parserFor(schema)` from
+  `@parity-app/core/schema`. It and `parseData`, `parseInput` and `checkData` are core's only functions that take
+  `unknown` data, so the rest of the code takes the parsed types.
+- **`unknown` stays only where a customer's module is read:** what a package exports (`ModuleExports`, `evaluateValue`,
+  `exportOf`) can be anything. Each of those lines has a one-line lint disable saying so.
 
 ## Tests
 

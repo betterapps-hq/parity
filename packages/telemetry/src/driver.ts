@@ -29,6 +29,7 @@ function given(value: string | undefined): string | undefined {
 /** The tags a whole run carries: its test pass, when one is named. */
 export function runTags(variables: RunVariables): Record<string, string> {
   const testRun = given(variables.PARITY_TEST_RUN)
+
   return testRun ? { test_run: testRun } : {}
 }
 
@@ -37,7 +38,10 @@ export function runTags(variables: RunVariables): Record<string, string> {
  * replaced, so each names `undefined` where it has nothing.
  */
 export function driverTags(driver: Driver): Record<"driver" | "agent" | "agent_client", string | undefined> {
-  if (driver.kind === "person") return { driver: "person", agent: undefined, agent_client: undefined }
+  if (driver.kind === "person") {
+    return { driver: "person", agent: undefined, agent_client: undefined }
+  }
+
   return { driver: "agent", agent: driver.caller.name, agent_client: driver.caller.client }
 }
 
@@ -48,6 +52,7 @@ export function telemetryUser(
   driver: Driver
 ): { id: string; username?: string } {
   const username = given(variables.PARITY_TESTER) ?? (driver.kind === "agent" ? driver.caller.id : undefined)
+
   return username ? { id: installId, username } : { id: installId }
 }
 
@@ -67,6 +72,7 @@ export function createDriverTracker({
 } = {}) {
   let driver: Driver = { kind: "person" }
   let lastCall = 0
+
   const set = (next: Driver) => {
     const same =
       next.kind === driver.kind &&
@@ -75,9 +81,14 @@ export function createDriverTracker({
           driver.caller.id === next.caller.id &&
           driver.caller.name === next.caller.name &&
           driver.caller.client === next.caller.client))
+
     driver = next
-    if (!same) onChange?.(driver)
+
+    if (!same) {
+      onChange?.(driver)
+    }
   }
+
   return {
     /** An agent called the app. */
     agentCalled(caller: AgentCaller): void {
@@ -90,7 +101,10 @@ export function createDriverTracker({
     },
     /** Who's driving now. */
     current(): Driver {
-      if (driver.kind === "agent" && now() - lastCall >= agentForMs) set({ kind: "person" })
+      if (driver.kind === "agent" && now() - lastCall >= agentForMs) {
+        set({ kind: "person" })
+      }
+
       return driver
     }
   }

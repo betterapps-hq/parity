@@ -57,21 +57,33 @@ export interface FlowStyle {
  */
 export function flowOf(style: FlowStyle, children: readonly Rect[] = []): Flow {
   const rtl = style.direction === "rtl"
+
   if (style.display.includes("grid")) {
     if (style.gridAutoFlow.startsWith("column")) {
       return { direction: "column", wraps: true, reversed: false, linesReversed: rtl }
     }
+
     const stride = trackCount(style.gridTemplateColumns, children)
-    return { direction: "row", wraps: true, reversed: rtl, linesReversed: false, ...(stride ? { stride } : {}) }
+
+    const flow: Flow = { direction: "row", wraps: true, reversed: rtl, linesReversed: false }
+
+    if (stride) {
+      flow.stride = stride
+    }
+
+    return flow
   }
+
   if (style.display.includes("flex")) {
     const reversed = style.flexDirection.endsWith("reverse")
     const wraps = style.flexWrap.startsWith("wrap")
     const wrapsBack = style.flexWrap === "wrap-reverse"
+
     return style.flexDirection.startsWith("row")
       ? { direction: "row", wraps, reversed: reversed !== rtl, linesReversed: wrapsBack }
       : { direction: "column", wraps, reversed, linesReversed: wrapsBack !== rtl }
   }
+
   return { direction: "column", wraps: false, reversed: false, linesReversed: false }
 }
 
@@ -83,19 +95,30 @@ export function flowOf(style: FlowStyle, children: readonly Rect[] = []): Flow {
  */
 function trackCount(columns: string, children: readonly Rect[]): number | undefined {
   const written = writtenTracks(columns)
-  if (written) return written
+
+  if (written) {
+    return written
+  }
+
   const starts = new Set(children.map((child) => Math.round(child.left * 2) / 2))
+
   return starts.size > 0 ? starts.size : undefined
 }
 
 /** The tracks a `grid-template-columns` value lists, line names aside; undefined when it takes layout to count them. */
 function writtenTracks(value: string): number | undefined {
   let count = 0
+
   for (const track of topLevel(value.replace(/\[[^\]]*\]/g, " "))) {
     const repeat = /^repeat\(\s*(\d+)\s*,(.*)\)$/s.exec(track)
+
     if (repeat) {
       const each = writtenTracks(repeat[2]!)
-      if (!each) return undefined
+
+      if (!each) {
+        return undefined
+      }
+
       count += Number(repeat[1]) * each
     } else if (/^(repeat\(|subgrid$|none$|masonry$)/.test(track)) {
       return undefined
@@ -103,6 +126,7 @@ function writtenTracks(value: string): number | undefined {
       count += 1
     }
   }
+
   return count > 0 ? count : undefined
 }
 
@@ -111,17 +135,31 @@ function topLevel(value: string): string[] {
   const parts: string[] = []
   let depth = 0
   let part = ""
+
   for (const char of value) {
-    if (char === "(") depth++
-    if (char === ")") depth--
+    if (char === "(") {
+      depth++
+    }
+
+    if (char === ")") {
+      depth--
+    }
+
     if (depth === 0 && /\s/.test(char)) {
-      if (part) parts.push(part)
+      if (part) {
+        parts.push(part)
+      }
+
       part = ""
     } else {
       part += char
     }
   }
-  if (part) parts.push(part)
+
+  if (part) {
+    parts.push(part)
+  }
+
   return parts
 }
 
@@ -148,10 +186,12 @@ export interface Slot {
 export function slotAt(children: readonly SlotChild[], point: Point, flow: Flow, layout: Rect, count: number): Slot {
   // Mirrored so the layout runs right and down, the slot is found there and its line mirrored back.
   const row = flow.direction === "row"
+
   const mirror = {
     x: row ? flow.reversed : flow.wraps && flow.linesReversed,
     y: row ? flow.wraps && flow.linesReversed : flow.reversed
   }
+
   const slot = forwardSlotAt(
     children.map((child) => ({ index: child.index, box: mirrored(child.box, mirror) })),
     { x: mirror.x ? -point.x : point.x, y: mirror.y ? -point.y : point.y },
@@ -159,7 +199,9 @@ export function slotAt(children: readonly SlotChild[], point: Point, flow: Flow,
     mirrored(layout, mirror),
     count
   )
+
   const { x, y, w, h } = slot.line
+
   return { index: slot.index, line: { x: mirror.x ? -(x + w) : x, y: mirror.y ? -(y + h) : y, w, h } }
 }
 
@@ -187,8 +229,13 @@ function forwardSlotAt(children: readonly SlotChild[], point: Point, flow: Flow,
   const last = line.at(-1)
   // After a line's last child is before the next line's first; after the last line's, the end.
   let index = count
-  if (before) index = before.index
-  else if (last && line !== lines.at(-1)) index = last.index + 1
+
+  if (before) {
+    index = before.index
+  } else if (last && line !== lines.at(-1)) {
+    index = last.index + 1
+  }
+
   return { index, line: marker(before, last, row, flow.wraps, layout) }
 }
 
@@ -228,14 +275,17 @@ function linesOf(children: readonly SlotChild[], axis: Axis): SlotChild[][] {
   const lines: SlotChild[][] = []
   let crossStart = 0
   let crossEnd = 0
+
   for (const child of children) {
     const line = lines.at(-1)
     const previous = line?.at(-1)
+
     const wrapped =
       !line ||
       !previous ||
       axis.start(child.box) <= axis.start(previous.box) ||
       (crossEnd > crossStart && axis.crossStart(child.box) >= crossEnd - 0.5)
+
     if (wrapped) {
       lines.push([child])
       crossStart = axis.crossStart(child.box)
@@ -246,6 +296,7 @@ function linesOf(children: readonly SlotChild[], axis: Axis): SlotChild[][] {
       crossEnd = Math.max(crossEnd, axis.crossEnd(child.box))
     }
   }
+
   return lines.length > 0 ? lines : [[]]
 }
 
@@ -256,9 +307,15 @@ function lineAt(lines: readonly (readonly SlotChild[])[], across: number, axis: 
     start: Math.min(...line.map((child) => axis.crossStart(child.box))),
     end: Math.max(...line.map((child) => axis.crossEnd(child.box)))
   }))
+
   const spanning = spans.findLast((span) => span.start <= across && across <= span.end)
-  if (spanning) return spanning.line
+
+  if (spanning) {
+    return spanning.line
+  }
+
   const distance = (span: (typeof spans)[number]) => Math.max(span.start - across, across - span.end)
+
   return spans.reduce((nearest, span) => (distance(span) < distance(nearest) ? span : nearest)).line
 }
 
@@ -274,17 +331,29 @@ function marker(
   layout: Rect
 ): Box {
   const reference = before ?? last
+
   if (row) {
     let x = layout.left + 4
-    if (before) x = before.box.left - 2
-    else if (last) x = last.box.right + 1
+
+    if (before) {
+      x = before.box.left - 2
+    } else if (last) {
+      x = last.box.right + 1
+    }
+
     return reference
       ? { x, y: reference.box.top, w: 2, h: reference.box.bottom - reference.box.top }
       : { x, y: layout.top + 4, w: 2, h: Math.max(8, layout.bottom - layout.top - 8) }
   }
+
   let y = layout.top + 4
-  if (before) y = before.box.top - 2
-  else if (last) y = last.box.bottom + 1
+
+  if (before) {
+    y = before.box.top - 2
+  } else if (last) {
+    y = last.box.bottom + 1
+  }
+
   return wraps && reference
     ? { x: reference.box.left, y, w: reference.box.right - reference.box.left, h: 2 }
     : { x: layout.left + 4, y, w: Math.max(8, layout.right - layout.left - 8), h: 2 }

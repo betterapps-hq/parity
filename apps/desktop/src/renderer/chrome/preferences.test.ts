@@ -23,6 +23,7 @@ describe("saved preferences", () => {
       codeEditor: "zed",
       componentsView: "grid"
     }
+
     expect(readPreferences(JSON.stringify(saved))).toEqual(saved)
   })
 

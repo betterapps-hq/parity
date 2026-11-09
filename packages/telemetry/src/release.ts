@@ -20,8 +20,15 @@ export function telemetryRelease({
   published: boolean
   commit?: string | undefined
 }): string {
-  if (published) return `${project}@${version}`
+  if (published) {
+    return `${project}@${version}`
+  }
+
   const hash = commit?.trim().toLowerCase()
-  if (hash && commitHash.test(hash)) return hash
+
+  if (hash && commitHash.test(hash)) {
+    return hash
+  }
+
   return `${project}@${version}+unreleased`
 }

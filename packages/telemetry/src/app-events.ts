@@ -145,20 +145,37 @@ export function startupTimer(
 ): (step: StartupStep, at: number, how?: { restored: boolean }) => StartupRecord | undefined {
   const marks = new Map<StartupStep, number>()
   let sent = false
+
   return (step, at, how) => {
-    if (marks.has(step)) return undefined
+    if (marks.has(step)) {
+      return undefined
+    }
+
     const elapsed = Math.max(0, Math.round(at - origin))
     marks.set(step, elapsed)
+
     if (step === "firstProject") {
       return { name: "app.first_project", attributes: { firstProjectMs: elapsed, restored: how?.restored ?? false } }
     }
-    if (sent) return undefined
+
+    if (sent) {
+      return undefined
+    }
+
     const [mainReadyMs, windowShownMs, firstPaintMs, serviceReadyMs] = (
       ["mainReady", "windowShown", "firstPaint", "serviceReady"] as const
     ).map((name) => marks.get(name))
-    if (mainReadyMs === undefined || windowShownMs === undefined) return undefined
-    if (firstPaintMs === undefined || serviceReadyMs === undefined) return undefined
+
+    if (mainReadyMs === undefined || windowShownMs === undefined) {
+      return undefined
+    }
+
+    if (firstPaintMs === undefined || serviceReadyMs === undefined) {
+      return undefined
+    }
+
     sent = true
+
     return { name: "app.started", attributes: { mainReadyMs, windowShownMs, firstPaintMs, serviceReadyMs } }
   }
 }
@@ -171,10 +188,12 @@ export function lagCheck({ every, threshold, start }: { every: number; threshold
   tick(now: number, skip?: boolean): number | undefined
 } {
   let expected = start + every
+
   return {
     tick(now, skip = false) {
       const lateMs = Math.round(now - expected)
       expected = now + every
+
       return !skip && lateMs > threshold ? lateMs : undefined
     }
   }
@@ -199,22 +218,31 @@ export function updateRecord(
   { version, beta }: { version: string; beta: boolean }
 ): UpdateRecord | undefined {
   const base = { channel: beta ? ("beta" as const) : ("stable" as const), version }
+
   if (previous.phase === "checking") {
-    if (next.phase === "current") return { name: "update.checked", attributes: base }
+    if (next.phase === "current") {
+      return { name: "update.checked", attributes: base }
+    }
+
     if (next.phase === "downloading" || next.phase === "manual") {
       return { name: "update.checked", attributes: { ...base, available: next.version } }
     }
   }
+
   if (previous.phase === "downloading" && next.phase === "ready") {
     return { name: "update.downloaded", attributes: { ...base, available: next.version } }
   }
+
   if (previous.phase !== "installing" && next.phase === "installing") {
     return { name: "update.installed", attributes: { ...base, available: next.version } }
   }
+
   if (next.phase === "error" && previous.phase !== "error") {
     const stages = { downloading: "download", installing: "install" } as const
     const stage = stages[previous.phase as keyof typeof stages] ?? "check"
+
     return { name: "update.failed", attributes: { ...base, stage, message: next.message } }
   }
+
   return undefined
 }

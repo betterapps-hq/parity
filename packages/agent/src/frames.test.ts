@@ -19,6 +19,7 @@ const design: ContainerSpec = {
   },
   states: [{ id: "default", name: "Default" }]
 }
+
 const state = design.states[0]!
 const mode = resolveModes(defaultModeSettings)[0]!
 
@@ -54,6 +55,7 @@ describe("frameProblems", () => {
         ]
       })
     )
+
     expect(problems.map(({ kind, problem }) => [kind, problem])).toEqual([
       ["render-error", "render error: boom"],
       ["unknown-component", `"Card" isn't one of the project's components`],
@@ -81,6 +83,7 @@ describe("frameProblems", () => {
 })
 
 const contrast = { foreground: "#999999", background: "#ffffff", ratio: 2.8, required: 4.5, fontSize: 16, bold: false }
+
 const measured: FrameContrast = {
   tokens: { muted: "#999999", ink: "#111111", body: "#333333" },
   texts: [
@@ -112,6 +115,7 @@ describe("accessibilityFindings", () => {
         ]
       })
     )
+
     expect(found.map((finding) => [finding.node, finding.name])).toEqual([
       ["title", "Welcome"],
       ["nav", expect.any(String)]
@@ -135,6 +139,7 @@ describe("addContrastFixes", () => {
       detail: "",
       contrast: { ...contrast }
     }
+
     const instance = { ...own, node: "nav", name: "Navbar", contrast: { ...contrast } }
     addContrastFixes(
       design,

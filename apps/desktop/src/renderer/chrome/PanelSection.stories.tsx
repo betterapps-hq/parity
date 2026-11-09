@@ -31,6 +31,7 @@ const meta = {
 } satisfies Meta<typeof PanelSection>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const addButton = (

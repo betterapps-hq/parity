@@ -11,6 +11,7 @@ function setup(saved?: unknown) {
   const save = vi.fn<(value: unknown) => void>()
   const options = { version: "0.3.0", packaged: true, read: () => saved, save, request, now: () => now }
   const build = new InstalledBuild(options)
+
   return {
     build,
     request,
@@ -124,6 +125,7 @@ describe("installed build identity", () => {
 
   it("survives unreadable and unwritable cache files", async () => {
     const { options } = setup()
+
     const build = new InstalledBuild({
       ...options,
       read: () => {
@@ -133,14 +135,17 @@ describe("installed build identity", () => {
         throw new Error("Read-only directory")
       }
     })
+
     expect((await build.get()).channel).toBe("beta")
   })
 
   it("never fetches release metadata for development builds", async () => {
     const { options, request } = setup()
+
     const metadata = vi.fn<() => unknown>(() => {
       throw new Error("The dev output has no package.json")
     })
+
     const build = new InstalledBuild({ ...options, packaged: false, metadata })
     expect((await build.get()).channel).toBe("development")
     expect(request).not.toHaveBeenCalled()
@@ -149,12 +154,14 @@ describe("installed build identity", () => {
 
   it("keeps a confirmed cache when optional build metadata is unreadable", async () => {
     const { options, request } = setup({ version: "0.3.0", channel: "stable", checkedAt: 999_999 })
+
     const build = new InstalledBuild({
       ...options,
       metadata: () => {
         throw new Error("Unreadable build metadata")
       }
     })
+
     expect((await build.get()).channel).toBe("stable")
     expect(request).not.toHaveBeenCalled()
   })

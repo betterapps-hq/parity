@@ -8,11 +8,13 @@ describe("portFree", () => {
     expect(await portFree(port)).toBe(true)
     const listener = createServer()
     await new Promise<void>((resolve) => listener.listen(port, "127.0.0.1", resolve))
+
     try {
       expect(await portFree(port)).toBe(false)
     } finally {
       await new Promise((resolve) => listener.close(resolve))
     }
+
     expect(await portFree(port)).toBe(true)
   })
 })

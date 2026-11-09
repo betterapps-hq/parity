@@ -25,6 +25,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const signIn = () => ({ design: design("Sign in") })
@@ -36,6 +37,7 @@ async function pointAtPadding(canvasElement: HTMLElement, name: string): Promise
     { name: new RegExp(`^${name}'s .* preview$`) },
     slowly
   )
+
   await userEvent.hover(preview)
 }
 
@@ -67,6 +69,7 @@ const planCard = () => {
   example().store.updateContainer(key, "Add emphasis variant", (current) =>
     addVariant(current, "emphasis", ["Standard", "Highlighted"])
   )
+
   return { design: key }
 }
 
@@ -138,6 +141,7 @@ export const EditingAnotherState: Story = {
         state: "wrong-password",
         allStates: false
       }))
+
       return { design: key }
     })
   ]

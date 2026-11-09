@@ -1,8 +1,30 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 03:41:24 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 05:37:21 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.40.4
+
+Mon, 09 Nov 2026 05:37:21 GMT
+
+### Patches
+
+- Brings the desktop app's chrome folder up to Buildkit's lint rules, and names tldraw shape IDs canvasIdFor and a
+  process's server-or-task field lifetime (ajcraswell@gmail.com)
+
+## 0.40.3
+
+Mon, 09 Nov 2026 04:17:56 GMT
+
+### Patches
+
+- Panels' scrollbars are a thin 6px rounded thumb with no track or arrows, in place of Chromium's wide Windows
+  scrollbar. (ajcraswell@gmail.com)
+- Report a problem opened from a part's fallback lists the error it sends, such as The (ajcraswell@gmail.com)
+- Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756) (ajcraswell@gmail.com)
+- Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the
+  interrupted frame as crashed (ajcraswell@gmail.com)
 
 ## 0.40.2
 

@@ -67,9 +67,13 @@ export function ForYou({
   // would open the project to continue.
   const hadInvitation = useRef(false)
   useEffect(() => {
-    if (hadInvitation.current && !invitation && document.activeElement === document.body) headingRef.current?.focus()
+    if (hadInvitation.current && !invitation && document.activeElement === document.body) {
+      headingRef.current?.focus()
+    }
+
     hadInvitation.current = !!invitation
   }, [invitation])
+
   return (
     <section aria-labelledby={heading} className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-4">
@@ -113,6 +117,7 @@ export function ForYou({
             const when = whenLabel(note.at, now)
             const at = note.elsewhere ? ` at ${note.elsewhere}` : ""
             const said = `${capitalized(note.did)} in ${note.project}${at} ${when}`
+
             return (
               <li key={note.id}>
                 <Item
@@ -207,6 +212,7 @@ function InvitationItem({
   onAsk: () => void
 }) {
   const { organization, from, joining = false } = invitation
+
   return (
     <Item size="sm">
       <ItemMedia>

@@ -24,11 +24,25 @@ export function stampChange<Module extends { file: string | null }>(
   components: Iterable<string>
 ): string[] {
   const modules = graph.getModulesByFile(file)
-  if (!modules?.size) return []
+
+  if (!modules?.size) {
+    return []
+  }
+
   const seen = new Set<Module>()
-  for (const module of modules) graph.invalidateModule(module, seen, stamp, true)
+
+  for (const module of modules) {
+    graph.invalidateModule(module, seen, stamp, true)
+  }
+
   const touched = new Set<string>()
-  for (const module of seen) if (module.file) touched.add(posix.relative(root, module.file))
+
+  for (const module of seen) {
+    if (module.file) {
+      touched.add(posix.relative(root, module.file))
+    }
+  }
+
   return [...new Set(components)].filter((path) => touched.has(path.replace(/^\.\//, "")))
 }
 
@@ -40,12 +54,19 @@ export function gatherChanges(send: (change: CodeChange) => void, wait = 40) {
   const paths = new Set<string>()
   let stamp = 0
   let timer: ReturnType<typeof setTimeout> | undefined
+
   return {
     /** The next stamp, later than any given before. */
     stamp: () => (stamp = Math.max(Date.now(), stamp + 1)),
     add(changed: string[]) {
-      for (const path of changed) paths.add(path)
-      if (paths.size === 0) return
+      for (const path of changed) {
+        paths.add(path)
+      }
+
+      if (paths.size === 0) {
+        return
+      }
+
       clearTimeout(timer)
       timer = setTimeout(() => {
         send({ paths: [...paths], stamp })

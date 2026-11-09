@@ -13,6 +13,7 @@ export async function request<M extends ServiceMethod>(
   params: ServiceMethods[M]["params"]
 ): Promise<ServiceMethods[M]["result"]> {
   const trace = currentTraceHeaders()
+
   try {
     return settled(await (trace ? window.canvasHost.ask(method, params, trace) : window.canvasHost.ask(method, params)))
   } catch (error) {
@@ -24,7 +25,10 @@ export async function request<M extends ServiceMethod>(
 
 /** An answer's result, or its failure thrown, with checked details. */
 export function settled<Result>(answer: Answer<Result>): Result {
-  if ("error" in answer) throw codedErrors.decode(answer.error, answer.details)
+  if ("error" in answer) {
+    throw codedErrors.decode(answer.error, answer.details)
+  }
+
   return answer.result
 }
 
@@ -41,6 +45,7 @@ export function preloadAnswers(
   return (method, params) => {
     const answered = (result: unknown) => ({ result: result as never })
     const failed = (error: unknown) => codedErrors.encode(error)
+
     // Asked at once, as the preload script sends at once, so a test sees the request before it awaits.
     try {
       return Promise.resolve(answer(method, params)).then(answered, failed)

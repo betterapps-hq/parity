@@ -6,14 +6,24 @@ import type { z } from "zod"
  */
 export function checkModel<T extends z.ZodType>(schema: T, value: unknown): z.output<T> {
   const result = schema.safeParse(value)
-  if (result.success) return result.data
+
+  if (result.success) {
+    return result.data
+  }
+
   throw new TypeError(describeIssue(result.error.issues[0]!))
 }
 
 function describeIssue(issue: z.core.$ZodIssue): string {
-  if (issue.code === "unrecognized_keys") return `${pointer([...issue.path, issue.keys[0]!])}: unknown property`
+  if (issue.code === "unrecognized_keys") {
+    return `${pointer([...issue.path, issue.keys[0]!])}: unknown property`
+  }
+
   // A record key that fails its own check says why in its nested issue.
-  if (issue.code === "invalid_key") return `${pointer(issue.path)}: ${issue.issues[0]?.message ?? issue.message}`
+  if (issue.code === "invalid_key") {
+    return `${pointer(issue.path)}: ${issue.issues[0]?.message ?? issue.message}`
+  }
+
   return `${pointer(issue.path) || "/"}: ${issue.message}`
 }
 

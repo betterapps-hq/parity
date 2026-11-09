@@ -181,6 +181,7 @@ export function ActivityText({ item }: { item: Activity }) {
 /** An activity in a list: the person with what kind of thing it was, the sentence, the quote and when. */
 export function ActivityRow({ item, compact }: { item: Activity; compact?: boolean }) {
   const Icon = kindIcons[item.kind]
+
   return (
     <div className={`relative flex gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/40 ${item.unread ? "" : "opacity-80"}`}>
       <span className="relative h-fit">

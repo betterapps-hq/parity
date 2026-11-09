@@ -46,6 +46,7 @@ describe("dependencySourceMaps", () => {
   beforeEach(async () => {
     // The real path: Windows runners' tmpdir can use a short (8.3) name, which crashes libuv's watcher.
     root = await realpath(await mkdtemp(join(tmpdir(), "parity-maps-")))
+
     const files: Record<string, string> = {
       "package.json": JSON.stringify({ name: "fixture", type: "module" }),
       "main.js":
@@ -56,6 +57,7 @@ describe("dependencySourceMaps", () => {
       // No imports, so nothing else changes its code.
       "node_modules/plain/index.js": "export const plain = 1\n"
     }
+
     for (const [path, content] of Object.entries(files)) {
       await mkdir(dirname(join(root, path)), { recursive: true })
       await writeFile(join(root, path), content)
@@ -76,14 +78,19 @@ describe("dependencySourceMaps", () => {
       optimizeDeps: { include: ["bundled"], exclude: ["plain"], noDiscovery: true },
       plugins: [dependencySourceMaps()]
     })
+
     await server.listen()
+
     try {
       const origin = server.resolvedUrls!.local[0]
+
       const get = async (url: string | URL) => {
         const response = await fetch(new URL(url, origin))
         expect(response.status).toBe(200)
+
         return response.text()
       }
+
       const main = await get("/main.js")
       expect(main).toContain("//# sourceMappingURL=data:application/json;base64,")
 

@@ -49,6 +49,7 @@ describe("setCustomProperty", () => {
       blocks: ["@theme"],
       create: "@theme"
     })
+
     expect(next).toBe("body { margin: 0 }\n\n@theme {\n  --color-brand: #f00;\n}\n")
   })
 
@@ -71,12 +72,14 @@ describe("writeTokenChanges", () => {
       ],
       new Set()
     )
+
     expect(next).toContain("--primary: red; /* brand */")
     expect(next).toContain(".dark {\n  --primary: blue;\n  --ring: green;\n}")
   })
 
   it("writes a theme scale token into the @theme block that declares it, else a new @theme block", () => {
     const themeNames = new Set(["font-sans", "spacing"])
+
     const next = writeTokenChanges(
       source,
       [
@@ -85,6 +88,7 @@ describe("writeTokenChanges", () => {
       ],
       themeNames
     )
+
     expect(next).toContain("@theme inline {\n  --font-sans: Inter, sans-serif;")
     expect(next).toMatch(/\n@theme \{\n {2}--spacing: 0\.3rem;\n\}\n$/)
   })
@@ -96,6 +100,7 @@ describe("writeTokenChanges", () => {
 
   it("writes a theme into the block the stylesheet gives it, by attribute as much as by class", () => {
     const css = ':root {\n  --c: #fff;\n}\n\n[data-theme="dark"] {\n  --c: #000;\n}\n'
+
     const next = writeTokenChanges(
       css,
       [
@@ -104,6 +109,7 @@ describe("writeTokenChanges", () => {
       ],
       new Set()
     )
+
     expect(next).toBe(':root {\n  --c: #fff;\n}\n\n[data-theme="dark"] {\n  --c: #111;\n  --d: #222;\n}\n')
   })
 
@@ -116,6 +122,7 @@ describe("writeTokenChanges", () => {
   it("writes the dark theme where a prefers-color-scheme block keeps it (PAR-138)", () => {
     const css =
       ":root {\n  --c: #fff;\n  --d: 1px;\n}\n\n@media (prefers-color-scheme: dark) {\n  :root {\n    --c: #000;\n  }\n}\n"
+
     const edited = writeTokenChanges(css, [{ name: "c", theme: "dark", value: "red" }], new Set())
     expect(edited).toBe(css.replace("--c: #000", "--c: red"))
     const added = writeTokenChanges(css, [{ name: "d", theme: "dark", value: "2px" }], new Set())
@@ -162,11 +169,13 @@ describe("writeTokenChanges without a value", () => {
     const between = "a { color: red; }\n\n.dark {\n  --c: 1;\n}\n\nb { color: blue; }\n"
     const left = writeTokenChanges(between, [{ name: "c", theme: "dark", value: undefined }], new Set())
     expect(left).toBe("a { color: red; }\n\nb { color: blue; }\n")
+
     const inline = writeTokenChanges(
       "a {} .dark { --c: 1 } b {}",
       [{ name: "c", theme: "dark", value: undefined }],
       new Set()
     )
+
     expect(inline).toBe("a {} b {}")
   })
 
@@ -180,6 +189,7 @@ describe("writeTokenChanges without a value", () => {
     const css =
       "@media (prefers-color-scheme: dark) {\n  :root { --radius: 9px; }\n}\n" +
       ":root {\n  --radius-lg: 1rem;\n  @media (x) { --radius: 9px; }\n  --radius: 2px;\n}\n"
+
     const next = writeTokenChanges(css, [{ name: "radius", theme: "default", value: undefined }], new Set())
     expect(next).toBe(
       "@media (prefers-color-scheme: dark) {\n  :root { --radius: 9px; }\n}\n" +
@@ -191,6 +201,7 @@ describe("writeTokenChanges without a value", () => {
 
 describe("extractTokens", () => {
   const compiled = ":host { --primary: oklch(0.2 0 0); --spacing: 0.25rem; }\n.dark { --primary: oklch(0.9 0 0); }"
+
   const theme = [
     { name: "spacing", value: "0.25rem" },
     { name: "color-primary", value: "var(--primary)" },
@@ -224,6 +235,7 @@ describe("extractTokens", () => {
   it("takes a class as a theme only when it overrides the root's tokens", () => {
     const tokens = extractTokens(`${compiled}
 .scroll-fade-b { --_scroll-fade-size-b: 12%; }`)
+
     expect(new Set(tokens.flatMap((token) => Object.keys(token.values)))).toEqual(new Set(["default", "dark"]))
     expect(tokens.find((token) => token.name === "_scroll-fade-size-b")).toBeUndefined()
   })

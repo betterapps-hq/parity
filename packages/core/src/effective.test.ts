@@ -10,7 +10,11 @@ const { designs, library, viewports, cases } = effectiveFixture
 
 function design(id: string): ContainerSpec {
   const found = designs.find((candidate) => candidate.id === id)
-  if (!found) throw new Error(`No design "${id}" in the fixture`)
+
+  if (!found) {
+    throw new Error(`No design "${id}" in the fixture`)
+  }
+
   return found
 }
 
@@ -25,21 +29,34 @@ interface Outline {
 }
 
 function renderOutline(node: RenderNode): Outline[] {
-  if (node.kind === "text") return []
+  if (node.kind === "text") {
+    return []
+  }
+
   if (node.kind === "component") {
     return [{ id: node.nodeId, children: Object.values(node.slots).flat().flatMap(renderOutline) }]
   }
+
   const text = node.children.find((child) => child.kind === "text")
-  return [
-    {
-      id: node.nodeId,
-      ...(node.tag === "div" ? { direction: node.style.flexDirection } : {}),
-      ...(node.style.gap === undefined ? {} : { gap: node.style.gap }),
-      ...(text?.kind === "text" ? { text: text.text } : {}),
-      ...(node.style.fontWeight === undefined ? {} : { weight: node.style.fontWeight }),
-      children: node.children.flatMap(renderOutline)
-    }
-  ]
+  const outline: Outline = { id: node.nodeId, children: node.children.flatMap(renderOutline) }
+
+  if (node.tag === "div") {
+    outline.direction = node.style.flexDirection
+  }
+
+  if (node.style.gap !== undefined) {
+    outline.gap = node.style.gap
+  }
+
+  if (text?.kind === "text") {
+    outline.text = text.text
+  }
+
+  if (node.style.fontWeight !== undefined) {
+    outline.weight = node.style.fontWeight
+  }
+
+  return [outline]
 }
 
 /**
@@ -48,22 +65,39 @@ function renderOutline(node: RenderNode): Outline[] {
  */
 function effectiveOutline(tree: EffectiveTree): Outline[] {
   const { node } = tree
-  if (node.hidden) return []
+
+  if (node.hidden) {
+    return []
+  }
+
   if (node.type === "instance") {
-    if (tree.children.length === 0) return [{ id: tree.path, children: [] }]
+    if (tree.children.length === 0) {
+      return [{ id: tree.path, children: [] }]
+    }
+
     return tree.children.flatMap(effectiveOutline).map((root) => ({ ...root, id: tree.path }))
   }
+
   const style = node.style ?? {}
-  return [
-    {
-      id: tree.path,
-      ...(node.type === "layout" ? { direction: style.direction ?? "column" } : {}),
-      ...(style.gap === undefined ? {} : { gap: spacing(style.gap) }),
-      ...(node.type === "text" ? { text: node.text } : {}),
-      ...(style.weight === undefined ? {} : { weight: String(style.weight) }),
-      children: tree.children.flatMap(effectiveOutline)
-    }
-  ]
+  const outline: Outline = { id: tree.path, children: tree.children.flatMap(effectiveOutline) }
+
+  if (node.type === "layout") {
+    outline.direction = style.direction ?? "column"
+  }
+
+  if (style.gap !== undefined) {
+    outline.gap = spacing(style.gap)
+  }
+
+  if (node.type === "text") {
+    outline.text = node.text
+  }
+
+  if (style.weight !== undefined) {
+    outline.weight = String(style.weight)
+  }
+
+  return [outline]
 }
 
 describe("effectiveTree", () => {
@@ -71,10 +105,12 @@ describe("effectiveTree", () => {
     for (const viewport of viewports) {
       it(`draws what resolveDesign draws: ${name}, ${viewport}`, () => {
         const tree = effectiveTree(container, container.root.id, { state, variants, viewport, library })
+
         const drawn = resolveDesign(container.root, state, viewport, library, {
           params: container.params,
           choices: variants ?? container.view?.variants
         })
+
         expect(tree && effectiveOutline(tree)).toEqual(drawn.flatMap(renderOutline))
       })
     }
@@ -114,6 +150,7 @@ describe("effectiveTree", () => {
       },
       states: [{ id: "base", name: "Base" }]
     })
+
     const loop = placing("loop", "loop")
     const outer = placing("outer", "inner")
     const inner = placing("inner", "outer")
@@ -141,6 +178,7 @@ describe("effectiveTree", () => {
 describe("effectiveNode", () => {
   const card = design("card")
   const profile = design("profile")
+
   const body = (variants: Record<string, string>, viewport?: string, state = card.states[0]) =>
     effectiveNode(card, "body", { variants, viewport, state })?.style
 
@@ -169,6 +207,7 @@ describe("effectiveNode", () => {
   it("applies an instance's args, overrides, responsive patch and the outer state inside it", () => {
     const title = (viewport: string, state = profile.states[0]) =>
       effectiveNode(profile, "person/title", { library, viewport, state })
+
     expect(title("desktop")).toMatchObject({ text: "Ada Lovelace" })
     expect(title("desktop", profile.states[1])).toMatchObject({ text: "Selected" })
     // The instance's responsive patch picks Stacked on mobile; its Compact state still changes the gap.
@@ -199,6 +238,7 @@ describe("effectiveNode", () => {
         expect(layerOnBoard(card, id, library, state)).toEqual(effectiveNode(card, id, { state, library }))
       }
     }
+
     const path = "person/avatar/initials"
     expect(locateInner(profile, path, library)?.shown).toEqual(effectiveNode(profile, path, { library }))
     expect(layerOnBoard(profile, path, library, profile.states[1])).toEqual(

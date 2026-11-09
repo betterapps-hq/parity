@@ -11,6 +11,7 @@ import { reactBuildConfig, reactProductionMode } from "./scripts/react-build.ts"
  * the two servers never rewrite each other's.
  */
 const port = Number(process.env.PARITY_UI_PORT ?? 5310)
+
 /** Serves the code as it was when the server started, so edits made meanwhile can't reload a page being measured. */
 const frozen = process.env.PARITY_UI_FROZEN === "1"
 
@@ -20,6 +21,7 @@ export default defineConfig(({ mode }) => {
   // and the development build otherwise; see scripts/react-build.ts. Vite keys its prebundled dependencies by the alias
   // and the optimizer's options among the rest, so switching builds bundles them again rather than serving the other's.
   const react = reactBuildConfig(mode === reactProductionMode ? "production" : "development")
+
   return {
     root: "src/renderer",
     // Settings such as the tldraw license key come from `.env.local` beside this file, for the app and Storybook alike.

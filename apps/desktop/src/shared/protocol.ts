@@ -221,7 +221,7 @@ export interface ProjectProcess {
   id: string
   kind: ServerKind | TaskKind
   /** A server runs until it's stopped; a task runs once and finishes with a result. */
-  shape: "server" | "task"
+  lifetime: "server" | "task"
   name: string
   /** The open project it runs for. */
   projectId: string
@@ -310,6 +310,7 @@ export type Answer<Result> = { result: Result } | { error: string; details?: unk
 export type ServeAnswer = Answer<unknown>
 
 export type ServiceMethod = keyof ServiceMethods
+
 export type WindowMethod = keyof WindowMethods
 
 /** The window's methods by name, for the preload script, which answers each through the page's one handler. */

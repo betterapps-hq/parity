@@ -2,6 +2,7 @@ import { editNode, type NodeStyle } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
+import { z } from "zod"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { inspecting, InspectorStage, PanelColumn, SelectedStyles, slowly } from "./inspector-stories.tsx"
 
@@ -13,17 +14,23 @@ const meta = {
   title: "Parity/Inspector/Styles",
   component: SelectedStyles,
   decorators: [
-    (Story, { parameters }) => (
-      <InspectorStage>
-        <PanelColumn width={typeof parameters.panelWidth === "number" ? parameters.panelWidth : undefined}>
-          <Story />
-        </PanelColumn>
-      </InspectorStage>
-    )
+    (Story, { parameters }) => {
+      // A story may set the panel's width; the rest take the column's own.
+      const width = z.number().safeParse(parameters.panelWidth)
+
+      return (
+        <InspectorStage>
+          <PanelColumn width={width.success ? width.data : undefined}>
+            <Story />
+          </PanelColumn>
+        </InspectorStage>
+      )
+    }
   ]
 } satisfies Meta<typeof SelectedStyles>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Selects one layer of an example design, after setting styles on it in the base design when given. */
@@ -31,11 +38,13 @@ const pick = (designName: string, layerName: string, style?: NodeStyle, state?: 
   inspecting("design", () => {
     const key = design(designName)
     const id = node(designName, layerName)
+
     if (style) {
       example().store.updateContainer(key, "Change style", (container) =>
         editNode(container, state ?? container.states[0]!.id, id, { style })
       )
     }
+
     return layersSelection(key, [id], state ? { state } : undefined)
   })
 

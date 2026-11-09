@@ -9,11 +9,14 @@ export type ExecuteRequest = z.output<typeof requests.exec>
 
 /** What the app answers: a failure's message, with its details beside it when the app knew the cause. */
 export type ExecReply = z.output<typeof replies.exec>
+
 export type Screenshot = ExecReply["screenshots"][number]
+
 export type Edit = z.output<(typeof requests.exec.options)[1]>["edits"][number]
 
 /** The canonical result: the reply with its failure as one error, which carries the editId to retry a snippet by. */
 const execResult = replies.exec.omit({ error: true, details: true, editId: true }).extend({ error: failure.optional() })
+
 export type ExecResponse = z.output<typeof execResult>
 
 /** The same request fields in both adapters' paths, before MCP renames label and code. */
@@ -22,12 +25,18 @@ const executeFields = ["tab", "label", "code", "editId", "edits"]
 /** A reply as the canonical result: the failure's message, code and retry id together in one error. */
 export function execResponse(reply: ExecReply, fields: readonly string[] = executeFields): ExecResponse {
   const { error, details, editId, ...rest } = reply
-  if (reply.ok || error === undefined) return rest
+
+  if (reply.ok || error === undefined) {
+    return rest
+  }
+
   const coded = readErrorDetails(details)
+
   const failed = operationError(
     coded ? new CodedError(error, coded) : new CodedError(error, { code: "execution_failed" }),
     fields
   )
+
   return { ...rest, error: { ...failed, ...(editId ? { editId } : {}) } }
 }
 
@@ -55,15 +64,18 @@ function discoverySchema(names: { label: string; code: string }): Record<string,
   const rename = (key: string) => renamed[key] ?? key
   const kinds = requests.exec.options.map((kind) => ({ json: requestJsonSchema(kind), keys: Object.keys(kind.shape) }))
   const every = [...new Set(kinds.flatMap(({ keys }) => keys))]
+
   const properties = Object.fromEntries(
     kinds.flatMap(({ json }) => Object.entries(json.properties ?? {})).map(([key, schema]) => [rename(key), schema])
   )
+
   return {
     type: "object",
     properties,
     additionalProperties: false,
     oneOf: kinds.map(({ json, keys }) => {
       const refused = every.filter((key) => !keys.includes(key)).map((key) => ({ required: [rename(key)] }))
+
       return {
         required: (json.required ?? []).map(rename),
         not: refused.length === 1 ? refused[0] : { anyOf: refused }
@@ -81,6 +93,7 @@ export const executeOperation = {
   inputSchema: discoverySchema,
   async run(input: unknown, send: Send): Promise<ExecResponse> {
     const request = executeRequest(input)
+
     return execResponse(await send("exec", request, "tab"))
   }
 }

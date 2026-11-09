@@ -43,35 +43,61 @@ export function tabEvents(before: TabsView, after: TabsView): TabEvent[] {
   const removed = before.tabs.filter((tab) => !afterIds.has(tab.id))
   const change = after.tabs.length - before.tabs.length
   let counted: readonly { blank?: boolean }[] = []
-  if (change > 0) counted = added.slice(-change)
-  if (change < 0) counted = removed.slice(change)
+
+  if (change > 0) {
+    counted = added.slice(-change)
+  }
+
+  if (change < 0) {
+    counted = removed.slice(change)
+  }
+
   for (const tab of counted) {
     const name = change > 0 ? "tab.opened" : "tab.closed"
     events.push({ name, attributes: { kind: tab.blank ? "new" : "project", tabs: after.tabs.length } })
   }
+
   const from = kindOf(before, before.active)
   const to = kindOf(after, after.active)
+
   // A tab that took a new id is the same tab: it was swapped for one that wasn't there before.
   const renamed =
     removed.some((tab) => tab.id === before.active) && added.some((tab) => tab.id === after.active) && change === 0
+
   const moved = before.active !== after.active && !renamed && !(from === "home" && to === "home")
-  if (moved) events.push({ name: "tab.switched", attributes: { from, to } })
+
+  if (moved) {
+    events.push({ name: "tab.switched", attributes: { from, to } })
+  }
+
   return events
 }
 
 function kindOf(view: TabsView, id: string | undefined): TabKind {
   const tab = view.tabs.find((candidate) => candidate.id === id)
-  if (tab === undefined) return "home"
+
+  if (tab === undefined) {
+    return "home"
+  }
+
   return tab.blank ? "new" : "project"
 }
 
 /** Records the workspace's tab events as it changes, from one place rather than each way a tab opens or closes. */
 export function watchTabs(source: { subscribe: (listener: () => void) => () => void; view: () => TabsView }) {
   let last = source.view()
+
   return source.subscribe(() => {
     const next = source.view()
-    if (next.tabs === last.tabs && next.active === last.active) return
-    for (const { name, attributes } of tabEvents(last, next)) recordInterface(name, attributes)
+
+    if (next.tabs === last.tabs && next.active === last.active) {
+      return
+    }
+
+    for (const { name, attributes } of tabEvents(last, next)) {
+      recordInterface(name, attributes)
+    }
+
     last = next
   })
 }

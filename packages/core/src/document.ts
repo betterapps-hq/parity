@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
-import { fileObject, finiteNumber, parseData, plainObject } from "./schema.ts"
+import { fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
 import { slotNameProblem } from "./slot-names.ts"
 
 // A project file is checked by the schemas below, leaves first. Rules that span fields are refinements on the object
@@ -29,9 +29,14 @@ export type CanvasObjectSpec = z.infer<typeof canvasObjectSpec>
 /** The canvas objects, each table, operation and route at most once. */
 const canvasObjects = z.array(canvasObjectSpec).superRefine((objects, context) => {
   const placed = new Set<string>()
+
   for (const [index, { kind, ref }] of objects.entries()) {
     const key = JSON.stringify([kind, ref])
-    if (placed.has(key)) problem(context, [index], `the ${kind} "${ref}" is already on the canvas`)
+
+    if (placed.has(key)) {
+      problem(context, [index], `the ${kind} "${ref}" is already on the canvas`)
+    }
+
     placed.add(key)
   }
 })
@@ -64,12 +69,16 @@ export const linkTypes = {
 /** Whether a link of this type may join these two kinds. */
 export function linkAllowed(type: LinkType, from: LinkEndKind, to: LinkEndKind): boolean {
   const allowed: { from: readonly LinkEndKind[]; to: readonly LinkEndKind[] } = linkTypes[type]
+
   return allowed.from.includes(from) && allowed.to.includes(to)
 }
 
 const linkSpec = fileObject({ id: z.string(), type: linkType, from: linkEnd, to: linkEnd }).superRefine(
   (link, context) => {
-    if (linkAllowed(link.type, link.from.kind, link.to.kind)) return
+    if (linkAllowed(link.type, link.from.kind, link.to.kind)) {
+      return
+    }
+
     const { from, to } = linkTypes[link.type]
     const joined = `${from.join(" or ")} to ${to.join(" or ")}, not ${link.from.kind} to ${link.to.kind}`
     problem(context, [], `a ${link.type} link goes from ${joined}`)
@@ -82,8 +91,12 @@ export type LinkSpec = z.infer<typeof linkSpec>
 /** The links the person drew, each id once. */
 const linkSpecs = z.array(linkSpec).superRefine((links, context) => {
   const ids = new Set<string>()
+
   for (const [index, { id }] of links.entries()) {
-    if (ids.has(id)) problem(context, [index, "id"], `duplicate link id "${id}"`)
+    if (ids.has(id)) {
+      problem(context, [index, "id"], `duplicate link id "${id}"`)
+    }
+
     ids.add(id)
   }
 })
@@ -122,7 +135,11 @@ export function includeComponent(
   ref: ComponentRef
 ): DetectionCorrections {
   const listed = corrections?.include ?? []
-  if (listed.some((other) => other.path === ref.path && other.export === ref.export)) return { include: listed }
+
+  if (listed.some((other) => other.path === ref.path && other.export === ref.export)) {
+    return { include: listed }
+  }
+
   return { include: [...listed, ref] }
 }
 
@@ -320,6 +337,9 @@ const componentNode = nodeBase.extend({
 /** An instance of one of the project's own components. */
 export type ComponentNode = z.infer<typeof componentNode>
 
+/** A component's props or an instance's args, by name, as a design file holds them. */
+export type PropValues = NonNullable<ComponentNode["props"]>
+
 /** The elements a text node can be. */
 export const textTags = ["p", "span", "h1", "h2", "h3", "h4", "strong"] as const
 
@@ -388,17 +408,27 @@ export type DesignNode = z.infer<typeof designNode>
 /** A node tree as a design or an insertion holds it, each node with an id of its own. */
 export const nodeTree = designNode.superRefine((root, context) => {
   const ids = new Set<string>()
+
   const visit = (node: DesignNode, path: PropertyKey[]): void => {
-    if (ids.has(node.id)) problem(context, [...path, "id"], `duplicate node id "${node.id}"`)
+    if (ids.has(node.id)) {
+      problem(context, [...path, "id"], `duplicate node id "${node.id}"`)
+    }
+
     ids.add(node.id)
+
     if (node.type === "layout") {
-      for (const [index, child] of node.children.entries()) visit(child, [...path, "children", index])
+      for (const [index, child] of node.children.entries()) {
+        visit(child, [...path, "children", index])
+      }
     } else if (node.type === "component" || node.type === "instance") {
       for (const [slot, children] of Object.entries(node.slots ?? {})) {
-        for (const [index, child] of children.entries()) visit(child, [...path, "slots", slot, index])
+        for (const [index, child] of children.entries()) {
+          visit(child, [...path, "slots", slot, index])
+        }
       }
     }
   }
+
   visit(root, [])
 })
 
@@ -406,9 +436,16 @@ export const nodeTree = designNode.superRefine((root, context) => {
 export function walkNodes(node: DesignNode, visit: (node: DesignNode, depth: number) => void, depth = 0): void {
   visit(node, depth)
   let children: DesignNode[] = []
-  if (node.type === "layout") children = node.children
-  else if (node.type === "component" || node.type === "instance") children = Object.values(node.slots ?? {}).flat()
-  for (const child of children) walkNodes(child, visit, depth + 1)
+
+  if (node.type === "layout") {
+    children = node.children
+  } else if (node.type === "component" || node.type === "instance") {
+    children = Object.values(node.slots ?? {}).flat()
+  }
+
+  for (const child of children) {
+    walkNodes(child, visit, depth + 1)
+  }
 }
 
 export const containerKinds = ["screen", "component", "frame"] as const
@@ -449,12 +486,22 @@ const paramSpec = fileObject({
   options: z.array(variantOption).optional()
 }).superRefine((param, context) => {
   const ids = new Set<string>()
+
   for (const [index, { id }] of (param.options ?? []).entries()) {
-    if (ids.has(id)) problem(context, ["options", index, "id"], `duplicate option id "${id}"`)
+    if (ids.has(id)) {
+      problem(context, ["options", index, "id"], `duplicate option id "${id}"`)
+    }
+
     ids.add(id)
   }
-  if (param.type === "variant" && !param.options?.length) problem(context, ["options"], "a variant needs options")
-  if (param.type !== "variant" && param.options) problem(context, ["options"], "only variants have options")
+
+  if (param.type === "variant" && !param.options?.length) {
+    problem(context, ["options"], "a variant needs options")
+  }
+
+  if (param.type !== "variant" && param.options) {
+    problem(context, ["options"], "only variants have options")
+  }
 })
 
 /** One input of a component design. Its default is what the component shows on its own board. */
@@ -522,19 +569,32 @@ export const containerSpec = fileObject({
   const slots = new Set<string>()
   walkNodes(container.root, (node) => {
     ids.add(node.id)
-    if (node.type !== "layout" || node.slot === undefined) return
+
+    if (node.type !== "layout" || node.slot === undefined) {
+      return
+    }
+
     const unusable = slotNameProblem(node.slot)
-    if (unusable) problem(context, ["root"], `layer "${node.id}" is a slot whose name ${unusable}`)
-    else if (slots.has(node.slot)) problem(context, ["root"], `two layers are the slot "${node.slot}"`)
+
+    if (unusable) {
+      problem(context, ["root"], `layer "${node.id}" is a slot whose name ${unusable}`)
+    } else if (slots.has(node.slot)) {
+      problem(context, ["root"], `two layers are the slot "${node.slot}"`)
+    }
+
     slots.add(node.slot)
   })
+
   for (const [index, state] of container.states.entries()) {
     checkPatchKeys(state.overrides, ids, context, ["states", index, "overrides"])
   }
-  if (container.kind === "frame") checkFrame(container, context)
-  else if (container.size !== undefined) {
+
+  if (container.kind === "frame") {
+    checkFrame(container, context)
+  } else if (container.size !== undefined) {
     problem(context, ["size"], `only a frame has a size of its own; size a ${container.kind ?? "screen"} in frames`)
   }
+
   for (const [name, param] of Object.entries(container.params ?? {})) {
     for (const [index, option] of (param.options ?? []).entries()) {
       checkPatchKeys(option.overrides, ids, context, ["params", name, "options", index, "overrides"])
@@ -561,7 +621,10 @@ function checkPatchKeys(
 ): void {
   for (const key of Object.keys(patches ?? {})) {
     const [node] = key.split("/")
-    if (!ids.has(node)) problem(context, [...path, key], "no node has this id")
+
+    if (!ids.has(node)) {
+      problem(context, [...path, key], "no node has this id")
+    }
   }
 }
 
@@ -570,14 +633,29 @@ function checkPatchKeys(
  * shows only the primary mode and that state) and no sizes per viewport, since it has one of its own.
  */
 function checkFrame(frame: ContainerSpec, context: z.RefinementCtx): void {
-  if (frame.root.type !== "layout") problem(context, ["root"], "a frame's root is a layout")
-  if (frame.states.length > 1) problem(context, ["states"], "a frame has one state")
+  if (frame.root.type !== "layout") {
+    problem(context, ["root"], "a frame's root is a layout")
+  }
+
+  if (frame.states.length > 1) {
+    problem(context, ["states"], "a frame has one state")
+  }
+
   if (Object.keys(frame.states[0]?.overrides ?? {}).length > 0) {
     problem(context, ["states", 0, "overrides"], "a frame is drawn as its layers are")
   }
-  if (frame.params !== undefined) problem(context, ["params"], "a frame has no params")
-  if (frame.view !== undefined) problem(context, ["view"], "a frame shows only the primary mode and its one state")
-  if (frame.frames !== undefined) problem(context, ["frames"], "a frame's size is in size, not per viewport")
+
+  if (frame.params !== undefined) {
+    problem(context, ["params"], "a frame has no params")
+  }
+
+  if (frame.view !== undefined) {
+    problem(context, ["view"], "a frame shows only the primary mode and its one state")
+  }
+
+  if (frame.frames !== undefined) {
+    problem(context, ["frames"], "a frame's size is in size, not per viewport")
+  }
 }
 
 /** A rule's problem with the value it checks, at `path` inside that value. */
@@ -610,16 +688,10 @@ export const canvasDocument = fileObject({
 export type CanvasDocument = z.infer<typeof canvasDocument>
 
 /** Reads a project file, or throws `TypeError` with the first problem as `/json/pointer: message`. */
-export function parseCanvasDocument(value: unknown): CanvasDocument {
-  return parseData(canvasDocument, value)
-}
+export const parseCanvasDocument = parserFor(canvasDocument)
 
 /** Validates one node tree on its own, as agents insert them. `path` is where it sits, for the error's pointer. */
-export function parseDesignNode(value: unknown, path = ""): DesignNode {
-  return parseData(nodeTree, value, path)
-}
+export const parseDesignNode = parserFor(nodeTree)
 
 /** Validates a state's or viewport's patch on its own. `path` is where it sits, for the error's pointer. */
-export function parseNodePatch(value: unknown, path = ""): NodePatch {
-  return parseData(nodePatch, value, path)
-}
+export const parseNodePatch = parserFor(nodePatch)

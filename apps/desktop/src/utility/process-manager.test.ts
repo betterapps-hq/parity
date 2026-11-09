@@ -49,6 +49,7 @@ server.listen(Number(process.argv[1]), () => console.log("listening on " + proce
 
 async function storybook(overrides: Partial<ServerSpec> = {}): Promise<ServerSpec> {
   const port = await freePort()
+
   return {
     ...project,
     id: "storybook:shop",

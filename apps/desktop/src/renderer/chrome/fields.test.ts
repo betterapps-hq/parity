@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 
 // Focus, selection, keys and dragging are the browser's, so the number field runs in Chrome. It needs Chrome installed.
 let browser: Browser
@@ -104,6 +105,7 @@ export function start() {
 
 beforeAll(async () => {
   const chrome = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: chrome, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -114,11 +116,14 @@ beforeAll(async () => {
     jsx: "automatic",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 600, height: 400 } })
   page.on("pageerror", (error) => errors.push(error.message))
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   await page.route("http://parity.test/fields.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: bundle.outputFiles[0]!.text })
@@ -144,10 +149,18 @@ beforeEach(async () => {
 })
 
 const width = () => page.getByRole("textbox", { name: "Width" })
-// @ts-expect-error The page's log.
-const log = () => page.evaluate(() => window.log as unknown[][])
-// @ts-expect-error The page's gestures.
-const gestures = () => page.evaluate(() => window.gestures as unknown[][])
+
+// The page's log and gestures, parsed, since the page's globals come back untyped.
+const entries = z.array(z.array(z.unknown()))
+
+const log = async () =>
+  // @ts-expect-error The page's log.
+  entries.parse(await page.evaluate(() => window.log))
+
+const gestures = async () =>
+  // @ts-expect-error The page's gestures.
+  entries.parse(await page.evaluate(() => window.gestures))
+
 const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null)
 
 async function typeInto(name: string, text: string) {
@@ -328,8 +341,11 @@ describe("mixed values", () => {
 
 describe("number props (PAR-203)", () => {
   const props = async () => (await log()).filter(([kind]) => String(kind).startsWith("prop"))
-  // @ts-expect-error The page's prop.
-  const prop = () => page.evaluate(() => window.prop as number)
+
+  // The page's prop, parsed, since the page's globals come back untyped.
+  const prop = async () =>
+    // @ts-expect-error The page's prop.
+    z.number().parse(await page.evaluate(() => window.prop))
 
   it("previews from the value as it was, though the design holds the preview, and commits from it", async () => {
     await typeInto("value", "/20")
