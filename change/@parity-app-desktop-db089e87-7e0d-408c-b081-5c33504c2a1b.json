@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "The inspector's Design tab starts with what's selected, as its icon and kind in the kind's color above its name, with which component or file on hover",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

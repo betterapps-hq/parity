@@ -6,6 +6,7 @@ import {
   Component,
   Diamond,
   Frame,
+  Grid3x3,
   Image as ImageIcon,
   type LucideProps,
   Rows3,
@@ -44,10 +45,28 @@ export const chipColors = {
   agent: { background: kindColors.agent, color: "var(--canvas-chip-ink)" }
 } as const satisfies Record<keyof typeof kindColors, ChipColors>
 
+/** Which kind a selection color from `kindColors` is. */
+function kindOf(color: string): keyof typeof kindColors | undefined {
+  return (Object.keys(kindColors) as (keyof typeof kindColors)[]).find((key) => kindColors[key] === color)
+}
+
 /** The chip that goes with a selection color from `kindColors`. */
 export function chipFor(color: string): ChipColors {
-  const kind = (Object.keys(kindColors) as (keyof typeof kindColors)[]).find((key) => kindColors[key] === color)
+  const kind = kindOf(color)
   return kind ? chipColors[kind] : { background: color, color: "white" }
+}
+
+/** The selection colors as text on a panel, a darker step on the light theme so 12px text reads (see styles.css). */
+const textColors: Partial<Record<keyof typeof kindColors, string>> = {
+  screen: "var(--canvas-screen-text)",
+  component: "var(--canvas-component-text)",
+  layer: "var(--canvas-layer-text)"
+}
+
+/** The text color that goes with a selection color from `kindColors`, or the color itself for one without. */
+export function textFor(color: string): string {
+  const kind = kindOf(color)
+  return (kind && textColors[kind]) ?? color
 }
 
 /** A design's color. A frame is a layout on the canvas, so it's selected in the layer color. */
@@ -66,10 +85,15 @@ export function nodeColor(node: DesignNode): string {
  * library's design, which isn't one of the `entries`, is found in `library` when it's given.
  */
 export function layerLabel(node: DesignNode, entries: readonly ContainerEntry[], library?: ComponentLibrary): string {
-  return nodeLabel(
-    node,
-    (id) => entries.find((entry) => entry.container.id === id)?.container.name ?? library?.get(id)?.name
-  )
+  return nodeLabel(node, designNamer(entries, library))
+}
+
+/** Finds a design's name by its id: one of the project's `entries`, else one of `library`'s designs. */
+export function designNamer(
+  entries: readonly ContainerEntry[],
+  library?: ComponentLibrary
+): (id: string) => string | undefined {
+  return (id) => entries.find((entry) => entry.container.id === id)?.container.name ?? library?.get(id)?.name
 }
 
 /** Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. */
@@ -85,6 +109,7 @@ export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode })
   if (node.type === "instance") return <Diamond {...props} />
   // A slot is a hole each instance fills.
   if (node.slot !== undefined) return <SquareDashed {...props} />
+  if (node.style?.display === "grid") return <Grid3x3 {...props} />
   return node.style?.direction === "row" ? <Columns3 {...props} /> : <Rows3 {...props} />
 }
 

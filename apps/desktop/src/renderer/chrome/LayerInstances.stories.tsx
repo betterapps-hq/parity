@@ -39,3 +39,15 @@ export const InstanceOfMissingComponent: Story = {
     })
   ]
 }
+
+/**
+ * A layer inside an instance, the value in Dashboard's Users card: it belongs to Stat card, so its edits change only this
+ * copy, and Edit in Stat card opens the component.
+ */
+export const LayerInsideAnInstance: Story = {
+  loaders: [
+    inspecting("design", () =>
+      layersSelection(design("Dashboard"), [`${node("Dashboard", "Users card")}/${node("Stat card", "Value")}`])
+    )
+  ]
+}

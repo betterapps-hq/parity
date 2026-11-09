@@ -1,4 +1,4 @@
-import { Badge, Button, Label, RadioGroup, RadioGroupItem, Switch } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Label, RadioGroup, RadioGroupItem, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import { kindName, kindTitle, selectionKey } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
@@ -15,6 +15,7 @@ import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
+import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { StatesSection } from "./StatesSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -71,41 +72,34 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex items-center gap-2">
-          <DesignIcon
-            kind={container.kind}
-            className="size-4 shrink-0"
-            style={{ color: designColor(container.kind) }}
-          />
-          {/* The selection's title, at 15px semibold on every tab; md:text-base replaces the kit's md:text-sm. */}
-          <NameInput
-            key={container.name}
-            defaultValue={container.name}
-            aria-label={`${kindTitle(container.kind)} name`}
-            className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input md:text-base dark:bg-transparent"
-            onBlur={(event) => {
-              const name = event.currentTarget.value.trim()
-              if (name && name !== container.name) {
-                updateAndRecord(store, key, `Rename ${kind}`, (current) => ({ ...current, name }), {
-                  field: "name",
-                  read: (current) => current.name
-                })
-              }
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") event.currentTarget.blur()
-            }}
-          />
-        </div>
-        <div className="mt-2 flex items-center gap-2 pl-6">
-          <Hint label={entry.path} wait>
-            <Badge variant="outline" className="min-w-0 shrink justify-start font-normal">
-              <span className="truncate">{entry.path}</span>
-            </Badge>
-          </Hint>
-        </div>
+        <SelectionHeading
+          icon={<DesignIcon kind={container.kind} className={headingIcon} />}
+          color={designColor(container.kind)}
+          kind={kindTitle(container.kind)}
+          detail={`${kindTitle(container.kind)}, saved in ${entry.path}`}
+          name={
+            <NameInput
+              key={container.name}
+              defaultValue={container.name}
+              aria-label={`${kindTitle(container.kind)} name`}
+              className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
+              onBlur={(event) => {
+                const name = event.currentTarget.value.trim()
+                if (name && name !== container.name) {
+                  updateAndRecord(store, key, `Rename ${kind}`, (current) => ({ ...current, name }), {
+                    field: "name",
+                    read: (current) => current.name
+                  })
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur()
+              }}
+            />
+          }
+        />
         {container.kind === "frame" && (
-          <div className="mt-2 flex flex-col gap-2 pl-6">
+          <div className="mt-2 flex flex-col gap-2 pl-1.5">
             <Hint label="Frames are drawn in the project's primary mode" wait>
               <span className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground">
                 <Crown className="size-3 shrink-0 text-amber-400" aria-hidden />
