@@ -252,9 +252,14 @@ let serviceStarts = 0
 /** Whether, and when, a crashed service is started again, backing off when it keeps crashing (PAR-788). */
 const restarts = serviceRestarts()
 
+/** A crashed service's restart waiting out its back-off, which any service that starts first cancels. */
+let pendingRestart: ReturnType<typeof setTimeout> | undefined
+
 /** Builders, file access, agents and other heavy work run here, never in the UI process. */
 function startService(): UtilityProcess {
   serviceStarted(serviceStarts++ > 0)
+  clearTimeout(pendingRestart)
+  pendingRestart = undefined
   const forked = performance.now()
 
   const child = utilityProcess.fork(serviceEntry, [], {
@@ -340,10 +345,12 @@ function startService(): UtilityProcess {
     console.error(`Project service exited with code ${code}${missing}`)
 
     // A crashed service is started again through the same path a code change takes, so open windows reconnect without
-    // reloading. One a window's load started in the meantime is kept (PAR-788).
+    // reloading. A service that starts first, such as one a window's load starts, cancels it (PAR-788).
     if (restartInMs !== undefined) {
-      setTimeout(() => {
-        if (!service && !quitting) {
+      pendingRestart = setTimeout(() => {
+        pendingRestart = undefined
+
+        if (!quitting) {
           restartService()
         }
       }, restartInMs)
@@ -353,9 +360,17 @@ function startService(): UtilityProcess {
   return child
 }
 
-/** Gives a page its own channel to the service. */
+/**
+ * Gives a page its own channel to the service. With none running, as at launch or after a crash, it starts one the way
+ * a restart does, so every other open window gets a channel to it too (PAR-788).
+ */
 function connectWindow(window: BrowserWindow): void {
-  service ??= startService()
+  if (!service) {
+    restartService(window)
+
+    return
+  }
+
   const { port1, port2 } = new MessageChannelMain()
   service.postMessage({ type: "connect" } satisfies ConnectMessage, [port1])
   window.webContents.postMessage(ipc.port, null, [port2])
@@ -365,7 +380,7 @@ function connectWindow(window: BrowserWindow): void {
  * Replaces the service with a fresh one and reconnects every window to it. Pages reopen their projects and keep their
  * designs and unsaved changes, so changing the service's code doesn't close anything.
  */
-function restartService(): void {
+function restartService(loaded?: BrowserWindow): void {
   const previous = service
 
   if (previous) {
@@ -376,7 +391,7 @@ function restartService(): void {
   previous?.kill()
 
   for (const window of BrowserWindow.getAllWindows()) {
-    if (!isRenderWindow(window) && !window.webContents.isLoading()) {
+    if (!isRenderWindow(window) && (window === loaded || !window.webContents.isLoading())) {
       connectWindow(window)
     }
   }
