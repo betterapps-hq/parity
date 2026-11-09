@@ -38,7 +38,7 @@ catalog:
   "@buildkitgg/storybook-config": 0.2.0
   "@sentry/cli": 3.8.2
   "@sentry/electron": 8.3.0
-  "@sentry/node": 11.8.0
+  "@sentry/node": 11.11.0
   beachball: 2.66.0
   electron-builder: 26.18.0
   electron-updater: 6.8.11
