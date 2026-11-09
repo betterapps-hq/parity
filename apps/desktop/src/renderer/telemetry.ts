@@ -90,16 +90,25 @@ function boundaryName(info: CaughtInfo): string | undefined {
   return typeof props?.name === "string" ? props.name : undefined
 }
 
+/** The Sentry event of each error a boundary caught, so a report from its fallback can name it (PAR-704). */
+const caughtEvents = new WeakMap<object, string>()
+
+/** The Sentry event an error a boundary caught was sent as, if it was an object and was sent. */
+export function caughtEventId(error: unknown): string | undefined {
+  return typeof error === "object" && error !== null ? caughtEvents.get(error) : undefined
+}
+
 function report(error: unknown, info: CaughtInfo, caught: boolean): void {
   console.error(error)
   const boundary = boundaryName(info)
-  Sentry.captureException(error, {
+  const eventId = Sentry.captureException(error, {
     mechanism: { type: "react", handled: caught },
     captureContext: {
       contexts: { react: { componentStack: info.componentStack } },
       ...(boundary ? { tags: { boundary } } : {})
     }
   })
+  if (caught && eventId && typeof error === "object" && error !== null) caughtEvents.set(error, eventId)
 }
 
 /**
