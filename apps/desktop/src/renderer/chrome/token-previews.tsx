@@ -334,9 +334,63 @@ export function easingPath(value: string, width: number, height: number, pad = 0
 }
 
 /**
- * An easing: its curve, with a dot that rides it while playing, left to right in time and up by progress. The dot's
- * two moves are on two elements, one steady and one eased, which is what the curve plots.
+ * The dot that rides an easing's curve while playing, left to right in time and up by progress: two moves on two
+ * elements, one steady and one eased, which is what the curve plots. It's placed over a curve drawn `width` across,
+ * whose 0 is `bottom` from the top and whose 1 is `rise` above that, `left` in from the edge.
  */
+export function EasingDot({
+  value,
+  width,
+  bottom,
+  rise,
+  size,
+  playing,
+  left = 0,
+  duration = 900
+}: {
+  value: string
+  width: number
+  bottom: number
+  rise: number
+  size: number
+  playing: boolean
+  left?: number
+  duration?: number
+}) {
+  const across = useRef<HTMLSpanElement>(null)
+  const up = useRef<HTMLSpanElement>(null)
+  usePlayback(
+    across,
+    {
+      frames: looped({ transform: "translateX(0)" }, { transform: `translateX(${width}px)` }, duration, "linear"),
+      timing: { duration: duration + rest, iterations: Number.POSITIVE_INFINITY }
+    },
+    playing
+  )
+  usePlayback(
+    up,
+    {
+      frames: looped({ transform: "translateY(0)" }, { transform: `translateY(${-rise}px)` }, duration, value),
+      timing: { duration: duration + rest, iterations: Number.POSITIVE_INFINITY }
+    },
+    playing
+  )
+  return (
+    <span
+      ref={across}
+      className="pointer-events-none absolute"
+      style={{ left, top: bottom - size / 2, width: size, height: size, marginLeft: -size / 2 }}
+    >
+      <span
+        ref={up}
+        className="block size-full rounded-full"
+        style={{ background: "var(--canvas-layer)", visibility: playing ? "visible" : "hidden" }}
+      />
+    </span>
+  )
+}
+
+/** An easing: its curve, with a dot that rides it while playing (EasingDot). */
 export function EasingArt({
   value,
   width,
@@ -355,27 +409,9 @@ export function EasingArt({
   ghosts?: string[]
   stroke?: number
 }) {
-  const across = useRef<HTMLSpanElement>(null)
-  const up = useRef<HTMLSpanElement>(null)
   const pad = 0.18
   const top = height * pad
   const span = height - top * 2
-  usePlayback(
-    across,
-    {
-      frames: looped({ transform: "translateX(0)" }, { transform: `translateX(${width}px)` }, duration, "linear"),
-      timing: { duration: duration + rest, iterations: Number.POSITIVE_INFINITY }
-    },
-    playing
-  )
-  usePlayback(
-    up,
-    {
-      frames: looped({ transform: "translateY(0)" }, { transform: `translateY(${-span}px)` }, duration, value),
-      timing: { duration: duration + rest, iterations: Number.POSITIVE_INFINITY }
-    },
-    playing
-  )
   const dot = Math.max(4, stroke * 3)
   return (
     <span className="relative block" style={{ width, height }}>
@@ -400,17 +436,15 @@ export function EasingArt({
           strokeLinecap="round"
         />
       </svg>
-      <span
-        ref={across}
-        className="absolute left-0"
-        style={{ top: height - top - dot / 2, width: dot, height: dot, marginLeft: -dot / 2 }}
-      >
-        <span
-          ref={up}
-          className="block size-full rounded-full"
-          style={{ background: "var(--canvas-layer)", visibility: playing ? "visible" : "hidden" }}
-        />
-      </span>
+      <EasingDot
+        value={value}
+        width={width}
+        bottom={height - top}
+        rise={span}
+        size={dot}
+        playing={playing}
+        duration={duration}
+      />
     </span>
   )
 }

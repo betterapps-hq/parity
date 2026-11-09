@@ -131,7 +131,11 @@ export function easingShape(easing: Easing | undefined, tokens: readonly EasingT
  * variable the page may not have, so Tailwind's presets and the project's tokens move as they're defined.
  */
 export function drawnEasing(easing: Easing | undefined, tokens: readonly EasingToken[]): string {
-  const shape = easingShape(easing, tokens)
+  return shapeCss(easingShape(easing, tokens))
+}
+
+/** A shape as CSS draws it: `cubic-bezier()`, `steps()`, or a spring's `linear()`. */
+export function shapeCss(shape: EasingShape): string {
   if (shape.kind === "bezier") return bezierCss(shape.curve)
   if (shape.kind === "samples") return `linear(${shape.values.join(", ")})`
   return shape.jump === "end" ? `steps(${shape.count})` : `steps(${shape.count}, jump-start)`

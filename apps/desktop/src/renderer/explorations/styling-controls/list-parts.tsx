@@ -21,7 +21,7 @@ import {
 } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
-import { drag, type Reading, readNumber, ValueField } from "./field-parts.tsx"
+import { drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
 
 /*
  * What the list fields share (design-options-fields.md, Lists): the entry's row, in the spec's order (the drag handle,
@@ -52,6 +52,8 @@ export interface ListRowProps {
    * type and summary. With `details`, it opens them.
    */
   preview?: ReactNode
+  /** The preview drawn for whether the row is live (hovered or focused), in place of `preview`, so it can play. */
+  renderPreview?: (live: boolean) => ReactNode
   /** The entry's details, in the popover its preview opens, as every list's entries have them. */
   details?: {
     content: ReactNode
@@ -83,23 +85,26 @@ export function ListRow({
   onRemove,
   children,
   preview,
+  renderPreview,
   details,
   type,
   after
 }: ListRowProps) {
   const [draggable, setDraggable] = useState(false)
   const [over, setOver] = useState(false)
+  const { live, rowProps } = useLiveRow()
+  const drawn = renderPreview ? renderPreview(live(name)) : preview
   const dataType = `application/x-parity-${group}`
   const entry =
-    preview === undefined ? (
+    drawn === undefined ? (
       <>
         {type}
         {children}
       </>
     ) : (
-      <div className={entryBox}>
+      <div className={entryBox} {...rowProps(name)}>
         <EntryPreview name={name} details={details}>
-          {preview}
+          {drawn}
         </EntryPreview>
         {type}
         {children}

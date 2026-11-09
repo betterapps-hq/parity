@@ -197,7 +197,15 @@ function EntryRow({
       onMove={onMove}
       onToggle={() => onChange({ off: !entry.off || undefined })}
       onRemove={onRemove}
-      preview={<CurveThumb shape={easingShape(entry.easing, easings)} faint={entry.easing === undefined} />}
+      // Hovered or focused, the curve plays at the entry's own duration.
+      renderPreview={(live) => (
+        <CurveThumb
+          shape={easingShape(entry.easing, easings)}
+          faint={entry.easing === undefined}
+          playing={live}
+          duration={ms ?? defaultDuration}
+        />
+      )}
       details={{ content: details, className: "w-80 gap-1 p-3" }}
       // What changes keeps its name; the summary after it is cut first.
       type={<span className="max-w-1/2 shrink-0 truncate">{label}</span>}

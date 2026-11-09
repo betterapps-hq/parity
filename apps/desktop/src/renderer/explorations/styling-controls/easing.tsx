@@ -17,8 +17,18 @@ import { type KeyboardEvent, type PointerEvent, useId, useRef, useState } from "
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
+import { EasingDot } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
-import { drag, MissingMark, type Reading, readUnitNumber, useTokens, useTokenSets, ValueField } from "./field-parts.tsx"
+import {
+  drag,
+  MissingMark,
+  type Reading,
+  readUnitNumber,
+  useLiveRow,
+  useTokens,
+  useTokenSets,
+  ValueField
+} from "./field-parts.tsx"
 import {
   type Bezier,
   bezierCss,
@@ -28,6 +38,7 @@ import {
   easingPresets,
   type EasingShape,
   easingShape,
+  shapeCss,
   readEasingValue,
   type Spring,
   springSettle
@@ -84,24 +95,45 @@ function reach(shape: EasingShape): { low: number; high: number } {
 export function CurveThumb({
   shape,
   faint = false,
-  size = 16
+  size = 16,
+  playing = false,
+  duration
 }: {
   shape: EasingShape
   faint?: boolean
   size?: number
+  /** Rides the Tokens panel's dot (EasingDot) along the curve, as a live token row does. */
+  playing?: boolean
+  /** How long one ride takes, where it's a real one (a transition's duration). */
+  duration?: number
 }) {
   const { low, high } = reach(shape)
+  // The drawing is scaled into `size` with a pixel of room each side, so the dot is placed by the same scale.
+  const scale = size / (size + 2)
+  const at = (value: number) => (((high - value) / (high - low)) * size + 1) * scale
   return (
-    <svg aria-hidden width={size} height={size} viewBox={`-1 -1 ${size + 2} ${size + 2}`} className="shrink-0">
-      <rect x={0} y={0} width={size} height={size} rx={2} className="fill-muted-foreground/10" />
-      <path
-        d={shapePath(shape, size, size, low, high)}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.25}
-        className={faint ? "text-muted-foreground/60" : "text-foreground"}
+    <span className="relative block shrink-0" style={{ width: size, height: size }}>
+      <svg aria-hidden width={size} height={size} viewBox={`-1 -1 ${size + 2} ${size + 2}`} className="block">
+        <rect x={0} y={0} width={size} height={size} rx={2} className="fill-muted-foreground/10" />
+        <path
+          d={shapePath(shape, size, size, low, high)}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.25}
+          className={faint ? "text-muted-foreground/60" : "text-foreground"}
+        />
+      </svg>
+      <EasingDot
+        value={shapeCss(shape)}
+        width={size * scale}
+        left={scale}
+        bottom={at(0)}
+        rise={at(0) - at(1)}
+        size={Math.max(3, Math.round(size / 5))}
+        playing={playing}
+        duration={duration}
       />
-    </svg>
+    </span>
   )
 }
 
@@ -315,6 +347,7 @@ function EasingEditor({
   const shape = easingShape(value, tokens)
   const spring = value !== undefined && "spring" in value ? value.spring : undefined
   const isSelected = (option: Easing) => JSON.stringify(option) === JSON.stringify(value)
+  const { live, rowProps } = useLiveRow()
   return (
     <Tabs value={tab} onValueChange={(next) => setTab(next as "curve" | "spring")}>
       <TabsList className="m-2 mb-0 w-[calc(100%-1rem)]">
@@ -335,8 +368,9 @@ function EasingEditor({
               aria-pressed={isSelected({ keyword: preset.keyword })}
               className="h-7 justify-start gap-1.5 px-1.5 text-xs"
               onClick={() => onChange({ keyword: preset.keyword })}
+              {...rowProps(preset.keyword)}
             >
-              <CurveThumb shape={{ kind: "bezier", curve: preset.curve }} />
+              <CurveThumb shape={{ kind: "bezier", curve: preset.curve }} playing={live(preset.keyword)} />
               {preset.label}
             </Button>
           ))}
@@ -355,8 +389,9 @@ function EasingEditor({
                   aria-pressed={isSelected({ token: token.name })}
                   className="h-7 justify-start gap-1.5 px-1.5 text-xs"
                   onClick={() => onChange({ token: token.name })}
+                  {...rowProps(token.name)}
                 >
-                  <CurveThumb shape={easingShape({ token: token.name }, tokens)} />
+                  <CurveThumb shape={easingShape({ token: token.name }, tokens)} playing={live(token.name)} />
                   {token.name.replace(/^ease-/, "")}
                 </Button>
               ))}
