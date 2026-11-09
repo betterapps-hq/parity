@@ -70,11 +70,12 @@ const toolIcons: Record<Tool, typeof Hand> = {
 
 /**
  * The tools that make things wear the color the canvas selects what they make in (canvas/kinds.tsx), at the step that
- * reads as text on a panel: frames and text layers in the layer blue. Picked, they're white on the selection blue.
+ * reads as text on a panel: frames in the layer blue and text in text's green (PAR-792). Picked, they're white on the
+ * selection blue. Until PAR-792 is on main, text falls back to its green's own values.
  */
 const toolTints: Partial<Record<Tool, string>> = {
   frame: "var(--canvas-layer-text)",
-  text: "var(--canvas-layer-text)"
+  text: "var(--canvas-text-text, light-dark(oklch(0.52 0.15 142), oklch(0.64 0.17 142)))"
 }
 
 /**
