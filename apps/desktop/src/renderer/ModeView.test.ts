@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url"
+import type { ContainerSpec } from "@parity-app/core"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
@@ -123,8 +124,7 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
 
-  // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof app === "object"))) {
+  if (!(await page.evaluate(() => "app" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
   }
 })
@@ -133,7 +133,7 @@ afterAll(async () => {
   await browser?.close()
 })
 
-const form = {
+const form: ContainerSpec = {
   id: "form",
   name: "Form",
   position: { x: 0, y: 0 },
@@ -154,7 +154,7 @@ function failedBox() {
 
 /** Shows a design and lets its effects run. */
 async function show(
-  container: unknown,
+  container: ContainerSpec,
   options: { interactive?: boolean; scale?: number; asleep?: boolean; shows?: string } = {}
 ) {
   // @ts-expect-error The bundle's global.
@@ -221,7 +221,7 @@ describe("a frame in Interact", () => {
 })
 
 /** A card with a row of buttons, a grid and a badge placed absolutely: one top inset a token, the left one a step. */
-const card = {
+const card: ContainerSpec = {
   id: "card",
   name: "Card",
   position: { x: 0, y: 0 },
@@ -305,6 +305,7 @@ describe("what the canvas reads from an inert frame", () => {
 
   it("still lists the design's tab order, for the tab order overlay", async () => {
     const order = await page.evaluate(() =>
+      // SAFETY: the bundle exports tab-order.ts's `tabOrder`, which gives elements.
       // @ts-expect-error The bundle's global.
       (app.tabOrder(document.querySelector("[data-frame]")) as HTMLElement[]).map((element) => element.localName)
     )
@@ -363,7 +364,7 @@ describe("a component moved to another file", () => {
 
 describe("a component that failed, moved to another file", () => {
   it("draws from there instead of its error", async () => {
-    const broken = {
+    const broken: ContainerSpec = {
       id: "broken",
       name: "Broken",
       position: { x: 0, y: 0 },
@@ -383,7 +384,7 @@ describe("a component that failed, moved to another file", () => {
 })
 
 describe("a component that fails to draw (PAR-165)", () => {
-  const broken = {
+  const broken: ContainerSpec = {
     id: "failing",
     name: "Failing",
     position: { x: 0, y: 0 },

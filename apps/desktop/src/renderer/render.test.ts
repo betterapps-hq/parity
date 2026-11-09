@@ -86,7 +86,7 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
 
-  if (!(await page.evaluate(() => typeof window.canvasRender === "function"))) {
+  if (!(await page.evaluate(() => "canvasRender" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
   }
 })
@@ -112,7 +112,7 @@ async function render(mode: Pick<RenderJob["mode"], "width" | "height" | "viewpo
 
     return {
       frame,
-      mountedIn: (window as unknown as { mountedIn: unknown }).mountedIn,
+      mountedIn: "mountedIn" in window ? window.mountedIn : undefined,
       vh: tall?.getBoundingClientRect().height
     }
   }, job)
@@ -167,8 +167,11 @@ async function renderPortal(inline: boolean) {
     theme: [],
     tree: [{ kind: "element", nodeId: "preview", tag: "div", style: {}, children: [] }],
     mode: { width: 656, viewport: { width: 1280, height: 800 }, classNames: [], attributes: {} },
-    scale: 1,
-    ...(inline ? { inlinePortals: true as const } : {})
+    scale: 1
+  }
+
+  if (inline) {
+    job.inlinePortals = true
   }
 
   return page.evaluate(async (job) => {

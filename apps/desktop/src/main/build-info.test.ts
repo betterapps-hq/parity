@@ -1,14 +1,15 @@
+import type { JsonValue } from "@parity-app/core"
 import { describe, expect, it, vi } from "vite-plus/test"
-import { builtRelease, InstalledBuild } from "./build-info.ts"
+import { builtRelease, InstalledBuild, type SavedBuild } from "./build-info.ts"
 
 function release(prerelease: boolean, tag = "v0.3.0") {
   return Response.json({ tag_name: tag, prerelease, draft: false })
 }
 
-function setup(saved?: unknown) {
+function setup(saved: JsonValue = null) {
   let now = 1_000_000
   const request = vi.fn<typeof fetch>().mockResolvedValue(release(true))
-  const save = vi.fn<(value: unknown) => void>()
+  const save = vi.fn<(value: SavedBuild) => void>()
   const options = { version: "0.3.0", packaged: true, read: () => saved, save, request, now: () => now }
   const build = new InstalledBuild(options)
 
@@ -93,8 +94,8 @@ describe("installed build identity", () => {
     expect(request).toHaveBeenCalledTimes(2)
   })
 
-  it.each([
-    undefined,
+  it.each<JsonValue>([
+    null,
     { version: "0.2.0", channel: "beta", checkedAt: 999_999 },
     { version: "0.3.0", channel: "development", checkedAt: 999_999 },
     { beta: true }
@@ -142,7 +143,7 @@ describe("installed build identity", () => {
   it("never fetches release metadata for development builds", async () => {
     const { options, request } = setup()
 
-    const metadata = vi.fn<() => unknown>(() => {
+    const metadata = vi.fn<() => JsonValue>(() => {
       throw new Error("The dev output has no package.json")
     })
 

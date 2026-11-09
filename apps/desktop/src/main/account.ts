@@ -447,7 +447,7 @@ export function createAccount(options: AccountOptions): Account {
       attempt = { at: "waiting", provider, url, ...(email !== undefined && { email }) }
       endedHere = null
       emit()
-      await options.openBrowser(url).catch((error: unknown) => console.error("The browser didn't open", error))
+      await options.openBrowser(url).catch((cause: unknown) => console.error("The browser didn't open", cause))
     },
 
     async reopen() {
@@ -615,17 +615,20 @@ export function personOf(session: Session): AccountPerson {
 /** Codes WorkOS answers with when the account's organization requires its single sign-on. */
 const singleSignOnCodes = new Set(["sso_required", "organization_authentication_methods_required"])
 
+/** A sign-in that ended without a session: why, the account WorkOS named, and what it said. */
+export interface SignInFailure {
+  problem: SignInProblem
+  email?: string
+  details: string
+  organizations?: { id: string; name: string }[]
+}
+
 /**
  * What went wrong trading the code: someone in several organizations who has to choose one, an organization that
  * requires single sign-on, an account WorkOS turned down (403), or anything else, which is an error. The details are
  * what WorkOS said, to copy for help.
  */
-export function problemOf(result: Exclude<AuthenticateResult, { kind: "session" }>): {
-  problem: SignInProblem
-  email?: string
-  details: string
-  organizations?: { id: string; name: string }[]
-} {
+export function problemOf(result: Exclude<AuthenticateResult, { kind: "session" }>): SignInFailure {
   const said = result.kind === "refused" ? [result.status, result.code].filter(Boolean).join(" ") : result.status
   const details = ["POST /user_management/authenticate", said, result.message].filter(Boolean).join("\n")
 

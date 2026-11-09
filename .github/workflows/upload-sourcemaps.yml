@@ -54,9 +54,18 @@ jobs:
           if [ -n "$LICENSE_KEY" ]; then export VITE_TLDRAW_LICENSE_KEY="$LICENSE_KEY"; fi
           bash -e -o pipefail -c "$BUILD_COMMAND"
       - name: Upload to Sentry
+        id: upload
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           PACKAGE: ${{ inputs.package }}
           PROJECT: ${{ inputs.project }}
           PUBLISHED: ${{ inputs.published && '--published --link-commits' || '' }}
         run: node scripts/upload-sourcemaps.ts "$PACKAGE" --project "$PROJECT" $PUBLISHED
+      # The upload only warns when the commit link fails, which went unseen on every published build until 2026-11-09,
+      # so a published version's run fails here instead when Sentry has no maps or no commits for it (PAR-774).
+      - name: Check the release in Sentry
+        if: inputs.published
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          RELEASE: ${{ steps.upload.outputs.release }}
+        run: node scripts/check-release.ts "$RELEASE"

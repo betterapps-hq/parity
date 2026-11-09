@@ -6659,3 +6659,33 @@ at its fullest level, everywhere Parity runs" above for CI alone.
 - **Main's Sentry hooks drop transactions and logs,** through `sentryScrubbing`'s `errorsOnly`, which covers every
   process, since windows and the service send through main. The editor window doesn't start Replay. The CLI's sink keeps
   logs and spans out of its outbox.
+
+## Installed builds report as `preview` or `release` (PAR-778)
+
+A pull request's preview installer and the published app both reported as `tester`, so a preview's bugs read as the
+release's. You decided on 2026-11-09 to split them. This replaces `tester` in "Environments" under PAR-624 above.
+
+- **`release` is a build the release workflow published; `preview` is any other installed build.**
+  `telemetryEnvironment` reads the same `published` that names the release by version (PAR-625), so an environment and
+  its release never disagree: the app's installer from `cd-desktop.yml` and the CLI `npm publish` made are `release`,
+  and a pull request's installer or a pkg.pr.new CLI is `preview`. `ci` and `development` don't change.
+- **My call: `release`, not `published`.** The spec left it open since `environment:release` sits oddly beside Sentry's
+  own `release` field. `release` is the name the spec, its widgets and PAR-779 already use.
+- **Both still offer the last run's crash,** since testers run both.
+- **Nothing in Sentry needed changing.** No dashboard widget, monitor or alert filtered on `tester`. Events sent before
+  this keep `tester`.
+
+## Icon layers show Smile (PAR-793)
+
+You picked on 2026-11-09, from five in the Icon layers exploration (Smile, Sticker, Heart, Asterisk and Feather), that
+every icon layer shows Lucide's Smile, the Icons tab's icon, whatever the icon draws. PAR-794 built it.
+
+- **One fixed icon, not each icon's own glyph.** Lucide draws the kind icons Layers already uses (AppWindow, Type,
+  Image, Frame, Rows3), so an icon of one would read as that kind, and glyphs such as X, Plus and Trash2 look like a
+  row's buttons. The layer's name says which icon it is.
+- **The component purple, not a color of its own.** An icon comes from a library and is changed through its props, as a
+  component is, and a seventh kind color would make the six harder to learn.
+- **Wherever a layer's kind shows:** Layers, the inspector's heading, the Code, Accessibility and States panels, Search
+  actions and Select layer in the canvas menu. A library's other components keep the Box.
+- My calls: Star and Shapes weren't among the five, since Star marks a favorite project on the start page and Shapes is
+  Insert. The exploration was removed when the pick was built, since choosing among the five was all it was for.

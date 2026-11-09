@@ -205,7 +205,7 @@ function MarkRing({ turning, badge }: { turning?: boolean; badge?: { icon: React
 function copy(text: string, said: string, id: string): void {
   void navigator.clipboard.writeText(text).then(
     () => toast.success(said, { id, duration: 2000 }),
-    (error: unknown) => reportError(error, { operation: "clipboard.write", title: "Parity couldn't copy that", id })
+    (cause: unknown) => reportError(cause, { operation: "clipboard.write", title: "Parity couldn't copy that", id })
   )
 }
 

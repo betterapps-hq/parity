@@ -19,7 +19,7 @@ export function invalidDataAttributes(failure: InvalidData): EventAttributes<[ty
 }
 
 /** Data as JSON, cut short, or as text when it isn't JSON. */
-function dataText(value: unknown): string {
+function dataText(value: InvalidData["value"]): string {
   let text: string
 
   try {

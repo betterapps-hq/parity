@@ -78,8 +78,7 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
 
-  // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof tokens === "object"))) {
+  if (!(await page.evaluate(() => "tokens" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
   }
 })
@@ -96,21 +95,19 @@ describe("editing tokens", () => {
       written.length = 0
       const { store, tokens: project } = open()
       const seen = (theme?: string) => declared(project.sheet, "primary", theme)
-      const steps: Record<string, unknown> = {}
       project.store.set([
         { name: "primary", theme: "default", value: "red" },
         { name: "primary", theme: "dark", value: "pink" }
       ])
-      steps.edited = [seen(), seen("dark"), store.getHistory().undoLabel, store.hasUnsaved(), written.length]
-      steps.listed = project.store.get()[0].values
+      const edited = [seen(), seen("dark"), store.getHistory().undoLabel, store.hasUnsaved(), written.length]
+      const listed = project.store.get()[0].values
       store.undo()
-      steps.undone = [seen(), seen("dark"), store.hasUnsaved(), project.store.get()[0].values.default]
+      const undone = [seen(), seen("dark"), store.hasUnsaved(), project.store.get()[0].values.default]
       store.redo()
-      steps.redone = [seen(), project.store.previews().length]
+      const redone = [seen(), project.store.previews().length]
       await store.flush()
-      steps.saved = [written, store.hasUnsaved()]
 
-      return steps
+      return { edited, listed, undone, redone, saved: [written, store.hasUnsaved()] }
     })
 
     expect(result.edited).toEqual(["red", "pink", "Edit primary", true, 0])

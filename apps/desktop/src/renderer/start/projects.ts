@@ -37,14 +37,20 @@ export function knownProjects(
   notes: Readonly<Record<string, ProjectNote>>,
   missing: ReadonlySet<string> = new Set()
 ): KnownProject[] {
-  const known = (root: string, isRecent: boolean): KnownProject => ({
-    root,
-    name: folderName(root),
-    ...(notes[root]?.opened === undefined ? {} : { opened: notes[root].opened }),
-    starred: !!notes[root]?.starred,
-    recent: isRecent,
-    ...(missing.has(root) ? { missing: true } : {})
-  })
+  const known = (root: string, isRecent: boolean) => {
+    const project: KnownProject = { root, name: folderName(root), starred: !!notes[root]?.starred, recent: isRecent }
+    const opened = notes[root]?.opened
+
+    if (opened !== undefined) {
+      project.opened = opened
+    }
+
+    if (missing.has(root)) {
+      project.missing = true
+    }
+
+    return project
+  }
 
   const starred = Object.keys(notes)
     .filter((root) => notes[root]!.starred && !recent.includes(root))
@@ -113,7 +119,13 @@ export function whenLabel(time: number, now: number): string {
 
   const sameYear = then.getFullYear() === new Date(now).getFullYear()
 
-  return `on ${then.toLocaleDateString("en-US", { month: "long", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) })}`
+  const format: Intl.DateTimeFormatOptions = { month: "long", day: "numeric" }
+
+  if (!sameYear) {
+    format.year = "numeric"
+  }
+
+  return `on ${then.toLocaleDateString("en-US", format)}`
 }
 
 function startOfDay(date: Date): number {

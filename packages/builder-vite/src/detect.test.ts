@@ -2,14 +2,19 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { RendererAdapter } from "@parity-app/core"
+import type { BuilderRenderer } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { freePort, viteBuilder } from "./index.ts"
 
 const viteFolder = dirname(createRequire(import.meta.url).resolve("vite/package.json"))
+
+// SAFETY: a published package's package.json has a version, and this is the Vite the tests run.
 const viteVersion = (createRequire(import.meta.url)("vite/package.json") as { version: string }).version
 
 let root: string
+
+/** A renderer with nothing to prepare, since these tests serve a guest of their own. */
+const renderer: BuilderRenderer = { id: "test", name: "Test", guestModule: "", runtimePackages: [], runtimeImports: [] }
 
 /** A project folder with these files, and Vite installed unless told otherwise. */
 async function fixture(files: Record<string, string>, { vite = true } = {}) {
@@ -96,7 +101,7 @@ describe("viteBuilder.start", () => {
     const options = {
       root,
       config: { styles: [], components: {}, documents: [], libraries: [] },
-      renderer: { runtimePackages: [], runtimeImports: [] } as unknown as RendererAdapter,
+      renderer,
       rendererGuestPath: join(root, "guest.js"),
       allowedOrigins: []
     }
@@ -126,7 +131,7 @@ describe("viteBuilder.start", () => {
     const options = {
       root,
       config: { styles: [], components: {}, documents: [], libraries: [] },
-      renderer: { runtimePackages: [], runtimeImports: [] } as unknown as RendererAdapter,
+      renderer,
       rendererGuestPath: join(root, "guest.js"),
       allowedOrigins: [],
       port

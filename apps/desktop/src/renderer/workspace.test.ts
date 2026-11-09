@@ -1,7 +1,13 @@
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
-import { createTelemetry, createTestSink, registeredEvents, type TraceContext } from "@parity-app/telemetry"
+import {
+  type Attributes,
+  createTelemetry,
+  createTestSink,
+  registeredEvents,
+  type TraceContext
+} from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import type { ProjectInfo } from "../shared/protocol.ts"
+import type { ProjectInfo, ServiceMethods } from "../shared/protocol.ts"
 import type * as ReportError from "./report-error.ts"
 import { preloadAnswers } from "./service.ts"
 import { tracedCommand, traceWith } from "./tracing.ts"
@@ -10,11 +16,13 @@ import type { ProjectSession } from "./workspace.ts"
 // docs/editor.md, Opening and closing projects: a tab closed while its project opens, as tabs restored at launch can
 // be, closes the project once the service has it, so its builder doesn't run on with no tab (PAR-427).
 
-const guest = vi.hoisted(() => ({
-  loads: [] as Array<(value: unknown) => void>,
-  failures: [] as Array<(error: Error) => void>,
-  released: [] as string[]
-}))
+const guest = vi.hoisted(() => {
+  const loads: Array<(value: typeof loaded) => void> = []
+  const failures: Array<(error: Error) => void> = []
+  const released: string[] = []
+
+  return { loads, failures, released }
+})
 
 vi.mock("./guest.ts", () => ({
   loadGuest: () =>
@@ -26,31 +34,44 @@ vi.mock("./guest.ts", () => ({
   previewToken: () => undefined
 }))
 
-const tracked = vi.hoisted(
-  () => [] as Array<{ name: string; attributes: Record<string, unknown>; span?: TraceContext | undefined }>
-)
+/** An event the workspace tracked. */
+interface Tracked {
+  name: string
+  attributes: Attributes
+  span?: TraceContext | undefined
+}
+
+const tracked = vi.hoisted(() => {
+  const events: Tracked[] = []
+
+  return events
+})
 
 vi.mock("./report-error.ts", async (original) => ({
   ...(await original<typeof ReportError>()),
-  track: (name: string, attributes: Record<string, unknown>, options?: { span?: TraceContext }) =>
+  track: (name: string, attributes: Attributes, options?: { span?: TraceContext }) =>
     tracked.push({ name, attributes, span: options?.span })
 }))
 
 const { homeTab, Workspace } = await import("./workspace.ts")
 
-const info = {
+const info: ProjectInfo = {
   id: "/projects/app",
   root: "/projects/app",
   name: "app",
+  renderer: { id: "react", name: "React" },
   guestUrl: "http://127.0.0.1:5000/guest",
-  builder: { id: "vite", name: "Vite" },
+  builder: { id: "vite", name: "Vite", toolVersion: "8" },
   theme: [],
+  componentCount: 0,
+  notes: [],
+  detection: { packageManager: { id: "pnpm", name: "pnpm", agent: "pnpm", summary: "" }, tools: [] },
   documents: [],
   mainDocument: "app.par",
   modes: { settings: defaultModeSettings, custom: false },
   sources: {},
   libraries: []
-} as unknown as ProjectInfo
+}
 
 const loaded = { guest: {}, sheet: {}, tokens: [] }
 
@@ -62,10 +83,10 @@ let picturesKept: string[][]
 
 /** The projects whose folders the start page asked about, each time, and what the service answers. */
 let checked: string[][]
-let folders: { missing: string[]; example?: string }
+let folders: ServiceMethods["start.check"]["result"]
 
 /** How the service answers a design file's write. */
-const saving = { answer: (): Promise<unknown> => Promise.resolve(undefined) }
+const saving = { answer: (): Promise<undefined> => Promise.resolve(undefined) }
 
 beforeEach(() => {
   tracked.length = 0
@@ -80,6 +101,7 @@ beforeEach(() => {
   vi.stubGlobal("window", {
     canvasHost: {
       ask: preloadAnswers((method, answerParams) => {
+        // SAFETY: each method below reads only what its params have: `projectId` closing a project, `roots` the others.
         const params = answerParams as { projectId?: string; roots?: string[] }
 
         if (method === "project.open") {
@@ -247,6 +269,7 @@ describe("a closed tab", () => {
     await settle()
     guest.loads[0]!(loaded)
     await opening
+    // SAFETY: the workspace only holds the editor and lets it go; nothing here calls it.
     const editor = {} as NonNullable<ProjectSession["editor"]>
     workspace.setEditor(info.id, editor)
     const held = workspace.getTabs()
@@ -717,7 +740,7 @@ describe("recording a save", () => {
   const save = { action: "save", from: "key" as const, enabled: true, layers: 0, designs: 0 }
 
   /** Saves an added design with Save, giving where `command.ran` sat and what the save recorded. */
-  async function saveWith(answer: () => Promise<unknown>) {
+  async function saveWith(answer: () => Promise<undefined>) {
     sink.clear()
     saving.answer = answer
     vi.stubGlobal("localStorage", memoryStorage())

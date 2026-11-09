@@ -1,4 +1,5 @@
 import {
+  type Envelope,
   memoryEveryMs,
   memoryRecord,
   type ProcessMemory,
@@ -12,18 +13,12 @@ import {
 import { app } from "electron"
 
 /** Whether a window's event is `project.loaded`, and whether its project was restored, or nothing when it isn't. */
-function projectLoadedOf(envelope: unknown): { restored: boolean } | undefined {
-  if (typeof envelope !== "object" || envelope === null) {
+function projectLoadedOf(envelope: Envelope): { restored: boolean } | undefined {
+  if (envelope.name !== "project.loaded") {
     return undefined
   }
 
-  const { name, attributes } = envelope as { name?: unknown; attributes?: { restored?: unknown } }
-
-  if (name !== "project.loaded") {
-    return undefined
-  }
-
-  return { restored: attributes?.restored === true }
+  return { restored: envelope.attributes.restored === true }
 }
 
 /** What `process.memory` is made from: each process's role and private memory in bytes. */
@@ -74,7 +69,7 @@ export function recordAppLife(telemetry: Telemetry<typeof registeredEvents>, rea
       }
     },
     /** Marks the first project shown when a window's event says a project is ready to draw. */
-    forwarded(envelope: unknown): void {
+    forwarded(envelope: Envelope): void {
       const loaded = projectLoadedOf(envelope)
 
       if (loaded) {

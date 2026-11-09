@@ -25,6 +25,7 @@ import {
 import { createSentrySink, type SentryTarget, sentryScrubbing } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
+import { z } from "zod"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import type { TelemetryRun } from "../shared/telemetry-run.ts"
@@ -100,19 +101,30 @@ function definedTags(tags: Record<string, string | undefined>): Record<string, s
 }
 
 /** An agent called the app through the service, which says who it is (PAR-630). What isn't a caller is ignored. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what the service sent, parsed here
 export function agentCalled(sent: unknown): void {
-  if (typeof sent !== "object" || sent === null) {
+  const read = agentCaller.safeParse(sent)
+
+  if (!read.success) {
     return
   }
 
-  const { name, id, client } = sent as Record<string, unknown>
+  const { name, id, client } = read.data
+  const caller: Parameters<typeof driver.agentCalled>[0] = { name, id }
 
-  if (typeof name !== "string" || typeof id !== "string") {
-    return
+  if (client !== undefined) {
+    caller.client = client
   }
 
-  driver.agentCalled({ name, id, ...(typeof client === "string" ? { client } : {}) })
+  driver.agentCalled(caller)
 }
+
+/** An agent as the service names it when it calls: a client that isn't text is left out. */
+const agentCaller = z.looseObject({
+  name: z.string(),
+  id: z.string(),
+  client: z.string().optional().catch(undefined)
+})
 
 /** The person used the app's window, so what follows is theirs (PAR-630). */
 export function personActed(): void {
@@ -143,7 +155,7 @@ export function startTelemetry(
     sending: Pick<ResolvedTelemetry, "level" | "errorsOnly"> & { installId: string }
   }
 ): TelemetryStart {
-  const environment = telemetryEnvironment(env, installed)
+  const environment = telemetryEnvironment(env, { installed, published })
   // CI sends only errors and reports, with their breadcrumbs; its spans and logs stay in the local copy (PAR-777).
   const scrubbing = sentryScrubbing(scrubber, Sentry, { errorsOnly: sending.errorsOnly })
   runVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
@@ -210,6 +222,14 @@ let forward: Sink | undefined
 /** Main's own events, once `startEvents` has started them, which hangs and the service's exits are recorded to. */
 let recorded: Telemetry<typeof registeredEvents> | undefined
 
+/** Main's telemetry, and the run the other processes start theirs with. */
+export interface MainEvents {
+  run: TelemetryRun
+  telemetry: Telemetry<typeof registeredEvents>
+  /** Writes the local copy's waiting lines now, as a report reads it (PAR-635). */
+  flushLogs: () => void
+}
+
 /**
  * Starts recording main's own events, and those other processes send, once the app's data folder is known. Main's go
  * to Sentry and the local copy, `<userData>/logs/parity-<date>.jsonl`, which is written at every level, Off included.
@@ -224,12 +244,7 @@ export function startEvents({
   installed: boolean
   /** From the Telemetry setting's file (PAR-626). */
   installId: string
-}): {
-  run: TelemetryRun
-  telemetry: Telemetry<typeof registeredEvents>
-  /** Writes the local copy's waiting lines now, as a report reads it (PAR-635). */
-  flushLogs: () => void
-} {
+}): MainEvents {
   const run: TelemetryRun = {
     installId,
     sessionId: randomUUID(),
@@ -272,21 +287,22 @@ export function startEvents({
 
 /**
  * Records an event or span another process sent: a window, a render window, or the service for itself and its worker.
- * What isn't an envelope is dropped, since it crossed a process boundary.
+ * What isn't an envelope is dropped, since it crossed a process boundary. Gives the envelope as recorded, or none.
  */
-export function recordForwarded(sent: unknown, process?: Envelope["process"]): void {
-  if (!forward) {
-    return
-  }
-
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what another process sent, parsed here
+export function recordForwarded(sent: unknown, process?: Envelope["process"]): Envelope | undefined {
   const read = envelopeSchema.safeParse(sent)
 
   if (!read.success) {
-    return
+    return undefined
   }
 
   // A window's events are named by the window that sent them, not by what the page says.
   const envelope = process ? { ...read.data, process } : read.data
+
+  if (!forward) {
+    return envelope
+  }
 
   try {
     if (isSpanEnvelope(envelope)) {
@@ -297,6 +313,8 @@ export function recordForwarded(sent: unknown, process?: Envelope["process"]): v
   } catch (error) {
     console.warn("[telemetry] couldn't record another process's event:", error)
   }
+
+  return envelope
 }
 
 /**

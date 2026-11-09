@@ -175,6 +175,7 @@ export function ModeView({
       return undefined
     }
 
+    // SAFETY: `environmentKey` is this tuple as JSON, made above from the mode.
     const [classNames, attributes, globals] = JSON.parse(environmentKey) as [
       string[],
       Record<string, string>,
@@ -245,6 +246,7 @@ export function ModeView({
 
   useEffect(() => {
     currentKey.current = renderKey
+    // SAFETY: `treeKey` is the design's tree as JSON, made above.
     handleRef.current?.update(JSON.parse(treeKey) as RenderNode[])
   }, [loaded, environmentKey, treeKey, renderKey, interactions, asleep])
 

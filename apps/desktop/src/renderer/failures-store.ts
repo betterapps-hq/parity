@@ -12,7 +12,7 @@ interface FrameEntry {
 
 /** Each design's frames' latest failures, and what they come to. */
 interface DesignEntry {
-  frames: Map<object, FrameEntry>
+  frames: Map<WeakKey, FrameEntry>
   failures: LayerFailure[]
   listeners: Set<() => void>
 }
@@ -49,7 +49,7 @@ function entryFor(project: string, design: string): DesignEntry {
 export function reportFrameFailures(
   project: string,
   design: string,
-  frame: object,
+  frame: WeakKey,
   where: { state: string; mode: string },
   failures: readonly LayerFailure[]
 ): void {
@@ -134,7 +134,9 @@ export function failureMessages(project: string, now: number): ConsoleMessage[] 
           last: first,
           design,
           frames: [where],
-          failure: { nodeId: failure.nodeId, component: failure.component, reason, ...(fix ? { fix } : {}) }
+          failure: fix
+            ? { nodeId: failure.nodeId, component: failure.component, reason, fix }
+            : { nodeId: failure.nodeId, component: failure.component, reason }
         })
       }
     }

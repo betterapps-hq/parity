@@ -29,28 +29,39 @@ Only `parity-desktop` and `parity-cli` have code in this repository. The other t
 
 ## Environments
 
-Every event is tagged `development`, `ci` or `tester`. Sentry creates an environment the first time an event names it,
-so there's nothing to set up ahead of the SDKs.
+Every event is tagged with one environment. Sentry creates an environment the first time an event names it, so there's
+nothing to set up ahead of the SDKs. `telemetryEnvironment` in `@parity-app/telemetry` decides it for the app and the
+CLI.
+
+| Environment   | What sends it                                                              |
+| ------------- | -------------------------------------------------------------------------- |
+| `development` | `pnpm dev`, agents' drives through `drive.ts`, and the CLI from a checkout |
+| `ci`          | Anything run where `CI` is set, whatever the build                         |
+| `preview`     | A pull request's preview installer, and the CLI from pkg.pr.new            |
+| `release`     | The app the release workflow published, and the CLI `npm publish` made     |
+
+Until 2026-11-09, `preview` and `release` were one environment, `tester` (PAR-778). Events from before then keep it.
 
 `ci` sends only errors and reports, with their breadcrumbs: no spans, logs or replays (PAR-777). Those stay in the run's
 local copy, which the end-to-end suite checks. CI sent 718,000 of `parity-desktop`'s 794,000 spans in the week to
 2026-11-09, which would have run past every plan's 5 million spans a month. So a CI test pass shows in Sentry only
-through its errors.
+through its errors. Its spans and logs are in the `telemetry-github-<run>-<attempt>` artifact of its App tests run, kept
+for 7 days; [telemetry.md](telemetry.md#checking-it-in-the-end-to-end-tests) says how to read it (PAR-785).
 
 ## Releases and source maps
 
 Each build names its release, so an event points at the code that had the bug, and its stack trace resolves to Parity's
 source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-release-with-its-source-maps-par-625).
 
-| Build                                | Release                 | Source maps                                                       |
-| ------------------------------------ | ----------------------- | ----------------------------------------------------------------- |
-| Published app (`tester`)             | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Source maps, once it's public      |
-| Preview installers (`tester`)        | The commit's full hash  | Uploaded by `preview.yml`'s Source maps                           |
-| CI's app (`ci`)                      | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build |
-| `pnpm dev` (`development`)           | The commit's full hash  | Read locally: stacks are resolved before they're sent             |
-| Published CLI (`tester`)             | `parity-cli@0.27.1`     | Uploaded by `cd-npm.yml`'s Source maps, once it's on npm          |
-| CLI preview on pkg.pr.new (`tester`) | The commit's full hash  | Not uploaded                                                      |
-| CLI from a checkout (`development`)  | The commit's full hash  | Not uploaded                                                      |
+| Build                                 | Release                 | Source maps                                                       |
+| ------------------------------------- | ----------------------- | ----------------------------------------------------------------- |
+| Published app (`release`)             | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Source maps, once it's public      |
+| Preview installers (`preview`)        | The commit's full hash  | Uploaded by `preview.yml`'s Source maps                           |
+| CI's app (`ci`)                       | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build |
+| `pnpm dev` (`development`)            | The commit's full hash  | Read locally: stacks are resolved before they're sent             |
+| Published CLI (`release`)             | `parity-cli@0.27.1`     | Uploaded by `cd-npm.yml`'s Source maps, once it's on npm          |
+| CLI preview on pkg.pr.new (`preview`) | The commit's full hash  | Not uploaded                                                      |
+| CLI from a checkout (`development`)   | The commit's full hash  | Not uploaded                                                      |
 
 - **`pnpm build`** writes hidden source maps for main, the preload script, the service, its workers and the windows.
   **The CLI's `vp pack`** writes them for its bundles. Both then run `separateSourceMaps` in
@@ -64,6 +75,12 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
   suspect commits and "resolved in the next release" use. A link that fails is a warning, not a failed upload: until
   2026-11-09 it ran first and failed every time, with Sentry answering "Unknown repo 'betterapps-hq/parity'", so no
   build from main and no published one had its maps uploaded.
+- **`node scripts/check-release.ts <release>`** asks Sentry for the release's summary and fails when it has no source
+  maps or no linked commits, or doesn't exist (PAR-774). After a published version's upload, `upload-sourcemaps.yml`
+  runs it as Check the release in Sentry, so `cd-desktop.yml` and `cd-npm.yml` fail when the upload's commit link only
+  warned: until 2026-11-09 that warning went unseen on every published build. It asks 3 times, 10 and then 20 seconds
+  apart, while Sentry processes the upload. It only reads, so it can be run against any release with `SENTRY_AUTH_TOKEN`
+  set. Releases named by a commit, for previews and CI, aren't checked.
 - **Electron's native crashes** are symbolicated by Sentry's built-in Electron, Apple and Microsoft symbol servers,
   which `parity-desktop`'s Settings > Debug Files had on from the start, as Sentry does for an Electron project.
 - **Pull requests' preview installers** are named by their commit, so they stay out of a published version's release.
