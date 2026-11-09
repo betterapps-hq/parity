@@ -6404,3 +6404,19 @@ an agent never said what went wrong. My calls:
   stack.
 
 > > > > > > > origin/main
+
+## A report from an error's fallback is linked to the error (PAR-704)
+
+Report a problem in a fallback (PAR-667) opens the same dialog as Help > Report a problem (PAR-635), and the feedback it
+sends names the error that fallback caught as its associated event, so Sentry shows the report on that error's issue. My
+calls:
+
+- **One report path.** The event ID rides along the existing one: `openReport({ eventId })`, the `problemReport` check
+  (32 lowercase hex digits, like the replay and trace IDs) and `sendFeedback`'s `associatedEventId`. No second dialog or
+  channel.
+- **The window keeps the ID by the error it caught,** in a `WeakMap` beside `reactErrorHandlers`, since the boundary's
+  reporter is handed the error, and the fallback's Report a problem is clicked after `onCaughtError` ran. An error
+  thrown as a string or another primitive can't be a key, so its report goes unlinked, as before.
+- **Its tag says where it came from:** `report: error fallback`, beside `help menu` and `after crash`.
+- **The dialog doesn't name the error yet.** The issue's optional "The error from Layers" line in Also sent waits for
+  Andrew's approval of the copy in Storybook.

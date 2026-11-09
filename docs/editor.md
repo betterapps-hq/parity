@@ -4811,9 +4811,14 @@ live in the project's store, not in what draws them, so nothing is lost. Each pl
 Try again draws the part afresh. If it fails again, the way on becomes Reopen project, or Reload window for the whole
 window, which saves the changes first. Report a problem opens Help > Report a problem; a dialog that failed closes
 first. Nothing in a fallback opens or grows, so it doesn't move once shown. Each boundary's catch reaches Sentry through
-the root's `onCaughtError`, tagged `boundary` with its name, such as `inspector.design`.
+the root's `onCaughtError`, tagged `boundary` with its name, such as `inspector.design`. A report sent from a fallback
+is linked to that error (PAR-704): the window keeps the event ID Sentry gave the catch, the report passes it to main,
+and the feedback names it as its associated event, tagged `report: error fallback`, so Sentry shows the report on the
+error's issue.
 
-`telemetry.test.ts` covers the `boundary` tag on a caught error and its absence on an uncaught one.
+`telemetry.test.ts` covers the `boundary` tag on a caught error and its absence on an uncaught one, and that a caught
+error's event ID is kept and an uncaught one's isn't. `shared/ipc-checks.test.ts` covers the event ID's check, and
+`main/report.test.ts` that a report with one is linked to it and one from the Help menu isn't.
 `chrome/ErrorBoundary.stories.tsx` breaks each part of the real window in turn with `tripBoundary`, and its play
 functions check that Try again draws a part afresh, that a second failure offers Reopen project, and that closing a
 failed dialog closes it and Settings opens again afterwards.
