@@ -1,6 +1,6 @@
 import type { DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { layerKind } from "./layer-kind.ts"
+import { isIconLayer, layerKind } from "./layer-kind.ts"
 
 const designs = new Map([["plan-card", "Plan card"]])
 const designName = (id: string) => designs.get(id)
@@ -60,5 +60,18 @@ describe("layerKind", () => {
     expect(kind({ type: "component", id: "h", component: "heroicons/16/solid/CogIcon" }).description).toBe(
       "Cog icon from Heroicons"
     )
+  })
+})
+
+describe("isIconLayer", () => {
+  it("tells a component from an icon set apart from a library's other components and the project's own", () => {
+    expect(isIconLayer({ type: "component", id: "l", component: "lucide/Check" }, libraries)).toBe(true)
+    expect(isIconLayer({ type: "component", id: "h", component: "heroicons/16/solid/CogIcon" }, libraries)).toBe(true)
+    expect(isIconLayer({ type: "component", id: "n", component: "nova/Card" }, libraries)).toBe(false)
+    expect(isIconLayer({ type: "component", id: "c", component: "Button" }, libraries)).toBe(false)
+  })
+
+  it("matches a library by its whole id, so a set named like another isn't taken for it", () => {
+    expect(isIconLayer({ type: "component", id: "x", component: "lucide-lab/Burger" }, libraries)).toBe(false)
   })
 })

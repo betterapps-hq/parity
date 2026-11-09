@@ -1,8 +1,33 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 06:57:27 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 10:50:00 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.41.0
+
+Mon, 09 Nov 2026 10:50:00 GMT
+
+### Minor changes
+
+- Installed builds report to Sentry as preview or release instead of tester, so a pull request's preview installer no
+  longer reads as the published app (ajcraswell@gmail.com)
+- Text layers are green in the layers tree, the design panel and their outline on the canvas, so they stand out among a
+  design's layers. (ajcraswell@gmail.com)
+- Record the project service exiting, windows hanging and main's loop blocked as events with how long they lasted
+  (PAR-771) (ajcraswell@gmail.com)
+- process.memory sends each role's memory and bitmapCache.used each hit rate as numbers Sentry can chart
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Colored icons keep their color when their menu, menubar, select or combobox item is highlighted (ajcraswell@gmail.com)
+- Bring the tokens package up to Buildkit's lint rules, with no change in behavior (ajcraswell@gmail.com)
+- CI sends only errors and reports to Sentry; its spans, logs and replays stay in the local copy (PAR-777)
+  (ajcraswell@gmail.com)
+- Exports record how long they took, as durationMs on export.done and export.failed (PAR-773) (ajcraswell@gmail.com)
+- Zoomed out, a narrow board's title runs into the free canvas beside it instead of truncating at the board's edge
+  (ajcraswell@gmail.com)
 
 ## 0.40.5
 

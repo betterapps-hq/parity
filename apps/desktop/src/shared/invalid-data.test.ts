@@ -45,6 +45,7 @@ describe("recordInvalidData", () => {
   it("names an unnamed schema by the function that checked with it, and cuts long data short", () => {
     start()
 
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- a reader at the I/O boundary, as the check names it by
     function readNames(value: unknown) {
       return parseData(z.array(z.number()), value)
     }

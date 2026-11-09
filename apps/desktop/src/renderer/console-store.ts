@@ -220,25 +220,46 @@ function messageOf(
         return place ? [place] : []
       })[0]
 
-  return {
-    ...rest,
-    id: String(id),
-    text,
-    ...(frame ? { frames: [frame] } : {}),
-    ...(at ? { at } : {}),
-    ...(calls.length > 0 ? { stack: calls.map((call) => shortCall(call, guestUrl)) } : {})
+  const message: ConsoleMessage = { ...rest, id: String(id), text }
+
+  if (frame) {
+    message.frames = [frame]
   }
+
+  if (at) {
+    message.at = at
+  }
+
+  if (calls.length > 0) {
+    message.stack = calls.map((call) => shortCall(call, guestUrl))
+  }
+
+  return message
+}
+
+/** A call in a stack: the function's name when it has one, and where it is. */
+interface StackCall {
+  name?: string
+  url: string
+  line: number
+  column: number
 }
 
 /** A stack's call, as Chrome writes it: `at Card (http://…/card.tsx:10:5)`, or without the function's name. */
-function readCall(call: string): { name?: string; url: string; line: number; column: number } | undefined {
+function readCall(call: string): StackCall | undefined {
   const match = /^at (?:(.+?) \()?(.+?):(\d+):(\d+)\)?$/.exec(call)
 
   if (!match?.[2]) {
     return undefined
   }
 
-  return { ...(match[1] ? { name: match[1] } : {}), url: match[2], line: Number(match[3]), column: Number(match[4]) }
+  const read: StackCall = { url: match[2], line: Number(match[3]), column: Number(match[4]) }
+
+  if (match[1]) {
+    read.name = match[1]
+  }
+
+  return read
 }
 
 /** A call with its address short: a project file from the project's root, a library's by its file's name. */
@@ -329,8 +350,15 @@ export function byDesign(messages: readonly ConsoleMessage[]): { design?: string
   return [...list.filter((group) => group.design !== undefined), ...list.filter((group) => group.design === undefined)]
 }
 
+/** How many errors and warnings a design has. */
+interface DesignCounts {
+  errors: number
+  warnings: number
+}
+
 /** One design's errors and warnings, read so a board draws again only when its own counts change. */
-export function useDesignCounts(projectId: string, design: string): { errors: number; warnings: number } {
+
+export function useDesignCounts(projectId: string, design: string): DesignCounts {
   const log = consoleLog(projectId)
 
   const counts = useSyncExternalStore(log.subscribe, () => {

@@ -128,7 +128,8 @@ function Frame({ board }: { board: MockBoard }) {
  */
 function Stage({ calls, note }: { calls: Call[]; note: string }) {
   const tab = `story-${useId()}`
-  const session = useMemo(() => ({ id: tab }) as unknown as ProjectSession, [tab])
+  // SAFETY: AgentPresence reads only the session's id, and its editor, which a story without tldraw leaves out.
+  const session = useMemo(() => ({ id: tab }) as ProjectSession, [tab])
   const [positions, setPositions] = useState(() => new Map(boards.map((board) => [board.key, board])))
   const [run, replay] = useReducer((count: number) => count + 1, 0)
   const [, redraw] = useReducer((count: number) => count + 1, 0)

@@ -47,8 +47,7 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
 
-  // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof guest === "object"))) {
+  if (!(await page.evaluate(() => "guest" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
   }
 })
@@ -155,8 +154,8 @@ function previewed(css: string, name: string, theme: string, value: string): Pro
         for (const rule of list) {
           if (rule instanceof CSSStyleRule) {
             lines.push(rule.cssText)
-          } else if ("cssRules" in rule) {
-            collect((rule as CSSGroupingRule).cssRules)
+          } else if (rule instanceof CSSGroupingRule) {
+            collect(rule.cssRules)
           }
         }
       }

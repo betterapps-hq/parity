@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Colored icons keep their color when their menu, menubar, select or combobox item is highlighted",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

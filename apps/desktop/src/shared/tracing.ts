@@ -87,7 +87,10 @@ export function track<Name extends EventName<Events>>(
  * came with, or starts one when it came with none, as an older sender's does. Telemetry sent on to main isn't a span,
  * since each would record another.
  */
-export function handleInSpan({ method, trace }: { method: string; trace: unknown }, answer: () => unknown): unknown {
+export function handleInSpan<Result>(
+  { method, trace }: { method: string; trace: unknown },
+  answer: () => Result
+): Result | Promise<Result> {
   if (method === "record") {
     return answer()
   }

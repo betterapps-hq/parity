@@ -221,17 +221,17 @@ export async function frameDesigns(...names: string[]): Promise<void> {
  * A story of the whole window pointed at designs of the example: `setup` runs once the example is open, before the
  * canvas mounts, and `then` once the designs are framed.
  */
-export function onCanvas(designs: string[], setup?: () => unknown, then?: () => unknown) {
+export function onCanvas<Setup, Then>(designs: string[], setup?: () => Setup, then?: () => Then) {
   return {
     loaders: [
       async () => {
         await openProjects("example")
-        await setup?.()
+        await Promise.resolve(setup?.())
       }
     ],
     play: async () => {
       await frameDesigns(...designs)
-      await then?.()
+      await Promise.resolve(then?.())
     }
   }
 }
@@ -316,9 +316,13 @@ export function failingToDraw(errors: Record<string, string>): void {
     return
   }
 
-  const failing = Object.fromEntries(Object.entries(errors).map(([id, error]) => [id, { error }]))
+  const failing: Record<string, ComponentRenderStatus> = Object.fromEntries(
+    Object.entries(errors).map(([id, error]) => [id, { error }])
+  )
+
   let seen: Record<string, ComponentRenderStatus> | undefined
-  let merged: Record<string, ComponentRenderStatus> = failing
+  let merged = failing
+
   guest.renderStatus = {
     get: () => {
       const now = real.get()

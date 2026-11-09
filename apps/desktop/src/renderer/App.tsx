@@ -64,7 +64,7 @@ export function WindowBoundary({ children }: { children: ReactNode }) {
 function reloadWindow(): void {
   void workspace.flush().then(
     () => location.reload(),
-    (error: unknown) => console.error("[window] couldn't save before reloading:", error)
+    (cause: unknown) => console.error("[window] couldn't save before reloading:", cause)
   )
 }
 

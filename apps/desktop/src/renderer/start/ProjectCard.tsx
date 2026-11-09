@@ -8,7 +8,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { AppWindow, Ellipsis, FolderX, Link, Star, X } from "lucide-react"
 import { type CSSProperties, useId, useRef, useState } from "react"
-import { toast } from "sonner"
+import { type ExternalToast, toast } from "sonner"
 import { Hint } from "../chrome/Hint.tsx"
 import { Name } from "../chrome/Name.tsx"
 import { ProjectArt, useScreenCount, useScreenName } from "./ProjectArt.tsx"
@@ -16,7 +16,12 @@ import { type KnownProject, whenLabel } from "./projects.ts"
 import { notReady, useStartActions } from "./start-actions.ts"
 
 /** Parity's own accent, from its mark, for the ring round a project or template under the pointer. */
-export const accent = { "--parity": "oklch(0.7 0.16 275)" } as CSSProperties
+export const accent: AccentStyle = { "--parity": "oklch(0.7 0.16 275)" }
+
+/** A style that sets Parity's accent as a custom property, which React's own style type has no key for. */
+interface AccentStyle extends CSSProperties {
+  "--parity": string
+}
 
 /** When it was opened, or where it is when that isn't known. */
 function openedLine(project: KnownProject, now: number): string {
@@ -32,10 +37,15 @@ function openedLine(project: KnownProject, now: number): string {
  * drive that isn't plugged in comes back.
  */
 export function folderMissing(project: KnownProject, remove?: () => void): void {
-  toast(`Parity can't find ${project.name}`, {
-    description: `Its folder isn't at ${project.root} any more. Put it back, or remove it from Recent.`,
-    ...(remove ? { action: { label: "Remove", onClick: remove } } : {})
-  })
+  const options: ExternalToast = {
+    description: `Its folder isn't at ${project.root} any more. Put it back, or remove it from Recent.`
+  }
+
+  if (remove) {
+    options.action = { label: "Remove", onClick: remove }
+  }
+
+  toast(`Parity can't find ${project.name}`, options)
 }
 
 /** What can be done with a project from the start page. */

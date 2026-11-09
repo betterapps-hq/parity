@@ -56,7 +56,7 @@ const processId = z.object({ id: z.string() })
 const roots = z.object({ roots: z.array(z.string()) })
 
 /** Each method's params. A schema whose output drifts from `ServiceMethods` is a compile error. */
-const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M]["params"]> } = {
+const serviceParams = {
   "project.open": z.object({ root: z.string().optional() }),
   "project.close": project,
   "project.components": project,
@@ -111,14 +111,19 @@ const serviceParams: { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M][
   "processes.stop": processId,
   "processes.restart": processId,
   "processes.dismiss": processId
-}
+} satisfies { [M in keyof ServiceMethods]: z.ZodType<ServiceMethods[M]["params"]> }
 
 /** The jobs `frames.stored` is asked for, as JSON text, which its handler reads with `parseInput`. */
 export const storedJobs = jsonText(z.array(renderJob))
 
 /** Reads each request's params as `serviceParams` says, or throws `CodedError` with `invalid_input`. */
+// SAFETY: `serviceParams` has a schema for every method, each checked against that method's params by `satisfies`.
 export const serviceChecks = Object.fromEntries(
-  Object.entries(serviceParams).map(([method, schema]) => [method, (params: unknown) => parseInput(schema, params)])
+  Object.entries(serviceParams).map(([method, schema]) => [
+    method,
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: params as the window sent them, parsed here
+    (params: unknown) => parseInput(schema, params)
+  ])
 ) as Checks<ServiceMethods>
 
 /** A request for a method the service doesn't have. */
