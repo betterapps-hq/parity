@@ -774,6 +774,8 @@ export function RadiusChoice({
       label={label}
       kind="radius"
       takesPercent
+      // Past 50%, the corners meet and the shape stops changing.
+      percentMax={50}
       icon={corner === undefined ? undefined : <CornerGlyph corner={corner} />}
       // A corner's field is narrow, so what its value comes to and its status show in its hint.
       narrow={corner !== undefined}
@@ -839,6 +841,7 @@ function LengthField({
   mixed = false,
   mixedNote = "Mixed: the selected layers differ",
   takesPercent = false,
+  percentMax = Infinity,
   cssTakes,
   onChange
 }: {
@@ -857,6 +860,8 @@ function LengthField({
   mixedNote?: string
   /** It takes a percentage of the layer's size too, as Radius does, with px or % in the unit's menu. */
   takesPercent?: boolean
+  /** The largest percentage that changes anything (50 for a radius); one past it stops there, without a note. */
+  percentMax?: number
   /** Whether CSS takes a length here, as `CSS.supports` says for the property. */
   cssTakes: (length: string) => boolean
   onChange: (value: Radius | undefined) => void
@@ -867,6 +872,7 @@ function LengthField({
   const token = name === undefined ? undefined : tokens.find((other) => other.name === name)
   const own = typeof value === "object" && "px" in value ? value : undefined
   const percent = typeof value === "object" && "percent" in value ? value.percent : undefined
+  const capped = (share: number) => Math.min(percentMax, Math.max(0, share))
   // The unit a bare number is typed in while the field holds no value of its own, as the menu last set it.
   const [chosenUnit, setChosenUnit] = useState<"px" | "%">("px")
   let unitNow = chosenUnit
@@ -886,7 +892,7 @@ function LengthField({
     if (takesPercent && unitNow === "%" && !/[a-z%]/i.test(trimmed)) {
       const sum = readLength(trimmed, { label, current: percent })
       if ("px" in sum) {
-        const share = Math.round(sum.px * 100) / 100
+        const share = capped(Math.round(sum.px * 100) / 100)
         return cssTakes(`${share}%`) ? { value: { percent: share } } : { reason: `${label} can't be ${trimmed}%` }
       }
     }
@@ -899,7 +905,7 @@ function LengthField({
     if ("reason" in reading) return reading
     if ("percent" in reading) {
       if (!cssTakes(`${reading.percent}%`)) return { reason: `${label} can't be ${trimmed}` }
-      return { value: { percent: Math.round(reading.percent * 100) / 100 } }
+      return { value: { percent: capped(Math.round(reading.percent * 100) / 100) } }
     }
     if (!("px" in reading)) return { value: undefined }
     if (!cssTakes(`${reading.px}px`)) return { reason: `${label} can't be ${trimmed}` }
@@ -918,7 +924,7 @@ function LengthField({
     }
     const by = (up ? 1 : -1) * (shift ? 10 : 1)
     if (percent !== undefined) {
-      onChange({ percent: Math.max(0, percent + by) })
+      onChange({ percent: capped(percent + by) })
       return
     }
     const from = own?.px ?? token?.px ?? 0
@@ -927,7 +933,7 @@ function LengthField({
   // The unit's menu keeps the number and changes its unit, as Webflow's does: 12px becomes 12%.
   const toUnit = (next: "px" | "%") => {
     setChosenUnit(next)
-    if (next === "%" && own) onChange({ percent: own.px })
+    if (next === "%" && own) onChange({ percent: capped(own.px) })
     else if (next === "px" && percent !== undefined) onChange({ px: percent })
   }
   let unit: ReactNode = "px"
@@ -963,7 +969,7 @@ function LengthField({
       // Dragging the icon, or the row's name, scrubs the value a pixel, or a percent, per screen pixel.
       scrub={{
         from: () => percent ?? own?.px ?? token?.px ?? 0,
-        apply: (number) => onChange(percent === undefined ? { px: number } : { percent: number }),
+        apply: (number) => onChange(percent === undefined ? { px: number } : { percent: capped(number) }),
         by: { step: 1, shiftStep: 10, altStep: 0.1, min: 0 }
       }}
       shown={own ? formatNumber(own.px) : shownPercent}
