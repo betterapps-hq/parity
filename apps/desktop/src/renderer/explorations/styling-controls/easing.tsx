@@ -219,6 +219,8 @@ export function EasingField({
     create(easingToken(full, curve, "spring" in value ? value.spring : undefined))
     onChange({ token: full })
   }
+  // While the field's hovered or focused, its curve plays, as a transition entry's does.
+  const { live, rowProps } = useLiveRow()
   const editor = (
     <Popover open={open} onOpenChange={setOpen}>
       <Hint label={`Edit ${label.toLowerCase()}`}>
@@ -226,7 +228,7 @@ export function EasingField({
           aria-label={`Edit ${label.toLowerCase()}: ${easingName(value)}`}
           className="-ml-0.5 grid size-5 shrink-0 place-items-center rounded outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
         >
-          <CurveThumb shape={shape} faint={value === undefined} />
+          <CurveThumb shape={shape} faint={value === undefined} playing={live(label)} />
         </PopoverTrigger>
       </Hint>
       <PopoverContent className="w-72 gap-0 p-0" align="start">
@@ -235,7 +237,7 @@ export function EasingField({
     </Popover>
   )
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1" {...rowProps(label)}>
       <ValueField
         label={label}
         inner={editor}
