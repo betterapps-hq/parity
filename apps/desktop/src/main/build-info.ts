@@ -95,6 +95,14 @@ export class InstalledBuild {
     }
   }
 
+  /**
+   * What this version was last known to be, without asking GitHub: the build's own mark, or what was saved when GitHub
+   * last answered. Sentry's environment is set from it as the app starts (PAR-779).
+   */
+  get known(): BuildInfo {
+    return this.info
+  }
+
   private now(): number {
     return this.options.now?.() ?? Date.now()
   }

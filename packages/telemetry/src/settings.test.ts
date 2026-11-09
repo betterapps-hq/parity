@@ -109,6 +109,14 @@ describe("telemetryEnvironment", () => {
     expect(telemetryEnvironment({}, { installed: true, published: false })).toBe("preview")
   })
 
+  it("names a published build promoted to everyone production, and nothing else", () => {
+    expect(telemetryEnvironment({}, { installed: true, published: true, promoted: true })).toBe("production")
+    expect(telemetryEnvironment({}, { installed: true, published: true, promoted: false })).toBe("release")
+    expect(telemetryEnvironment({}, { installed: true, published: false, promoted: true })).toBe("preview")
+    expect(telemetryEnvironment({}, { installed: false, published: true, promoted: true })).toBe("development")
+    expect(telemetryEnvironment({ CI: "1" }, { installed: true, published: true, promoted: true })).toBe("ci")
+  })
+
   it("names a checkout development, and a run in CI ci, whatever the build", () => {
     expect(telemetryEnvironment({}, { installed: false, published: false })).toBe("development")
     expect(telemetryEnvironment({ CI: "true" }, { installed: true, published: true })).toBe("ci")

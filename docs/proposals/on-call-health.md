@@ -84,13 +84,13 @@ monitor breaches", sends the email and sets Urgent for a critical issue.
 
 `tester` was any installed build until PAR-778 split it in two, so each can be watched apart:
 
-| Environment   | What sends it                                                      |
-| ------------- | ------------------------------------------------------------------ |
-| `development` | `pnpm dev`, and agents' drives through `drive.ts`                  |
-| `ci`          | CI's end-to-end runs, errors and reports only (PAR-777)            |
-| `preview`     | A pull request's preview installer                                 |
-| `release`     | The published app and CLI, which testers install                   |
-| `production`  | The published app and CLI once Parity is public (PAR-779, PAR-619) |
+| Environment   | What sends it                                                     |
+| ------------- | ----------------------------------------------------------------- |
+| `development` | `pnpm dev`, and agents' drives through `drive.ts`                 |
+| `ci`          | CI's end-to-end runs, errors and reports only (PAR-777)           |
+| `preview`     | A pull request's preview installer                                |
+| `release`     | The published app and CLI, which testers install                  |
+| `production`  | The published app once its release is promoted (PAR-779, PAR-619) |
 
 ## Stability
 

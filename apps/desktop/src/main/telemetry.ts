@@ -141,6 +141,7 @@ export function startTelemetry(
   {
     installed,
     published,
+    promoted,
     commit,
     rendererName,
     sending
@@ -148,6 +149,8 @@ export function startTelemetry(
     installed: boolean
     /** Whether the release workflow published this build, which names its release by version (PAR-625). */
     published: boolean
+    /** Whether its release has been promoted to everyone, which reports it as `production` (PAR-779). */
+    promoted: boolean
     /** The commit the build was made from, which names any other build's release. */
     commit: string | undefined
     rendererName: (contents: WebContents) => string | undefined
@@ -155,7 +158,7 @@ export function startTelemetry(
     sending: Pick<ResolvedTelemetry, "level" | "errorsOnly"> & { installId: string }
   }
 ): TelemetryStart {
-  const environment = telemetryEnvironment(env, { installed, published })
+  const environment = telemetryEnvironment(env, { installed, published, promoted })
   // CI sends only errors and reports, with their breadcrumbs; its spans and logs stay in the local copy (PAR-777).
   const scrubbing = sentryScrubbing(scrubber, Sentry, { errorsOnly: sending.errorsOnly })
   runVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }

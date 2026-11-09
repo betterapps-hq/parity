@@ -47,6 +47,13 @@ describe("builtRelease", () => {
 })
 
 describe("installed build identity", () => {
+  it("knows a promoted version from the saved answer before asking GitHub", () => {
+    const { build, request } = setup({ version: "0.3.0", channel: "stable", checkedAt: 1 })
+    expect(build.known.channel).toBe("stable")
+    expect(setup({ version: "0.2.0", channel: "stable" }).build.known.channel).toBe("unknown")
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it("labels a release-workflow beta on its first offline launch, then observes promotion", async () => {
     const { options, request, advance } = setup()
     const build = new InstalledBuild({ ...options, metadata: () => ({ releaseChannel: "beta" }) })
