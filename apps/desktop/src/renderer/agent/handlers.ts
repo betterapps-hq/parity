@@ -11,6 +11,7 @@ import type {
   WindowMethods
 } from "../../shared/protocol.ts"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { reportIds } from "../telemetry.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
 
@@ -62,6 +63,7 @@ const handlers: Handlers = {
   },
   "agent.iconNames": (params) => iconNames(params),
   "agent.supports": (queries) => queries.map(({ property, value }) => CSS.supports(property, value)),
+  "agent.reportIds": () => reportIds(),
   "agent.apply": (changes) => apply(changes),
   "agent.presence": (events) => {
     presence.push(events)

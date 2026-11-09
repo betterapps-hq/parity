@@ -112,6 +112,14 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   every 10 seconds as well. One sender runs at a time, and a batch a day old is dropped.
 - **The CLI's release** is `parity-cli@<version>` when it's installed from npm, reported as `tester`, and the commit
   when it runs from a checkout, from source or its own `dist`, reported as `development`.
+- **Agents report what they find** with `parity report "<what's wrong>"` or MCP's `report_problem` (PAR-646), above all
+  when nothing threw: a test pass that sees a wrong result. The service draws the frames of the design it names, asks
+  the window to flush its replay, and passes both to main, which sends a Sentry user feedback from `parity-desktop` as
+  Help > Report a problem does: the window's screenshot, the frames, the last hour of the local copy, versions and
+  projects, with the replay beside it. It's tied to the call's trace, so it sits under the command's `cli.ran` span, and
+  tagged `report: agent` with `tab`, `design`, `state`, `node` and the CLI's `test_run`. The answer is the feedback's ID
+  and link (`https://sentry.io/organizations/better-apps/projects/parity-desktop/events/<id>/`, which finds its issue);
+  Sentry's alert files it in Linear. Unlike the person's own report, it isn't sent while Telemetry is off.
 
 ## Frames, previews and the bitmap cache
 
@@ -347,7 +355,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                                   |
 | `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                                          |
 | `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                            |
-| `report.sent`         | info  | all  | main                                    | Help > Report a problem sends a report.                                                                      |
+| `report.sent`         | info  | all  | main                                    | Help > Report a problem, parity report or report_problem sends a report.                                     |
 | `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                                                       |
 | `server.failed`       | warn  | all  | service                                 | A server the process manager started can't start.                                                            |
 | `server.started`      | info  | all  | service                                 | A server the process manager started answers at its address.                                                 |
@@ -849,11 +857,12 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `report.sent`
 
-| Attribute    | Type      | Meaning                                                    |
-| ------------ | --------- | ---------------------------------------------------------- |
-| `feedbackId` | `string`  | The Sentry event ID of the user feedback the report became |
-| `screenshot` | `boolean` | Whether the person included a screenshot of the window     |
-| `afterCrash` | `boolean` | Whether it was offered on start after the last run crashed |
+| Attribute    | Type                  | Meaning                                                         |
+| ------------ | --------------------- | --------------------------------------------------------------- |
+| `feedbackId` | `string`              | The Sentry event ID of the user feedback the report became      |
+| `screenshot` | `boolean`             | Whether a screenshot of the window went with it                 |
+| `afterCrash` | `boolean`             | Whether it was offered on start after the last run crashed      |
+| `by`         | `"person" \| "agent"` | Who sent it: a person from Help, or an agent with parity report |
 
 ### `request.handled`
 

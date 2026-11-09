@@ -7,6 +7,7 @@ import {
   type ModesResponse,
   type ProblemsResponse,
   type PropsResponse,
+  type ReportResponse,
   type StatusResponse,
   describeAccessibility,
   describeComponents,
@@ -15,6 +16,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeReport,
   describeStatus,
   describeTokens
 } from "./client.ts"
@@ -92,6 +94,14 @@ const modes: ModesResponse = {
     }
   ],
   designs: [{ id: "home", name: "Home", state: "default", states: ["default"], main: "mobile-light", beside: [] }]
+}
+const reported: ReportResponse = {
+  feedbackId: "0a1b2c",
+  link: "https://sentry.io/organizations/better-apps/projects/parity-desktop/events/0a1b2c/",
+  traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+  replayId: "r1",
+  tags: { tab: "Project", design: "home", state: "default", node: "title" },
+  attachments: ["screenshot.png", "home default mobile-light.png", "events.jsonl"]
 }
 const project = resolve("some/../project")
 interface Case {
@@ -256,6 +266,17 @@ const cases: Case[] = [
     result: sidebar,
     structured: sidebar,
     text: describeProps(sidebar)
+  },
+  {
+    name: "report",
+    cli: ["report", "The title is cut off", "--design", "home", "--node", "title"],
+    tool: "report_problem",
+    method: "report",
+    input: { message: "The title is cut off", design: "home", node: "title" },
+    params: { message: "The title is cut off", design: "home", node: "title" },
+    result: reported,
+    structured: reported,
+    text: describeReport(reported)
   }
 ]
 function expectedReply(text: string, structured: unknown, isError = false, images: Screenshot[] = []) {
@@ -279,7 +300,7 @@ function invalid(message: string, path?: string) {
 /** What reaches the app: each transport's request, with the tab the CLI routed it to; `tabs` asks no more than routing. */
 function expectRequests(method: string, params: Record<string, unknown>) {
   const { routing } = operations[method as keyof typeof operations]
-  const sent = routing === "tab" ? { tab: fixtureTab.id, ...params } : params
+  const sent = routing === "tab" || routing === "tab-or-any" ? { tab: fixtureTab.id, ...params } : params
   expect(requests).toHaveLength(routing === "copies" ? 0 : 2)
   for (const request of requests)
     expect(request).toEqual(expect.objectContaining({ method, params: sent, agent: "Contract Caller" }))
@@ -844,10 +865,34 @@ describe("remaining transport contracts", processTests, () => {
 
   // Every agent that loads Parity's tools pays for this list in its context, so it grows only on purpose (PAR-510).
   // Raise the budget when a tool earns it, not to make room for longer schemas or descriptions.
+  it("names the test pass PARITY_TEST_RUN names in a report, unless the command names another", async () => {
+    fixture.response = { result: reported }
+    const fromVariable = await run(["report", "Wrong colour", "--state", "error"], "", { PARITY_TEST_RUN: "pass-7" })
+    expect(fromVariable.code).toBe(0)
+    await run(["report", "Wrong colour", "--test-run", "pass-8"], "", { PARITY_TEST_RUN: "pass-7" })
+    const sent = (testRun: string, state?: string) =>
+      expect.objectContaining({
+        method: "report",
+        params: { tab: fixtureTab.id, message: "Wrong colour", ...(state ? { state } : {}), testRun }
+      })
+    expect(requests).toEqual([sent("pass-7", "error"), sent("pass-8")])
+  })
+
+  it("says what a report is tied to and tagged with, and where it went", () => {
+    expect(describeReport(reported).split("\n")).toEqual([
+      "Reported to Sentry: https://sentry.io/organizations/better-apps/projects/parity-desktop/events/0a1b2c/",
+      "Tied to trace 4bf92f3577b34da6a3ce929d0e0e4736 and replay r1.",
+      "Tagged tab Project, design home, state default, node title.",
+      "Sent with screenshot.png, home default mobile-light.png, events.jsonl.",
+      "Sentry files it in Linear and links the issue from the feedback."
+    ])
+  })
+
   it("keeps the MCP tool list within its budget", async () => {
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     const { tools } = (toolReply(protocol.stdout) as { result: { tools: unknown[] } }).result
-    // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636).
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(13 * 1024)
+    // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
+    // report_problem (PAR-646).
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(14 * 1024)
   })
 })

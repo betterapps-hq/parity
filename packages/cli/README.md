@@ -44,6 +44,7 @@ writes only that file, and a CLI given the same file reaches only that copy.
 | `parity console`             | What the project's own code wrote to the console.                                          |
 | `parity logs`                | Parity's own events from its local log, by level, process, trace, test run or time.        |
 | `parity diagnostics`         | A zip of the last hour of the local log, versions, projects and the latest crash.          |
+| `parity report "<problem>"`  | Reports a problem in Parity itself to its team, with a screenshot, replay and trace.       |
 | `parity tokens`              | The tokens styles can name, with their values per theme.                                   |
 | `parity components`          | The components designs can use, by library.                                                |
 | `parity props <Component>`   | A component's props, read from its source.                                                 |
@@ -102,6 +103,7 @@ All desktop commands use the same operation contracts as their MCP counterparts:
 | `tokens`                 | `get_tokens`          |
 | `components`             | `get_components`      |
 | `props`                  | `get_props`           |
+| `report`                 | `report_problem`      |
 | `skill`                  | `read_skill`          |
 
 Screenshot scale defaults to 1 and must be a finite number from 0.25 to 3. Screenshot state and mode default to the
@@ -143,6 +145,20 @@ newest 100; each says `total` and `truncated`.
 and works with diagnostics off. It shows the last run unless `--session` names one (or `all`); `--trace` and
 `--test-run` search every run. `--level` is the lowest shown, and `--since` takes an ISO time or `30s`, `10m`, `2h` or
 `1d`. `PARITY_USER_DATA` points it at another copy's folder. `tabs` is `{ "tabs": [...] }`.
+
+## Reporting a problem
+
+`parity report "<what's wrong>"` and MCP's `report_problem` tell Parity's team about a problem in Parity itself, even
+one where nothing failed, such as a screenshot that doesn't match its design. The app sends it to Sentry as user
+feedback, with a screenshot of its window, the window's replay, the last hour of its log, and the frames of the design
+named with `--design` (in `--state`, else the state it shows). It's tied to the command's trace and tagged with the tab,
+design, state, `--node` and test pass (`PARITY_TEST_RUN` unless `--test-run` says), and the command prints the
+feedback's link. Sentry files it in Linear and links the issue from the feedback. Without `--design` it works with a
+project that failed to open, or with none open, and isn't sent while Share diagnostics is off in Parity's settings.
+
+```sh
+parity report "The default state's screenshot shows the outline variant" --design button --state default
+```
 
 ## What the CLI records
 

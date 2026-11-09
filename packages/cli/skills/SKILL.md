@@ -42,6 +42,7 @@ project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the 
 | `get_props`           | `parity props <Component>`   | Props from source, then what it goes inside and holds, its slots and an example to insert; `all` adds passed-through attributes.                                                    |
 | `get_tabs`            | `parity tabs`                | The open projects.                                                                                                                                                                  |
 | `open_project`        | `parity open <folder>`       | Opens a project in a new tab.                                                                                                                                                       |
+| `report_problem`      | `parity report "<problem>"`  | Reports a problem in Parity itself to its developers, with the window's screenshot and replay and the design's frames; returns the link.                                            |
 | `read_skill`          | `parity skill [file]`        | This skill.                                                                                                                                                                         |
 
 The token, component and prop tools read what designs can use without writing a snippet in either transport.
@@ -144,3 +145,13 @@ parity status --summary
 `edits` (exact find and replace on the snippet) instead of sending it all again. The error names the line. Common
 causes: a node path that matches two designs (write it as `design/node`), a node property that doesn't exist, and a
 state change to something states can't change (only `hidden`, `text`, `props` and `style`).
+
+When Parity itself gets something wrong, report it with `report_problem` (`parity report`), even if nothing failed: a
+screenshot that doesn't match the design, a check that missed something or flagged nothing wrong, a call that should
+have worked. Say what you did, what you expected and what you saw, and name the design, state or node. It goes to the
+Parity team in Sentry, with the window's screenshot and replay, the call's trace and the frames, and gives you the link
+to pass on. Don't report a project's own bugs or your snippet's mistakes this way.
+
+```sh
+parity report "The default state's screenshot shows the outline variant" --design button --state default
+```

@@ -105,8 +105,11 @@ export function projectFor<T extends Pick<RoutedTab, "root">>(
 
 /** What an agent's call asks for. */
 export type Request =
-  /** A call on one tab, named by `tab` or else by the folder the agent works in. */
-  | { kind: "tab"; tab?: string; folder: string; real?: (path: string) => string }
+  /**
+   * A call on one tab, named by `tab` or else by the folder the agent works in. With `anyCopy`, a call that names no
+   * tab goes to the copy the person used last when no project is open anywhere, as a report does (PAR-646).
+   */
+  | { kind: "tab"; tab?: string; folder: string; real?: (path: string) => string; anyCopy?: boolean }
   /** Opening a project: the copy that has it open already, or else the one the person used last. */
   | { kind: "open"; root: string }
 
@@ -153,6 +156,7 @@ export function route<T extends RoutedTab>(copies: readonly Copy<T>[], request: 
   const looking = [...copies].sort(byLastUsed).find((copy) => copy.report.tabs.some((tab) => tab.active))
   const tab = looking?.report.tabs.find((candidate) => candidate.active)
   if (looking && tab) return { kind: "copy", copy: looking, tab }
+  if (!reference && request.anyCopy && open.length === 0) return { kind: "copy", copy: lastUsed(copies)! }
   return { kind: "none", code: "unknown_tab", message: "No project is open in Parity", open }
 }
 

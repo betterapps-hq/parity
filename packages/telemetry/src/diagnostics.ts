@@ -120,8 +120,9 @@ export const reportSent = defineEvent(
   "report.sent",
   z.object({
     feedbackId: z.string().describe("The Sentry event ID of the user feedback the report became"),
-    screenshot: z.boolean().describe("Whether the person included a screenshot of the window"),
-    afterCrash: z.boolean().describe("Whether it was offered on start after the last run crashed")
+    screenshot: z.boolean().describe("Whether a screenshot of the window went with it"),
+    afterCrash: z.boolean().describe("Whether it was offered on start after the last run crashed"),
+    by: z.enum(["person", "agent"]).describe("Who sent it: a person from Help, or an agent with parity report")
   }),
-  { level: "info", sentBy: ["main"], when: "Help > Report a problem sends a report." }
+  { level: "info", sentBy: ["main"], when: "Help > Report a problem, parity report or report_problem sends a report." }
 )

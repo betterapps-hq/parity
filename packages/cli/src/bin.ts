@@ -12,6 +12,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeReport,
   describeStatus,
   describeTokens
 } from "./client.ts"
@@ -90,6 +91,11 @@ const usage = `parity: drive the Parity app from a terminal or an agent
   parity diagnostics [--out file]           write a zip of what Help > Report a problem sends: the last hour of the
                                             local log, versions, projects and the latest crash, for a bug filed by
                                             hand. Runs without the app
+  parity report "<what's wrong>" [--design d] [--state s] [--node n] [--test-run r] [--tab t]
+                                            report a problem in Parity itself, even when nothing failed: a Sentry
+                                            feedback with a screenshot of the window, its replay, this command's trace
+                                            and frames of the design named, tagged with what it's about and the test
+                                            pass (PARITY_TEST_RUN unless --test-run says). Prints its link
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -133,6 +139,8 @@ const { positionals, values } = parseArgs({
     process: { type: "string" },
     trace: { type: "string" },
     "test-run": { type: "string" },
+    design: { type: "string" },
+    node: { type: "string" },
     since: { type: "string" },
     session: { type: "string" },
     help: { type: "boolean", short: "h" }
@@ -277,6 +285,19 @@ async function main(): Promise<void> {
       else console.log(describeDiagnostics(result))
       return
     }
+    case "report":
+      return show(
+        operations.report,
+        {
+          tab: values.tab,
+          message: rest.join(" ") || undefined,
+          design: values.design,
+          state: values.state?.[0],
+          node: values.node,
+          testRun: values["test-run"]
+        },
+        describeReport
+      )
     case "console":
       return show(operations.console, { tab: values.tab, clear: values.clear, limit }, describeConsole)
     default:

@@ -1,3 +1,4 @@
+import type { AgentReport, ReportSent } from "@parity-app/agent"
 import type { ConsoleEntry, RenderedFrame, RenderJob } from "./protocol.ts"
 
 /** Messages from the main process to the project service that aren't requests: a window's port to the service. */
@@ -47,6 +48,11 @@ export interface MainMethods {
   secrets: { params: string[]; result: undefined }
   /** An agent called the app, so what follows is tagged as its driving (PAR-630). Main checks it, since it's data. */
   agentCalled: { params: unknown; result: undefined }
+  /**
+   * An agent's report, sent on as a Sentry user feedback with the editor window's screenshot (PAR-646), tied to the
+   * replay and trace the service names.
+   */
+  report: { params: AgentReport & { replayId?: string; traceId?: string }; result: ReportSent }
 }
 
 /** Requests the main process sends to the project service. */

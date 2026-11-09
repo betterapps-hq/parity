@@ -7,6 +7,7 @@ import {
   requests,
   skillRequest
 } from "@parity-app/agent/contracts"
+import { plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
 import type { Routing } from "./client.ts"
 import { type ExecResponse, execResponse, executionFailed, structuredExec } from "./execute.ts"
@@ -45,6 +46,8 @@ export interface Operation<Result> {
 }
 
 interface Options<Result> {
+  /** Which copy the call goes to, when it isn't the one its fields say. */
+  routing?: Routing
   failed?: (result: Result) => boolean
   structured?: (result: Result) => Record<string, unknown>
 }
@@ -60,7 +63,7 @@ function mapped<M extends Exclude<Requested, "exec">, Result extends object>(
 ): Operation<Result> {
   const input: z.ZodObject = requests[method]
   const fields = Object.keys(input.shape)
-  const routing = routingFor(fields)
+  const routing = options.routing ?? routingFor(fields)
   return {
     inputSchema: requestJsonSchema(input),
     fields,
@@ -136,7 +139,25 @@ export const operations = {
     return { tokens: items, total, truncated }
   }),
   components: operation("components"),
-  props: operation("props")
+  props: operation("props"),
+  // A report goes to a running copy even with no project open, as long as it names no tab.
+  report: withTestRun(operation("report", { routing: "tab-or-any" }))
+}
+
+/**
+ * A report names the test pass `PARITY_TEST_RUN` names, unless the agent says another, so it groups with the pass's
+ * events in Sentry (PAR-646).
+ */
+function withTestRun<Result>(operation: Operation<Result>, env: NodeJS.ProcessEnv = process.env): Operation<Result> {
+  return {
+    ...operation,
+    run(input, send) {
+      const testRun = env.PARITY_TEST_RUN?.trim()
+      const fields = plainObject.safeParse(input).data
+      if (!testRun || !fields || fields.testRun !== undefined) return operation.run(input, send)
+      return operation.run({ ...fields, testRun }, send)
+    }
+  }
 }
 
 export const skillOperation = {

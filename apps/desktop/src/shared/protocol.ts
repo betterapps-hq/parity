@@ -276,6 +276,8 @@ export interface WindowMethods {
   "agent.iconNames": { params: { tab: string; set: string; module?: string }; result: IconNames }
   /** Whether the browser takes each value for its CSS property, for checking an agent's `SetTokens` (PAR-584). */
   "agent.supports": { params: { property: string; value: string }[]; result: boolean[] }
+  /** The window's replay, sent so far, and trace, which an agent's report is tied to (PAR-646). */
+  "agent.reportIds": { params: undefined; result: { replayId?: string; traceId?: string } }
   /** A project file changed on disk, not by this window. */
   "project.fileChanged": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
   /**
@@ -321,6 +323,7 @@ export const windowMethods = Object.keys({
   "agent.open": true,
   "agent.iconNames": true,
   "agent.supports": true,
+  "agent.reportIds": true,
   "project.fileChanged": true,
   "project.componentsChanged": true,
   "project.guestMoved": true,

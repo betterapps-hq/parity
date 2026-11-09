@@ -21,7 +21,7 @@ import { agentCallAnswered, agentCallFailed, agentCallStart, readTraceHeaders } 
 import { passedLink } from "../shared/account.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
-import { inSpan } from "../shared/tracing.ts"
+import { currentTrace, inSpan } from "../shared/tracing.ts"
 import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
@@ -145,6 +145,16 @@ export function desktopHost(window: WindowChannel): AgentHost {
     apply: (tab, label, changes) => window.request("agent.apply", { tab, label, ...changes }),
     supports: (queries) => window.request("agent.supports", queries),
     console: (snapshot, clear) => readConsole(snapshot.guestUrl, clear),
+    // The call's own trace, from the command on, else the window's; main takes the window's screenshot and sends it.
+    async report(report) {
+      const { replayId, traceId } = await window.request("agent.reportIds", undefined)
+      const trace = currentTrace()?.traceId ?? traceId
+      return mainProcess.request("report", {
+        ...report,
+        ...(replayId ? { replayId } : {}),
+        ...(trace ? { traceId: trace } : {})
+      })
+    },
     async saveScreenshots(screenshots) {
       await mkdir(screenshotDir, { recursive: true })
       const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-")
