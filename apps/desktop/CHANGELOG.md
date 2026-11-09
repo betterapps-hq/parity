@@ -1,8 +1,19 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 02:25:03 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 03:07:10 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.40.1
+
+Mon, 09 Nov 2026 03:07:10 GMT
+
+### Patches
+
+- A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on
+  Windows. (ajcraswell@gmail.com)
+- Session Replay no longer records a project's canvas as it mounts, so the first frame shows sooner
+  (ajcraswell@gmail.com)
 
 ## 0.40.0
 

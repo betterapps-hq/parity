@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Separate and upload the app's source maps with the scripts the CLI now shares (PAR-719)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

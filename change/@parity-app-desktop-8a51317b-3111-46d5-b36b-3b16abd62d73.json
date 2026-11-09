@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on Windows.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

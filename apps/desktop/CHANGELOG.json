@@ -2,6 +2,35 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 03:07:10 GMT",
+      "version": "0.40.1",
+      "tag": "@parity-app/desktop_v0.40.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e81a717f95b8ecaa974225cb76e9415211a1e018",
+            "comment": "Separate and upload the app's source maps with the scripts the CLI now shares (PAR-719)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6d00d3fe8a86ac5d5d7717f0e7367a63896dfeb5",
+            "comment": "A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on Windows."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1bebed8fc7e44ca4cdbc4b3d4a5e00bb19141dd3",
+            "comment": "Session Replay no longer records a project's canvas as it mounts, so the first frame shows sooner"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 02:25:03 GMT",
       "version": "0.40.0",
       "tag": "@parity-app/desktop_v0.40.0",
