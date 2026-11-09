@@ -2171,9 +2171,10 @@ the Repository, CI and releases stream in Linear.
     shrinks, and goes when it's empty.
   - **`vite.config.ts` lists only Parity's rules beyond base:** `consistent-type-imports`, Vite+'s imports rule and the
     `toast.error` restriction. `react/exhaustive-deps` stays an error rather than base's warning.
-  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility,
-    Vitest and Chromatic addons. The app lists the three addons itself, because base names them by package and pnpm
-    doesn't hoist them to the app. The Vitest addon's test runs aren't wired into `vp test` yet.
+  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility
+    and Vitest addons by path, so the app doesn't list them (PAR-753). Chromatic is app-specific and Parity doesn't use
+    it. Story tests, once the Vitest addon's runs are wired up, run in CI only, as you decided on 2026-11-08: they're
+    too slow for local test passes.
 - **The agency monorepo's stricter lint rules were on before Buildkit's** (PAR-396), from its `@repo/oxlint-config`,
   without `curly`, `no-console` and `no-bitwise` as you chose then, and without the React Compiler rule, since Parity
   doesn't run the compiler. The calls below still stand, apart from those three rules. My calls:

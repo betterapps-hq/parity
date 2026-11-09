@@ -38,7 +38,11 @@
         // load them from the app's own node_modules.
         "package-manager-detector",
         "semver",
-        "unconfig"
+        "unconfig",
+        // Buildkit's Storybook config adds these addons by path, from its own dependencies; knip's Storybook plugin
+        // counts them as the app's.
+        "@storybook/addon-a11y",
+        "@storybook/addon-vitest"
       ],
       // macOS's own commands: plutil and sips name and brand the dev Electron, top reads memory.
       "ignoreBinaries": ["plutil", "sips", "top"],
