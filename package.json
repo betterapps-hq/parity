@@ -33,6 +33,7 @@
     "rules:import": "rulesync import"
   },
   "devDependencies": {
+    "@buildkitgg/oxlint-config": "catalog:",
     "@types/node": "^24.12.0",
     "beachball": "catalog:",
     "knip": "catalog:",

@@ -2162,10 +2162,22 @@ the Repository, CI and releases stream in Linear.
     alias.
   - **No two files in a folder may differ only by case and extension.** Beside `Processes.tsx`, `processes.ts` made the
     checker on Windows mistake one for the other, so it's now `process-store.ts`.
-- **The agency monorepo's stricter lint rules are on** (PAR-396), from its `@repo/oxlint-config`, without `curly`,
-  `no-console` and `no-bitwise` as you chose, and without the React Compiler rule, since Parity doesn't run the
-  compiler. My calls:
-  - **Only the rules beyond oxlint's correctness category are listed** in `vite.config.ts`, since that category is on
+- **Lint extends Buildkit's base config, `@buildkitgg/oxlint-config/base`** (PAR-730), which you asked for on
+  2026-11-08. It brings every anti-slop rule, and `curly`, `no-console` and `no-bitwise` are now on, as you decided
+  then: no rule is relaxed. A line can still turn one off, with a comment saying why, where there's a very good reason,
+  such as a bitwise hash or a CLI that prints. My calls:
+  - **Code that doesn't pass yet is listed in `notYetClean` in `vite.config.ts`,** one entry per PAR-730 sub-issue,
+    naming only the rules that part still breaks. New code and every path outside the list get every rule. The list only
+    shrinks, and goes when it's empty.
+  - **`vite.config.ts` lists only Parity's rules beyond base:** `consistent-type-imports`, Vite+'s imports rule and the
+    `toast.error` restriction. `react/exhaustive-deps` stays an error rather than base's warning.
+  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility,
+    Vitest and Chromatic addons. The app lists the three addons itself, because base names them by package and pnpm
+    doesn't hoist them to the app. The Vitest addon's test runs aren't wired into `vp test` yet.
+- **The agency monorepo's stricter lint rules were on before Buildkit's** (PAR-396), from its `@repo/oxlint-config`,
+  without `curly`, `no-console` and `no-bitwise` as you chose then, and without the React Compiler rule, since Parity
+  doesn't run the compiler. The calls below still stand, apart from those three rules. My calls:
+  - **Only the rules beyond oxlint's correctness category were listed** in `vite.config.ts`, since that category is on
     already. `react/exhaustive-deps` stays an error there rather than the agency's warning.
   - **Unused names starting with `_` are allowed,** as the agency allows them.
   - **A nested ternary becomes an `if` chain or a small named function,** not a disable comment. A callback that does
