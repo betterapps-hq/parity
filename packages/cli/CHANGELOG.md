@@ -1,8 +1,19 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 09 Nov 2026 02:25:19 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 03:07:25 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.28.1
+
+Mon, 09 Nov 2026 03:07:25 GMT
+
+### Patches
+
+- Upload the published CLI's source maps to Sentry, and name a pkg.pr.new preview's release by its commit (PAR-719)
+  (ajcraswell@gmail.com)
+- A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on
+  Windows. (ajcraswell@gmail.com)
 
 ## 0.28.0
 

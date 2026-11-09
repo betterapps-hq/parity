@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 03:07:25 GMT",
+      "version": "0.28.1",
+      "tag": "@parity-app/cli_v0.28.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e81a717f95b8ecaa974225cb76e9415211a1e018",
+            "comment": "Upload the published CLI's source maps to Sentry, and name a pkg.pr.new preview's release by its commit (PAR-719)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6d00d3fe8a86ac5d5d7717f0e7367a63896dfeb5",
+            "comment": "A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on Windows."
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 02:25:19 GMT",
       "version": "0.28.0",
       "tag": "@parity-app/cli_v0.28.0",
