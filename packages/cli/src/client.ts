@@ -18,6 +18,7 @@ import type { z } from "zod"
 import { cliCallerName, sessionCallerId } from "./caller.ts"
 import type { ExecResponse } from "./execute.ts"
 import { cliCallerChanged, recordCli, runTraceHeaders } from "./telemetry.ts"
+import { waitLimit } from "./wait.ts"
 
 /**
  * Where running copies of the app say how to reach them: `~/.parity/agents`, or the one file `PARITY_AGENT_FILE` names
@@ -223,7 +224,10 @@ async function reportOf(entry: CopyEntry): Promise<CopyReport<TabSummary> | unde
   }
 }
 
-/** Asks one copy, and returns its answer once the method's schema in `contracts.ts` has checked it. */
+/**
+ * Asks one copy, and returns its answer once the method's schema in `contracts.ts` has checked it. A `timeout` limits
+ * only the wait for the copy's answer, by `waitLimit`, so a CLI that was slow to run doesn't drop a copy that answered.
+ */
 async function send<M extends AgentMethod>(
   entry: CopyEntry,
   method: M,
@@ -231,19 +235,22 @@ async function send<M extends AgentMethod>(
   timeout?: number
 ): Promise<AgentMethods[M]["result"]> {
   let response: Response
+  const limit = timeout === undefined ? undefined : waitLimit(timeout)
 
   try {
     response = await fetch(`${entry.url}/rpc`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}`, ...traceHeaders() },
       body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient, transport }),
-      ...(timeout === undefined ? {} : { signal: AbortSignal.timeout(timeout) })
+      ...(limit ? { signal: limit.signal } : {})
     })
   } catch {
     throw new CodedError(`Parity isn't answering at ${entry.url}. Is the app still running?`, {
       code: "not_answering",
       retryable: true
     })
+  } finally {
+    limit?.stop()
   }
 
   const body = answer(jsonText(rpcReply), await response.text(), method)

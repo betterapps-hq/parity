@@ -6,7 +6,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 import { operations } from "./operations.ts"
-import { compileCache, emptyState, processTests, toolReply } from "./transport-fixture.ts"
+import { compileCache, emptyState, processTests, succeeded, toolReply } from "./transport-fixture.ts"
 
 /**
  * The CLI against two running copies of the app, each with its own project open (PAR-514): every call reaches the copy
@@ -170,14 +170,14 @@ describe("routing between copies", processTests, () => {
 
   it("sends each call to the copy that has its project open", async () => {
     const codes = await Promise.all([run(["state", "--tab", "shop"]), run(["state", "--tab", blog])])
-    expect(codes.map((result) => result.code)).toEqual([0, 0])
+    expect(codes).toEqual([succeeded, succeeded])
     expect(person.requests).toEqual([{ method: "state", params: { tab: shop } }])
     expect(session.requests).toEqual([{ method: "state", params: { tab: blog } }])
   })
 
   it("sends --tab active to the copy focused last, and lists every copy's projects", async () => {
     const [state, tabs] = await Promise.all([run(["state", "--tab", "active"]), run(["tabs"])])
-    expect(state.code).toBe(0)
+    expect(state).toEqual(succeeded)
     expect(session.requests).toEqual([{ method: "state", params: { tab: blog } }])
     const listed = JSON.parse(tabs.stdout) as { tabs: { id: string; active: boolean }[] }
     expect(listed.tabs.map((tab) => [tab.id, tab.active])).toEqual([
@@ -192,7 +192,7 @@ describe("routing between copies", processTests, () => {
     person.tabs = [{ id: folder, name: "work", root: folder, active: false, status: "ready", designs: 0 }]
 
     try {
-      expect((await run(["state"], folder)).code).toBe(0)
+      expect(await run(["state"], folder)).toEqual(succeeded)
       expect(person.requests).toEqual([{ method: "state", params: { tab: folder } }])
     } finally {
       person.tabs = [{ id: shop, name: "shop", root: shop, active: true, status: "ready", designs: 0 }]
