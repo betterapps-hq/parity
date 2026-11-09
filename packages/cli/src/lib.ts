@@ -1,8 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
-import type { Live, GenerateReport as Report } from "@parity-app/libgen"
+import type { GenerateOptions, Live, GenerateReport as Report } from "@parity-app/libgen"
 import { z } from "zod"
 import { readAppErrors } from "./check.ts"
+import { stderr, stdout } from "./output.ts"
 
 export interface LibOptions {
   root?: string
@@ -48,7 +49,7 @@ export async function runLib(packageName: string | undefined, options: LibOption
     }
 
     const version = await publishedVersion(spec.name, spec.version ?? listed[0]?.manifest.package?.version ?? "latest")
-    console.error(`Installing ${spec.name} ${version} on its own…`)
+    stderr(`Installing ${spec.name} ${version} on its own…`)
     root = await installedVersion(spec.name, version)
   }
 
@@ -67,18 +68,7 @@ export async function runLib(packageName: string | undefined, options: LibOption
 
   const appErrors = recordedId ? await readAppErrors(registryDir(), recordedId) : undefined
 
-  const generated = await generateLibrary({
-    root,
-    ...(trialEdits ? { trialEdits } : {}),
-    ...(appErrors ? { appErrors } : {}),
-    ...(options.noExamples ? { examples: false } : {}),
-    ...(options.noTags ? { tags: false } : {}),
-    ...(spec ? { package: spec.name } : {}),
-    ...(options.id ? { id: options.id } : {}),
-    ...(options.name ? { name: options.name } : {}),
-    ...(options.description ? { description: options.description } : {}),
-    ...(options.range ? { range: options.range } : {})
-  })
+  const generated = await generateLibrary(generateOptions(root, options, { spec, trialEdits, appErrors }))
 
   const id = String(generated.manifest.id)
   let target: string | undefined
@@ -105,7 +95,8 @@ export async function runLib(packageName: string | undefined, options: LibOption
 
   if (!options.range) {
     const read = packageVersions.safeParse(generated.manifest.package).data
-    const range = read && keptRange(existing, read, (versions) => covers({ package: versions }, read.version))
+    const written = writtenRange.safeParse(existing).data?.package.range
+    const range = read && keptRange(written, read, (versions) => covers({ package: versions }, read.version))
 
     if (range) {
       generated.manifest.package = { ...read, range }
@@ -122,17 +113,17 @@ export async function runLib(packageName: string | undefined, options: LibOption
 
   const edits = options.edits && relative(dirname(target ?? resolve(".")), resolve(options.edits)).replaceAll("\\", "/")
 
-  const { manifest, report } = await reviseLibrary(generated, {
-    root,
-    previous: existing,
-    only,
-    ...(edits ? { edits } : {}),
-    editsBase: dirname(target ?? resolve("."))
-  })
+  const revision: ReviseOptions = { root, previous: existing, only, editsBase: dirname(target ?? resolve(".")) }
+
+  if (edits) {
+    revision.edits = edits
+  }
+
+  const { manifest, report } = await reviseLibrary(generated, revision)
 
   if (!target) {
-    console.log(JSON.stringify(manifest, null, 2))
-    console.error(describeReport(report))
+    stdout(JSON.stringify(manifest, null, 2))
+    stderr(describeReport(report))
 
     return
   }
@@ -143,10 +134,67 @@ export async function runLib(packageName: string | undefined, options: LibOption
   await writeFile(target, manifestText(written))
 
   if (options.json) {
-    console.log(JSON.stringify({ path: target, report }, null, 2))
+    stdout(JSON.stringify({ path: target, report }, null, 2))
   } else {
-    console.log(`Wrote ${relative(process.cwd(), target) || target}\n${describeReport(report)}`)
+    stdout(`Wrote ${relative(process.cwd(), target) || target}\n${describeReport(report)}`)
   }
+}
+
+/** What `reviseLibrary` takes: the file being replaced, which components to write, and where hand edits are. */
+type ReviseOptions = Pick<GenerateOptions, "previous" | "only" | "edits" | "editsBase" | "root">
+
+/** What `parity lib` found before generating: the package named, hand edits to try, and the app's recorded errors. */
+interface LibInputs {
+  spec: PackageSpec | undefined
+  trialEdits: GenerateOptions["trialEdits"]
+  appErrors: GenerateOptions["appErrors"]
+}
+
+/** The options `generateLibrary` is given, with only the flags that were set. */
+function generateOptions(
+  root: string,
+  options: LibOptions,
+  { spec, trialEdits, appErrors }: LibInputs
+): GenerateOptions {
+  const generate: GenerateOptions = { root }
+
+  if (trialEdits) {
+    generate.trialEdits = trialEdits
+  }
+
+  if (appErrors) {
+    generate.appErrors = appErrors
+  }
+
+  if (options.noExamples) {
+    generate.examples = false
+  }
+
+  if (options.noTags) {
+    generate.tags = false
+  }
+
+  if (spec) {
+    generate.package = spec.name
+  }
+
+  if (options.id) {
+    generate.id = options.id
+  }
+
+  if (options.name) {
+    generate.name = options.name
+  }
+
+  if (options.description) {
+    generate.description = options.description
+  }
+
+  if (options.range) {
+    generate.range = options.range
+  }
+
+  return generate
 }
 
 /** The package a library file describes: the version read, and the range of versions the file covers. */
@@ -155,19 +203,17 @@ const packageVersions = z.looseObject({ name: z.string(), version: z.string(), r
 type PackageVersions = z.output<typeof packageVersions>
 
 /** The range a file being written over has, which it keeps while that still covers the version read. */
-const writtenRange = z.looseObject({ package: z.looseObject({ range: z.string() }) })
+export const writtenRange = z.looseObject({ package: z.looseObject({ range: z.string() }) })
 
 /**
  * The range a file being written over keeps: its own, while it still covers the version just read, so a range widened
  * by hand (Lucide's, from 0.400) survives regenerating. Undefined when the new range stands.
  */
 export function keptRange(
-  existing: unknown,
+  range: string | undefined,
   read: PackageVersions,
   covers: (versions: PackageVersions) => boolean
 ): string | undefined {
-  const range = writtenRange.safeParse(existing).data?.package.range
-
   if (range === undefined || range === read.range) {
     return undefined
   }
@@ -176,7 +222,13 @@ export function keptRange(
 }
 
 /** A package as `parity lib` is given it: a name, with a version or tag after an `@` (`@tabler/icons-react@3.50.0`). */
-export function packageSpec(text: string): { name: string; version?: string } {
+export interface PackageSpec {
+  name: string
+  version?: string
+}
+
+/** Reads a package as `parity lib` is given it. */
+export function packageSpec(text: string): PackageSpec {
   const at = text.lastIndexOf("@")
 
   return at > 0 ? { name: text.slice(0, at), version: text.slice(at + 1) } : { name: text }

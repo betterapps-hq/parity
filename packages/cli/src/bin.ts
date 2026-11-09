@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises"
 import { resolve } from "node:path"
+import { buffer } from "node:stream/consumers"
 import { parseArgs } from "node:util"
+import type { JsonValue } from "@parity-app/core/schema"
 import { runCheck } from "./check.ts"
 import {
   call,
@@ -22,7 +24,8 @@ import { executeOperation } from "./execute.ts"
 import { runLib } from "./lib.ts"
 import { describeLogs, logsFields, readLogs } from "./logs.ts"
 import { serveMcp } from "./mcp.ts"
-import { type Operation, operations, skillOperation } from "./operations.ts"
+import { type Operation, type OperationInput, operations, skillOperation } from "./operations.ts"
+import { stderr, stdout } from "./output.ts"
 import { readSkill } from "./skills.ts"
 import { inCliRun, reportCliFailure, startCliTelemetry } from "./telemetry.ts"
 
@@ -164,13 +167,13 @@ try {
     print({ error: failure })
   }
 
-  console.error(failure.message)
+  stderr(failure.message)
   process.exitCode = 1
 }
 
 async function main(): Promise<void> {
   if (!command || values.help) {
-    console.log(usage)
+    stdout(usage)
 
     return
   }
@@ -190,7 +193,7 @@ async function main(): Promise<void> {
       return show(operations.open, { root: rest[0]?.trim() ? resolve(rest[0]) : rest[0] })
     case "skill":
       fields = skillOperation.fields
-      console.log(await skillOperation.run({ path: rest[0] }, readSkill))
+      stdout(await skillOperation.run({ path: rest[0] }, readSkill))
 
       return
     case "mcp":
@@ -199,27 +202,28 @@ async function main(): Promise<void> {
       return
     case "lib":
       if (rest[0] === "check") {
+        // An empty flag counts as unset, here and for `parity lib`.
         return runCheck(rest[1], {
-          ...(values.tab ? { tab: values.tab } : {}),
-          ...(values.mode?.[0] ? { mode: values.mode[0] } : {}),
-          ...(values.json ? { json: true } : {}),
-          ...(values.record ? { record: true } : {})
+          tab: values.tab || undefined,
+          mode: values.mode?.[0] || undefined,
+          json: values.json,
+          record: values.record
         })
       }
 
       return runLib(rest[0], {
-        ...(values.root ? { root: values.root } : {}),
-        ...(values.out ? { out: values.out } : {}),
-        ...(values.registry ? { registry: true } : {}),
-        ...(values.id ? { id: values.id } : {}),
-        ...(values.name ? { name: values.name } : {}),
-        ...(values.description ? { description: values.description } : {}),
-        ...(values.range ? { range: values.range } : {}),
-        ...(values.only ? { only: values.only } : {}),
-        ...(values["no-examples"] ? { noExamples: true } : {}),
-        ...(values["no-tags"] ? { noTags: true } : {}),
-        ...(values.edits ? { edits: values.edits } : {}),
-        ...(values.json ? { json: true } : {})
+        root: values.root || undefined,
+        out: values.out || undefined,
+        registry: values.registry,
+        id: values.id || undefined,
+        name: values.name || undefined,
+        description: values.description || undefined,
+        range: values.range || undefined,
+        only: values.only || undefined,
+        noExamples: values["no-examples"],
+        noTags: values["no-tags"],
+        edits: values.edits || undefined,
+        json: values.json
       })
     case "exec": {
       fields = executeOperation.fields
@@ -232,7 +236,7 @@ async function main(): Promise<void> {
         code = (await stdin()) || undefined
       }
 
-      let edits: unknown
+      let edits: JsonValue | undefined
 
       try {
         edits = values.edits === undefined ? undefined : JSON.parse(values.edits)
@@ -245,7 +249,7 @@ async function main(): Promise<void> {
       if (values.json) {
         print(executeOperation.structured(result))
       } else {
-        console.log(describeExec(result))
+        stdout(describeExec(result))
       }
 
       if (executeOperation.failed(result)) {
@@ -306,7 +310,7 @@ async function main(): Promise<void> {
       if (values.json) {
         print(result)
       } else {
-        console.log(describeLogs(result))
+        stdout(describeLogs(result))
       }
 
       return
@@ -319,7 +323,7 @@ async function main(): Promise<void> {
       if (values.json) {
         print(result)
       } else {
-        console.log(describeDiagnostics(result))
+        stdout(describeDiagnostics(result))
       }
 
       return
@@ -356,7 +360,7 @@ ${usage}`
  */
 async function show<Result>(
   operation: Operation<Result>,
-  input: Record<string, unknown>,
+  input: OperationInput,
   describe?: (result: Result) => string
 ): Promise<void> {
   fields = operation.fields
@@ -365,7 +369,7 @@ async function show<Result>(
   if (values.json || !describe) {
     print(operation.structured(result))
   } else {
-    console.log(describe(result))
+    stdout(describe(result))
   }
 
   if (operation.failed(result)) {
@@ -373,16 +377,10 @@ async function show<Result>(
   }
 }
 
-function print(value: unknown): void {
-  console.log(JSON.stringify(value, null, 2))
+function print<Value>(value: Value): void {
+  stdout(JSON.stringify(value, null, 2))
 }
 
 async function stdin(): Promise<string> {
-  const chunks: Buffer[] = []
-
-  for await (const chunk of process.stdin) {
-    chunks.push(chunk as Buffer)
-  }
-
-  return Buffer.concat(chunks).toString("utf8")
+  return (await buffer(process.stdin)).toString("utf8")
 }
