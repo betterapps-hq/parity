@@ -16,7 +16,8 @@
     for the dist-tags after it sends, and keeps the answer in `~/.parity/installed-cli.json`, so a command never waits
     on npm and offline keeps the last answer. The next command reports from it. A version newer than `latest` is a beta;
     an older one keeps what was saved, so a version that was `latest` stays `production` after a newer one is promoted,
-    as a promoted desktop release does.
+    as a promoted desktop release does. Moving `latest` back to an older version makes the newer one a beta again, since
+    a rollback pulls it.
   - **The desktop's cache is shared, not copied.** `Promotion` in `@parity-app/telemetry` keeps a version's answer, asks
     again after five minutes, shares one request between callers and survives files it can't read or write. The desktop
     app's `InstalledBuild` asks GitHub through it, and the CLI asks npm.

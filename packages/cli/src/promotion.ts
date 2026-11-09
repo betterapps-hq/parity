@@ -48,7 +48,8 @@ const distTags = z.looseObject({ latest: z.string().optional().catch(undefined) 
 /**
  * Where npm's `latest` tag puts this version: `stable` while it's `latest`, `beta` while it's newer than `latest`, so not
  * yet promoted, and nothing for an older one, which keeps what was saved: a version that was `latest` stays promoted
- * once a newer one is, as a promoted desktop release does.
+ * once a newer one is, as a promoted desktop release does. Moving `latest` back to an older version, a rollback, makes
+ * the newer one a beta again, since it was pulled.
  */
 export function cliChannel(version: string, latest: string | undefined): ReleaseChannel | undefined {
   if (!latest || !semver.valid(latest) || !semver.valid(version)) {
