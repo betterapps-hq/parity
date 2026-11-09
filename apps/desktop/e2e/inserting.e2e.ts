@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
+import { print } from "../../../scripts/output.ts"
 import { App } from "./app.ts"
 
 // docs/editor.md, Inserting: the `/` picker (PAR-178), how quickly it opens, what it lists first, what it leaves out
@@ -106,7 +107,7 @@ describe("the insert picker", () => {
     // opening takes 25 to 50ms in development; other work on the machine can double one, so the slower half has room.
     // Before PAR-178 each took 400 to 900ms.
     const sorted = [...times].sort((a, b) => a - b)
-    console.log(`Opened the picker in ${times.map((time) => Math.round(time)).join(", ")}ms`)
+    print(`Opened the picker in ${times.map((time) => Math.round(time)).join(", ")}ms`)
     expect(sorted[0]).toBeLessThan(100)
     expect(sorted[3]).toBeLessThan(150)
   })

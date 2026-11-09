@@ -1,15 +1,17 @@
 import { spawnSync } from "node:child_process"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { join, relative, resolve } from "node:path"
+import { parseData } from "@parity-app/core/schema"
 import { afterAll, describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 
 const root = resolve(import.meta.dirname, "..")
 const vp = join(root, "node_modules/vite-plus/bin/vp")
 
-interface Diagnostic {
-  code: string
-  help?: string
-}
+/** What oxlint's JSON output says of each problem, as far as these tests read it. */
+const lintReport = z.object({ diagnostics: z.array(z.object({ code: z.string(), help: z.string().optional() })) })
+
+type Diagnostic = z.infer<typeof lintReport>["diagnostics"][number]
 
 /**
  * Lints files with the workspace's settings in `vite.config.ts`, returning what it reported. JSON, since in CI oxlint
@@ -22,7 +24,7 @@ function lint(...files: string[]): Diagnostic[] {
     { cwd: root, encoding: "utf8" }
   )
 
-  return (JSON.parse(result.stdout) as { diagnostics: Diagnostic[] }).diagnostics
+  return parseData(lintReport, JSON.parse(result.stdout)).diagnostics
 }
 
 describe("error notifications go through reportError (PAR-644)", () => {

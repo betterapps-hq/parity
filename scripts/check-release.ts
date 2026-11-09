@@ -4,13 +4,20 @@
 // Usage: node scripts/check-release.ts <release>
 //   <release>  the release's name, such as parity-desktop@0.40.0 or a commit on main; upload-sourcemaps.ts gives it
 import { setTimeout as sleep } from "node:timers/promises"
+import { parserFor } from "@parity-app/core/schema"
+import { z } from "zod"
+import { print } from "./output.ts"
 
 /** The part of Sentry's release summary (`/organizations/<org>/releases/<release>/meta/`) the check reads. */
-export interface ReleaseMeta {
+const releaseSummary = z.object({
   /** The files uploaded to the release: each artifact bundle's bundles and maps, or the older release files. */
-  releaseFileCount: number
-  commitCount: number
-}
+  releaseFileCount: z.number(),
+  commitCount: z.number()
+})
+
+export type ReleaseMeta = z.infer<typeof releaseSummary>
+
+const readReleaseSummary = parserFor(releaseSummary)
 
 /** How many times Sentry is asked before a missing part stands, since it may still be processing the upload. */
 const tries = 3
@@ -74,7 +81,7 @@ async function releaseMeta(
     throw new Error(`Sentry answered ${response.status} for ${release}: ${await response.text()}`)
   }
 
-  return (await response.json()) as ReleaseMeta
+  return readReleaseSummary(await response.json())
 }
 
 if (import.meta.main) {
@@ -93,12 +100,12 @@ if (import.meta.main) {
   const problems = await checkRelease(release, { token })
 
   for (const problem of problems) {
-    console.log(`::error::${problem}`)
+    print(`::error::${problem}`)
   }
 
   if (problems.length > 0) {
     process.exit(1)
   }
 
-  console.log(`${release} has its source maps and commits.`)
+  print(`${release} has its source maps and commits.`)
 }

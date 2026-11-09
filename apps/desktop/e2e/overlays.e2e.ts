@@ -67,8 +67,8 @@ describe("the overlay canvas", () => {
       const area = editor.getContainer().getBoundingClientRect()
       const viewport = editor.getViewportPageBounds()
 
-      const inView = editor.getCurrentPageShapes().filter((shape) => {
-        const bounds = editor.getShapePageBounds(shape)
+      const inView = editor.getCurrentPageShapes().filter((item) => {
+        const bounds = editor.getShapePageBounds(item)
 
         return bounds && viewport.collides(bounds)
       })
@@ -77,7 +77,7 @@ describe("the overlay canvas", () => {
         return undefined
       }
 
-      editor.select(...inView.slice(0, 2).map((shape) => shape.id))
+      editor.select(...inView.slice(0, 2).map((item) => item.id))
       const box = editor.getSelectionScreenBounds()!
 
       for (let y = area.bottom - 20; y > area.top + 20; y -= 40) {

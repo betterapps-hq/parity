@@ -1,14 +1,19 @@
 import { execFileSync } from "node:child_process"
 import { cpSync, globSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join, relative } from "node:path"
+import { parseData } from "@parity-app/core/schema"
 import { SentryCli } from "@sentry/cli"
+import { z } from "zod"
 import { currentCommit } from "./commit.ts"
+import { print } from "./output.ts"
 
 /** What `sourcemaps/build.json` records, which upload-sourcemaps.ts names the release from. */
-export interface SourceMapsBuild {
-  version: string
-  commit?: string | undefined
-}
+export const sourceMapsBuild = z.object({ version: z.string(), commit: z.string().optional() })
+
+export type SourceMapsBuild = z.infer<typeof sourceMapsBuild>
+
+/** A package.json, as far as its version. */
+const versionedPackage = z.object({ version: z.string() })
 
 /**
  * Gives each of a package's bundles a debug ID, which Sentry matches an event's frames to its source map by, then moves
@@ -50,10 +55,10 @@ export function separateSourceMaps({
     renameSync(join(out, map), join(sourceMaps, map))
   }
 
-  const { version } = JSON.parse(readFileSync(join(packageFolder, "package.json"), "utf8")) as { version: string }
+  const { version } = parseData(versionedPackage, JSON.parse(readFileSync(join(packageFolder, "package.json"), "utf8")))
   const build: SourceMapsBuild = { version, commit: currentCommit(packageFolder) }
   writeFileSync(join(sourceMaps, "build.json"), JSON.stringify(build, null, 2))
-  console.log(`${maps.length} source maps moved to ${relative(process.cwd(), sourceMaps)}`)
+  print(`${maps.length} source maps moved to ${relative(process.cwd(), sourceMaps)}`)
 
   return build
 }

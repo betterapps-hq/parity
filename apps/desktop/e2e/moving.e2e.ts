@@ -433,16 +433,16 @@ describe("dragging a design by its title", () => {
     const key = await app.key(design)
 
     return app.page.evaluate((key) => {
-      const shape = window
+      const found = window
         .e2e!.session()
         .editor!.getCurrentPageShapes()
         .find((candidate) => candidate.id.endsWith(encodeURIComponent(key)))
 
-      if (!shape) {
+      if (!found) {
         throw new Error(`No board for ${key}`)
       }
 
-      return { x: shape.x, y: shape.y }
+      return { x: found.x, y: found.y }
     }, key)
   }
 
@@ -522,10 +522,10 @@ describe("duplicating a design", () => {
     const bounds = await app.page.evaluate(() => {
       const editor = window.e2e!.session().editor!
 
-      return editor.getCurrentPageShapes().map((shape) => {
-        const { minX, minY, maxX, maxY } = editor.getShapePageBounds(shape)!
+      return editor.getCurrentPageShapes().map((item) => {
+        const { minX, minY, maxX, maxY } = editor.getShapePageBounds(item)!
 
-        return { id: shape.id, minX, minY, maxX, maxY }
+        return { id: item.id, minX, minY, maxX, maxY }
       })
     })
 
@@ -533,7 +533,7 @@ describe("duplicating a design", () => {
     // Top-aligned with the original, to its right.
     expect(copy.position.y).toBe(dashboard.position.y)
     expect(copy.position.x).toBeGreaterThan(dashboard.position.x)
-    const mine = bounds.find((shape) => shape.id.endsWith(encodeURIComponent(copy.key)))!
+    const mine = bounds.find((item) => item.id.endsWith(encodeURIComponent(copy.key)))!
 
     const near = bounds.filter(
       (other) =>
@@ -609,8 +609,8 @@ async function duplicated(act: () => Promise<void>): Promise<string> {
 function boundsOf(key: string): Promise<PageBounds> {
   return app.page.evaluate((key) => {
     const editor = window.e2e!.session().editor!
-    const shape = editor.getCurrentPageShapes().find((candidate) => candidate.id.endsWith(encodeURIComponent(key)))!
-    const { minX, minY, maxX, maxY } = editor.getShapePageBounds(shape)!
+    const board = editor.getCurrentPageShapes().find((candidate) => candidate.id.endsWith(encodeURIComponent(key)))!
+    const { minX, minY, maxX, maxY } = editor.getShapePageBounds(board)!
 
     return { minX, minY, maxX, maxY }
   }, key)

@@ -26,6 +26,7 @@ const story: Plugin = {
 
 beforeAll(async () => {
   // Kept in memory, so the app's own build in its output folder is left alone.
+  // SAFETY: one build config without `watch` gives one output, not a list or a watcher.
   const output = (await build({
     configFile: join(desktop, "vite.config.ts"),
     root: desktop,
@@ -74,7 +75,7 @@ beforeAll(async () => {
     }
 
     return route.fulfill({
-      ...(type ? { contentType: type } : {}),
+      contentType: type,
       body: file.type === "chunk" ? file.code : Buffer.from(file.source)
     })
   })
@@ -90,13 +91,15 @@ describe("the example project in a Storybook build", () => {
   it("builds the guest module as a chunk of its own and points the project at it", async () => {
     const guest = [...files.values()].find((file) => file.type === "chunk" && file.name === "example-guest")
     expect(guest?.type === "chunk" && guest.exports).toEqual(["default"])
-    const guestUrl = await page.evaluate(() => (window as unknown as StoryWindow).example.info.guestUrl)
+    // SAFETY: the page's story chunk set `example` before `beforeAll` stopped waiting for it.
+    const guestUrl = await page.evaluate(() => (window as typeof window & StoryWindow).example.info.guestUrl)
     expect(guestUrl).toBe(new URL(guest!.fileName, site).href)
   })
 
   it("loads the guest from there and draws the example's components", async () => {
     const drawn = await page.evaluate(async () => {
-      const { example, importGuest } = window as unknown as StoryWindow
+      // SAFETY: the page set both before `beforeAll` stopped waiting for them.
+      const { example, importGuest } = window as typeof window & StoryWindow
       const guest = (await importGuest(example.info.guestUrl)).default
       const target = document.createElement("div")
       document.body.append(target)

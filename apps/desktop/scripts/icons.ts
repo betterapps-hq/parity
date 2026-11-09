@@ -4,6 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright-core"
+import { print } from "../../../scripts/output.ts"
 
 const brandDir = resolve(import.meta.dirname, "../../../brand")
 const outDir = resolve(import.meta.dirname, "../resources")
@@ -75,7 +76,7 @@ try {
   writeFileSync(join(outDir, "icon.png"), (await draw(full, 512)).png)
   // macOS draws app icons inside a margin, so each stands at the same size in the dock: 100 of 1024 on each side.
   writeFileSync(join(outDir, "dock.png"), (await draw(full, 512, 50)).png)
-  console.log(outDir)
+  print(outDir)
 } finally {
   await browser.close()
 }
@@ -131,7 +132,9 @@ function bitmap(size: number, pixels: Buffer): Buffer {
       data[to + 3] = pixels[from + 3]
 
       if (pixels[from + 3] === 0) {
-        data[mask + row * maskRow + (x >> 3)] |= 0x80 >> (x & 7)
+        // The mask packs eight pixels a byte, the first in its highest bit. Each pixel's bit starts clear and is set
+        // once, so adding it sets it.
+        data[mask + row * maskRow + Math.floor(x / 8)]! += 0x80 / 2 ** (x % 8)
       }
     }
   }

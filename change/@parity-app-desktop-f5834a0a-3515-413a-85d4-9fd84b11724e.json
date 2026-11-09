@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Bring the scripts, end-to-end tests and Storybook config up to Buildkit's lint rules",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

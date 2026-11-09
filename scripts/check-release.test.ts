@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 import { checkRelease, releaseProblems, type ReleaseMeta } from "./check-release.ts"
 
 const release = "parity-desktop@0.40.0"
@@ -7,11 +8,13 @@ const release = "parity-desktop@0.40.0"
 function sentry(answers: (ReleaseMeta | number)[]) {
   const requests: { url: string; authorization: string | null }[] = []
 
+  // SAFETY: the check calls `fetch` with a URL and its headers only, which is all this stand-in takes.
   const fetch = (async (url: string, init?: RequestInit) => {
     requests.push({ url, authorization: new Headers(init?.headers).get("Authorization") })
     const answer = answers.shift()!
+    const status = z.number().safeParse(answer)
 
-    return typeof answer === "number" ? new Response("nope", { status: answer }) : Response.json(answer)
+    return status.success ? new Response("nope", { status: status.data }) : Response.json(answer)
   }) as typeof globalThis.fetch
 
   return { fetch, requests }
