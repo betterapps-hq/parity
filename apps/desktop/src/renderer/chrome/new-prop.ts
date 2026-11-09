@@ -16,7 +16,10 @@ const listeners = new Set<() => void>()
 
 function set(next: NewProp | undefined): void {
   state = next
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 /** Starts adding a prop of `type`, or stops with `undefined`. */
@@ -26,16 +29,20 @@ export function startNewProp(design: string, type: ValuePropType | undefined): v
 
 /** Says why the name typed for the new prop can't be used. */
 export function refuseNewProp(error: string): void {
-  if (state) set({ ...state, error })
+  if (state) {
+    set({ ...state, error })
+  }
 }
 
 export function useNewProp(design: string): NewProp | undefined {
   const current = useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => state
   )
+
   return current?.design === design ? current : undefined
 }

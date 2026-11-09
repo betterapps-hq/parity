@@ -19,6 +19,7 @@ const meta = {
 } satisfies Meta<typeof FloatingToolbar>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)

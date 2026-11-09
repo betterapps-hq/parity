@@ -57,6 +57,7 @@ const kindIcons: Record<ValueKind | "slot", LucideIcon> = {
  */
 export function PropTile({ kind }: { kind: ValueKind | "slot" }) {
   const Icon = kindIcons[kind]
+
   return (
     <span
       aria-hidden
@@ -70,6 +71,7 @@ export function PropTile({ kind }: { kind: ValueKind | "slot" }) {
 
 function LayoutIcon({ node }: { node: LayoutNode }) {
   const Icon = node.style?.direction === "row" ? Columns3 : Rows3
+
   return <Icon className="size-3 shrink-0" />
 }
 
@@ -77,8 +79,11 @@ function LayoutIcon({ node }: { node: LayoutNode }) {
 function freeLayouts(container: ContainerSpec): LayoutNode[] {
   const list: LayoutNode[] = []
   walkNodes(container.root, (node) => {
-    if (node.type === "layout" && node.slot === undefined && !slotPlaceProblem(container, node.id)) list.push(node)
+    if (node.type === "layout" && node.slot === undefined && !slotPlaceProblem(container, node.id)) {
+      list.push(node)
+    }
   })
+
   return list
 }
 
@@ -89,6 +94,7 @@ function slotField(nodeId: string) {
     layers: [nodeId],
     read: (container: ContainerSpec) => {
       const node = findNode(container.root, nodeId)
+
       return node?.type === "layout" ? node.slot : undefined
     }
   }
@@ -111,6 +117,7 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
   const { container, key } = entry
   const layouts = freeLayouts(container)
   const hover = (node?: string) => session.selection.setHover(node ? { design: key, node } : undefined)
+
   return (
     <DropdownMenu onOpenChange={(open) => !open && hover()}>
       <DropdownMenuTrigger
@@ -141,7 +148,11 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
                   onFocus={() => hover(node.id)}
                   onClick={() => {
                     const name = freeSlotName(container, node.id)
-                    if (!name) return
+
+                    if (!name) {
+                      return
+                    }
+
                     updateAndRecord(
                       session.store,
                       key,
@@ -171,19 +182,33 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
 export function NewPropRow({ entry }: { entry: ContainerEntry }) {
   const { store } = useProject()
   const adding = useNewProp(entry.key)
-  if (!adding) return null
+
+  if (!adding) {
+    return null
+  }
+
   const kind = valueKinds.find((each) => each.type === adding.type)!
+
   const add = (text: string) => {
     const name = slotName(text)
-    if (!name) return startNewProp(entry.key, undefined)
+
+    if (!name) {
+      return startNewProp(entry.key, undefined)
+    }
+
     const problem = propNameProblem(entry.container, name)
-    if (problem) return refuseNewProp(problem)
+
+    if (problem) {
+      return refuseNewProp(problem)
+    }
+
     updateAndRecord(store, entry.key, `Add ${name}`, (current) => addValueProp(current, name, adding.type), {
       field: `params.${name}`,
       read: (current) => paramValue(current, name)
     })
     startNewProp(entry.key, undefined)
   }
+
   return (
     <div>
       <div className="grid grid-cols-[20px_96px_1fr] items-center gap-2 px-1">
@@ -197,8 +222,13 @@ export function NewPropRow({ entry }: { entry: ContainerEntry }) {
           className="-ml-1 h-7 min-w-0 px-1 font-mono text-xs"
           onBlur={(event) => add(event.currentTarget.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") add(event.currentTarget.value)
-            if (event.key === "Escape") startNewProp(entry.key, undefined)
+            if (event.key === "Enter") {
+              add(event.currentTarget.value)
+            }
+
+            if (event.key === "Escape") {
+              startNewProp(entry.key, undefined)
+            }
           }}
         />
         <span className="truncate text-xs text-muted-foreground">{kind.label}, Enter to add</span>
@@ -211,6 +241,7 @@ export function NewPropRow({ entry }: { entry: ContainerEntry }) {
     </div>
   )
 }
+
 /**
  * A slot in Props, lined up with the params: its tile, its name to rename, and where a param has its default, the
  * layout it fills, which selects that layout. Hovering it outlines the layout on the canvas, and an × inside that field
@@ -227,20 +258,33 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
   const input = useRef<HTMLInputElement>(null)
   const wantsFocus = mine && focus.focus === true
   useEffect(() => {
-    if (!wantsFocus) return
+    if (!wantsFocus) {
+      return
+    }
+
     input.current?.scrollIntoView({ block: "nearest" })
     input.current?.select()
     slotFocused()
   }, [wantsFocus])
   const hover = (on: boolean) => session.selection.setHover(on ? { design: key, node: node.id } : undefined)
+
   const rename = (text: string) => {
     const next = slotName(text)
-    if (!next || next === name) return refuseSlotName(key, node.id, undefined)
+
+    if (!next || next === name) {
+      return refuseSlotName(key, node.id, undefined)
+    }
+
     const problem = slotProblem(container, node.id, next)
-    if (problem) return refuseSlotName(key, node.id, problem)
+
+    if (problem) {
+      return refuseSlotName(key, node.id, problem)
+    }
+
     refuseSlotName(key, node.id, undefined)
     updateAndRecord(session.store, key, "Rename slot", (current) => setSlot(current, node.id, next), slotField(node.id))
   }
+
   return (
     <div className="group" onPointerEnter={() => hover(true)} onPointerLeave={() => hover(false)}>
       <div className="grid grid-cols-[20px_96px_1fr] items-center gap-2 px-1">
@@ -256,7 +300,9 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
           onBlur={(event) => rename(event.currentTarget.value)}
           onKeyDown={(event) => {
             // Enter renames even when the window isn't focused, where blurring the field fires no blur.
-            if (event.key === "Enter") rename(event.currentTarget.value)
+            if (event.key === "Enter") {
+              rename(event.currentTarget.value)
+            }
           }}
         />
         {/* The × sits inside the field, so showing it never changes the field's width. */}
@@ -312,6 +358,7 @@ function codeName(name: string): string {
     .filter(Boolean)
     .map((word) => word[0]!.toUpperCase() + word.slice(1))
     .join("")
+
   return /^[A-Za-z]/.test(pascal) ? pascal : `Component${pascal}`
 }
 
@@ -323,15 +370,28 @@ interface CodeLine {
 
 /** A slot's line in the component color, the tags muted, and params as text. */
 function lineColor(line: CodeLine): string | undefined {
-  if (line.slot) return slotColor
+  if (line.slot) {
+    return slotColor
+  }
+
   return line.muted ? "var(--muted-foreground)" : undefined
 }
 
 function paramCode(name: string, param: ParamSpec): string {
   const value = param.default
-  if (typeof value === "boolean") return value ? name : `${name}={false}`
-  if (typeof value === "string") return `${name}="${value}"`
-  if (value === undefined) return `${name}={…}`
+
+  if (typeof value === "boolean") {
+    return value ? name : `${name}={false}`
+  }
+
+  if (typeof value === "string") {
+    return `${name}="${value}"`
+  }
+
+  if (value === undefined) {
+    return `${name}={…}`
+  }
+
   return `${name}={${JSON.stringify(value)}}`
 }
 
@@ -345,8 +405,17 @@ export function CodeLines({ entry, slots }: { entry: ContainerEntry; slots: Desi
   const params = Object.entries(entry.container.params ?? {})
   const children = childrenSlot(slots)
   const lines: CodeLine[] = [{ text: `<${tag}`, muted: true }]
-  for (const [name, param] of params) lines.push({ text: `  ${paramCode(name, param)}` })
-  for (const slot of slots) if (slot !== children) lines.push({ text: `  ${slot.name}={<>…</>}`, slot })
+
+  for (const [name, param] of params) {
+    lines.push({ text: `  ${paramCode(name, param)}` })
+  }
+
+  for (const slot of slots) {
+    if (slot !== children) {
+      lines.push({ text: `  ${slot.name}={<>…</>}`, slot })
+    }
+  }
+
   if (children) {
     lines.push({ text: ">", muted: true })
     lines.push({ text: `  {/* ${children.name} */}`, slot: children })
@@ -354,6 +423,7 @@ export function CodeLines({ entry, slots }: { entry: ContainerEntry; slots: Desi
   } else {
     lines.push({ text: "/>", muted: true })
   }
+
   return (
     <pre className="type-code overflow-x-auto rounded-md border bg-muted/40 py-2 font-mono">
       {lines.map((line, index) => (
@@ -382,8 +452,10 @@ export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutN
   const session = useProject()
   const { store } = session
   const place = slotPlaceProblem(entry.container, node.id)
+
   if (node.slot === undefined) {
     const name = freeSlotName(entry.container, node.id)
+
     // Unavailable, it stays focusable and says why, rather than going quietly grey.
     if (place || !name) {
       return (
@@ -400,6 +472,7 @@ export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutN
         </Hint>
       )
     }
+
     return (
       <Button
         variant="outline"
@@ -419,7 +492,9 @@ export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutN
       </Button>
     )
   }
+
   const slot = node.slot
+
   // The kit's button group, with the same small outline buttons as Make component beside it, so the two line up.
   return (
     <ButtonGroup className="min-w-0 flex-1">

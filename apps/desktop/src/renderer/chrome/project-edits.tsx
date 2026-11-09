@@ -13,7 +13,10 @@ export function announceEdit(
   edit: ProjectEditResult,
   options: { id?: string; afterUndo?: () => Promise<unknown> } = {}
 ): void {
-  if (edit.files.length === 0) return
+  if (edit.files.length === 0) {
+    return
+  }
+
   const id = options.id ?? edit.id
   track("projectEdit.applied", { files: paths(edit), outcome: "ok" })
   showEdit(`Changed ${files(edit)}`, edit, id, () => void undo(projectId, edit, id, options.afterUndo))
@@ -40,15 +43,19 @@ async function undo(
 ): Promise<void> {
   toast.loading(`Putting back ${files(edit)}…`, { id, description: undefined, action: undefined })
   let undone: ProjectEditResult
+
   try {
     undone = await request("project.undoEdit", { projectId, id: edit.id })
   } catch (error) {
     const code = errorCode(error)
     track("projectEdit.undone", { files: paths(edit), outcome: "error", ...(code ? { code } : {}) })
     reportError(error, { operation: "project.undoEdit", title: "Couldn't undo it", id, description: message(error) })
+
     return
   }
+
   track("projectEdit.undone", { files: paths(undone), outcome: "ok" })
+
   // The files are back by now, so a failure from here on isn't a failed undo.
   try {
     await afterUndo?.()
@@ -106,8 +113,15 @@ function lineClass(line: string): string | undefined {
   if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("@@") || line.startsWith("\\")) {
     return "text-muted-foreground"
   }
-  if (line.startsWith("+")) return "text-emerald-600 dark:text-emerald-400"
-  if (line.startsWith("-")) return "text-destructive"
+
+  if (line.startsWith("+")) {
+    return "text-emerald-600 dark:text-emerald-400"
+  }
+
+  if (line.startsWith("-")) {
+    return "text-destructive"
+  }
+
   return undefined
 }
 

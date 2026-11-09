@@ -15,6 +15,7 @@ import {
   TriangleAlert
 } from "lucide-react"
 import type { ReactNode } from "react"
+
 export type A11yKind = "focus" | "heading" | "landmark" | "name" | "alt" | "keyboard" | "announce" | "note"
 
 /** Whether the render does what the annotation says: checked, different, or something only a person can check. */
@@ -106,18 +107,22 @@ export function Key({ children }: { children: ReactNode }) {
 }
 
 function StatusMark({ status }: { status: A11yStatus }) {
-  if (status === "matches")
+  if (status === "matches") {
     return (
       <span className="-mr-0.5 grid size-3.5 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">
         <Check className="size-2.5" strokeWidth={3} />
       </span>
     )
-  if (status === "differs")
+  }
+
+  if (status === "differs") {
     return (
       <span className="-mr-0.5 grid size-3.5 shrink-0 place-items-center rounded-full bg-[oklch(0.3_0.05_60)] text-amber-300">
         <TriangleAlert className="size-2.5" strokeWidth={2.5} />
       </span>
     )
+  }
+
   return null
 }
 
@@ -125,6 +130,7 @@ function StatusMark({ status }: { status: A11yStatus }) {
 export function A11yTag({ kind, status, children }: { kind: A11yKind; status?: A11yStatus; children: ReactNode }) {
   const info = a11yKinds[kind]
   const Icon = info.icon
+
   return (
     <span
       className="inline-flex h-5 max-w-80 items-center gap-1 rounded-[5px] px-1.5 text-[11px] leading-none font-semibold whitespace-nowrap shadow-[0_2px_6px_rgb(0_0_0/0.25)]"
@@ -171,6 +177,7 @@ export function Annotate({
   className?: string
 }) {
   const differs = tags.some((tag) => tag.status === "differs")
+
   return (
     <div className={`relative ${className}`}>
       {children}
@@ -191,9 +198,18 @@ export function Annotate({
 
 /** 1st, 2nd, 3rd, then 4th onward. */
 function ordinal(n: number): string {
-  if (n === 1) return "1st"
-  if (n === 2) return "2nd"
-  if (n === 3) return "3rd"
+  if (n === 1) {
+    return "1st"
+  }
+
+  if (n === 2) {
+    return "2nd"
+  }
+
+  if (n === 3) {
+    return "3rd"
+  }
+
   return `${n}th`
 }
 
@@ -214,6 +230,7 @@ export function FocusStop({
   className?: string
 }) {
   const color = a11yKinds.focus.bg
+
   return (
     <div className={`relative ${className}`}>
       {children}
@@ -250,6 +267,7 @@ export function A11yToolbar({ active }: { active?: A11yKind }) {
         const info = a11yKinds[kind]
         const Icon = info.icon
         const selected = kind === active
+
         return (
           <button
             key={kind}
@@ -292,6 +310,7 @@ export function A11yNoteRow({ note }: { note: A11yNote }) {
   let tone: string
   let mark: ReactNode
   let detail: ReactNode
+
   if (note.status === "matches") {
     tone = "text-emerald-400"
     mark = <Check className="size-3" />
@@ -305,6 +324,7 @@ export function A11yNoteRow({ note }: { note: A11yNote }) {
     mark = <CircleDashed className="size-3" />
     detail = note.detail ?? "Check by hand"
   }
+
   return (
     <button type="button" className="flex w-full gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-muted/40">
       <span
@@ -331,6 +351,7 @@ export function A11yNoteRow({ note }: { note: A11yNote }) {
  */
 export function A11yPanel({ notes }: { notes: A11yNote[] }) {
   const count = (status: A11yStatus) => notes.filter((note) => note.status === status).length
+
   return (
     <aside className="flex h-full w-80 flex-col border-l bg-background text-foreground">
       <div className="flex gap-1 border-b px-2 py-1.5 text-xs">

@@ -68,13 +68,17 @@ const listeners = new Set<() => void>()
 
 function setFilter(change: Partial<Filter>): void {
   filter = { ...filter, ...change }
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 function useFilter(): Filter {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => filter
@@ -106,9 +110,14 @@ export function ConsolePanel() {
   const session = useProject()
   const messages = useConsole(session.id)
   const shown = useFilter()
-  if (!layout.console) return null
+
+  if (!layout.console) {
+    return null
+  }
+
   const designs = byDesign(messages)
   const wanted = shown.query.trim().toLowerCase()
+
   const groups = designs
     .map((group) => ({
       ...group,
@@ -117,6 +126,7 @@ export function ConsolePanel() {
       )
     }))
     .filter((group) => group.shown.length > 0)
+
   return (
     <section
       aria-label="Console"
@@ -163,6 +173,7 @@ function NothingLogged() {
 function ConsoleHeader({ session, messages }: { session: ProjectSession; messages: readonly ConsoleMessage[] }) {
   const shown = useFilter()
   const counts = tally(messages)
+
   return (
     <div className="flex h-10 shrink-0 items-center gap-2 border-b px-2">
       {/* The title sits in the header's row, so it drops the margin a section title keeps over its fields. */}
@@ -200,9 +211,18 @@ const levelNames: Record<Shown, string> = { error: "Errors", warning: "Warnings"
 
 /** What the levels menu says it shows: every level, one, none or a mix, as Chrome's DevTools do. */
 function levelsLabel(levels: readonly Shown[]): string {
-  if (levels.length === allLevels.length) return "All levels"
-  if (levels.length === 0) return "No levels"
-  if (levels.length === 1) return `${levelNames[levels[0]!]} only`
+  if (levels.length === allLevels.length) {
+    return "All levels"
+  }
+
+  if (levels.length === 0) {
+    return "No levels"
+  }
+
+  if (levels.length === 1) {
+    return `${levelNames[levels[0]!]} only`
+  }
+
   return "Custom levels"
 }
 
@@ -216,7 +236,9 @@ function LevelsMenu({ counts, levels }: { counts: Tally; levels: readonly Shown[
     warning: <TriangleAlert className="text-amber-500" />,
     info: <Info className="text-muted-foreground" />
   }
+
   const count: Record<Shown, number> = { error: counts.errors, warning: counts.warnings, info: counts.info }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -266,9 +288,12 @@ function DesignGroup({
   const [open, setOpen] = useState(focus === undefined || focused)
   const section = useRef<HTMLElement>(null)
   useEffect(() => {
-    if (focused) section.current?.scrollIntoView({ block: "start" })
+    if (focused) {
+      section.current?.scrollIntoView({ block: "start" })
+    }
   }, [focused])
   const counts = tally(messages)
+
   return (
     <Collapsible
       open={open}
@@ -351,11 +376,14 @@ function MessageRow({
   const [open, setOpen] = useState(false)
   const stack = message.stack ?? []
   const frames = message.frames ?? []
+
   const frameName = ({ state, mode }: { state: string; mode: string }) => {
     const stateName = entry?.container.states.find((candidate) => candidate.id === state)?.name ?? state
     const modeName = resolveModes(session.store.getModes()).find((candidate) => candidate.id === mode)?.name ?? mode
+
     return entry && entry.container.states.length > 1 ? `${stateName} in ${modeName}` : modeName
   }
+
   return (
     <li className={`border-b border-border/60 ${look.row}`}>
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -486,6 +514,7 @@ export function Counts({ errors, warnings }: { errors: number; warnings: number 
 export function ResizeTop({ height }: { height: number }) {
   const [min, max] = panelLimits.console
   const resize = (next: number) => setLayout({ consoleHeight: Math.round(Math.min(max, Math.max(min, next))) })
+
   return (
     <Hint label="Drag to resize" detail="Double-click to reset." side="top" wait>
       <button
@@ -495,23 +524,34 @@ export function ResizeTop({ height }: { height: number }) {
         onDoubleClick={() => setLayout({ consoleHeight: 240 })}
         onKeyDown={(event) => {
           const step = event.shiftKey ? 48 : 16
-          if (event.key === "ArrowUp") resize(height + step)
-          else if (event.key === "ArrowDown") resize(height - step)
-          else return
+
+          if (event.key === "ArrowUp") {
+            resize(height + step)
+          } else if (event.key === "ArrowDown") {
+            resize(height - step)
+          } else {
+            return
+          }
+
           event.preventDefault()
         }}
         onPointerDown={(event) => {
-          if (event.button !== 0) return
+          if (event.button !== 0) {
+            return
+          }
+
           event.preventDefault()
           const target = event.currentTarget
           target.setPointerCapture(event.pointerId)
           const startY = event.clientY
           const move = (moveEvent: PointerEvent) => resize(height - (moveEvent.clientY - startY))
+
           const end = () => {
             target.removeEventListener("pointermove", move)
             target.removeEventListener("pointerup", end)
             target.removeEventListener("pointercancel", end)
           }
+
           target.addEventListener("pointermove", move)
           target.addEventListener("pointerup", end)
           target.addEventListener("pointercancel", end)
@@ -522,6 +562,9 @@ export function ResizeTop({ height }: { height: number }) {
 }
 
 function designName(entries: readonly ContainerEntry[], design: string | undefined): string {
-  if (!design) return "Project"
+  if (!design) {
+    return "Project"
+  }
+
   return entries.find((entry) => entry.key === design)?.container.name ?? "A deleted design"
 }

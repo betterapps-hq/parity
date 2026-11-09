@@ -142,9 +142,13 @@ export function LayerTree() {
   // Edit > Rename on a layer renames it here; a design's own name is renamed on its title, on the canvas.
   const renameRequest = useRenameRequest(selection)
   const [renameHandled, setRenameHandled] = useState(() => selection.getRename()?.id)
+
   if (renameRequest && renameRequest.id !== renameHandled) {
     setRenameHandled(renameRequest.id)
-    if (renameRequest.node) setRenaming(layerRowId(renameRequest.design, renameRequest.node))
+
+    if (renameRequest.node) {
+      setRenaming(layerRowId(renameRequest.design, renameRequest.node))
+    }
   }
 
   // Revealing a new selection: its design and every ancestor of its layers open up. Selected anywhere but here, the
@@ -153,14 +157,19 @@ export function LayerTree() {
   const selectionKey = `${selected.design ?? ""}/${selectedNodes(selected).join(",")}`
   const [revealed, setRevealed] = useState<string>()
   const [pickedHere, setPickedHere] = useState<string>()
+
   if (revealed !== selectionKey) {
     setRevealed(selectionKey)
     setPickedHere(undefined)
     const entry = selected.design ? store.getEntry(selected.design) : undefined
+
     if (entry) {
       const ids = revealIds(entry, selectedNodes(selected), store.getComponentLibrary())
       const next = revealRows(expansion, ids, pickedHere === selectionKey)
-      if (next !== expansion) setExpansion(next)
+
+      if (next !== expansion) {
+        setExpansion(next)
+      }
     }
   }
 
@@ -168,6 +177,7 @@ export function LayerTree() {
     const components = entries.filter((entry) => entry.container.kind === "component")
     const screens = entries.filter((entry) => !entry.container.kind || entry.container.kind === "screen")
     const frames = entries.filter((entry) => entry.container.kind === "frame")
+
     return [
       {
         title: "Components",
@@ -183,26 +193,46 @@ export function LayerTree() {
         : [])
     ]
   }, [entries])
+
   const { rows, lines } = useMemo(() => {
     const library = store.getComponentLibrary()
+
     const label = (entry: ContainerEntry, node?: DesignNode) =>
       node ? layerLabel(node, entries, library) : entry.container.name
+
     const all: Row[] = []
     const list: Line[] = []
+
     for (const group of groups) {
       const found = search
         ? searchRows(group.entries, search, label, library)
         : treeRows(group.entries, expanded, library)
-      if (search && found.length === 0) continue
+
+      if (search && found.length === 0) {
+        continue
+      }
+
       list.push({ type: "heading", key: `heading:${group.kind}`, group })
-      if (group.entries.length === 0) list.push({ type: "empty", key: `empty:${group.kind}`, group })
-      for (const row of found) list.push({ type: "row", key: row.id, row })
+
+      if (group.entries.length === 0) {
+        list.push({ type: "empty", key: `empty:${group.kind}`, group })
+      }
+
+      for (const row of found) {
+        list.push({ type: "row", key: row.id, row })
+      }
+
       list.push({ type: "gap", key: `gap:${group.kind}` })
       all.push(...found)
     }
-    if (search && all.length === 0) list.push({ type: "none", key: "none" })
+
+    if (search && all.length === 0) {
+      list.push({ type: "none", key: "none" })
+    }
+
     return { rows: all, lines: list }
   }, [groups, expanded, search, entries, store])
+
   const lineIndex = useMemo(() => new Map(lines.map((line, index) => [line.key, index])), [lines])
 
   const virtualizer = useVirtualizer({
@@ -216,12 +246,17 @@ export function LayerTree() {
     // The panel's size before it's measured, so its first frame already draws the rows in view.
     initialRect: { width: 256, height: 900 }
   })
+
   const scrollToRow = (id: string) => {
     const index = lineIndex.get(id)
-    if (index !== undefined) virtualizer.scrollToIndex(index, { align: "auto" })
+
+    if (index !== undefined) {
+      virtualizer.scrollToIndex(index, { align: "auto" })
+    }
   }
 
   const toggle = (id: string, open?: boolean) => setExpansion((current) => toggleRow(current, id, open))
+
   // Alt+click on an arrow opens or closes the row with everything inside it, as Finder does.
   const toggleBranch = (row: Row) =>
     setExpansion((current) => toggleRows(current, branchIds(row, store.getComponentLibrary()), !row.expanded))
@@ -235,48 +270,64 @@ export function LayerTree() {
     // Selected here, the rows opened for the last selection stay open, so none moves under the pointer.
     setPickedHere(`${selection.get().design ?? ""}/${selectedNodes(selection.get()).join(",")}`)
   }
+
   const pick = (row: Row, event?: MouseEvent | KeyboardEvent) => {
     const toggle = !!event && (event.ctrlKey || event.metaKey)
     const range = !!event && event.shiftKey
     const layer = row.path !== undefined && row.path !== row.design.container.root.id ? row.path : undefined
+
     if ((toggle || range) && layer && selected.design === row.design.key && selected.node) {
       const ids = selectedNodes(selected)
+
       if (toggle) {
         const next = ids.includes(layer) ? ids.filter((id) => id !== layer) : [...ids, layer]
         selection.set(layersSelection(row.design.key, next, selected))
       } else {
         const from = rows.findIndex((candidate) => candidate.id === layerRowId(row.design.key, selected.node!))
         const to = rows.indexOf(row)
+
         const between = rows
           .slice(Math.min(from, to), Math.max(from, to) + 1)
           .filter((candidate) => candidate.design === row.design && candidate.path && candidate.depth > 1)
           .map((candidate) => candidate.path!)
+
         selection.set(layersSelection(row.design.key, [...between.filter((id) => id !== layer), layer], selected))
       }
+
       return
     }
+
     if ((toggle || range) && !row.node && selectedDesigns(selected).length > 0) {
       const keys = selectedDesigns(selected)
       const key = row.design.key
+
       if (toggle) {
         selection.set(designsSelection(keys.includes(key) ? keys.filter((other) => other !== key) : [...keys, key]))
       } else {
         const designRows = rows.filter((candidate) => candidate.depth === 0)
         const from = designRows.findIndex((candidate) => candidate.design.key === selected.design)
         const to = designRows.indexOf(row)
+
         const between = designRows
           .slice(Math.min(from, to), Math.max(from, to) + 1)
           .map((candidate) => candidate.design.key)
+
         selection.set(designsSelection([...between.filter((other) => other !== key), key]))
       }
+
       return
     }
+
     selection.set(row.path ? { design: row.design.key, node: row.path } : { design: row.design.key })
     revealSelection(session)
   }
 
   let selectedRow: string | undefined
-  if (selected.design) selectedRow = selected.node ? layerRowId(selected.design, selected.node) : selected.design
+
+  if (selected.design) {
+    selectedRow = selected.node ? layerRowId(selected.design, selected.node) : selected.design
+  }
+
   const selectedRows = new Set([
     ...(selected.design ? selectedNodes(selected).map((id) => layerRowId(selected.design!, id)) : []),
     ...selectedDesigns(selected)
@@ -285,7 +336,10 @@ export function LayerTree() {
   // Something selected elsewhere, on the canvas or by an agent, scrolls into view here if it's out of sight. Selecting
   // in the tree itself leaves the scroll alone. Runs once the reveal above has opened the row's ancestors.
   useEffect(() => {
-    if (!selectedRow || treeRef.current?.contains(document.activeElement)) return
+    if (!selectedRow || treeRef.current?.contains(document.activeElement)) {
+      return
+    }
+
     scrollToRow(selectedRow)
     // Only a new selection, or rows opening or closing, can take it out of view.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
@@ -295,49 +349,89 @@ export function LayerTree() {
   // dragged among the designs of its group goes before or after another in its file, the order the tree lists them in.
   const [dropAt, setDropAt] = useState<{ row: string; position: DropPosition }>()
   const [draggedDesign, setDraggedDesign] = useState<Row>()
+
   const dragStart = (row: Row, event: DragEvent) => {
     if (!row.node && !search) {
       setDraggedDesign(row)
       event.dataTransfer.effectAllowed = "move"
       event.dataTransfer.setData(designMime, row.design.key)
+
       return
     }
+
     if (!row.node || row.depth < 2 || row.within.length > 0) {
       event.preventDefault()
+
       return
     }
+
     const inSelection = selected.design === row.design.key && selectedNodes(selected).includes(row.node.id)
     const ids = inSelection ? selectedNodes(selected) : [row.node.id]
-    if (!inSelection) selection.set({ design: row.design.key, node: row.node.id })
+
+    if (!inSelection) {
+      selection.set({ design: row.design.key, node: row.node.id })
+    }
+
     event.dataTransfer.effectAllowed = "move"
     event.dataTransfer.setData(layersMime, JSON.stringify({ design: row.design.key, ids }))
   }
+
   const dropPosition = (row: Row, event: DragEvent): DropPosition | undefined => {
     const rect = event.currentTarget.getBoundingClientRect()
     const y = (event.clientY - rect.top) / rect.height
+
     if (event.dataTransfer.types.includes(designMime)) {
       const dragged = draggedDesign?.design
       const group = (entry: ContainerEntry) => entry.container.kind ?? "screen"
-      if (row.node || !dragged || dragged === row.design || dragged.path !== row.design.path) return undefined
-      if (group(dragged) !== group(row.design)) return undefined
+
+      if (row.node || !dragged || dragged === row.design || dragged.path !== row.design.path) {
+        return undefined
+      }
+
+      if (group(dragged) !== group(row.design)) {
+        return undefined
+      }
+
       return y < 0.5 ? "before" : "after"
     }
-    if (!event.dataTransfer.types.includes(layersMime) || row.within.length > 0) return undefined
+
+    if (!event.dataTransfer.types.includes(layersMime) || row.within.length > 0) {
+      return undefined
+    }
+
     const container = !row.node || row.node.type === "layout"
-    if (row.depth <= 1) return container ? "inside" : undefined
-    if (container && y > 0.25 && y < 0.75) return "inside"
+
+    if (row.depth <= 1) {
+      return container ? "inside" : undefined
+    }
+
+    if (container && y > 0.25 && y < 0.75) {
+      return "inside"
+    }
+
     return y < 0.5 ? "before" : "after"
   }
+
   const dropTargetFor = (row: Row, position: DropPosition): MoveTarget | undefined => {
     const { root } = row.design.container
+
     if (position === "inside") {
       const parent = row.node ?? root
-      if (parent.type !== "layout") return undefined
+
+      if (parent.type !== "layout") {
+        return undefined
+      }
+
       return { design: row.design.key, parent: parent.id, index: parent.children.length }
     }
+
     const location = row.node ? locateNode(root, row.node.id) : undefined
     const parent = location?.ancestors.at(-1)
-    if (!location || !parent) return undefined
+
+    if (!location || !parent) {
+      return undefined
+    }
+
     return {
       design: row.design.key,
       parent: parent.id,
@@ -345,23 +439,40 @@ export function LayerTree() {
       ...(location.slot ? { slot: location.slot } : {})
     }
   }
+
   const drop = (row: Row, event: DragEvent) => {
     const position = dropPosition(row, event)
     setDropAt(undefined)
-    if (!position) return
-    event.preventDefault()
-    if (event.dataTransfer.types.includes(designMime)) {
-      if (draggedDesign && position !== "inside")
-        store.reorderContainer(draggedDesign.design.key, row.design.key, position)
-      setDraggedDesign(undefined)
+
+    if (!position) {
       return
     }
+
+    event.preventDefault()
+
+    if (event.dataTransfer.types.includes(designMime)) {
+      if (draggedDesign && position !== "inside") {
+        store.reorderContainer(draggedDesign.design.key, row.design.key, position)
+      }
+
+      setDraggedDesign(undefined)
+
+      return
+    }
+
     const dragged = readLayersDrag(event.dataTransfer.getData(layersMime))
-    if (!dragged) return
+
+    if (!dragged) {
+      return
+    }
+
     const { design, ids } = dragged
     const source = store.getEntry(design)
     const target = dropTargetFor(row, position)
-    if (source && target) moveLayers(session, source, ids, target)
+
+    if (source && target) {
+      moveLayers(session, source, ids, target)
+    }
   }
 
   // Hovering a design's row outlines its board on the canvas, as hovering the board itself does (`CanvasEditor.tsx`).
@@ -371,36 +482,64 @@ export function LayerTree() {
   const onKeyDown = (event: KeyboardEvent) => {
     // A heading's + and an empty group's row keep their keys, so Enter makes a new one rather than renaming.
     const from = event.target
-    if (from instanceof Element && from.closest("button") && !from.closest("[role=treeitem]")) return
+
+    if (from instanceof Element && from.closest("button") && !from.closest("[role=treeitem]")) {
+      return
+    }
+
     const index = rows.findIndex((row) => row.id === selectedRow)
     const row = rows[index]
-    if (!row) return
+
+    if (!row) {
+      return
+    }
+
     const move = (target: Row | undefined) => {
-      if (!target) return
+      if (!target) {
+        return
+      }
+
       event.preventDefault()
       select(target)
       scrollToRow(target.id)
     }
-    if (event.key === "ArrowDown") move(rows[index + 1])
-    else if (event.key === "ArrowUp") move(rows[index - 1])
-    else if (event.key === "ArrowRight") {
+
+    if (event.key === "ArrowDown") {
+      move(rows[index + 1])
+    } else if (event.key === "ArrowUp") {
+      move(rows[index - 1])
+    } else if (event.key === "ArrowRight") {
       event.preventDefault()
+
       // A search opens what it found and nothing else, so the arrows only move through it.
-      if (row.hasChildren && !row.expanded && !search) toggle(row.id, true)
-      else move(rows[index + 1]?.depth === row.depth + 1 ? rows[index + 1] : undefined)
+      if (row.hasChildren && !row.expanded && !search) {
+        toggle(row.id, true)
+      } else {
+        move(rows[index + 1]?.depth === row.depth + 1 ? rows[index + 1] : undefined)
+      }
     } else if (event.key === "ArrowLeft") {
       event.preventDefault()
-      if (row.hasChildren && row.expanded && !search) toggle(row.id, false)
-      else move(rows.slice(0, index).findLast((candidate) => candidate.depth < row.depth))
+
+      if (row.hasChildren && row.expanded && !search) {
+        toggle(row.id, false)
+      } else {
+        move(rows.slice(0, index).findLast((candidate) => candidate.depth < row.depth))
+      }
     } else if (event.key === "*") {
       // As in any tree, * opens the row and every row beside it, in its own group.
       event.preventDefault()
       const group = (candidate: Row) => candidate.design.container.kind ?? "screen"
       const among = rows.filter((candidate) => group(candidate) === group(row))
-      if (!search) setExpansion((current) => toggleRows(current, siblingIds(among, among.indexOf(row)), true))
+
+      if (!search) {
+        setExpansion((current) => toggleRows(current, siblingIds(among, among.indexOf(row)), true))
+      }
     } else if (event.key === "F2" || event.key === "Enter") {
       event.preventDefault()
-      if (row.within.length === 0) setRenaming(row.id)
+
+      if (row.within.length === 0) {
+        setRenaming(row.id)
+      }
     }
   }
 
@@ -412,10 +551,17 @@ export function LayerTree() {
       dragStart,
       dragOver: (row, event) => {
         const position = dropPosition(row, event)
-        if (!position) return
+
+        if (!position) {
+          return
+        }
+
         event.preventDefault()
         event.dataTransfer.dropEffect = "move"
-        if (dropAt?.row !== row.id || dropAt.position !== position) setDropAt({ row: row.id, position })
+
+        if (dropAt?.row !== row.id || dropAt.position !== position) {
+          setDropAt({ row: row.id, position })
+        }
       },
       dragLeave: (row) => setDropAt((current) => (current?.row === row.id ? undefined : current)),
       drop,
@@ -430,10 +576,14 @@ export function LayerTree() {
       rename: (row) => row.within.length === 0 && setRenaming(row.id),
       renamed: (row, name) => {
         setRenaming(undefined)
-        if (name !== undefined) rename(session, row, name)
+
+        if (name !== undefined) {
+          rename(session, row, name)
+        }
       }
     }
   })
+
   const [rowActions] = useState((): RowActions => ({
     dragStart: (row, event) => latest.current?.dragStart(row, event),
     dragOver: (row, event) => latest.current?.dragOver(row, event),
@@ -446,6 +596,7 @@ export function LayerTree() {
     rename: (row) => latest.current?.rename(row),
     renamed: (row, name) => latest.current?.renamed(row, name)
   }))
+
   const library = store.getComponentLibrary()
 
   return (
@@ -458,7 +609,10 @@ export function LayerTree() {
             placeholder="Search layers"
             onKeyDown={(event) => {
               // Escape clears a search before it does anything else.
-              if (event.key !== "Escape" || !query) return
+              if (event.key !== "Escape" || !query) {
+                return
+              }
+
               event.stopPropagation()
               setQuery("")
             }}
@@ -480,6 +634,7 @@ export function LayerTree() {
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((item) => {
               const line = lines[item.index]!
+
               return (
                 <div
                   key={item.key}
@@ -555,8 +710,9 @@ export function LayerTree() {
 
 /** The + for frames picks the frame tool, to draw one; the others make a design. */
 function addDesign(session: Session, kind: ContainerKind): void {
-  if (kind === "frame") void actions.frame.run("panel")
-  else {
+  if (kind === "frame") {
+    void actions.frame.run("panel")
+  } else {
     const command = kind === "screen" ? "newScreen" : "newComponent"
     void actions[command].run("panel", { instead: () => createDesign(session, kind) })
   }
@@ -565,6 +721,7 @@ function addDesign(session: Session, kind: ContainerKind): void {
 /** A group's heading: its title, a group label, and a + that makes a new one. */
 function GroupHeading({ group }: { group: Group }) {
   const session = useProject()
+
   return (
     // Positioned, so nothing in it is ever placed against the window, which made the page taller (PAR-424).
     <div className="relative flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
@@ -584,6 +741,7 @@ function GroupHeading({ group }: { group: Group }) {
 /** An empty group's row, a button that makes its first design. */
 function EmptyGroup({ group }: { group: Group }) {
   const session = useProject()
+
   return (
     <button
       type="button"
@@ -635,6 +793,7 @@ interface LayerRowProps {
 /** Whether a row would show the same as it did, since rows are listed afresh whenever the tree changes. */
 function sameRow(before: LayerRowProps, after: LayerRowProps): boolean {
   const [a, b] = [before.row, after.row]
+
   return (
     a.id === b.id &&
     a.node === b.node &&
@@ -671,7 +830,11 @@ const LayerRow = memo(function LayerRow({
   // Inside an instance a layer is its component's, and drawn in the component's color, as the instance is.
   const inside = row.within.length > 0
   let color = designColor(container.kind)
-  if (row.node) color = inside ? kindColors.component : nodeColor(row.node)
+
+  if (row.node) {
+    color = inside ? kindColors.component : nodeColor(row.node)
+  }
+
   const changed = row.path && state.overrides?.[row.path]
   // A layer whose component fails to draw in one of the design's frames, which its board's badge counts. Inside an
   // instance the canvas names it by its path.
@@ -681,8 +844,13 @@ const LayerRow = memo(function LayerRow({
   // Whether the board hides it in the state it shows, as Hide and Show read it: inside an instance, as this copy shows
   // it there.
   let hidden = false
-  if (row.node && inside) hidden = layerOnBoard(container, row.path!, library, state)?.hidden ?? false
-  else if (row.node) hidden = nodeOnBoard(container, row.node, state).hidden ?? false
+
+  if (row.node && inside) {
+    hidden = layerOnBoard(container, row.path!, library, state)?.hidden ?? false
+  } else if (row.node) {
+    hidden = nodeOnBoard(container, row.node, state).hidden ?? false
+  }
+
   // The page itself can't be hidden; any layer inside it can, from its eye, in the state its board shows.
   const hideable = !!row.node && row.depth > 1
   // Layers inside an instance only show or hide; the rest of them is the component's, and the instance locks them.
@@ -691,14 +859,20 @@ const LayerRow = memo(function LayerRow({
   const lockable = row.depth === 0 || (hideable && !inside)
   const lock = row.path ? lockSource(container, row.path) : designLock(container)
   let background = "hover:bg-accent/40"
-  if (selected) background = "bg-accent text-accent-foreground"
-  else if (hovered) background = "bg-accent/40"
+
+  if (selected) {
+    background = "bg-accent text-accent-foreground"
+  } else if (hovered) {
+    background = "bg-accent/40"
+  }
 
   return (
     <ContextMenu
       onOpenChange={(open) => {
         // A right-click selects the row first, unless it's in the selection, as on the canvas.
-        if (open) session.selection.set(rowSelection(session.selection.get(), rowTarget(row)))
+        if (open) {
+          session.selection.set(rowSelection(session.selection.get(), rowTarget(row)))
+        }
       }}
     >
       <ContextMenuTrigger
@@ -781,11 +955,20 @@ const LayerRow = memo(function LayerRow({
                 onBlur={(event) => handlers.renamed(row, event.currentTarget.value.trim() || undefined)}
                 onKeyDown={(event) => {
                   event.stopPropagation()
-                  if (event.key !== "Enter" && event.key !== "Escape") return
+
+                  if (event.key !== "Enter" && event.key !== "Escape") {
+                    return
+                  }
+
                   // Done with the keys, the keys go back to the tree, on the row renamed.
                   const tree = event.currentTarget.closest<HTMLElement>("[role=tree]")
-                  if (event.key === "Enter") event.currentTarget.blur()
-                  else handlers.renamed(row, undefined)
+
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur()
+                  } else {
+                    handlers.renamed(row, undefined)
+                  }
+
                   requestAnimationFrame(() => tree?.focus())
                 }}
                 className="h-5 min-w-0 flex-1 rounded-sm border-ring bg-background px-1 py-0 text-sm focus-visible:ring-0 dark:bg-background"
@@ -860,9 +1043,14 @@ const LayerRow = memo(function LayerRow({
                   onToggle={() =>
                     session.store.updateContainer(row.design.key, "Toggle visibility", (current) => {
                       const stateId = activeState(current).id
-                      if (!inside) return toggleHidden(current, stateId, [row.node!.id])
+
+                      if (!inside) {
+                        return toggleHidden(current, stateId, [row.node!.id])
+                      }
+
                       // Only this copy changes, in the state its board shows.
                       const change = { hidden: !hidden }
+
                       return editInner(current, boardTarget(current, stateId), row.path!, change, library)
                     })
                   }
@@ -892,6 +1080,7 @@ const LayerRow = memo(function LayerRow({
  */
 function VisibilityToggle({ hidden, onToggle }: { hidden: boolean; onToggle: () => void }) {
   const label = hidden ? "Show" : "Hide"
+
   return (
     <Hint label={label}>
       <button
@@ -923,6 +1112,7 @@ function designLock(container: Row["design"]["container"]): LockSource | undefin
  */
 function LockToggle({ locked, onToggle }: { locked: boolean; onToggle: () => void }) {
   const label = locked ? "Unlock" : "Lock"
+
   return (
     <Hint label={label}>
       <button
@@ -950,8 +1140,10 @@ function rename(session: Session, row: Row, name: string): void {
       ...container,
       name
     }))
+
     return
   }
+
   const nodeId = row.node.id
   session.store.updateContainer(row.design.key, "Rename layer", (container) => renameLayer(container, nodeId, name))
 }
@@ -969,10 +1161,18 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   const session = useProject()
   const selection = useSelection(session.selection)
   const entries = useContainerEntries(session.store)
+
   return layersMenu(rowTarget(row), selection, entries).map((entry, index) => {
-    if (entry.kind === "separator") return <ContextMenuSeparator key={`line-${index}`} />
-    if (entry.kind !== "item" || entry.action === "pasteHere") return null
+    if (entry.kind === "separator") {
+      return <ContextMenuSeparator key={`line-${index}`} />
+    }
+
+    if (entry.kind !== "item" || entry.action === "pasteHere") {
+      return null
+    }
+
     const { action } = entry
+
     return (
       <ContextMenuItem
         key={action}

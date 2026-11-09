@@ -78,6 +78,7 @@ function Floating({ className, children }: { className: string; children: ReactN
 export function FloatingToolbar() {
   const { selection } = useProject()
   const tool = useTool(selection)
+
   return (
     <Floating className="bottom-4 left-1/2 -translate-x-1/2">
       <ToggleGroup
@@ -86,7 +87,10 @@ export function FloatingToolbar() {
         value={[tool]}
         onValueChange={([value]) => {
           const picked = toolGroups.flat().find((each) => each.id === value)
-          if (picked) void actions[picked.id].run("toolbar")
+
+          if (picked) {
+            void actions[picked.id].run("toolbar")
+          }
         }}
         aria-label="Tools"
         className="gap-0.5"
@@ -96,6 +100,7 @@ export function FloatingToolbar() {
             {index > 0 && <Separator orientation="vertical" className="mx-1 h-5" />}
             {group.map(({ id, icon: Icon }) => {
               const { label, keys } = keymap[id]
+
               return (
                 <Fragment key={id}>
                   <Tooltip>
@@ -136,6 +141,7 @@ function FrameMenu() {
   const entry = useContainerEntry(session.store, selected.design)
   const frame = entry?.container.kind === "frame" && !selected.node ? entry : undefined
   const presets = framePresets(settings)
+
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
@@ -186,6 +192,7 @@ export function ViewControls() {
   const { editor, store } = useProject()
   const history = useHistory(store)
   const zoom = useValue("zoom", () => editor?.getZoomLevel() ?? 1, [editor])
+
   return (
     <Floating className="top-3 right-3">
       <IconButton

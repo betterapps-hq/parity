@@ -6,6 +6,7 @@ import { traceWith } from "../tracing.ts"
 import { recordActions } from "./record-actions.ts"
 
 const sink = createTestSink()
+
 traceWith(
   createTelemetry({
     events: registeredEvents,
@@ -21,10 +22,12 @@ describe("recordActions", () => {
   it("records each run with where it came from and what was selected, and passes on what it returns", () => {
     sink.clear()
     const pressed: unknown[] = []
+
     const actions = recordActions(
       { nudge: { run: (event) => pressed.push(event?.key) && "moved", byKey: true } },
       () => ({ layers: 2, designs: 0 })
     )
+
     expect(actions.nudge.byKey).toBe(true)
     expect(actions.nudge.run("key", { event: { key: "ArrowLeft" } as KeyboardEvent })).toBe("moved")
     expect(pressed).toEqual(["ArrowLeft"])
@@ -40,6 +43,7 @@ describe("recordActions", () => {
   it("records one tried while it doesn't apply as cancelled, without running it", () => {
     sink.clear()
     let ran = false
+
     const actions = recordActions(
       {
         paste: {
@@ -51,6 +55,7 @@ describe("recordActions", () => {
       },
       () => ({ layers: 0, designs: 0 })
     )
+
     expect(actions.paste.run("key")).toBeUndefined()
     expect(ran).toBe(false)
     expect(recorded()).toEqual([
@@ -66,6 +71,7 @@ describe("recordActions", () => {
     sink.clear()
     const failed = Object.assign(new Error("Locked"), { details: { code: "locked" } })
     const heard: string[] = []
+
     const actions = recordActions(
       {
         newScreen: { run: () => "the active tab's" },
@@ -75,6 +81,7 @@ describe("recordActions", () => {
       () => ({ layers: 0, designs: 1 }),
       (id) => heard.push(id)
     )
+
     expect(actions.newScreen.run("canvasMenu", { instead: () => "where the menu opened" })).toBe(
       "where the menu opened"
     )
@@ -92,10 +99,12 @@ describe("recordActions", () => {
 
 const renderer = resolve(import.meta.dirname, "..")
 const actionsFile = join(import.meta.dirname, "actions.ts")
+
 /** The modules whose functions the actions run, beside this file. */
 const commandModules = ["commands.ts", "layout.ts", "create.ts", "QuickInsert.tsx"].map((name) =>
   join(import.meta.dirname, name)
 )
+
 const importPattern = /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+"([^"]+)"/g
 
 /** The names a file imports from the command modules. */
@@ -110,7 +119,11 @@ function importedCommands(file: string, source: string): string[] {
 function windowFiles(folder: string): string[] {
   return readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
     const path = join(folder, entry.name)
-    if (entry.isDirectory()) return entry.name === "explorations" || entry.name === "stories" ? [] : windowFiles(path)
+
+    if (entry.isDirectory()) {
+      return entry.name === "explorations" || entry.name === "stories" ? [] : windowFiles(path)
+    }
+
     return /\.tsx?$/.test(entry.name) && !/\.(test|stories)\.tsx?$/.test(entry.name) ? [path] : []
   })
 }
@@ -123,15 +136,19 @@ describe("the action list", () => {
         (name) => name !== "activeSession" && !name.startsWith("selected")
       )
     )
+
     expect(commands).toContain("alignSelection")
+
     const bypasses = windowFiles(renderer)
       .filter((file) => file !== actionsFile && !commandModules.includes(file))
       .flatMap((file) => {
         const source = readFileSync(file, "utf8")
+
         const body = source
           .replace(importPattern, "")
           .replace(/\/\*[\s\S]*?\*\//g, "")
           .replace(/\/\/.*$/gm, "")
+
         return importedCommands(file, source)
           .filter((name) => commands.has(name))
           .flatMap((name) => {
@@ -140,9 +157,11 @@ describe("the action list", () => {
             const used = new RegExp(`(?<![\\w.])${name}(?=\\s*\\()|(?<=[{(,=]\\s*)${name}(?=\\s*[}),])`, "g")
             const uses = body.match(used)?.length ?? 0
             const instead = body.match(new RegExp(`instead: \\(\\) => ${name}\\(`, "g"))?.length ?? 0
+
             return uses > instead ? [`${relative(renderer, file)} runs ${name} without actions.ts`] : []
           })
       })
+
     expect(bypasses).toEqual([])
   })
 })

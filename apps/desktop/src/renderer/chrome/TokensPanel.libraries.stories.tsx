@@ -31,6 +31,7 @@ const meta = {
 } satisfies Meta<typeof TokensPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 interface Loaded {
@@ -50,11 +51,17 @@ const libraries = import.meta.glob<string>("../../../../../packages/registry/lib
 function openLibrary(file: string) {
   return async (): Promise<Loaded> => {
     const path = Object.keys(libraries).find((candidate) => candidate.endsWith(`/${file}`))
-    if (!path) throw new Error(`The registry has no ${file}`)
+
+    if (!path) {
+      throw new Error(`The registry has no ${file}`)
+    }
+
     const manifest = JSON.parse(await libraries[path]!()) as { name: string; tokens: unknown }
+
     const described = await readDesignTokens(manifest.tokens, () =>
       Promise.reject(new Error("The registry's tokens are inline"))
     )
+
     const css = describedTokenCss(described)
     const tokens = extractTokens(css, [], describedCategories(described))
     await openProjects("example")
@@ -63,12 +70,14 @@ function openLibrary(file: string) {
     const sheet = new CSSStyleSheet()
     sheet.replaceSync(css)
     const describedTokens = [{ name: manifest.name, manifest: `node_modules/${file}`, tokens: described }]
+
     const session: ProjectSession = {
       ...project,
       info: { ...project.info, styles: undefined, describedTokens },
       // Edits go nowhere: the story is for looking.
       tokens: new TokenStore(tokens, sheet, () => Promise.resolve(), project.store, file, describedTokens)
     }
+
     return { session }
   }
 }

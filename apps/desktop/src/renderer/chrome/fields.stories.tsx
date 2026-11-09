@@ -46,9 +46,13 @@ export default meta
 
 /** What kind of value a field holds, for its label. */
 function kindOf(value: unknown): string {
-  if (value === null) return "null"
+  if (value === null) {
+    return "null"
+  }
+
   return Array.isArray(value) ? "array" : typeof value
 }
+
 type Story = StoryObj<typeof meta>
 
 const percentRules: FieldRules = { kind: "percent", min: 0, max: 100, label: "Opacity" }
@@ -77,6 +81,7 @@ const initial = {
 function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyof typeof initial, string>> }) {
   const tokens = useTokenList(useProject().tokens)
   const empty = look === "mixed" || look === "unset"
+
   const [values, setValues] = useState(
     empty
       ? {
@@ -93,7 +98,9 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
         }
       : initial
   )
+
   const set = (change: Partial<typeof values>) => setValues((current) => ({ ...current, ...change }))
+
   const row = (name: keyof typeof initial, label: string, control: React.ReactNode, hint?: string) => (
     <Field
       label={labels?.[name] ?? label}
@@ -105,6 +112,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
       {control}
     </Field>
   )
+
   return (
     <PanelSection title="Fields">
       <div className="flex flex-col gap-1">

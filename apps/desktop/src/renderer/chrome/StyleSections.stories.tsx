@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof SelectedStyles>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Selects one layer of an example design, after setting styles on it in the base design when given. */
@@ -31,11 +32,13 @@ const pick = (designName: string, layerName: string, style?: NodeStyle, state?: 
   inspecting("design", () => {
     const key = design(designName)
     const id = node(designName, layerName)
+
     if (style) {
       example().store.updateContainer(key, "Change style", (container) =>
         editNode(container, state ?? container.states[0]!.id, id, { style })
       )
     }
+
     return layersSelection(key, [id], state ? { state } : undefined)
   })
 

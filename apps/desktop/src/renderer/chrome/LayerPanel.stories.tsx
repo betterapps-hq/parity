@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A text layer, Pricing's headline: its text to edit, then visibility, and its type set large and centered. */
@@ -44,6 +45,7 @@ export const ComponentWithoutStyle: Story = {
       answering({
         "project.components": async (_params, usual) => {
           const components = await usual()
+
           return { ...components, Badge: { ...components.Badge!, takesStyle: false } }
         }
       })
@@ -87,6 +89,7 @@ export const ImageLayer: Story = {
           { index: 3 }
         )
       }))
+
       return layersSelection(key, ["hero-photo"])
     })
   ]

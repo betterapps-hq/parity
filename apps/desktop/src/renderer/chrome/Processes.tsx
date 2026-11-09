@@ -91,17 +91,25 @@ export function Processes() {
   const now = useNow(open)
   // Results that finish while the flyout is open are seen as they arrive.
   useEffect(() => {
-    if (open) markSeen(processes.filter((process) => process.shape === "task" && ended.has(process.status)))
+    if (open) {
+      markSeen(processes.filter((process) => process.shape === "task" && ended.has(process.status)))
+    }
   })
+
   const finished = processes
     .filter((process) => process.shape === "task" && ended.has(process.status))
     .sort((a, b) => (b.stoppedAt ?? 0) - (a.stoppedAt ?? 0))
+
   const groups = groupProcesses(
     processes.filter((process) => !finished.includes(process)),
     session.id
   )
+
   const active = groups.flatMap((group) => group.processes)
-  if (active.length === 0 && finished.length === 0) return null
+
+  if (active.length === 0 && finished.length === 0) {
+    return null
+  }
 
   const crashed = active.find((process) => process.shape === "server" && process.status === "failed")
   const unseen = finished.filter((process) => !isSeen(process))
@@ -110,6 +118,7 @@ export function Processes() {
   const task = active.find((process) => process.shape === "task")
   const stoppable = active.filter((process) => process.shape === "server" && process.canStop)
   const manyProjects = new Set(processes.map((process) => process.projectId)).size > 1
+
   const label = triggerLabel({
     crashed,
     failed: unseenFailure,
@@ -214,10 +223,22 @@ function triggerLabel({
   task: ProjectProcess | undefined
   running: number
 }): string {
-  if (crashed) return `${crashed.name} crashed`
-  if (failed) return `${failed.name} failed`
-  if (starting) return `Starting ${starting.name}`
-  if (task) return task.progress ? `${task.name}, ${task.progress.done} of ${task.progress.total}` : task.name
+  if (crashed) {
+    return `${crashed.name} crashed`
+  }
+
+  if (failed) {
+    return `${failed.name} failed`
+  }
+
+  if (starting) {
+    return `Starting ${starting.name}`
+  }
+
+  if (task) {
+    return task.progress ? `${task.name}, ${task.progress.done} of ${task.progress.total}` : task.name
+  }
+
   return `${running} running`
 }
 
@@ -233,11 +254,13 @@ function groupProcesses(processes: ProjectProcess[], activeId: string): Group[] 
   const rank = (process: ProjectProcess) => (process.shape === "task" ? order.length : order.indexOf(process.kind))
   const sorted = [...processes].sort((a, b) => rank(a) - rank(b) || a.startedAt - b.startedAt)
   const groups = new Map<string, Group>()
+
   for (const process of sorted) {
     const group = groups.get(process.projectId) ?? { key: process.projectId, title: process.project, processes: [] }
     group.processes.push(process)
     groups.set(process.projectId, group)
   }
+
   return [...groups.values()].sort((a, b) => Number(b.key === activeId) - Number(a.key === activeId))
 }
 
@@ -245,17 +268,27 @@ function groupProcesses(processes: ProjectProcess[], activeId: string): Group[] 
 function summary(processes: ProjectProcess[]): string {
   const count = (shape: ProjectProcess["shape"]) =>
     processes.filter((process) => process.shape === shape && !ended.has(process.status)).length
+
   const servers = count("server")
   const tasks = count("task")
   const crashed = processes.filter((process) => process.status === "failed").length
+
   const running = [
     servers > 0 && (servers === 1 ? "1 server" : `${servers} servers`),
     tasks > 0 && (tasks === 1 ? "1 task" : `${tasks} tasks`)
   ].filter(Boolean)
+
   const projects = new Set(processes.map((process) => process.projectId)).size
   const parts = [running.length > 0 ? `${running.join(" and ")} running` : "Nothing running"]
-  if (crashed > 0) parts.push(`${crashed} crashed`)
-  if (projects === 0) return parts.join(", ")
+
+  if (crashed > 0) {
+    parts.push(`${crashed} crashed`)
+  }
+
+  if (projects === 0) {
+    return parts.join(", ")
+  }
+
   return `${parts.join(", ")} for ${projects === 1 ? "1 open project" : `${projects} open projects`}`
 }
 
@@ -267,8 +300,10 @@ export function Light({ process, size = 7, delay = 0 }: { process: ProjectProces
   const { status } = process
   const box: CSSProperties = { width: size, height: size }
   const working = status === "starting" || status === "stopping" || (status === "running" && process.shape === "task")
+
   if (working) {
     const color = `var(--process-${status === "running" ? "running" : "starting"})`
+
     return (
       <span
         data-process-motion
@@ -277,6 +312,7 @@ export function Light({ process, size = 7, delay = 0 }: { process: ProjectProces
       />
     )
   }
+
   if (status === "passed") {
     return (
       <Check
@@ -286,6 +322,7 @@ export function Light({ process, size = 7, delay = 0 }: { process: ProjectProces
       />
     )
   }
+
   if (status === "stopped" || status === "canceled") {
     return (
       <span
@@ -294,7 +331,9 @@ export function Light({ process, size = 7, delay = 0 }: { process: ProjectProces
       />
     )
   }
+
   const color = `var(--process-${status})`
+
   return (
     <span className="relative inline-flex shrink-0" style={box}>
       {status === "failed" && (
@@ -333,6 +372,7 @@ export function Light({ process, size = 7, delay = 0 }: { process: ProjectProces
 export function KindTile({ process }: { process: ProjectProcess }) {
   const { icon: Icon, tint } = kinds[process.kind]
   const faded = process.status === "stopped" || process.status === "canceled"
+
   return (
     <span
       className="relative grid size-8 shrink-0 place-items-center rounded-lg transition-opacity"
@@ -365,12 +405,19 @@ function ProcessRow({
   const done = ended.has(process.status)
   const task = process.shape === "task"
   const word = (task ? taskWords : serverWords)[process.status]
+
   const time =
     task && done ? ago(now - (process.stoppedAt ?? now)) : formatUptime((process.stoppedAt ?? now) - process.startedAt)
+
   const hasActions = process.canStop || process.canRestart || canOpen(process) || done
   let again = "Restart"
-  if (task) again = "Run again"
-  else if (done) again = "Start again"
+
+  if (task) {
+    again = "Run again"
+  } else if (done) {
+    again = "Start again"
+  }
+
   return (
     <li className="group/row px-1.5" style={{ animation: "process-row-in 220ms ease-out both" }} data-process-motion>
       <div className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors group-hover/row:bg-accent/60">
@@ -448,6 +495,7 @@ function ProcessRow({
 function ServerLine({ process }: { process: ProjectProcess }) {
   if (process.status === "failed" && process.error) {
     const [first, ...rest] = process.error.split("\n")
+
     return (
       <Hint label={first} detail={rest.join("\n").trim() || undefined} wait>
         <div className="mt-0.5 truncate text-2xs" style={{ color: "var(--process-failed)" }}>
@@ -456,6 +504,7 @@ function ServerLine({ process }: { process: ProjectProcess }) {
       </Hint>
     )
   }
+
   return <Address process={process} />
 }
 
@@ -464,6 +513,7 @@ function TaskLine({ process }: { process: ProjectProcess }) {
   if (process.status === "running" || process.status === "stopping") {
     const { progress } = process
     const share = progress && progress.total > 0 ? Math.min(1, progress.done / progress.total) : undefined
+
     return (
       <div className="mt-0.5 flex min-w-0 flex-col gap-1">
         <div className="flex min-w-0 items-baseline gap-2 text-2xs text-muted-foreground">
@@ -491,7 +541,9 @@ function TaskLine({ process }: { process: ProjectProcess }) {
       </div>
     )
   }
+
   const color = process.status === "failed" ? "var(--process-failed)" : undefined
+
   return (
     <Hint
       label={process.error ?? process.summary}
@@ -510,10 +562,16 @@ function TaskLine({ process }: { process: ProjectProcess }) {
 
 function StatusWord({ status, children }: { status: ProcessStatus; children: ReactNode }) {
   let shown: string = status
-  if (status === "stopping") shown = "starting"
-  else if (status === "canceled") shown = "stopped"
+
+  if (status === "stopping") {
+    shown = "starting"
+  } else if (status === "canceled") {
+    shown = "stopped"
+  }
+
   const color = `var(--process-${shown})`
   const moving = status === "starting" || status === "stopping"
+
   return (
     <span
       data-process-motion
@@ -540,10 +598,13 @@ function Address({ process }: { process: ProjectProcess }) {
   if (!process.domain && !process.url) {
     return <div className="mt-0.5 text-2xs text-muted-foreground">{kinds[process.kind].role}</div>
   }
+
   const content = process.domain ? <Domain domain={process.domain} url={process.url} /> : <Port url={process.url!} />
+
   if (!canOpen(process)) {
     return <div className="mt-0.5 flex min-w-0 items-center font-mono text-2xs">{content}</div>
   }
+
   return (
     <button
       type="button"
@@ -559,6 +620,7 @@ function Domain({ domain, url }: { domain: string; url: string | undefined }) {
   const parsed = new URL(domain)
   const [first, ...rest] = parsed.hostname.split(".")
   const port = url ? new URL(url).port : ""
+
   return (
     <>
       {parsed.protocol === "https:" && (
@@ -579,6 +641,7 @@ function Domain({ domain, url }: { domain: string; url: string | undefined }) {
 function Port({ url }: { url: string }) {
   const parsed = new URL(url)
   const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80")
+
   return (
     <span className="truncate">
       <span className="text-muted-foreground">{parsed.hostname}</span>
@@ -631,11 +694,14 @@ function StopConfirm({
 }) {
   const stopRef = useRef<HTMLButtonElement>(null)
   useEffect(() => stopRef.current?.focus(), [])
+
   return (
     <span
       className="flex items-center gap-0.5"
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) onCancel()
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          onCancel()
+        }
       }}
     >
       <Button
@@ -663,10 +729,15 @@ function StopConfirm({
 function ConfirmButton({ label, confirm, onConfirm }: { label: string; confirm: string; onConfirm: () => void }) {
   const [asking, setAsking] = useState(false)
   useEffect(() => {
-    if (!asking) return
+    if (!asking) {
+      return
+    }
+
     const timeout = setTimeout(() => setAsking(false), 4000)
+
     return () => clearTimeout(timeout)
   }, [asking])
+
   return (
     <Button
       variant={asking ? "destructive" : "ghost"}
@@ -675,7 +746,9 @@ function ConfirmButton({ label, confirm, onConfirm }: { label: string; confirm: 
         if (asking) {
           setAsking(false)
           onConfirm()
-        } else setAsking(true)
+        } else {
+          setAsking(true)
+        }
       }}
     >
       {asking ? confirm : label}
@@ -686,9 +759,17 @@ function ConfirmButton({ label, confirm, onConfirm }: { label: string; confirm: 
 /** How long ago something finished: "just now", "2m ago", "1h ago". */
 function ago(milliseconds: number): string {
   const seconds = Math.floor(milliseconds / 1000)
-  if (seconds < 10) return "just now"
-  if (seconds < 60) return `${seconds}s ago`
+
+  if (seconds < 10) {
+    return "just now"
+  }
+
+  if (seconds < 60) {
+    return `${seconds}s ago`
+  }
+
   const minutes = Math.floor(seconds / 60)
+
   return minutes < 60 ? `${minutes}m ago` : `${Math.floor(minutes / 60)}h ago`
 }
 
@@ -698,10 +779,17 @@ function canOpen(process: ProjectProcess): boolean {
 }
 
 function describe(process: ProjectProcess): string {
-  if (process.kind === "builder")
+  if (process.kind === "builder") {
     return `${process.name} builds ${process.project} for the canvas, inside Parity's project service. It stops when the project's tab closes.`
-  if (process.shape === "task") return `${kinds[process.kind].role} for ${process.project}.`
-  if (process.startedBy === "elsewhere")
+  }
+
+  if (process.shape === "task") {
+    return `${kinds[process.kind].role} for ${process.project}.`
+  }
+
+  if (process.startedBy === "elsewhere") {
     return `${process.project}'s ${process.name}, already running when Parity needed it, so Parity uses it and leaves it running.`
+  }
+
   return `${process.project}'s ${process.name}, started by Parity.`
 }

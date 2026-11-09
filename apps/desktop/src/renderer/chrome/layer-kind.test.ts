@@ -4,11 +4,13 @@ import { layerKind } from "./layer-kind.ts"
 
 const designs: Record<string, string> = { "plan-card": "Plan card" }
 const designName = (id: string) => designs[id]
+
 const libraries = [
   { id: "nova", name: "Shadcn Nova", kind: "components" as const },
   { id: "lucide", name: "Lucide", kind: "icons" as const },
   { id: "heroicons", name: "Heroicons", kind: "icons" as const }
 ]
+
 const kind = (node: DesignNode) => layerKind(node, designName, libraries)
 
 describe("layerKind", () => {

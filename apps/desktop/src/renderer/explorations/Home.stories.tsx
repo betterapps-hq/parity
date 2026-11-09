@@ -31,6 +31,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** In Kestrel, where you're an admin: Maya mentioned you, Sam wants a review, Lena replied. */

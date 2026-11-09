@@ -39,6 +39,7 @@ const meta = {
 } satisfies Meta<typeof ComponentsPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Long enough that a request to the stand-in service never answers while the story is open. */
@@ -141,9 +142,11 @@ export const ComponentCardOpen: Story = {
     await userEvent.hover(kitButton(canvasElement))
     const card = await within(document.body).findByRole("dialog")
     await expect(within(card).getByText("src/components/ui/button.tsx")).toBeInTheDocument()
+
     for (const name of ["Insert", "Open file", "variant outline"]) {
       await expect(within(card).getByRole("button", { name })).toBeInTheDocument()
     }
+
     await userEvent.hover(within(card).getByRole("button", { name: "variant destructive" }))
   }
 }
@@ -344,14 +347,17 @@ export const AddingWithNothingSelected: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Stat card" }))
+
     const made = await waitFor(async () => {
       const found = example().store.getEntry(example().selection.get().design ?? "")?.container
       await expect(found).toMatchObject({
         name: "Stat card",
         root: { children: [{ type: "instance", design: "stat-card" }] }
       })
+
       return found
     })
+
     await expect(made?.kind).toBeUndefined()
     setLayout({ leftTab: "layers" })
   }
@@ -432,8 +438,11 @@ export const LibraryStylesMissing: Story = {
   loaders: [
     async () => {
       await openComponents()
+
       for (const library of example().info.libraries) {
-        if (library.kind !== "icons") library.stylesImported = false
+        if (library.kind !== "icons") {
+          library.stylesImported = false
+        }
       }
     }
   ],

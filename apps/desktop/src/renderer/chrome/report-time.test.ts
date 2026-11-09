@@ -4,6 +4,7 @@ import { crashTime, lowerFirst } from "./report-time.ts"
 describe("crashTime", () => {
   const now = new Date(2026, 10, 6, 15, 0)
   const at = (day: number, hour: number) => new Date(2026, 10, day, hour, 5).toISOString()
+
   const clock = (day: number, hour: number) =>
     new Date(2026, 10, day, hour, 5).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
 

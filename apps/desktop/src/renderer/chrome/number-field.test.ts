@@ -17,11 +17,13 @@ const read = (text: string): Reading =>
 function run(events: FieldEvent[], start: FieldState = initialFieldState) {
   let state = start
   const effects: FieldEffect[] = []
+
   for (const event of events) {
     const update = reduceField(state, event, read)
     state = update.state
     effects.push(...update.effects)
   }
+
   return { state, effects }
 }
 
@@ -32,6 +34,7 @@ describe("typing", () => {
       { type: "type", text: "32" },
       { type: "type", text: "320" }
     ])
+
     expect(state).toEqual({ draft: "320" })
     expect(effects).toEqual([
       { type: "preview", text: "3" },
@@ -45,6 +48,7 @@ describe("typing", () => {
       { type: "type", text: "16" },
       { type: "type", text: "16p" }
     ])
+
     expect(state).toEqual({ draft: "16p" })
     expect(effects).toEqual([{ type: "preview", text: "16" }])
   })
@@ -87,6 +91,7 @@ describe("Enter", () => {
       { type: "enter" },
       { type: "committed", note: "Snapped to 282px" }
     ])
+
     expect(state).toEqual({ message: { tone: "note", text: "Snapped to 282px" } })
   })
 })
@@ -123,6 +128,7 @@ describe("stepping", () => {
       { type: "type", text: "16+4" },
       { type: "step", count: 1 }
     ])
+
     expect(state).toEqual({})
     expect(effects.at(-1)).toEqual({ type: "step", count: 1, from: "16+4" })
   })
@@ -132,6 +138,7 @@ describe("stepping", () => {
       { type: "type", text: "abc" },
       { type: "step", count: -1 }
     ])
+
     expect(state).toEqual({ draft: "abc", message: { tone: "error", text: `Can't read "abc"` } })
     expect(effects).toEqual([])
   })

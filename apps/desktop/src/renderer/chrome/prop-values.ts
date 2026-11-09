@@ -24,15 +24,28 @@ export function valueKind(value: unknown, declared?: ParamSpec["type"] | PropKin
     case "value":
       return "any"
   }
-  if (typeof value === "boolean") return "boolean"
-  if (typeof value === "number") return "number"
-  if (typeof value === "string") return "text"
+
+  if (typeof value === "boolean") {
+    return "boolean"
+  }
+
+  if (typeof value === "number") {
+    return "number"
+  }
+
+  if (typeof value === "string") {
+    return "text"
+  }
+
   return value === undefined ? "any" : "json"
 }
 
 /** A value as a JSON or any-value field shows it: a string as itself where any value goes, else as JSON. */
 export function showValue(value: unknown, kind: "json" | "any"): string {
-  if (value === undefined) return ""
+  if (value === undefined) {
+    return ""
+  }
+
   return kind === "any" && typeof value === "string" ? value : JSON.stringify(value)
 }
 
@@ -42,8 +55,15 @@ export function showValue(value: unknown, kind: "json" | "any"): string {
  */
 export function readValue(text: string, kind: "json" | "any"): { value: unknown } | { error: string } {
   const trimmed = text.trim()
-  if (trimmed === "") return { value: undefined }
-  if (kind === "any") return { value: parseLooseValue(trimmed) }
+
+  if (trimmed === "") {
+    return { value: undefined }
+  }
+
+  if (kind === "any") {
+    return { value: parseLooseValue(trimmed) }
+  }
+
   try {
     return { value: JSON.parse(trimmed) }
   } catch {
@@ -54,7 +74,11 @@ export function readValue(text: string, kind: "json" | "any"): { value: unknown 
 /** Parses what someone typed as a prop value: JSON when it is (true, 3, "x", [..]), otherwise a string. */
 export function parseLooseValue(text: string): unknown {
   const trimmed = text.trim()
-  if (trimmed === "") return ""
+
+  if (trimmed === "") {
+    return ""
+  }
+
   try {
     return JSON.parse(trimmed)
   } catch {

@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const tabs: MockTab[] = [
@@ -120,6 +121,7 @@ export const TitleBarInbox: Story = {
 
 function ToastDemo() {
   const [shown, setShown] = useState(true)
+
   return (
     <ExploreWindow tabs={tabs} active="dashboard" actions={<TitleBarActions />}>
       <Project>

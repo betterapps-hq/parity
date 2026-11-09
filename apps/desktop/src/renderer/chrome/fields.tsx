@@ -134,19 +134,24 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
   const firstState = useContext(FirstStateName)
   const scrubs = useRef(new Set<Scrub>())
   const [scrub, setScrub] = useState<Scrub>()
+
   const register = useCallback((added: Scrub) => {
     scrubs.current.add(added)
     const only = () => setScrub(() => (scrubs.current.size === 1 ? [...scrubs.current][0] : undefined))
     only()
+
     return () => {
       scrubs.current.delete(added)
       only()
     }
   }, [])
+
   const [messages, setMessages] = useState<ReadonlyMap<string, FieldMessage>>(new Map())
+
   const say = useCallback((id: string, message: FieldMessage | undefined) => {
     setMessages((current) => {
       const was = current.get(id)
+
       if (
         was?.text === message?.text &&
         was?.tone === message?.tone &&
@@ -155,12 +160,19 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
       ) {
         return current
       }
+
       const next = new Map(current)
-      if (message) next.set(id, message)
-      else next.delete(id)
+
+      if (message) {
+        next.set(id, message)
+      } else {
+        next.delete(id)
+      }
+
       return next
     })
   }, [])
+
   return (
     // Replay shows a field named as a secret, such as `apiKey`, as stars (replay.ts, PAR-679).
     <div
@@ -223,6 +235,7 @@ const messageTones: Record<FieldMessage["tone"], string> = {
 
 function FieldMessageLine({ id, message }: { id: string; message: FieldMessage }) {
   const { action } = message
+
   const text = (
     <p
       id={id}
@@ -232,7 +245,11 @@ function FieldMessageLine({ id, message }: { id: string; message: FieldMessage }
       {message.text}
     </p>
   )
-  if (!action) return text
+
+  if (!action) {
+    return text
+  }
+
   // The button sits at the line's end, so a flag on each of a row's fields lines its buttons up.
   return (
     <div className="flex items-baseline justify-between gap-2">
@@ -271,6 +288,7 @@ export function TextInput({
 }) {
   const mixed = useMixed()
   const className = `h-7 px-2 text-xs ${mono ? "font-mono" : ""}`
+
   if (multiline) {
     return (
       <textarea
@@ -289,7 +307,9 @@ export function TextInput({
       />
     )
   }
+
   const Control = name ? NameInput : Input
+
   return (
     <Control
       key={value}
@@ -298,7 +318,9 @@ export function TextInput({
       className={className}
       onBlur={(event) => event.currentTarget.value !== value && onCommit(event.currentTarget.value)}
       onKeyDown={(event) => {
-        if (event.key === "Enter") event.currentTarget.blur()
+        if (event.key === "Enter") {
+          event.currentTarget.blur()
+        }
       }}
     />
   )
@@ -397,6 +419,7 @@ export function NumberField({
   const flagText = flag?.text
   const flagLabel = flag?.action?.label
   const flagName = flag?.action?.name
+
   const flagMessage = useMemo<FieldMessage | undefined>(
     () =>
       flagText === undefined
@@ -408,6 +431,7 @@ export function NumberField({
           },
     [flagText, flagLabel, flagName]
   )
+
   const flagShown = state.draft === undefined && state.scrubbing === undefined ? flagMessage : undefined
   useEffect(() => say?.(flagId, flagShown), [say, flagId, flagShown])
   useEffect(() => () => say?.(flagId, undefined), [say, flagId])
@@ -418,16 +442,27 @@ export function NumberField({
 
   /** A value as a number to work from: its own, or what unset counts as; a token has none. */
   const numeric = (from: FieldValue) => {
-    if (typeof from === "number") return from
+    if (typeof from === "number") {
+      return from
+    }
+
     return from === undefined ? blank?.() : undefined
   }
 
   const read = (text: string): Reading => {
     const typed = readFieldInput(text, rules, tokens)
-    if (typed.type === "unreadable") return { ok: false, reason: typed.reason }
+
+    if (typed.type === "unreadable") {
+      return { ok: false, reason: typed.reason }
+    }
+
     // With layers that differ, what works from the value is worked out for each; it can't be checked against one.
-    if (mixed && value === undefined && typed.type === "maths" && typed.relative) return { ok: true }
+    if (mixed && value === undefined && typed.type === "maths" && typed.relative) {
+      return { ok: true }
+    }
+
     const outcome = applyFieldInput(typed, numeric(value), rules)
+
     return outcome.ok ? { ok: true } : { ok: false, reason: outcome.reason }
   }
 
@@ -439,31 +474,48 @@ export function NumberField({
     const typed = text === undefined ? undefined : readFieldInput(text, rules, tokens)
     const notes: FieldNote[] = []
     const kept: string[] = []
+
     const update: FieldUpdate = (from) => {
-      if (!typed && step === 0) return from
+      if (!typed && step === 0) {
+        return from
+      }
+
       let base = numeric(from)
+
       if (typed) {
         const outcome = applyFieldInput(typed, base, rules)
+
         if (!outcome.ok) {
           kept.push(outcome.reason)
+
           return from
         }
+
         if (step === 0) {
-          if (outcome.note) notes.push(outcome.note)
+          if (outcome.note) {
+            notes.push(outcome.note)
+          }
+
           return outcome.value
         }
+
         base = typeof outcome.value === "number" ? outcome.value : undefined
       }
+
       return base === undefined ? from : stepFieldValue(base, step, rules)
     }
+
     const summary = () => {
       const note = summarizeFieldNotes(notes, rules)
+
       const skipped =
         kept.length > 0
           ? `${kept.length === 1 ? "A layer" : `${kept.length} layers`} kept its value: ${kept[0]}`
           : undefined
+
       return [note, skipped].filter(Boolean).join(". ") || undefined
     }
+
     return { update, summary }
   }
 
@@ -472,23 +524,32 @@ export function NumberField({
       case "preview":
         previewing.current = true
         onPreview?.(editFor(effect.text).update)
+
         return
       case "cancel":
-        if (previewing.current) onCancel?.()
+        if (previewing.current) {
+          onCancel?.()
+        }
+
         previewing.current = false
+
         return
       case "commit": {
         const { update, summary } = editFor(effect.text)
         onCommit(update)
         previewing.current = false
+
         return dispatch({ type: "committed", note: summary() })
       }
+
       case "step": {
         const { update, summary } = editFor(effect.from, effect.count)
         onCommit(update, beginGesture())
         previewing.current = false
+
         return dispatch({ type: "committed", note: summary() })
       }
+
       case "select":
         return setSelecting((count) => count + 1)
       case "blur":
@@ -497,16 +558,24 @@ export function NumberField({
   }
 
   function dispatch(event: FieldEvent) {
-    if (runEnders.has(event.type)) endGesture()
+    if (runEnders.has(event.type)) {
+      endGesture()
+    }
+
     const update = reduceField(current.current, event, read)
     current.current = update.state
     setState(update.state)
-    for (const effect of update.effects) run(effect)
+
+    for (const effect of update.effects) {
+      run(effect)
+    }
   }
 
   // Enter keeps the field, with its text selected once the committed value shows.
   useLayoutEffect(() => {
-    if (selecting > 0) input.current?.select()
+    if (selecting > 0) {
+      input.current?.select()
+    }
   }, [selecting])
 
   // A preview doesn't outlive its field, as when the selection changes while typing, and neither does a run of steps.
@@ -514,7 +583,9 @@ export function NumberField({
   cancel.current = onCancel
   useEffect(
     () => () => {
-      if (previewing.current) cancel.current?.()
+      if (previewing.current) {
+        cancel.current?.()
+      }
     },
     []
   )
@@ -523,7 +594,10 @@ export function NumberField({
   useEffect(() => presses?.select(target), [presses, target])
 
   const scrub = (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.button !== 0) return
+    if (event.button !== 0) {
+      return
+    }
+
     event.preventDefault()
     const handle = event.currentTarget
     handle.setPointerCapture(event.pointerId)
@@ -533,9 +607,14 @@ export function NumberField({
     // A scrub ends any run of Up and Down presses, and previews until it's let go, when it makes its edit once: one
     // undo step without a gesture of its own.
     dispatch({ type: "scrubStart" })
+
     const move = (moveEvent: PointerEvent) => {
       const next = scrubSteps(moveEvent.clientX - start, moveEvent.shiftKey)
-      if (next === steps) return
+
+      if (next === steps) {
+        return
+      }
+
       steps = next
       update = editFor(undefined, steps).update
       previewing.current = true
@@ -543,29 +622,42 @@ export function NumberField({
       const own = mixed && value === undefined ? undefined : update(value)
       dispatch({ type: "scrubMove", text: own === undefined ? shown : formatFieldValue(own, rules) })
     }
+
     const stop = (commit: boolean) => {
       handle.removeEventListener("pointermove", move)
       handle.removeEventListener("pointerup", up)
       handle.removeEventListener("pointercancel", cancelled)
       window.removeEventListener("keydown", key, true)
       dispatch({ type: "scrubEnd" })
+
       if (commit && steps !== 0) {
         const { update: final, summary } = editFor(undefined, steps)
         onCommit(final)
         previewing.current = false
         dispatch({ type: "committed", note: summary() })
-      } else run({ type: "cancel" })
+      } else {
+        run({ type: "cancel" })
+      }
+
       // A press without a drag is a click: on a label inside the field, it goes to the field.
-      if (steps === 0 && inner) input.current?.focus()
+      if (steps === 0 && inner) {
+        input.current?.focus()
+      }
     }
+
     const up = () => stop(true)
     const cancelled = () => stop(false)
+
     const key = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key !== "Escape") return
+      if (keyEvent.key !== "Escape") {
+        return
+      }
+
       keyEvent.preventDefault()
       keyEvent.stopPropagation()
       stop(false)
     }
+
     handle.addEventListener("pointermove", move)
     handle.addEventListener("pointerup", up)
     handle.addEventListener("pointercancel", cancelled)
@@ -578,6 +670,7 @@ export function NumberField({
   useEffect(() => (inner || !register ? undefined : register((event) => latest.current(event))), [inner, register])
 
   const error = state.message?.tone === "error"
+
   const box = (
     <div
       data-invalid={error ? "" : undefined}
@@ -627,6 +720,7 @@ export function NumberField({
       {after}
     </div>
   )
+
   return (
     <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
       {hint ? (
@@ -688,10 +782,12 @@ export function ChoiceInput<T extends string>({
   placeholder?: string
 }) {
   const mixed = useMixed()
+
   const items: { value: string; label: ReactNode }[] = [
     { value: "__unset", label: <span className="text-muted-foreground">{placeholder}</span> },
     ...options
   ]
+
   return (
     <Select
       items={items}
@@ -771,6 +867,7 @@ export function NumberValueInput({
   const current = typeof value === "number" ? value : undefined
   const before = useRef<{ value: number | undefined }>(undefined)
   const from = () => (before.current ? before.current.value : current)
+
   return (
     <NumberInput
       value={current}
@@ -798,8 +895,12 @@ export function NumberValueInput({
         const previewed = before.current !== undefined
         before.current = undefined
         const next = numberOrUnset(update(base))
-        if (next !== base) onCommit(next, gesture)
-        else if (previewed) preview?.onCancel()
+
+        if (next !== base) {
+          onCommit(next, gesture)
+        } else if (previewed) {
+          preview?.onCancel()
+        }
       }}
     />
   )
@@ -828,11 +929,18 @@ export function ValueInput({
   preview?: NumberPreview
   onCommit: (value: unknown, gesture?: string) => void
 }) {
-  if (kind === "boolean") return <SwitchInput value={value === true} label={title} onChange={onCommit} />
-  if (kind === "number") return <NumberValueInput value={value} title={title} preview={preview} onCommit={onCommit} />
+  if (kind === "boolean") {
+    return <SwitchInput value={value === true} label={title} onChange={onCommit} />
+  }
+
+  if (kind === "number") {
+    return <NumberValueInput value={value} title={title} preview={preview} onCommit={onCommit} />
+  }
+
   if (kind === "text") {
     return <TextInput value={value === undefined ? "" : String(value as unknown)} onCommit={onCommit} />
   }
+
   return <ParsedInput value={value} kind={kind} title={title} onCommit={onCommit} />
 }
 
@@ -854,6 +962,7 @@ function ParsedInput({
   const shown = showValue(value, kind)
   const [error, setError] = useState<string>()
   const id = useId()
+
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <Input
@@ -867,10 +976,15 @@ function ParsedInput({
           const text = event.currentTarget.value
           const read = text === shown ? undefined : readValue(text, kind)
           setError(read && "error" in read ? read.error : undefined)
-          if (read && "value" in read) onCommit(read.value)
+
+          if (read && "value" in read) {
+            onCommit(read.value)
+          }
         }}
         onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur()
+          if (event.key === "Enter") {
+            event.currentTarget.blur()
+          }
         }}
       />
       {error && (
@@ -908,6 +1022,7 @@ export function TokenInput({
   const current = choices.find((token) => token.name === value)
   const groups = Map.groupBy(choices, (token) => token.source)
   const shown = value ?? (mixed ? "Mixed" : "None")
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger

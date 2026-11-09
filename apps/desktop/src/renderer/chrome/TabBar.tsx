@@ -42,6 +42,7 @@ function CloseButton({ tab, selected, unsaved }: { tab: Tab; selected: boolean; 
 /** Whether a tab's project has changes that aren't on disk; tabs still opening have none. */
 function useUnsaved(store: DesignStore | undefined): boolean {
   const status = useSyncExternalStore(store?.subscribe ?? ignore, () => store?.getSaveState().status)
+
   return status === "unsaved" || status === "failed"
 }
 
@@ -54,7 +55,11 @@ const ignore = () => () => undefined
 function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
   const tab = useTabs().find((candidate) => candidate.id === id)
   const unsaved = useUnsaved(tab?.session?.store)
-  if (!tab) return null
+
+  if (!tab) {
+    return null
+  }
+
   return (
     <Hint
       label={tab.session?.info.root ?? tab.message ?? tab.title}
@@ -88,6 +93,7 @@ function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
 /** Home, pinned first: just its icon, and it can't be closed. */
 function HomeTab() {
   const selected = useHomeActive()
+
   return (
     <Hint
       label={
@@ -146,7 +152,9 @@ export function TabBar({ account = <AccountMenu /> }: { account?: ReactNode }) {
       <div
         ref={strip}
         onWheel={(event) => {
-          if (strip.current && event.deltaX === 0) strip.current.scrollLeft += event.deltaY
+          if (strip.current && event.deltaX === 0) {
+            strip.current.scrollLeft += event.deltaY
+          }
         }}
         className="flex min-w-0 items-end gap-0.5 overflow-x-auto [scrollbar-width:none]"
       >

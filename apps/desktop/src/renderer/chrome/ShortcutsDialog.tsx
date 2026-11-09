@@ -29,21 +29,29 @@ export function ShortcutsDialog() {
   const [query, setQuery] = useState("")
   // Each time it opens it starts with every shortcut, even if keys reached the search while it was closing.
   const [wasOpen, setWasOpen] = useState(open)
+
   if (open !== wasOpen) {
     setWasOpen(open)
-    if (open) setQuery("")
+
+    if (open) {
+      setQuery("")
+    }
   }
+
   const rows = (group: string): Row[] => [
     ...Object.values<Binding>(keymap).filter((binding) => binding.group === group),
     ...Object.values<Gesture>(gestures)
       .filter((gesture) => gesture.group === group)
       .map((gesture) => ({ ...gesture, keys: [gesture.keys] }))
   ]
+
   const needle = query.trim().toLowerCase()
+
   const shown = (row: Row) =>
     !needle ||
     row.label.toLowerCase().includes(needle) ||
     row.keys.some((keys) => keys.toLowerCase().includes(needle) || formatKeys(keys).toLowerCase().includes(needle))
+
   const sections = groups
     .map((group) => ({ group, rows: rows(group).filter(shown) }))
     .filter((section) => section.rows.length > 0)

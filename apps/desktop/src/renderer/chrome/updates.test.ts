@@ -6,17 +6,28 @@ const notifications = vi.hoisted(() => ({
   custom: vi.fn<(render: () => unknown, options: { id: string; duration: number; onDismiss: () => void }) => void>(),
   dismiss: vi.fn<(id: string) => void>()
 }))
+
 vi.mock("sonner", () => ({ toast: notifications }))
+
 vi.mock("./UpdateToast.tsx", () => ({ UpdateToast: () => null }))
+
 const dialogs = vi.hoisted(() => ({ openDialog: vi.fn<() => void>() }))
+
 vi.mock("./app-dialogs.ts", () => dialogs)
 
 function latest() {
   const render = notifications.custom.mock.lastCall?.[0]
-  if (typeof render !== "function") throw new Error("No update toast")
+
+  if (typeof render !== "function") {
+    throw new Error("No update toast")
+  }
+
   const element: unknown = render()
-  if (!isValidElement<{ notice: UpdateNotice; onDismiss: () => void; onAction: () => void }>(element))
+
+  if (!isValidElement<{ notice: UpdateNotice; onDismiss: () => void; onAction: () => void }>(element)) {
     throw new Error("No update component")
+  }
+
   return element.props
 }
 
@@ -71,7 +82,11 @@ describe("update notifications", () => {
     })
     updates.checkForUpdates()
     const native = notifications.custom.mock.lastCall?.[1]
-    if (!native) throw new Error("No native toast callbacks")
+
+    if (!native) {
+      throw new Error("No native toast callbacks")
+    }
+
     native.onDismiss()
     const calls = notifications.custom.mock.calls.length
     updates.receiveUpdate({
@@ -96,12 +111,14 @@ describe("update notifications", () => {
     const updates = await import("./updates.tsx")
     updates.receiveUpdate({ phase: "idle", beta: true })
     let finish: (() => void) | undefined
+
     const check = vi.fn<() => Promise<void>>(
       () =>
         new Promise<void>((resolve) => {
           finish = resolve
         })
     )
+
     vi.stubGlobal("window", { canvasHost: { updates: { check } } })
     updates.checkForUpdates()
     updates.checkForUpdates()
@@ -197,10 +214,13 @@ describe("update notifications", () => {
   it("reads the initial enabled state before handling a queued native menu action", async () => {
     const updates = await import("./updates.tsx")
     const check = vi.fn<() => Promise<void>>(async () => updates.receiveUpdate({ phase: "current", beta: true }))
+
     const onShow = vi.fn<(listener: () => void) => () => void>((listener) => {
       listener()
+
       return () => undefined
     })
+
     vi.stubGlobal("window", {
       canvasHost: {
         updates: {

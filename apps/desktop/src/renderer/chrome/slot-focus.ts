@@ -18,7 +18,10 @@ const listeners = new Set<() => void>()
 
 function set(next: SlotFocus | undefined): void {
   state = next
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 /** Asks Props to focus the name of the slot that `node` is, forgetting any refusal. */
@@ -28,7 +31,9 @@ export function focusSlot(design: string, node: string): void {
 
 /** The slot's row has taken focus. */
 export function slotFocused(): void {
-  if (state?.focus) set({ ...state, focus: undefined })
+  if (state?.focus) {
+    set({ ...state, focus: undefined })
+  }
 }
 
 /** Says why a rename of the slot `node` was refused, or clears it with `undefined`. */
@@ -40,9 +45,11 @@ export function useSlotFocus(design: string): SlotFocus | undefined {
   const current = useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => state
   )
+
   return current?.design === design ? current : undefined
 }

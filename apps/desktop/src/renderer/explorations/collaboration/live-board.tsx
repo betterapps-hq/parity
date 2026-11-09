@@ -24,27 +24,49 @@ export interface Pinned {
 /** Keeps a value rendered for `ms` after it goes away, so it can animate out; `state` says which way it's going. */
 function useExit<T>(value: T | undefined, ms: number): { shown: T | undefined; state: "open" | "closed" } {
   const [last, setLast] = useState(value)
-  if (value !== undefined && value !== last) setLast(value)
+
+  if (value !== undefined && value !== last) {
+    setLast(value)
+  }
+
   useEffect(() => {
-    if (value !== undefined) return undefined
+    if (value !== undefined) {
+      return undefined
+    }
+
     const timer = window.setTimeout(() => setLast(undefined), ms)
+
     return () => window.clearTimeout(timer)
   }, [value, ms])
+
   return { shown: value ?? last, state: value !== undefined ? "open" : "closed" }
 }
 
 const animated =
   "motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out [animation-fill-mode:forwards]"
+
 const pinMotion = `${animated} origin-bottom-left duration-200 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-50 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-50`
 const previewMotion = `${animated} origin-top-left duration-150 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-left-1 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95`
 const threadMotion = `${animated} origin-top-left duration-200 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-90 data-[state=open]:slide-in-from-left-2 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-90 data-[state=closed]:slide-out-to-left-2`
 
 /** How a thread's pin looks, from its thread and whether it's open. */
 function pinState(thread: ThreadData, open: boolean, draft: boolean): PinState {
-  if (draft) return "draft"
-  if (open) return "selected"
-  if (thread.resolved) return "resolved"
-  if (thread.working) return "working"
+  if (draft) {
+    return "draft"
+  }
+
+  if (open) {
+    return "selected"
+  }
+
+  if (thread.resolved) {
+    return "resolved"
+  }
+
+  if (thread.working) {
+    return "working"
+  }
+
   return thread.unread ? "unread" : "default"
 }
 
@@ -77,12 +99,21 @@ function LivePin({
   const shownPin = useExit(visible ? pin.id : undefined, 240)
   const shownThread = useExit(open ? pin.id : undefined, 200)
   const shownPreview = useExit(hovered && !open && !draft ? pin.id : undefined, 150)
-  if (!shownPin.shown && !shownThread.shown) return null
+
+  if (!shownPin.shown && !shownThread.shown) {
+    return null
+  }
+
   const people = [...new Set(pin.thread.comments.map((comment) => comment.author))]
   const first = people[0]
   let layer = "z-10"
-  if (open) layer = "z-30"
-  else if (hovered) layer = "z-20"
+
+  if (open) {
+    layer = "z-30"
+  } else if (hovered) {
+    layer = "z-20"
+  }
+
   return (
     <div className={`absolute ${layer}`} style={{ left: pin.x, top: pin.y }}>
       <span className="absolute top-[-28px] left-0 block">
@@ -174,29 +205,41 @@ export function LiveBoard({
     window.clearTimeout(toastTimer.current)
     toastTimer.current = window.setTimeout(() => setToast(undefined), 3000)
   }
+
   const patch = (id: string, change: (pin: Pinned) => Pinned) =>
     setPins((current) => current.map((pin) => (pin.id === id ? change(pin) : pin)))
+
   const close = () => {
     setOpen(undefined)
     setDraft(undefined)
   }
+
   const toggle = (id: string) => {
     setDraft(undefined)
-    if (open === id) return setOpen(undefined)
+
+    if (open === id) {
+      return setOpen(undefined)
+    }
+
     setOpen(id)
     patch(id, (pin) => ({ ...pin, thread: { ...pin.thread, unread: false } }))
   }
+
   const change = (id: string, next: ThreadData) => {
     const before = pins.find((pin) => pin.id === id)?.thread
     patch(id, (pin) => ({ ...pin, thread: next }))
+
     // Resolving shows who resolved it for a moment, then folds the thread away and its pin with it.
-    if (!before?.resolved && next.resolved)
+    if (!before?.resolved && next.resolved) {
       window.setTimeout(() => setOpen((current) => (current === id ? undefined : current)), 900)
+    }
   }
+
   const hover = (id: string) => {
     window.clearTimeout(hoverTimer.current)
     hoverTimer.current = window.setTimeout(() => setHovered(id), 150)
   }
+
   const leave = () => {
     window.clearTimeout(hoverTimer.current)
     setHovered(undefined)
@@ -205,24 +248,39 @@ export function LiveBoard({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
-      if (event.defaultPrevented || target?.closest?.("[data-radix-popper-content-wrapper]")) return
+
+      if (event.defaultPrevented || target?.closest?.("[data-radix-popper-content-wrapper]")) {
+        return
+      }
+
       const typing = target?.closest?.("input, textarea, [contenteditable='true']")
+
       if (event.key === "Escape") {
         if (open || draft) {
           setOpen(undefined)
           setDraft(undefined)
-        } else setCommenting(false)
+        } else {
+          setCommenting(false)
+        }
       } else if (event.key.toLowerCase() === "c" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
         setCommenting((current) => !current)
       }
     }
+
     window.addEventListener("keydown", onKey)
+
     return () => window.removeEventListener("keydown", onKey)
   }, [open, draft])
 
   const onDesign = (event: PointerEvent<HTMLDivElement>) => {
-    if (open || draft) return close()
-    if (!commenting) return
+    if (open || draft) {
+      return close()
+    }
+
+    if (!commenting) {
+      return
+    }
+
     const box = event.currentTarget.getBoundingClientRect()
     const scale = box.width / event.currentTarget.offsetWidth || 1
     const id = `new-${Date.now()}`
@@ -235,10 +293,13 @@ export function LiveBoard({
   }
 
   const active = (pin: Pinned) => !pin.deleted && (pin.id === open || pin.id === hovered)
+
   const mark: Marker = (id, element) => {
     const pin = pins.find((candidate) => candidate.layer?.id === id && active(candidate))
+
     return pin ? <LayerOutline name={pin.layer!.name}>{element}</LayerOutline> : element
   }
+
   const resolved = pins.filter((pin) => !pin.deleted && pin.thread.resolved).length
 
   return (
@@ -331,7 +392,10 @@ export function LiveBoard({
             <Thread
               thread={draft.thread}
               onChange={(next) => {
-                if (!next.comments.length) return
+                if (!next.comments.length) {
+                  return
+                }
+
                 setPins((current) => [...current, { ...draft, thread: next }])
                 setDraft(undefined)
                 setOpen(draft.id)

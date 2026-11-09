@@ -25,6 +25,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const examples: Record<A11yKind, ReactNode> = {
@@ -78,8 +79,11 @@ export const Toolbar: Story = {
 const order: Record<string, number> = { email: 1, role: 2, cancel: 3, send: 4, close: 5 }
 
 const focusOrder: Marker = (id, element) => {
-  if (id in order) return <FocusStop n={order[id]!}>{element}</FocusStop>
-  if (id === "dialog")
+  if (id in order) {
+    return <FocusStop n={order[id]!}>{element}</FocusStop>
+  }
+
+  if (id === "dialog") {
     return (
       <Annotate
         at="bottom-start"
@@ -98,6 +102,8 @@ const focusOrder: Marker = (id, element) => {
         {element}
       </Annotate>
     )
+  }
+
   return element
 }
 
@@ -272,21 +278,27 @@ const checked: Marker = (id, element) => {
         {element}
       </FocusStop>
     )
-    if (id === "close")
+
+    if (id === "close") {
       return (
         <Annotate at="bottom-end" tags={[{ kind: "name", label: 'button, "Close"', status: "differs" }]}>
           {stop}
         </Annotate>
       )
+    }
+
     return stop
   }
-  if (id === "title")
+
+  if (id === "title") {
     return (
       <Annotate at="end" className="w-fit" tags={[{ kind: "heading", label: "H2", status: "matches" }]}>
         {element}
       </Annotate>
     )
-  if (id === "status")
+  }
+
+  if (id === "status") {
     return (
       <Annotate
         at="bottom-start"
@@ -295,6 +307,8 @@ const checked: Marker = (id, element) => {
         {element}
       </Annotate>
     )
+  }
+
   return element
 }
 

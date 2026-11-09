@@ -27,7 +27,10 @@ function percent(value: number): string {
 
 /** Below 50 frames a second is worth a look, below 30 the app feels slow. */
 function fpsTone(fps: number): string {
-  if (fps < 30) return "text-destructive"
+  if (fps < 30) {
+    return "text-destructive"
+  }
+
   return fps < 50 ? "text-amber-600 dark:text-amber-400" : "text-foreground"
 }
 
@@ -38,14 +41,17 @@ function fpsTone(fps: number): string {
 export function PerformanceStats() {
   const [open, setOpen] = useState(false)
   const { latest, history } = usePerformanceStats()
+
   const processes = [...(latest?.processes ?? [])].sort(
     (a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role) || b.memory - a.memory
   )
+
   const memory = processes.reduce((sum, process) => sum + process.memory, 0)
   const cpu = processes.reduce((sum, process) => sum + process.cpu, 0)
   const lowest = history.length > 0 ? Math.min(...history) : undefined
 
   const label = latest ? `${latest.fps} fps, ${megabytes(memory)}, ${percent(cpu)} CPU` : "Measuring"
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -147,6 +153,7 @@ function FrameRateChart({ history }: { history: number[] }) {
   const y = (fps: number) => height - (fps / top) * (height - 2) - 1
   const points = history.map((fps, index) => `${x(index).toFixed(1)},${y(fps).toFixed(1)}`).join(" ")
   const last = history.at(-1)
+
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-10 w-full overflow-visible" aria-hidden>
       <line x1={0} x2={width} y1={y(60)} y2={y(60)} className="stroke-border" strokeDasharray="3 3" />

@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**
@@ -51,6 +52,7 @@ const topBarWithSlot = () => {
   example().store.updateContainer(key, "Make slot", (container) =>
     setSlot(container, node("App top bar", "Top bar actions"), "actions")
   )
+
   return { design: key }
 }
 
@@ -76,6 +78,7 @@ export const ComponentWithSeveralSlots: Story = {
           "pricing"
         )
       )
+
       return { design: key }
     })
   ]
@@ -138,6 +141,7 @@ export const NewComponent: Story = {
     inspecting("design", () => {
       const key = design("Button")
       example().store.updateContainer(key, "Change design kind", (current) => ({ ...current, kind: "component" }))
+
       return { design: key }
     })
   ]
@@ -157,6 +161,7 @@ export const EveryModeShown: Story = {
         ...view,
         modes: ["desktop-dark", "tablet-light", "mobile-light"]
       }))
+
       return { design: key }
     })
   ]
@@ -172,6 +177,7 @@ export const AnotherModeFirst: Story = {
         mode: "mobile-light",
         modes: ["desktop-light"]
       }))
+
       return { design: key }
     })
   ]
@@ -187,6 +193,7 @@ export const ShowingAnotherState: Story = {
         state: "wrong-password",
         allStates: false
       }))
+
       return { design: key }
     })
   ]
@@ -201,6 +208,7 @@ export const LongName: Story = {
         ...current,
         name: "Pricing page for the enterprise launch, with annual billing and the comparison table"
       }))
+
       return { design: key }
     })
   ]
@@ -231,11 +239,13 @@ export const NoteSelected: Story = {
   loaders: [
     inspecting("design", () => {
       const { store } = example()
+
       const note = store.addNote(store.mainPath, {
         id: "launch-note",
         text: "Launch checklist: swap the hero photo, confirm yearly prices with finance, and check the FAQ copy with legal.",
         position: { x: 0, y: -1200 }
       })
+
       return { note }
     })
   ]

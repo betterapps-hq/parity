@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof SelectedProps>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Selects one layer of an example design, in a state when one is named. */
@@ -56,6 +57,7 @@ export const AttributeWithOptions: Story = {
       example().store.updateContainer(key, "Change type", (container) =>
         editNode(container, container.states[0]!.id, id, { props: { type: "submit" } })
       )
+
       return layersSelection(key, [id])
     })
   ]
@@ -73,6 +75,7 @@ export const NumberAsContent: Story = {
       example().store.updateContainer(key, "Change children", (container) =>
         editNode(container, container.states[0]!.id, id, { props: { children: 12 } })
       )
+
       return layersSelection(key, [id])
     })
   ]
@@ -90,6 +93,7 @@ export const PropsNotReadYet: Story = {
     inspecting("design", () => {
       // Forgets the props read from source, as before they've been read.
       example().components.set({})
+
       return layersSelection(design("Plan card"), [node("Plan card", "Call to action")])
     })
   ]

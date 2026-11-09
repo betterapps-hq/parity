@@ -94,6 +94,7 @@ export interface TokenWriter {
 }
 
 const saveDelay = 300
+
 /** For a key with no design, so asking for its library gives the same empty one each time. */
 const noLibrary: ComponentLibrary = new Map()
 
@@ -139,6 +140,7 @@ export class DesignStore {
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
+
     return () => this.listeners.delete(listener)
   }
 
@@ -199,10 +201,15 @@ export class DesignStore {
    */
   reloadDocument(path: string, document: CanvasDocument, force = false): boolean {
     const step = reloadFile(this.state, path, document, force)
-    if (!step) return false
+
+    if (!step) {
+      return false
+    }
+
     clearTimeout(this.timers.get(path))
     this.timers.delete(path)
     this.take(step)
+
     return true
   }
 
@@ -212,6 +219,7 @@ export class DesignStore {
    */
   beginGesture(): string {
     this.gestures += 1
+
     return `${this.epoch}:${this.gestures}`
   }
 
@@ -219,6 +227,7 @@ export class DesignStore {
   endGesture(gesture: string): boolean {
     const stepped = this.state.past.some((step) => step.gesture === gesture)
     this.state = endGesture(this.state, gesture)
+
     return stepped
   }
 
@@ -228,6 +237,7 @@ export class DesignStore {
    */
   checkpoint(key: string, gesture: string): Checkpoint | undefined {
     const entry = this.getEntry(key)
+
     return entry && historyCheckpoint(this.state, entry.path, entry.container, gesture)
   }
 
@@ -255,13 +265,22 @@ export class DesignStore {
 
   /** Takes an undo or redo step, recording what it changed: its designs, files, modes and tokens. */
   private stepWith(name: "edit.undone" | "edit.redone", label: string | undefined, step: DesignStep | undefined): void {
-    if (!step) return
+    if (!step) {
+      return
+    }
+
     const before = this.state.current
     const entries = this.byKey
     this.take(step)
     const after = this.state.current
     const designs = this.entries.filter((entry) => entries.get(entry.key) !== entry).map((entry) => entry.key)
-    for (const key of entries.keys()) if (!this.byKey.has(key)) designs.push(key)
+
+    for (const key of entries.keys()) {
+      if (!this.byKey.has(key)) {
+        designs.push(key)
+      }
+    }
+
     track(name, {
       step: label ?? "",
       designs,
@@ -278,7 +297,11 @@ export class DesignStore {
     options?: ChangeOptions
   ): void {
     const design = this.designOf(key)
-    if (!design) return
+
+    if (!design) {
+      return
+    }
+
     this.change(label, (snapshot) => changeDesign(snapshot, design, update), options)
   }
 
@@ -293,11 +316,17 @@ export class DesignStore {
     options?: ChangeOptions
   ): void {
     const designs: DesignRef[] = []
+
     for (const key of keys) {
       const design = this.designOf(key)
-      if (!design) return
+
+      if (!design) {
+        return
+      }
+
       designs.push(design)
     }
+
     this.change(label, (snapshot) => changeDesigns(snapshot, designs, update), options)
   }
 
@@ -333,6 +362,7 @@ export class DesignStore {
   /** Adds a design to a file, creating the file when it doesn't exist yet. Returns the design's key. */
   addContainer(path: string, container: ContainerSpec, label = `Add ${kindName(container.kind)}`): string {
     this.change(label, (snapshot) => addDesign(snapshot, path, container))
+
     return containerKey(path, container.id)
   }
 
@@ -340,20 +370,29 @@ export class DesignStore {
   reorderContainer(key: string, target: string, place: "before" | "after"): void {
     const design = this.designOf(key)
     const beside = this.designOf(target)
-    if (!design || !beside) return
+
+    if (!design || !beside) {
+      return
+    }
+
     const label = `Reorder ${kindsName([this.getEntry(key)?.container.kind])}`
     this.change(label, (snapshot) => reorderDesign(snapshot, design, beside, place))
   }
 
   removeContainer(key: string, label?: string): void {
     const design = this.designOf(key)
-    if (!design) return
+
+    if (!design) {
+      return
+    }
+
     const named = label ?? `Delete ${kindName(this.getEntry(key)?.container.kind)}`
     this.change(named, (snapshot) => deleteDesign(snapshot, design))
   }
 
   addNote(path: string, note: NoteSpec): string {
     this.change("Add text", (snapshot) => addNote(snapshot, path, note))
+
     return containerKey(path, note.id)
   }
 
@@ -364,24 +403,39 @@ export class DesignStore {
     options?: ChangeOptions
   ): void {
     const entry = this.notes.find((candidate) => candidate.key === key)
-    if (!entry) return
+
+    if (!entry) {
+      return
+    }
+
     const note = { path: entry.path, id: entry.note.id }
     this.change(label, (snapshot) => changeNote(snapshot, note, update), options)
   }
 
   /** Saves: writes every file with unsaved changes, and resolves once they're all on disk. */
   async flush(): Promise<void> {
-    for (const timer of this.timers.values()) clearTimeout(timer)
+    for (const timer of this.timers.values()) {
+      clearTimeout(timer)
+    }
+
     this.timers.clear()
     const started = startSave(this.state)
+
     if (started !== this.state) {
       this.state = started
       this.notify()
     }
-    for (const path of this.unsavedPaths()) this.write(path)
+
+    for (const path of this.unsavedPaths()) {
+      this.write(path)
+    }
+
     await Promise.allSettled(this.writing)
     const failure = saveFailure(this.state)
-    if (failure) throw new Error(failure)
+
+    if (failure) {
+      throw new Error(failure)
+    }
   }
 
   /** The documents, modes and component list corrections as one project file, as Save a copy writes it. */
@@ -405,23 +459,35 @@ export class DesignStore {
     tokens: readonly TokenEdit[]
   ): ChangeConflict[] {
     const merged = mergeAgentChanges(this.state.current, designs, modes, tokens)
-    if (merged.conflicts.length === 0) this.change(label, () => merged.snapshot)
+
+    if (merged.conflicts.length === 0) {
+      this.change(label, () => merged.snapshot)
+    }
+
     return merged.conflicts
   }
 
   private designOf(key: string): DesignRef | undefined {
     const entry = this.getEntry(key)
+
     return entry && { path: entry.path, id: entry.container.id }
   }
 
   /** Moves to the step the history took, saving the files it changed a moment later with automatic saving on. */
   private take(step: DesignStep | undefined): void {
-    if (!step) return
+    if (!step) {
+      return
+    }
+
     this.state = step.history
     this.index()
+
     if (step.writes.length > 0 && this.persistence.autosave()) {
-      for (const path of step.writes) this.schedule(path)
+      for (const path of step.writes) {
+        this.schedule(path)
+      }
     }
+
     this.notify()
   }
 
@@ -436,14 +502,17 @@ export class DesignStore {
       document.containers.map((container) => {
         const key = containerKey(path, container.id)
         const kept = previous.get(key)
+
         return kept?.container === container && kept.path === path ? kept : { key, path, container }
       })
     )
     this.byKey = new Map(this.entries.map((entry) => [entry.key, entry]))
+
     const library = projectComponentLibrary(
       this.libraryDesigns,
       this.entries.map((entry) => entry.container)
     )
+
     this.library = library
     this.libraries = new Map(
       this.entries.map((entry) => [
@@ -472,7 +541,11 @@ export class DesignStore {
   /** Writes a file as it is now; once it's on disk, that's what the file is known to hold. */
   private write(path: string): void {
     const write = fileWrite(this.state, path)
-    if (!write) return
+
+    if (!write) {
+      return
+    }
+
     const writing = this.send(write).then(
       () => this.settle(writeSucceeded(this.state, write)),
       (error: unknown) => {
@@ -480,6 +553,7 @@ export class DesignStore {
         this.settle(writeFailed(this.state, write, error))
       }
     )
+
     this.writing.add(writing)
     void writing.finally(() => this.writing.delete(writing))
     this.settle(writeStarted(this.state))
@@ -489,10 +563,12 @@ export class DesignStore {
   private send(write: FileWrite): Promise<unknown> {
     if (write.kind === "tokens") {
       const writer = this.tokenWriter
+
       return writer
         ? writer.write(write.changes)
         : Promise.reject(new Error("Nothing here can write to the stylesheet"))
     }
+
     return write.content ? this.persistence.saveDocument(write.path, write.content) : Promise.resolve()
   }
 
@@ -503,7 +579,9 @@ export class DesignStore {
   }
 
   private notify(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }
 

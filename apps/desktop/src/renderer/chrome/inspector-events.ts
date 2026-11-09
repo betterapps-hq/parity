@@ -38,7 +38,11 @@ export function recordInspectorChange({
 }: InspectorChange): void {
   const before = valueText(from)
   const after = valueText(to)
-  if (!(changed ?? before !== after)) return
+
+  if (!(changed ?? before !== after)) {
+    return
+  }
+
   track("inspector.changed", {
     field,
     ...(design ? { design } : {}),
@@ -55,15 +59,25 @@ export const mixed = Symbol("mixed")
 
 /** A value as `inspector.changed` sends it: JSON, `null` for none, or `mixed`. */
 export function valueText(value: unknown): string {
-  if (value === mixed) return "mixed"
+  if (value === mixed) {
+    return "mixed"
+  }
+
   return value === undefined ? "null" : JSON.stringify(value)
 }
 
 /** A style row's values as the selected layers share them, or `mixed` when they differ. */
 export function rowValues(selection: StyleSelection | undefined, row: StyleRow): unknown {
-  if (!selection) return undefined
+  if (!selection) {
+    return undefined
+  }
+
   const keys: readonly (keyof NodeStyle)[] = styleRows[row]
-  if (keys.some((key) => selection.mixed.includes(key))) return mixed
+
+  if (keys.some((key) => selection.mixed.includes(key))) {
+    return mixed
+  }
+
   return Object.fromEntries(
     keys.flatMap((key) => (selection.style[key] === undefined ? [] : [[key, selection.style[key]]]))
   )
@@ -75,8 +89,10 @@ export function rowValues(selection: StyleSelection | undefined, row: StyleRow):
  */
 export function rowChanged(before: StyleSelection, after: StyleSelection | undefined, row: StyleRow): boolean {
   const keys: readonly (keyof NodeStyle)[] = styleRows[row]
+
   const values = (selection: StyleSelection | undefined) =>
     JSON.stringify(selection?.layers.map((layer) => [layer.id, keys.map((key) => styleOf(layer.node)?.[key] ?? null)]))
+
   return values(before) !== values(after)
 }
 
@@ -88,10 +104,23 @@ const styleOf = (node: DesignNode) => (node as DesignNode & { style?: NodeStyle 
  */
 export function changedFields(node: DesignNode, change: NodeChange): { field: string; from: unknown; to: unknown }[] {
   const fields: { field: PatchField; to: unknown }[] = []
-  if ("text" in change) fields.push({ field: { kind: "text" }, to: change.text })
-  if ("hidden" in change) fields.push({ field: { kind: "hidden" }, to: change.hidden })
-  for (const [key, to] of Object.entries(change.props ?? {})) fields.push({ field: { kind: "props", key }, to })
-  for (const [key, to] of Object.entries(change.style ?? {})) fields.push({ field: { kind: "style", key }, to })
+
+  if ("text" in change) {
+    fields.push({ field: { kind: "text" }, to: change.text })
+  }
+
+  if ("hidden" in change) {
+    fields.push({ field: { kind: "hidden" }, to: change.hidden })
+  }
+
+  for (const [key, to] of Object.entries(change.props ?? {})) {
+    fields.push({ field: { kind: "props", key }, to })
+  }
+
+  for (const [key, to] of Object.entries(change.style ?? {})) {
+    fields.push({ field: { kind: "style", key }, to })
+  }
+
   return fields.map(({ field, to }) => ({ field: fieldName(field), from: fieldValue(node, field), to }))
 }
 
@@ -169,7 +198,11 @@ export function updateAndRecord(
   const before = store.getEntry(key)?.container
   store.updateContainer(key, label, update)
   const after = store.getEntry(key)?.container
-  if (!before || !after || before === after) return
+
+  if (!before || !after || before === after) {
+    return
+  }
+
   recordInspectorChange({
     field,
     design: key,
@@ -187,19 +220,37 @@ export function fieldName(field: PatchField): string {
 
 /** What a layer shows in a field, as `changedFields` reads it: an instance's props are its arguments. */
 export function fieldValue(node: DesignNode | undefined, field: PatchField): unknown {
-  if (!node) return undefined
+  if (!node) {
+    return undefined
+  }
+
   const shown = node as DesignNode & { text?: string; props?: Record<string, unknown>; style?: NodeStyle }
-  if (field.kind === "text") return shown.text
-  if (field.kind === "hidden") return shown.hidden ?? false
+
+  if (field.kind === "text") {
+    return shown.text
+  }
+
+  if (field.kind === "hidden") {
+    return shown.hidden ?? false
+  }
+
   const { key } = field as Extract<PatchField, { key: string }>
-  if (field.kind === "style") return shown.style?.[key as keyof NodeStyle]
+
+  if (field.kind === "style") {
+    return shown.style?.[key as keyof NodeStyle]
+  }
+
   return (node.type === "instance" ? node.args : shown.props)?.[key]
 }
 
 /** A component design's param as `inspector.changed` sends it: a variant's options by id and name, not what they change. */
 export function paramValue(container: ContainerSpec, name: string): unknown {
   const param = container.params?.[name]
-  if (!param?.options) return param
+
+  if (!param?.options) {
+    return param
+  }
+
   return { ...param, options: param.options.map(({ id, name: option }) => ({ id, name: option })) }
 }
 
@@ -218,10 +269,13 @@ export function applyToken(
   changes: Record<string, string>
 ): void {
   const themes = Object.keys(changes)
+
   const values = () => {
     const token = store.get().find((candidate) => candidate.name === name)
+
     return Object.fromEntries(themes.map((theme) => [theme, token?.values[theme] ?? null]))
   }
+
   const from = values()
   store.set(themes.map((theme) => ({ name, theme, value: changes[theme]! })))
   recordInspectorChange({ field: `token.${name}`, layers: [], from, to: values() })

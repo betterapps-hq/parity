@@ -20,8 +20,10 @@ describe("a spacing bar", () => {
   it("always ends further along for a longer length", () => {
     const ends = [0, 4, 16, 20, 24, 32, 48, 64, 96, 128, 192, 256, 320, 384].map((length) => {
       const { solid, squeezed } = barLength(length, 36)
+
       return solid + squeezed
     })
+
     expect(ends).toEqual(ends.toSorted((a, b) => a - b))
     expect(new Set(ends.slice(1)).size).toBe(ends.length - 1)
   })

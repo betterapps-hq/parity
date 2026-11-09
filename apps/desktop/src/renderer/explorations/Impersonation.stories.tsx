@@ -31,12 +31,14 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const support = {
   email: "sam@betterapps.io",
   reason: "Checking why Kestrel website's previews don't load (ticket 4182)"
 }
+
 const person = { name: me.name, email: kestrelMember.email, where: "Kestrel, editor" }
 
 type Phase = "confirm" | "on" | "ended" | "own"
@@ -133,9 +135,11 @@ function ImpersonationPrototype({ start }: { start: Phase }) {
       description: `You're signed out of ${person.name}'s account. Sign in to use your own.`
     })
   }
+
   const own = { email: support.email, orgs: ["personal"] as const }
   const signedOut = phase === "ended" ? null : own
   const account = phase === "on" ? kestrelMember : signedOut
+
   return (
     <StartActionsProvider
       value={{

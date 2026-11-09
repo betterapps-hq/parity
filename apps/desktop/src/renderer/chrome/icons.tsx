@@ -51,6 +51,7 @@ export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: st
   const aliases = loaded.guest.iconAliases?.(library.id, key)
   const listed = setEntries(loaded.guest.iconNames?.(library.id, key) ?? [], library.icons, style, aliases)
   const prefix = key ? `${library.id}/${key}/` : `${library.id}/`
+
   const entries = new Map(
     listed.map((icon): [SetEntry, IconEntry] => [
       icon,
@@ -64,12 +65,15 @@ export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: st
       }
     ])
   )
+
   let index: IconIndex | undefined
+
   return {
     entries: [...entries.values()],
     search(query) {
       // Indexed on the first search, so opening the panel stays quick.
       index ??= iconIndex(listed, aliases, library.icons?.tags)
+
       return searchIcons(index, query).map((icon) => entries.get(icon)!)
     }
   }
@@ -82,6 +86,7 @@ const iconSheet = (() => {
     ":host { display: grid; place-items: center; width: var(--icon-size); height: var(--icon-size); font-size: var(--icon-size); color: inherit }\n" +
       "svg { width: var(--icon-size); height: var(--icon-size); display: block }"
   )
+
   return sheet
 })()
 
@@ -99,10 +104,12 @@ export function GuestIcon({
   size?: number
 }) {
   const hostRef = useRef<HTMLSpanElement>(null)
+
   const tree = useMemo<RenderNode[]>(
     () => [{ kind: "component", nodeId: "icon", component: item.component, props: { ...item.props }, slots: {} }],
     [item]
   )
+
   useEffect(() => {
     const host = hostRef.current!
     const shadow = unrecordedShadow(host)
@@ -110,8 +117,10 @@ export function GuestIcon({
     const target = document.createElement("span")
     shadow.replaceChildren(target)
     const handle = loaded.guest.mount(target, tree, { bare: true })
+
     return () => handle.unmount()
   }, [loaded, tree])
+
   return (
     <span
       ref={hostRef}

@@ -72,6 +72,7 @@ export function PropsSection({
   const { main, addable, inSlot } = panel
   const listed = new Set([...main.map((prop) => prop.name), ...panel.extra])
   const extra = [...panel.extra, ...taken.filter((name) => !listed.has(name))]
+
   const preview = (name: string): NumberPreview | undefined =>
     onPreview && onCancel ? { onPreview: (value) => onPreview(name, value), onCancel } : undefined
 
@@ -105,8 +106,10 @@ export function PropsSection({
         {extra.map((name) => {
           const prop = known.get(name)
           let input: ReactNode
-          if (isMadeValue(values[name])) input = <MadeValue value={values[name]} />
-          else if (prop)
+
+          if (isMadeValue(values[name])) {
+            input = <MadeValue value={values[name]} />
+          } else if (prop) {
             input = (
               <PropInput
                 prop={prop}
@@ -116,7 +119,7 @@ export function PropsSection({
                 onChange={(value, gesture) => onChange(name, value, gesture)}
               />
             )
-          else
+          } else {
             input = (
               <ValueInput
                 value={values[name]}
@@ -125,6 +128,8 @@ export function PropsSection({
                 onCommit={(value, gesture) => onChange(name, value, gesture)}
               />
             )
+          }
+
           return (
             <div key={name} className="group relative">
               <Field
@@ -159,6 +164,7 @@ export function PropsSection({
  */
 function MadeValue({ value }: { value: unknown }) {
   const call = isMadeValue(value) ? value.$call : undefined
+
   return (
     <span
       className="truncate px-1 text-xs text-muted-foreground"
@@ -185,8 +191,12 @@ function PropInput({
   preview?: NumberPreview
   onChange: (value: unknown, gesture?: string) => void
 }) {
-  if (isMadeValue(value)) return <MadeValue value={value} />
+  if (isMadeValue(value)) {
+    return <MadeValue value={value} />
+  }
+
   const fallback = prop.default === undefined || prop.default === null ? undefined : String(prop.default)
+
   switch (prop.kind) {
     case "enum":
       return (
@@ -233,6 +243,7 @@ function PropInput({
       if (nodePropInput(value, inSlot) === "layers") {
         return <span className="text-xs text-muted-foreground">Set in layers</span>
       }
+
       // A value that isn't text (a number, `null`) is edited as one, as before slots were nodes.
       if (nodePropInput(value, inSlot) === "value") {
         return (
@@ -245,6 +256,7 @@ function PropInput({
           />
         )
       }
+
       return (
         <TextInput
           value={typeof value === "string" ? value : ""}
@@ -279,11 +291,13 @@ function AddProp({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
   const groups = Map.groupBy(props, (prop) => prop.group)
+
   const add = (name: string, value: unknown) => {
     onAdd(name, value)
     setOpen(false)
     setSearch("")
   }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -308,7 +322,11 @@ function AddProp({
             </CommandEmpty>
             {(["own", "variant", "html", "aria"] as const).map((group) => {
               const list = groups.get(group)
-              if (!list?.length) return null
+
+              if (!list?.length) {
+                return null
+              }
+
               return (
                 <CommandGroup
                   key={group}
@@ -348,9 +366,21 @@ function AddProp({
 
 /** A starting value for a newly added prop, so it shows something right away. */
 function initialValue(prop: ComponentProp): unknown {
-  if (prop.default !== undefined && prop.default !== null) return prop.default
-  if (prop.kind === "boolean") return true
-  if (prop.kind === "enum") return prop.options?.[0]
-  if (prop.kind === "number") return 0
+  if (prop.default !== undefined && prop.default !== null) {
+    return prop.default
+  }
+
+  if (prop.kind === "boolean") {
+    return true
+  }
+
+  if (prop.kind === "enum") {
+    return prop.options?.[0]
+  }
+
+  if (prop.kind === "number") {
+    return 0
+  }
+
   return ""
 }

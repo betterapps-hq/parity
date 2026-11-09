@@ -13,6 +13,7 @@ const meta = {
 } satisfies Meta<typeof KindTile>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Each kind by name. Typed by the kinds the service reports, so a new kind can't be left out. */

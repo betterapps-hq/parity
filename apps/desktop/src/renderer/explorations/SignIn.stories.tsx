@@ -25,6 +25,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**
@@ -55,6 +56,7 @@ function ShowcaseCursor({
   style: CSSProperties
 }) {
   const colors = agentPalettes[palette]!
+
   return (
     <div className="absolute motion-safe:animate-[var(--move)]" style={{ ...style, ["--move" as string]: animation }}>
       <AgentPointer palette={colors} />
@@ -157,7 +159,10 @@ type Step = "email" | "sso" | "code"
 
 /** The email already typed when a story starts at a step: none, a company's, or a personal one. */
 function startingEmail(step: Step): string {
-  if (step === "email") return ""
+  if (step === "email") {
+    return ""
+  }
+
   return step === "sso" ? "andrew@buildkit.dev" : "andrew@hey.com"
 }
 
@@ -165,6 +170,7 @@ function startingEmail(step: Step): string {
 function EmailFirst({ initial }: { initial: Step }) {
   const [step, setStep] = useState<Step>(initial)
   const [email, setEmail] = useState(startingEmail(initial))
+
   return (
     <ExploreWindow>
       <div className="flex h-full flex-col items-center justify-center px-6" style={glow}>
