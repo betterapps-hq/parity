@@ -25,7 +25,7 @@ import { activeState } from "@parity-app/editor"
 import { Copy, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useProject } from "../canvas/context.ts"
-import { focusOnMount, kindColors, layerLabel, NodeIcon } from "../canvas/kinds.tsx"
+import { focusOnMount, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
 import { statesValue, updateAndRecord } from "./inspector-events.ts"
@@ -278,7 +278,7 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
                     onClick={() => selection.set({ design: entry.key, node: nodeId })}
                   >
                     {node ? (
-                      <NodeIcon node={node} className="size-3.5 shrink-0" style={{ color: kindColors.layer }} />
+                      <NodeIcon node={node} className="size-3.5 shrink-0" style={{ color: nodeColor(node) }} />
                     ) : (
                       <Pencil className="size-3.5 shrink-0" />
                     )}
