@@ -34,8 +34,8 @@ import {
   MousePointerClick,
   SquarePlus,
   Plus,
-  Pointer,
   Search,
+  SquareMousePointer,
   Type
 } from "lucide-react"
 import { type CSSProperties, Fragment, type ReactElement, type ReactNode, useEffect, useState } from "react"
@@ -65,7 +65,7 @@ const toolIcons: Record<Tool, typeof Hand> = {
   hand: Hand,
   frame: Frame,
   text: Type,
-  interact: Pointer
+  interact: SquareMousePointer
 }
 
 /**

@@ -6,7 +6,9 @@ import {
   MousePointerClick,
   Play,
   Pointer,
-  SquareMousePointer
+  RectangleEllipsis,
+  SquareMousePointer,
+  TextCursorInput
 } from "lucide-react"
 import type { ReactNode } from "react"
 import { ProjectContext } from "../../canvas/context.ts"
@@ -182,6 +184,16 @@ const interactIcons: { name: string; icon: LucideIcon; note: string }[] = [
     note: "A cursor inside a box: use what's inside the frame, where it is."
   },
   {
+    name: "TextCursorInput",
+    icon: TextCursorInput,
+    note: "A text cursor beside a field: typing into the real component, which is what Interact makes possible."
+  },
+  {
+    name: "RectangleEllipsis",
+    icon: RectangleEllipsis,
+    note: "An input field with dots, once Lucide's FormInput. It reads as a form or a password more than as trying things."
+  },
+  {
     name: "Play",
     icon: Play,
     note: "Figma's and Framer's preview, which everyone knows, but it suggests a separate preview rather than working in place."
@@ -195,7 +207,8 @@ function InteractIcons() {
       <h2 className="font-medium">Icons for Interact</h2>
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
         Interact now sits in the Move menu, with Move and select and Hand, and the button shows its icon while
-        it&rsquo;s picked. Each candidate is beside the other two, then picked.
+        it&rsquo;s picked. Each candidate is beside the other two, then picked. The options use SquareMousePointer for
+        now.
       </p>
       <div className="mt-4 grid gap-4">
         {interactIcons.map(({ name, icon: Icon, note }) => (
