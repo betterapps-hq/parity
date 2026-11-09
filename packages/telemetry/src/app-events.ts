@@ -99,6 +99,41 @@ export const serviceLag = defineEvent(
   { level: "warn", sentBy: ["service"], when: "The project service's event loop is late by over 200 ms." }
 )
 
+export const serviceExited = defineEvent(
+  "service.exited",
+  z.object({
+    exitCode: z.number().int().describe("The code the project service exited with"),
+    ranMs: ms("How long it ran before it exited"),
+    restarted: z
+      .boolean()
+      .describe(
+        "Whether a fresh service took its place as it exited. A crashed one is started again when a window loads"
+      )
+  }),
+  {
+    level: "warn",
+    sentBy: ["main"],
+    when: "The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits."
+  }
+)
+
+export const windowHung = defineEvent(
+  "window.hung",
+  z.object({
+    window: z
+      .enum(["renderer", "render"])
+      .describe("Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames"),
+    stuckMs: ms("How long the window didn't answer")
+  }),
+  { level: "warn", sentBy: ["main"], when: "A window that stopped answering answers again." }
+)
+
+export const mainBlocked = defineEvent(
+  "main.blocked",
+  z.object({ stuckMs: ms("How late main's timer ran, which is how long its event loop was blocked") }),
+  { level: "warn", sentBy: ["main"], when: "Main's event loop runs again after being blocked for over 2 seconds." }
+)
+
 export const rendererLongTask = defineEvent(
   "renderer.long_task",
   z.object({
@@ -118,11 +153,39 @@ export const appEvents = [
   updateFailed,
   processMemory,
   serviceLag,
+  serviceExited,
+  windowHung,
+  mainBlocked,
   rendererLongTask
 ] as const
 
 /** How late the service's loop or a window's task may run before it's recorded, in milliseconds. */
 export const slowThresholdMs = 200
+
+/** How long a window or main may be stuck before it's recorded as hung, in milliseconds. */
+export const hangThresholdMs = 2000
+
+/**
+ * The `service.exited` attributes for a project service that exited with `exitCode`, or nothing when the exit is
+ * expected: the app quitting, or the service ending cleanly on its own. One `replaced` by a fresh service is restarted.
+ */
+export function serviceExit({
+  exitCode,
+  ranMs,
+  replaced,
+  quitting
+}: {
+  exitCode: number
+  ranMs: number
+  replaced: boolean
+  quitting: boolean
+}): z.input<typeof serviceExited.schema> | undefined {
+  if (quitting || (exitCode === 0 && !replaced)) {
+    return undefined
+  }
+
+  return { exitCode, ranMs: Math.max(0, Math.round(ranMs)), restarted: replaced }
+}
 
 /** How often each process's memory is recorded, in milliseconds. */
 export const memoryEveryMs = 5 * 60_000

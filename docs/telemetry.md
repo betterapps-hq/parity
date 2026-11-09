@@ -395,6 +395,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                                      |
 | `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                             |
 | `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                     |
+| `main.blocked`        | warn  | all  | main                                    | Main's event loop runs again after being blocked for over 2 seconds.                                         |
 | `mcp.session`         | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                            |
 | `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                          |
 | `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                        |
@@ -416,6 +417,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                                                       |
 | `server.failed`       | warn  | all  | service                                 | A server the process manager started can't start.                                                            |
 | `server.started`      | info  | all  | service                                 | A server the process manager started answers at its address.                                                 |
+| `service.exited`      | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.   |
 | `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                     |
 | `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                              |
 | `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                                         |
@@ -429,6 +431,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                                              |
 | `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                     |
 | `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                                                |
+| `window.hung`         | warn  | all  | main                                    | A window that stopped answering answers again.                                                               |
 
 ### `agent.called`
 
@@ -762,6 +765,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | `version` | `string`, optional | The version installed, when known               |
 | `code`    | `string`, optional | The `CodedError` code, when the failure has one |
 
+### `main.blocked`
+
+| Attribute | Type      | Meaning                                                                 |
+| --------- | --------- | ----------------------------------------------------------------------- |
+| `stuckMs` | `integer` | How late main's timer ran, which is how long its event loop was blocked |
+
 ### `mcp.session`
 
 | Attribute         | Type               | Meaning                                                        |
@@ -960,6 +969,14 @@ Some failures are recorded for you, so code doesn't record them again:
 | `name`       | `string` | Its name, as the processes list shows it |
 | `durationMs` | `number` | How long it took, in milliseconds        |
 
+### `service.exited`
+
+| Attribute   | Type      | Meaning                                                                                                 |
+| ----------- | --------- | ------------------------------------------------------------------------------------------------------- |
+| `exitCode`  | `integer` | The code the project service exited with                                                                |
+| `ranMs`     | `integer` | How long it ran before it exited                                                                        |
+| `restarted` | `boolean` | Whether a fresh service took its place as it exited. A crashed one is started again when a window loads |
+
 ### `service.lag`
 
 | Attribute | Type      | Meaning                                                                        |
@@ -1061,5 +1078,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | `channel`   | `"stable" \| "beta"` | The update channel this install takes |
 | `version`   | `string`             | The version running now               |
 | `available` | `string`             | The version being installed           |
+
+### `window.hung`
+
+| Attribute | Type                     | Meaning                                                                                 |
+| --------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `window`  | `"renderer" \| "render"` | Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames |
+| `stuckMs` | `integer`                | How long the window didn't answer                                                       |
 
 <!-- End of the generated events. -->

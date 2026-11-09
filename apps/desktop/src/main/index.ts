@@ -84,6 +84,7 @@ import {
   personActed,
   recordForwarded,
   scrubber,
+  serviceExited,
   serviceStarted,
   startEvents,
   startTelemetry,
@@ -247,6 +248,7 @@ let serviceStarts = 0
 /** Builders, file access, agents and other heavy work run here, never in the UI process. */
 function startService(): UtilityProcess {
   serviceStarted(serviceStarts++ > 0)
+  const forked = performance.now()
 
   const child = utilityProcess.fork(serviceEntry, [], {
     serviceName,
@@ -316,6 +318,8 @@ function startService(): UtilityProcess {
     if (service === child) {
       service = undefined
     }
+
+    serviceExited({ exitCode: code, ranMs: performance.now() - forked, replaced: retired.has(child), quitting })
 
     if (code === 0 || retired.has(child)) {
       return
