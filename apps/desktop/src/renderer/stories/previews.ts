@@ -69,9 +69,14 @@ export function answerPreviews(kept: Record<string, Kept> = examplePreviews): vo
   const answer = (component: string): ComponentPreview => {
     const key = `story:${component}`
     const image = kitPictures[component]
-    if (image) return { component, key, image }
+
+    if (image) {
+      return { component, key, image }
+    }
+
     return { component, key, ...kept[component] }
   }
+
   answering({
     "previews.lookup": ({ previews }) => ({ previews: previews.map(({ component }) => answer(component)) }),
     "previews.make": () => new Promise<ComponentPreview>((resolve) => setTimeout(resolve, forever))

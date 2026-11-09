@@ -29,45 +29,87 @@ export class StylePreview {
   /** Shows `update` of the design as the store holds it now, in place of what this preview showed before. */
   show(update: (container: ContainerSpec) => ContainerSpec): void {
     const entry = this.session.store.getEntry(this.design)
-    if (!entry) return
+
+    if (!entry) {
+      return
+    }
+
     const next = update(entry.container)
     const now = new Map<HTMLElement, Map<string, string>>()
+
     if (next !== entry.container) {
       for (const host of this.frames()) {
         for (const change of styleChanges(this.render(entry.container, host), this.render(next, host))) {
           const element = findNodeElement(host, change.nodeId)
+
           // Only an element the node's own props reach takes the style it sets.
-          if (!element || element.dataset.canvasNode !== change.nodeId) continue
+          if (!element || element.dataset.canvasNode !== change.nodeId) {
+            continue
+          }
+
           const values = now.get(element) ?? new Map<string, string>()
-          for (const [name, value] of Object.entries(change.set)) values.set(cssName(name), value)
-          for (const name of change.unset) values.set(cssName(name), "")
+
+          for (const [name, value] of Object.entries(change.set)) {
+            values.set(cssName(name), value)
+          }
+
+          for (const name of change.unset) {
+            values.set(cssName(name), "")
+          }
+
           now.set(element, values)
         }
       }
     }
+
     // What this preview wrote before and doesn't now goes back first, so a smaller edit doesn't leave a bigger one's.
     for (const [element, { was }] of this.written) {
       const values = now.get(element)
-      for (const [name, value] of was) if (!values?.has(name)) write(element, name, value)
+
+      for (const [name, value] of was) {
+        if (!values?.has(name)) {
+          write(element, name, value)
+        }
+      }
     }
+
     for (const [element, values] of now) {
       const record = this.written.get(element) ?? { was: new Map<string, string>() }
+
       for (const [name, value] of values) {
-        if (!record.was.has(name)) record.was.set(name, element.style.getPropertyValue(name))
+        if (!record.was.has(name)) {
+          record.was.set(name, element.style.getPropertyValue(name))
+        }
+
         write(element, name, value)
       }
+
       this.written.set(element, record)
     }
+
     for (const [element, record] of this.written) {
       const values = now.get(element)
-      for (const name of record.was.keys()) if (!values?.has(name)) record.was.delete(name)
-      if (record.was.size === 0) this.written.delete(element)
+
+      for (const name of record.was.keys()) {
+        if (!values?.has(name)) {
+          record.was.delete(name)
+        }
+      }
+
+      if (record.was.size === 0) {
+        this.written.delete(element)
+      }
     }
   }
 
   /** Puts every element back as it was before the preview. */
   cancel(): void {
-    for (const [element, { was }] of this.written) for (const [name, value] of was) write(element, name, value)
+    for (const [element, { was }] of this.written) {
+      for (const [name, value] of was) {
+        write(element, name, value)
+      }
+    }
+
     this.written.clear()
   }
 
@@ -84,7 +126,10 @@ export class StylePreview {
    * canvas doesn't go back to the old value while the change draws.
    */
   settle(update: (container: ContainerSpec) => ContainerSpec): void {
-    if (!this.active) return
+    if (!this.active) {
+      return
+    }
+
     this.show(update)
     this.release()
   }
@@ -96,12 +141,14 @@ export class StylePreview {
 
   private frames(): HTMLElement[] {
     const area = this.session.editor?.getContainer().closest(".canvas-area") ?? document
+
     return findFrames(area, this.design)
   }
 
   /** A frame's tree for a version of the design, worked out as the frame works out its own. */
   private render(container: ContainerSpec, host: HTMLElement): RenderNode[] {
     const state = container.states.find((candidate) => candidate.id === host.dataset.state) ?? container.states[0]
+
     return resolveDesign(
       boardRoot(container),
       state,
@@ -116,16 +163,23 @@ export class StylePreview {
 export function useStylePreview(session: ProjectSession, design: string): StylePreview {
   const preview = useMemo(() => new StylePreview(session, design), [session, design])
   useEffect(() => () => preview.cancel(), [preview])
+
   return preview
 }
 
 /** React's style names as CSS's: `minWidth` is `min-width`, `WebkitLineClamp` is `-webkit-line-clamp`. */
 export function cssName(name: string): string {
-  if (name.startsWith("--")) return name
+  if (name.startsWith("--")) {
+    return name
+  }
+
   return name.replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
 }
 
 function write(element: HTMLElement, name: string, value: string): void {
-  if (value === "") element.style.removeProperty(name)
-  else element.style.setProperty(name, value)
+  if (value === "") {
+    element.style.removeProperty(name)
+  } else {
+    element.style.setProperty(name, value)
+  }
 }

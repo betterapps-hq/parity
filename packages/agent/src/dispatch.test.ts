@@ -62,12 +62,14 @@ function snapshot(): TabSnapshot {
     bounds: { "app.par#signup": { x: 0, y: 0, width: 1400, height: 900 } },
     detection: { packageManager: { id: "pnpm", name: "pnpm", agent: "pnpm", summary: "pnpm" }, tools: [] }
   }
+
   return tab
 }
 
 /** The tests' host: the fixture tab, frames drawn as data, and everything asked of it kept to look at. */
 function fixtureHost() {
   const tab = snapshot()
+
   const asked = {
     snapshots: [] as (string | undefined)[],
     presence: [] as PresenceEvent[],
@@ -77,12 +79,14 @@ function fixtureHost() {
     console: [] as boolean[],
     reports: [] as AgentReport[]
   }
+
   const host: AgentHost = {
     tabs: async () => [tab.tab],
     copy: async () => ({ tabs: [tab.tab], focusedAt: 1 }),
     open: async () => tab.tab,
     snapshot: async (reference) => {
       asked.snapshots.push(reference)
+
       return tab
     },
     status: async ({ summary }) => ({
@@ -100,6 +104,7 @@ function fixtureHost() {
     presence: (events) => asked.presence.push(...events),
     render: async (_snapshot, request) => {
       asked.frames.push(request)
+
       return {
         width: request.mode.width,
         height: 600,
@@ -114,10 +119,12 @@ function fixtureHost() {
     supports: async (queries) => queries.map(() => true),
     apply: async (tabId, label, changes) => {
       asked.applied.push({ tab: tabId, label, changes })
+
       return []
     },
     console: async (_snapshot, clear) => {
       asked.console.push(clear)
+
       return [
         { level: "error", text: "Boom", source: "app.tsx", line: 3, where: "canvas", count: 1, first: 1, last: 2 }
       ]
@@ -125,6 +132,7 @@ function fixtureHost() {
     saveScreenshots: async (shots) => shots.map((_shot, index) => `D:/shots/${++asked.saved}-${index}.png`),
     report: async (report) => {
       asked.reports.push(report)
+
       return {
         feedbackId: "f1",
         link: "https://sentry.example/f1",
@@ -133,6 +141,7 @@ function fixtureHost() {
       }
     }
   }
+
   return { host, asked, tab }
 }
 
@@ -144,6 +153,7 @@ async function ask(method: AgentMethod, params: Record<string, unknown> = {}) {
   const answer = await dispatch(method, params, fixture.host, caller)
   const checked = replies[method].safeParse(answer)
   expect(checked.error?.issues ?? []).toEqual([])
+
   return { ...fixture, answer: answer as Record<string, never> }
 }
 
@@ -166,11 +176,14 @@ describe("dispatch", () => {
       ["exec", { label: "Read", code: "Print(Designs().length)" }],
       ["report", { message: "The title is cut off" }]
     ]
+
     const answered: string[] = []
+
     for (const [method, params] of methods) {
       await ask(method, params)
       answered.push(method)
     }
+
     expect(new Set(answered)).toEqual(new Set(Object.keys(replies)))
   })
 
@@ -215,6 +228,7 @@ describe("dispatch", () => {
       label: "Outline the button",
       code: 'Update("submit", {props: {variant: "outline"}})'
     })
+
     expect(answer.applied).toBe(true)
     expect(asked.applied).toHaveLength(1)
     expect(asked.applied[0]).toMatchObject({ tab: "tab-1", label: "Outline the button" })
@@ -226,8 +240,10 @@ describe("dispatch", () => {
     const queries: { property: string; value: string }[] = []
     host.supports = async (asking) => {
       queries.push(...asking)
+
       return asking.map(() => false)
     }
+
     const answer = (await dispatch(
       "exec",
       { label: "Recolor", code: 'SetTokens({ background: "bluish" })' },
@@ -235,6 +251,7 @@ describe("dispatch", () => {
     )) as {
       ok: boolean
     }
+
     expect(queries.map((query) => query.value)).toContain("bluish")
     expect(answer.ok).toBe(false)
     expect(asked.applied).toEqual([])
@@ -351,6 +368,7 @@ describe("answerRequest", () => {
     const { host, asked } = fixtureHost()
     const error: unknown = await answerRequest(body, host).catch((thrown: unknown) => thrown)
     expect(error).toBeInstanceOf(CodedError)
+
     return { error: error as CodedError, asked }
   }
 
@@ -400,6 +418,7 @@ describe("answerRequest", () => {
       ],
       [{ method: "status", params: "all" }, "", "Operation input must be an object"]
     ]
+
     for (const [body, field, message] of cases) {
       const { error, asked } = await refused(JSON.stringify(body))
       expect(error.message).toBe(message)
@@ -413,8 +432,10 @@ describe("answerRequest", () => {
     const statuses: unknown[] = []
     host.status = async (request) => {
       statuses.push(request)
+
       return fixtureHost().host.status(request)
     }
+
     await answerRequest('{"method":"status"}', host)
     expect(statuses).toEqual([{ summary: false, limit: 10 }])
   })

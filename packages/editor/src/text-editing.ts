@@ -20,8 +20,14 @@ import { editingState } from "./edit-frame.ts"
 
 /** The text a layer shows, when it's editable in place: a text layer, or a component whose child is a string. */
 export function editableText(node: DesignNode): string | undefined {
-  if (node.type === "text") return node.text
-  if (node.type === "component" && typeof node.props?.children === "string") return node.props.children
+  if (node.type === "text") {
+    return node.text
+  }
+
+  if (node.type === "component" && typeof node.props?.children === "string") {
+    return node.props.children
+  }
+
   return undefined
 }
 
@@ -37,6 +43,7 @@ export function textToEdit(
 ): { node: DesignNode; text: string } | undefined {
   const node = layerOnBoard(container, id, library, editingState(container, picked))
   const text = node && editableText(node)
+
   return node && text !== undefined ? { node, text } : undefined
 }
 
@@ -54,9 +61,14 @@ export function withEditedText(
   library: ComponentLibrary
 ): ContainerSpec {
   const shown = textToEdit(container, picked, id, library)
-  if (!shown) return container
+
+  if (!shown) {
+    return container
+  }
+
   const target = boardTarget(container, editingState(container, picked).id)
   const change = shown.node.type === "text" ? { text } : { props: { children: text } }
+
   return isInnerPath(id) ? editInner(container, target, id, change, library) : editNode(container, target, id, change)
 }
 
@@ -71,11 +83,18 @@ export interface TextRange {
  * spaces or the punctuation there when it isn't a word. An offset at the very end selects the last word.
  */
 export function wordAt(text: string, offset: number): TextRange {
-  if (text.length === 0) return { start: 0, end: 0 }
+  if (text.length === 0) {
+    return { start: 0, end: 0 }
+  }
+
   const at = Math.max(0, Math.min(offset, text.length - 1))
   const segments = new Intl.Segmenter(undefined, { granularity: "word" }).segment(text)
   const segment = segments.containing(at)
-  if (!segment) return { start: 0, end: text.length }
+
+  if (!segment) {
+    return { start: 0, end: text.length }
+  }
+
   return { start: segment.index, end: segment.index + segment.segment.length }
 }
 
@@ -84,7 +103,10 @@ export function wordAt(text: string, offset: number): TextRange {
  * Enter, by inserting text, or at a point that isn't on a character of it.
  */
 export function openingSelection(text: string, offset: number | undefined): TextRange {
-  if (offset === undefined || offset < 0 || offset >= text.length) return { start: 0, end: text.length }
+  if (offset === undefined || offset < 0 || offset >= text.length) {
+    return { start: 0, end: text.length }
+  }
+
   return wordAt(text, offset)
 }
 
@@ -98,8 +120,14 @@ export type TextSizing = "auto-width" | "auto-height" | "fixed"
 
 /** The mode a text layer's style is in. A width it doesn't set is the one its layout gives it, so it's auto height. */
 export function textSizing(style: NodeStyle): TextSizing {
-  if (style.height !== undefined && style.height !== "hug") return "fixed"
-  if (style.width === "hug") return "auto-width"
+  if (style.height !== undefined && style.height !== "hug") {
+    return "fixed"
+  }
+
+  if (style.width === "hug") {
+    return "auto-width"
+  }
+
   return "auto-height"
 }
 
@@ -135,10 +163,18 @@ export function withTextSizing(
 ): TextSizingValues {
   const noHeight = explicit && style.height !== undefined ? "hug" : undefined
   const noGrow = style.grow ? { grow: explicit ? false : undefined } : {}
-  if (sizing === "auto-width") return { width: "hug", height: noHeight, ...noGrow }
+
+  if (sizing === "auto-width") {
+    return { width: "hug", height: noHeight, ...noGrow }
+  }
+
   const width = style.width === "hug" ? measured.width : style.width
   const grow = column ? noGrow : {}
-  if (sizing === "auto-height") return { width, height: noHeight, ...grow }
+
+  if (sizing === "auto-height") {
+    return { width, height: noHeight, ...grow }
+  }
+
   return { width, height: fixedLength(style.height) ?? measured.height, ...grow }
 }
 

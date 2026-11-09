@@ -32,6 +32,7 @@ const meta = {
 } satisfies Meta<typeof StatusBar>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)
@@ -63,6 +64,7 @@ export const Everything: Story = {
     async () => {
       await openProjects("example")
       preferring({ performanceStats: true })
+
       const base = {
         projectId: roots.example,
         project: "shadcn-vite",
@@ -70,6 +72,7 @@ export const Everything: Story = {
         canStop: true,
         canRestart: true
       } as const
+
       running.processes.push(
         {
           ...base,
@@ -348,14 +351,20 @@ export const UnreadableDesignFile: Story = {
   ],
   play: async () => {
     await waitFor(() => expect(workspace.getActive()?.session?.errors).toHaveLength(1))
+
     const editor = await waitFor(
       () => {
         const mounted = workspace.getActive()?.session?.editor
-        if (!mounted) throw new Error("The canvas hasn't mounted yet")
+
+        if (!mounted) {
+          throw new Error("The canvas hasn't mounted yet")
+        }
+
         return mounted
       },
       { timeout: 10000 }
     )
+
     // The boards size themselves as their frames render; then the canvas fits them all in.
     await new Promise((resolve) => setTimeout(resolve, 1500))
     editor.zoomToFit()

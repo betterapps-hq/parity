@@ -205,18 +205,28 @@ type ToolVersions = Partial<Record<(typeof recordedVersions)[number] | "typescri
 /** The versions installed of the tools both events record: detection's, and TypeScript's. */
 async function toolVersions(root: string, detection: ProjectDetection): Promise<ToolVersions> {
   const versions: ToolVersions = {}
+
   for (const id of recordedVersions) {
     const version = detection.tools.find((tool) => tool.id === id)?.version
-    if (version) versions[id] = version
+
+    if (version) {
+      versions[id] = version
+    }
   }
+
   const typescript = await typescriptVersion(root)
-  if (typescript) versions.typescript = typescript
+
+  if (typescript) {
+    versions.typescript = typescript
+  }
+
   return versions
 }
 
 /** The project's installed TypeScript version, when it has one. */
 async function typescriptVersion(root: string): Promise<string | undefined> {
   const installed = await findPackage(root, "typescript").catch(() => undefined)
+
   return installed?.manifest.version
 }
 
@@ -282,19 +292,25 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   function getProject(projectId: string): Project {
     const project = projects.get(projectId)
-    if (!project) throw new Error(`No open project at ${projectId}`)
+
+    if (!project) {
+      throw new Error(`No open project at ${projectId}`)
+    }
+
     return project
   }
 
   /** The guest module the builder serves: the app's own bundled copy, unless it runs from source. */
   function guestPath(renderer: RendererAdapter): string {
     const bundled = join(import.meta.dirname, "guest.mjs")
+
     return !devRunner && existsSync(bundled) ? bundled : require.resolve(renderer.guestModule)
   }
 
   /** Tells telemetry why the project can't be opened, and returns the error that says so. */
   function unsupported(reason: UnsupportedReason, detail: string): Error {
     adapters.unsupported?.(reason, detail)
+
     return new Error(detail)
   }
 
@@ -304,26 +320,39 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function detect(root: string, opening: Opening) {
     const pkg = (await readPackage(root))?.manifest
-    if (!pkg) throw unsupported("no_package", `There's no package.json in ${root}`)
+
+    if (!pkg) {
+      throw unsupported("no_package", `There's no package.json in ${root}`)
+    }
+
     const renderer = adapters.renderers.find((adapter) => adapter.detect(pkg))
-    if (!renderer) throw unsupported("no_renderer", `No renderer supports ${pkg.name ?? root}`)
+
+    if (!renderer) {
+      throw unsupported("no_renderer", `No renderer supports ${pkg.name ?? root}`)
+    }
+
     opening.framework = renderer.id
+
     const found = await findBuilder(adapters.builders, root).catch(async (error: unknown) => {
       // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
       opening.versions = await toolVersions(root, await detectProject(root, pkg))
       throw error
     })
+
     const detection = await detectProject(
       root,
       pkg,
       found.builder && { id: found.builder.id, detection: found.detection }
     )
+
     opening.versions = await toolVersions(root, detection)
     // An untested version may be why something below fails, so any error ends with the note naming it.
     const explain = (problem: string) => (detection.notice ? `${problem}\n\n${detection.notice}` : problem)
+
     if (!found.builder) {
       throw unsupported("no_builder", explain(`No builder supports ${root}.\n${found.misses.join("\n")}`))
     }
+
     const { builder } = found
     const name = pkg.name ?? basename(root)
     opening.builder = builder.id
@@ -331,33 +360,42 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const config = await discoverProject(root, renderer, pkg)
     // One broken project file shouldn't hide the others; its error is shown instead.
     const known = new Map<string, string>()
+
     const documents = await Promise.all(
       config.documents.map(async (path) => {
         try {
           const text = await readFile(join(root, path), "utf8")
           known.set(path, text)
+
           return { path, document: readDesigns(path, text) }
         } catch (error) {
           return { path, error: message(error) }
         }
       })
     )
+
     const mainDocument = pickMainDocument(config.documents, name)
     const main = documents.find((entry) => entry.path === mainDocument)?.document
+
     // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
     const discovered = nextComponentList(
       { sources: {}, leftOut: [], ...(config.namespace ? { namespace: config.namespace } : {}) },
       { kind: "discovered", sources: config.components, ...(main?.detection ? { corrections: main.detection } : {}) }
     )
+
     // What the type checker and props found last time, when nothing they read has changed since.
     const { fingerprint, saved } = await detections.saved(root, config.componentFiles, discovered.list.sources)
+
     const opened = saved
       ? nextComponentList(discovered.list, { kind: "restored", sources: saved.sources, leftOut: saved.leftOut ?? [] })
       : discovered
+
     opening.cached = !!saved
+
     if (saved) {
       config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
     }
+
     return {
       builder,
       config,
@@ -382,6 +420,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   async function recordOpen(root: string, reopen: boolean): Promise<ProjectInfo> {
     const began = performance.now()
     const opening: Opening = { step: "detection", name: basename(root), cached: false }
+
     const common = () => ({
       name: opening.name,
       root,
@@ -393,6 +432,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       ...(opening.builder ? { builder: opening.builder } : {}),
       ...opening.versions
     })
+
     try {
       const info = await start(root, opening)
       track("project.opened", {
@@ -403,6 +443,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         tokens: info.theme.length,
         libraries: info.libraries.length
       })
+
       return info
     } catch (error) {
       const code = errorCode(error)
@@ -418,6 +459,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   async function start(root: string, opening: Opening): Promise<ProjectInfo> {
     const began = performance.now()
+
     const {
       builder,
       config,
@@ -433,6 +475,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       renderer,
       saved
     } = await inSpan("project.detected", { root }, () => detect(root, opening))
+
     opening.detectionMs = since(began)
     opening.step = "builder"
 
@@ -443,6 +486,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       rendererGuestPath: guestPath(renderer),
       allowedOrigins
     }
+
     // The same project's last builder may still be closing.
     await closing.get(root)
     const serving = serveBuilder(root, name, builder, startOptions)
@@ -451,6 +495,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       () => (opening.builderMs = since(builderStarted)),
       () => undefined
     )
+
     const [session, styles] = await Promise.all([
       serving.catch((error: unknown) => {
         throw new Error(explain(message(error)), { cause: error })
@@ -464,6 +509,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       forgetProcess(builderProcessId(root))
       throw error
     })
+
     const info = openedProjectInfo({
       root,
       name,
@@ -476,6 +522,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       documents,
       mainDocument
     })
+
     const project: Project = {
       info,
       list: opened.list,
@@ -492,23 +539,39 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       ...(config.uiKit ? { uiKit: config.uiKit } : {}),
       openedAt: performance.now()
     }
+
     readProps(project, opened, config.componentFiles)
     project.watcher = watchProjectFiles(project)
+
     if (!saved) {
       void checkTypes(project, config.componentFiles).then(async (ran) => {
-        if (!ran || projects.get(root) !== project) return
+        if (!ran || projects.get(root) !== project) {
+          return
+        }
+
         const { sources, leftOut } = project.list
         const found = { sources, props: await project.components, leftOut }
         await detections.save(root, config.componentFiles, discovered.list.sources, fingerprint, found)
       })
     }
+
     projects.set(root, project)
     console.log(
       `[service] ${info.name}: ${renderer.name} via ${builder.name} ${session.toolVersion} at ${info.guestUrl}`
     )
-    for (const tool of [detection.packageManager, ...detection.tools]) console.log(`[service]   ${tool.summary}`)
-    for (const note of config.notes) console.log(`[service]   ${note}`)
-    if (styles.info) console.log(`[service]   ${styles.theme.length} theme variables from ${styles.info.name}`)
+
+    for (const tool of [detection.packageManager, ...detection.tools]) {
+      console.log(`[service]   ${tool.summary}`)
+    }
+
+    for (const note of config.notes) {
+      console.log(`[service]   ${note}`)
+    }
+
+    if (styles.info) {
+      console.log(`[service]   ${styles.theme.length} theme variables from ${styles.info.name}`)
+    }
+
     return withComponentList(project.info, project.list)
   }
 
@@ -525,15 +588,18 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   ): Promise<BuilderProcessSession> {
     const id = builderProcessId(root)
     const began = performance.now()
+
     // A reopened project gets a new port, so the windows load its code afresh. On its last address they'd draw with the
     // project's React from before, which kept every closed canvas's frames in memory: about 130 MB each time.
     const port = again
       ? await restartPort(lastPorts.get(root), guestPorts, ports)
       : await newGuestPort(guestPorts, ports)
+
     const tracking = trackProcess(
       { id, kind: "builder", shape: "server", name: builder.name, projectId: root, project: name, status: "starting" },
       { restart: () => restartBuilder(root) }
     )
+
     const started = adapters.startBuilder(builderProcessOptions(builder, { ...options, port }), {
       builder: builder.name,
       project: name,
@@ -549,10 +615,17 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       },
       onCodeChange: (change) => {
         const project = projects.get(root)
-        if (project) listeners.codeChanged({ projectId: project.info.id, ...change })
+
+        if (project) {
+          listeners.codeChanged({ projectId: project.info.id, ...change })
+        }
       }
     })
-    if (started.pid) tracking.set("starting", { pid: started.pid })
+
+    if (started.pid) {
+      tracking.set("starting", { pid: started.pid })
+    }
+
     try {
       const session = await started.session
       const url = new URL(session.guestUrl)
@@ -560,11 +633,16 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       guestPorts.add(Number(url.port))
       tracking.set("running", { url: url.origin })
       track("builder.ready", { builder: builder.name, durationMs: since(began), restart: again })
+
       return session
     } catch (error) {
       // A project that doesn't open shows why itself; a builder started again shows it in the list.
-      if (again) tracking.set("failed", { error: message(error) })
-      else forgetProcess(id)
+      if (again) {
+        tracking.set("failed", { error: message(error) })
+      } else {
+        forgetProcess(id)
+      }
+
       throw error
     }
   }
@@ -573,6 +651,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   async function restartBuilder(root: string): Promise<void> {
     const began = performance.now()
     const builder = projects.get(root)?.builder.name ?? root
+
     try {
       await startBuilderAgain(root)
       track("builder.restarted", { builder, durationMs: since(began), outcome: "ok" })
@@ -587,25 +666,35 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   async function startBuilderAgain(root: string): Promise<void> {
     const project = getProject(root)
     await project.session.close()
+
     const options = {
       ...project.startOptions,
       config: { ...project.startOptions.config, components: project.list.sources }
     }
+
     const session = await serveBuilder(root, project.info.name, project.builder, options, true)
+
     if (projects.get(root) !== project) {
       await session.close()
+
       return
     }
+
     project.session = session
     project.info.guestUrl = session.guestUrl
+
     if (!project.fingerprints.has(session.guestUrl)) {
       project.fingerprints.set(session.guestUrl, servedCode(root, options))
     }
+
     // It has its old port back unless something took it; then the open windows load the guest from the new one. That's
     // checked against where they draw it, so a move they couldn't load is tried again when it's started again.
     const drawn = await followGuest(root, project.drawnGuestUrl, session.guestUrl, listeners.guestMoved)
+
     // Unless it was started again meanwhile, and what the windows were told is already out of date.
-    if (project.info.guestUrl === session.guestUrl) project.drawnGuestUrl = drawn
+    if (project.info.guestUrl === session.guestUrl) {
+      project.drawnGuestUrl = drawn
+    }
   }
 
   async function loadStyles(
@@ -616,17 +705,24 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     for (const stylesheet of stylesheets) {
       const source = await readFile(join(root, stylesheet), "utf8").catch(() => "")
       const adapter = adapters.styles.find((candidate) => candidate.detect(source))
-      if (!adapter) continue
+
+      if (!adapter) {
+        continue
+      }
+
       const info = { id: adapter.id, name: adapter.name, stylesheet }
+
       try {
         return { info, theme: await adapter.loadTheme(root, stylesheet) }
       } catch (error) {
         // An untested version is tried like any other; if it fails, the error says it's untested.
         const tool = detection.tools.find((candidate) => candidate.id === adapter.id)
         const untested = tool?.status === "dropped" ? ` (${tool.summary})` : ""
+
         return { info: { ...info, error: `${message(error)}${untested}` }, theme: [] }
       }
     }
+
     return { theme: [] }
   }
 
@@ -641,6 +737,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const timers = new Map<string, ReturnType<typeof setTimeout>>()
     const changed = new Set<string>()
     let rescanning: Promise<void> = Promise.resolve()
+
     const rescan = () => {
       const paths = [...changed]
       changed.clear()
@@ -650,6 +747,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
           console.warn(`[service] couldn't read the changed components: ${message(error)}`)
         })
     }
+
     const configChanged = () => {
       clearTimeout(timers.get("config"))
       timers.set(
@@ -663,23 +761,36 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         }, 400)
       )
     }
+
     void followConfig(project, configChanged).catch((error: unknown) => {
       console.warn(`[service] can't follow ${root}'s config for changes: ${message(error)}`)
     })
+
     const reload = async (path: string) => {
       let text: string
+
       try {
         text = await readFile(join(root, path), "utf8")
       } catch {
         return
       }
-      if (project.known.get(path) === text) return
+
+      if (project.known.get(path) === text) {
+        return
+      }
+
       project.known.set(path, text)
+
       try {
         const document = readDesigns(path, text)
         const entry = project.info.documents.find((candidate) => candidate.path === path)
-        if (entry) Object.assign(entry, { document, error: undefined })
-        else project.info.documents.push({ path, document })
+
+        if (entry) {
+          Object.assign(entry, { document, error: undefined })
+        } else {
+          project.info.documents.push({ path, document })
+        }
+
         console.log(`[service] ${path} changed on disk`)
         listeners.fileChanged({ projectId: project.info.id, path, document })
       } catch (error) {
@@ -687,32 +798,47 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         console.warn(`[service] ${path} changed on disk but can't be read: ${message(error)}`)
       }
     }
+
     const later = (key: string, ms: number, run: () => void) => {
       clearTimeout(timers.get(key))
       timers.set(key, setTimeout(run, ms))
     }
+
     try {
       const watching = watch(root, { recursive: true }, (_event, name) => {
         const path = name?.replaceAll("\\", "/")
-        if (!path) return
+
+        if (!path) {
+          return
+        }
+
         const change = projectFileChange(path, {
           componentExtensions: project.renderer.componentExtensions,
           configInput: isConfigInput(project, resolve(root, path))
         })
-        if (change === "config") configChanged()
-        else if (change === "component") {
+
+        if (change === "config") {
+          configChanged()
+        } else if (change === "component") {
           changed.add(path)
           later("components", 400, rescan)
-        } else if (change === "document") later(path, 120, () => void reload(path))
+        } else if (change === "document") {
+          later(path, 120, () => void reload(path))
+        }
       })
+
       return {
         close() {
           watching.close()
-          for (const timer of timers.values()) clearTimeout(timer)
+
+          for (const timer of timers.values()) {
+            clearTimeout(timer)
+          }
         }
       }
     } catch (error) {
       console.warn(`[service] can't watch ${root} for changes: ${message(error)}`)
+
       return undefined
     }
   }
@@ -725,18 +851,29 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const { root } = project.info
     const lockfiles = await findLockfiles(root)
     const inputs = configInputs(tsconfig, lockfiles)
-    if (projects.get(root) !== project) return
+
+    if (projects.get(root) !== project) {
+      return
+    }
+
     // The config reader lists tsconfigs from the root's real path; one inside the root is matched by the root's watcher.
     const realRoot = realpathSync.native(root)
+
     const files = new Set([
       ...inputs.configs.map((path) => resolve(path.startsWith("../") ? realRoot : root, path)),
       ...inputs.lockfiles.map((path) => resolve(root, path))
     ])
+
     const inRoot = (folder: string) =>
       [root, realRoot].some((base) => folder === resolve(base) || folder.startsWith(join(base, "/")))
+
     const lockFolders = lockfileFolders(root, lockfiles)
     const folders = new Set([...[...files].map((file) => dirname(file)), ...lockFolders])
-    for (const watcher of project.configWatchers ?? []) watcher.close()
+
+    for (const watcher of project.configWatchers ?? []) {
+      watcher.close()
+    }
+
     project.config = { files, lockfileFolders: lockFolders }
     project.configWatchers = [...folders]
       .filter((folder) => !inRoot(folder))
@@ -744,11 +881,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         try {
           return [
             watch(folder, {}, (_event, name) => {
-              if (name && isConfigInput(project, join(folder, name))) changed()
+              if (name && isConfigInput(project, join(folder, name))) {
+                changed()
+              }
             })
           ]
         } catch (error) {
           console.warn(`[service] can't watch ${folder} for config changes: ${message(error)}`)
+
           return []
         }
       })
@@ -756,7 +896,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   /** Whether a change to `file` (absolute) is a change to the project's config inputs, or to which lockfiles it has. */
   function isConfigInput(project: Project, file: string): boolean {
-    if (!project.config) return false
+    if (!project.config) {
+      return false
+    }
+
     return project.config.files.has(file) || changesLockfiles(file, project.config.lockfileFolders)
   }
 
@@ -770,23 +913,40 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const { root } = project.info
     const tsconfig = readTsconfig(root)
     await followConfig(project, changed, tsconfig)
-    if (projects.get(root) !== project) return
+
+    if (projects.get(root) !== project) {
+      return
+    }
+
     console.log(`[service] ${project.info.name}'s config or dependencies changed, so its components are found again`)
     const read = await rediscoveredFiles(root, project.renderer, tsconfig, project.uiKit, project.list.sources)
     // The files discovery gives the checker, so never the entry that mounts the app, which the guest must not import.
     const files = await checkedAppFiles(root, project.renderer, tsconfig)
-    if (projects.get(root) !== project) return
+
+    if (projects.get(root) !== project) {
+      return
+    }
+
     const step = nextComponentList(project.list, { kind: "filesRead", read })
     takeList(project, step, files)
     const added = Object.keys(step.guest.add).length
     const removed = step.guest.drop.length
-    if (added > 0 || removed > 0) console.log(`[service]   ${added} components added, ${removed} left out`)
+
+    if (added > 0 || removed > 0) {
+      console.log(`[service]   ${added} components added, ${removed} left out`)
+    }
+
     if (files.length > 0) {
       await checkTypes(project, files)
+
       return
     }
+
     const components = await project.components
-    if (projects.get(root) === project) notifyList(project, components)
+
+    if (projects.get(root) === project) {
+      notifyList(project, components)
+    }
   }
 
   /**
@@ -797,7 +957,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function checkTypes(project: Project, files: string[]): Promise<boolean> {
     const { root, id } = project.info
-    if (files.length === 0) return true
+
+    if (files.length === 0) {
+      return true
+    }
+
     const task = trackProcess(
       {
         id: `typecheck:${root}`,
@@ -811,22 +975,30 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       },
       { restart: () => checkTypes(project, files) }
     )
+
     await project.components
     let checked: Awaited<ReturnType<TypeChecker["checkComponents"]>>
+
     try {
       checked = await checker.checkComponents(root, files)
     } catch (error) {
       console.warn(`[service] the type checker couldn't read the components: ${message(error)}`)
       task.set("failed", { summary: "Couldn't read the components", error: message(error) })
+
       return false
     }
-    if (projects.get(root) !== project) return false
+
+    if (projects.get(root) !== project) {
+      return false
+    }
+
     const step = nextComponentList(project.list, { kind: "checked", result: checked })
     task.set("passed", { summary: typeCheckSummary(files.length, step) })
     const added = Object.keys(step.guest.add).length
     console.log(`[service]   the type checker added ${added} components and left out ${step.guest.drop.length}`)
     // Told even when nothing changed, since it's the end of what opening the project reads.
     await settle(project, step)
+
     return true
   }
 
@@ -840,24 +1012,41 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const tsconfig = readTsconfig(root)
     const { files } = await appFiles(root, project.renderer, tsconfig)
     const read = await readChangedFiles(root, project.renderer, files, project.uiKit, paths)
-    if (projects.get(root) !== project) return
+
+    if (projects.get(root) !== project) {
+      return
+    }
+
     const what = paths.length === 1 ? paths[0] : `${paths.length} files`
     await settle(project, nextComponentList(project.list, { kind: "filesRead", read }), `${what} changed`)
 
     const inApp = new Set(files)
     const reread = [...read.keys()].filter((path) => inApp.has(path) && read.get(path))
-    if (reread.length === 0) return
+
+    if (reread.length === 0) {
+      return
+    }
+
     const toCheck = [...reread, ...(await importersOf(root, files, reread, tsconfig))]
     let checked: Awaited<ReturnType<TypeChecker["checkComponents"]>>
+
     try {
       checked = await checker.checkComponents(root, toCheck)
     } catch (error) {
       console.warn(`[service] the type checker couldn't read the changed components: ${message(error)}`)
+
       return
     }
-    if (projects.get(root) !== project) return
+
+    if (projects.get(root) !== project) {
+      return
+    }
+
     const step = nextComponentList(project.list, { kind: "checked", result: checked, files: new Set(toCheck) })
-    if (step.changed) await settle(project, step, "the type checker")
+
+    if (step.changed) {
+      await settle(project, step, "the type checker")
+    }
   }
 
   /**
@@ -876,10 +1065,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const components = await project.components
     const added = Object.keys(step.guest.add).length
     const removed = step.guest.drop.length
+
     if (label && (added > 0 || removed > 0)) {
       console.log(`[service]   ${label}: ${added} components added, ${removed} left out`)
     }
-    if (projects.get(project.info.root) === project) notifyList(project, components)
+
+    if (projects.get(project.info.root) === project) {
+      notifyList(project, components)
+    }
   }
 
   /**
@@ -888,19 +1081,31 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   function readProps(project: Project, step: ComponentListStep, files?: string[]): void {
     const { root } = project.info
+
     if (step.props === "all") {
       project.components = inferProps(root, step.list.sources, files)
+
       return
     }
-    if (step.props.length === 0 && step.guest.drop.length === 0) return
+
+    if (step.props.length === 0 && step.guest.drop.length === 0) {
+      return
+    }
+
     const named = new Set(step.props)
     const needed = Object.fromEntries(Object.entries(step.list.sources).filter(([id]) => named.has(id)))
     const known = project.components
     const more = named.size > 0 ? inferProps(root, needed) : Promise.resolve<Record<string, ComponentInfo>>({})
     project.components = Promise.all([known, more]).then(([props, read]) => {
       const all = { ...props, ...read }
+
       // What the checker left out, and what the person took off the list, since.
-      for (const id of Object.keys(all)) if (!(id in project.list.sources)) delete all[id]
+      for (const id of Object.keys(all)) {
+        if (!(id in project.list.sources)) {
+          delete all[id]
+        }
+      }
+
       return all
     })
   }
@@ -919,6 +1124,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   ): Promise<Record<string, ComponentInfo>> {
     return checker.inferComponents(root, sources, files).catch((error: unknown) => {
       console.warn(`[service] couldn't infer component props: ${message(error)}`)
+
       return {}
     })
   }
@@ -926,21 +1132,36 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   return {
     rootFor(root) {
       const path = normalize(resolve(root ?? startedWith ?? process.cwd()))
-      if (!path.endsWith(".par")) return path
+
+      if (!path.endsWith(".par")) {
+        return path
+      }
+
       for (let folder = dirname(path); ; folder = dirname(folder)) {
-        if (existsSync(join(folder, "package.json"))) return folder
-        if (dirname(folder) === folder) return dirname(path)
+        if (existsSync(join(folder, "package.json"))) {
+          return folder
+        }
+
+        if (dirname(folder) === folder) {
+          return dirname(path)
+        }
       }
     },
 
     open(root, { reopen = false } = {}) {
       const existing = projects.get(root)
-      if (existing) return Promise.resolve(withComponentList(existing.info, existing.list))
+
+      if (existing) {
+        return Promise.resolve(withComponentList(existing.info, existing.list))
+      }
+
       let pending = opening.get(root)
+
       if (!pending) {
         pending = recordOpen(root, reopen).finally(() => opening.delete(root))
         opening.set(root, pending)
       }
+
       return pending
     },
 
@@ -950,15 +1171,23 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       checker.closeChecker(projectId, projects.size === 0 && opening.size === 0)
       stopProject(projectId)
       project?.watcher?.close()
-      for (const watcher of project?.configWatchers ?? []) watcher.close()
+
+      for (const watcher of project?.configWatchers ?? []) {
+        watcher.close()
+      }
+
       if (project) {
         track("project.closed", { name: project.info.name, root: projectId, openMs: since(project.openedAt) })
         // A reopen waits for the builder's process to end, so a project never has two builders at once.
         const closed = project.session.close()
         closing.set(projectId, closed)
         await closed
-        if (closing.get(projectId) === closed) closing.delete(projectId)
+
+        if (closing.get(projectId) === closed) {
+          closing.delete(projectId)
+        }
       }
+
       return undefined
     },
 
@@ -974,10 +1203,18 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     async correctComponents({ projectId, corrections }) {
       const project = getProject(projectId)
       const step = nextComponentList(project.list, { kind: "corrected", corrections })
+
       // Taken at once, before anything is awaited, so a type check that lands meanwhile keeps them.
-      if (step.changed) await settle(project, step, "the person's corrections")
-      else project.list = step.list
-      if (step.reread.length > 0) await rescanComponents(project, step.reread)
+      if (step.changed) {
+        await settle(project, step, "the person's corrections")
+      } else {
+        project.list = step.list
+      }
+
+      if (step.reread.length > 0) {
+        await rescanComponents(project, step.reread)
+      }
+
       return undefined
     },
 
@@ -988,19 +1225,34 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     async saveDocument({ projectId, path, document }) {
       const project = getProject(projectId)
       const entry = project.info.documents.find((candidate) => candidate.path === path)
-      if (entry && !entry.document) throw new Error(`${path} couldn't be read, so it isn't overwritten`)
+
+      if (entry && !entry.document) {
+        throw new Error(`${path} couldn't be read, so it isn't overwritten`)
+      }
+
       const target = documentTarget(project.info.root, path)
-      if (!target) throw new Error(`${path} is not a .par file inside the project`)
+
+      if (!target) {
+        throw new Error(`${path} is not a .par file inside the project`)
+      }
+
       const parsed = parseCanvasDocument(document)
+
       // A `.lib.par` keeps its designs in `canvas`, beside what its author wrote about the library.
       const value = path.endsWith(libraryManifestExtension)
         ? withLibraryCanvas(JSON.parse(await readFile(target, "utf8")), parsed)
         : parsed
+
       const text = `${JSON.stringify(value, null, 2)}\n`
       project.known.set(path, text)
       await writeFile(target, text)
-      if (entry) entry.document = parsed
-      else project.info.documents.push({ path, document: parsed })
+
+      if (entry) {
+        entry.document = parsed
+      } else {
+        project.info.documents.push({ path, document: parsed })
+      }
+
       return undefined
     },
 
@@ -1012,19 +1264,29 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     async saveTokens({ projectId, changes }) {
       const project = getProject(projectId)
       const stylesheet = project.info.styles?.stylesheet ?? project.stylesheets[0]
-      if (!stylesheet) throw new Error("The project has no stylesheet to write tokens to")
+
+      if (!stylesheet) {
+        throw new Error("The project has no stylesheet to write tokens to")
+      }
+
       const themeNames = new Set(project.info.theme.map((variable) => variable.name))
       const source = await readFile(join(project.info.root, stylesheet), "utf8")
       const content = writeTokenChanges(source, changes, themeNames)
+
       const edit = await applyProjectEdit(project, {
         label: changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`,
         files: [{ kind: "replace", path: stylesheet, expected: source, content }]
       })
+
       // Keep the theme in step, so a reopened tab sees the new values before the builder recompiles.
       for (const change of changes) {
         const variable = project.info.theme.find((candidate) => candidate.name === change.name)
-        if (variable && change.theme === "default" && change.value !== undefined) variable.value = change.value
+
+        if (variable && change.theme === "default" && change.value !== undefined) {
+          variable.value = change.value
+        }
       }
+
       return edit
     },
 
@@ -1032,10 +1294,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     previewProject(projectId) {
       const project = projects.get(projectId)
-      if (!project) return undefined
+
+      if (!project) {
+        return undefined
+      }
+
       const stylesheets = project.info.styles
         ? [project.info.styles.stylesheet, ...project.stylesheets]
         : project.stylesheets
+
       return { root: project.info.root, sources: project.list.sources, stylesheets: [...new Set(stylesheets)] }
     }
   }
@@ -1052,9 +1319,11 @@ function builderProcessId(root: string): string {
  */
 function servedCode(root: string, options: BuilderStartOptions): ServedCode {
   const guest = readFile(options.rendererGuestPath).catch(() => Buffer.alloc(0))
+
   const code = guest.then((contents) =>
     codeSnapshot(root, `${bitmapFormat}:${createHash("sha256").update(contents).digest("hex")}`)
   )
+
   return {
     code,
     fingerprint: code.then(({ fingerprint }) => fingerprint),
@@ -1067,8 +1336,12 @@ export async function saveDocumentCopy({
   path,
   document
 }: ServiceMethods["document.saveCopy"]["params"]): Promise<undefined> {
-  if (!isAbsolute(path) || !path.endsWith(".par")) throw new Error(`${path} is not a .par file`)
+  if (!isAbsolute(path) || !path.endsWith(".par")) {
+    throw new Error(`${path} is not a .par file`)
+  }
+
   await writeFile(path, `${JSON.stringify(parseCanvasDocument(document), null, 2)}\n`)
+
   return undefined
 }
 
@@ -1078,11 +1351,17 @@ async function findBuilder(
   root: string
 ): Promise<{ builder: BuilderAdapter; detection: BuilderDetection } | { builder?: undefined; misses: string[] }> {
   const misses: string[] = []
+
   for (const builder of builders) {
     const detection = await builder.detect(root)
-    if (detection.found) return { builder, detection }
+
+    if (detection.found) {
+      return { builder, detection }
+    }
+
     misses.push(`${builder.name}: ${detection.summary}`)
   }
+
   return { misses }
 }
 

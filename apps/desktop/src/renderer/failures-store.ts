@@ -21,14 +21,23 @@ const none: LayerFailure[] = []
 
 /** By project, then design. */
 const projects = new Map<string, Map<string, DesignEntry>>()
+
 /** When each failure was first seen, by project, design, node and error, for the console's time. */
 const seen = new Map<string, number>()
 
 function entryFor(project: string, design: string): DesignEntry {
   let designs = projects.get(project)
-  if (!designs) projects.set(project, (designs = new Map()))
+
+  if (!designs) {
+    projects.set(project, (designs = new Map()))
+  }
+
   let entry = designs.get(design)
-  if (!entry) designs.set(design, (entry = { frames: new Map(), failures: none, listeners: new Set() }))
+
+  if (!entry) {
+    designs.set(design, (entry = { frames: new Map(), failures: none, listeners: new Set() }))
+  }
+
   return entry
 }
 
@@ -46,21 +55,35 @@ export function reportFrameFailures(
 ): void {
   const entry = entryFor(project, design)
   const was = entry.frames.get(frame)
-  if (sameFailures(was?.failures ?? none, failures) && (failures.length === 0 || sameWhere(was, where))) return
-  if (failures.length === 0) entry.frames.delete(frame)
-  else entry.frames.set(frame, { ...where, failures })
+
+  if (sameFailures(was?.failures ?? none, failures) && (failures.length === 0 || sameWhere(was, where))) {
+    return
+  }
+
+  if (failures.length === 0) {
+    entry.frames.delete(frame)
+  } else {
+    entry.frames.set(frame, { ...where, failures })
+  }
+
   const next = designFailures([...entry.frames.values()].map((known) => known.failures))
   entry.failures = next.length === 0 ? none : next
-  for (const listener of entry.listeners) listener()
+
+  for (const listener of entry.listeners) {
+    listener()
+  }
+
   consoleLog(project).setFailures(failureMessages(project, Date.now()))
 }
 
 /** The design's failing layers in any of its frames, one per node. */
 export function useDesignFailures(project: string, design: string): readonly LayerFailure[] {
   const entry = entryFor(project, design)
+
   return useSyncExternalStore(
     (listener) => {
       entry.listeners.add(listener)
+
       return () => entry.listeners.delete(listener)
     },
     () => entry.failures
@@ -79,6 +102,7 @@ export function useLayerFailure(project: string, design: string, nodeId: string)
 export function failureMessages(project: string, now: number): ConsoleMessage[] {
   const messages = new Map<string, ConsoleMessage>()
   const current = new Set<string>()
+
   for (const [design, entry] of projects.get(project) ?? []) {
     for (const frame of entry.frames.values()) {
       for (const failure of frame.failures) {
@@ -88,10 +112,15 @@ export function failureMessages(project: string, now: number): ConsoleMessage[] 
         seen.set(id, first)
         const where = { state: frame.state, mode: frame.mode }
         const known = messages.get(id)
+
         if (known) {
-          if (!known.frames!.some((other) => sameWhere(other, where))) known.frames!.push(where)
+          if (!known.frames!.some((other) => sameWhere(other, where))) {
+            known.frames!.push(where)
+          }
+
           continue
         }
+
         const { reason, fix } = failureAdvice(failure.error)
         messages.set(id, {
           id,
@@ -110,8 +139,15 @@ export function failureMessages(project: string, now: number): ConsoleMessage[] 
       }
     }
   }
+
   const prefix = JSON.stringify(["failure", project]).slice(0, -1)
-  for (const id of seen.keys()) if (id.startsWith(prefix) && !current.has(id)) seen.delete(id)
+
+  for (const id of seen.keys()) {
+    if (id.startsWith(prefix) && !current.has(id)) {
+      seen.delete(id)
+    }
+  }
+
   return [...messages.values()]
 }
 

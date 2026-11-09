@@ -62,29 +62,46 @@ export function reduceField(state: FieldState, event: FieldEvent, read: (text: s
   switch (event.type) {
     case "type": {
       const next: FieldState = { draft: event.text }
+
       return { state: next, effects: read(event.text).ok ? [{ type: "preview", text: event.text }] : [] }
     }
+
     case "enter":
     case "blur": {
       const select: FieldEffect[] = event.type === "enter" ? [{ type: "select" }] : []
-      if (state.draft === undefined) return { state, effects: select }
+
+      if (state.draft === undefined) {
+        return { state, effects: select }
+      }
+
       const reading = read(state.draft)
+
       if (!reading.ok) {
         return {
           state: { draft: state.draft, message: { tone: "error", text: reading.reason } },
           effects: [{ type: "cancel" }]
         }
       }
+
       return { state: {}, effects: [{ type: "commit", text: state.draft }, ...select] }
     }
+
     case "escape":
       return { state: {}, effects: [{ type: "cancel" }, { type: "blur" }] }
     case "step": {
-      if (state.draft === undefined) return { state: {}, effects: [{ type: "step", count: event.count }] }
+      if (state.draft === undefined) {
+        return { state: {}, effects: [{ type: "step", count: event.count }] }
+      }
+
       const reading = read(state.draft)
-      if (!reading.ok) return { state: { ...state, message: { tone: "error", text: reading.reason } }, effects: [] }
+
+      if (!reading.ok) {
+        return { state: { ...state, message: { tone: "error", text: reading.reason } }, effects: [] }
+      }
+
       return { state: {}, effects: [{ type: "step", count: event.count, from: state.draft }] }
     }
+
     case "committed":
       return { state: event.note ? { message: { tone: "note", text: event.note } } : {}, effects: [] }
     case "scrubStart":

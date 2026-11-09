@@ -22,6 +22,7 @@ describe("cacheRemovals", () => {
       file("new/1", "new", 10, now - 40 * day),
       file("new/2", "new", 10, now - day)
     ]
+
     // A project with one recent bitmap keeps its older ones too, until the cap says otherwise.
     expect(cacheRemovals(files, now, limits).sort()).toEqual(["old/1", "old/2"])
   })
@@ -32,6 +33,7 @@ describe("cacheRemovals", () => {
       file("a/2", "a", 400, now - 1000),
       file("b/1", "b", 400, now - 3000)
     ]
+
     // 1,200 bytes over a 1,000 cap: the oldest goes, leaving 800.
     expect(cacheRemovals(files, now, limits)).toEqual(["a/1"])
   })
@@ -47,6 +49,7 @@ describe("cacheRemovals", () => {
       file("a/2.tmp", "a", 50, now - 1000, true),
       file("a/3", "a", 50, now - 1000)
     ]
+
     expect(cacheRemovals(files, now, limits)).toEqual(["a/1.tmp"])
   })
 

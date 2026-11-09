@@ -54,6 +54,7 @@ export function canvasBoards(
     const key = `${path}#${container.id}`
     const drawn = bounds[key]
     const size = drawn ?? estimateSize(container, modes)
+
     return {
       key,
       id: container.id,
@@ -73,12 +74,20 @@ export function canvasBoards(
  */
 export function boardOverlaps(boards: readonly Board[], only?: string): Overlap[] {
   const found: Overlap[] = []
+
   for (const [index, a] of boards.entries()) {
     for (const b of boards.slice(index + 1)) {
-      if (only !== undefined && a.id !== only && b.id !== only) continue
+      if (only !== undefined && a.id !== only && b.id !== only) {
+        continue
+      }
+
       const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
       const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y - titleBand, b.y - titleBand)
-      if (width <= 0 || height <= 0) continue
+
+      if (width <= 0 || height <= 0) {
+        continue
+      }
+
       const collide = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 0
       found.push({
         designs: [a.id, b.id],
@@ -90,6 +99,7 @@ export function boardOverlaps(boards: readonly Board[], only?: string): Overlap[
       })
     }
   }
+
   return found
 }
 
@@ -103,34 +113,43 @@ export function overlapWarnings(boards: readonly Board[], touched: ReadonlySet<s
   const drawn = new Map(boards.map((board) => [board.id, !board.estimated]))
   const found = boardOverlaps(boards)
   const near = found.filter(({ designs }) => designs.some((id) => ids.has(id)))
+
   const warnings: Warning[] = near.map(({ designs, names, width, height, titleOnly }) => {
     const [a, b] = designs.map((id, index) => `${names[index]} (${id})`) as [string, string]
     const guessed = names.filter((_, index) => !drawn.get(designs[index]))
+
     const size =
       guessed.length === 0
         ? "measured"
         : `estimated, as ${guessed.join(" and ")} ${guessed.length === 1 ? "isn't" : "aren't"} drawn yet`
-    if (titleOnly)
+
+    if (titleOnly) {
       return {
         category: "title_clearance" as const,
         message: `The title of ${b} would cover ${a}: the boards are clear, but ${names[1]} starts less than ${titleBand} below it (${width}x${height} shared, ${size}). Move ${names[1]} down or aside with UpdateDesign(id, { x, y }); Overlaps() checks every board.`
       }
+    }
+
     return {
       category: "overlap" as const,
       message: `${a} and ${b} overlap by ${width}x${height} (${size}). Move one clear with UpdateDesign(id, { x, y }), leaving ${titleBand} above each board for its title; FindEmptySpace finds space and Overlaps() checks every board.`
     }
   })
+
   const others = found.length - near.length
+
   if (others > 0) {
     const what =
       others === 1
         ? "1 other pair of boards overlaps or crowds a title"
         : `${others} other pairs of boards overlap or crowd a title`
+
     warnings.push({
       category: "canvas_overlaps",
       message: `${what} on the canvas. This call didn't create, change or move them, so they aren't listed here; Overlaps() lists every one.`
     })
   }
+
   return warnings
 }
 
@@ -144,10 +163,15 @@ export function emptySpace(
   anchor?: Board
 ): { x: number; y: number } {
   const padding = options.padding ?? 240
-  if (boards.length === 0) return { x: 0, y: 0 }
+
+  if (boards.length === 0) {
+    return { x: 0, y: 0 }
+  }
+
   const direction = options.direction ?? "right"
+
   if (anchor) {
-    if (direction === "below")
+    if (direction === "below") {
       return {
         x: anchor.x,
         y:
@@ -155,6 +179,8 @@ export function emptySpace(
             ...boards.filter((box) => spans(box.x, box.width, anchor.x, options.width)).map((box) => box.y + box.height)
           ) + padding
       }
+    }
+
     return {
       x:
         Math.max(
@@ -163,12 +189,14 @@ export function emptySpace(
       y: anchor.y
     }
   }
+
   if (direction === "below") {
     return {
       x: Math.min(...boards.map((box) => box.x)),
       y: Math.max(...boards.map((box) => box.y + box.height)) + padding
     }
   }
+
   return {
     x: Math.max(...boards.map((box) => box.x + box.width)) + padding,
     y: Math.min(...boards.map((box) => box.y))
@@ -178,6 +206,7 @@ export function emptySpace(
 /** The size of a board the canvas hasn't drawn: its shown frames, laid out as the canvas lays them out. */
 export function estimateSize(container: ContainerSpec, modes: ModeSettings): { width: number; height: number } {
   const { main, beside } = shownModes(modes, container)
+
   return boardSize(container, [main, ...beside])
 }
 

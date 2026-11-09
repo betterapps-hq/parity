@@ -51,6 +51,7 @@ export function SettingsDialog() {
   const preferences = usePreferences()
   const updates = useUpdates()
   const [updateError, setUpdateError] = useState("")
+
   return (
     <Dialog open={open} onOpenChange={(next) => !next && closeDialog()}>
       <DialogContent className="max-h-[calc(100%-2rem)] gap-0 overflow-y-auto sm:max-w-lg">
@@ -77,8 +78,11 @@ export function SettingsDialog() {
               checked={preferences.autosave}
               onCheckedChange={(autosave) => {
                 setPreferences({ autosave })
+
                 // Turning it on saves what's waiting now, rather than at the next edit.
-                if (autosave) void workspace.flush().catch(() => undefined)
+                if (autosave) {
+                  void workspace.flush().catch(() => undefined)
+                }
               }}
               aria-label="Save automatically"
             />
@@ -173,7 +177,11 @@ export function SettingsDialog() {
 function TelemetrySection({ open }: { open: boolean }) {
   const telemetry = useTelemetry(open)
   const [error, setError] = useState("")
-  if (!telemetry) return null
+
+  if (!telemetry) {
+    return null
+  }
+
   const detail = (
     <>
       {telemetryDetail}
@@ -185,6 +193,7 @@ function TelemetrySection({ open }: { open: boolean }) {
       )}
     </>
   )
+
   return (
     <Section title="Privacy">
       <Row label="Share diagnostics" detail={detail}>
@@ -202,6 +211,7 @@ function TelemetrySection({ open }: { open: boolean }) {
     </Section>
   )
 }
+
 interface Option<T extends string> {
   value: T
   label: string
@@ -248,13 +258,17 @@ function Choice<T extends string>({
 
 /** A save that failed, under the section it belongs to. */
 function Problem({ message }: { message: string }) {
-  if (!message) return null
+  if (!message) {
+    return null
+  }
+
   return (
     <p role="alert" className="type-message text-destructive">
       {message}
     </p>
   )
 }
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-t pt-4 pb-2 first-of-type:border-t-0">

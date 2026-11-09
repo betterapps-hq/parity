@@ -35,7 +35,11 @@ describe("exampleFolder", () => {
     const root = join(folder, "examples", "shadcn-vite")
     await mkdir(root, { recursive: true })
     await writeFile(join(root, "package.json"), "{}")
-    if (installed) await mkdir(join(root, "node_modules"))
+
+    if (installed) {
+      await mkdir(join(root, "node_modules"))
+    }
+
     return root
   }
 

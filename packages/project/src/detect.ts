@@ -106,12 +106,16 @@ export async function detectProject(
     detectPackageManager(root),
     ...tools.map((tool) => detectTool(root, pkg, tool, builder?.id === tool.id ? builder.detection : undefined, today))
   ])
+
   const used = found.filter((detection) => detection !== undefined)
+
   const untested = used
     .filter((detection) => detection.status === "dropped")
     .map((detection) => `${detection.name} ${detection.version}`)
+
   // Dropped only means untested: nothing is blocked, so this is a note, not a warning.
   const list = untested.length > 1 ? `${untested.slice(0, -1).join(", ")} and ${untested.at(-1)}` : untested[0]
+
   return {
     packageManager,
     tools: used,
@@ -132,17 +136,31 @@ async function detectTool(
 ): Promise<Detection | undefined> {
   const declared = { ...pkg.dependencies, ...pkg.devDependencies }
   const dependencies = Object.keys(declared).filter((dependency) => tool.uses(dependency))
-  if (!builder && dependencies.length === 0) return undefined
+
+  if (!builder && dependencies.length === 0) {
+    return undefined
+  }
+
   const file = builder?.config ?? (await tool.config?.(root, pkg))
   const config = file ? { config: file } : {}
+
   for (const name of new Set([...tool.packages, ...dependencies])) {
     const installed = await findPackage(root, name).catch(() => undefined)
     const version = installed?.manifest.version
-    if (!installed || !version) continue
+
+    if (!installed || !version) {
+      continue
+    }
+
     return toolDetection(tool, version, { from: toPosix(relative(root, installed.installedAt)), ...config }, today)
   }
-  if (builder?.version) return toolDetection(tool, builder.version, config, today)
+
+  if (builder?.version) {
+    return toolDetection(tool, builder.version, config, today)
+  }
+
   const range = dependencies.map((dependency) => declared[dependency]).find(Boolean)
+
   return {
     id: tool.id,
     name: tool.name,
@@ -158,14 +176,18 @@ function toolDetection(tool: Tool, version: string, where: { from?: string; conf
     where.from ? ` from ${where.from}` : "",
     where.config ? `, config ${where.config}` : ""
   ].join("")
+
   const support = cutoff(tool, version, today)
   const base = { id: tool.id, name: tool.name, version, ...where, status: support.status }
+
   if (support.status === "dropped") {
     return { ...base, summary: `${found}; untested, Parity tests ${supported(tool, today)}` }
   }
+
   if (support.status === "newer") {
     return { ...base, summary: `${found}, newer than the versions Parity is tested with` }
   }
+
   return {
     ...base,
     ...(support.drops ? { drops: support.drops } : {}),
@@ -183,14 +205,30 @@ export function cutoff(
   today = new Date()
 ): { status: "supported" | "newer" | "dropped"; drops?: string } {
   const valid = semver.valid(version) ?? semver.coerce(version)?.version
-  if (!valid) return { status: "supported" }
+
+  if (!valid) {
+    return { status: "supported" }
+  }
+
   const major = semver.major(valid)
   const newest = tool.majors.at(-1)![0]
-  if (major > newest) return { status: "newer" }
-  if (major === newest) return { status: "supported" }
+
+  if (major > newest) {
+    return { status: "newer" }
+  }
+
+  if (major === newest) {
+    return { status: "supported" }
+  }
+
   const released = tool.majors.find(([candidate]) => candidate === major)?.[1]
-  if (!released) return { status: "dropped" }
+
+  if (!released) {
+    return { status: "dropped" }
+  }
+
   const drops = `${Number(released.slice(0, 4)) + 2}${released.slice(4)}`
+
   return drops <= today.toISOString().slice(0, 10) ? { status: "dropped" } : { status: "supported", drops }
 }
 
@@ -198,6 +236,7 @@ export function cutoff(
 function supported(tool: Tool, today: Date): string {
   const kept = tool.majors.filter(([major]) => cutoff(tool, `${major}.0.0`, today).status !== "dropped")
   const oldest = label(tool, kept[0]![0])
+
   return kept.length === 1 ? `${tool.name} ${oldest}` : `${tool.name} ${oldest} or later`
 }
 
@@ -229,9 +268,11 @@ export async function detectPackageManager(root: string): Promise<PackageManager
   const locks = await nearestLockfiles(root)
   const path = (folder: string, file: string) => toPosix(relative(root, join(folder, file)))
   const lockfile = locks ? { lockfile: path(locks.folder, locks.names[0]!) } : {}
+
   for (let folder = resolve(root); ; folder = dirname(folder)) {
     // One folder at a time, so the evidence can say which folder and which file.
     const found = await detect({ cwd: folder, stopDir: folder })
+
     if (found) {
       const lock = locks?.folder === folder ? locks.names[0] : undefined
       // Only the evidence's wording depends on the manifest, so one the schema refuses doesn't stop detection.
@@ -242,10 +283,15 @@ export async function detectPackageManager(root: string): Promise<PackageManager
       const name = agentNames[found.agent] ?? found.name
       const version = found.version && semver.coerce(found.version) ? found.version : undefined
       const summary = `${name}${version ? ` ${version}` : ""} from ${fromLock ? from : `${field} in ${from}`}`
+
       return { id: found.name, name, agent: found.agent, ...(version ? { version } : {}), from, ...lockfile, summary }
     }
-    if (dirname(folder) === folder) break
+
+    if (dirname(folder) === folder) {
+      break
+    }
   }
+
   return {
     id: "npm",
     name: "npm",
@@ -258,7 +304,11 @@ export async function detectPackageManager(root: string): Promise<PackageManager
 /** The command that adds packages to a project with its package manager, from `package-manager-detector`'s table. */
 export function addCommand(agent: string, packages: string[]): { command: string; args: string[] } {
   const resolved = resolveCommand(agent as Agent, "add", packages)
-  if (!resolved) throw new Error(`Parity doesn't know how to add packages with ${agent}`)
+
+  if (!resolved) {
+    throw new Error(`Parity doesn't know how to add packages with ${agent}`)
+  }
+
   return resolved
 }
 

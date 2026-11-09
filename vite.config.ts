@@ -46,6 +46,7 @@ const fileWrites = [
   "utimes",
   "writeFile"
 ]
+
 const readOnly =
   "Reader packages read files but never write them: return a project edit and let the project service apply it."
 
@@ -78,9 +79,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unknown-type-aliases",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-bitwise",
       "oxc/no-accumulating-spread"
     ]
@@ -97,9 +96,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-bitwise",
       "oxc/no-accumulating-spread"
     ]
@@ -117,9 +114,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-runtime-typeof",
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "curly"
+      "anti-slop/require-safety-comment-for-type-assertion"
     ]
   },
   {
@@ -134,9 +129,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "oxc/no-accumulating-spread"
     ]
   },
@@ -151,9 +144,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-bitwise",
       "no-console"
     ]
@@ -172,9 +163,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "curly"
+      "anti-slop/require-safety-comment-for-type-assertion"
     ]
   },
   {
@@ -189,9 +178,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-shape-in-symbol-names",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-bitwise"
     ]
   },
@@ -206,9 +193,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "curly"
+      "anti-slop/require-safety-comment-for-type-assertion"
     ]
   },
   {
@@ -224,9 +209,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "curly"
+      "anti-slop/require-safety-comment-for-type-assertion"
     ]
   },
   {
@@ -239,9 +222,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-console"
     ]
   },
@@ -256,9 +237,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "curly"
+      "anti-slop/require-safety-comment-for-type-assertion"
     ]
   },
   {
@@ -272,9 +251,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "curly"
+      "anti-slop/require-safety-comment-for-type-assertion"
     ]
   },
   {
@@ -294,9 +271,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-runtime-typeof",
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-console"
     ]
   },
@@ -315,9 +290,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-bitwise"
     ]
   },
@@ -334,9 +307,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "curly"
+      "anti-slop/require-safety-comment-for-type-assertion"
     ]
   },
   {
@@ -351,9 +322,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "oxc/no-accumulating-spread"
     ]
   },
@@ -378,9 +347,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-bitwise"
     ]
   },
@@ -397,9 +364,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-console"
     ]
   },
@@ -415,9 +380,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-console"
     ]
   },
@@ -442,9 +405,7 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unknown-parameters",
       "anti-slop/no-unknown-returns",
       "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-readable-spacing",
       "anti-slop/require-safety-comment-for-type-assertion",
-      "curly",
       "no-bitwise",
       "no-console"
     ]

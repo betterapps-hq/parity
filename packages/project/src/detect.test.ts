@@ -158,12 +158,14 @@ describe("detectProject", () => {
       ...installed("vite", "8.3.5"),
       ...installed("tailwindcss", "4.3.3")
     })
+
     const detection = await detectProject(
       root,
       pkg,
       { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.cts", summary: "" } },
       today
     )
+
     expect(detection.packageManager.agent).toBe("pnpm")
     expect(detection.tools.map((tool) => tool.summary)).toEqual([
       "React 19.2.0 from node_modules/react",
@@ -179,6 +181,7 @@ describe("detectProject", () => {
       dependencies: { react: "^18.2.0" },
       devDependencies: { vite: "^5.0.0", tailwindcss: "^3.4.0", storybook: "^8.0.0" }
     }
+
     await fixture({
       "package.json": pkg,
       ...installed("react", "18.3.1"),

@@ -5,10 +5,12 @@ import { drawsNothing, fitInside, nextPreview, previewIdleMs, previewSettleMs, r
 function held(log: string[], name: string) {
   let release!: () => void
   const done = new Promise<void>((resolve) => (release = resolve))
+
   return {
     run: async () => {
       log.push(name)
       await done
+
       return name
     },
     release: () => release()
@@ -21,12 +23,14 @@ describe("renderQueue", () => {
     const log: string[] = []
     const first = held(log, "first preview")
     const running = queue.add("idle", first.run)
+
     const waiting = [
       queue.add("idle", async () => log.push("idle")),
       queue.add("visible", async () => log.push("visible")),
       queue.add("render", async () => log.push("bitmap")),
       queue.add("render", async () => log.push("agent"))
     ]
+
     expect(queue.waiting()).toBe(4)
     first.release()
     await Promise.all([running, ...waiting])
@@ -54,16 +58,20 @@ describe("renderQueue", () => {
     const queue = renderQueue(2)
     const log: string[] = []
     const windows: number[] = []
+
     const job = (name: string) => {
       const job = held(log, name)
+
       return {
         ...job,
         run: (window: number) => {
           windows.push(window)
+
           return job.run()
         }
       }
     }
+
     const [a, b, c] = [job("a"), job("b"), job("c")]
     const done = [queue.add("render", a.run), queue.add("render", b.run), queue.add("render", c.run)]
     await Promise.resolve()
@@ -98,9 +106,11 @@ describe("renderQueue", () => {
 
   it("gives a job's failure to whoever added it and goes on with the next", async () => {
     const queue = renderQueue()
+
     const failing = queue.add("visible", async () => {
       throw new Error("The canvas window closed")
     })
+
     const next = queue.add("idle", async () => "made")
     await expect(failing).rejects.toThrow("The canvas window closed")
     expect(await next).toBe("made")
@@ -110,14 +120,18 @@ describe("renderQueue", () => {
     const queue = renderQueue(2)
     const windows: number[] = []
     const other = held([], "other")
+
     const running = queue.add("render", async (window) => {
       windows.push(window)
+
       return other.run()
     })
+
     const crashed = queue.add("render", async (window) => {
       windows.push(window)
       throw new Error("Render frame was disposed before the request completed")
     })
+
     await expect(crashed).rejects.toThrow("Render frame was disposed")
     await queue.add("render", async (window) => windows.push(window))
     expect(windows).toEqual([0, 1, 1])

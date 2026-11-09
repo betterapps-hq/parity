@@ -51,12 +51,23 @@ export function turnInto(
 ): { design: ContainerSpec; dropped: DroppedParts } {
   const from = design.kind ?? "screen"
   const dropped: DroppedParts = { states: [], modes: [], params: [], variants: [] }
-  if (from === kind) return { design, dropped }
-  if (kind === "frame") return asFrame(design, modes)
-  if (from !== "frame") return { design: { ...design, kind }, dropped }
+
+  if (from === kind) {
+    return { design, dropped }
+  }
+
+  if (kind === "frame") {
+    return asFrame(design, modes)
+  }
+
+  if (from !== "frame") {
+    return { design: { ...design, kind }, dropped }
+  }
+
   const { size, ...rest } = design
   const viewport = resolveModes(modes)[0]!.viewport
   const sized = size !== undefined && (size.width !== undefined || size.height !== undefined)
+
   return { design: { ...rest, kind, ...(sized ? { frames: { [viewport]: size } } : {}) }, dropped }
 }
 
@@ -65,9 +76,12 @@ function asFrame(design: ContainerSpec, modes: ModeSettings): { design: Containe
   const { main, beside, all } = shownModes(modes, design)
   const primary = all[0]!
   const shown = fitBindings(asShown(design, design.root, first), { ...design, params: undefined })
+
   const root: DesignNode =
     shown.type === "layout" ? shown : { type: "layout", id: generateId(nodeIds(shown)), children: [shown] }
+
   const params = Object.entries(design.params ?? {})
+
   const frame: ContainerSpec = {
     id: design.id,
     name: design.name,
@@ -78,6 +92,7 @@ function asFrame(design: ContainerSpec, modes: ModeSettings): { design: Containe
     size: frameSize(design, primary),
     ...(design.context ? { context: design.context } : {})
   }
+
   return {
     design: frame,
     dropped: {
@@ -96,10 +111,21 @@ function asFrame(design: ContainerSpec, modes: ModeSettings): { design: Containe
  */
 export function frameAsLayout(frame: ContainerSpec, unit: number): LayoutNode {
   const { root, size } = frame
-  if (frame.kind !== "frame" || root.type !== "layout") throw new Error(`${frame.name} isn't a frame`)
+
+  if (frame.kind !== "frame" || root.type !== "layout") {
+    throw new Error(`${frame.name} isn't a frame`)
+  }
+
   const style = { ...root.style }
-  if (size?.width !== undefined) style.width = snapToSpacingGrid(size.width / unit)
-  if (size?.height !== undefined) style.height = snapToSpacingGrid(size.height / unit)
+
+  if (size?.width !== undefined) {
+    style.width = snapToSpacingGrid(size.width / unit)
+  }
+
+  if (size?.height !== undefined) {
+    style.height = snapToSpacingGrid(size.height / unit)
+  }
+
   return { ...root, name: frame.name, ...(Object.keys(style).length > 0 ? { style } : {}) }
 }
 
@@ -114,7 +140,10 @@ export function pasteFramesInto(
   designs: readonly ContainerSpec[],
   unit: number
 ): { container: ContainerSpec; copies: string[] } | undefined {
-  if (!designs.every((design) => design.kind === "frame")) return undefined
+  if (!designs.every((design) => design.kind === "frame")) {
+    return undefined
+  }
+
   return pasteLayers(
     container,
     target,
@@ -137,16 +166,30 @@ export function moveFrameInto(
   const find = (ref: DesignRef) => documents.get(ref.path)?.containers.find((design) => design.id === ref.id)
   const moving = find(frame)
   const destination = find(into)
-  if (!moving || !destination) throw new Error(`No design "${moving ? into.id : frame.id}"`)
-  if (moving === destination) throw new Error(`${moving.name} can't go inside itself`)
+
+  if (!moving || !destination) {
+    throw new Error(`No design "${moving ? into.id : frame.id}"`)
+  }
+
+  if (moving === destination) {
+    throw new Error(`${moving.name} can't go inside itself`)
+  }
+
   const placed = pasteFramesInto(destination, target, [moving], unit)
-  if (!placed) throw new Error(`${moving.name} isn't a frame`)
+
+  if (!placed) {
+    throw new Error(`${moving.name} isn't a frame`)
+  }
+
   const next = new Map(documents)
+
   const replace = (path: string, change: (containers: ContainerSpec[]) => ContainerSpec[]) => {
     const document = next.get(path)!
     next.set(path, { ...document, containers: change(document.containers) })
   }
+
   replace(into.path, (containers) => containers.map((design) => (design === destination ? placed.container : design)))
   replace(frame.path, (containers) => containers.filter((design) => design !== moving))
+
   return { documents: next, layer: placed.copies[0]! }
 }

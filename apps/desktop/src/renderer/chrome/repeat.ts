@@ -22,7 +22,9 @@ export function lastAction(): Repeatable | undefined {
 
 /** Runs the last action again, when it applies to what's selected now. */
 export function repeatLastAction(): void {
-  if (last && last.available?.() !== false) void last.run()
+  if (last && last.available?.() !== false) {
+    void last.run()
+  }
 }
 
 /** Forgets the last action, as a new window starts: stories start from nothing done. */

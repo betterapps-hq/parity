@@ -65,6 +65,7 @@ async function both() {
   const project = await discoverProject(root, renderer)
   const { manifest, report } = await generateLibrary({ root })
   const list = (manifest.components as { list: Record<string, { declaration: string }> } | undefined)?.list ?? {}
+
   return {
     detected: {
       files: [...new Set(Object.values(project.components).map((source) => source.path))].sort(),

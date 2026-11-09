@@ -31,7 +31,10 @@ const context = { sources, library: new Map(), viewport: "desktop" }
 /** The components a tree draws, outermost first. */
 function components(tree: RenderNode[]): string[] {
   return tree.flatMap((node) => {
-    if (node.kind === "component") return [node.component, ...Object.values(node.slots).flatMap(components)]
+    if (node.kind === "component") {
+      return [node.component, ...Object.values(node.slots).flatMap(components)]
+    }
+
     return node.kind === "element" ? components(node.children) : []
   })
 }
@@ -100,8 +103,12 @@ function layer(component: string, props?: Record<string, unknown>, children: Des
 
 /** Each component's props in a tree, by its id, for the ones given any. */
 function propsOf(node: DesignNode): Record<string, unknown> {
-  if (node.type !== "component") return {}
+  if (node.type !== "component") {
+    return {}
+  }
+
   const inside = Object.values(node.slots ?? {}).flat()
+
   return Object.assign(node.props ? { [node.id]: node.props } : {}, ...inside.map(propsOf)) as Record<string, unknown>
 }
 
@@ -121,6 +128,7 @@ describe("drawnOpen", () => {
       { ...layer("MenubarMenu", { open: false }), id: "closed" },
       { ...layer("MenubarMenu"), id: "next" }
     ])
+
     expect(propsOf(drawnOpen(tree, openSources))).toEqual({ closed: { open: false }, next: { defaultOpen: true } })
   })
 
@@ -157,13 +165,25 @@ describe("drawnOpen", () => {
 /** The props a tree gives the first layer of a component, outermost first. */
 function drawnProps(tree: RenderNode[], component: string): Record<string, unknown> | undefined {
   for (const node of tree) {
-    if (node.kind === "component" && node.component === component) return node.props
+    if (node.kind === "component" && node.component === component) {
+      return node.props
+    }
+
     let inside: RenderNode[] = []
-    if (node.kind === "component") inside = Object.values(node.slots).flat()
-    else if (node.kind === "element") inside = node.children
+
+    if (node.kind === "component") {
+      inside = Object.values(node.slots).flat()
+    } else if (node.kind === "element") {
+      inside = node.children
+    }
+
     const within = drawnProps(inside, component)
-    if (within) return within
+
+    if (within) {
+      return within
+    }
   }
+
   return undefined
 }
 
@@ -189,6 +209,7 @@ describe("previewVariants", () => {
       prop("size", { kind: "enum", options: ["sm", "lg"] }),
       prop("variant", { kind: "enum", group: "variant", options: ["default", "outline", "ghost"] })
     )
+
     expect(previewVariants(info)).toEqual({ prop: "variant", options: ["default", "outline", "ghost"] })
   })
 
@@ -197,6 +218,7 @@ describe("previewVariants", () => {
       prop("tone", { kind: "enum", group: "variant", options: ["only"] }),
       prop("size", { kind: "enum", options: ["sm", "lg"] })
     )
+
     expect(previewVariants(info)).toEqual({ prop: "size", options: ["sm", "lg"] })
   })
 
@@ -218,6 +240,7 @@ describe("missingProps", () => {
       prop("onSelect", { kind: "function", required: true }),
       prop("alt")
     )
+
     expect(missingProps("Badge", info, sources)).toEqual(["items"])
   })
 

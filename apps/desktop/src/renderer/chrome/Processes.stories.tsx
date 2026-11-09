@@ -19,6 +19,7 @@ const meta = {
 } satisfies Meta<typeof StatusBar>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)
@@ -34,6 +35,7 @@ async function runningWith(...processes: ProjectProcess[]): Promise<void> {
 async function openFlyout(): Promise<HTMLElement> {
   await waitFor(() => expect(document.querySelector("[data-slot=processes-trigger]")).not.toBeNull())
   await userEvent.click(document.querySelector<HTMLElement>("[data-slot=processes-trigger]")!)
+
   return body().findByRole("dialog")
 }
 
@@ -76,6 +78,7 @@ function task(
 ): ProjectProcess {
   const { minutes = 0.4, took = 0.3, ...rest } = overrides
   const done = rest.status && rest.status !== "running" && rest.status !== "stopping"
+
   return {
     id: `${kind}:${roots.example}`,
     kind,

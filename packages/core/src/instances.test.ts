@@ -96,17 +96,28 @@ const library = componentLibrary([badge, card, team])
 /** The rendered node with this id, anywhere in the tree. */
 function rendered(tree: RenderNode[], id: string): RenderNode | undefined {
   for (const node of tree) {
-    if (node.kind === "text") continue
-    if (node.nodeId === id) return node
+    if (node.kind === "text") {
+      continue
+    }
+
+    if (node.nodeId === id) {
+      return node
+    }
+
     const children = node.kind === "element" ? node.children : Object.values(node.slots).flat()
     const found = rendered(children, id)
-    if (found) return found
+
+    if (found) {
+      return found
+    }
   }
+
   return undefined
 }
 
 function textOf(tree: RenderNode[], id: string): string | undefined {
   const node = rendered(tree, id)
+
   return node?.kind === "element" && node.children[0]?.kind === "text" ? node.children[0].text : undefined
 }
 
@@ -128,6 +139,7 @@ describe("variants", () => {
       ...team,
       root: { type: "instance", id: "alert", design: "badge", args: { tone: "danger", label: "Late" } }
     }
+
     const tree = render(screen)
     expect(rendered(tree, "alert")).toMatchObject({ style: { background: "var(--destructive)" } })
     expect(textOf(tree, "alert/label")).toBe("Late")
@@ -163,6 +175,7 @@ describe("variants", () => {
   it("rejects a variant without options, and patches for nodes that don't exist", () => {
     const parse = (params: unknown) =>
       parseCanvasDocument({ version: 3, containers: [{ ...badge, params }] }).containers[0]
+
     expect(() => parse({ tone: { type: "variant" } })).toThrow(/needs options/)
     expect(() =>
       parse({ tone: { type: "variant", options: [{ id: "a", name: "A", overrides: { nope: {} } }] } })
@@ -228,6 +241,7 @@ describe("instance overrides", () => {
         children: [{ type: "instance", id: "first", design: "card", args: { title: "Ada" }, state: "empty" }]
       }
     }
+
     expect(textOf(render(screen), "first/body")).toBe("Nothing yet")
     const edited = editInner(screen, "default", "first/body", { text: "Mine" }, library)
     expect(textOf(render(edited), "first/body")).toBe("Mine")
@@ -293,6 +307,7 @@ describe("detach and swap", () => {
       },
       states: [{ id: "default", name: "Default" }]
     }
+
     const lib = componentLibrary([badge, card, profile])
     let edited = editInner(team, "default", "first/body", { text: "Leads design" }, lib)
     edited = editInner(edited, "default", "first/status/label", { text: "Away" }, lib)
@@ -338,6 +353,7 @@ const statCard: ContainerSpec = {
 
 describe("a component's board", () => {
   const stats = componentLibrary([statCard])
+
   const dashboard: ContainerSpec = {
     id: "dashboard",
     name: "Dashboard",
@@ -425,6 +441,7 @@ describe("hiding a layer in a state", () => {
     },
     view: { variants: { tone: "quiet" } }
   }
+
   const pressed = { ...quiet, states: [quiet.states[0]!, { id: "pressed", name: "Pressed" }] }
 
   it("reads what the state and the variant shown hide", () => {
@@ -432,6 +449,7 @@ describe("hiding a layer in a state", () => {
       ...card,
       states: [card.states[0]!, { id: "loading", name: "Loading", overrides: { body: { hidden: true } } }]
     }
+
     expect(toggleHidden(loading, "loading", ["body"]).states[1]?.overrides).toBeUndefined()
     const shown = toggleHidden(quiet, "default", ["label"])
     expect(shown.params?.tone?.options?.[1]?.overrides).toBeUndefined()

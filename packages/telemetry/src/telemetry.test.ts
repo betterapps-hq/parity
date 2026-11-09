@@ -16,6 +16,7 @@ const projectOpened = defineEvent("project.opened", z.object({ framework: z.stri
   level: "info",
   ...about
 })
+
 const saveFailed = defineEvent("file.save_failed", z.object({ path: z.string() }), { level: "error", ...about })
 const pointerMoved = defineEvent("gesture.sampled", z.object({}), { level: "debug", sample: 0.25, ...about })
 const events = [projectOpened, saveFailed, pointerMoved] as const
@@ -27,6 +28,7 @@ function setup(options: { check?: boolean; random?: () => number; keep?: number 
   const sink = createTestSink()
   let time = Date.UTC(2026, 10, 5, 12)
   let id = 0
+
   const telemetry = createTelemetry({
     events,
     context,
@@ -37,9 +39,11 @@ function setup(options: { check?: boolean; random?: () => number; keep?: number 
     random: options.random ?? (() => 0),
     randomBytes: (length) => {
       id++
+
       return Uint8Array.from({ length }, (_, index) => (index === length - 1 ? id : 0))
     }
   })
+
   return { telemetry, sink, wait: (ms: number) => (time += ms) }
 }
 
@@ -145,7 +149,11 @@ describe("track", () => {
   it("keeps an event's share of samples", () => {
     const rolls = [0.1, 0.3, 0.24, 0.9]
     const { telemetry, sink } = setup({ random: () => rolls.shift() ?? 1 })
-    for (let index = 0; index < 4; index++) telemetry.track("gesture.sampled", {})
+
+    for (let index = 0; index < 4; index++) {
+      telemetry.track("gesture.sampled", {})
+    }
+
     expect(sink.events).toHaveLength(2)
   })
 
@@ -160,12 +168,14 @@ describe("track", () => {
   it("keeps a sink's failure from the code that recorded it", () => {
     const failures: unknown[] = []
     const sink = createTestSink()
+
     const broken = {
       event: () => {
         throw new Error("offline")
       },
       span: () => undefined
     }
+
     const telemetry = createTelemetry({
       events,
       context,
@@ -173,6 +183,7 @@ describe("track", () => {
       check: true,
       onSinkError: (error) => failures.push(error)
     })
+
     telemetry.track("file.save_failed", { path: "a" })
     expect(failures).toEqual([new Error("offline")])
     expect(sink.events).toHaveLength(1)
@@ -244,12 +255,20 @@ describe("startSpan", () => {
 describe("recent", () => {
   it("keeps the last events and ended spans, oldest first, 500 unless told", () => {
     const { telemetry } = setup({ keep: 3 })
-    for (const path of ["a", "b", "c"]) telemetry.track("file.save_failed", { path })
+
+    for (const path of ["a", "b", "c"]) {
+      telemetry.track("file.save_failed", { path })
+    }
+
     telemetry.startSpan("file.save_failed", { path: "d" }).end()
     expect(telemetry.recent().map((event) => event.attributes.path)).toEqual(["b", "c", "d"])
 
     const defaults = setup()
-    for (let index = 0; index < 600; index++) defaults.telemetry.track("file.save_failed", { path: `${index}` })
+
+    for (let index = 0; index < 600; index++) {
+      defaults.telemetry.track("file.save_failed", { path: `${index}` })
+    }
+
     expect(defaults.telemetry.recent()).toHaveLength(500)
     expect(defaults.telemetry.recent()[0]?.attributes.path).toBe("100")
   })

@@ -31,7 +31,9 @@ export const Scenarios = z
   .superRefine((model, context) => uniqueIds(model.scenarios, ["scenarios"], context))
 
 export type ScenarioResponse = z.infer<typeof ScenarioResponse>
+
 export type Scenario = z.infer<typeof Scenario>
+
 export type Scenarios = z.infer<typeof Scenarios>
 
 export function parseScenarios(value: unknown): Scenarios {

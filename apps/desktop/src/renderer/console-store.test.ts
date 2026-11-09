@@ -24,6 +24,7 @@ function entry(fields: Partial<LoggedEntry> = {}): LoggedEntry {
 describe("the console's messages", () => {
   it("are one for a message written in several frames of a design, with each frame and every time it came", () => {
     const pricing = { design: "app.par#pricing", state: "default" }
+
     const [message, ...rest] = consoleMessages(
       [
         entry({ ...pricing, mode: "desktop", count: 2 }),
@@ -32,6 +33,7 @@ describe("the console's messages", () => {
       ],
       guestUrl
     )
+
     expect(rest).toEqual([])
     expect(message).toMatchObject({
       id: "1",
@@ -64,6 +66,7 @@ describe("the console's messages", () => {
       ],
       guestUrl
     )
+
     expect(message?.text).toBe(
       'Each child in a list should have a unique "key" prop.\n\nCheck the render method of `PlanList`.'
     )
@@ -84,6 +87,7 @@ describe("the console's messages", () => {
       ],
       guestUrl
     )
+
     expect(tally(messages)).toEqual({ errors: 2, warnings: 1, info: 0 })
     expect(tally(messages, "app.par#pricing")).toEqual({ errors: 1, warnings: 1, info: 0 })
   })
@@ -112,6 +116,7 @@ describe("routing the main process's changes", () => {
       { id: "D:/shop", info: { guestUrl } },
       { id: "D:/admin", info: { guestUrl: "http://127.0.0.1:5174/@id/virtual:parity/guest" } }
     ]
+
     consoleLog("D:/shop").clear()
     consoleLog("D:/admin").clear()
     routeConsoleChange(

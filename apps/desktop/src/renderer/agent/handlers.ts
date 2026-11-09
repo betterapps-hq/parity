@@ -22,7 +22,10 @@ import { presence } from "./presence.ts"
 export function serveAgents(): void {
   // When the person last used this copy, which `--tab active` and calls without a tab are routed by (PAR-514). A window
   // that opens with focus has been used since it opened.
-  if (document.hasFocus()) focusedAt = Date.now()
+  if (document.hasFocus()) {
+    focusedAt = Date.now()
+  }
+
   window.addEventListener("focus", () => {
     focusedAt = Date.now()
   })
@@ -37,6 +40,7 @@ async function settle(run: () => Promise<unknown>): Promise<ServeAnswer> {
     return { result: await run() }
   } catch (error) {
     const details = errorDetails(error)
+
     return { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) }
   }
 }
@@ -59,6 +63,7 @@ const handlers: Handlers = {
   "agent.snapshot": ({ tab }) => snapshot(tab),
   "agent.status": ({ tab: reference, ...options }) => {
     const tab = findTab(reference)
+
     return { tab: summary(tab), ...ready(tab).store.status(options) }
   },
   "agent.iconNames": (params) => iconNames(params),
@@ -67,26 +72,40 @@ const handlers: Handlers = {
   "agent.apply": (changes) => apply(changes),
   "agent.presence": (events) => {
     presence.push(events)
+
     return undefined
   },
   "project.componentsChanged": ({ projectId, components, sources, leftOut }) => {
     const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
-    if (sources && tab) workspace.setSources(tab.id, sources, leftOut)
+
+    if (sources && tab) {
+      workspace.setSources(tab.id, sources, leftOut)
+    }
+
     tab?.session?.components.set(components)
+
     return undefined
   },
   "project.codeChanged": ({ projectId, paths, stamp }) => {
     const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
-    if (tab) workspace.codeChanged(tab.id, paths, stamp)
+
+    if (tab) {
+      workspace.codeChanged(tab.id, paths, stamp)
+    }
+
     return undefined
   },
   "project.guestMoved": async ({ projectId, guestUrl }) => {
     // A tab that couldn't load it says so, and the service tries again when the builder is started again.
-    if (!(await workspace.moveGuest(projectId, guestUrl))) throw new Error(`The guest at ${guestUrl} didn't load`)
+    if (!(await workspace.moveGuest(projectId, guestUrl))) {
+      throw new Error(`The guest at ${guestUrl} didn't load`)
+    }
+
     return undefined
   },
   "project.fileChanged": ({ projectId, path, document }) => {
     const store = workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session?.store
+
     // Unsaved changes here win until the person says otherwise.
     if (store && !store.reloadDocument(path, document)) {
       toast.warning(`${path} changed on disk`, {
@@ -95,6 +114,7 @@ const handlers: Handlers = {
         action: { label: "Load from disk", onClick: () => store.reloadDocument(path, document, true) }
       })
     }
+
     return undefined
   }
 }
@@ -110,15 +130,28 @@ function findTab(reference: string | undefined): Tab {
   const tabs = workspace.getTabs().filter((candidate) => !candidate.blank)
   const named = reference && reference !== activeTab ? reference : undefined
   const ids = tabs.map((candidate) => candidate.id)
+
   if (named) {
     const found = matchTab(workspace.summaries(), named)
     const tab = found && tabs.find((candidate) => candidate.id === found.id)
-    if (tab) return tab
+
+    if (tab) {
+      return tab
+    }
+
     throw unknownReference("unknown_tab", `No open tab matches "${named}". Tabs: ${ids.join(", ")}`, named, ids, "tab")
   }
+
   const active = workspace.getActive()
-  if (active && !active.blank) return active
-  if (ids.length === 0) throw new CodedError("No project is open", { code: "unknown_tab", field: "tab" })
+
+  if (active && !active.blank) {
+    return active
+  }
+
+  if (ids.length === 0) {
+    throw new CodedError("No project is open", { code: "unknown_tab", field: "tab" })
+  }
+
   throw new CodedError(`No project tab is active. Set tab to one of the open tabs: ${ids.join(", ")}`, {
     code: "unknown_tab",
     field: "tab"
@@ -133,6 +166,7 @@ function ready(tab: Tab): ProjectSession {
       retryable: !broken
     })
   }
+
   return tab.session
 }
 
@@ -147,10 +181,15 @@ function snapshot(reference: string | undefined): TabSnapshot {
   const editor = session.editor
   const bounds = editor?.getViewportPageBounds()
   const boards: TabSnapshot["bounds"] = {}
+
   for (const entry of session.store.getEntries()) {
     const box = editor?.getShapePageBounds(shapeIdFor(entry.key))
-    if (box) boards[entry.key] = { x: box.x, y: box.y, width: box.width, height: box.height }
+
+    if (box) {
+      boards[entry.key] = { x: box.x, y: box.y, width: box.width, height: box.height }
+    }
   }
+
   return {
     tab: summary(tab),
     revision: session.store.getRevision(),
@@ -188,9 +227,14 @@ function snapshot(reference: string | undefined): TabSnapshot {
 /** An icon set as agents read it, without its tags, which can run to thousands of lines and only `iconNames` needs. */
 function iconSet({ id, name, package: packageName, version, icons }: LibraryInfo): IconSet {
   const set: IconSet = { id, name, package: packageName, ...(version ? { version } : {}) }
-  if (!icons) return set
+
+  if (!icons) {
+    return set
+  }
+
   const described = { ...icons }
   delete described.tags
+
   return { ...set, icons: described }
 }
 
@@ -198,8 +242,13 @@ function iconSet({ id, name, package: packageName, version, icons }: LibraryInfo
 function iconNames({ tab, set, module }: WindowMethods["agent.iconNames"]["params"]): IconNames {
   const session = ready(findTab(tab))
   const library = session.info.libraries.find((candidate) => candidate.kind === "icons" && candidate.id === set)
-  if (!library) throw new Error(`"${set}" isn't one of the project's icon sets`)
+
+  if (!library) {
+    throw new Error(`"${set}" isn't one of the project's icon sets`)
+  }
+
   const { guest } = session.loaded
+
   return {
     names: guest.iconNames?.(set, module) ?? [],
     aliases: guest.iconAliases?.(set, module) ?? {},
@@ -214,5 +263,6 @@ function iconNames({ tab, set, module }: WindowMethods["agent.iconNames"]["param
 async function apply(changes: AgentChanges): Promise<ChangeConflict[]> {
   const session = ready(findTab(changes.tab))
   const tokens = session.tokens.edits(changes.tokens ?? [])
+
   return session.store.applyAgentChanges(changes.label, changes.designs, changes.modes, tokens)
 }

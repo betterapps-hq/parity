@@ -29,6 +29,7 @@ export function newDesign(
   const ids = new Set<string>()
   const rootId = generateId(ids)
   ids.add(rootId)
+
   const roots: Record<ContainerKind, DesignNode> = {
     screen: {
       type: "layout",
@@ -51,6 +52,7 @@ export function newDesign(
       children: []
     }
   }
+
   return {
     id: uniqueId(name, taken),
     name,

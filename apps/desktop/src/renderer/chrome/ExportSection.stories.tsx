@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const page = () => within(document.body)

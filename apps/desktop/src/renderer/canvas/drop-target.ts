@@ -34,6 +34,7 @@ export class DragLayouts {
     })
     const layout = frameLayout(host.getBoundingClientRect(), measured)
     this.frames.set(host, layout)
+
     return layout
   }
 
@@ -68,5 +69,6 @@ export function dropInFrame(
     source,
     ids
   })
+
   return found && { ...found, host }
 }

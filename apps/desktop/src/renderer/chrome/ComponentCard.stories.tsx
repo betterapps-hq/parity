@@ -35,6 +35,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A kept preview's pictures, sized as the store gives them. */
@@ -44,6 +45,7 @@ const picture = (src: string, width: number, height: number): PreviewImage => ({
   width,
   height
 })
+
 const pictures = {
   inputGroupText: picture(inputGroupText, 134, 104),
   button: picture(button, 339, 88),
@@ -52,6 +54,7 @@ const pictures = {
   calendar: picture(calendar, 291, 352),
   attachmentGroup: picture(attachmentGroup, 608, 285)
 }
+
 const made = (image: PreviewImage): PreviewState => ({ state: "made", image })
 
 const cards: (ComponentCardProps & { label: string })[] = [
@@ -283,6 +286,7 @@ function Row({
 
 function OpenRow({ name, ...props }: ComponentCardProps) {
   const card = useHoverCard(true)
+
   return (
     <ComponentPopover {...props} name={name} card={card}>
       <Row name={name.slice(name.lastIndexOf("/") + 1)} card={card} />

@@ -29,6 +29,7 @@ describe("adding a value prop", () => {
       "wide",
       "boolean"
     )
+
     expect(added.params).toMatchObject({
       price: { type: "number", default: 0 },
       subtitle: { type: "text", default: "Text" },

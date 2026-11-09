@@ -11,6 +11,7 @@ import { basename, join, resolve } from "node:path"
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
 const example = join(repoDir, "examples/shadcn-vite")
+
 /** The suite's own ports, beside the app's usual 5310 and 9333. */
 const suitePorts = { ui: 5385, debug: 9385 }
 
@@ -47,6 +48,7 @@ export async function launch(): Promise<RunningApp> {
   const debugPort = await freePort(suitePorts.debug)
   const log = join(dir, "app.log")
   const output = createWriteStream(log)
+
   // On React's development build, as `pnpm dev` runs it, so StrictMode's checks and React's warnings run on every test.
   const runner = spawn(process.execPath, [join(appDir, "scripts/dev.ts"), project], {
     cwd: appDir,
@@ -64,12 +66,15 @@ export async function launch(): Promise<RunningApp> {
     },
     stdio: ["ignore", "pipe", "pipe"]
   })
+
   runner.stdout?.pipe(output)
   runner.stderr?.pipe(output)
+
   const stop = async () => {
     await stopProcess(runner)
     output.end()
     await removeCopy(dir, project)
+
     // A copy on another port bundles into a folder and caches dependencies of its own, kept only for the suite's port.
     if (uiPort !== suitePorts.ui) {
       for (const folder of [join(appDir, "out", String(uiPort)), join(appDir, `node_modules/.vite-${uiPort}`)]) {
@@ -77,6 +82,7 @@ export async function launch(): Promise<RunningApp> {
       }
     }
   }
+
   try {
     await waitForWindow(uiPort, debugPort, runner)
   } catch (error) {
@@ -84,6 +90,7 @@ export async function launch(): Promise<RunningApp> {
     await stop()
     throw new Error(`${error instanceof Error ? error.message : String(error)}\nThe app's last output:\n${tail}`)
   }
+
   return { uiPort, debugPort, project, profile, dir, log, stop }
 }
 
@@ -96,12 +103,16 @@ export const pageSize = { width: 1440, height: 900 }
  * Only on CI, so a person's own screen is never changed.
  */
 async function enlargeRunnerDisplay(): Promise<void> {
-  if (process.platform !== "win32" || !process.env.CI) return
+  if (process.platform !== "win32" || !process.env.CI) {
+    return
+  }
+
   const result = spawnSync(
     "powershell.exe",
     ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(setDisplay, "utf16le").toString("base64")],
     { encoding: "utf8", windowsHide: true }
   )
+
   console.log(`Runner display: ${(result.stdout || result.stderr).trim()}`)
 }
 
@@ -147,14 +158,22 @@ public static class Display {
  */
 export function appEnvironment(): NodeJS.ProcessEnv {
   const env = { ...process.env }
+
   for (const name of Object.keys(env)) {
-    if (name.startsWith("VITEST") || name === "TEST") delete env[name]
+    if (name.startsWith("VITEST") || name === "TEST") {
+      delete env[name]
+    }
   }
-  if (env.NODE_ENV === "test") delete env.NODE_ENV
+
+  if (env.NODE_ENV === "test") {
+    delete env.NODE_ENV
+  }
+
   // Every event from one CI run of the suite groups under its run in Sentry (PAR-630).
   if (!env.PARITY_TEST_RUN && env.GITHUB_RUN_ID) {
     env.PARITY_TEST_RUN = `github-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT ?? "1"}`
   }
+
   return env
 }
 
@@ -163,11 +182,18 @@ export function appEnvironment(): NodeJS.ProcessEnv {
  * have: other copies of Parity, such as other sessions', are started on ports near the suite's.
  */
 async function freePort(preferred: number): Promise<number> {
-  if (await free(preferred)) return preferred
+  if (await free(preferred)) {
+    return preferred
+  }
+
   for (let tries = 0; tries < 20; tries++) {
     const port = await systemPort()
-    if (await free(port)) return port
+
+    if (await free(port)) {
+      return port
+    }
   }
+
   throw new Error("No free port")
 }
 
@@ -215,40 +241,54 @@ async function copyExample(dir: string): Promise<string> {
   // `@tailwindcss/vite` point into the temporary folder, where nothing is, and the project couldn't load its config.
   // A junction on Windows needs no special rights; elsewhere the type is ignored and it's a plain symlink.
   const link = async (from: string, to: string) => symlink(await realpath(from), to, "junction")
+
   for (const name of await readdir(modules)) {
     // Caches such as .vite-parity belong to whoever runs the example itself.
-    if (name.startsWith(".") && name !== ".bin") continue
+    if (name.startsWith(".") && name !== ".bin") {
+      continue
+    }
+
     if (!name.startsWith("@")) {
       await link(join(modules, name), join(root, "node_modules", name))
       continue
     }
+
     await mkdir(join(root, "node_modules", name))
+
     for (const scoped of await readdir(join(modules, name))) {
       await link(join(modules, name, scoped), join(root, "node_modules", name, scoped))
     }
   }
+
   await writeFile(join(root, "src/components/member-row.tsx"), memberRow)
   const file = join(root, "shadcn-vite.par")
   const document = JSON.parse(await readFile(file, "utf8")) as { containers: unknown[] }
   document.containers.push(membersDesign)
   await writeFile(file, `${JSON.stringify(document, null, 2)}\n`)
+
   return root
 }
 
 /** Takes the links out before the folder, so removing it can't reach the packages they point to. */
 async function removeCopy(dir: string, project: string): Promise<void> {
   const modules = join(project, "node_modules")
+
   for (const name of await readdir(modules).catch(() => [])) {
-    if (name.startsWith(".") && name !== ".bin") continue
+    if (name.startsWith(".") && name !== ".bin") {
+      continue
+    }
+
     if (!name.startsWith("@")) {
       await unlink(join(modules, name)).catch(() => undefined)
       continue
     }
+
     // A scope is a folder of its own, holding a link for each of its packages.
     for (const scoped of await readdir(join(modules, name)).catch(() => [])) {
       await unlink(join(modules, name, scoped)).catch(() => undefined)
     }
   }
+
   await rm(dir, { recursive: true, force: true, maxRetries: 5 })
 }
 
@@ -260,30 +300,50 @@ async function waitForWindow(uiPort: number, debugPort: number, runner: ChildPro
   const deadline = Date.now() + 180_000
   let exited = false
   runner.once("exit", () => (exited = true))
+
   while (Date.now() < deadline) {
-    if (exited) throw new Error("The app stopped while starting")
+    if (exited) {
+      throw new Error("The app stopped while starting")
+    }
+
     const pages = await fetch(`http://127.0.0.1:${debugPort}/json/list`)
       .then((response) => response.json())
       .catch(() => [])
-    if (Array.isArray(pages) && pages.some((page) => isWindow(page, uiPort))) return
+
+    if (Array.isArray(pages) && pages.some((page) => isWindow(page, uiPort))) {
+      return
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 500))
   }
+
   throw new Error("The app's window didn't load within three minutes")
 }
 
 /** The app's own window, as the protocol lists it, rather than the offscreen renderer or a tool. */
 export function isWindow(page: unknown, uiPort: number): boolean {
-  if (typeof page !== "object" || page === null || !("url" in page) || typeof page.url !== "string") return false
+  if (typeof page !== "object" || page === null || !("url" in page) || typeof page.url !== "string") {
+    return false
+  }
+
   return page.url.startsWith(`http://localhost:${uiPort}`) && !page.url.includes("render")
 }
 
 /** Stops the runner and everything it started: Electron, its service and the servers. */
 async function stopProcess(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null || !child.pid) return
+  if (child.exitCode !== null || !child.pid) {
+    return
+  }
+
   const exited = new Promise((resolve) => child.once("exit", resolve))
+
   // The runner stops Electron when it ends, but on Windows only a tree kill ends them all at once.
-  if (process.platform === "win32") spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" })
-  else child.kill()
+  if (process.platform === "win32") {
+    spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" })
+  } else {
+    child.kill()
+  }
+
   await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 10_000))])
 }
 

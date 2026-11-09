@@ -19,6 +19,7 @@ const meta = {
 } satisfies Meta<typeof UpdateToast>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Progress is shown only after an explicit Check for updates; automatic downloads stay silent. */
@@ -89,6 +90,7 @@ export const DesignReview: Story = {
 /** Controls let the reviewer watch the same toast change and dismiss it; these controls are only in Storybook. */
 function DownloadFlow() {
   const theme = useResolvedTheme()
+
   const [notice, setNotice] = useState<UpdateNotice>({
     kind: "downloading",
     version: "0.4.0",
@@ -96,15 +98,18 @@ function DownloadFlow() {
     transferred: 54_200_000,
     total: 129_000_000
   })
+
   useEffect(() => {
     toast.custom(
       (id) => <UpdateToast notice={notice} onDismiss={() => toast.dismiss(id)} onAction={() => toast.dismiss(id)} />,
       { id: "storybook-update", duration: Infinity }
     )
+
     return () => {
       toast.dismiss("storybook-update")
     }
   }, [notice])
+
   return (
     <div className="min-h-screen bg-background p-8 text-foreground">
       <h1 className="text-sm font-medium">Update notification preview</h1>

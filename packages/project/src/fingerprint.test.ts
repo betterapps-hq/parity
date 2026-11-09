@@ -23,6 +23,7 @@ afterEach(async () => {
 
 describe("detection fingerprints", () => {
   const sources = { Button: { path: "src/button.tsx", export: "Button", as: "function" as const } }
+
   const fingerprint = (salt = "v1", listed: Record<string, (typeof sources)["Button"]> = sources) =>
     detectionFingerprint(join(root, "app"), ["src/button.tsx"], listed, readTsconfig(join(root, "app")), salt)
 

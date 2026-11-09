@@ -47,6 +47,7 @@ const everyone = [me, ...Object.values(people)]
 
 function matches(query: string, ...texts: string[]): boolean {
   const wanted = query.trim().toLowerCase()
+
   return !wanted || texts.some((text) => text.toLowerCase().includes(wanted))
 }
 
@@ -54,7 +55,11 @@ function matches(query: string, ...texts: string[]): boolean {
 function Highlight({ text, query }: { text: string; query: string }) {
   const wanted = query.trim().toLowerCase()
   const at = wanted ? text.toLowerCase().indexOf(wanted) : -1
-  if (at < 0) return <span>{text}</span>
+
+  if (at < 0) {
+    return <span>{text}</span>
+  }
+
   return (
     <span>
       {text.slice(0, at)}
@@ -77,22 +82,28 @@ export function SearchPalette({
   const start = useStart()
   const [query, setQuery] = useState(initialQuery)
   const searching = query.trim() !== ""
+
   /** Does what a result says, then gets out of the way. */
   const pick = (act?: () => void) => () => {
     onOpenChange?.(false)
     act?.()
   }
+
   const designs = projects
     .flatMap((project) => project.designs.map((design) => ({ project, design })))
     .filter(({ project, design }) => matches(query, design.name, ...(searching ? [] : [project.name])))
     .slice(0, searching ? 6 : 4)
+
   const projectHits = projects.filter((project) => matches(query, project.name)).slice(0, 4)
   const componentHits = searching ? components.filter((component) => matches(query, component.name)) : []
   const peopleHits = searching ? everyone.filter((person) => matches(query, person.name)) : []
+
   const templateHits = searching
     ? templates.filter((template) => matches(query, template.name, template.blurb)).slice(0, 3)
     : []
+
   const commandHits = commands.filter((command) => matches(query, command.label))
+
   return (
     <CommandDialog
       open={open}

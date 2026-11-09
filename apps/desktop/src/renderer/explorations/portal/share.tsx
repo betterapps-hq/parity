@@ -47,7 +47,9 @@ function ShareDialog() {
     { person: maya, why: "Through the Web team", role: "edit" },
     { person: noah, why: "Through the Web team, waiting on an editor seat", role: "view" }
   ]
+
   const request = event("ivy-access")
+
   return (
     <div className="flex w-[32rem] flex-col rounded-xl border bg-popover text-popover-foreground shadow-2xl">
       <div className="flex items-start gap-3 px-5 pt-4 pb-3">

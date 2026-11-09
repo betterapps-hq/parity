@@ -8,9 +8,13 @@ const platform = vi.hoisted(() => ({
 }))
 
 vi.mock("electron", () => ({ app: { isPackaged: true, getPath: () => "." } }))
+
 vi.mock("node:fs", () => ({ readFileSync: () => '{"beta":false}', writeFileSync: vi.fn<() => void>() }))
+
 vi.mock("./github-releases.ts", () => ({ noStableRelease: platform.confirmEmpty }))
+
 vi.mock("./telemetry.ts", () => ({ tagUpdateChannel: vi.fn<(beta: boolean) => void>() }))
+
 vi.mock("electron-updater", () => ({
   default: {
     autoUpdater: Object.assign(new EventEmitter(), {

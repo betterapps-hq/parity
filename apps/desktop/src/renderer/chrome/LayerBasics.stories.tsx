@@ -16,6 +16,7 @@ const meta = {
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The design's outermost layer: everything a layout has, but no Make component, since it's the design itself. */
@@ -37,6 +38,7 @@ export const LongLayerName: Story = {
           name: "Billing period switch with the yearly discount badge beside it"
         }))
       }))
+
       return layersSelection(key, [id])
     })
   ]

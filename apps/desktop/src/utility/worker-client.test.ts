@@ -32,23 +32,31 @@ interface EchoMethods {
 const stops: Array<() => void> = []
 
 afterEach(() => {
-  for (const stop of stops.splice(0)) stop()
+  for (const stop of stops.splice(0)) {
+    stop()
+  }
 })
 
 function setup(options: Partial<WorkerClientOptions> = {}) {
   let stoppedIdle = 0
   const waiting: Array<() => void> = []
+
   const client = workerClient<EchoMethods>({
     start: () => new Worker(echo, { eval: true }),
     idleMs: 40,
     stopped: () => {
       stoppedIdle++
-      for (const resolve of waiting.splice(0)) resolve()
+
+      for (const resolve of waiting.splice(0)) {
+        resolve()
+      }
     },
     ...options
   })
+
   stops.push(() => client.stop(new Error("The test ended")))
   const ask = (message: Record<string, unknown> = {}) => client.request("echo", message)
+
   return {
     client,
     ask,

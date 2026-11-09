@@ -10,6 +10,7 @@ import { beforeAll, describe, expect, it } from "vite-plus/test"
 // one of the project's components for designs and agents to put the parts in it.
 
 const example = resolve(import.meta.dirname, "../../../examples/shadcn-vite")
+
 /** The example's app components aren't what this is about; only its libraries are read. */
 const renderer = { componentExtensions: [".tsx"], findComponents: () => [] } as unknown as RendererAdapter
 
@@ -28,8 +29,10 @@ beforeAll(async () => {
   components = (await discoverProject(example, renderer, pkg)).components
   // The example's own React, which Nova renders with, as Parity loads a project's.
   const fromExample = createRequire(join(example, "package.json"))
+
   const load = async (specifier: string) =>
     (await import(pathToFileURL(fromExample.resolve(specifier)).href)) as Record<string, unknown>
+
   React = (await load("react")) as unknown as ReactLike
   renderToStaticMarkup = (await load("react-dom/server")).renderToStaticMarkup as typeof renderToStaticMarkup
   // Nova's exports only name an entry to import, which `require.resolve` doesn't follow.
@@ -39,8 +42,14 @@ beforeAll(async () => {
 
 /** A sample as React elements, each part from Nova by its export name: `nova/Sidebar` is `Sidebar`. */
 function build(child: SampleChild): unknown {
-  if (typeof child === "string") return child
-  if (!("component" in child)) throw new Error(`A sample this test can't build: ${JSON.stringify(child)}`)
+  if (typeof child === "string") {
+    return child
+  }
+
+  if (!("component" in child)) {
+    throw new Error(`A sample this test can't build: ${JSON.stringify(child)}`)
+  }
+
   return React.createElement(
     nova[child.component.split("/").at(-1)!],
     child.props ?? null,
@@ -62,9 +71,11 @@ describe("Nova's sidebar and its provider", () => {
   it("draws the sidebar Parity puts in the provider", () => {
     const sample = components["nova/SidebarProvider"]?.sample
     expect(sample?.children?.[0]).toMatchObject({ component: "nova/Sidebar" })
+
     const markup = renderToStaticMarkup(
       React.createElement(nova.SidebarProvider, sample?.props ?? null, ...(sample?.children ?? []).map(build))
     )
+
     expect(markup).toContain('data-slot="sidebar-wrapper"')
     expect(markup).toContain('data-slot="sidebar-menu"')
   })
@@ -78,6 +89,7 @@ describe("Nova's sidebar and its provider", () => {
           React.createElement(nova.SidebarMenuButton, { isActive }, "Dashboard")
         )
       )
+
     // Nova styles `data-active` (`data-active:bg-sidebar-accent`); Parity only passes the prop.
     expect(button(true)).toMatch(/data-slot="sidebar-menu-button"[^>]*data-active=""/)
     expect(button(false)).not.toContain('data-active=""')

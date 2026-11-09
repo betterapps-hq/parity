@@ -45,8 +45,10 @@ function toolbar(): ContainerSpec {
 }
 
 const { library } = effectiveFixture
+
 const fixture = (id: string, variants?: Record<string, string>): ContainerSpec => {
   const found = effectiveFixture.designs.find((design) => design.id === id)!
+
   return variants ? { ...found, view: { ...found.view, variants } } : found
 }
 
@@ -93,11 +95,13 @@ describe("the style several layers share", () => {
     const design = toolbar()
     const selection = styleSelection(design, ["save", "cancel"], undefined)!
     const { read, write } = sidesField("padding", [0, 1, 2, 3])
+
     // 8px at 4px a step is two steps.
     const edited = selection.edit(
       "padding",
       fieldEdit(read, write, (value) => (Number(value ?? 0) + 2) as never)
     )(design)
+
     expect(styleOf(edited, "save").padding).toBe(4)
     expect(styleOf(edited, "cancel").padding).toBe(6)
   })
@@ -199,6 +203,7 @@ describe("rows' edits", () => {
   /** Every key a row's edit writes, over a few styles and layers. */
   const written = (edit: (style: NodeStyle) => StyleValues, styles: NodeStyle[]) =>
     new Set(styles.flatMap((style) => Object.keys(edit(style))))
+
   const styles: NodeStyle[] = [{}, { grow: true }, { width: "hug", height: 10, columns: 3, top: 2 }]
   const layer = { base: false, measure: () => 12, type: "text" as const, column: true }
 
@@ -213,15 +218,20 @@ describe("rows' edits", () => {
       ["padding", (style) => sidesField("padding", [0, 2]).write(1, style)],
       ["margin", (style) => sidesField("margin", [1]).write(1, style)]
     ]
+
     for (const parent of [undefined, { direction: "column" as const, grid: false }]) {
       for (const axis of ["width", "height"] as const) {
         cases.push([axis, (style) => apply(sizeEdit(axis, "hug", parent), style)])
         cases.push([axis, (style) => sizeField(axis, parent).write(undefined, style)])
       }
     }
+
     for (const [row, edit] of cases) {
-      for (const key of written(edit, styles)) expect(styleRows[row], `${row} writes ${key}`).toContain(key)
+      for (const key of written(edit, styles)) {
+        expect(styleRows[row], `${row} writes ${key}`).toContain(key)
+      }
     }
+
     function apply(edit: unknown, style: NodeStyle): StyleValues {
       return typeof edit === "function"
         ? (edit as (s: NodeStyle, l: typeof layer) => StyleValues)(style, layer)
@@ -237,6 +247,7 @@ describe("rows' edits", () => {
       height: "fill",
       grow: undefined
     })
+
     function apply(edit: unknown, style: NodeStyle) {
       return (edit as (s: NodeStyle) => StyleValues)(style)
     }
@@ -251,12 +262,15 @@ describe("rows' edits", () => {
         children: [text("label", { width: "hug" }), { type: "layout", id: "box", children: [] }]
       }
     }
+
     const measured = { label: { width: 10.2, height: 4 }, box: { width: 30, height: 30 } }
+
     const edited = styleSelection(design, ["label", "box"], undefined)!.edit(
       "resizing",
       textSizingEdit("fixed"),
       (id, axis, round) => round(measured[id as keyof typeof measured][axis])
     )(design)
+
     expect(styleOf(edited, "label")).toEqual({ width: 11, height: 4 })
     expect(styleOf(edited, "box")).toEqual({})
   })

@@ -32,6 +32,7 @@ export function BrowserFrame({
 }) {
   const [closed, setClosed] = useState(false)
   const c = chrome[mode]
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: c.bar, color: c.text }}>
       <div className="flex h-10 shrink-0 items-end gap-1 px-2">
@@ -74,6 +75,7 @@ export function BrowserFrame({
 /** The browser after it has handed back to a `pnpm dev` copy, showing what the loopback served. */
 export function HandBackPage({ outcome }: { outcome: HandBack }) {
   const theme = useResolvedTheme()
+
   return (
     <div className="h-screen min-h-[560px]">
       <BrowserFrame
@@ -128,6 +130,7 @@ function AuthKitPage({ screen, mode, onNext }: { screen: AuthKitScreen; mode: Mo
   const colors = branding.colors[mode]
   const d = derived(mode)
   const radius = branding.radius
+
   const primary: CSSProperties = {
     background: colors.button,
     color: colors.buttonText,
@@ -136,6 +139,7 @@ function AuthKitPage({ screen, mode, onNext }: { screen: AuthKitScreen; mode: Mo
     fontWeight: 500,
     fontSize: 14
   }
+
   const outline: CSSProperties = {
     border: `1px solid ${d.border}`,
     borderRadius: radius,
@@ -144,6 +148,7 @@ function AuthKitPage({ screen, mode, onNext }: { screen: AuthKitScreen; mode: Mo
     fontWeight: 500,
     background: d.field
   }
+
   const field: CSSProperties = {
     border: `1px solid ${d.border}`,
     borderRadius: radius,
@@ -154,7 +159,9 @@ function AuthKitPage({ screen, mode, onNext }: { screen: AuthKitScreen; mode: Mo
     fontSize: 14,
     outlineColor: colors.link
   }
+
   const link: CSSProperties = { color: colors.link, fontWeight: 500 }
+
   return (
     <div
       className="absolute inset-0 flex flex-col items-center overflow-y-auto px-6 pt-[12vh] pb-10"
@@ -347,6 +354,7 @@ export function AuthKitBranding() {
   const theme = useResolvedTheme()
   const [mode, setMode] = useState<Mode>(theme)
   const [screen, setScreen] = useState<AuthKitScreen>("sign-in")
+
   const page =
     screen === "handed-back" ? (
       <iframe
@@ -357,6 +365,7 @@ export function AuthKitBranding() {
     ) : (
       <AuthKitPage screen={screen} mode={mode} onNext={() => setScreen(nextScreen[screen])} />
     )
+
   return (
     <div className="flex h-screen min-h-[640px] bg-background text-foreground">
       <div className="min-w-0 flex-1">

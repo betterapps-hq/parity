@@ -18,6 +18,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const states: { label: string; note: string; pin: ReactNode }[] = [

@@ -60,23 +60,34 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   // A frame is its root layout, so its root's size rows are the frame's own size (see `frameRootShown`).
   const frameRoot = entry.container.kind === "frame" && ids.length === 1 && ids[0] === entry.container.root.id
   const shown = frameRoot ? frameRootShown(entry.container, unit) : entry.container
+
   const within = (edit: (container: ContainerSpec) => ContainerSpec) =>
     frameRoot ? (container: ContainerSpec) => frameRootStored(edit(frameRootShown(container, unit)), unit) : edit
+
   const selection = styleSelection(shown, ids, selected.state, projectLibrary(store))
-  if (!selection) return undefined
+
+  if (!selection) {
+    return undefined
+  }
+
   // Each layer measured in the frame the selection was picked in, so a size worked out from it is its own.
   const measure: LayerMeasure = (id, axis, round) => {
     const size = measureNode(session, entry.key, id, selected)
+
     return size && Math.max(1, round(size[axis] / unit))
   }
+
   const count = selection.layers.length
   const only = count === 1 ? selection.layers[0]!.id : undefined
+
   // Each change is recorded with the row's values before and after, as the layers show them (PAR-640).
   const recordRow = (row: StyleRow, gesture?: string) => {
     const changed = store.getEntry(entry.key)?.container
+
     const now =
       changed &&
       styleSelection(frameRoot ? frameRootShown(changed, unit) : changed, ids, selected.state, projectLibrary(store))
+
     recordInspectorChange({
       field: `style.${row}`,
       design: entry.key,
@@ -88,6 +99,7 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
       ...(gesture ? { gesture } : {})
     })
   }
+
   return {
     selection,
     set: (row, edit, label = "Change style", gesture) => {

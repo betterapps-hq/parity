@@ -28,6 +28,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**
@@ -37,7 +38,11 @@ type Story = StoryObj<typeof meta>
 function zoomOut(names: string[]): void {
   const editor = example().editor
   const bounds = names.flatMap((name) => editor?.getShapePageBounds(shapeIdFor(design(name))) ?? [])
-  if (!editor || bounds.length === 0) return
+
+  if (!editor || bounds.length === 0) {
+    return
+  }
+
   editor.zoomToBounds(Box.Common(bounds), { inset: 48, targetZoom: (bitmapScale * 0.9) / devicePixelRatio })
 }
 
@@ -84,11 +89,20 @@ export const Swap: Story = onCanvas(
     answering({
       "frames.capture": async ({ job }) => {
         const root = example().store.getEntry(design("Sign in"))?.container.root.id
-        if (!root || !JSON.stringify(job.tree).includes(`"nodeId":"${root}"`)) return {}
+
+        if (!root || !JSON.stringify(job.tree).includes(`"nodeId":"${root}"`)) {
+          return {}
+        }
+
         await new Promise((resolve) => setTimeout(resolve, 3000))
         let bitmap = signInBitmaps["desktop-light"]
-        if (job.mode.width < 768) bitmap = signInBitmaps.mobile
-        else if (job.mode.classNames.includes("dark")) bitmap = signInBitmaps["desktop-dark"]
+
+        if (job.mode.width < 768) {
+          bitmap = signInBitmaps.mobile
+        } else if (job.mode.classNames.includes("dark")) {
+          bitmap = signInBitmaps["desktop-dark"]
+        }
+
         return { src: bitmap }
       }
     }),

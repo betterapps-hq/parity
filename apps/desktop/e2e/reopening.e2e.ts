@@ -10,6 +10,7 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterAll(() => app?.close())
 
 const frames = () => app.page.locator("[data-frame]").count()
@@ -21,9 +22,14 @@ const frames = () => app.page.locator("[data-frame]").count()
 async function nodes(): Promise<number> {
   const cdp = await app.page.context().newCDPSession(app.page)
   await cdp.send("Runtime.discardConsoleEntries")
-  for (let pass = 0; pass < 3; pass++) await cdp.send("HeapProfiler.collectGarbage")
+
+  for (let pass = 0; pass < 3; pass++) {
+    await cdp.send("HeapProfiler.collectGarbage")
+  }
+
   const { nodes } = await cdp.send("Memory.getDOMCounters")
   await cdp.detach()
+
   return nodes
 }
 
@@ -48,14 +54,19 @@ async function openProject(count: number): Promise<void> {
 
 /** Opens the project again for the files after this one, unless it's open. */
 async function restoreProject(count: number): Promise<void> {
-  if ((await frames()) > 0) return
+  if ((await frames()) > 0) {
+    return
+  }
+
   // An open that failed leaves its tab, with an error and no frames, which hides the start page it opens from. Home
   // can't be closed, so only the tabs with a close button count.
   const tabs = app.page.getByRole("tab").filter({ has: app.page.getByRole("button", { name: /^Close / }) })
+
   for (let left = await tabs.count(); left > 0; left--) {
     await app.page.keyboard.press("Control+W")
     await expect.poll(() => tabs.count()).toBe(left - 1)
   }
+
   await openProject(count)
 }
 
@@ -64,13 +75,16 @@ describe("closing a project", () => {
     const count = await frames()
     expect(count).toBeGreaterThan(0)
     await closeProject()
+
     // The files after this one need the project open, so it opens again however this one ends.
     try {
       const closed = await nodes()
+
       for (let round = 0; round < 3; round++) {
         await openProject(count)
         await closeProject()
       }
+
       // tldraw sometimes keeps the editor closed last, with its canvas, until another replaces it: about 3,600 nodes on
       // the example project, whose frames showing bitmaps hold none of their own (PAR-445). That's one canvas however
       // often the project opens, so it's allowed for. A canvas kept on each reopen comes to three of them.

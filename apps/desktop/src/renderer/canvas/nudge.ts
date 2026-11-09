@@ -42,6 +42,7 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
   const gesture = runGesture(store, selection)
   const layers = selectedNodes(current)
   const frame = store.editFrame(current)
+
   if (frame && layers.length > 0) {
     let blocked: LayersNudge["blocked"]
     store.updateContainer(
@@ -51,15 +52,18 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
         const drawn = session.drawn?.(frame.design) ?? nothingDrawn
         const result = nudgeLayers(container, layers, frame.state, arrow, big, session.unit, drawn, frame.viewport)
         blocked = result.blocked
+
         return result.container
       },
       { gesture }
     )
+
     return blocked
   }
 
   // A mode column moves with its design.
   const designs = current.mode && current.design ? [current.design] : selectedDesigns(current)
+
   if (designs.length > 0) {
     store.updateContainers(
       designs,
@@ -78,6 +82,7 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
       }
     )
   }
+
   return undefined
 }
 
@@ -93,6 +98,7 @@ const runs = new WeakMap<DesignStore, GestureRun>()
 function runGesture(store: DesignStore, selection: SelectionStore): string {
   const run = runs.get(store) ?? new GestureRun(store)
   runs.set(store, run)
+
   return run.gesture(selectionKey(selection.get()), () =>
     selection.subscribe(() => run.select(selectionKey(selection.get())))
   )
@@ -111,23 +117,33 @@ export function frameDrawn(
 ): Drawn {
   const host = selectionFrame(area, design, picked)
   const element = (layer: string) => (host ? findNodeElement(host, layer) : undefined)
+
   return {
     flow(layer) {
       let parent = element(layer)?.parentElement
-      while (parent && getComputedStyle(parent).display === "contents") parent = parent.parentElement
+
+      while (parent && getComputedStyle(parent).display === "contents") {
+        parent = parent.parentElement
+      }
+
       return parent ? flowOf(getComputedStyle(parent), flowingBoxes(parent)) : undefined
     },
     insets(layer) {
       const placed = element(layer)
       const parent = placed?.offsetParent
       const width = host ? parseFloat(host.style.width) : NaN
-      if (!host || !placed || !(parent instanceof HTMLElement) || !(width > 0)) return undefined
+
+      if (!host || !placed || !(parent instanceof HTMLElement) || !(width > 0)) {
+        return undefined
+      }
+
       // Screen pixels to the frame's own: the canvas's zoom times the frame's scale.
       const scale = host.getBoundingClientRect().width / width
       const box = placed.getBoundingClientRect()
       const around = parent.getBoundingClientRect()
       const border = getComputedStyle(parent)
       const steps = (px: number, edge: string) => Math.round(((px / scale - parseFloat(edge)) / unit) * 2) / 2
+
       return {
         left: steps(box.left - around.left, border.borderLeftWidth),
         right: steps(around.right - box.right, border.borderRightWidth),

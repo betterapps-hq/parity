@@ -19,19 +19,30 @@ export type CallbackResult =
 export function readCallback(link: string, pending: PendingSignIn): CallbackResult {
   const url = URL.parse(link)
   const expected = new URL(pending.redirectUri)
-  if (!url || url.protocol !== expected.protocol || url.host !== expected.host || url.pathname !== expected.pathname)
+
+  if (!url || url.protocol !== expected.protocol || url.host !== expected.host || url.pathname !== expected.pathname) {
     return { kind: "refused", reason: "link" }
+  }
 
   const query = url.searchParams
-  if (query.get("state") !== pending.state) return { kind: "refused", reason: "state" }
+
+  if (query.get("state") !== pending.state) {
+    return { kind: "refused", reason: "state" }
+  }
 
   const error = query.get("error")
-  if (error === "access_denied") return { kind: "declined" }
+
+  if (error === "access_denied") {
+    return { kind: "declined" }
+  }
+
   if (error) {
     const description = query.get("error_description")
+
     return description ? { kind: "failed", error, description } : { kind: "failed", error }
   }
 
   const code = query.get("code")
+
   return code ? { kind: "code", code } : { kind: "failed", error: "missing_code" }
 }

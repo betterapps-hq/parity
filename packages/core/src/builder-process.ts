@@ -42,6 +42,7 @@ export interface ProcessTimes {
 /** Start options as data, for a builder's process. */
 export function builderProcessOptions(builder: BuilderAdapter, options: BuilderStartOptions): BuilderProcessOptions {
   const { id, name, guestModule, runtimePackages, runtimeImports, developmentStandIns } = options.renderer
+
   return {
     ...options,
     renderer: {
@@ -75,31 +76,50 @@ export function serveBuilderProcess(
   let config: ProjectConfig | undefined
   let session: Promise<BuilderSession | undefined> = Promise.resolve(undefined)
   let closing = false
+
   return (request) => {
     if (request.type === "start") {
-      if (config) return
+      if (config) {
+        return
+      }
+
       const { builder: id, ...options } = request.options
       config = options.config
       session = (async () => {
         const builder = builders.find((adapter) => adapter.id === id)
-        if (!builder) throw new Error(`No builder is called ${id}`)
+
+        if (!builder) {
+          throw new Error(`No builder is called ${id}`)
+        }
+
         return builder.start(options)
       })().then(
         (started) => {
           side.send({ type: "started", guestUrl: started.guestUrl, toolVersion: started.toolVersion })
           started.codeChanges?.((change) => side.send({ type: "codeChanged", ...change }))
+
           return started
         },
         (error: unknown) => {
           side.send({ type: "failed", error: error instanceof Error ? error.message : String(error) })
+
           return undefined
         }
       )
     } else if (request.type === "components") {
       // In place, since the builder serves the guest from this list.
       const components = config?.components
-      if (!components) return
-      for (const id of Object.keys(components)) if (!(id in request.components)) delete components[id]
+
+      if (!components) {
+        return
+      }
+
+      for (const id of Object.keys(components)) {
+        if (!(id in request.components)) {
+          delete components[id]
+        }
+      }
+
       Object.assign(components, request.components)
     } else if (request.type === "usage") {
       side.send({ type: "usage", id: request.id, ...side.usage() })
@@ -173,10 +193,12 @@ export function connectBuilderProcess(
   let state: "starting" | "running" | "closing" | "ended" = "starting"
   let resolveStart: (session: BuilderProcessSession) => void = () => undefined
   let rejectStart: (error: Error) => void = () => undefined
+
   const session = new Promise<BuilderProcessSession>((resolve, reject) => {
     resolveStart = resolve
     rejectStart = reject
   })
+
   let markEnded: () => void = () => undefined
   const ended = new Promise<void>((resolve) => (markEnded = resolve))
   let killTimer: ReturnType<typeof setTimeout> | undefined
@@ -190,23 +212,33 @@ export function connectBuilderProcess(
       link.send({ type: "close" })
       killTimer = setTimeout(() => link.kill(), closeTimeout)
     }
+
     return ended
   }
 
   const usage = (): Promise<BuilderUsage | undefined> => {
-    if (state === "ended") return Promise.resolve(undefined)
+    if (state === "ended") {
+      return Promise.resolve(undefined)
+    }
+
     const id = nextReading++
+
     return new Promise((resolve) => {
       const answer = (reading?: ProcessTimes) => {
         readings.delete(id)
         clearTimeout(timer)
-        if (!reading) return resolve(undefined)
+
+        if (!reading) {
+          return resolve(undefined)
+        }
+
         const previous = lastReading && lastReading.uptime < reading.uptime ? lastReading : undefined
         lastReading = reading
         const cpu = reading.cpu - (previous?.cpu ?? 0)
         const elapsed = reading.uptime - (previous?.uptime ?? 0)
         resolve({ cpu: elapsed > 0 ? Math.max(0, (cpu / 1000 / elapsed / cores) * 100) : 0, memory: reading.memory })
       }
+
       const timer = setTimeout(() => answer(), usageTimeout)
       readings.set(id, answer)
       link.send({ type: "usage", id })
@@ -214,6 +246,7 @@ export function connectBuilderProcess(
   }
 
   link.send({ type: "start", options })
+
   return {
     session,
     usage,
@@ -222,7 +255,9 @@ export function connectBuilderProcess(
         const { type: _, id, ...reading } = reply
         readings.get(id)?.(reading)
       } else if (reply.type === "codeChanged") {
-        if (state === "running") onCodeChange?.({ paths: reply.paths, stamp: reply.stamp })
+        if (state === "running") {
+          onCodeChange?.({ paths: reply.paths, stamp: reply.stamp })
+        }
       } else if (state !== "starting") {
         // A start that answers after it was told to close is closing anyway.
       } else if (reply.type === "started") {
@@ -241,14 +276,25 @@ export function connectBuilderProcess(
       }
     },
     exited(reason) {
-      if (state === "ended") return
+      if (state === "ended") {
+        return
+      }
+
       const was = state
       state = "ended"
       clearTimeout(killTimer)
-      for (const answer of readings.values()) answer()
+
+      for (const answer of readings.values()) {
+        answer()
+      }
+
       markEnded()
-      if (was === "starting") rejectStart(new Error(reason))
-      else if (was === "running") onCrash?.(reason)
+
+      if (was === "starting") {
+        rejectStart(new Error(reason))
+      } else if (was === "running") {
+        onCrash?.(reason)
+      }
     }
   }
 }

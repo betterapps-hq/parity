@@ -29,6 +29,7 @@ export interface TestSink extends Sink {
 export function createTestSink(): TestSink {
   const events: Envelope[] = []
   const spans: SpanEnvelope[] = []
+
   return {
     events,
     spans,

@@ -9,6 +9,7 @@ const job = {} as RenderJob
 function offscreen(...answers: (() => Promise<{ src?: string }>)[]) {
   const request = vi.fn<() => Promise<{ src?: string }>>(() => answers.shift()!())
   vi.stubGlobal("window", { canvasHost: { ask: preloadAnswers(request) } })
+
   return request
 }
 
@@ -20,6 +21,7 @@ describe("capture", () => {
       () => Promise.reject(new Error("UnknownVizError")),
       () => Promise.resolve({ src: "data:image/webp;base64,AAAA" })
     )
+
     want("failing", 1)
     expect(await capture("failing", job)).toBe(failed)
     expect(await capture("failing", job)).toBe("data:image/webp;base64,AAAA")
@@ -45,7 +47,9 @@ describe("stored", () => {
     const request = vi.fn<(method: string) => Promise<{ src?: string; height?: number }>>((method) =>
       answers[method]!()
     )
+
     vi.stubGlobal("window", { canvasHost: { ask: preloadAnswers(request) } })
+
     return request
   }
 
@@ -53,6 +57,7 @@ describe("stored", () => {
     const request = service({
       "frames.stored": () => Promise.resolve({ src: "data:image/webp;base64,KEPT", height: 640 })
     })
+
     want("kept", 1)
     expect(await stored("kept", job)).toEqual({ src: "data:image/webp;base64,KEPT", height: 640 })
     expect(await capture("kept", job)).toBe("data:image/webp;base64,KEPT")

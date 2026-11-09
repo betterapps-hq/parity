@@ -34,6 +34,7 @@ export const Sub = () => (
 )`
       }
     ]
+
     const uses = readExamples(files, ["Menu", "MenuItem", "Popover", "SubmenuTrigger"])
     // Both in the story, and the wrapper's own element, which its file doesn't place.
     expect(uses.get("MenuItem")?.count).toBe(3)
@@ -43,6 +44,7 @@ export const Sub = () => (
 describe("whole paths", () => {
   const menu = (inner: string) =>
     `<Card><DropdownMenu><DropdownMenuContent>${inner}</DropdownMenuContent></DropdownMenu></Card>`
+
   const names = ["Card", "DropdownMenu", "DropdownMenuContent", "DropdownMenuGroup", "DropdownMenuItem"]
 
   it("finds every level most uses are inside, at any depth, with levels some leave out", () => {
@@ -54,6 +56,7 @@ describe("whole paths", () => {
       },
       { path: "c.tsx", text: menu(`<DropdownMenuItem>Cut</DropdownMenuItem>`) }
     ]
+
     const uses = readExamples(files, names)
     expect(exampleLevels(uses, "DropdownMenuItem", false)).toEqual([
       { parent: "Card", share: 1 },
@@ -75,6 +78,7 @@ describe("whole paths", () => {
       { path: "b.tsx", text: menu(`<DropdownMenuItem>Paste</DropdownMenuItem>`) },
       { path: "c.tsx", text: menu(`<DropdownMenuItem>Cut</DropdownMenuItem>`) }
     ]
+
     const levels = exampleLevels(readExamples(files, names), "DropdownMenuItem", true)
     expect(levels?.map((level) => level.parent)).toEqual(["DropdownMenu", "DropdownMenuContent"])
   })
@@ -83,6 +87,7 @@ describe("whole paths", () => {
 describe("counting and render functions", () => {
   it("counts each way a file places a component once", () => {
     const long = `<Card>${"<Menu><MenuItem /></Menu>".repeat(10)}</Card>`
+
     const uses = readExamples(
       [
         { path: "long.tsx", text: long },
@@ -91,6 +96,7 @@ describe("counting and render functions", () => {
       ],
       ["Card", "Menu", "MenuItem", "Toolbar"]
     )
+
     expect(uses.get("MenuItem")?.parents).toEqual(
       new Map([
         ["Menu", 1],
@@ -114,6 +120,7 @@ describe("counting and render functions", () => {
     const text = `
       <Autocomplete renderInput={(params) => <TextField {...params} label="Fruit" />} getOptionLabel={(o) => o.label} />
       <DateInput>{(segment) => <DateSegment segment={segment} />}</DateInput>`
+
     const uses = readExamples([{ path: "demo.tsx", text }], ["Autocomplete", "TextField", "DateInput", "DateSegment"])
     expect(uses.get("Autocomplete")?.sample?.props).toEqual({
       renderInput: { $render: [{ component: "TextField", props: { label: "Fruit" } }], spread: true }
@@ -138,6 +145,7 @@ describe("lists a hook returns", () => {
         </Toast.Viewport>
       )
     }`
+
     const uses = readExamples([{ path: "a.tsx", text }], names)
     expect(uses.get("Toast.Root")?.fromHook).toBe(true)
     expect(uses.get("Toast.Title")?.fromHook).toBe(true)
@@ -154,6 +162,7 @@ describe("lists a hook returns", () => {
     function MyToast({ toast }) {
       return <Toast.Root toast={toast}><Toast.Title /></Toast.Root>
     }`
+
     const uses = readExamples([{ path: "a.tsx", text }], names)
     expect(uses.get("Toast.Root")?.fromHook).toBe(true)
     expect(uses.get("Toast.Title")?.fromHook).toBe(true)
@@ -172,6 +181,7 @@ describe("lists a hook returns", () => {
     function MyToast({ toast }) {
       return <Toast.Root toast={toast}><Toast.Title /></Toast.Root>
     }`
+
     const uses = readExamples([{ path: "a.tsx", text }], names)
     // A template is kept when the file spells out every part of it.
     const toast = { id: "1", title: "Draft saved", description: "Saved" }
@@ -183,6 +193,7 @@ describe("lists a hook returns", () => {
       { path: "a.tsx", text: `toast.add({ description: "Saved" })` },
       { path: "b.tsx", text: `toast.add({ title: "Event created", description: "Sunday" }); table.set({ id: "x" })` }
     ]
+
     expect(exampleItem(files, new Set(["toast"]))).toEqual({ title: "Event created", description: "Sunday" })
     expect(exampleItem(files, new Set())).toBeUndefined()
   })
@@ -192,6 +203,7 @@ describe("lists a hook returns", () => {
       { path: "a.tsx", text: `const { toasts } = useToasts(); toasts.map((t) => <Toast.Root />)` },
       { path: "b.tsx", text: `<Toast.Root />` }
     ]
+
     expect(readExamples(files, names).get("Toast.Root")?.fromHook).toBe(false)
   })
 })
@@ -205,6 +217,7 @@ describe("values in samples", () => {
         const { collection } = useListCollection({ initialItems: [{ label: "Vue", value: "vue" }] })
         return collection.items.map((item) => <Combobox.Item item={item}>{item.label}</Combobox.Item>)
       }`
+
     const uses = readExamples([{ path: "a.tsx", text }], ["Select.Root", "Select.Item", "Combobox.Item"])
     expect(uses.get("Select.Item")?.sample).toEqual({
       props: { item: { label: "React", value: "react" } },
@@ -223,6 +236,7 @@ describe("values in samples", () => {
       const base = { size: "sm", tone: "muted" }
       const sizes = ["sm", "md"]
       const x = <Badge {...base} tone="loud" items={[...sizes, "lg"]} extra={{ ...base, size: "lg" }} />`
+
     const uses = readExamples([{ path: "a.tsx", text }], ["Badge"])
     expect(uses.get("Badge")?.sample?.props).toEqual({
       size: "sm",
@@ -248,6 +262,7 @@ describe("values in samples", () => {
           </ChartContainer>
         )
       }`
+
     const uses = readExamples([{ path: "demo.tsx", text }], ["ChartContainer", "Select", "SelectItem"])
     expect(uses.get("ChartContainer")?.sample?.props).toEqual({
       config: { desktop: { label: "Desktop", color: "var(--chart-1)" } }
@@ -300,6 +315,7 @@ describe("reading examples", () => {
       [{ path: "dialog-demo.tsx", text: dialog }],
       ["Dialog", "DialogContent", "DialogFooter", "DialogTitle", "Field"]
     )
+
     expect(uses.get("Dialog")).toMatchObject({ count: 1, topLevel: 1 })
     expect(uses.get("DialogContent")?.parents).toEqual(new Map([["Dialog", 1]]))
     expect(uses.get("DialogTitle")?.parents).toEqual(
@@ -315,6 +331,7 @@ describe("reading examples", () => {
       [{ path: "dialog-demo.tsx", text: dialog }],
       ["Dialog", "DialogContent", "DialogFooter", "DialogTitle", "Field"]
     )
+
     expect(uses.get("Dialog")?.sample).toEqual({
       props: { open: true },
       children: [
@@ -331,10 +348,12 @@ describe("reading examples", () => {
 
   it("matches namespaced tags to flat names and leaves JSX passed in props unplaced", () => {
     const text = `<Menu.Root><Menu.Item>Copy</Menu.Item><Chart.Tooltip content={<Chart.TooltipContent />} /></Menu.Root>`
+
     const uses = readExamples(
       [{ path: "menu.stories.tsx", text }],
       ["MenuRoot", "MenuItem", "Chart.Tooltip", "Chart.TooltipContent"]
     )
+
     expect(uses.get("MenuItem")?.parents).toEqual(new Map([["MenuRoot", 1]]))
     expect(uses.get("Chart.TooltipContent")).toMatchObject({ count: 1, topLevel: 1 })
   })
@@ -361,12 +380,14 @@ describe("nearest parents", () => {
         ])
       ]
     ])
+
     expect(nearestParent(uses, "SelectItem", false)).toMatchObject({ parent: "SelectGroup", uses: 9 })
   })
 
   it("decides nothing when most uses have no parent or none agree", () => {
     const top = new Map([["Button", use([["CardFooter", 2]], 5)]])
     expect(nearestParent(top, "Button", false)).toBeUndefined()
+
     const split = new Map([
       [
         "Input",
@@ -377,6 +398,7 @@ describe("nearest parents", () => {
         ])
       ]
     ])
+
     expect(nearestParent(split, "Input", false)).toBeUndefined()
   })
 
@@ -390,6 +412,7 @@ describe("nearest parents", () => {
         ])
       ]
     ])
+
     expect(nearestParent(uses, "Dialog.Title", false)?.parent).toBe("Field.Root")
     expect(nearestParent(uses, "Dialog.Title", true)?.parent).toBe("Dialog.Popup")
   })
@@ -432,6 +455,7 @@ describe("families", () => {
           </TreeView.Root>
         )
       }`
+
     const names = ["TreeView.Root", "TreeView.Node", "TreeView.Branch", "TreeView.Item"]
     const uses = readExamples([{ path: "tree.tsx", text }], names, "@acme/ui")
     expect(uses.get("TreeView.Root")?.sample?.props).toEqual({
@@ -449,6 +473,7 @@ describe("families", () => {
     const text = `
       import { parseDate, today } from "@internationalized/date"
       export const Demo = () => <DatePicker.Root defaultValue={[parseDate("2026-01-26")]} max={today()} />`
+
     const uses = readExamples([{ path: "date.tsx", text }], ["DatePicker.Root"], "@acme/ui", new Set(["parseDate"]))
     expect(uses.get("DatePicker.Root")?.sample?.props?.defaultValue).toEqual([
       { $call: { import: "@acme/ui", export: "parseDate" }, args: ["2026-01-26"] }
@@ -468,6 +493,7 @@ describe("families", () => {
         text: `import { parseDate } from "@acme/ui"\nexport const Demo = () => <DatePicker.Root defaultValue={[parseDate("2025-03-15")]} />`
       }
     ]
+
     const uses = readExamples(files, ["DatePicker.Root", "DatePicker.Label", "DatePicker.Content"], "@acme/ui")
     expect(uses.get("DatePicker.Root")?.sample).toMatchObject({
       props: { defaultValue: [{ $call: { import: "@acme/ui", export: "parseDate" }, args: ["2025-03-15"] }] },
@@ -480,6 +506,7 @@ describe("families", () => {
       `<Cell colSpan={2}>Wide cell text</Cell>`,
       ...[1, 2, 3, 4].map((n) => `<Cell id="c${n}">Cell</Cell>`)
     ]
+
     const files = cells.map((text, index) => ({ path: `${index}.tsx`, text: `<Row>${text}</Row>` }))
     const uses = readExamples(files, ["Row", "Cell"])
     expect(uses.get("Cell")?.sample).toEqual({ children: ["Wide cell text"] })
@@ -492,10 +519,12 @@ describe("families", () => {
       export const Example = () => (
         <Tabs><TabList><CustomTab id="a">Alpha</CustomTab></TabList><Tree><Item title="Docs" /></Tree></Tabs>
       )`
+
     const uses = readExamples(
       [{ path: "a.tsx", text }],
       ["Tabs", "TabList", "Tab", "Tree", "TreeItem", "TreeItemContent"]
     )
+
     expect(uses.get("Tab")?.paths).toEqual([["TabList", "Tabs"]])
     expect(uses.get("Tab")?.topLevel).toBe(0)
     expect(uses.get("TabList")?.sample).toEqual({
@@ -519,6 +548,7 @@ describe("families", () => {
       },
       "Select"
     )
+
     expect(sample).toEqual({ children: ["Pick one", { component: "SelectTrigger", children: ["Fruit"] }] })
   })
 })
@@ -526,6 +556,7 @@ describe("families", () => {
 describe("upstream.json", () => {
   it("says which field of a package's upstream.json is wrong, and reads no examples", async () => {
     const dir = await mkdtemp(join(tmpdir(), "parity-upstream-"))
+
     try {
       await writeFile(join(dir, "upstream.json"), '{ "repository": "github:acme/ui", "revision": 7 }')
       const fetched = await fetchExamples({ name: "@acme/ui", version: "1.0.0" }, dir, {}, join(dir, "cache"))
@@ -562,11 +593,14 @@ describe("localImports", () => {
       "packages/react/stories/menu.stories.tsx",
       "packages/react/src/index.ts"
     ]
+
     const paths = ["apps/compositions/src/examples/toast-basic.tsx", "packages/react/stories/menu.stories.tsx"]
+
     const texts = [
       `import { Button } from "@chakra-ui/react"\nimport { toaster } from "compositions/ui/toaster"`,
       `import React from "react"\nimport { MyMenuItem } from "./utils"`
     ]
+
     expect(localImports(paths, texts, tree).sort()).toEqual([
       "apps/compositions/src/ui/toaster.tsx",
       "packages/react/stories/utils.tsx"
@@ -598,6 +632,7 @@ export const Demo = () => (
 )`
       }
     ]
+
     const uses = readExamples(files, ["Toaster", "Toast.Root", "Toast.Title"], "@acme/ui")
     expect(uses.get("Toaster")?.sample?.props?.toaster).toEqual({
       $call: { import: "@acme/ui", export: "createToaster" },

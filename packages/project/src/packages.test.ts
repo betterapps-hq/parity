@@ -40,7 +40,11 @@ const at = (...path: string[]) => join(root, ...path)
 
 async function installed(name: string): Promise<InstalledPackage> {
   const found = await findPackage(app(), name)
-  if (!found) throw new Error(`${name} isn't in the fixture`)
+
+  if (!found) {
+    throw new Error(`${name} isn't in the fixture`)
+  }
+
   return found
 }
 
@@ -73,9 +77,11 @@ beforeAll(() => {
       "./package.json": "./package.json"
     }
   })
+
   for (const file of ["node.mjs", "index.mjs", "index.cjs", "button.d.mts", "button.mjs", "styles.d.ts"]) {
     write(`node_modules/@acme/kit/dist/${file}`)
   }
+
   write("node_modules/@acme/kit/dist/icons/heart.js")
   write("node_modules/@acme/kit/dist/icons/heart.d.ts")
   write("node_modules/@acme/kit/dist/icons/internal/secret.js")
@@ -108,9 +114,11 @@ beforeAll(() => {
     types: "lib/index.d.ts",
     style: "dist/legacy.css"
   })
+
   for (const file of ["lib/index.js", "lib/index.d.ts", "lib/util.js", "dist/legacy.css"]) {
     write(`node_modules/legacy/${file}`)
   }
+
   write("node_modules/beside/package.json", { name: "beside", main: "./build/main" })
   write("node_modules/beside/build/main.js")
   write("node_modules/beside/build/main.d.ts")

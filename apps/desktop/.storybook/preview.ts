@@ -12,7 +12,9 @@ import "../src/renderer/styles.css"
 
 // Stories run against a stand-in for the desktop host, follow the app's theme and merge classes as the app does.
 installHost()
+
 startTheme()
+
 installClassMerger()
 
 // Buildkit's base preview matches color and date controls by argument name (PAR-730).
@@ -40,6 +42,7 @@ export default definePreview({
     (Story, context) => {
       // Set as the person would in Preferences, so everything that follows the theme, toasts among them, does here too.
       setPreferences({ theme: context.globals.theme === "light" ? "light" : "dark" })
+
       // Tooltips need a provider, which the app puts around everything.
       return createElement(TooltipProvider, null, Story())
     }

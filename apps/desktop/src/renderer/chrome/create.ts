@@ -17,6 +17,7 @@ export function createDesign(
 ): string {
   const { store, editor } = session
   const entries = store.getEntries()
+
   const position =
     at ??
     rightOfEverything(
@@ -25,7 +26,9 @@ export function createDesign(
         bounds: editor?.getShapePageBounds(shapeIdFor(entry.key))
       }))
     )
+
   const viewport = resolveModes(store.getModes())[0]?.viewport
+
   const key = store.addContainer(
     store.mainPath,
     newDesign(
@@ -36,11 +39,20 @@ export function createDesign(
     ),
     kind === "component" ? "New component" : "New screen"
   )
+
   session.selection.set({ design: key })
-  if (at) return key
+
+  if (at) {
+    return key
+  }
+
   setTimeout(() => {
     const bounds = session.editor?.getShapePageBounds(shapeIdFor(key))
-    if (bounds) session.editor?.zoomToBounds(bounds, { inset: 120, animation: { duration: 250 } })
+
+    if (bounds) {
+      session.editor?.zoomToBounds(bounds, { inset: 120, animation: { duration: 250 } })
+    }
   }, 300)
+
   return key
 }

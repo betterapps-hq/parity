@@ -55,7 +55,10 @@ function open(home = design("home")): DesignHistory {
 
 /** A step that must have been taken. */
 function taken(step: DesignStep | undefined): DesignHistory {
-  if (!step) throw new Error("Expected a step")
+  if (!step) {
+    throw new Error("Expected a step")
+  }
+
   return step.history
 }
 
@@ -65,6 +68,7 @@ function add(history: DesignHistory, id: string): DesignHistory {
 
 function rename(history: DesignHistory, name: string, options: ChangeOptions = {}): DesignHistory {
   const next = changeDesign(history.current, { path: "app.par", id: "home" }, (container) => ({ ...container, name }))
+
   return taken(recordChange(history, `Rename to ${name}`, next, options))
 }
 
@@ -72,11 +76,13 @@ function showAllStates(history: DesignHistory, allStates: boolean): DesignHistor
   const next = changeDesign(history.current, { path: "app.par", id: "home" }, (container) =>
     withTidyView(container, { ...container.view, allStates })
   )
+
   return taken(recordChange(history, "Change view", next, { history: false }))
 }
 
 function tokens(history: DesignHistory, edits: readonly TokenEdit[], label = "Edit --primary"): DesignHistory {
   const next = { ...history.current, tokens: withTokenEdits(history.current.tokens, edits) }
+
   return taken(recordChange(history, label, next))
 }
 
@@ -91,9 +97,14 @@ function names(history: DesignHistory): string[] {
 /** Saves a file as the app does: the write starts, then succeeds or fails. */
 function save(history: DesignHistory, path: string, error?: string): { history: DesignHistory; write: FileWrite } {
   const write = fileWrite(history, path)
-  if (!write) throw new Error(`Nothing to write to ${path}`)
+
+  if (!write) {
+    throw new Error(`Nothing to write to ${path}`)
+  }
+
   const started = writeStarted(history)
   expect(started.saveState).toEqual({ status: "saving" })
+
   return {
     history: error === undefined ? writeSucceeded(started, write) : writeFailed(started, write, new Error(error)),
     write
@@ -150,7 +161,11 @@ describe("undo", () => {
 
   it(`keeps the latest ${historyLimit} steps`, () => {
     let history = open()
-    for (let index = 0; index < historyLimit + 5; index++) history = rename(history, `Home ${index}`)
+
+    for (let index = 0; index < historyLimit + 5; index++) {
+      history = rename(history, `Home ${index}`)
+    }
+
     expect(history.past).toHaveLength(historyLimit)
     expect(history.past[0]!.label).toBe("Rename to Home 5")
   })
@@ -185,14 +200,17 @@ describe("gestures", () => {
   const home = { path: "app.par", id: "home" }
   const shown = (history: DesignHistory) => history.current.documents.get("app.par")!.containers[0]!
   const width = (container: ContainerSpec) => (container.root.type === "layout" ? container.root.style?.width : 0)
+
   const withWidth = (value: number) => (container: ContainerSpec) =>
     container.root.type === "layout"
       ? { ...container, root: { ...container.root, style: { ...container.root.style, width: value } } }
       : container
+
   const withOpacity = (value: number) => (container: ContainerSpec) =>
     container.root.type === "layout"
       ? { ...container, root: { ...container.root, style: { ...container.root.style, opacity: value } } }
       : container
+
   const moveTo = (x: number) => (container: ContainerSpec) => moveDesign(container, { x, y: 0 })
 
   /** One change a gesture makes, as its source writes it. */
@@ -221,11 +239,13 @@ describe("gestures", () => {
     vi.useFakeTimers()
     const start = open()
     let history = start
+
     for (const update of writes) {
       // Longer than any person's pause between two pointer moves or two presses.
       vi.advanceTimersByTime(5000)
       history = taken(write(history, label, update, "gesture"))
     }
+
     const end = shown(history)
     expect(history.past).toHaveLength(1)
     expect(history.historyState).toEqual({ canUndo: true, canRedo: false, undoLabel: label })
@@ -363,12 +383,15 @@ describe("unsaved files", () => {
       ],
       view: { state: "default", modes: [], allStates: false }
     }
+
     const show = (history: DesignHistory, state: string) => {
       const next = changeDesign(history.current, { path: "app.par", id: "home" }, (container) =>
         withTidyView(container, { ...container.view, state })
       )
+
       return taken(recordChange(history, "Change view", next, { history: false }))
     }
+
     let history = show(open(home), "loading")
     expect(unsavedPaths(history)).toEqual(["app.par"])
     history = show(history, "default")
@@ -416,10 +439,12 @@ describe("files changed outside the canvas", () => {
 describe("saving", () => {
   it("says which files a step changed, to save them automatically", () => {
     const history = add(open(), "about")
+
     const step = recordChange(history, "Edit --primary", {
       ...history.current,
       tokens: withTokenEdits(history.current.tokens, [primary("red")])
     })
+
     expect(step?.writes).toEqual(["src/index.css"])
     expect(undoChange(history)?.writes).toEqual(["app.par"])
   })
@@ -549,8 +574,10 @@ describe("token values", () => {
       { name: "primary", category: "color", source: "semantic", values: { default: "oklch(0.205 0 0)" } },
       { name: "radius", category: "radius", source: "semantic", values: { default: "0.5rem" } }
     ]
+
     const step = (overrides: readonly TokenChange[], from: DesignHistory, to: DesignHistory) =>
       withTokenOverrides(overrides, tokenDifferences(from.current.tokens, to.current.tokens), loaded)
+
     const start = open()
     const dark: TokenEdit = { name: "radius", theme: "dark", value: "1rem" }
     const red = tokens(start, [primary("red")])
@@ -581,9 +608,11 @@ describe("token values", () => {
   it("take a value a theme didn't have out of the stylesheet when it's undone after a save, offscreen too (PAR-420)", () => {
     const css = ":root {\n  --radius: 0.5rem;\n}\n"
     const loaded: Token[] = [{ name: "radius", category: "radius", source: "semantic", values: { default: "0.5rem" } }]
+
     /** The stylesheet after a save, as `saveTokens` writes it. */
     const written = (stylesheet: string, write: FileWrite) =>
       write.kind === "tokens" ? writeTokenChanges(stylesheet, write.changes, new Set()) : stylesheet
+
     const step = (overrides: readonly TokenChange[], from: DesignHistory, to: DesignHistory) =>
       withTokenOverrides(overrides, tokenDifferences(from.current.tokens, to.current.tokens), loaded)
 
@@ -658,6 +687,7 @@ describe("the merged project file", () => {
       defaultModeSettings,
       "app.par"
     )
+
     expect(mergedDocument(history)).toEqual({
       version: 3,
       containers: [design("home"), design("about")],
@@ -670,18 +700,21 @@ describe("the merged project file", () => {
   it("holds every file's canvas objects and links once each, and the main file's sources", () => {
     const users = { kind: "table", ref: "public.users", position: { x: 0, y: 0 } } as const
     const route = { kind: "route", ref: "/users/:id", position: { x: 400, y: 0 } } as const
+
     const reads = {
       id: "l1",
       type: "reads",
       from: { kind: "operation", ref: "getUser" },
       to: { kind: "table", ref: "public.users" }
     } as const
+
     const shows = {
       id: "l2",
       type: "shows",
       from: { kind: "screen", ref: "home" },
       to: { kind: "route", ref: "/users/:id" }
     } as const
+
     const history = openDesigns(
       [
         {
@@ -702,6 +735,7 @@ describe("the merged project file", () => {
       defaultModeSettings,
       "app.par"
     )
+
     const merged = mergedDocument(history)
     expect(merged).toEqual({
       version: 3,

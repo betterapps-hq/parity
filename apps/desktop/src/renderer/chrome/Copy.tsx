@@ -1,6 +1,7 @@
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, Copy, X } from "lucide-react"
 import { type ReactElement, type ReactNode, useEffect, useState } from "react"
+
 /** How long a copy says how it went, in milliseconds. */
 const settles = 1500
 
@@ -19,11 +20,16 @@ export interface CopyStatus {
 export function useCopy(): { status: CopyStatus | undefined; copy: (text: string) => void } {
   const [status, setStatus] = useState<CopyStatus>()
   useEffect(() => {
-    if (!status) return
+    if (!status) {
+      return
+    }
+
     const timer = setTimeout(() => setStatus(undefined), settles)
+
     return () => clearTimeout(timer)
   }, [status])
   const copy = (text: string) => void write(text).then((ok) => setStatus({ text, ok }))
+
   return { status, copy }
 }
 
@@ -35,6 +41,7 @@ export function useCopy(): { status: CopyStatus | undefined; copy: (text: string
 async function write(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)
+
     return true
   } catch {
     const field = document.createElement("textarea")
@@ -47,11 +54,15 @@ async function write(text: string): Promise<boolean> {
     const beside = focused instanceof HTMLElement && focused.parentElement ? focused.parentElement : document.body
     beside.append(field)
     field.select()
+
     try {
       return document.execCommand("copy")
     } finally {
       field.remove()
-      if (focused instanceof HTMLElement) focused.focus()
+
+      if (focused instanceof HTMLElement) {
+        focused.focus()
+      }
     }
   }
 }
@@ -65,6 +76,7 @@ function Outcome({ status, text }: { status: CopyStatus; text?: string }) {
       </>
     )
   }
+
   // When something else copied through the same status, such as a menu beside the button, it says what.
   return (
     <>
@@ -102,7 +114,11 @@ export function CopyButton({
   const done = status !== undefined
   const copied = done && status.ok
   let outcome: "copied" | "failed" | undefined
-  if (done) outcome = status.ok ? "copied" : "failed"
+
+  if (done) {
+    outcome = status.ok ? "copied" : "failed"
+  }
+
   return (
     <Tooltip open={hovered || done} onOpenChange={setHovered}>
       <TooltipTrigger
@@ -144,7 +160,11 @@ export function CopyButton({
 /** Says how a copy went to screen readers, which a tooltip doesn't reliably do. */
 export function Announce({ status }: { status: CopyStatus | undefined }) {
   let said = ""
-  if (status) said = status.ok ? "Copied" : "Couldn't copy"
+
+  if (status) {
+    said = status.ok ? "Copied" : "Couldn't copy"
+  }
+
   return <output className="sr-only">{said}</output>
 }
 
@@ -169,6 +189,7 @@ export function CopyOnClick({
   const { status, copy } = useCopy()
   const [hovered, setHovered] = useState(false)
   const says = status !== undefined || hint !== undefined
+
   return (
     <Tooltip open={says && (hovered || status !== undefined)} onOpenChange={setHovered}>
       <TooltipTrigger onClick={() => copy(text)} render={children} />

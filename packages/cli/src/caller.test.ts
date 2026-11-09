@@ -44,8 +44,9 @@ describe("cliCallerName", () => {
       { CODEX_SANDBOX: "seatbelt" },
       { CLAUDECODE: "1" },
       { GEMINI_CLI: "1" }
-    ])
+    ]) {
       expect(cliCallerName(env)).toBe("Terminal")
+    }
   })
 
   it("uses a neutral fallback for absent, empty and blank declarations", () => {

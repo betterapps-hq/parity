@@ -77,6 +77,7 @@ export function TypographyPresetExploration({
   const [viewport, setViewport] = useState(firstViewport)
   const project = projectById(projectId)
   const startWith = projectId === firstProject ? start : applied
+
   return (
     // The app's body never scrolls, so the exploration scrolls itself.
     <div className="h-screen overflow-y-auto bg-background px-4 py-6 text-foreground sm:px-6">
@@ -110,6 +111,7 @@ export function TypographyPresetExploration({
 function ProjectPicker({ value, onChange }: { value: ProjectId; onChange: (value: ProjectId) => void }) {
   const id = useId()
   const items = projects.map((project) => ({ value: project.id, label: `${project.name} (${project.fixture})` }))
+
   return (
     <div className="flex flex-col gap-1">
       <span id={id} className="text-xs text-muted-foreground">
@@ -133,6 +135,7 @@ function ProjectPicker({ value, onChange }: { value: ProjectId; onChange: (value
 
 function ViewportPicker({ value, onChange }: { value: ViewportId; onChange: (value: ViewportId) => void }) {
   const id = useId()
+
   return (
     <div className="flex flex-col gap-1">
       <span id={id} className="text-xs text-muted-foreground">
@@ -172,6 +175,7 @@ function Version({
 }) {
   const [layer, setLayer] = useState(start)
   const id = useId()
+
   return (
     <section aria-labelledby={id} className="flex w-full max-w-80 min-w-0 flex-col gap-3">
       <div className="flex flex-col gap-1">
@@ -211,6 +215,7 @@ function TextLayerPreview({
   const lineHeight = type.lineHeight
   const spacing = type.letterSpacing
   const color = project.colors.find((token) => token.name === layer.color)?.values.default
+
   return (
     <figure className="flex h-36 items-center overflow-hidden rounded-lg border bg-white px-4 text-black">
       <figcaption className="sr-only">The text layer, as its frame draws it</figcaption>
@@ -240,6 +245,7 @@ function Output({ project, layer }: { project: PresetProject; layer: TextLayer }
   const [adapter, setAdapter] = useState<"tailwind" | "library">("tailwind")
   const overridden = overrideFields(project, layer)
   const code = adapter === "library" && project.library ? libraryCode(project, layer) : tailwindCode(project, layer)
+
   return (
     <div className="flex flex-col gap-3">
       <CodeBlock size="sm">
@@ -292,26 +298,34 @@ function Lines({ lines }: { lines: CodeLine[] }) {
 /** The stored value as JSON, one line per value, with each override marked. */
 function storedLines(value: Record<string, unknown>, overridden: ReadonlySet<TypeField>): CodeLine[] {
   const lines: CodeLine[] = []
+
   const walk = (key: string | undefined, entry: unknown, depth: number, last: boolean) => {
     const pad = "  ".repeat(depth)
     const name = key === undefined ? "" : `"${key}": `
     const comma = last ? "" : ","
+
     const isLeaf =
       typeof entry !== "object" ||
       entry === null ||
       Object.values(entry).every((part) => typeof part !== "object" || part === null)
+
     if (isLeaf) {
       const text = JSON.stringify(entry)
         .replaceAll(/([{,:])/g, "$1 ")
         .replaceAll(/\s*}/g, " }")
+
       lines.push({ text: `${pad}${name}${text}${comma}`, override: overridden.has(key as TypeField) })
+
       return
     }
+
     lines.push({ text: `${pad}${name}{` })
     const entries = Object.entries(entry)
     entries.forEach(([child, part], index) => walk(child, part, depth + 1, index === entries.length - 1))
     lines.push({ text: `${pad}}${comma}` })
   }
+
   walk(undefined, value, 0, true)
+
   return lines
 }

@@ -51,6 +51,7 @@ function Pin({ left, top, children }: { left: string; top: string; children: Rea
 
 export function InboxPage() {
   const website = portalProject("website")
+
   return (
     <PortalPage active="inbox" path="kestrel/inbox">
       <div className="flex h-full">

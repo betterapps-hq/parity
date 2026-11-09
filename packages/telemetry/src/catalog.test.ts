@@ -26,6 +26,7 @@ const commandRan = defineEvent(
   }),
   { level: "info", sentBy: ["renderer"], when: "An action runs, from any source." }
 )
+
 const appQuit = defineEvent("app.quit", z.object({}), {
   level: "debug",
   sample: 0.25,
@@ -58,6 +59,7 @@ describe("catalogEvent", () => {
       sentBy: ["service"],
       when: "A project opens."
     })
+
     expect(() => catalogEvent(vague)).toThrow("project.opened's attribute root doesn't say what it means")
   })
 

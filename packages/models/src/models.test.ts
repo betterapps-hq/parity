@@ -98,6 +98,7 @@ describe("routes", () => {
         }
       ]
     }
+
     expect(parseRoutes(model)).toEqual(model)
   })
 
@@ -121,6 +122,7 @@ describe("scenarios", () => {
         { id: "error", name: "Server error", responses: { listUsers: { status: 500, body: { message: "Down" } } } }
       ]
     }
+
     expect(parseScenarios(model)).toEqual(model)
   })
 
@@ -141,6 +143,7 @@ describe("links", () => {
         { from: { kind: "operation", id: "getUser" }, to: { kind: "table", id: "public.users" }, source: "trace" }
       ]
     }
+
     expect(parseLinks(model)).toEqual(model)
   })
 

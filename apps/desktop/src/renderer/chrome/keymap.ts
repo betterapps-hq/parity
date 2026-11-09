@@ -136,6 +136,11 @@ function isShortcut(event: KeyboardEvent, command: Command): boolean {
 
 /** The binding, if any, a key event matches. */
 export function shortcutFor(event: KeyboardEvent, commands: Iterable<Command>): Command | undefined {
-  for (const command of commands) if (isShortcut(event, command)) return command
+  for (const command of commands) {
+    if (isShortcut(event, command)) {
+      return command
+    }
+  }
+
   return undefined
 }

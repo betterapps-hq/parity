@@ -26,7 +26,10 @@ const listeners = new Set<() => void>()
 
 function setAsking(next: Asking | undefined): void {
   asking = next
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 /** Asks before a screen or component that would drop something becomes a frame (see `ConvertToFrameDialog`). */
@@ -43,6 +46,7 @@ function useAsking(): Asking | undefined {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => asking
@@ -56,6 +60,7 @@ function useAsking(): Asking | undefined {
 export function ConvertToFrameDialog() {
   const question = useAsking()
   const lines = question ? dropLines(question.drops) : []
+
   return (
     <Dialog open={!!question} onOpenChange={(open) => !open && setAsking(undefined)}>
       {question && (

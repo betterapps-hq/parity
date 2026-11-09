@@ -70,17 +70,31 @@ export const scrubPixelsPerStep = 2
 /** Reads what was typed into a field. `tokens` are the length token names a length field takes. */
 export function readFieldInput(text: string, rules: FieldRules, tokens: readonly string[] = []): FieldInput {
   const trimmed = text.trim()
-  if (trimmed === "") return { type: "clear" }
+
+  if (trimmed === "") {
+    return { type: "clear" }
+  }
+
   if (rules.kind === "length") {
     const name = trimmed.replace(/^--/, "")
-    if (tokens.includes(name)) return { type: "token", name }
+
+    if (tokens.includes(name)) {
+      return { type: "token", name }
+    }
+
     const step = /^spacing-(\d+(?:\.\d+)?)$/.exec(name)?.[1]
+
     if (step !== undefined) {
       return { type: "maths", expression: { op: "number", value: Number(step), unit: "step" }, relative: false }
     }
   }
+
   const lexed = lex(trimmed, rules)
-  if (!Array.isArray(lexed)) return { type: "unreadable", reason: lexed.reason }
+
+  if (!Array.isArray(lexed)) {
+    return { type: "unreadable", reason: lexed.reason }
+  }
+
   // A leading operator other than minus works from the value there: `+8` adds 8, `*2` doubles. A leading minus is a
   // negative number, as an inset can be; subtracting is `Mixed-8`, or typing after the value shown.
   const first = lexed[0]!
@@ -88,7 +102,11 @@ export function readFieldInput(text: string, rules: FieldRules, tokens: readonly
   const tokensToParse: Lexeme[] = leading ? [{ type: "current", text: "" }, ...lexed] : lexed
   const parser = new Parser(tokensToParse)
   const parsed = parser.parse()
-  if ("reason" in parsed) return { type: "unreadable", reason: parsed.reason }
+
+  if ("reason" in parsed) {
+    return { type: "unreadable", reason: parsed.reason }
+  }
+
   return { type: "maths", expression: parsed, relative: usesCurrent(parsed, rules) }
 }
 
@@ -98,12 +116,25 @@ export function readFieldInput(text: string, rules: FieldRules, tokens: readonly
  * needed when the input works from it.
  */
 export function applyFieldInput(input: FieldInput, current: number | undefined, rules: FieldRules): FieldOutcome {
-  if (input.type === "unreadable") return { ok: false, reason: input.reason }
-  if (input.type === "clear") return { ok: true, value: undefined }
-  if (input.type === "token") return { ok: true, value: input.name }
+  if (input.type === "unreadable") {
+    return { ok: false, reason: input.reason }
+  }
+
+  if (input.type === "clear") {
+    return { ok: true, value: undefined }
+  }
+
+  if (input.type === "token") {
+    return { ok: true, value: input.name }
+  }
+
   const scale = shownPerStored(rules)
   const result = evaluate(input.expression, current === undefined ? undefined : current * scale, rules)
-  if (typeof result !== "number") return { ok: false, reason: result.reason }
+
+  if (typeof result !== "number") {
+    return { ok: false, reason: result.reason }
+  }
+
   return settle(result / scale, rules)
 }
 
@@ -114,30 +145,46 @@ export function applyFieldInput(input: FieldInput, current: number | undefined, 
 export function stepFieldValue(current: number, count: number, rules: FieldRules): number {
   const value = Math.round(current * 1e9) / 1e9
   let next: number
+
   if (rules.kind === "length") {
-    if (count === 0) next = value
-    else next = count > 0 ? Math.floor(value) + count : Math.ceil(value) + count
-  } else if (wholeNumbers(rules)) next = Math.round(value) + count
-  else next = value + count
+    if (count === 0) {
+      next = value
+    } else {
+      next = count > 0 ? Math.floor(value) + count : Math.ceil(value) + count
+    }
+  } else if (wholeNumbers(rules)) {
+    next = Math.round(value) + count
+  } else {
+    next = value + count
+  }
+
   return clamp(next, rules)
 }
 
 /** How many steps dragging a label `dx` screen pixels moves the value: one per two pixels, ten with Shift. */
 export function scrubSteps(dx: number, shift: boolean): number {
   const steps = Math.trunc(dx / scrubPixelsPerStep)
+
   return (steps === 0 ? 0 : steps) * (shift ? 10 : 1)
 }
 
 /** A value as the field shows it: lengths in pixels, a token by its name, nothing when unset. */
 export function formatFieldValue(value: number | string | undefined, rules: FieldRules): string {
-  if (value === undefined) return ""
-  if (typeof value === "string") return value
+  if (value === undefined) {
+    return ""
+  }
+
+  if (typeof value === "string") {
+    return value
+  }
+
   return formatNumber(value * shownPerStored(rules))
 }
 
 /** What the field says about a note, as it shows values. */
 export function describeFieldNote(note: FieldNote, rules: FieldRules): string {
   const shown = (value: number) => `${formatNumber(value)}${shownUnit(rules)}`
+
   switch (note.kind) {
     case "snapped":
       return `Snapped to ${shown(note.to)}, the nearest step on the spacing scale`
@@ -153,15 +200,33 @@ export function describeFieldNote(note: FieldNote, rules: FieldRules): string {
  * kind once, as the layers each landed somewhere different.
  */
 export function summarizeFieldNotes(notes: readonly FieldNote[], rules: FieldRules): string | undefined {
-  if (notes.length === 0) return undefined
+  if (notes.length === 0) {
+    return undefined
+  }
+
   const texts = [...new Set(notes.map((note) => describeFieldNote(note, rules)))]
-  if (texts.length === 1) return texts[0]
+
+  if (texts.length === 1) {
+    return texts[0]
+  }
+
   const kinds = new Set(notes.map((note) => note.kind))
   const parts: string[] = []
-  if (kinds.has("snapped")) parts.push("snapped to the nearest step on the spacing scale")
-  if (kinds.has("clamped")) parts.push("kept within what they can be")
-  if (kinds.has("rounded")) parts.push("rounded to whole numbers")
+
+  if (kinds.has("snapped")) {
+    parts.push("snapped to the nearest step on the spacing scale")
+  }
+
+  if (kinds.has("clamped")) {
+    parts.push("kept within what they can be")
+  }
+
+  if (kinds.has("rounded")) {
+    parts.push("rounded to whole numbers")
+  }
+
   const line = parts.join(", ")
+
   return `Some layers ${line}`
 }
 
@@ -184,7 +249,11 @@ export function nearestSpacingStep(steps: number): number {
   const above = below + 0.5
   const down = steps - below
   const up = above - steps
-  if (Math.abs(down - up) < 1e-9) return Number.isInteger(below) ? below : above
+
+  if (Math.abs(down - up) < 1e-9) {
+    return Number.isInteger(below) ? below : above
+  }
+
   return down < up ? below : above
 }
 
@@ -200,9 +269,13 @@ export interface OffScaleFlag {
 
 /** The flag for a length field's value when it's a number off the spacing scale; otherwise nothing. */
 export function offScaleFlag(value: number | string | undefined, rules: FieldRules): OffScaleFlag | undefined {
-  if (rules.kind !== "length" || typeof value !== "number" || onSpacingGrid(value)) return undefined
+  if (rules.kind !== "length" || typeof value !== "number" || onSpacingGrid(value)) {
+    return undefined
+  }
+
   const nearest = clamp(nearestSpacingStep(value), rules)
   const px = (steps: number) => `${formatNumber(steps * shownPerStored(rules))}px`
+
   return { text: `${px(value)} is off the scale`, nearest, action: `Use ${px(nearest)}` }
 }
 
@@ -216,6 +289,7 @@ function settle(stored: number, rules: FieldRules): FieldOutcome {
   const scale = shownPerStored(rules)
   let value = stored
   let note: FieldNote | undefined
+
   if (rules.kind === "length" && !onSpacingGrid(value) && rules.offScale === "keep") {
     // Kept as typed, to the hundredth of a pixel, so 281px stays 281px rather than 280.99999.
     value = Math.round(value * scale * 100) / (scale * 100)
@@ -227,11 +301,14 @@ function settle(stored: number, rules: FieldRules): FieldOutcome {
     value = Math.round(value)
     note = { kind: "rounded", to: value }
   }
+
   const clamped = clamp(value, rules)
+
   if (clamped !== value) {
     note = { kind: "clamped", to: clamped * scale, bound: clamped < value ? "max" : "min" }
     value = clamped
   }
+
   // A negative zero shows as "-0".
   return { ok: true, value: value === 0 ? 0 : value, ...(note ? { note } : {}) }
 }
@@ -250,6 +327,7 @@ function clamp(value: number, rules: FieldRules): number {
 
 function formatNumber(value: number): string {
   const rounded = Math.round(value * 100) / 100
+
   return String(rounded === 0 ? 0 : rounded)
 }
 
@@ -274,70 +352,109 @@ const operatorAliases: Record<string, "+" | "-" | "*" | "/"> = {
 function lex(text: string, rules: FieldRules): Lexeme[] | { reason: string } {
   const lexemes: Lexeme[] = []
   let at = 0
+
   while (at < text.length) {
     const char = text[at]!
+
     if (/\s/.test(char)) {
       at++
       continue
     }
+
     const number = /^(?:\d+(?:\.\d*)?|\.\d+)/.exec(text.slice(at))?.[0]
+
     if (number) {
       at += number.length
       const value = Number(number)
       const unitText = /^\s*(%|[a-z]+)/i.exec(text.slice(at))
       let unit: FieldUnit | undefined
+
       if (unitText) {
         const name = unitText[1]!.toLowerCase()
+
         // `x` after a number is times, as in `2x3`.
         if (name !== "x") {
           const known = unitFor(name, rules)
-          if (typeof known !== "string") return known
+
+          if (typeof known !== "string") {
+            return known
+          }
+
           unit = known
           at += unitText[0].length
         }
       }
+
       lexemes.push({ type: "number", value, ...(unit ? { unit } : {}), text: number })
       continue
     }
+
     const word = /^[a-z]+/i.exec(text.slice(at))?.[0]
+
     if (word && word.toLowerCase() !== "x") {
-      if (word.toLowerCase() !== "mixed") return { reason: `Can't read "${word}": ${expects(rules)}` }
+      if (word.toLowerCase() !== "mixed") {
+        return { reason: `Can't read "${word}": ${expects(rules)}` }
+      }
+
       lexemes.push({ type: "current", text: word })
       at += word.length
       continue
     }
+
     const operator = operatorAliases[char.toLowerCase()]
+
     if (operator) {
       lexemes.push({ type: "operator", value: operator })
       at++
       continue
     }
-    if (char === "(") lexemes.push({ type: "open" })
-    else if (char === ")") lexemes.push({ type: "close" })
-    else if (char === "%") return { reason: `A % needs a number before it, as in 50%` }
-    else return { reason: `Can't read "${char}": ${expects(rules)}` }
+
+    if (char === "(") {
+      lexemes.push({ type: "open" })
+    } else if (char === ")") {
+      lexemes.push({ type: "close" })
+    } else if (char === "%") {
+      return { reason: `A % needs a number before it, as in 50%` }
+    } else {
+      return { reason: `Can't read "${char}": ${expects(rules)}` }
+    }
+
     at++
   }
+
   return lexemes
 }
 
 function unitFor(name: string, rules: FieldRules): FieldUnit | { reason: string } {
-  if (name === "%") return "%"
+  if (name === "%") {
+    return "%"
+  }
+
   if (name === "px" || name === "rem") {
-    if (rules.kind === "length") return name
+    if (rules.kind === "length") {
+      return name
+    }
+
     return { reason: `${rules.label ?? "This field"} takes ${noun(rules)}, not ${name}` }
   }
+
   return { reason: `"${name}" isn't a unit ${rules.label ? `${rules.label} takes` : "here"}: ${expects(rules)}` }
 }
 
 /** The unit a value is shown with. */
 function shownUnit(rules: FieldRules): string {
-  if (rules.kind === "length") return "px"
+  if (rules.kind === "length") {
+    return "px"
+  }
+
   return rules.kind === "percent" ? "%" : ""
 }
 
 function noun(rules: FieldRules): string {
-  if (rules.kind === "percent") return "a percentage"
+  if (rules.kind === "percent") {
+    return "a percentage"
+  }
+
   return rules.kind === "count" ? "a whole number" : "a number"
 }
 
@@ -355,63 +472,116 @@ class Parser {
 
   parse(): FieldExpression | { reason: string } {
     const expression = this.sum()
-    if ("reason" in expression) return expression
+
+    if ("reason" in expression) {
+      return expression
+    }
+
     const next = this.lexemes[this.at]
-    if (!next) return expression
-    if (next.type === "close") return { reason: `A ")" has no "(" before it` }
+
+    if (!next) {
+      return expression
+    }
+
+    if (next.type === "close") {
+      return { reason: `A ")" has no "(" before it` }
+    }
+
     return { reason: `Put an operator between ${describe(this.lexemes[this.at - 1])} and ${describe(next)}` }
   }
 
   private sum(): FieldExpression | { reason: string } {
     let left = this.product()
+
     while (!("reason" in left)) {
       const next = this.lexemes[this.at]
-      if (next?.type !== "operator" || (next.value !== "+" && next.value !== "-")) break
+
+      if (next?.type !== "operator" || (next.value !== "+" && next.value !== "-")) {
+        break
+      }
+
       this.at++
       const right = this.product(next.value)
-      if ("reason" in right) return right
+
+      if ("reason" in right) {
+        return right
+      }
+
       left = { op: next.value, left, right }
     }
+
     return left
   }
 
   private product(after?: string): FieldExpression | { reason: string } {
     let left = this.factor(after)
+
     while (!("reason" in left)) {
       const next = this.lexemes[this.at]
-      if (next?.type !== "operator" || (next.value !== "*" && next.value !== "/")) break
+
+      if (next?.type !== "operator" || (next.value !== "*" && next.value !== "/")) {
+        break
+      }
+
       this.at++
       const right = this.factor(next.value)
-      if ("reason" in right) return right
+
+      if ("reason" in right) {
+        return right
+      }
+
       left = { op: next.value, left, right }
     }
+
     return left
   }
 
   private factor(after?: string): FieldExpression | { reason: string } {
     const next = this.lexemes[this.at]
+
     // Only a bracket leaves nothing to read without an operator before it, since an empty field clears.
-    if (!next) return { reason: after ? `Something's missing after "${after}"` : "A bracket isn't closed" }
+    if (!next) {
+      return { reason: after ? `Something's missing after "${after}"` : "A bracket isn't closed" }
+    }
+
     this.at++
+
     switch (next.type) {
       case "number":
         return { op: "number", value: next.value, ...(next.unit ? { unit: next.unit } : {}) }
       case "current":
         return { op: "current" }
       case "open": {
-        if (this.lexemes[this.at]?.type === "close") return { reason: "The brackets are empty" }
+        if (this.lexemes[this.at]?.type === "close") {
+          return { reason: "The brackets are empty" }
+        }
+
         const inner = this.sum()
-        if ("reason" in inner) return inner
-        if (this.lexemes[this.at]?.type !== "close") return { reason: `A bracket isn't closed` }
+
+        if ("reason" in inner) {
+          return inner
+        }
+
+        if (this.lexemes[this.at]?.type !== "close") {
+          return { reason: `A bracket isn't closed` }
+        }
+
         this.at++
+
         return inner
       }
+
       case "operator":
         if (next.value === "-" || next.value === "+") {
           const operand = this.factor(next.value)
-          if ("reason" in operand) return operand
+
+          if ("reason" in operand) {
+            return operand
+          }
+
           return next.value === "-" ? { op: "negate", operand } : operand
         }
+
         return { reason: after ? `Something's missing after "${after}"` : `Something's missing before "${next.value}"` }
       case "close":
         return { reason: after ? `Something's missing after "${after}"` : `A ")" has no "(" before it` }
@@ -420,11 +590,26 @@ class Parser {
 }
 
 function describe(lexeme: Lexeme | undefined): string {
-  if (!lexeme) return "it"
-  if (lexeme.type === "number") return lexeme.text
-  if (lexeme.type === "current") return lexeme.text || "the value"
-  if (lexeme.type === "open") return '"("'
-  if (lexeme.type === "close") return '")"'
+  if (!lexeme) {
+    return "it"
+  }
+
+  if (lexeme.type === "number") {
+    return lexeme.text
+  }
+
+  if (lexeme.type === "current") {
+    return lexeme.text || "the value"
+  }
+
+  if (lexeme.type === "open") {
+    return '"("'
+  }
+
+  if (lexeme.type === "close") {
+    return '")"'
+  }
+
   return `"${lexeme.value}"`
 }
 
@@ -453,30 +638,59 @@ function evaluate(
       return current ?? { reason: "There's no value here to work from" }
     case "number": {
       const { value, unit } = expression
-      if (unit === "rem") return value * remPixels
-      if (unit === "step") return value * (rules.unit ?? 4)
+
+      if (unit === "rem") {
+        return value * remPixels
+      }
+
+      if (unit === "step") {
+        return value * (rules.unit ?? 4)
+      }
+
       if (unit === "%" && rules.kind !== "percent") {
         return current === undefined
           ? { reason: `There's no value here to take ${value}% of` }
           : (current * value) / 100
       }
+
       return value
     }
+
     case "negate": {
       const operand = evaluate(expression.operand, current, rules)
+
       return typeof operand === "number" ? -operand : operand
     }
+
     default: {
       const left = evaluate(expression.left, current, rules)
-      if (typeof left !== "number") return left
+
+      if (typeof left !== "number") {
+        return left
+      }
+
       const right = evaluate(expression.right, current, rules)
-      if (typeof right !== "number") return right
-      if (expression.op === "/" && right === 0) return { reason: "Can't divide by zero" }
+
+      if (typeof right !== "number") {
+        return right
+      }
+
+      if (expression.op === "/" && right === 0) {
+        return { reason: "Can't divide by zero" }
+      }
+
       let result: number
-      if (expression.op === "+") result = left + right
-      else if (expression.op === "-") result = left - right
-      else if (expression.op === "*") result = left * right
-      else result = left / right
+
+      if (expression.op === "+") {
+        result = left + right
+      } else if (expression.op === "-") {
+        result = left - right
+      } else if (expression.op === "*") {
+        result = left * right
+      } else {
+        result = left / right
+      }
+
       return Number.isFinite(result) ? result : { reason: "That number is too big" }
     }
   }

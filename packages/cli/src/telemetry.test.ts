@@ -18,12 +18,14 @@ import {
 
 function testTelemetry() {
   const sink = createTestSink()
+
   const telemetry = createTelemetry({
     events: cliEvents,
     context: { process: "cli", installId: "install", sessionId: "session" },
     sinks: [sink],
     check: true
   })
+
   return { sink, telemetry }
 }
 
@@ -74,11 +76,14 @@ describe("inCliRun", () => {
 describe("fileSink", () => {
   it("writes each event as a line to the day's file, and keeps the newest 10 days", () => {
     const folder = mkdtempSync(join(tmpdir(), "parity-cli-logs-"))
+
     try {
       for (let day = 1; day <= 11; day++) {
         writeFileSync(join(folder, `parity-cli-2026-10-${String(day).padStart(2, "0")}.jsonl`), "")
       }
+
       writeFileSync(join(folder, "notes.txt"), "")
+
       const envelope = {
         process: "cli" as const,
         installId: "install",
@@ -88,6 +93,7 @@ describe("fileSink", () => {
         level: "info" as const,
         attributes: { client: "claude-code" }
       }
+
       const sink = fileSink(folder)
       sink.event(envelope)
       sink.event(envelope)

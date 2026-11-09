@@ -11,15 +11,26 @@ interface Module {
 function graph(...files: string[]) {
   const modules = new Map(files.map((file) => [file, { file, importers: new Set<Module>() } as Module]))
   const imports = (importer: string, imported: string) => modules.get(imported)!.importers.add(modules.get(importer)!)
+
   const changes: ChangeGraph<Module> = {
     getModulesByFile: (file) => (modules.has(file) ? new Set([modules.get(file)!]) : undefined),
     invalidateModule(module, seen, timestamp, isHmr) {
-      if (seen.has(module)) return
+      if (seen.has(module)) {
+        return
+      }
+
       seen.add(module)
-      if (isHmr) module.stamp = timestamp
-      for (const importer of module.importers) changes.invalidateModule(importer, seen, timestamp, isHmr)
+
+      if (isHmr) {
+        module.stamp = timestamp
+      }
+
+      for (const importer of module.importers) {
+        changes.invalidateModule(importer, seen, timestamp, isHmr)
+      }
     }
   }
+
   return { modules, imports, changes }
 }
 
@@ -32,6 +43,7 @@ describe("stampChange", () => {
       "/app/src/badge.tsx",
       "\0virtual:canvas/guest"
     )
+
     imports("/app/src/button.tsx", "/app/src/icon.tsx")
     imports("/app/src/card.tsx", "/app/src/button.tsx")
     imports("\0virtual:canvas/guest", "/app/src/card.tsx")
@@ -55,6 +67,7 @@ describe("stampChange", () => {
 describe("gatherChanges", () => {
   it("sends a burst of saves once, with the latest stamp, and stamps that always go up", () => {
     vi.useFakeTimers()
+
     try {
       const send = vi.fn<(change: { paths: string[]; stamp: number }) => void>()
       const changes = gatherChanges(send)

@@ -11,11 +11,16 @@ const script = /\.[cm]?[jt]sx?$/
  */
 export function dependencySourceMap(id: string, cacheDir: string): { link?: string } | undefined {
   const file = id.split("?")[0].replaceAll("\\", "/")
-  if (!script.test(file)) return undefined
+
+  if (!script.test(file)) {
+    return undefined
+  }
+
   // As Vite tells its optimized files apart, which covers each environment's folder (`deps`, `deps_ssr`).
   if (file.startsWith(`${cacheDir.replaceAll("\\", "/").replace(/\/$/, "")}/deps`)) {
     return { link: `${file.slice(file.lastIndexOf("/") + 1)}.map` }
   }
+
   return file.includes("/node_modules/") ? {} : undefined
 }
 
@@ -28,6 +33,7 @@ export function dependencySourceMap(id: string, cacheDir: string): { link?: stri
  */
 export function dependencySourceMaps(): Plugin {
   let cacheDir = ""
+
   return {
     name: "parity:dependency-source-maps",
     apply: "serve",
@@ -38,8 +44,13 @@ export function dependencySourceMaps(): Plugin {
     },
     transform(code, id) {
       const served = dependencySourceMap(id, cacheDir)
-      if (!served) return undefined
+
+      if (!served) {
+        return undefined
+      }
+
       const link = served.link && !mapLink.test(code) ? `//# sourceMappingURL=${served.link}\n` : ""
+
       // `{ mappings: "" }` is Vite's "no map": it then inlines nothing, not even the map it makes up for a script that has
       // none. Vite keeps the map it loaded for a module whose code no plugin changed, so the code always changes here.
       return { code: `${code}\n${link}`, map: { mappings: "" } }

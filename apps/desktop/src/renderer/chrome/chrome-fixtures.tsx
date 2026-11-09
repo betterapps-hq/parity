@@ -15,10 +15,12 @@ import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
  */
 export function olderProjectAt(folder: string): ProjectInfo {
   const info = blankProjectAt(folder)
+
   const dropped: Record<string, { version: string; summary: string }> = {
     react: { version: "18.3.1", summary: "React 18.3.1 from node_modules/react; untested, Parity tests React 19" },
     vite: { version: "5.4.11", summary: "Vite 5.4.11 from node_modules/vite; untested, Parity tests Vite 6 or later" }
   }
+
   return {
     ...info,
     builder: { ...info.builder, toolVersion: "5" },
@@ -26,6 +28,7 @@ export function olderProjectAt(folder: string): ProjectInfo {
       ...info.detection,
       tools: info.detection.tools.map((tool) => {
         const old = dropped[tool.id]
+
         return old ? { ...tool, ...old, status: "dropped" as const } : tool
       }),
       notice:
@@ -49,6 +52,7 @@ export const Chrome: Decorator = (Story) => <ChromeAround story={<Story />} />
 
 function ChromeAround({ story }: { story: ReactNode }) {
   const theme = useResolvedTheme()
+
   return (
     <TooltipProvider>
       <div className="flex h-screen flex-col bg-background text-foreground">{story}</div>

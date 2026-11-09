@@ -84,25 +84,43 @@ export function shiftInsets(
 ): { change: NodeStyle; blocked?: Side } {
   const change: NodeStyle = {}
   let blocked: Side | undefined
+
   for (const [start, end, by] of [
     ["left", "right", dx],
     ["top", "bottom", dy]
   ] as const) {
-    if (by === 0) continue
+    if (by === 0) {
+      continue
+    }
+
     let placed: Side[] = [start]
-    if (style[end] !== undefined) placed = style[start] === undefined ? [end] : [start, end]
+
+    if (style[end] !== undefined) {
+      placed = style[start] === undefined ? [end] : [start, end]
+    }
+
     const at = (side: Side): number | undefined => {
       const value = style[side]
-      if (typeof value === "number") return value
+
+      if (typeof value === "number") {
+        return value
+      }
+
       return drawn?.[side] ?? (value === undefined ? 0 : undefined)
     }
+
     const token = placed.find((side) => at(side) === undefined)
+
     if (token) {
       blocked ??= token
       continue
     }
-    for (const side of placed) change[side] = at(side)! + (side === start ? by : -by)
+
+    for (const side of placed) {
+      change[side] = at(side)! + (side === start ? by : -by)
+    }
   }
+
   return { change, ...(blocked ? { blocked } : {}) }
 }
 
@@ -136,29 +154,46 @@ export function resizeInsets(
   const hasNear = style[near] !== undefined
   const hasFar = style[far] !== undefined
   const sized = style[axis === "x" ? "width" : "height"] !== undefined
+
   const shift = (side: Side, by: number): NodeStyle => {
     const value = style[side]
     const from = typeof value === "number" ? value : drawn[side]
     const to = inset(from + by)
+
     return to === from ? {} : { [side]: to }
   }
+
   if (centre) {
     // Both edges move, each by the handle's movement, so the middle stays where it was.
     const grows = end ? delta : -delta
-    if (hasNear && hasFar && !sized) return { insets: { ...shift(near, -grows / unit), ...shift(far, -grows / unit) } }
+
+    if (hasNear && hasFar && !sized) {
+      return { insets: { ...shift(near, -grows / unit), ...shift(far, -grows / unit) } }
+    }
+
     const next = Math.max(0, length((size + 2 * grows) / unit))
     const half = (next - size / unit) / 2
+
     return { size: next, insets: hasFar && !hasNear ? shift(far, -half) : shift(near, -half) }
   }
+
   if (hasNear && hasFar && !sized) {
     return { insets: end ? shift(far, -delta / unit) : shift(near, delta / unit) }
   }
+
   const next = Math.max(0, length((size + (end ? delta : -delta)) / unit))
   // How far the edge that isn't anchored moved, in steps, once the size is rounded to whole steps.
   const grown = next - size / unit
   const fromFar = hasFar && !hasNear
-  if (fromFar && end) return { size: next, insets: shift(far, -grown) }
-  if (!fromFar && !end) return { size: next, insets: shift(near, -grown) }
+
+  if (fromFar && end) {
+    return { size: next, insets: shift(far, -grown) }
+  }
+
+  if (!fromFar && !end) {
+    return { size: next, insets: shift(near, -grown) }
+  }
+
   return { size: next, insets: {} }
 }
 
@@ -202,16 +237,21 @@ export function absoluteDrag(
   start: AbsoluteDragStart
 ): (move: DragMove) => { change: NodeStyle; snapped?: LayerSnapped } {
   const { style, drawn, unit, scale, snapping } = start
+
   return ({ dx, dy, snaps }) => {
     const free = { x: dx / scale, y: dy / scale }
     const from = snapping?.box
+
     const snapped =
       from && snaps ? snapLayer({ ...from, x: from.x + free.x, y: from.y + free.y }, snapping.scene, scale) : undefined
+
     const along = (axis: "x" | "y") =>
       snapped?.locked[axis] && from
         ? halfPixels((snapped.box[axis] - from[axis]) / unit, unit)
         : halfSteps(free[axis] / unit)
+
     const { change } = shiftInsets(style, along("x"), along("y"), drawn)
+
     return { change, ...(snapped ? { snapped } : {}) }
   }
 }
@@ -229,11 +269,19 @@ export function resizeStart(
   view: BoardView
 ): { style: NodeStyle; parentDirection?: "row" | "column" } | undefined {
   const location = locateNode(container.root, id)
-  if (!location) return undefined
+
+  if (!location) {
+    return undefined
+  }
+
   const read = boardReader(container, view)
   const parent = location.ancestors.at(-1)
   const style = read(location.node).style ?? {}
-  if (parent?.type !== "layout") return { style }
+
+  if (parent?.type !== "layout") {
+    return { style }
+  }
+
   return { style, parentDirection: read(parent).style?.direction ?? "column" }
 }
 
@@ -282,6 +330,7 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
   const { edge, rect, inner, scale, unit, absolute } = start
   const axes = edgeAxes(edge)
   const ratio = (rect.right - rect.left) / Math.max(1, rect.bottom - rect.top)
+
   // How far each moving edge is from the inside of the parent; it fills only once it has been away.
   const gaps = (dx: number, dy: number) => ({
     width: edge.includes("e")
@@ -291,6 +340,7 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
       ? Math.abs(rect.bottom + dy - (inner?.bottom ?? Infinity))
       : Math.abs(rect.top + dy - (inner?.top ?? -Infinity))
   })
+
   const away = gaps(0, 0)
   const armed = { width: away.width >= fillDistance, height: away.height >= fillDistance }
   let started = false
@@ -298,26 +348,36 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
   return ({ dx: pointerX, dy: pointerY, shift, centre = false, snapped }) => {
     const dx = axes.width ? pointerX : 0
     let dy = axes.height ? pointerY : 0
+
     // Shift on a corner keeps the proportions, following the horizontal movement.
     if (shift && axes.width && axes.height) {
       const signX = edge.includes("w") ? -1 : 1
       const signY = edge.includes("n") ? -1 : 1
       dy = ((signX * dx) / ratio) * signY
     }
+
     // Measured along the handle's axes, so a pointer moving across them changes nothing.
-    if (!started && Math.hypot(dx, dy) < (start.threshold ?? dragThreshold)) return undefined
+    if (!started && Math.hypot(dx, dy) < (start.threshold ?? dragThreshold)) {
+      return undefined
+    }
+
     started = true
     const style: NodeStyle = {}
+
     if (absolute) {
       for (const [axis, size] of [
         ["x", "width"],
         ["y", "height"]
       ] as const) {
-        if (!axes[size]) continue
+        if (!axes[size]) {
+          continue
+        }
+
         const end = axis === "x" ? edge.includes("e") : edge.includes("s")
         const exact = snapped?.[axis]
         const moved = exact ?? (axis === "x" ? dx : dy) / scale
         const length = (axis === "x" ? rect.right - rect.left : rect.bottom - rect.top) / scale
+
         const result = resizeInsets(
           absolute.style,
           absolute.drawn,
@@ -329,15 +389,28 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
           exact !== undefined,
           centre
         )
-        if (result.size !== undefined) style[size] = result.size
+
+        if (result.size !== undefined) {
+          style[size] = result.size
+        }
+
         Object.assign(style, result.insets)
       }
+
       return style
     }
+
     const gap = gaps(dx, dy)
+
     for (const size of ["width", "height"] as const) {
-      if (!axes[size]) continue
-      if (gap[size] >= fillDistance) armed[size] = true
+      if (!axes[size]) {
+        continue
+      }
+
+      if (gap[size] >= fillDistance) {
+        armed[size] = true
+      }
+
       // How much the size grows from the dragged edge; from the middle, the opposite edge moves as far.
       const flipped = size === "width" ? edge.includes("w") : edge.includes("n")
       const by = (size === "width" ? dx : dy) * (flipped ? -1 : 1)
@@ -345,6 +418,7 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
       const fills = armed[size] && gap[size] < fillDistance && !shift && !centre
       style[size] = fills ? "fill" : Math.max(0, Math.round((drawnSize + (centre ? 2 : 1) * by) / scale / unit))
     }
+
     return style
   }
 }
@@ -385,10 +459,12 @@ export function layerResize(
   return ({ dx, dy, shift, centre = false, snaps }) => {
     const proportional = shift && axes.width && axes.height
     const from = snapping?.box
+
     const snapped =
       from && snaps && !proportional && !centre
         ? snapLayer(resizedBox(from, edges, { x: dx / scale, y: dy / scale }), snapping.scene, scale, edges)
         : undefined
+
     const change = gesture({
       dx,
       dy,
@@ -396,7 +472,9 @@ export function layerResize(
       centre,
       snapped: from && snapped ? lockedEdgeMoves(from, snapped, edges) : {}
     })
+
     const style: StyleChange | undefined = change && takesGrow ? { ...change, grow: undefined } : change
+
     return { ...(style ? { style } : {}), ...(snapped ? { snapped } : {}) }
   }
 }
@@ -413,6 +491,7 @@ export function layerSizeReset(
   const axes = edgeAxes(edge)
   const size = fill ? "fill" : "hug"
   const takesGrow = layer?.style.grow === true && (layer.parentDirection === "column" ? axes.height : axes.width)
+
   return {
     ...(axes.width ? { width: size } : {}),
     ...(axes.height ? { height: size } : {}),
@@ -432,17 +511,25 @@ export function layersResize(
   const width = Math.max(1, union.right - union.left)
   const height = Math.max(1, union.bottom - union.top)
   const axes = edgeAxes(starts[0]?.edge ?? "se")
+
   // Each layer moves only its share, so the drag starts for them all once the pointer has gone the threshold.
   const follow = starts.map((start) => ({
     resize: layerResize({ ...start, snapping: undefined, threshold: 0 }),
     shareX: (start.rect.right - start.rect.left) / width,
     shareY: (start.rect.bottom - start.rect.top) / height
   }))
+
   let started = false
+
   return (move) => {
     const along = Math.hypot(axes.width ? move.dx : 0, axes.height ? move.dy : 0)
-    if (!started && along < dragThreshold) return follow.map(() => undefined)
+
+    if (!started && along < dragThreshold) {
+      return follow.map(() => undefined)
+    }
+
     started = true
+
     return follow.map(
       ({ resize, shareX, shareY }) => resize({ ...move, dx: move.dx * shareX, dy: move.dy * shareY }).style
     )
@@ -479,18 +566,30 @@ export function frameResize(start: FrameResizeStart): (move: { dx: number; dy: n
   const drawn = (rect.bottom - rect.top) / scale
   const content = size.height === undefined ? drawn : undefined
   const height = size.height ?? drawn
+
   return ({ dx, dy }) => {
     const next: FrameSize = { ...(design.kind === "frame" ? design.size : design.frames?.[mode.viewport]) }
+
     if (axes.width) {
       const width = Math.round(size.width + dx / scale)
-      if (Math.abs(width - mode.width) * scale < fillDistance) delete next.width
-      else next.width = Math.max(smallestFrame.width, width)
+
+      if (Math.abs(width - mode.width) * scale < fillDistance) {
+        delete next.width
+      } else {
+        next.width = Math.max(smallestFrame.width, width)
+      }
     }
+
     if (axes.height) {
       const to = Math.round(height + dy / scale)
-      if (content !== undefined && Math.abs(to - content) * scale < fillDistance) delete next.height
-      else next.height = Math.max(smallestFrame.height, to)
+
+      if (content !== undefined && Math.abs(to - content) * scale < fillDistance) {
+        delete next.height
+      } else {
+        next.height = Math.max(smallestFrame.height, to)
+      }
     }
+
     return next
   }
 }
@@ -502,8 +601,15 @@ export function frameResize(start: FrameResizeStart): (move: { dx: number; dy: n
 export function frameSizeReset(frame: FrameSize | undefined, edge: Edge): FrameSize {
   const axes = edgeAxes(edge)
   const next: FrameSize = { ...frame }
-  if (axes.width) delete next.width
-  if (axes.height) delete next.height
+
+  if (axes.width) {
+    delete next.width
+  }
+
+  if (axes.height) {
+    delete next.height
+  }
+
   return next
 }
 
@@ -512,12 +618,24 @@ export function frameSizeReset(frame: FrameSize | undefined, edge: Edge): FrameS
  * (the kind) has one size whatever the viewport, which this sets (see `withFrameSize`).
  */
 export function withFrame(container: ContainerSpec, viewport: string, size: FrameSize): ContainerSpec {
-  if (container.kind === "frame") return withFrameSize(container, size)
+  if (container.kind === "frame") {
+    return withFrameSize(container, size)
+  }
+
   const frames = { ...container.frames }
-  if (size.width === undefined && size.height === undefined) delete frames[viewport]
-  else frames[viewport] = size
+
+  if (size.width === undefined && size.height === undefined) {
+    delete frames[viewport]
+  } else {
+    frames[viewport] = size
+  }
+
   const next: ContainerSpec = { ...container, frames }
-  if (Object.keys(frames).length === 0) delete next.frames
+
+  if (Object.keys(frames).length === 0) {
+    delete next.frames
+  }
+
   return next
 }
 
@@ -542,9 +660,17 @@ export function arrowOf(key: string): Arrow | undefined {
 /** How a layout node lays out its children as the design says, for when its frame doesn't draw it. */
 export function modelFlow(parent: DesignNode): Flow {
   const forward = { reversed: false, linesReversed: false }
-  if (parent.type !== "layout") return { direction: "column", wraps: false, ...forward }
+
+  if (parent.type !== "layout") {
+    return { direction: "column", wraps: false, ...forward }
+  }
+
   const style = parent.style ?? {}
-  if (style.display === "grid") return { direction: "row", wraps: true, ...forward, stride: style.columns ?? 2 }
+
+  if (style.display === "grid") {
+    return { direction: "row", wraps: true, ...forward, stride: style.columns ?? 2 }
+  }
+
   return { direction: style.direction === "row" ? "row" : "column", wraps: style.wrap === true, ...forward }
 }
 
@@ -555,11 +681,16 @@ export function modelFlow(parent: DesignNode): Flow {
 export function reorderStep(flow: Flow, arrow: Arrow): number | undefined {
   const horizontal = arrow === "left" || arrow === "right"
   const forward = arrow === "right" || arrow === "down"
+
   if (horizontal !== (flow.direction === "row")) {
     // Up and down a grid move a row's worth of places.
-    if (!horizontal && flow.stride) return forward ? flow.stride : -flow.stride
+    if (!horizontal && flow.stride) {
+      return forward ? flow.stride : -flow.stride
+    }
+
     return undefined
   }
+
   return forward !== flow.reversed ? 1 : -1
 }
 
@@ -577,22 +708,33 @@ export function reorder(
   const order = children.map((child) => child.id)
   const places = children.flatMap((child, index) => (child.inFlow || selected.has(child.id) ? [index] : []))
   const flow = places.map((index) => order[index]!)
+
   if (Math.abs(step) > 1) {
     const fits = flow.every((id, index) => !selected.has(id) || (index + step >= 0 && index + step < flow.length))
-    if (!fits) return order
+
+    if (!fits) {
+      return order
+    }
   }
+
   for (let pass = 0; pass < Math.abs(step); pass++) {
     if (step < 0) {
       for (let index = 1; index < flow.length; index++) {
-        if (selected.has(flow[index]!) && !selected.has(flow[index - 1]!)) swap(flow, index, index - 1)
+        if (selected.has(flow[index]!) && !selected.has(flow[index - 1]!)) {
+          swap(flow, index, index - 1)
+        }
       }
     } else {
       for (let index = flow.length - 2; index >= 0; index--) {
-        if (selected.has(flow[index]!) && !selected.has(flow[index + 1]!)) swap(flow, index, index + 1)
+        if (selected.has(flow[index]!) && !selected.has(flow[index + 1]!)) {
+          swap(flow, index, index + 1)
+        }
       }
     }
   }
+
   places.forEach((at, index) => (order[at] = flow[index]!))
+
   return order
 }
 
@@ -611,6 +753,7 @@ const deltas: Record<Arrow, { x: number; y: number }> = {
 function nudgeBy(arrow: Arrow, big: boolean): { x: number; y: number } {
   const steps = big ? 10 : 1
   const { x, y } = deltas[arrow]
+
   return { x: x * steps, y: y * steps }
 }
 
@@ -621,6 +764,7 @@ export function nudgedPosition(
   big: boolean
 ): { x: number; y: number } {
   const by = nudgeBy(arrow, big)
+
   return { x: Math.round(position.x + by.x), y: Math.round(position.y + by.y) }
 }
 
@@ -661,14 +805,21 @@ export function nudgeLayers(
 
   const by = nudgeBy(arrow, big)
   const flowing: DesignNode[] = []
+
   for (const node of layers) {
     const style = shown(node).style ?? {}
+
     if (style.position !== "absolute") {
       flowing.push(node)
       continue
     }
+
     const shift = shiftInsets(style, by.x / unit, by.y / unit, drawn.insets(node.id))
-    if (shift.blocked) blocked ??= { layer: node.id, side: shift.blocked, token: style[shift.blocked]! }
+
+    if (shift.blocked) {
+      blocked ??= { layer: node.id, side: shift.blocked, token: style[shift.blocked]! }
+    }
+
     if (Object.keys(shift.change).length > 0) {
       // To the hundredth of a pixel, so a run of presses with a 6px unit doesn't drift.
       const change = Object.fromEntries(
@@ -677,35 +828,58 @@ export function nudgeLayers(
           Math.round((steps as number) * unit * 100) / (unit * 100)
         ])
       )
+
       next = editNode(next, boardTarget(next, state.id), node.id, { style: change })
     }
   }
 
   // Layers in the same layout move together, as one block.
   const groups = new Map<string, { parent: DesignNode; slot?: string; ids: Set<string> }>()
+
   for (const node of flowing) {
     const location = locateNode(next.root, node.id)
     const parent = location?.ancestors.at(-1)
-    if (!location || !parent) continue
+
+    if (!location || !parent) {
+      continue
+    }
+
     const key = `${parent.id}\n${location.slot ?? ""}`
     const group = groups.get(key) ?? { parent, slot: location.slot, ids: new Set<string>() }
     group.ids.add(node.id)
     groups.set(key, group)
   }
+
   for (const { parent, slot, ids: selected } of groups.values()) {
     const flow = drawn.flow([...selected][0]!) ?? modelFlow(shown(parent))
     const step = reorderStep(flow, arrow)
-    if (!step) continue
+
+    if (!step) {
+      continue
+    }
+
     const siblings = childEntries(parent).find((entry) => entry.slot === slot)?.nodes ?? []
+
     const children = siblings.map((child) => {
       const look = shown(child)
+
       return { id: child.id, inFlow: !look.hidden && look.style?.position !== "absolute" }
     })
+
     const order = reorder(children, selected, step)
-    if (order.every((id, index) => id === siblings[index]?.id)) continue
+
+    if (order.every((id, index) => id === siblings[index]?.id)) {
+      continue
+    }
+
     let root = next.root
-    for (const [index, id] of order.entries()) root = moveNode(root, id, parent.id, { index, slot })
+
+    for (const [index, id] of order.entries()) {
+      root = moveNode(root, id, parent.id, { index, slot })
+    }
+
     next = { ...next, root }
   }
+
   return { container: next, ...(blocked ? { blocked } : {}) }
 }

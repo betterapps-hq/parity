@@ -40,6 +40,7 @@ export function recordActions<Id extends string>(
   ran?: (id: Id) => void
 ): Record<Id, RecordedAction> {
   const recorded = {} as Record<Id, RecordedAction>
+
   for (const id of Object.keys(definitions) as Id[]) {
     const action = definitions[id]
     recorded[id] = {
@@ -47,16 +48,21 @@ export function recordActions<Id extends string>(
       run(from, { event, instead } = {}) {
         const enabled = action.available?.() !== false
         const attributes = { action: id, from, enabled, ...selected() }
+
         if (!enabled) {
           startTrace("command.ran", attributes).end("cancelled")
+
           return undefined
         }
+
         return tracedCommand(attributes, () => {
           ran?.(id)
+
           return instead ? instead() : action.run(event)
         })
       }
     }
   }
+
   return recorded
 }

@@ -10,6 +10,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } from "./tracing.ts"
 
 const sink = createTestSink()
+
 traceWith(
   createTelemetry({
     events: registeredEvents,
@@ -18,17 +19,21 @@ traceWith(
     check: true
   })
 )
+
 const sent = { traceId: "4bf92f3577b34da6a3ce929d0e0e4736", spanId: "00f067aa0ba902b7" }
 
 describe("handleInSpan", () => {
   it("runs a request's handler in a span that continues the trace it came with, carried by what it asks", async () => {
     sink.clear()
     let asked: unknown
+
     const answer = await handleInSpan({ method: "frames.capture", trace: traceHeaders(sent) }, async () => {
       await Promise.resolve()
       asked = currentTraceHeaders()
+
       return "drawn"
     })
+
     expect(answer).toBe("drawn")
     const [span] = sink.spans
     expect(span).toMatchObject({

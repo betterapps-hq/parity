@@ -65,21 +65,29 @@ export function getPreferences(): Preferences {
 
 export function setPreferences(change: Partial<Preferences>): void {
   for (const [setting, value] of Object.entries(change)) {
-    if (value === undefined || JSON.stringify(value) === JSON.stringify(preferences[setting as keyof Preferences]))
+    if (value === undefined || JSON.stringify(value) === JSON.stringify(preferences[setting as keyof Preferences])) {
       continue
+    }
+
     recordInterface("setting.changed", { setting, value: typeof value === "object" ? JSON.stringify(value) : value })
   }
+
   preferences = { ...preferences, ...change }
+
   try {
     localStorage.setItem(storageKey, JSON.stringify(preferences))
   } catch {
     // Storage can be unavailable; the preference then just isn't remembered.
   }
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 export function subscribePreferences(listener: () => void): () => void {
   listeners.add(listener)
+
   return () => listeners.delete(listener)
 }
 

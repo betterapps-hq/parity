@@ -25,6 +25,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const panel = () => within(document.body)
@@ -36,7 +37,10 @@ const selecting = (layer: string | undefined, then?: () => Promise<void>) =>
     () => {
       setPicking(false)
       setLayout({ right: true, rightTab: "code" })
-      if (layer) example().selection.set(layersSelection(design("Sign in"), [node("Sign in", layer)]))
+
+      if (layer) {
+        example().selection.set(layersSelection(design("Sign in"), [node("Sign in", layer)]))
+      }
     },
     then
   )
@@ -73,7 +77,11 @@ export const ElementPicked: Story = selecting("Sign in card", async () => {
 export const Inspecting: Story = selecting("Sign in card", async () => {
   await userEvent.click(within(await codeTab()).getByRole("button", { name: /Inspect/ }))
   const input = layerElement("Sign in", "Sign in card").querySelector("input")
-  if (!input) throw new Error("The sign in card draws no input")
+
+  if (!input) {
+    throw new Error("The sign in card draws no input")
+  }
+
   const box = input.getBoundingClientRect()
   input.dispatchEvent(
     new PointerEvent("pointermove", {
@@ -95,7 +103,11 @@ export const LibraryComponent: Story = selecting("Sign in error", async () => {
 /** A right-click on the email field: the canvas menu ends with Open in editor, at the line the input is written on. */
 export const OpenFromCanvasMenu: Story = onCanvas(["Sign in"], undefined, async () => {
   const input = layerElement("Sign in", "Sign in card").querySelector("input")
-  if (!input) throw new Error("The sign in card draws no input")
+
+  if (!input) {
+    throw new Error("The sign in card draws no input")
+  }
+
   const box = input.getBoundingClientRect()
   const point = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 }
   const target = document.elementFromPoint(point.clientX, point.clientY) ?? document.body
@@ -119,7 +131,11 @@ export const NothingSelected: Story = selecting(undefined, async () => {
 export const PickedOnCanvas: Story = selecting(undefined, async () => {
   await userEvent.click(await within(await codeTab()).findByRole("button", { name: /Inspect/ }))
   const input = layerElement("Sign in", "Sign in card").querySelector("input")
-  if (!input) throw new Error("The sign in card draws no input")
+
+  if (!input) {
+    throw new Error("The sign in card draws no input")
+  }
+
   const box = input.getBoundingClientRect()
   const at = { bubbles: true, cancelable: true, composed: true, button: 0, pointerId: 1, isPrimary: true }
   const point = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 }

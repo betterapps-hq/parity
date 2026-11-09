@@ -101,6 +101,7 @@ describe("themeAttributes", () => {
       "@media (width > 40rem) { [data-theme=sand] { --bg: tan; } }",
       "@media (prefers-color-scheme: dark) { :root { --bg: #000; } }"
     ].join("\n")
+
     expect(read(css)).toEqual({})
   })
 
@@ -127,6 +128,7 @@ describe("frameAttributes", () => {
   it("gives the frame the dark colour scheme only when its mode shows the dark theme (PAR-138)", () => {
     const scheme = (classNames: string[]) =>
       frameAttributes({ classNames, attributes: {} }, {})["data-canvas-color-scheme"]
+
     expect(scheme(["dark"])).toBe("dark")
     expect(scheme(["contrast", "dark"])).toBe("dark")
     expect(scheme(["ocean"])).toBe("light")

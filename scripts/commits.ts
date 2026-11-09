@@ -31,14 +31,27 @@ export function subjectProblem(subject: string, pushing: boolean): string | unde
   if (/^(fixup|squash|amend)! /.test(subject)) {
     return pushing ? "it's a fixup: squash it into its commit with `git rebase --autosquash` first" : undefined
   }
-  if (subject.startsWith("Merge ") || subject.startsWith('Revert "')) return undefined
-  if (/\bwip\b/i.test(subject)) return "it's work in progress: finish it, or squash it into the commit it belongs to"
+
+  if (subject.startsWith("Merge ") || subject.startsWith('Revert "')) {
+    return undefined
+  }
+
+  if (/\bwip\b/i.test(subject)) {
+    return "it's work in progress: finish it, or squash it into the commit it belongs to"
+  }
+
   if (!conventional.test(subject)) {
     return `it needs a conventional type, such as \`fix(desktop): …\`, from ${types.join(", ")}`
   }
-  if (subject.length > longest)
+
+  if (subject.length > longest) {
     return `it's ${subject.length} characters: keep it to ${longest}, with detail in the body`
-  if (subject.endsWith(".")) return "it ends with a full stop"
+  }
+
+  if (subject.endsWith(".")) {
+    return "it ends with a full stop"
+  }
+
   return undefined
 }
 
@@ -58,11 +71,18 @@ function lines(text: string): string[] {
  * it's left alone.
  */
 function pushedCommits(remote: string, refs: string): { commit: string; subject: string }[] {
-  if (git("for-each-ref", "--count=1", `refs/remotes/${remote}/`).trim() === "") return []
+  if (git("for-each-ref", "--count=1", `refs/remotes/${remote}/`).trim() === "") {
+    return []
+  }
+
   const tips = lines(refs)
     .map((line) => line.split(" ")[1] ?? "")
     .filter((commit) => commit !== "" && !/^0+$/.test(commit))
-  if (tips.length === 0) return []
+
+  if (tips.length === 0) {
+    return []
+  }
+
   return lines(git("log", "--no-merges", "--format=%h %s", ...tips, "--not", `--remotes=${remote}`)).map((line) => ({
     commit: line.slice(0, line.indexOf(" ")),
     subject: line.slice(line.indexOf(" ") + 1)
@@ -75,7 +95,11 @@ function main(): void {
   if (command === "message" && argument) {
     const subject = subjectOf(readFileSync(argument, "utf8"))
     const problem = subjectProblem(subject, false)
-    if (!problem) return
+
+    if (!problem) {
+      return
+    }
+
     console.error(`The commit's subject won't do, as ${problem}:\n  ${subject}`)
     process.exit(1)
   }
@@ -83,9 +107,14 @@ function main(): void {
   if (command === "push" && argument) {
     const problems = pushedCommits(argument, readFileSync(0, "utf8")).flatMap(({ commit, subject }) => {
       const problem = subjectProblem(subject, true)
+
       return problem ? [`  ${commit} ${subject}\n    ${problem}`] : []
     })
-    if (problems.length === 0) return
+
+    if (problems.length === 0) {
+      return
+    }
+
     console.error(`Commits this push sends need their messages fixed:\n${problems.join("\n")}`)
     console.error("Reword the last with `git commit --amend`, or earlier ones with a rebase, then push again.")
     process.exit(1)
@@ -93,7 +122,11 @@ function main(): void {
 
   if (command === "title" && argument) {
     const problem = subjectProblem(argument, true)
-    if (!problem) return
+
+    if (!problem) {
+      return
+    }
+
     console.error(
       `The pull request's title becomes the commit's subject when it merges, and it won't do, as ${problem}.`
     )
@@ -104,4 +137,6 @@ function main(): void {
   process.exit(1)
 }
 
-if (process.argv[1] && import.meta.filename === process.argv[1]) main()
+if (process.argv[1] && import.meta.filename === process.argv[1]) {
+  main()
+}

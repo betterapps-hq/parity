@@ -39,15 +39,25 @@ function recordInsert(
 
 /** Which item it is: the component, the design an instance places, or the image's file. */
 function itemName(item: InsertItem): string {
-  if (item.kind === "component") return item.component
+  if (item.kind === "component") {
+    return item.component
+  }
+
   return item.kind === "instance" ? item.design : item.src
 }
 
 /** The Assets panel section an item is from: an icon set's icons, images, or components. */
 function insertSource(session: ProjectSession, item: InsertItem): "components" | "icons" | "images" {
-  if (item.kind === "image") return "images"
-  if (item.kind !== "component") return "components"
+  if (item.kind === "image") {
+    return "images"
+  }
+
+  if (item.kind !== "component") {
+    return "components"
+  }
+
   const icons = session.info.libraries.filter((library) => library.kind === "icons")
+
   return icons.some((library) => item.component.startsWith(`${library.id}/`)) ? "icons" : "components"
 }
 
@@ -84,9 +94,14 @@ export function dropTarget(
   measures?: HereMeasures
 ): DropTarget | undefined {
   const place = placeAtPoint(session, area, point, measures)
-  if (place.kind !== "layout") return undefined
+
+  if (place.kind !== "layout") {
+    return undefined
+  }
+
   const { hit, slot } = place
   const { box } = place.here
+
   return {
     entry: hit.entry,
     parent: slot.layout,
@@ -122,12 +137,15 @@ export function insertItem(
   store.updateContainer(target.entry.key, insertLabel(item), (container) => {
     const inserted = insertIntoDesign(container, target, item, context)
     node = inserted.node
+
     return inserted.container
   })
+
   if (node) {
     selection.set({ design: target.entry.key, node, mode: target.mode, state: target.state })
     recordInsert(session, item, via, target.entry.key, false)
   }
+
   return node
 }
 
@@ -143,6 +161,7 @@ export function addFrameOfItem(
   via: InsertVia = "drag"
 ): string {
   const { store, selection } = session
+
   const { design } = designOfItem(
     item,
     insertContext(session, item),
@@ -150,9 +169,11 @@ export function addFrameOfItem(
     at,
     designNames(session)
   )
+
   const key = store.addContainer(store.mainPath, design, insertLabel(item))
   selection.set({ design: key })
   recordInsert(session, item, via, key, true)
+
   return key
 }
 
@@ -163,14 +184,26 @@ export function addFrameOfItem(
  */
 export function insertAtSelection(session: ProjectSession, item: InsertItem, via: InsertVia = "click"): boolean {
   const current = session.selection.get()
+
   if (!current.design) {
     addFrameOfItem(session, item, viewCenter(session), via)
+
     return true
   }
+
   const entry = session.store.getEntry(current.design)
-  if (!entry) return false
+
+  if (!entry) {
+    return false
+  }
+
   const at = whereToInsert(entry.container.root, current.node, session.store.getComponentLibrary())
-  if (!at) return false
+
+  if (!at) {
+    return false
+  }
+
   insertItem(session, { entry, ...at, mode: current.mode, state: current.state }, item, via)
+
   return true
 }

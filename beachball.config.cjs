@@ -17,6 +17,7 @@ const { readFileSync } = require("node:fs")
 function hasOriginMain() {
   try {
     execFileSync("git", ["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"], { stdio: "ignore" })
+
     return true
   } catch {
     return false
@@ -34,10 +35,15 @@ const dependabot = "dependabot[bot]"
  */
 function isDependabots() {
   const { env } = process
+
   if (env.GITHUB_ACTIONS === "true") {
-    if (env.GITHUB_EVENT_NAME !== "pull_request" || env.GITHUB_ACTOR !== dependabot) return false
+    if (env.GITHUB_EVENT_NAME !== "pull_request" || env.GITHUB_ACTOR !== dependabot) {
+      return false
+    }
+
     try {
       const { pull_request: pr } = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH ?? "", "utf8"))
+
       return (
         pr.user.login === dependabot &&
         pr.head.repo.full_name === env.GITHUB_REPOSITORY &&
@@ -47,8 +53,10 @@ function isDependabots() {
       return false
     }
   }
+
   try {
     const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" })
+
     return branch.startsWith("dependabot/")
   } catch {
     return false

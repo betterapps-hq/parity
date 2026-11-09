@@ -42,15 +42,19 @@ const guests = new Map<string, Loading>()
  */
 export function loadGuest(url: string, theme: readonly ThemeVariable[]): Promise<LoadedGuest> {
   let loading = guests.get(url)
+
   if (!loading) {
     const entry = {} as Loading
     entry.loaded = load(url, theme, entry)
     entry.loaded.catch(() => {
-      if (guests.get(url) === entry) guests.delete(url)
+      if (guests.get(url) === entry) {
+        guests.delete(url)
+      }
     })
     guests.set(url, entry)
     loading = entry
   }
+
   return loading.loaded
 }
 
@@ -60,11 +64,18 @@ export function loadGuest(url: string, theme: readonly ThemeVariable[]): Promise
  */
 export function releaseGuest(url: string): void {
   const entry = guests.get(url)
-  if (!entry) return
+
+  if (!entry) {
+    return
+  }
+
   guests.delete(url)
   entry.released = true
   const { global } = entry
-  if (global) document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => sheet !== global)
+
+  if (global) {
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => sheet !== global)
+  }
 }
 
 async function load(url: string, theme: readonly ThemeVariable[], entry: Loading): Promise<LoadedGuest> {
@@ -74,16 +85,19 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
   const packages = prepareCanvasCss(guest.packageCss ?? "", { baseUrl: new URL(url).origin })
   const global = new CSSStyleSheet()
   global.replaceSync(packages.global + css.global)
+
   if (!entry.released) {
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, global]
     entry.global = global
   }
+
   // The theme's own values measure the frame as the project's CSS does, though they never went through preparing.
   const fallbacks = rewriteSheetFrameUnits(themeFallbackCss(css.scoped, theme))
   const sheet = guestSheet(fallbacks + packages.scoped + css.scoped)
   // Tokens keep the values the project wrote, `0.25rem` rather than what a frame draws it with, and its
   // `prefers-color-scheme` blocks, which frames draw as rules for their colour scheme.
   const written = prepareCanvasCss(guest.css, { baseUrl: new URL(url).origin, units: false, colorSchemes: false })
+
   return {
     guest,
     sheet,
@@ -94,6 +108,7 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
 
 /** Each guest stylesheet's CSS as compiled, which a frame drawn offscreen starts from. */
 const compiled = new WeakMap<CSSStyleSheet, string>()
+
 /** The token overrides each guest stylesheet shows now, as `showTokenOverrides` last laid them over it. */
 const shown = new WeakMap<CSSStyleSheet, string>()
 
@@ -103,6 +118,7 @@ export function guestSheet(css: string): CSSStyleSheet {
   sheet.replaceSync(css)
   compiled.set(sheet, css)
   shown.set(sheet, "[]")
+
   return sheet
 }
 
@@ -114,13 +130,25 @@ export function guestSheet(css: string): CSSStyleSheet {
  */
 export function showTokenOverrides(sheet: CSSStyleSheet, overrides: readonly TokenChange[]): void {
   const key = JSON.stringify(overrides.map(({ name, theme, value }) => [name, theme, value]))
-  if (shown.get(sheet) === key) return
+
+  if (shown.get(sheet) === key) {
+    return
+  }
+
   const css = compiled.get(sheet)
-  if (css === undefined) throw new Error("Token overrides go on a guest's stylesheet, made by guestSheet")
+
+  if (css === undefined) {
+    throw new Error("Token overrides go on a guest's stylesheet, made by guestSheet")
+  }
+
   // Until every value is laid over it, the sheet shows no known set, so a value that throws can't leave one claimed.
   shown.delete(sheet)
   sheet.replaceSync(css)
-  for (const { name, theme, value } of overrides) previewToken(sheet, name, theme, value)
+
+  for (const { name, theme, value } of overrides) {
+    previewToken(sheet, name, theme, value)
+  }
+
   shown.set(sheet, key)
 }
 
@@ -133,10 +161,13 @@ export function showTokenOverrides(sheet: CSSStyleSheet, overrides: readonly Tok
 export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, value: string): void {
   const property = `--${name}`
   const rules: CSSStyleRule[] = []
+
   const collect = (list: CSSRuleList, atRules: EnclosingAtRule[]) => {
     for (const rule of list) {
       if (rule instanceof CSSStyleRule) {
-        if (themeOfSelector(rule.selectorText, atRules) === theme) rules.push(rule)
+        if (themeOfSelector(rule.selectorText, atRules) === theme) {
+          rules.push(rule)
+        }
       } else if ("cssRules" in rule) {
         const atRule = /^@([\w-]+)\s*([^{]*)/.exec(rule.cssText)
         const inner = atRule ? [...atRules, { name: atRule[1]!.toLowerCase(), prelude: atRule[2]!.trim() }] : atRules
@@ -144,12 +175,17 @@ export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, 
       }
     }
   }
+
   collect(sheet.cssRules, [])
   // Lengths in the value measure the frame, as the compiled CSS's do: `0.5rem` the project's root font.
   const drawn = rewriteFrameUnits(value)
   const declaring = rules.filter((rule) => rule.style.getPropertyValue(property) !== "")
-  if (declaring.length > 0) for (const rule of declaring) rule.style.setProperty(property, drawn)
-  else {
+
+  if (declaring.length > 0) {
+    for (const rule of declaring) {
+      rule.style.setProperty(property, drawn)
+    }
+  } else {
     // A rule of its own, with the selector the theme already uses, so `[data-theme="dark"]` stays an attribute.
     const selector = rules[0]?.selectorText ?? (theme === "default" ? ":host" : `.${theme}`)
     sheet.insertRule(`${selector} { ${property}: ${drawn}; }`, sheet.cssRules.length)
@@ -159,15 +195,18 @@ export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, 
 // A builder may still be preparing dependencies on the first request, and a failed module import is cached by URL.
 async function importWithRetry(url: string, attempts = 3): Promise<Guest> {
   let lastError: unknown
+
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const target = attempt === 0 ? url : `${url}?attempt=${attempt}`
       const module = (await import(/* @vite-ignore */ target)) as { default: Guest }
+
       return module.default
     } catch (error) {
       lastError = error
       await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
     }
   }
+
   throw lastError
 }

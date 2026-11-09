@@ -40,6 +40,7 @@ export function ModesMenu({
 }) {
   const frames = [main, ...beside]
   const shown = frames.map((mode) => mode.id)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -57,6 +58,7 @@ export function ModesMenu({
         </DropdownMenuGroup>
         {modes.map((mode) => {
           const on = shown.includes(mode.id)
+
           return (
             <div key={mode.id} className="group/mode flex items-center gap-1">
               <DropdownMenuItem
@@ -148,7 +150,14 @@ function ModeChip({ mode, main }: { mode: ResolvedMode; main: boolean }) {
 function ThemeIcon({ mode }: { mode: ResolvedMode }) {
   const option = mode.options.find(({ variable }) => variable.kind === "theme")?.option
   const name = `${option?.id ?? ""} ${option?.name ?? ""}`
-  if (/dark/i.test(name)) return <Moon className="size-3" aria-hidden />
-  if (/light/i.test(name)) return <Sun className="size-3" aria-hidden />
+
+  if (/dark/i.test(name)) {
+    return <Moon className="size-3" aria-hidden />
+  }
+
+  if (/light/i.test(name)) {
+    return <Sun className="size-3" aria-hidden />
+  }
+
   return null
 }

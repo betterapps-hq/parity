@@ -7,21 +7,25 @@ function watch() {
   const recorded: FirstFrame[] = []
   const visible = new Set<Element>()
   let next: (() => void) | undefined
+
   const firstFrame = watchFirstFrame((from) => recorded.push(from), {
     seen: (element) => visible.has(element),
     schedule: (tick) => {
       next = tick
+
       return 1
     },
     cancel: () => {
       next = undefined
     }
   })
+
   const frame = () => {
     const tick = next
     next = undefined
     tick?.()
   }
+
   return { recorded, visible, firstFrame, frame, waiting: () => next !== undefined }
 }
 

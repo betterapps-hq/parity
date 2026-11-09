@@ -15,6 +15,7 @@ const meta = {
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** An instance of a component design, Pricing's Pro plan: which state of Plan card it shows, and each of its params. */
@@ -35,6 +36,7 @@ export const InstanceOfMissingComponent: Story = {
           current.type === "instance" ? { ...current, design: "enterprise-plan-card" } : current
         )
       }))
+
       return layersSelection(key, [id])
     })
   ]

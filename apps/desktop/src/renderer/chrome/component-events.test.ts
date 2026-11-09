@@ -55,6 +55,7 @@ function setup() {
     },
     states: [{ id: "default", name: "Default" }]
   }
+
   return new DesignStore(
     [{ path: "app.par", document: { version: 3, containers: [card, home] } }],
     defaultModeSettings,

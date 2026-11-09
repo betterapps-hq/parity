@@ -50,6 +50,7 @@ describe("reactBuildConfig", () => {
     // plugin-react's include is the modules Fast Refresh wraps; this one matches none, not even an empty id.
     const { include } = config.react
     expect(include).toBeInstanceOf(RegExp)
+
     for (const id of ["", "/src/renderer/App.tsx", "D:/canvas/apps/desktop/src/renderer/main.tsx?v=1"]) {
       expect(include?.test(id)).toBe(false)
     }

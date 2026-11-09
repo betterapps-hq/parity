@@ -100,6 +100,7 @@ function FrameView({ ref, entry, onTitlePointerDown, title, rest }: ContainerVie
   const { primary } = useMemo(() => containerModes(settings, container), [settings, container])
   const state = container.states[0]!
   useFitToContent(board, entry)
+
   const titleBar = (
     // Its name runs past a narrow frame rather than being cut off, since there's no board for it to fit.
     <TitleBar showControls={false} width={undefined} quiet>
@@ -112,6 +113,7 @@ function FrameView({ ref, entry, onTitlePointerDown, title, rest }: ContainerVie
       />
     </TitleBar>
   )
+
   return (
     <div ref={board} className="container-view frame-view relative w-max font-sans" data-design={key}>
       {title
@@ -152,42 +154,68 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
   const { key } = entry
   useEffect(() => {
     const host = board.current?.querySelector<HTMLElement>("[data-frame]")
-    if (!hugs || !host) return undefined
+
+    if (!hugs || !host) {
+      return undefined
+    }
+
     const rootElement = () => {
       const current = store.getEntry(key)?.container
+
       return current && findNodeElement(host, current.root.id)
     }
+
     const fit = () => {
       const width = contentWidth(rootElement())
       const current = store.getEntry(key)?.container
-      if (!width || !current || !fittedFrame(current, width)) return
+
+      if (!width || !current || !fittedFrame(current, width)) {
+        return
+      }
+
       store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, { history: false })
     }
+
     const observer = new ResizeObserver(fit)
     let watched: Element | undefined
+
     const watch = () => {
       const root = rootElement()
-      if (root === watched) return
+
+      if (root === watched) {
+        return
+      }
+
       observer.disconnect()
       watched = root
-      if (root) observer.observe(root)
+
+      if (root) {
+        observer.observe(root)
+      }
     }
+
     // The design is drawn into the frame's shadow root, once the frame has made it, and its root element can be drawn
     // again as it changes.
     const drawn = new MutationObserver(() => {
       watch()
       fit()
     })
+
     let frame = 0
+
     const start = () => {
       if (!host.shadowRoot) {
         frame = requestAnimationFrame(start)
+
         return
       }
+
       drawn.observe(host.shadowRoot, { childList: true, subtree: true, characterData: true })
       watch()
     }
+
     start()
+
     return () => {
       cancelAnimationFrame(frame)
       drawn.disconnect()
@@ -203,17 +231,23 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
  * being drawn so.
  */
 function contentWidth(element: HTMLElement | undefined): number | undefined {
-  if (!element) return undefined
+  if (!element) {
+    return undefined
+  }
+
   const { width } = element.style
   element.style.width = "max-content"
   const style = getComputedStyle(element)
   const side = (name: string) => parseFloat(style.getPropertyValue(name)) || 0
+
   const sides =
     style.boxSizing === "border-box"
       ? 0
       : side("padding-left") + side("padding-right") + side("border-left-width") + side("border-right-width")
+
   const measured = parseFloat(style.width) + sides
   element.style.width = width
+
   return measured > 0 ? Math.ceil(measured - 0.01) : undefined
 }
 
@@ -243,8 +277,10 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const width = title?.width
 
   const stateName = (id: string) => container.states.find((state) => state.id === id)?.name ?? id
+
   const selectState = (state: string) =>
     store.updateView(key, `Show ${stateName(state)}`, (view) => ({ ...view, state, allStates: false }))
+
   const showModes = (main: string, shown: string[]) =>
     store.updateView(key, `Show ${modeNames(all, shown)}`, (view) => withShownModes(view, main, shown, all))
 
@@ -349,7 +385,10 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
 
 /** Where a frame is in its row, by its column: the main frame, then the first companion, after the dashed line. */
 function framePlace(column: number): FrameTileProps["place"] {
-  if (column === 0) return "firstFrame"
+  if (column === 0) {
+    return "firstFrame"
+  }
+
   return column === 1 ? "dividedFrame" : "nextFrame"
 }
 
@@ -357,6 +396,7 @@ function framePlace(column: number): FrameTileProps["place"] {
 function BoardEdge() {
   const ref = useRef<HTMLDivElement>(null)
   useGutterStyle(ref, "edge")
+
   return (
     <div
       ref={ref}
@@ -370,6 +410,7 @@ function BoardEdge() {
 function DashedLine({ part }: { part: "rowLine" | "frameLine" }) {
   const ref = useRef<HTMLSpanElement>(null)
   useGutterStyle(ref, part)
+
   return (
     <span
       ref={ref}
@@ -401,6 +442,7 @@ function StateRow({
   const frames = useRef<HTMLDivElement>(null)
   useGutterStyle(row, first ? "firstRow" : "nextRow")
   useGutterStyle(frames, first ? "firstRowFrames" : "nextRowFrames")
+
   return (
     <section ref={row} className="state-row relative" data-state={state}>
       {!first && <DashedLine part="rowLine" />}
@@ -433,6 +475,7 @@ function TitleBar({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   useCanvasLabel(ref, "name", { fit: true, width })
+
   return (
     <div
       ref={ref}
@@ -485,10 +528,15 @@ function TitleButton({
   // Edit > Rename, or F2, with the design selected.
   const renameRequest = useRenameRequest(session.selection)
   const [renameHandled, setRenameHandled] = useState(() => session.selection.getRename()?.id)
+
   if (renameRequest && renameRequest.id !== renameHandled) {
     setRenameHandled(renameRequest.id)
-    if (renameRequest.design === entry.key && !renameRequest.node) setRenaming(true)
+
+    if (renameRequest.design === entry.key && !renameRequest.node) {
+      setRenaming(true)
+    }
   }
+
   const icon = (
     <DesignIcon
       kind={container.kind}
@@ -496,7 +544,9 @@ function TitleButton({
       style={{ color: color ?? (quiet ? undefined : designColor(container.kind)) }}
     />
   )
+
   const others = convertKinds.filter((kind) => kind !== (container.kind ?? "screen"))
+
   if (renaming) {
     return (
       <div className="flex min-w-0 items-center gap-1.5 px-1" onPointerDown={stopEventPropagation}>
@@ -512,13 +562,20 @@ function TitleButton({
           }}
           onKeyDown={(event) => {
             event.stopPropagation()
-            if (event.key === "Enter") event.currentTarget.blur()
-            if (event.key === "Escape") setRenaming(false)
+
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
+
+            if (event.key === "Escape") {
+              setRenaming(false)
+            }
           }}
         />
       </div>
     )
   }
+
   return (
     <ContextMenu>
       <ContextMenuTrigger
@@ -589,9 +646,11 @@ function VariantMenu({
   onSelect: (param: string, option: string) => void
 }) {
   const variants = Object.entries(params).filter(([name]) => choices[name] !== undefined)
+
   const label = variants
     .map(([name, param]) => param.options?.find((option) => option.id === choices[name])?.name ?? choices[name])
     .join(", ")
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={menuTrigger} aria-label="Variant">
@@ -635,6 +694,7 @@ function StateMenu({
   onShowAll: (on: boolean) => void
 }) {
   const current = states.find((state) => state.id === active)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={menuTrigger} aria-label="State">
@@ -651,6 +711,7 @@ function StateMenu({
           <DropdownMenuLabel>State</DropdownMenuLabel>
           {states.map((state, index) => {
             const changes = changeCount(state)
+
             return (
               <DropdownMenuRadioItem key={state.id} value={state.id}>
                 <Name className="flex-1">{state.name}</Name>
@@ -697,6 +758,7 @@ function StateLabel({
   const height = useLabelSpace(ref, base)
   useCanvasLabel(ref, "name", { width: boardWidth, height })
   useGutterStyle(ref, base ? "firstStateLabel" : "nextStateLabel")
+
   return (
     <Hint label={`Show only ${state.name}`} wait>
       <button
@@ -726,13 +788,22 @@ function useLabelSpace(label: RefObject<HTMLElement | null>, first: boolean): nu
   const [height, setHeight] = useState<number>()
   useLayoutEffect(() => {
     const row = label.current?.closest<HTMLElement>(".state-row")
-    if (!row) return undefined
+
+    if (!row) {
+      return undefined
+    }
+
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setHeight(stateLabelSpace(entry.contentRect.height, first))
+      if (entry) {
+        setHeight(stateLabelSpace(entry.contentRect.height, first))
+      }
     })
+
     observer.observe(row)
+
     return () => observer.disconnect()
   }, [label, first])
+
   return height
 }
 
@@ -746,6 +817,7 @@ function FrameCaption({ width, children }: { width: number; children: ReactNode 
   const ref = useRef<HTMLDivElement>(null)
   useGutterStyle(band, "caption")
   useCanvasLabel(ref, "detail", { fit: true, width })
+
   return (
     <figcaption ref={band} className="relative">
       {/* Out of the flow, so a long caption doesn't widen a narrow frame's board. */}
@@ -803,6 +875,7 @@ const FrameTile = memo(function FrameTile({
   const interactions = useInteractions(selection)
   const interactive = useInteracting(selection)
   const { container } = entry
+
   const tree = useMemo(
     () =>
       resolveDesign(boardRoot(container), state, mode.viewport, library, {
@@ -811,6 +884,7 @@ const FrameTile = memo(function FrameTile({
       }),
     [container, state, mode.viewport, library]
   )
+
   const figure = useRef<HTMLElement>(null)
   useGutterStyle(figure, place)
   const tile = useRef<HTMLDivElement>(null)
@@ -821,12 +895,14 @@ const FrameTile = memo(function FrameTile({
   useFirstRowFrame(session.id, entry.key, mode.id, shows, caption)
   // Whether the frame is holding off drawing its design for its bitmap, which then needn't wait to be captured.
   const holding = useRef(false)
+
   // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.
   const kept = useFrameBitmap(
     shows,
     () => drawnHeight(tile.current, frame.width),
     () => holding.current
   )
+
   const bitmap = kept.src
   // Listed with Parity's errors, and its bitmap sent with a render of it that fails (PAR-624).
   useFrameOnScreen({
@@ -846,7 +922,10 @@ const FrameTile = memo(function FrameTile({
   // its skeleton, which then leaves the page.
   const [decoded, setDecoded] = useState<string>()
   useEffect(() => {
-    if (!bitmap) return undefined
+    if (!bitmap) {
+      return undefined
+    }
+
     let live = true
     const image = new Image()
     image.src = bitmap
@@ -854,6 +933,7 @@ const FrameTile = memo(function FrameTile({
       .decode()
       .catch(() => undefined)
       .then(() => live && setDecoded(bitmap))
+
     return () => {
       live = false
     }
@@ -865,7 +945,10 @@ const FrameTile = memo(function FrameTile({
   const { firstFrame } = session
   const shownBitmap = useRef<HTMLImageElement>(null)
   useEffect(() => {
-    if (!showing || !firstFrame || !shownBitmap.current) return undefined
+    if (!showing || !firstFrame || !shownBitmap.current) {
+      return undefined
+    }
+
     return firstFrame.offer(shownBitmap.current, "bitmap")
   }, [showing, firstFrame])
   const drawnLive = useCallback((drawn: HTMLElement) => session.firstFrame?.offer(drawn, "live"), [session])
@@ -883,6 +966,7 @@ const FrameTile = memo(function FrameTile({
   const placeholder = waiting && !showing && !skeleton
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
+
   return (
     <figure ref={figure} className="mode-tile relative m-0" data-mode={mode.id} data-primary={primary}>
       {place === "dividedFrame" && <DashedLine part="frameLine" />}

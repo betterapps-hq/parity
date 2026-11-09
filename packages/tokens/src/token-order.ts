@@ -9,12 +9,14 @@ import { type PreviewKind, valueParts } from "./kinds.ts"
 /** A length in pixels from px, rem or em; NaN for anything else, such as `calc()`, which only a browser can work out. */
 export function parsedLength(value: string): number {
   const match = /^(-?\d*\.?\d+)(px|rem|em)?$/.exec(value.trim())
+
   return match ? Number(match[1]) * (match[2] === "rem" || match[2] === "em" ? 16 : 1) : Number.NaN
 }
 
 /** A duration in milliseconds, from ms or s; NaN for anything else. */
 export function parsedDuration(value: string): number {
   const match = /^(\d*\.?\d+)(ms|s)$/.exec(value.trim())
+
   return match ? Number(match[1]) * (match[2] === "s" ? 1000 : 1) : Number.NaN
 }
 
@@ -25,17 +27,26 @@ export function parsedDuration(value: string): number {
  * each length, so a `calc()` one counts when it's given a measurer that can work it out, as `scaleValue`'s is.
  */
 export function shadowReach(value: string, length: (value: string) => number = parsedLength): number | undefined {
-  if (value.trim() === "none") return 0
+  if (value.trim() === "none") {
+    return 0
+  }
+
   let furthest: number | undefined
+
   for (const layer of valueParts(value)) {
     const lengths = topLevelWords(layer)
       .map(length)
       .filter((each) => !Number.isNaN(each))
-    if (lengths.length === 0) continue
+
+    if (lengths.length === 0) {
+      continue
+    }
+
     const [x = 0, y = 0, blur = 0, spread = 0] = lengths
     const reach = Math.max(Math.abs(x), Math.abs(y)) + Math.max(0, blur) + spread
     furthest = Math.max(furthest ?? reach, reach)
   }
+
   return furthest
 }
 
@@ -47,15 +58,29 @@ function topLevelWords(value: string): string[] {
   const words: string[] = []
   let depth = 0
   let word = ""
+
   for (const char of value) {
-    if (char === "(") depth++
-    else if (char === ")") depth--
+    if (char === "(") {
+      depth++
+    } else if (char === ")") {
+      depth--
+    }
+
     if (depth === 0 && /\s/.test(char)) {
-      if (word) words.push(word)
+      if (word) {
+        words.push(word)
+      }
+
       word = ""
-    } else word += char
+    } else {
+      word += char
+    }
   }
-  if (word) words.push(word)
+
+  if (word) {
+    words.push(word)
+  }
+
   return words.filter((each) => !each.includes("(") || /^(?:calc|min|max|clamp)\(/i.test(each))
 }
 
@@ -73,8 +98,13 @@ export function scaleValue(
   length: (value: string) => number = parsedLength
 ): number | undefined {
   const text = value.trim()
-  if (text === "" || /\bvar\(/i.test(text)) return undefined
+
+  if (text === "" || /\bvar\(/i.test(text)) {
+    return undefined
+  }
+
   let measured: number
+
   switch (kind) {
     case "spacing":
     case "radius":
@@ -113,9 +143,11 @@ export function scaleValue(
       measured = width / height
       break
     }
+
     default:
       return undefined
   }
+
   return Number.isFinite(measured) ? measured : undefined
 }
 
@@ -131,12 +163,14 @@ export function orderTokens<T>(
   return items
     .map((item) => {
       const { name, kind, value } = describe(item)
+
       return { item, name, value: scaleValue(kind, value, length) }
     })
     .toSorted((a, b) => {
       if (a.value === undefined || b.value === undefined) {
         return (a.value === undefined ? 1 : 0) - (b.value === undefined ? 1 : 0) || compareNames(a.name, b.name)
       }
+
       return a.value - b.value || compareNames(a.name, b.name)
     })
     .map(({ item }) => item)
@@ -155,17 +189,28 @@ const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" })
 export function compareNames(a: string, b: string): number {
   const left = nameWords(a)
   const right = nameWords(b)
+
   for (let index = 0; index < Math.min(left.length, right.length); index++) {
     const x = left[index]!
     const y = right[index]!
     const [xSize, ySize] = [sizeRank(x), sizeRank(y)]
     let order: number
-    if (xSize !== undefined && ySize !== undefined) order = xSize - ySize
-    else if (xSize !== undefined || ySize !== undefined) order = xSize === undefined ? 1 : -1
-    else if (/^\d*\.?\d+$/.test(x) && /^\d*\.?\d+$/.test(y)) order = Number(x) - Number(y)
-    else order = collator.compare(x, y)
-    if (order) return order
+
+    if (xSize !== undefined && ySize !== undefined) {
+      order = xSize - ySize
+    } else if (xSize !== undefined || ySize !== undefined) {
+      order = xSize === undefined ? 1 : -1
+    } else if (/^\d*\.?\d+$/.test(x) && /^\d*\.?\d+$/.test(y)) {
+      order = Number(x) - Number(y)
+    } else {
+      order = collator.compare(x, y)
+    }
+
+    if (order) {
+      return order
+    }
   }
+
   return left.length - right.length
 }
 
@@ -179,13 +224,26 @@ function nameWords(name: string): string[] {
  * -3, `xl` and `XLarge` 2, `2xl` 3. Undefined for any other word.
  */
 function sizeRank(word: string): number | undefined {
-  if (word.toLowerCase() === "none") return Number.NEGATIVE_INFINITY
+  if (word.toLowerCase() === "none") {
+    return Number.NEGATIVE_INFINITY
+  }
+
   const match = /^(?:(\d+)x|(x*))(s|sm|small|m|md|medium|base|l|lg|large)$/i.exec(word)
-  if (!match) return undefined
+
+  if (!match) {
+    return undefined
+  }
+
   const size = match[3]!.toLowerCase()
   let side = 0
-  if (["s", "sm", "small"].includes(size)) side = -1
-  else if (["l", "lg", "large"].includes(size)) side = 1
+
+  if (["s", "sm", "small"].includes(size)) {
+    side = -1
+  } else if (["l", "lg", "large"].includes(size)) {
+    side = 1
+  }
+
   const steps = match[1] ? Number(match[1]) : match[2]!.length
+
   return side * (1 + steps)
 }

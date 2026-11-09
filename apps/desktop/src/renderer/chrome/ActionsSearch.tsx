@@ -102,20 +102,28 @@ const selectedScreen = () => {
   const entry = selectedDesign()
   // Components and frames have no Repeated parts section; a design with no kind is a screen.
   const screen = entry && (entry.container.kind ?? "screen") === "screen"
+
   return screen && !activeSession()?.selection.get().node ? entry : undefined
 }
 
 /** Inserts a component again in the active tab's project, through its offer as it stands now. */
 function repeatInsert(key: string): void {
   const session = activeSession()
-  if (session) insertOption(session, offerOf(session, session.store.getEntries()), key)
+
+  if (session) {
+    insertOption(session, offerOf(session, session.store.getEntries()), key)
+  }
 }
 
 /** Finds the repeated parts in the selected screen and shows them in the inspector. */
 function findInSelectedScreen(): void {
   const entry = selectedScreen()
   const session = activeSession()
-  if (!entry || !session) return
+
+  if (!entry || !session) {
+    return
+  }
+
   setLayout({ right: true, rightTab: "design" })
   findRepeatedParts(session.info.root, entry)
 }
@@ -135,7 +143,10 @@ function scrolledEdges(list: HTMLElement): Edges {
  * or tucked under, the search field.
  */
 function edgeFade({ top, bottom }: Edges): string | undefined {
-  if (!top && !bottom) return undefined
+  if (!top && !bottom) {
+    return undefined
+  }
+
   return `linear-gradient(to bottom, ${top ? "transparent, black 1.5rem" : "black"}, ${bottom ? "black calc(100% - 1.5rem), transparent" : "black"})`
 }
 
@@ -144,6 +155,7 @@ const recentKey = "parity.recentSearches"
 function readRecent(): string[] {
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(recentKey) ?? "[]")
+
     return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : []
   } catch {
     // Storage can be unavailable, or hold something else; nothing's recent then.
@@ -184,6 +196,7 @@ function projectItems(session: ProjectSession): Item[] {
   const entries = session.store.getEntries()
   const library = session.store.getComponentLibrary()
   const items: Item[] = []
+
   for (const entry of entries) {
     items.push({
       id: `design:${entry.key}`,
@@ -197,9 +210,13 @@ function projectItems(session: ProjectSession): Item[] {
       }
     })
   }
+
   for (const entry of entries) {
     walkNodes(entry.container.root, (node, depth) => {
-      if (depth === 0) return
+      if (depth === 0) {
+        return
+      }
+
       items.push({
         id: `layer:${entry.key}/${node.id}`,
         group: "Layers",
@@ -216,9 +233,14 @@ function projectItems(session: ProjectSession): Item[] {
       })
     })
   }
+
   const offer = offerOf(session, entries)
+
   for (const option of offer.options) {
-    if (option.origin === "basic" || option.hidden) continue
+    if (option.origin === "basic" || option.hidden) {
+      continue
+    }
+
     items.push({
       id: `component:${option.key}`,
       group: "Components",
@@ -237,6 +259,7 @@ function projectItems(session: ProjectSession): Item[] {
       }
     })
   }
+
   for (const token of session.tokens.inOrder()) {
     items.push({
       id: `token:${token.name}`,
@@ -249,6 +272,7 @@ function projectItems(session: ProjectSession): Item[] {
       run: () => showToken(session.info.root, token.name)
     })
   }
+
   return items
 }
 
@@ -291,23 +315,30 @@ export function ActionsSearch() {
   // Gathered once each time it opens, as what's in the project can't change while it's open, and kept while it closes
   // so its rows stay put as it fades.
   const [items, setItems] = useState(() => (open ? gatherItems(activeSession(), projects) : []))
+
   if (open !== wasOpen) {
     setWasOpen(open)
+
     if (open) {
       setQuery("")
       setRecent(readRecent())
       setItems(gatherItems(activeSession(), projects))
     }
   }
+
   const order: Heading[] = starting
     ? ["Projects", "Designs", "Layers", ...groups, "Components", "Tokens"]
     : ["Designs", "Layers", ...groups, "Components", "Tokens", "Projects"]
+
   const found = findAnything(items, query, { recent, groups: order, limits })
   // A new search lists other rows from the top, so the edges are measured again once they're drawn.
   const list = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    if (list.current) setScrolled(scrolledEdges(list.current))
+    if (list.current) {
+      setScrolled(scrolledEdges(list.current))
+    }
   }, [query, items])
+
   const run = (item: Item) => {
     closeDialog()
     const next = rememberPick(recent, item.id)
@@ -315,6 +346,7 @@ export function ActionsSearch() {
     saveRecent(next)
     void item.run()
   }
+
   return (
     <CommandDialog
       open={open}

@@ -60,12 +60,15 @@ export function gutterScale(zoom: number): number {
  */
 export function boardLayoutAt(zoom: number): BoardGutter {
   const scale = gutterScale(zoom)
+
   const divider = ({ before, line, after }: BoardDivider) => ({
     before: before * scale,
     line: line * scale,
     after: after * scale
   })
+
   const { side, caption, between, radius } = boardLayout
+
   return {
     side: side * scale,
     caption: caption * scale,
@@ -100,18 +103,23 @@ export function boardSize(
   const frames = modes.map((mode, column) => {
     const size = frameSize(design, mode)
     const scale = column === 0 ? 1 : companionScale(size.width)
+
     return {
       width: Math.round(size.width * scale),
       height: Math.round((size.height ?? frameViewport(size, mode).height) * scale)
     }
   })
+
   const { side, caption, between, divider, rowDivider } = boardLayoutAt(shrinkBelow)
+
   const companions =
     frames.length > 1 ? divider.before + divider.line + divider.after + (frames.length - 2) * between : 0
+
   const width = frames.reduce((total, frame) => total + frame.width, 0) + companions + 2 * side
   const rows = design.view?.allStates ? Math.max(1, design.states.length) : 1
   const row = Math.max(0, ...frames.map((frame) => frame.height))
   const rowGap = rowDivider.before + rowDivider.line + rowDivider.after
   const height = caption + rows * row + (rows - 1) * rowGap + side
+
   return { width: Math.ceil(width), height: Math.ceil(height) }
 }

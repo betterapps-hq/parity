@@ -16,15 +16,21 @@ import { hitTest, type Point } from "./hit.ts"
  */
 export function emptyCanvasAt(session: ProjectSession, area: ParentNode, point: Point): Point | undefined {
   const { store, editor } = session
-  if (!editor || hitTest(area, store, point, editor)) return undefined
+
+  if (!editor || hitTest(area, store, point, editor)) {
+    return undefined
+  }
+
   const page = editor.screenToPage(point)
   const board = editor.getShapeAtPoint(page, { hitInside: true, filter: (shape) => shape.type === "canvas-container" })
+
   return board ? undefined : { x: Math.round(page.x), y: Math.round(page.y) }
 }
 
 /** The middle of the view, on the page: where what's added with nothing selected goes. */
 export function viewCenter(session: ProjectSession): Point {
   const bounds = session.editor?.getViewportPageBounds()
+
   return bounds ? { x: Math.round(bounds.midX), y: Math.round(bounds.midY) } : { x: 0, y: 0 }
 }
 
@@ -32,6 +38,7 @@ export function viewCenter(session: ProjectSession): Point {
 export function designNames(session: ProjectSession): DesignName {
   const { store } = session
   const entries = store.getEntries()
+
   return (id) =>
     entries.find((entry) => entry.container.id === id)?.container.name ?? store.getComponentLibrary().get(id)?.name
 }
@@ -50,6 +57,7 @@ export function addFrameOfLayers(
   const ids = store.getEntries().map((entry) => entry.container.id)
   const key = store.addContainer(store.mainPath, designOfLayers(nodes, ids, at, designNames(session)), label)
   selection.set({ design: key })
+
   return key
 }
 
@@ -65,12 +73,15 @@ export function addFrameOfText(
   label: string
 ): { key: string; node: string } {
   const { store, selection } = session
+
   const { design, node } = frameOfText(
     text,
     store.getEntries().map((entry) => entry.container.id),
     at
   )
+
   const key = store.addContainer(store.mainPath, design, label)
   selection.set({ design: key })
+
   return { key, node }
 }

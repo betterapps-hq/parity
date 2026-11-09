@@ -34,7 +34,11 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
   useShortcuts(session, active)
   // The start page's picture of the project, taken as it opens and after each save (PAR-607).
   useEffect(() => (session ? keepProjectPicture(session) : undefined), [session])
-  if (!tab) return null
+
+  if (!tab) {
+    return null
+  }
+
   const reopen = () => void workspace.reload(id)
 
   if (!session) {
@@ -79,6 +83,7 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
 /** The console's boundary: says it failed in the console's own height, and can hide it. */
 function ConsoleBoundary({ onReopen, children }: { onReopen: () => void; children: ReactNode }) {
   const { consoleHeight } = useLayout()
+
   return (
     <ErrorBoundary
       name="console"
@@ -107,7 +112,11 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
 
   useEffect(() => {
     const editor = session?.editor
-    if (!editor) return
+
+    if (!editor) {
+      return
+    }
+
     editor.setCurrentTool(tool === "hand" ? "hand" : "select")
   }, [session?.editor, tool])
 

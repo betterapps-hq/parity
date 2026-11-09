@@ -6,6 +6,7 @@ const rfcBytes = Uint8Array.from([
   116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173, 187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91,
   88, 5, 88, 83, 132, 141, 121
 ])
+
 const rfcVerifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
 const rfcChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
 
@@ -40,6 +41,7 @@ describe("authorizeUrl", () => {
     const url = new URL(
       authorizeUrl({ ...options, provider: "authkit", loginHint: "ana@acme.test", state: "s", codeChallenge: "c" })
     )
+
     expect(url.searchParams.get("provider")).toBe("authkit")
     expect(url.searchParams.get("login_hint")).toBe("ana@acme.test")
   })
@@ -48,6 +50,7 @@ describe("authorizeUrl", () => {
     const url = new URL(
       authorizeUrl({ ...options, provider: "authkit", organizationId: "org_01ACME", state: "s", codeChallenge: "c" })
     )
+
     expect(url.searchParams.get("organization_id")).toBe("org_01ACME")
   })
 
@@ -59,6 +62,7 @@ describe("authorizeUrl", () => {
       state: "s",
       codeChallenge: "c"
     })
+
     expect(url).toContain("&provider_query_params%5Bprompt%5D=select_account")
   })
 })

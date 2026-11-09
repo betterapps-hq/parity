@@ -13,6 +13,7 @@ export const workerTelemetryKey = "parityTelemetry"
 export function startWorkerTelemetry(port: Pick<MessagePort, "postMessage">): Telemetry<typeof registeredEvents> {
   const run = readTelemetryRun(process.env[telemetryRunVariable])
   const post = (envelope: unknown) => port.postMessage({ [workerTelemetryKey]: envelope })
+
   return recordInvalidData(
     createTelemetry({
       events: registeredEvents,

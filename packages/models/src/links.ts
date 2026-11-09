@@ -26,8 +26,11 @@ export const Links = z.strictObject({
 })
 
 export type LinkKind = z.infer<typeof LinkKind>
+
 export type LinkEnd = z.infer<typeof LinkEnd>
+
 export type Link = z.infer<typeof Link>
+
 export type Links = z.infer<typeof Links>
 
 export function parseLinks(value: unknown): Links {

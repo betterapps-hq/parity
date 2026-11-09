@@ -34,16 +34,20 @@ beforeAll(async () => {
     plugins: [exampleProject(), story],
     build: { write: false, emptyOutDir: false, rolldownOptions: { input: { story: "story" } } }
   })) as Rolldown.RolldownOutput
+
   files = new Map(output.output.map((file) => [file.fileName, file]))
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage()
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   page.on("pageerror", (error) => errors.push(error.message))
   const entry = [...files.values()].find((file) => file.type === "chunk" && file.name === "story")
   await page.route(`${site}**`, (route) => {
     const path = new URL(route.request().url()).pathname.slice(1)
+
     // The page imports the guest as the canvas does, by URL.
     if (path === "") {
       return route.fulfill({
@@ -52,14 +56,23 @@ beforeAll(async () => {
           <script type="module">window.importGuest = (url) => import(url)</script>`
       })
     }
+
     const file = files.get(path)
+
     if (!file) {
       errors.push(`404 ${path}`)
+
       return route.fulfill({ status: 404 })
     }
+
     let type: string | undefined
-    if (path.endsWith(".js")) type = "text/javascript"
-    else if (path.endsWith(".css")) type = "text/css"
+
+    if (path.endsWith(".js")) {
+      type = "text/javascript"
+    } else if (path.endsWith(".css")) {
+      type = "text/css"
+    }
+
     return route.fulfill({
       ...(type ? { contentType: type } : {}),
       body: file.type === "chunk" ? file.code : Buffer.from(file.source)
@@ -87,6 +100,7 @@ describe("the example project in a Storybook build", () => {
       const guest = (await importGuest(example.info.guestUrl)).default
       const target = document.createElement("div")
       document.body.append(target)
+
       const save: RenderNode = {
         kind: "component",
         nodeId: "save",
@@ -94,14 +108,17 @@ describe("the example project in a Storybook build", () => {
         props: {},
         slots: { children: [{ kind: "text", text: "Save" }] }
       }
+
       guest.mount(target, [save])
       await new Promise((settle) => setTimeout(settle, 200))
+
       return {
         components: guest.components.length,
         button: target.querySelector("button")?.textContent,
         styled: guest.css.includes("--primary")
       }
     })
+
     expect(drawn.components).toBeGreaterThan(10)
     expect(drawn.button).toBe("Save")
     expect(drawn.styled).toBe(true)

@@ -44,10 +44,12 @@ describe("codeSnapshot", () => {
 
   it("leaves out dependencies, build output, dot-folders and designs", async () => {
     const before = (await codeSnapshot(root, "a")).fingerprint
+
     for (const folder of ["node_modules/pkg", "dist", ".git"]) {
       await mkdir(join(root, folder), { recursive: true })
       await writeFile(join(root, folder, "file.js"), "x")
     }
+
     await writeFile(join(root, "app.par"), "{}")
     expect((await codeSnapshot(root, "a")).fingerprint).toBe(before)
   })

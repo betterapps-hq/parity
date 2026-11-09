@@ -35,41 +35,82 @@ export const catalogEnd = "<!-- End of the generated events. -->"
  */
 export function catalogEvent(event: EventDefinition): CatalogEvent {
   const { name, level, sample, sentBy, when } = event
-  if (sentBy.length === 0) throw new Error(`${name} doesn't say which processes send it`)
-  if (!when.trim()) throw new Error(`${name} doesn't say when it's sent`)
+
+  if (sentBy.length === 0) {
+    throw new Error(`${name} doesn't say which processes send it`)
+  }
+
+  if (!when.trim()) {
+    throw new Error(`${name} doesn't say when it's sent`)
+  }
+
   const schema = z.toJSONSchema(event.schema, { io: "input", unrepresentable: "any" })
-  if (schema.type !== "object") throw new Error(`${name}'s attributes are a z.object, so each is a named field`)
+
+  if (schema.type !== "object") {
+    throw new Error(`${name}'s attributes are a z.object, so each is a named field`)
+  }
+
   return { name, level, sample, sentBy, when, attributes: attributesOf(name, schema) }
 }
 
 /** The fields of an object schema, nested objects flattened to dotted paths, each optional when its parent is. */
 function attributesOf(event: string, schema: JsonSchema, prefix = "", parentOptional = false): CatalogAttribute[] {
   const required = new Set(schema.required ?? [])
+
   return Object.entries(schema.properties ?? {}).flatMap(([key, field]) => {
     const name = `${prefix}${key}`
     const optional = parentOptional || !required.has(key)
-    if (typeof field === "boolean") throw new Error(`${event}'s attribute ${name} has no schema to describe it by`)
-    if (field.type === "object" && field.properties) return attributesOf(event, field, `${name}.`, optional)
+
+    if (typeof field === "boolean") {
+      throw new Error(`${event}'s attribute ${name} has no schema to describe it by`)
+    }
+
+    if (field.type === "object" && field.properties) {
+      return attributesOf(event, field, `${name}.`, optional)
+    }
+
     const meaning = field.description?.trim()
-    if (!meaning) throw new Error(`${event}'s attribute ${name} doesn't say what it means: give it a .describe()`)
+
+    if (!meaning) {
+      throw new Error(`${event}'s attribute ${name} doesn't say what it means: give it a .describe()`)
+    }
+
     return [{ name, type: typeOf(field), optional, meaning }]
   })
 }
 
 /** A JSON Schema's type as TypeScript writes it. */
 function typeOf(schema: JsonSchema | boolean): string {
-  if (typeof schema === "boolean") return schema ? "unknown" : "never"
-  if (schema.const !== undefined) return JSON.stringify(schema.const)
-  if (schema.enum) return schema.enum.map((value) => JSON.stringify(value)).join(" | ")
+  if (typeof schema === "boolean") {
+    return schema ? "unknown" : "never"
+  }
+
+  if (schema.const !== undefined) {
+    return JSON.stringify(schema.const)
+  }
+
+  if (schema.enum) {
+    return schema.enum.map((value) => JSON.stringify(value)).join(" | ")
+  }
+
   const options = schema.anyOf ?? schema.oneOf
-  if (options) return options.map(typeOf).join(" | ")
-  if (Array.isArray(schema.type)) return schema.type.map((type) => typeOf({ ...schema, type })).join(" | ")
+
+  if (options) {
+    return options.map(typeOf).join(" | ")
+  }
+
+  if (Array.isArray(schema.type)) {
+    return schema.type.map((type) => typeOf({ ...schema, type })).join(" | ")
+  }
+
   switch (schema.type) {
     case "array": {
       const items = Array.isArray(schema.items) ? undefined : schema.items
       const item = items === undefined ? "unknown" : typeOf(items)
+
       return item.includes(" ") ? `(${item})[]` : `${item}[]`
     }
+
     case "object":
       return "object"
     case "string":
@@ -87,16 +128,26 @@ function typeOf(schema: JsonSchema | boolean): string {
  */
 export function renderCatalog(events: readonly EventDefinition[]): string {
   const names = new Set<string>()
+
   for (const { name } of events) {
-    if (names.has(name)) throw new Error(`${name} is registered twice`)
+    if (names.has(name)) {
+      throw new Error(`${name} is registered twice`)
+    }
+
     names.add(name)
   }
+
   const entries = events.map(catalogEvent).sort((a, b) => (a.name < b.name ? -1 : 1))
-  if (entries.length === 0) return "No events are registered yet."
+
+  if (entries.length === 0) {
+    return "No events are registered yet."
+  }
+
   const summary = table(
     ["Event", "Level", "Kept", "Sent by", "When"],
     entries.map((event) => [code(event.name), event.level, kept(event.sample), event.sentBy.join(", "), event.when])
   )
+
   const sections = entries.map((event) => {
     const attributes =
       event.attributes.length === 0
@@ -109,8 +160,10 @@ export function renderCatalog(events: readonly EventDefinition[]): string {
               attribute.meaning
             ])
           )
+
     return `### ${code(event.name)}\n\n${attributes}`
   })
+
   return [summary, ...sections].join("\n\n")
 }
 
@@ -121,10 +174,13 @@ export function renderCatalog(events: readonly EventDefinition[]): string {
 export function withCatalog(page: string, events: readonly EventDefinition[]): string {
   const start = page.indexOf(catalogStart)
   const end = page.indexOf(catalogEnd)
+
   if (start === -1 || end < start) {
     throw new Error(`The page has no generated part: put the events between "${catalogStart}" and "${catalogEnd}"`)
   }
+
   const before = page.slice(0, start + catalogStart.length)
+
   return `${before}\n\n${renderCatalog(events)}\n\n${page.slice(end)}`
 }
 
@@ -144,5 +200,6 @@ function table(header: string[], rows: string[][]): string {
   const widths = header.map((_, column) => Math.max(3, ...cells.map((row) => row[column]?.length ?? 0)))
   const line = (row: string[]) => `| ${row.map((cell, column) => cell.padEnd(widths[column] ?? 0)).join(" | ")} |`
   const [head = [], ...body] = cells
+
   return [line(head), line(widths.map((width) => "-".repeat(width))), ...body.map(line)].join("\n")
 }

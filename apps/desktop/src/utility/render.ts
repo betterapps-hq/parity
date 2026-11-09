@@ -11,7 +11,11 @@ export async function renderOffscreen(
   capture: boolean
 ): Promise<{ frame: RenderedFrame; png?: string }> {
   const { frame, png } = await mainProcess.request("render", { job, capture })
-  if (!frame) throw new Error("The preview didn't render")
+
+  if (!frame) {
+    throw new Error("The preview didn't render")
+  }
+
   return { frame, ...(png === undefined ? {} : { png }) }
 }
 

@@ -104,6 +104,7 @@ export function start() {
 
 beforeAll(async () => {
   const chrome = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: chrome, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -114,11 +115,14 @@ beforeAll(async () => {
     jsx: "automatic",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 600, height: 400 } })
   page.on("pageerror", (error) => errors.push(error.message))
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   await page.route("http://parity.test/fields.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: bundle.outputFiles[0]!.text })
@@ -144,8 +148,10 @@ beforeEach(async () => {
 })
 
 const width = () => page.getByRole("textbox", { name: "Width" })
+
 // @ts-expect-error The page's log.
 const log = () => page.evaluate(() => window.log as unknown[][])
+
 // @ts-expect-error The page's gestures.
 const gestures = () => page.evaluate(() => window.gestures as unknown[][])
 const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null)

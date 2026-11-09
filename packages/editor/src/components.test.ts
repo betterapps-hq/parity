@@ -58,10 +58,12 @@ describe("making a component", () => {
   it("gives it an id no design has, and the params the names asked for", () => {
     const taken = documents()
     taken.set("canvas.par", { version: 3, containers: [settings, { ...settings, id: "project-card" }] })
+
     const made = makeComponent(taken, { path: "screens/projects.par", id: "projects" }, ["card-a", "card-b"], {
       ...options,
       paramNames: { text: "title" }
     })
+
     expect(made.id).toBe("project-card-2")
     const component = made.documents.get("canvas.par")!.containers.at(-1)!
     expect(Object.keys(component.params ?? {})).toEqual(["title"])
@@ -72,6 +74,7 @@ describe("making a component", () => {
       ...options,
       into: "new.par"
     })
+
     expect(made.documents.get("new.par")).toEqual({
       version: 3,
       containers: [expect.objectContaining({ id: "project-card" })]
@@ -91,6 +94,7 @@ describe("making a component", () => {
 describe("finding a component's instances", () => {
   it("finds them in every design, in layouts and slots, in order", () => {
     const instance = (id: string, design = "badge"): DesignNode => ({ type: "instance", id, design })
+
     const designs = [
       {
         key: "a",
@@ -108,6 +112,7 @@ describe("finding a component's instances", () => {
         }
       }
     ] satisfies { key: string; container: ContainerSpec }[]
+
     expect(instancesOf(designs, "badge")).toEqual([
       { entry: designs[0], node: "one" },
       { entry: designs[2], node: "two" }

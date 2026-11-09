@@ -45,8 +45,10 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
 
   // A change to the states records them all, by id and name, before and after (PAR-713).
   const states = { field: "states", read: statesValue }
+
   const view = (state: string, name = container.states.find(({ id }) => id === state)?.name ?? state) =>
     store.updateView(key, `Show ${name}`, (current) => ({ ...current, state, allStates: false }))
+
   const add = () => {
     let id = ""
     updateAndRecord(
@@ -56,6 +58,7 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
       (current) => {
         const result = addState(current, "New state")
         id = result.id
+
         return result.container
       },
       states
@@ -85,6 +88,7 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
             onRename={() => setRenaming(state.id)}
             onRenamed={(name) => {
               setRenaming(undefined)
+
               if (name && name !== state.name) {
                 updateAndRecord(store, key, "Rename state", (current) => renameState(current, state.id, name), states)
               }
@@ -98,6 +102,7 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
                 (current) => {
                   const result = duplicateState(current, state.id)
                   id = result.id
+
                   return result.container
                 },
                 states
@@ -156,8 +161,13 @@ function StateRow({
   // The first state is what the others change, so it has nothing to count.
   const changes = changeCount(state)
   let summary = `${changes} change${changes === 1 ? "" : "s"}`
-  if (base) summary = ""
-  else if (changes === 0) summary = "No changes"
+
+  if (base) {
+    summary = ""
+  } else if (changes === 0) {
+    summary = "No changes"
+  }
+
   return (
     <li
       className={`group flex h-8 items-center gap-1 rounded-md pr-1 text-sm ${
@@ -173,8 +183,13 @@ function StateRow({
             onFocus={(event) => event.currentTarget.select()}
             onBlur={(event) => onRenamed(event.currentTarget.value.trim() || undefined)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") event.currentTarget.blur()
-              if (event.key === "Escape") onRenamed(undefined)
+              if (event.key === "Enter") {
+                event.currentTarget.blur()
+              }
+
+              if (event.key === "Escape") {
+                onRenamed(undefined)
+              }
             }}
             className="h-6 min-w-0 flex-1 rounded-sm border border-ring bg-background px-1.5 outline-none"
           />
@@ -238,6 +253,7 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
   const { store, selection } = useProject()
   const entries = useContainerEntries(store)
   const overrides = Object.entries(state.overrides ?? {})
+
   return (
     <div className="mt-4">
       <GroupLabel as="div" className="mb-2 px-1">
@@ -251,6 +267,7 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
         <ul className="flex flex-col gap-1">
           {overrides.map(([nodeId, patch]) => {
             const node = findNode(entry.container.root, nodeId)
+
             return (
               <li key={nodeId} className="rounded-md border bg-muted/20 p-2">
                 <div className="mb-1 flex items-center gap-1.5">
@@ -311,14 +328,23 @@ function ChangesList({ entry, state }: { entry: ContainerEntry; state: StateSpec
 
 function patchFields(patch: NodePatch): { id: string; label: string; value: string }[] {
   const fields: { id: string; label: string; value: string }[] = []
-  if (patch.hidden !== undefined) fields.push({ id: "hidden", label: "Visible", value: patch.hidden ? "no" : "yes" })
-  if (patch.text !== undefined) fields.push({ id: "text", label: "Text", value: patch.text })
+
+  if (patch.hidden !== undefined) {
+    fields.push({ id: "hidden", label: "Visible", value: patch.hidden ? "no" : "yes" })
+  }
+
+  if (patch.text !== undefined) {
+    fields.push({ id: "text", label: "Text", value: patch.text })
+  }
+
   for (const [key, value] of Object.entries(patch.props ?? {})) {
     fields.push({ id: `props.${key}`, label: key === "children" ? "Label" : key, value: format(value) })
   }
+
   for (const [key, value] of Object.entries(patch.style ?? {})) {
     fields.push({ id: `style.${key}`, label: key, value: format(value) })
   }
+
   return fields
 }
 

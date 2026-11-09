@@ -10,8 +10,13 @@ import { getPreferences } from "./preferences.ts"
  */
 export function componentFile(session: ProjectSession, component: string): string | undefined {
   const source = session.info.sources[component]
-  if (!source) return undefined
+
+  if (!source) {
+    return undefined
+  }
+
   const relative = source.library ? source.declaration : source.path
+
   return relative ? projectFile(session, relative) : undefined
 }
 
@@ -19,6 +24,7 @@ export function componentFile(session: ProjectSession, component: string): strin
 export function projectFile(session: ProjectSession, relative: string): string {
   const root = session.info.root
   const separator = root.includes("\\") ? "\\" : "/"
+
   return `${root.replace(/[\\/]+$/, "")}${separator}${relative.replace(/^[.][\\/]/, "").replaceAll(/[\\/]/g, separator)}`
 }
 
@@ -26,7 +32,11 @@ export function projectFile(session: ProjectSession, relative: string): string {
 export async function viewCode(session: ProjectSession, component: string): Promise<void> {
   const file = componentFile(session, component)
   const source = session.info.sources[component]
-  if (!file || !source) return
+
+  if (!file || !source) {
+    return
+  }
+
   // A part named through its family, as `Dialog.Root`, is found by the family's export.
   await openFile({ file, export: source.export.split(".")[0] })
 }

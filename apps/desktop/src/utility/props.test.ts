@@ -30,19 +30,25 @@ afterEach(() => {
 
 function setup() {
   const waiting: Array<() => void> = []
+
   const client = workerClient<CheckerMethods>({
     start: () => new Worker(echo, { eval: true }),
     idleMs: 30,
     stopped: () => {
-      for (const resolve of waiting.splice(0)) resolve()
+      for (const resolve of waiting.splice(0)) {
+        resolve()
+      }
     }
   })
+
   stop = () => client.stop(new Error("The test ended"))
   const lockfiles: Record<string, string[]> = { [shop]: ["pnpm-lock.yaml"] }
   const checker = typeChecker(client, (root) => Promise.resolve(lockfiles[root] ?? []))
+
   /** What the worker was sent for a check. */
   const check = async (root: string, files: string[]) =>
     (await checker.checkComponents(root, files)) as CheckResult & { known?: string[]; lockfiles?: string[] }
+
   return { client, checker, check, lockfiles, idleStop: () => new Promise<void>((resolve) => waiting.push(resolve)) }
 }
 

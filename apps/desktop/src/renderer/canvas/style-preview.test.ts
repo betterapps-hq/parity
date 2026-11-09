@@ -78,6 +78,7 @@ export function session(design) {
 
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -87,6 +88,7 @@ beforeAll(async () => {
     platform: "browser",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   page.on("pageerror", (error) => errors.push(error.message))
@@ -100,9 +102,11 @@ beforeAll(async () => {
     })
   )
   await page.goto("http://parity.test/")
+
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof preview === "object")))
+  if (!(await page.evaluate(() => typeof preview === "object"))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
 })
 
 afterAll(async () => {
@@ -125,7 +129,12 @@ function show(nodeId: string, style: Edit) {
   return page.evaluate(
     ({ nodeId, style }) => {
       // Null stands for undefined, which doesn't survive the trip into the page: the edit takes the property off.
-      for (const [name, value] of Object.entries(style)) if (value === null) style[name] = undefined
+      for (const [name, value] of Object.entries(style)) {
+        if (value === null) {
+          style[name] = undefined
+        }
+      }
+
       // @ts-expect-error The bundle's globals.
       window.shown.show((container) => preview.editNode(container, "default", nodeId, { style }))
     },
@@ -142,8 +151,10 @@ function act(method: "cancel" | "release") {
 function drawn(nodeId: string) {
   return page.evaluate((nodeId) => {
     const out: Record<string, { width: number; style: string }> = {}
+
     for (const host of document.querySelectorAll<HTMLElement>("[data-frame]")) {
       const element = host.shadowRoot!.querySelector<HTMLElement>(`[data-canvas-node="${nodeId}"]`)!
+
       // In order, since putting a property back can move it to the end.
       const style = element.style.cssText
         .split(";")
@@ -151,8 +162,10 @@ function drawn(nodeId: string) {
         .filter(Boolean)
         .sort()
         .join("; ")
+
       out[host.dataset.state!] = { width: element.getBoundingClientRect().width, style }
     }
+
     return out
   }, nodeId)
 }

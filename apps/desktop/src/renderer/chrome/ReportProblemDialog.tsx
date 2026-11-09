@@ -55,6 +55,7 @@ export interface ReportProblemViewProps {
 /** What goes with every report, besides the screenshot and the crash. */
 function attachments(projects: string[]): string[] {
   const opened = projects.length === 0 ? "No open projects" : `Open projects: ${projects.join(", ")}`
+
   return [
     "The last minute of this window, as a replay",
     "The last hour of logs",
@@ -69,9 +70,11 @@ export function ReportProblemView(props: ReportProblemViewProps) {
   const ids = { text: useId(), screenshot: useId() }
   const busy = state.phase === "sending"
   const title = crash ? "Parity closed unexpectedly" : "Report a problem"
+
   const intro = crash
     ? `Parity stopped ${lowerFirst(crash.when)}. Tell us what you were doing and we'll send it with the crash.`
     : "Tell us what happened. We'll send it with what's needed to find the cause."
+
   if (state.phase === "sent") {
     return (
       <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -87,6 +90,7 @@ export function ReportProblemView(props: ReportProblemViewProps) {
       </Dialog>
     )
   }
+
   return (
     <Dialog open={props.open} onOpenChange={(next) => !busy && props.onOpenChange(next)}>
       <DialogContent className="sm:max-w-lg">
@@ -180,7 +184,10 @@ const openedListeners = new Set<() => void>()
 
 function setOpened(next: typeof opened): void {
   opened = next
-  for (const listener of openedListeners) listener()
+
+  for (const listener of openedListeners) {
+    listener()
+  }
 }
 
 /** What the report is about, besides what the person writes. */
@@ -197,11 +204,13 @@ interface ReportSubject {
 export async function openReport({ crash, eventId, label }: ReportSubject = {}): Promise<void> {
   let screenshot: string | undefined
   await menusClosed()
+
   try {
     screenshot = (await window.canvasHost.report.prepare()).screenshot
   } catch {
     // The report goes without a screenshot.
   }
+
   setOpened({
     ...(screenshot ? { screenshot } : {}),
     ...(crash ? { crash: { when: crashTime(crash.time) }, crashTime: crash.time } : {}),
@@ -216,6 +225,7 @@ async function menusClosed(): Promise<void> {
   for (let waited = 0; waited < 500 && document.querySelector('[role="menu"]'); waited += 50) {
     await new Promise((resolve) => setTimeout(resolve, 50))
   }
+
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 }
 
@@ -231,6 +241,7 @@ function useOpened() {
   return useSyncExternalStore(
     (listener) => {
       openedListeners.add(listener)
+
       return () => openedListeners.delete(listener)
     },
     () => opened
@@ -241,15 +252,22 @@ function useOpened() {
 export function ReportProblemDialog() {
   const open = useOpenDialog() === "report"
   const { screenshot: screenshotUrl, crash, crashTime: crashIso, eventId, caught } = useOpened()
+
   const projects = useTabs()
     .filter((tab) => !tab.blank && tab.status !== "error")
     .map((tab) => tab.title)
+
   const [state, setState] = useState<ReportPhase>({ phase: "editing" })
   const [description, setDescription] = useState("")
   const [screenshot, setScreenshot] = useState(true)
+
   const send = async () => {
-    if (description.trim() === "") return
+    if (description.trim() === "") {
+      return
+    }
+
     setState({ phase: "sending" })
+
     try {
       await window.canvasHost.report.send({
         message: description.trim(),
@@ -264,11 +282,15 @@ export function ReportProblemDialog() {
       setState({ phase: "failed" })
     }
   }
+
   return (
     <ReportProblemView
       open={open}
       onOpenChange={(next) => {
-        if (next) return
+        if (next) {
+          return
+        }
+
         closeDialog()
         setOpened({})
         // The next report starts afresh.

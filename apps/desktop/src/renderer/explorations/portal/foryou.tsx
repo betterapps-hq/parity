@@ -38,6 +38,7 @@ function NeedsYouRow({ item }: { item: PortalEvent }) {
   const action = actions[item.id]!
   // A board you're building links its pull request, so you can go straight to the code.
   const pr = item.id === "maya-change" ? deliverable("website", "Pricing").code?.pr : undefined
+
   return (
     <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/40">
       <span className="relative h-fit shrink-0">
@@ -86,6 +87,7 @@ const work = needsYou.filter((item) => item.kind !== "invite")
 /** The requests waiting on you, as one line: who's asking for what, and where to answer them. */
 function RequestsRow() {
   const newest = requests[0]!
+
   return (
     <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/40">
       <span className="flex shrink-0 -space-x-2">
@@ -170,6 +172,7 @@ export function ForYouPage() {
             </div>
             {["website", "spawnkit", "dashboard"].map((id) => {
               const shown = portalProject(id)
+
               return (
                 <div key={id} className="flex items-center gap-3">
                   <CanvasArt

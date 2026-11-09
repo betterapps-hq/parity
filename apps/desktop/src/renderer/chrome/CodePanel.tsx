@@ -62,7 +62,11 @@ export function CodePanel() {
   const label = (node: DesignNode) => layerLabel(node, entries, store.getComponentLibrary())
   const several = (selected.nodes?.length ?? 0) > 1 || (selected.designs?.length ?? 0) > 1
   const node = entry && selected.node && !several ? selectedLayer(session, entry, selected.node) : undefined
-  if (several) return <Nothing title="Select one layer">Each layer shows its own code.</Nothing>
+
+  if (several) {
+    return <Nothing title="Select one layer">Each layer shows its own code.</Nothing>
+  }
+
   if (!node || !entry || !selected.node) {
     return (
       <Nothing title="Select a component">
@@ -70,6 +74,7 @@ export function CodePanel() {
       </Nothing>
     )
   }
+
   if (node.type !== "component") {
     return (
       <Nothing title={`${label(node)} is Parity's own layer`}>
@@ -78,21 +83,28 @@ export function CodePanel() {
       </Nothing>
     )
   }
+
   return <ComponentCode entry={entry} nodeId={selected.node} node={node} name={label(node)} />
 }
 
 /** The selected layer as the board shows it, whether it's the design's own or inside an instance. */
 function selectedLayer(session: ProjectSession, entry: ContainerEntry, nodeId: string): DesignNode | undefined {
   const { container } = entry
-  if (!isInnerPath(nodeId)) return locateNode(container.root, nodeId)?.node
+
+  if (!isInnerPath(nodeId)) {
+    return locateNode(container.root, nodeId)?.node
+  }
+
   const state = editingState(container, session.selection.get().state)
   const library = projectLibrary(session.store)
+
   return locateInner(container, nodeId, library, { state, variants: container.view?.variants })?.shown
 }
 
 /** Nothing to show the code of: what to select, and Inspect, to pick an element on the canvas. */
 function Nothing({ title, children }: { title: string; children: ReactNode }) {
   const { picking } = useInspecting()
+
   return (
     <Empty className="flex-1 justify-start border-0 px-6 pt-12">
       <EmptyHeader>
@@ -136,10 +148,13 @@ function ComponentCode({
   const source = session.info.sources[node.component]
   const inspecting = useInspecting()
   const elements = useLayerElements(entry, nodeId)
+
   const picked =
     (inspecting.picked?.node === nodeId && elements.find((element) => element.at === inspecting.picked?.at)) ||
     elements[0]
+
   const name = source?.export ?? node.component
+
   return (
     <>
       <div className="flex shrink-0 items-center gap-2 border-b py-2 pr-2 pl-4">
@@ -219,10 +234,12 @@ function ElementList({
       </p>
     )
   }
+
   return (
     <ul aria-label="Elements it draws" className="flex flex-col" onPointerLeave={() => hoverElement(undefined)}>
       {elements.map((element, index) => {
         const chosen = element === picked
+
         return (
           <li key={`${element.at}:${index}`}>
             <button
@@ -257,6 +274,7 @@ function SourceLines({ session, source }: { session: ProjectSession; source: Ele
   const shown = typeof file === "string" ? file.split("\n").slice(first - 1, source.line + around.after) : []
   const lines = useHighlightedCode(shown.join("\n"), source.path.endsWith(".jsx") ? "jsx" : "tsx")
   const where = `${source.path}:${source.line}:${source.column}`
+
   return (
     <CodeBlock size="sm">
       <CodeBlockHeader>
@@ -307,11 +325,13 @@ function useLayerElements(entry: ContainerEntry, nodeId: string): SourcedElement
   useEffect(() => {
     let observer: MutationObserver | undefined
     let watched: Node | undefined
+
     const read = () => {
       const host = findFrames(document, entry.key, { mode, state })[0] ?? findFrames(document, entry.key)[0]
       const next = host ? sourcedElements(findNodeElements(host, nodeId)) : []
       setElements((current) => (sameElements(current, next) ? current : next))
       const root = host?.shadowRoot ?? undefined
+
       if (root && root !== watched) {
         observer?.disconnect()
         observer = new MutationObserver(read)
@@ -319,13 +339,16 @@ function useLayerElements(entry: ContainerEntry, nodeId: string): SourcedElement
         watched = root
       }
     }
+
     read()
     const stop = subscribeFrames(read)
+
     return () => {
       stop()
       observer?.disconnect()
     }
   }, [entry.key, nodeId, mode, state])
+
   return elements
 }
 
@@ -347,9 +370,11 @@ function useProjectFile(session: ProjectSession, path: string): string | Error |
       (error: unknown) =>
         !cancelled && setRead({ key, file: error instanceof Error ? error : new Error(String(error)) })
     )
+
     return () => {
       cancelled = true
     }
   }, [key, path, session.id])
+
   return read?.key === key ? read.file : undefined
 }

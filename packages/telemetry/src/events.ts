@@ -33,8 +33,14 @@ export function defineEvent<const Name extends string, Schema extends Attributes
   schema: Schema,
   { level, sample = 1, sentBy, when }: { level: Level; sample?: number; sentBy: readonly Process[]; when: string }
 ): EventDefinition<Name, Schema> {
-  if (!eventName.test(name)) throw new Error(`An event's name is dotted and camelCase, area first, not "${name}"`)
-  if (!(sample >= 0 && sample <= 1)) throw new Error(`${name} keeps a share from 0 to 1, not ${sample}`)
+  if (!eventName.test(name)) {
+    throw new Error(`An event's name is dotted and camelCase, area first, not "${name}"`)
+  }
+
+  if (!(sample >= 0 && sample <= 1)) {
+    throw new Error(`${name} keeps a share from 0 to 1, not ${sample}`)
+  }
+
   return { name, schema, level, sample, sentBy, when }
 }
 

@@ -18,21 +18,27 @@ function setup() {
     },
     states: [{ id: "default", name: "Default" }]
   }
+
   const store = new DesignStore(
     [{ path: "app.par", document: { version: 3, containers: [home] } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }
   )
+
   const preview = new ChangePreview(store, key)
+
   const set = (size: number) => (gesture?: string) =>
     store.updateContainer(key, "Change size", (current) => editNode(current, "default", "icon", { props: { size } }), {
       gesture
     })
+
   const size = () => {
     const node = findNode(store.getEntry(key)!.container.root, "icon")
+
     return node?.type === "component" ? node.props?.size : undefined
   }
+
   return { store, preview, set, size }
 }
 

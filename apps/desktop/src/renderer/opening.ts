@@ -33,6 +33,7 @@ export function startOpening(root: string | undefined, reload: boolean, now = ()
   const step = startStep("project.opening", { reload, ...(root === undefined ? {} : { root }) })
   const span = step.context
   const inOpen = span ? { span } : undefined
+
   return {
     began,
     ask: (work) => step.within(work),
@@ -40,8 +41,12 @@ export function startOpening(root: string | undefined, reload: boolean, now = ()
     ready(info) {
       step.end("ok", { root: info.root, name: info.name })
       let drawn = false
+
       return (from) => {
-        if (drawn) return
+        if (drawn) {
+          return
+        }
+
         drawn = true
         const attributes = { name: info.name, root: info.root, durationMs: Math.round(now() - began), from }
         track("project.drawn", attributes, inOpen)

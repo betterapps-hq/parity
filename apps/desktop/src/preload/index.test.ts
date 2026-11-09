@@ -12,6 +12,7 @@ import { projectEnvSecrets } from "../utility/env-secrets.ts"
 import type { TelemetryHost } from "./telemetry.ts"
 
 let code = ""
+
 beforeAll(async () => {
   const result = await build({
     entryPoints: [fileURLToPath(new URL("./index.ts", import.meta.url))],
@@ -21,6 +22,7 @@ beforeAll(async () => {
     external: ["electron"],
     write: false
   })
+
   code = result.outputFiles[0]!.text
 })
 
@@ -33,21 +35,36 @@ function preload() {
   let telemetry: TelemetryHost | undefined
   runInNewContext(code, {
     require: (name: string) => {
-      if (name !== "electron") throw new Error(`Unexpected preload dependency ${name}`)
+      if (name !== "electron") {
+        throw new Error(`Unexpected preload dependency ${name}`)
+      }
+
       return {
         ipcRenderer: Object.assign(ipc, { invoke, send }),
         contextBridge: {
           exposeInMainWorld: (key: string, value: unknown) => {
-            if (key === "canvasHost") host = value as CanvasHost
-            if (key === "parityTelemetry") telemetry = value as TelemetryHost
+            if (key === "canvasHost") {
+              host = value as CanvasHost
+            }
+
+            if (key === "parityTelemetry") {
+              telemetry = value as TelemetryHost
+            }
           }
         }
       }
     },
     process: { argv: [`--parity-telemetry-run=${encodeURIComponent(JSON.stringify(run))}`] }
   })
-  if (!host) throw new Error("Preload did not expose the canvas host")
-  if (!telemetry) throw new Error("Preload did not expose telemetry")
+
+  if (!host) {
+    throw new Error("Preload did not expose the canvas host")
+  }
+
+  if (!telemetry) {
+    throw new Error("Preload did not expose telemetry")
+  }
+
   return { ipc, host, invoke, send, telemetry }
 }
 
@@ -75,6 +92,7 @@ it("scrubs a value from the open project's .env from what a window sends", async
     message: "Couldn't connect with hunter2-correct-horse",
     extra: { shop: "quiet-meadow-shop", port: "5173" }
   }
+
   const sent = scrubber.value(event)
   expect(JSON.stringify(sent)).not.toMatch(/hunter2|quiet-meadow/)
   expect(sent.extra.port).toBe("5173")
@@ -84,6 +102,7 @@ it("scrubs a value from the open project's .env from what a window sends", async
 it("gives the page main's run and sends main what it records", () => {
   const { telemetry, send } = preload()
   expect(telemetry.run).toEqual(run)
+
   const envelope = {
     installId: "install",
     sessionId: "session",
@@ -93,6 +112,7 @@ it("gives the page main's run and sends main what it records", () => {
     level: "info",
     attributes: {}
   } as const
+
   telemetry.record(envelope)
   expect(send).toHaveBeenCalledExactlyOnceWith("canvas:telemetry", envelope)
 })
@@ -142,6 +162,7 @@ describe("native update menu handoff", () => {
 function fakePort() {
   const listeners = new Map<string, ((event: { data?: unknown }) => void)[]>()
   const sent: { type: string; id: number; method?: string }[] = []
+
   return {
     sent,
     port: {
@@ -152,7 +173,9 @@ function fakePort() {
       close: () => undefined
     },
     deliver: (data: unknown) => {
-      for (const listener of listeners.get("message") ?? []) listener({ data })
+      for (const listener of listeners.get("message") ?? []) {
+        listener({ data })
+      }
     }
   }
 }

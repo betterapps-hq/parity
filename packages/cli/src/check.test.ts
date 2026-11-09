@@ -12,6 +12,7 @@ describe("failures", () => {
       ],
       "aria"
     )
+
     expect(Object.fromEntries(failed)).toEqual({
       Cell: "Cell count must match column count",
       "DatePicker.Trigger": "reading 'calendar'",
@@ -44,6 +45,7 @@ describe("score", () => {
       new Map([["Row", "still"]]),
       list
     )
+
     expect(report.placed).toEqual(["Row", "Cell", "Toast"])
     expect(report.hits).toEqual(["Toast"])
     expect(report.misses).toEqual({ Row: "still", Cell: "inside Row, which fails" })

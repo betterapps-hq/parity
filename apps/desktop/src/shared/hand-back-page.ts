@@ -25,6 +25,7 @@ const badges: Record<HandBack, { color: string; icon: string }> = {
 
 function badge(outcome: HandBack): string {
   const { color, icon } = badges[outcome]
+
   return `<span class="badge" style="background:${color}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg></span>`
 }
 
@@ -54,6 +55,7 @@ export function handBackHtml(outcome: HandBack, theme?: "light" | "dark"): strin
   const said = handBackText[outcome]
   const light = "--bg:#ffffff;--fg:#0a0a0a;--muted:#737373;--glow:rgb(84 50 230 / 0.12)"
   const dark = "--bg:#0a0a0a;--fg:#fafafa;--muted:#a1a1a1;--glow:rgb(138 116 255 / 0.16)"
+
   return `<!doctype html>
 <html lang="en"${theme ? ` data-theme="${theme}"` : ""}>
 <head>

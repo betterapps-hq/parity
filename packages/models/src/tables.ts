@@ -54,6 +54,7 @@ export const Table = z
   })
   .superRefine((table, context) => {
     const columns = new Set(table.columns.map((column) => column.name))
+
     const expectColumns = (names: readonly string[], path: PropertyKey[]) => {
       names.forEach((column, index) => {
         if (!columns.has(column)) {
@@ -61,10 +62,15 @@ export const Table = z
         }
       })
     }
-    if (table.primaryKey) expectColumns(table.primaryKey, ["primaryKey"])
+
+    if (table.primaryKey) {
+      expectColumns(table.primaryKey, ["primaryKey"])
+    }
+
     table.indexes.forEach((index, at) => expectColumns(index.columns, ["indexes", at, "columns"]))
     table.foreignKeys.forEach((key, at) => {
       expectColumns(key.columns, ["foreignKeys", at, "columns"])
+
       if (key.references.columns.length !== key.columns.length) {
         context.addIssue({
           code: "custom",
@@ -92,11 +98,17 @@ export const Tables = z.strictObject({
 })
 
 export type ReferentialAction = z.infer<typeof ReferentialAction>
+
 export type Column = z.infer<typeof Column>
+
 export type Index = z.infer<typeof Index>
+
 export type ForeignKey = z.infer<typeof ForeignKey>
+
 export type Table = z.infer<typeof Table>
+
 export type Enum = z.infer<typeof Enum>
+
 export type Tables = z.infer<typeof Tables>
 
 export function parseTables(value: unknown): Tables {

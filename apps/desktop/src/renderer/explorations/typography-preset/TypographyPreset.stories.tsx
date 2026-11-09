@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta<typeof TypographyPresetExploration>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const foldedLocked = "Folded and locked"
@@ -41,6 +42,7 @@ export const Compare: Story = {
       await expect(section.getByRole("button", { name: "Typography preset: subtitle1" })).toBeVisible()
       await expect(section.getByRole("button", { name: "Italic" })).toBeEnabled()
     }
+
     const both = version(canvasElement, foldedLocked)
     await expect(both.queryByRole("textbox", { name: /^Size/ })).toBeNull()
     await expect(both.getByRole("button", { name: "Show what subtitle1 sets, locked" })).toHaveTextContent(
@@ -88,6 +90,7 @@ export const OverridingOneRow: Story = {
       ).toBeVisible()
       await expect(section.getByRole("textbox", { name: "Line height" })).toHaveValue("24")
     }
+
     const locked = version(canvasElement, "Shown locked")
     await userEvent.click(locked.getByRole("button", { name: "Reset Line height to subtitle1" }))
     await expect(locked.getByRole("textbox", { name: "Line height, set by subtitle1" })).toHaveValue("28")

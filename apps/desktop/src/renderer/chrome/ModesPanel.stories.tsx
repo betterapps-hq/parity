@@ -27,13 +27,17 @@ const meta = {
 } satisfies Meta<typeof ModesPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Opens the example on the Modes tab, after `change` edits its modes when given. */
 const modes = (change?: (settings: ModeSettings) => ModeSettings) =>
   inspecting("modes", () => {
     const { store } = example()
-    if (change) store.setModes(change(store.getModes()))
+
+    if (change) {
+      store.setModes(change(store.getModes()))
+    }
   })
 
 /** A project with no modes of its own, so it uses the defaults: the blank project, as the service opens it. */
@@ -243,7 +247,11 @@ export const AddingAViewportSize: Story = {
 /** The active project's designs and modes, for a project other than the example. */
 function activeStore() {
   const session = workspace.getActive()?.session
-  if (!session) throw new Error("No project is open")
+
+  if (!session) {
+    throw new Error("No project is open")
+  }
+
   return session.store
 }
 

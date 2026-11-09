@@ -21,6 +21,7 @@ describe("agentCallStart", () => {
       client: "claude-code",
       transport: "mcp"
     })
+
     expect(agentCallStart(body)).toEqual({
       method: "screenshot",
       transport: "mcp",
@@ -49,10 +50,12 @@ describe("agentCallStart", () => {
 
   it("scrubs a project's secrets before they're escaped or cut", () => {
     const scrubber = createScrubber({ secrets: ['my-"shop"-secret-value', "my-shop-secret-value"] })
+
     const body = JSON.stringify({
       method: "exec",
       params: { replace: 'token = my-"shop"-secret-value', code: `${"y".repeat(9990)}my-shop-secret-value` }
     })
+
     const { input, snippet } = agentCallStart(body, scrubber)
     expect(input).toBe(JSON.stringify({ replace: "token = [redacted]" }))
     expect(snippet).toBe(`${"y".repeat(9990)}[redacted]`)
@@ -80,6 +83,7 @@ describe("agentCallAnswered", () => {
         { category: "overlap", severity: "warning", count: 1 }
       ]
     }
+
     expect(agentCallAnswered(answer, 120)).toEqual({
       outcome: "ok",
       attributes: { resultBytes: 120, warnings: "overlap:3 unknown_prop:1" }
@@ -105,6 +109,7 @@ describe("agentCallFailed", () => {
     const error = Object.assign(new Error("No tab"), {
       details: { code: "unknown_tab", retryable: false, alternatives: ["a", "b", "c"] }
     })
+
     expect(agentCallFailed(error)).toEqual({
       outcome: "error",
       attributes: { code: "unknown_tab", retryable: false, alternatives: 3 }
@@ -116,12 +121,14 @@ describe("agentCallFailed", () => {
 describe("agent.called", () => {
   it("is recorded as a span whose attributes match its schema", async () => {
     const sink = createTestSink()
+
     const telemetry = createTelemetry({
       events: registeredEvents,
       context: { process: "service", installId: "install", sessionId: "session" },
       sinks: [sink],
       check: true
     })
+
     const span = telemetry.startSpan("agent.called", agentCallStart(JSON.stringify({ method: "exec", params: {} })))
     await endWhenSettled(span, () => ({ ok: false, details: { code: "conflict", retryable: true } }), {
       result: (answer) => agentCallAnswered(answer, 50)

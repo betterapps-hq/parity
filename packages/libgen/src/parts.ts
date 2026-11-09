@@ -86,6 +86,7 @@ export async function relateParts(
   let React: Record<string, unknown>
   let server: Record<string, unknown>
   let module: Record<string, unknown>
+
   try {
     React = await load("react")
     server = await load("react-dom/server")
@@ -93,18 +94,22 @@ export async function relateParts(
   } catch (error) {
     return { relations: new Map(), tried: false, note: `Parts weren't tried: ${message(error)}` }
   }
+
   const createElement = (React.createElement ?? (React.default as Record<string, unknown>)?.createElement) as (
     type: unknown,
     props?: Record<string, unknown> | null,
     ...children: unknown[]
   ) => unknown
+
   const renderToStaticMarkup = (server.renderToStaticMarkup ??
     (server.default as Record<string, unknown>)?.renderToStaticMarkup) as (element: unknown) => string
+
   if (typeof createElement !== "function" || typeof renderToStaticMarkup !== "function") {
     return { relations: new Map(), tried: false, note: "Parts weren't tried: React's server renderer wasn't found." }
   }
 
   const byName = new Map(components.map((component) => [component.name, component]))
+
   const host = await trialHost(load, [
     ...valueImports(providers.map((provider) => provider.props)),
     ...valueImports(
@@ -112,36 +117,58 @@ export async function relateParts(
       "sample"
     )
   ])
+
   // Providers a frame gets from the decorators are never a part's parents. Each is used if it renders with no props;
   // one that needs a frame (an Emotion cache, a theme object) is left to the frame.
   const wrappers: { type: unknown; props: unknown }[] = []
+
   for (const provider of providers) {
     byName.delete(provider.component)
+
     try {
       let found: unknown = await load(provider.import)
-      for (const part of provider.component.split(".")) found = (found as Record<string, unknown>)?.[part]
-      if (found) wrappers.push({ type: found, props: evaluateValue(provider.props ?? {}, host) })
+
+      for (const part of provider.component.split(".")) {
+        found = (found as Record<string, unknown>)?.[part]
+      }
+
+      if (found) {
+        wrappers.push({ type: found, props: evaluateValue(provider.props ?? {}, host) })
+      }
     } catch {
       // Not loadable outside a frame.
     }
   }
+
   const value = (name: string): unknown => {
     const component = byName.get(name)
     let found: unknown = module
-    for (const part of (component?.export ?? name).split(".")) found = (found as Record<string, unknown>)?.[part]
+
+    for (const part of (component?.export ?? name).split(".")) {
+      found = (found as Record<string, unknown>)?.[part]
+    }
+
     return found
   }
+
   const samples = new Map<string, Record<string, unknown>>()
+
   for (const component of components) {
     const edit = edits?.[component.name]
     samples.set(component.name, { ...component.samples, ...(edit ? edit.sample?.props : {}) })
   }
+
   // Values the package makes in its examples (`collection={createTreeCollection(...)}`) are a part's from the start, as
   // the parts inside it, tried first in name order, can't draw without them.
   const madeProps = new Map<string, Record<string, unknown>>()
+
   for (const [name, use] of examples) {
     const props = Object.fromEntries(Object.entries(use.sample?.props ?? {}).filter(([, value]) => isMadeValue(value)))
-    if (Object.keys(props).length === 0 || !samples.has(name)) continue
+
+    if (Object.keys(props).length === 0 || !samples.has(name)) {
+      continue
+    }
+
     madeProps.set(name, props)
     samples.set(name, { ...samples.get(name), ...props })
   }
@@ -149,14 +176,23 @@ export async function relateParts(
   // Values the package makes (`createTreeCollection(...)`), called once each before parts are tried, as the canvas does.
   const made = new Map<unknown, unknown>()
   const byCall = new Map<string, unknown>()
+
   const callsIn = (value: unknown): unknown[] => {
-    if (isMadeValue(value)) return [value]
-    if (Array.isArray(value)) return value.flatMap(callsIn)
+    if (isMadeValue(value)) {
+      return [value]
+    }
+
+    if (Array.isArray(value)) {
+      return value.flatMap(callsIn)
+    }
+
     return typeof value === "object" && value !== null ? Object.values(value).flatMap(callsIn) : []
   }
+
   for (const use of examples.values()) {
     for (const call of callsIn(use.sample)) {
       const key = JSON.stringify(call)
+
       if (!byCall.has(key)) {
         try {
           byCall.set(key, evaluateValue(call, host, "sample"))
@@ -164,58 +200,88 @@ export async function relateParts(
           byCall.set(key, undefined)
         }
       }
+
       made.set(call, byCall.get(key))
     }
   }
+
   /** Each distinct call the examples make, to try as a value an owner works out. */
   const madeCalls = [...new Map([...made.keys()].map((call) => [JSON.stringify(call), call])).values()]
+
   const cloneElement = (React.cloneElement ?? (React.default as Record<string, unknown>)?.cloneElement) as (
     element: unknown,
     props: Record<string, unknown>
   ) => unknown
+
   /** A render function as the part calls it: its children, with what it's called with spread on when asked. */
   const live = (render: SampleRender) => (argument: unknown) => {
     const elements = render.$render.map((item) => build(item))
+
     if (elements.length === 1 && render.pass) {
       return cloneElement(elements[0], Object.fromEntries(render.pass.map((prop) => [prop, argument])))
     }
+
     if (render.spread && elements.length === 1 && typeof argument === "object" && argument !== null) {
       return cloneElement(elements[0], argument as Record<string, unknown>)
     }
+
     return elements.length === 1 ? elements[0] : elements
   }
+
   const element = (value: SampleElement) => {
     const elements = value.$element.map((item) => build(item))
+
     return elements.length === 1 ? elements[0] : elements
   }
+
   const liveValue = (item: unknown): unknown => {
-    if (isSampleRender(item)) return live(item)
-    if (isSampleElement(item)) return element(item)
-    if (isMadeValue(item)) return made.get(item)
+    if (isSampleRender(item)) {
+      return live(item)
+    }
+
+    if (isSampleElement(item)) {
+      return element(item)
+    }
+
+    if (isMadeValue(item)) {
+      return made.get(item)
+    }
+
     // In a list too (Fluent's `columns={[createTableColumn(...)]}`).
     return Array.isArray(item) && item.some(isMadeValue)
       ? item.map((each) => (isMadeValue(each) ? made.get(each) : each))
       : item
   }
+
   const liveProps = (props: Record<string, unknown> | undefined) =>
     Object.fromEntries(Object.entries(props ?? {}).map(([key, item]) => [key, liveValue(item)]))
+
   /**
    * A sample child's element. The part being tried takes its sample's props; a child a sample spells out (with props or
    * children) is as written, as the app inserts it, and only a bare one takes its own sample's.
    */
   const build = (child: SampleChild, own = false): unknown => {
-    if (typeof child === "string") return child
-    if (isSampleRender(child)) return live(child)
+    if (typeof child === "string") {
+      return child
+    }
+
+    if (isSampleRender(child)) {
+      return live(child)
+    }
+
     const type = /^[a-z]/.test(child.component) ? child.component : value(child.component)
     const bare = !child.props && !child.children
+
     return createElement(
       type,
       liveProps({ ...(own || bare ? samples.get(child.component) : {}), ...child.props }),
       ...(child.children ?? []).map((inner) => build(inner))
     )
   }
+
   /** Parts whose parents need the other parts their examples hold around them. */
   const withParts = new Set<string>()
+
   /**
    * The part inside the first parent's whole example, each level in place of the first like it there and the part in
    * place of the first like it at the bottom (a cell in a table's first row, beside that row's other cells and the
@@ -228,6 +294,7 @@ export async function relateParts(
       const at = items.findIndex((item) => typeof item === "object" && "component" in item && item.component === target)
       const found = at === -1 ? undefined : (items[at] as Exclude<SampleChild, string | SampleRender>)
       let here = part
+
       if (level < chain.length) {
         const written = found && (found.props || found.children)
         here = createElement(
@@ -236,49 +303,64 @@ export async function relateParts(
           ...inside(level + 1, written ? found.children : examples.get(target)?.sample?.children)
         )
       }
+
       return at === -1 ? [here] : items.map((item, index) => (index === at ? here : build(item)))
     }
+
     return createElement(
       value(chain[0]!),
       liveProps(samples.get(chain[0]!)),
       ...inside(1, examples.get(chain[0]!)?.sample?.children)
     )
   }
+
   /** Renders a part inside a chain of parents; the error it throws, or undefined when it draws. */
   const attempt = (chain: string[], name: string, children?: SampleChild[], parts = withParts.has(name)) =>
     render(placed(chain, name, build({ component: name, ...(children ? { children } : {}) }, true), parts))
+
   /** A part's element inside a chain of parents. */
   const placed = (chain: string[], name: string, part: unknown, parts: boolean) => {
     const calling = chain.some((parent) => renderSlotOf(examples.get(parent)?.sample))
-    if (parts && chain.length > 0 && !calling) return inExample(chain, name, part)
+
+    if (parts && chain.length > 0 && !calling) {
+      return inExample(chain, name, part)
+    }
+
     let element = part
+
     for (const parent of [...chain].reverse()) {
       // A parent whose examples call their children (`{(date) => <CalendarCell date={date} />}`), or a render prop
       // (`render={({ node }) => ...}`), is given the part that way, with what it's called with going where the
       // example's did.
       const slot = renderSlotOf(examples.get(parent)?.sample)
       const inner = element
+
       // What it's called with is spread onto the element, and given to the props it names over that, as in the app.
       const render = slot
         ? (argument: unknown) => {
             const spread = slot.render.spread && typeof argument === "object" && argument ? argument : {}
             const named = Object.fromEntries((slot.render.pass ?? []).map((prop) => [prop, argument]))
+
             return slot.render.pass || slot.render.spread ? cloneElement(inner, { ...spread, ...named }) : inner
           }
         : undefined
+
       const props = liveProps(samples.get(parent))
       element =
         slot && slot.prop !== "children"
           ? createElement(value(parent), { ...props, [slot.prop]: render })
           : createElement(value(parent), props, render ?? element)
     }
+
     return element
   }
+
   /** What an element renders on the server, or undefined when it throws. */
   const markup = (element: unknown): string | undefined => {
     const quiet = [console.error, console.warn]
     console.error = () => undefined
     console.warn = () => undefined
+
     try {
       return renderToStaticMarkup(element).replace(/_R_\w+_/g, "")
     } catch {
@@ -287,15 +369,18 @@ export async function relateParts(
       ;[console.error, console.warn] = quiet
     }
   }
+
   const render = (element: unknown, wrapped = true): string | undefined => {
     if (wrapped) {
       for (const provider of [...usable].reverse()) {
         element = createElement(provider.type, provider.props as Record<string, unknown>, element)
       }
     }
+
     const quiet = [console.error, console.warn]
     console.error = () => undefined
     console.warn = () => undefined
+
     try {
       // React Aria draws a collection's parts outside one as placeholders for its collection to read (`<item>`,
       // `<tablebody>`), not the parts.
@@ -303,8 +388,10 @@ export async function relateParts(
         /^<(?:item|submenutrigger|tablebody|tableheader|column|cell|loader|separator)[\s>]/.test(
           renderToStaticMarkup(element)
         )
-      )
+      ) {
         return "Renders only as a placeholder outside a collection."
+      }
+
       return undefined
     } catch (error) {
       return message(error)
@@ -312,12 +399,14 @@ export async function relateParts(
       ;[console.error, console.warn] = quiet
     }
   }
+
   const usable = wrappers.filter(
     (provider) =>
       render(createElement(provider.type, provider.props as Record<string, unknown>, "x"), false) === undefined
   )
 
   const names = [...byName.keys()]
+
   const named = (error: string, self: string, chain: string[], guess = true): string | undefined => {
     // Names the error mentions, quoted ones first: `Accordion`, <Menu.SubmenuRoot>, "Combobox component". What comes
     // after "within" or "wrap" is what's needed; a name before it is usually the part's own internal name.
@@ -325,24 +414,39 @@ export async function relateParts(
       ...[...text.matchAll(/[`<"']([A-Z][\w.]*)/g)].map((match) => match[1]!),
       ...[...text.matchAll(/\b([A-Z][\w.]*)/g)].map((match) => match[1]!)
     ]
+
     const needed = error
       .split(/\b(?:within|inside|outside|wrap|wrapped|placed in|used in)\b/i)
       .slice(1)
       .join(" ")
+
     const all = [...mentions(needed), ...mentions(error)]
+
     // Chakra names the provider a part's Root or Item renders (`AccordionItemProvider`), not the part itself.
     for (const mention of all.flatMap((name) => [name.replace(/(?:Props)?(?:Provider|Context)$/, ""), name])) {
       const target = resolveName(mention.replace(/\.$/, ""), self, names)
-      if (target && target !== self && !chain.includes(target)) return target
+
+      if (target && target !== self && !chain.includes(target)) {
+        return target
+      }
+
       // A part that must be used within itself needs the provider it exports beside it (`MessageScrollerProvider`).
       const provider = `${self}Provider`
-      if (target === self && !chain.includes(provider) && value(provider)) return provider
+
+      if (target === self && !chain.includes(provider) && value(provider)) {
+        return provider
+      }
     }
+
     // Radix names its internal parts (`DialogTitle` must be used within `Dialog`): the namespace's Content is the
     // usual answer, and the render after it says whether it was right.
     // A Root is what the others go in, so it never goes in its own Content.
-    if (!guess) return undefined
+    if (!guess) {
+      return undefined
+    }
+
     const content = namespaceOf(self) && !self.endsWith(".Root") && `${namespaceOf(self)}.Content`
+
     return content && names.includes(content) && content !== self && !chain.includes(content) ? content : undefined
   }
 
@@ -350,16 +454,23 @@ export async function relateParts(
   /** Parts whose sample has example props they render without, with the props they had before. */
   const loose = new Map<string, Record<string, unknown>>()
   const aloneErrors = new Map<string, string | undefined>()
+
   const failsAlone = (name: string) => {
-    if (!aloneErrors.has(name)) aloneErrors.set(name, attempt([], name))
+    if (!aloneErrors.has(name)) {
+      aloneErrors.set(name, attempt([], name))
+    }
+
     return aloneErrors.get(name) !== undefined
   }
+
   /** How many of each part's placed example uses have each parent, for marking the levels some leave out. */
   const shares = new Map<string, Map<string, number>>()
+
   const levelsOf = (name: string, sameFamily: boolean, taken: string[], share?: number) =>
     (exampleLevels(examples, name, sameFamily, share) ?? []).filter(
       (level) => names.includes(level.parent) && level.parent !== name && !taken.includes(level.parent)
     )
+
   /**
    * The chain the examples show: every parent most of its uses are inside, at any depth, in their usual order. One
    * that draws alone takes only its own family's, since examples put everything in forms. Examples split across a
@@ -367,30 +478,47 @@ export async function relateParts(
    */
   const exampleChain = (name: string): string[] | undefined => {
     const levels = levelsOf(name, !failsAlone(name), [])
-    if (levels.length === 0) return undefined
+
+    if (levels.length === 0) {
+      return undefined
+    }
+
     shares.set(name, new Map(levels.map((level) => [level.parent, level.share])))
     const chain = levels.map((level) => level.parent)
+
     // Not grown when it renders with the other parts the examples hold around it, which `chainOf` tries next: what's
     // above can render nothing on the server (a closed `Popover`), so anything would seem to draw inside it.
-    if (heldChain(name, chain)) return chain
+    if (heldChain(name, chain)) {
+      return chain
+    }
+
     while (chain.length < maxDepth * 2 && attempt(chain, name)) {
       const up = levelsOf(chain[0]!, false, chain)
-      if (up.length === 0) break
+
+      if (up.length === 0) {
+        break
+      }
+
       chain.unshift(...up.map((level) => level.parent))
     }
+
     return chain
   }
+
   /**
    * The chain, or the chain without the levels some examples leave out, that a part renders in with the other parts
    * the examples hold around it (a table's header beside the body a row is in).
    */
   const heldChain = (name: string, chain: string[]): string[] | undefined => {
     const usual = chain.filter((parent) => (shares.get(name)?.get(parent) ?? 1) >= 0.9)
+
     // Only where the part adds something: parents that render nothing on the server (a closed menu) hold anything.
     const adds = (each: string[]) =>
       markup(placed(each, name, build({ component: name }, true), true)) !== markup(placed(each, name, null, true))
+
     return [chain, usual].find((each) => each.length > 0 && !attempt(each, name, undefined, true) && adds(each))
   }
+
   /**
    * The levels some examples leave out (fewer than nine in ten have them) that the part still renders without, taken
    * away one at a time so each is tried without the others too.
@@ -398,106 +526,171 @@ export async function relateParts(
   const optionalOf = (name: string, chain: string[]): string[] => {
     const shown = shares.get(name)
     const optional: string[] = []
+
     for (const parent of [...chain].reverse()) {
       const share = shown?.get(parent)
-      if (share === undefined || share >= 0.9) continue
+
+      if (share === undefined || share >= 0.9) {
+        continue
+      }
+
       const without = chain.filter((other) => other !== parent && !optional.includes(other))
-      if (!attempt(without, name)) optional.push(parent)
+
+      if (!attempt(without, name)) {
+        optional.push(parent)
+      }
     }
+
     return optional
   }
+
   /** A part's family, as the examples place it (`Table` for React Aria's `Row`). */
   const familyIn = (name: string) => examples.get(name)?.family ?? familyOf(name)
+
   /** Drops parents from other families that a part renders without: where an example put it, not what it needs. */
   const prune = (chain: string[], name: string): string[] => {
     // Again until nothing more goes, as one can need another of its family to go first (a Dialog's Root its Portal).
     for (let dropped = true; dropped;) {
       dropped = false
+
       for (const parent of chain) {
         // A portal goes too when the part renders without it: it only moves content out of the frame, and throws
         // there for some libraries though it passes on the server, where portals don't run.
-        if (familyIn(parent) === familyIn(name) && !parent.endsWith("Portal")) continue
+        if (familyIn(parent) === familyIn(name) && !parent.endsWith("Portal")) {
+          continue
+        }
+
         const without = chain.filter((other) => other !== parent)
+
         if (without.length > 0 && !attempt(without, name)) {
           chain = without
           dropped = true
         }
       }
     }
+
     return chain
   }
+
   const chains = new Map<string, { chain: string[]; from?: ParentSignal } | null>()
+
   const chainOf = (name: string, depth: number): { chain: string[]; from?: ParentSignal } | null => {
-    if (chains.has(name)) return chains.get(name)!
+    if (chains.has(name)) {
+      return chains.get(name)!
+    }
+
     const edit = edits?.[name]
-    if (edit && edit.parents) return save(name, { chain: edit.parents, from: "edit" })
+
+    if (edit && edit.parents) {
+      return save(name, { chain: edit.parents, from: "edit" })
+    }
+
     chains.set(name, null) // a cycle ends here
     const shown = exampleChain(name)
-    if (shown && !attempt(shown, name)) return save(name, { chain: prune(shown, name), from: "example" })
+
+    if (shown && !attempt(shown, name)) {
+      return save(name, { chain: prune(shown, name), from: "example" })
+    }
+
     // Or with the other parts the examples hold around it.
     const held = shown && attempt(shown, name) ? heldChain(name, shown) : undefined
+
     if (held) {
       withParts.add(name)
+
       return save(name, { chain: held, from: "example" })
     }
+
     // Or without another family's level it can't render in on the server (Chakra's generic `Portal`).
     const pruned = shown && prune(shown, name)
-    if (pruned && pruned.length > 0 && !attempt(pruned, name)) return save(name, { chain: pruned, from: "example" })
+
+    if (pruned && pruned.length > 0 && !attempt(pruned, name)) {
+      return save(name, { chain: pruned, from: "example" })
+    }
+
     // Or with the levels fewer than half its examples show, which it may need all the same.
     if (shown) {
       for (const share of [1 / 3, 1 / 5]) {
         const wider = levelsOf(name, !failsAlone(name), [], share).map((level) => level.parent)
+
         if (wider.length > shown.length && !attempt(wider, name)) {
           return save(name, { chain: prune(wider, name), from: "example" })
         }
       }
     }
+
     // An example chain that still fails is grown from the errors; when that fails too, the errors alone are tried, so
     // the examples never leave a part worse off than without them.
     const grown = shown ? grow(name, depth, shown, "example") : undefined
-    if (grown && !grown.error) return save(name, { chain: prune(grown.chain, name), from: grown.from ?? "example" })
+
+    if (grown && !grown.error) {
+      return save(name, { chain: prune(grown.chain, name), from: grown.from ?? "example" })
+    }
+
     const fromErrors = grow(name, depth, [], undefined)
     // A part drawn from a list (a toast) renders with its sample item, so errors can put anything in it; only what the
     // package puts inside it goes there.
     const stray = fromErrors.chain.some((parent) => drawnParts.has(parent) && !drawnInside.get(parent)?.has(name))
+
     if (!fromErrors.error && fromErrors.chain.length > 0 && !stray) {
       return save(name, { chain: fromErrors.chain, from: fromErrors.from ?? "prefix" })
     }
+
     // Last, a part no example places renders where the package's own code renders it (`SelectScrollUpButton` in
     // `SelectContent`). It comes after the errors, as a kit's Content often renders its own Portal and Overlay.
     if (!shown && failsAlone(name)) {
       for (const owner of renderedBy.get(name) ?? []) {
-        if (!names.includes(owner) || owner === name) continue
+        if (!names.includes(owner) || owner === name) {
+          continue
+        }
+
         const chain = [...(chainOf(owner, depth + 1)?.chain ?? []).filter((parent) => parent !== name), owner]
-        if (!attempt(chain, name)) return save(name, { chain, from: "source" })
+
+        if (!attempt(chain, name)) {
+          return save(name, { chain, from: "source" })
+        }
       }
     }
+
     // When both fail, the errors' chain is kept, as without examples: a sample tried later may still make it render.
     const result = !grown || fromErrors.chain.length > 0 ? fromErrors : grown
     // One that still fails keeps only its own family's parents: another family's is where an example put it, not
     // what it needs, and a hand edit starts from less.
     const chain = result.error ? result.chain.filter((parent) => familyIn(parent) === familyIn(name)) : result.chain
+
     return save(name, chain.length > 0 ? { chain, from: result.from ?? "prefix" } : null)
   }
+
   /**
    * The examples mostly use it with nothing of the library's around it (Chakra's `InputGroup`, around an `Input`), so its
    * name doesn't say where it goes.
    */
   const standsAlone = (name: string) => {
     const use = examples.get(name)
+
     return !!use && use.count >= 2 && use.topLevel * 2 >= use.count
   }
+
   const grow = (name: string, depth: number, start: string[], startFrom: ParentSignal | undefined) => {
     let chain = start
     let from = startFrom
     let error = attempt(chain, name)
+
     for (let step = 0; error && step < maxDepth && depth < maxDepth; step++) {
       const mentioned = named(error, name, chain)
       let next: string | undefined
       let signal: ParentSignal | undefined
-      if (mentioned) [next, signal] = [mentioned, "error"]
-      else if (chain.length === 0 && !standsAlone(name)) [next, signal] = guessParent(name, names)
-      if (!next) break
+
+      if (mentioned) {
+        ;[next, signal] = [mentioned, "error"]
+      } else if (chain.length === 0 && !standsAlone(name)) {
+        ;[next, signal] = guessParent(name, names)
+      }
+
+      if (!next) {
+        break
+      }
+
       from ??= signal
       const above = chainOf(next, depth + 1)?.chain ?? []
       // What a part still lacks is the context nearest it, so the newly named parent goes innermost, inside the
@@ -513,32 +706,42 @@ export async function relateParts(
       // And the named parent with levels fewer than half its own examples show (`Slider.Control` above a `Thumb`).
       const rare = levelsOf(next, false, [name], 0.2).map((level) => level.parent)
       const wide = [...new Set([...rare, ...rest, next])]
+
       const tried = [
         inner,
         ...(rest.length > 0 ? [outer] : []),
         ...(above.length > 0 ? [bare] : []),
         ...(rare.some((level) => !inner.includes(level)) ? [wide] : [])
       ].map((candidate) => ({ candidate, error: attempt(candidate, name) }))
+
       // The first that renders, else the first that gets further, else the innermost.
       const pick =
         tried.find((option) => !option.error) ??
         (tried[0]!.error === error ? tried.find((option) => option.error !== error) : undefined) ??
         tried[0]!
+
       chain = pick.candidate
       error = pick.error
     }
+
     // A part that draws alone still belongs in its family when its name or namespace says so.
     if (chain.length === 0) {
       const [parent, signal] = guessParent(name, names)
-      if (parent && signal === "namespace") return { chain: [parent], from: signal, error }
+
+      if (parent && signal === "namespace") {
+        return { chain: [parent], from: signal, error }
+      }
     }
+
     return { chain, from, error }
   }
+
   const save = (name: string, result: { chain: string[]; from?: ParentSignal } | null) => {
     // A parent's own chain can lead back to the part (`Toast.Content` in `Toast.Root`); a part is never its own parent.
     const chain = result?.chain.filter((parent) => parent !== name)
     const saved = result && chain && chain.length > 0 ? { ...result, chain } : null
     chains.set(name, saved)
+
     return saved
   }
 
@@ -547,106 +750,181 @@ export async function relateParts(
   const drawnParts = new Set<string>()
   /** What the package puts inside each of them. */
   const drawnInside = new Map<string, Set<string>>()
+
   for (const component of components) {
     const relation: PartRelation = {}
     const short = component.name.slice(component.name.lastIndexOf(".") + 1)
-    if (notVisual.test(short)) relation.visual = false
+
+    if (notVisual.test(short)) {
+      relation.visual = false
+    }
+
     // Declared in its types but not there when it runs (MUI's `BadgeRoot`): nothing to place.
     const found = value(component.name)
+
     if (typeof found !== "function" && (typeof found !== "object" || found === null)) {
       relations.set(component.name, { visual: false })
       missing.push(component.name)
       continue
     }
+
     const alone = attempt([], component.name)
-    if (alone) relation.alone = alone
+
+    if (alone) {
+      relation.alone = alone
+    }
+
     const chain = chainOf(component.name, 0)
+
     if (chain && chain.chain.length > 0) {
       relation.parents = chain.chain
-      if (chain.from) relation.parentsFrom = chain.from
-      if (withParts.has(component.name)) relation.parentParts = true
+
+      if (chain.from) {
+        relation.parentsFrom = chain.from
+      }
+
+      if (withParts.has(component.name)) {
+        relation.parentParts = true
+      }
+
       if (chain.from === "example" && !attempt(chain.chain, component.name)) {
         const optional = optionalOf(component.name, chain.chain)
-        if (optional.length > 0) relation.optionalParents = optional
+
+        if (optional.length > 0) {
+          relation.optionalParents = optional
+        }
       }
     }
+
     const edit = edits?.[component.name]
-    if (edit && edit.visual === false) relation.visual = false
+
+    if (edit && edit.visual === false) {
+      relation.visual = false
+    }
+
     const editedChildren = edit ? edit.sample?.children : undefined
     let inside = alone ? attempt(relation.parents ?? [], component.name, editedChildren) : undefined
-    if (editedChildren && !inside) relation.sample = { children: editedChildren }
+
+    if (editedChildren && !inside) {
+      relation.sample = { children: editedChildren }
+    }
+
     // A single element child, for parts that clone theirs (`asChild`, Children.only).
     if (
       inside &&
       /Children\.only|single React element|valid child|element child|should be an element|accepts ref/i.test(inside)
     ) {
       const children: SampleChild[] = [{ component: "span", children: ["Text"] }]
+
       if (!attempt(relation.parents ?? [], component.name, children)) {
         relation.sample = { children }
         inside = undefined
       }
     }
+
     if (Object.keys(component.samples).length > 0 && !inside) {
       relation.sample = { ...relation.sample, props: component.samples }
     }
+
     // The examples' own use, with real text, items and values (`config={chartConfig}`), when it renders where the part
     // goes, including for one that fails without it.
     const use = examples.get(component.name)
     let shown = use?.sample
+
     if (shown && (shown.props || shown.children) && !editedChildren) {
       const before = samples.get(component.name)
       samples.set(component.name, { ...before, ...shown.props })
       let failed = attempt(relation.parents ?? [], component.name, shown.children)
+
       // With the props only that use set, which it may need (MUI's `Slide` its `in`).
       if (failed && inside && use?.rare) {
         samples.set(component.name, { ...before, ...shown.props, ...use?.rare })
         failed = attempt(relation.parents ?? [], component.name, shown.children)
-        if (!failed) shown = { ...shown, props: { ...shown.props, ...use?.rare } }
+
+        if (!failed) {
+          shown = { ...shown, props: { ...shown.props, ...use?.rare } }
+        }
       }
+
       // Props it needed stay for trying the parts inside it; others are checked against its parts afterwards.
-      if (failed || !inside) samples.set(component.name, before ?? {})
+      if (failed || !inside) {
+        samples.set(component.name, before ?? {})
+      }
+
       if (!failed) {
         relation.sample = {
           props: { ...component.samples, ...shown.props },
           ...(shown.children ? { children: shown.children } : {})
         }
-        if (Object.keys(relation.sample.props!).length === 0) delete relation.sample.props
+
+        if (Object.keys(relation.sample.props!).length === 0) {
+          delete relation.sample.props
+        }
+
         relation.sampleFrom = "example"
-        if (!inside && shown.props) loose.set(component.name, component.samples)
+
+        if (!inside && shown.props) {
+          loose.set(component.name, component.samples)
+        }
+
         inside = undefined
       }
     }
+
     // Still failing: the props the package's own component passes when it renders this one (`ChartContainer` giving
     // `ChartStyle` its `config`), its own props taken from its sample.
     for (const call of inside ? (calls.get(component.name) ?? []) : []) {
-      if (!names.includes(call.owner)) continue
+      if (!names.includes(call.owner)) {
+        continue
+      }
+
       const owner = { ...samples.get(call.owner), ...examples.get(call.owner)?.sample?.props }
       const props: Record<string, unknown> = { ...component.samples }
       const worked: string[] = []
+
       for (const [key, passed] of Object.entries(call.props)) {
         let value: unknown
-        if ("forward" in passed) value = owner[passed.forward]
-        else if ("value" in passed) value = passed.value
-        if (value !== undefined) props[key] = value
-        else if (!(key in props)) worked.push(key)
+
+        if ("forward" in passed) {
+          value = owner[passed.forward]
+        } else if ("value" in passed) {
+          value = passed.value
+        }
+
+        if (value !== undefined) {
+          props[key] = value
+        } else if (!(key in props)) {
+          worked.push(key)
+        }
       }
+
       const before = samples.get(component.name)
       // A value the owner works out (a calendar's `day` for its `TableCell`) may be one the examples make: each is tried.
       const tries = [undefined, ...(worked.length > 0 ? madeCalls : [])]
       let failed: string | undefined
+
       for (const made of tries) {
-        if (made) props[worked[0]!] = made
+        if (made) {
+          props[worked[0]!] = made
+        }
+
         samples.set(component.name, props)
         failed = attempt(relation.parents ?? [], component.name)
-        if (!failed) break
+
+        if (!failed) {
+          break
+        }
       }
-      if (failed) samples.set(component.name, before ?? {})
-      else {
+
+      if (failed) {
+        samples.set(component.name, before ?? {})
+      } else {
         relation.sample = { ...relation.sample, props }
         inside = undefined
         break
       }
     }
+
     // A part the package draws from a list it keeps (`<Toast toast={toast}>` for each toast) shows an item of it, with
     // the parts the package puts inside it, so it's placed as a whole toast rather than an empty one. With an item it
     // may need what its owner had around it (the toast manager's provider), which its error names; so may the parts
@@ -654,31 +932,49 @@ export async function relateParts(
     const drawn = listItem
       ? (calls.get(component.name) ?? []).find((call) => Object.values(call.props).some((passed) => "item" in passed))
       : undefined
+
     const inDrawn = (relation.parents ?? []).some((parent) => drawnParts.has(parent))
+
     if (drawn || (inside && inDrawn)) {
       const before = samples.get(component.name)
       const props: Record<string, unknown> = { ...before }
+
       for (const [key, passed] of Object.entries(drawn?.props ?? {})) {
-        if ("item" in passed) props[key] = { id: "1", ...listItem }
+        if ("item" in passed) {
+          props[key] = { id: "1", ...listItem }
+        }
       }
+
       samples.set(component.name, props)
       let parents = relation.parents ?? []
       let failed = attempt(parents, component.name)
+
       for (let tries = 0; failed && tries < 2; tries++) {
         const needed = named(failed, component.name, parents)
-        if (!needed) break
+
+        if (!needed) {
+          break
+        }
+
         const next = attempt([needed, ...parents], component.name)
-        if (next === failed) break
+
+        if (next === failed) {
+          break
+        }
+
         parents = [needed, ...parents]
         failed = next
       }
-      if (failed) samples.set(component.name, before ?? {})
-      else {
+
+      if (failed) {
+        samples.set(component.name, before ?? {})
+      } else {
         if (parents.length > (relation.parents?.length ?? 0)) {
           relation.parents = parents
           relation.parentsFrom = "error"
           delete relation.optionalParents
         }
+
         if (drawn) {
           drawnParts.add(component.name)
           // The package's own nesting beats children put together from the parts' parents.
@@ -687,97 +983,176 @@ export async function relateParts(
           const children = own.length > 0 ? own : (relation.sample?.children ?? [])
           relation.sample = { props, ...(children.length > 0 ? { children } : {}) }
         }
+
         inside = undefined
       }
     }
+
     // The values the package makes that it was tried with go where it's inserted too.
     const madeHere = madeProps.get(component.name)
-    if (madeHere) relation.sample = { ...relation.sample, props: { ...madeHere, ...relation.sample?.props } }
-    if (inside) relation.inside = inside
+
+    if (madeHere) {
+      relation.sample = { ...relation.sample, props: { ...madeHere, ...relation.sample?.props } }
+    }
+
+    if (inside) {
+      relation.inside = inside
+    }
+
     relations.set(component.name, relation)
   }
+
   // Parts are tried in name order, so one may have failed before a parent took the props it needs from its examples
   // (Chakra's `Combobox.Indicator` before `Combobox.Item`'s `item`): those that still fail are tried once more.
   for (const [name, relation] of relations) {
-    if (!relation.inside || !relation.parents) continue
-    if (!attempt(relation.parents, name, relation.sample?.children)) delete relation.inside
+    if (!relation.inside || !relation.parents) {
+      continue
+    }
+
+    if (!attempt(relation.parents, name, relation.sample?.children)) {
+      delete relation.inside
+    }
   }
 
   // A parent is inserted with its sample's props. A part that fails inside parents given theirs takes away the
   // examples' props a parent didn't need (`CodeBlock.Root`'s `code`, which its parts can't render with).
   const asInserted = (chain: string[], name: string, children?: SampleChild[]) => {
     const saved = chain.map((parent) => [parent, samples.get(parent)] as const)
+
     for (const parent of chain) {
-      if (loose.has(parent)) samples.set(parent, { ...samples.get(parent), ...relations.get(parent)?.sample?.props })
+      if (loose.has(parent)) {
+        samples.set(parent, { ...samples.get(parent), ...relations.get(parent)?.sample?.props })
+      }
     }
+
     const error = attempt(chain, name, children)
-    for (const [parent, sample] of saved) samples.set(parent, sample ?? {})
+
+    for (const [parent, sample] of saved) {
+      samples.set(parent, sample ?? {})
+    }
+
     return error
   }
+
   for (const [name, relation] of relations) {
-    if (!relation.parents || relation.inside || relation.visual === false) continue
-    if (!relation.parents.some((parent) => loose.has(parent))) continue
-    if (!asInserted(relation.parents, name, relation.sample?.children)) continue
+    if (!relation.parents || relation.inside || relation.visual === false) {
+      continue
+    }
+
+    if (!relation.parents.some((parent) => loose.has(parent))) {
+      continue
+    }
+
+    if (!asInserted(relation.parents, name, relation.sample?.children)) {
+      continue
+    }
+
     const cleared: [string, Record<string, unknown>, Record<string, unknown>][] = []
+
     for (const parent of relation.parents) {
       const generated = loose.get(parent)
       const sample = relations.get(parent)?.sample
-      if (!generated || !sample) continue
+
+      if (!generated || !sample) {
+        continue
+      }
+
       loose.delete(parent)
+
       // The values the package makes stay (a date picker's dates), which its parts need in the app if not here.
       const made = Object.entries(sample.props ?? {}).filter(
         ([, value]) => isMadeValue(value) || (Array.isArray(value) && value.some(isMadeValue))
       )
+
       const kept = { ...generated, ...Object.fromEntries(made) }
-      if (made.length > 0) cleared.push([parent, generated, kept])
-      if (Object.keys(kept).length > 0) sample.props = kept
-      else delete sample.props
+
+      if (made.length > 0) {
+        cleared.push([parent, generated, kept])
+      }
+
+      if (Object.keys(kept).length > 0) {
+        sample.props = kept
+      } else {
+        delete sample.props
+      }
     }
+
     // Unless the part still fails inside parents given them, when they go too.
     if (cleared.length > 0) {
       const saved = cleared.map(([parent]) => [parent, samples.get(parent)] as const)
-      for (const [parent, , kept] of cleared) samples.set(parent, kept)
+
+      for (const [parent, , kept] of cleared) {
+        samples.set(parent, kept)
+      }
+
       const fails = attempt(relation.parents, name, relation.sample?.children)
-      for (const [parent, sample] of saved) samples.set(parent, sample ?? {})
+
+      for (const [parent, sample] of saved) {
+        samples.set(parent, sample ?? {})
+      }
+
       if (fails) {
         for (const [parent, generated] of cleared) {
           const sample = relations.get(parent)!.sample!
-          if (Object.keys(generated).length > 0) sample.props = generated
-          else delete sample.props
+
+          if (Object.keys(generated).length > 0) {
+            sample.props = generated
+          } else {
+            delete sample.props
+          }
         }
       }
     }
+
     for (const parent of relation.parents) {
       const sample = relations.get(parent)?.sample
-      if (sample && !sample.props && !sample.children) delete relations.get(parent)!.sample
+
+      if (sample && !sample.props && !sample.children) {
+        delete relations.get(parent)!.sample
+      }
     }
   }
 
   // The parent an error in the app names goes in the part's chain, inside that parent's own.
   for (const [name, error] of Object.entries(appErrors)) {
     const relation = relations.get(name)
-    if (!relation || relation.visual === false) continue
-    // One that hands its text label to an input (Mantine's `ComboboxSearch`, in a dropdown the server never opens).
-    if (/void element|self-closing tag/.test(error)) {
-      if (!relation.sample?.children) relation.sample = { ...relation.sample, children: [] }
+
+    if (!relation || relation.visual === false) {
       continue
     }
+
+    // One that hands its text label to an input (Mantine's `ComboboxSearch`, in a dropdown the server never opens).
+    if (/void element|self-closing tag/.test(error)) {
+      if (!relation.sample?.children) {
+        relation.sample = { ...relation.sample, children: [] }
+      }
+
+      continue
+    }
+
     // A hand edit's parents are used as written.
-    if (relation.parentsFrom === "edit") continue
+    if (relation.parentsFrom === "edit") {
+      continue
+    }
+
     const parents = relation.parents ?? []
     const needed = named(error, name, parents, false)
+
     // An error that names nothing still says the chain is wrong: the examples' own goes in its place, when it's
     // another (Chakra's `TreeView.BranchContent`, in a `TreeView.Branch` rather than the `TreeView.Item` an error on the
     // server led to).
     if (!needed) {
       const shown = exampleChain(name)
+
       if (shown && shown.join() !== parents.join() && !attempt(shown, name, relation.sample?.children)) {
         relation.parents = shown
         relation.parentsFrom = "app"
         delete relation.optionalParents
       }
+
       continue
     }
+
     // One of its own family goes inside that parent's own chain; another's (Base UI's `Menu.Portal` for a
     // `ContextMenu.Positioner`) goes inside the chain it has.
     const outer = (relations.get(needed)?.parents ?? []).filter((parent) => parent !== name)
@@ -785,91 +1160,150 @@ export async function relateParts(
       namespaceOf(needed) === namespaceOf(name) ? [...new Set([...outer, needed, ...parents])] : [...parents, needed]
     relation.parentsFrom = "app"
   }
+
   completeChains(relations)
 
   // A part with no children of its own takes those a parent's sample spells out for it (a table's `Row` its `Cell`s),
   // when it renders with them, rather than a text label its collection can't hold.
   for (const [name, relation] of relations) {
-    if (relation.sample?.children || !relation.parents?.length || relation.visual === false) continue
+    if (relation.sample?.children || !relation.parents?.length || relation.visual === false) {
+      continue
+    }
+
     for (const parent of [...relation.parents].reverse()) {
       const children = spelledOut(relations.get(parent)?.sample?.children ?? [], name)
-      if (!children) continue
+
+      if (!children) {
+        continue
+      }
+
       // Or inside the outermost parent's whole sample, where what they need is (the table's columns for a row's cells).
       let parts: boolean | undefined = false
-      if (attempt(relation.parents, name, children))
+
+      if (attempt(relation.parents, name, children)) {
         parts = attempt(relation.parents, name, children, true) ? undefined : true
+      }
+
       if (parts !== undefined) {
         relation.sample = { ...relation.sample, children }
-        if (parts) relation.parentParts = true
+
+        if (parts) {
+          relation.parentParts = true
+        }
+
         delete relation.inside
       }
+
       break
     }
   }
 
   // A parent's sample children are its parts, so a collection or a family is placed with something in it.
   const partsOf = new Map<string, string[]>()
+
   for (const [name, relation] of relations) {
     const parent = relation.parents?.at(-1)
-    if (!parent || relation.inside || relation.visual === false) continue
+
+    if (!parent || relation.inside || relation.visual === false) {
+      continue
+    }
+
     partsOf.set(parent, [...(partsOf.get(parent) ?? []), name])
   }
+
   // Deepest first, so a family's root is given parts that already hold theirs.
   const depth = (name: string) => relations.get(name)?.parents?.length ?? 0
+
   for (const [parent, parts] of [...partsOf].sort(([a], [b]) => depth(b) - depth(a))) {
     const relation = relations.get(parent)
-    if (!relation || relation.inside || (relation.sampleFrom === "example" && relation.sample?.children)) continue
+
+    if (!relation || relation.inside || (relation.sampleFrom === "example" && relation.sample?.children)) {
+      continue
+    }
+
     // A drawn part already holds what the package puts inside it.
-    if (drawnParts.has(parent)) continue
+    if (drawnParts.has(parent)) {
+      continue
+    }
+
     // Each with its own sample, spelled out, as a child a sample spells out doesn't take its own.
     const children: SampleChild[] = parts.slice(0, 3).map((part) => ({
       component: part,
       ...(relations.get(part)?.sample?.props ? { props: relations.get(part)!.sample!.props } : {}),
       ...(relations.get(part)?.sample?.children ? { children: relations.get(part)!.sample!.children } : {})
     }))
-    if (!attempt(relation.parents ?? [], parent, children)) relation.sample = { ...relation.sample, children }
+
+    if (!attempt(relation.parents ?? [], parent, children)) {
+      relation.sample = { ...relation.sample, children }
+    }
   }
+
   // A part that passes its children to an `<input>` (Mantine's `Cascader`) can't take the text label the canvas gives
   // a part with children, so its sample says it has none.
   for (const [name, relation] of relations) {
-    if (relation.visual === false || relation.sample?.children) continue
+    if (relation.visual === false || relation.sample?.children) {
+      continue
+    }
+
     const parents = relation.parents ?? []
     const failed = attempt(parents, name, ["Text"])
+
     if (failed && /void element|self-closing tag/.test(failed) && !attempt(parents, name, [])) {
       relation.sample = { ...relation.sample, children: [] }
     }
+
     // One that calls its children (Base UI's `Field.Validity`) is given a function of them that draws text.
     const bare = failed && attempt(parents, name)
+
     if (bare && /children is not a function/.test(bare) && !attempt(parents, name, [{ $render: ["Text"] }])) {
       relation.sample = { ...relation.sample, children: [{ $render: ["Text"] }] }
       delete relation.inside
     }
   }
+
   // One whose children must be plain text (Chakra's `Highlight`) can't hold a text layer, which the canvas draws as an
   // element: its text goes in its `children` prop.
   const textOnly = new Set<string>()
+
   for (const [name, relation] of relations) {
     const texts = relation.sample?.children
-    if (!texts?.length || !texts.every((child) => typeof child === "string")) continue
+
+    if (!texts?.length || !texts.every((child) => typeof child === "string")) {
+      continue
+    }
+
     const parents = relation.parents ?? []
-    if (!attempt(parents, name, [{ component: "p", children: texts }]) || attempt(parents, name, texts)) continue
+
+    if (!attempt(parents, name, [{ component: "p", children: texts }]) || attempt(parents, name, texts)) {
+      continue
+    }
+
     const { children: _, ...sample } = relation.sample!
     relation.sample = { ...sample, props: { ...sample.props, children: texts.join("") } }
     textOnly.add(name)
   }
+
   // As it is in the samples of the parts it's drawn in.
   const asText = (children: SampleChild[]): SampleChild[] =>
     children.map((child) => {
-      if (typeof child !== "object" || !("component" in child) || !child.children) return child
+      if (typeof child !== "object" || !("component" in child) || !child.children) {
+        return child
+      }
+
       const { children: inner, ...node } = child
-      if (textOnly.has(child.component) && inner.length > 0 && inner.every((item) => typeof item === "string"))
+
+      if (textOnly.has(child.component) && inner.length > 0 && inner.every((item) => typeof item === "string")) {
         return { ...node, props: { ...node.props, children: inner.join("") } }
+      }
+
       return { ...node, children: asText(inner) }
     })
+
   if (textOnly.size > 0) {
     for (const relation of relations.values()) {
-      if (relation.sample?.children)
+      if (relation.sample?.children) {
         relation.sample = { ...relation.sample, children: asText(relation.sample.children) }
+      }
     }
   }
 
@@ -877,14 +1311,17 @@ export async function relateParts(
   // name, which draws its options itself).
   for (const relation of relations.values()) {
     const nearest = relation.parents?.at(-1)
+
     if (nearest && relations.get(nearest)?.sample?.children?.length === 0 && relation.parentsFrom !== "edit") {
       delete relation.parents
       delete relation.optionalParents
       delete relation.parentsFrom
     }
   }
+
   // The parts inside a drawn part's sample, so they're placed as part of it.
   const drawnTree = new Set([...drawnParts, ...[...drawnInside.values()].flatMap((inside) => [...inside])])
+
   return {
     relations,
     tried: true,
@@ -904,15 +1341,22 @@ export async function relateParts(
  */
 export function guessParent(name: string, names: string[]): [string, ParentSignal] | [undefined, undefined] {
   const dot = name.lastIndexOf(".")
+
   if (dot !== -1) {
     const namespace = name.slice(0, dot)
     const member = name.slice(dot + 1)
-    if (member === "Root" || member === "Provider") return [undefined, undefined]
+
+    if (member === "Root" || member === "Provider") {
+      return [undefined, undefined]
+    }
+
     const root = [`${namespace}.Root`, `${namespace}.Provider`, namespace].find((candidate) =>
       names.includes(candidate)
     )
+
     return root ? [root, "namespace"] : [undefined, undefined]
   }
+
   const prefix = names
     .filter(
       (other) =>
@@ -920,9 +1364,16 @@ export function guessParent(name: string, names: string[]): [string, ParentSigna
     )
     .filter((other) => !notVisual.test(other))
     .sort((a, b) => b.length - a.length)[0]
+
   // A collection's other parts go in the collection, not its item (`TabPanels` in `Tabs`, not `Tab`).
-  if (prefix) return [names.includes(`${prefix}s`) && `${prefix}s` !== name ? `${prefix}s` : prefix, "prefix"]
-  if (names.includes(`${name}s`)) return [`${name}s`, "prefix"]
+  if (prefix) {
+    return [names.includes(`${prefix}s`) && `${prefix}s` !== name ? `${prefix}s` : prefix, "prefix"]
+  }
+
+  if (names.includes(`${name}s`)) {
+    return [`${name}s`, "prefix"]
+  }
+
   return [undefined, undefined]
 }
 
@@ -933,43 +1384,77 @@ export function guessParent(name: string, names: string[]): [string, ParentSigna
  */
 function resolveName(mention: string, self: string, names: string[]): string | undefined {
   const namespace = namespaceOf(self)
+
   if (namespace) {
-    if (mention.startsWith(`${namespace}.`)) return names.includes(mention) ? mention : undefined
+    if (mention.startsWith(`${namespace}.`)) {
+      return names.includes(mention) ? mention : undefined
+    }
+
     // The namespace's own name, or the end of it (`Dialog` inside `AlertDialog`), is its Root.
     const short = namespace.slice(namespace.lastIndexOf(".") + 1)
-    if (short.endsWith(mention) && names.includes(`${namespace}.Root`)) return `${namespace}.Root`
+
+    if (short.endsWith(mention) && names.includes(`${namespace}.Root`)) {
+      return `${namespace}.Root`
+    }
+
     const words = mention.replaceAll(".", "").split(/(?=[A-Z])/)
+
     for (let start = 0; start < words.length; start++) {
       const candidate = `${namespace}.${words.slice(start).join("")}`
-      if (names.includes(candidate)) return candidate
+
+      if (names.includes(candidate)) {
+        return candidate
+      }
     }
+
     // Or another family's, by its full name (Base UI's `<Menu.Portal>`, which a `ContextMenu` uses).
     return mention.includes(".") && names.includes(mention) ? mention : undefined
   }
-  if (names.includes(mention)) return mention
+
+  if (names.includes(mention)) {
+    return mention
+  }
+
   const flat = mention.replaceAll(".", "")
   const exact = names.find((name) => name.replaceAll(".", "") === flat)
-  if (exact) return exact
+
+  if (exact) {
+    return exact
+  }
+
   // A styled kit names its parts after the primitive's (`Menu.Group` for shadcn's `ContextMenuGroup`): map it into the
   // part's own family, the longest component its name starts with. `Root` is the family itself.
   const family = names
     .filter((name) => name !== self && self.startsWith(name) && /^[A-Z]/.test(self.slice(name.length)))
     .sort((a, b) => b.length - a.length)[0]
-  if (!family) return undefined
+
+  if (!family) {
+    return undefined
+  }
+
   const words = mention
     .split(".")
     .at(-1)!
     .split(/(?=[A-Z])/)
-  if (words.join("") === "Root") return family
+
+  if (words.join("") === "Root") {
+    return family
+  }
+
   for (let start = 0; start < words.length; start++) {
     const candidate = `${family}${words.slice(start).join("")}`
-    if (candidate !== self && names.includes(candidate)) return candidate
+
+    if (candidate !== self && names.includes(candidate)) {
+      return candidate
+    }
   }
+
   return undefined
 }
 
 function namespaceOf(name: string): string | undefined {
   const dot = name.lastIndexOf(".")
+
   return dot === -1 ? undefined : name.slice(0, dot)
 }
 
@@ -986,13 +1471,23 @@ export function completeChains(relations: Map<string, PartRelation>): void {
   for (const [name, relation] of relations) {
     for (let round = 0; round < 4 && relation.parents?.length; round++) {
       const outer = relations.get(relation.parents[0]!)
-      if (outer?.parents?.includes(name)) break
+
+      if (outer?.parents?.includes(name)) {
+        break
+      }
+
       const added = (outer?.parents ?? []).filter((parent) => !relation.parents!.includes(parent))
-      if (added.length === 0) break
+
+      if (added.length === 0) {
+        break
+      }
+
       relation.parents = [...added, ...relation.parents]
       const optional = (outer?.optionalParents ?? []).filter((parent) => added.includes(parent))
-      if (optional.length > 0)
+
+      if (optional.length > 0) {
         relation.optionalParents = [...new Set([...(relation.optionalParents ?? []), ...optional])]
+      }
     }
   }
 }
@@ -1000,11 +1495,21 @@ export function completeChains(relations: Map<string, PartRelation>): void {
 /** The children a sample spells out for the first `name` in it that has any, at any depth (a table's `Row` its `Cell`s). */
 export function spelledOut(children: SampleChild[], name: string): SampleChild[] | undefined {
   for (const child of children) {
-    if (typeof child === "string" || isSampleRender(child)) continue
-    if (child.component === name && child.children?.length) return child.children
+    if (typeof child === "string" || isSampleRender(child)) {
+      continue
+    }
+
+    if (child.component === name && child.children?.length) {
+      return child.children
+    }
+
     const inner = spelledOut(child.children ?? [], name)
-    if (inner) return inner
+
+    if (inner) {
+      return inner
+    }
   }
+
   return undefined
 }
 
@@ -1015,6 +1520,7 @@ export function spelledOut(children: SampleChild[], name: string): SampleChild[]
  */
 async function trialHost(load: Load, imports: string[]): Promise<ValueHost> {
   const modules = new Map<string, Record<string, unknown>>()
+
   for (const specifier of new Set(imports)) {
     try {
       modules.set(specifier, await load(specifier))
@@ -1022,10 +1528,15 @@ async function trialHost(load: Load, imports: string[]): Promise<ValueHost> {
       // Not loadable outside a frame; a value that needs it isn't made.
     }
   }
+
   return {
     exported(specifier, path) {
       const module = modules.get(specifier)
-      if (!module) throw new Error(`${specifier} isn't loaded`)
+
+      if (!module) {
+        throw new Error(`${specifier} isn't loaded`)
+      }
+
       return exportOf(module, path) ?? (path === "default" ? module : undefined)
     },
     global: () => undefined,
@@ -1038,7 +1549,11 @@ async function trialHost(load: Load, imports: string[]): Promise<ValueHost> {
 function exportedChildren(children: RenderedChild[], names: string[]): SampleChild[] {
   return children.flatMap((child): SampleChild[] => {
     const inner = exportedChildren(child.children ?? [], names)
-    if (!names.includes(child.component)) return inner
+
+    if (!names.includes(child.component)) {
+      return inner
+    }
+
     return [{ component: child.component, ...(inner.length > 0 ? { children: inner } : {}) }]
   })
 }

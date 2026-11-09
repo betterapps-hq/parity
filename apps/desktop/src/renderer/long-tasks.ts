@@ -11,14 +11,22 @@ const inputLeadMs = 100
  * the input that started it (PAR-631).
  */
 export function watchLongTasks(telemetry: Telemetry<typeof registeredEvents>): void {
-  if (!PerformanceObserver.supportedEntryTypes.includes("longtask")) return
+  if (!PerformanceObserver.supportedEntryTypes.includes("longtask")) {
+    return
+  }
+
   let last: { type: string; at: number } | undefined
+
   for (const type of inputs) {
     addEventListener(type, (event) => (last = { type, at: event.timeStamp }), { capture: true, passive: true })
   }
+
   new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
-      if (entry.duration <= slowThresholdMs) continue
+      if (entry.duration <= slowThresholdMs) {
+        continue
+      }
+
       const during = last && last.at >= entry.startTime - inputLeadMs && last.at <= entry.startTime + entry.duration
       telemetry.track("renderer.long_task", {
         durationMs: Math.round(entry.duration),

@@ -22,16 +22,29 @@ export function resolveModule(
 ): string | undefined {
   const bare = specifier.replace(/[?#].*$/, "")
   let base: string | undefined
-  if (bare.startsWith(".")) base = posix.join(posix.dirname(from), bare)
-  else if (bare.startsWith("/")) base = bare.slice(1)
-  else base = alias(bare)
-  if (!base) return undefined
+
+  if (bare.startsWith(".")) {
+    base = posix.join(posix.dirname(from), bare)
+  } else if (bare.startsWith("/")) {
+    base = bare.slice(1)
+  } else {
+    base = alias(bare)
+  }
+
+  if (!base) {
+    return undefined
+  }
+
   const stems = [base, ...(/\.[cm]?jsx?$/.test(base) ? [base.replace(/\.[cm]?jsx?$/, "")] : [])]
+
   for (const stem of stems) {
     for (const candidate of [stem, ...moduleExtensions.map((extension) => `${stem}${extension}`)]) {
-      if (files.has(candidate)) return candidate
+      if (files.has(candidate)) {
+        return candidate
+      }
     }
   }
+
   return moduleExtensions.map((extension) => `${base}/index${extension}`).find((candidate) => files.has(candidate))
 }
 
@@ -43,6 +56,7 @@ export function importedFiles(
   alias: (specifier: string) => string | undefined
 ): string[] {
   const specifiers = importSpecifiers(source, path.endsWith(".css"))
+
   return [...new Set(specifiers.flatMap((specifier) => resolveModule(path, specifier, files, alias) ?? []))]
 }
 
@@ -56,11 +70,16 @@ export async function moduleClosure(
 ): Promise<string[]> {
   const reached = new Set<string>()
   let next = [...new Set(entries)]
+
   while (next.length > 0) {
-    for (const path of next) reached.add(path)
+    for (const path of next) {
+      reached.add(path)
+    }
+
     const imported = await Promise.all(next.map((path) => importsOf(path).catch(() => [])))
     next = [...new Set(imported.flat())].filter((path) => !reached.has(path))
   }
+
   return [...reached].sort((a, b) => a.localeCompare(b, "en"))
 }
 
@@ -71,8 +90,15 @@ export async function moduleClosure(
 export function sharedPreviewFiles(snapshot: CodeSnapshot): string[] {
   return [...snapshot.files.keys()].filter((path) => {
     const name = path.slice(path.lastIndexOf("/") + 1)
-    if (lockfileNames.has(name)) return true
-    if (path.includes("/")) return false
+
+    if (lockfileNames.has(name)) {
+      return true
+    }
+
+    if (path.includes("/")) {
+      return false
+    }
+
     return name === "package.json" || /^tsconfig.*\.json$/.test(name) || /\.config\.[cm]?[jt]s$/.test(name)
   })
 }
@@ -98,8 +124,10 @@ export interface PreviewKeyInput {
  */
 export function previewKey({ drawn, files, snapshot, salt }: PreviewKeyInput): string {
   const hash = createHash("sha256").update(salt).update("\0").update(JSON.stringify(drawn)).update("\0")
+
   for (const path of [...new Set(files)].sort((a, b) => a.localeCompare(b, "en"))) {
     hash.update(`${path}\0${snapshot.files.get(path) ?? "-"}\0`)
   }
+
   return hash.digest("hex").slice(0, 40)
 }

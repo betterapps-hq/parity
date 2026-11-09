@@ -109,6 +109,7 @@ export function mount(containers, { camera } = {}) {
 
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -125,11 +126,14 @@ beforeAll(async () => {
       "import.meta.env": "{}"
     }
   })
+
   const script = bundle.outputFiles.find((file) => file.path.endsWith(".js"))!.text
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1100, height: 800 } })
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   page.on("pageerror", (error) => errors.push(error.message))
   await page.route("http://parity.test/app.js", (route) =>
@@ -143,9 +147,11 @@ beforeAll(async () => {
     })
   )
   await page.goto("http://parity.test/")
+
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof app === "object")))
+  if (!(await page.evaluate(() => typeof app === "object"))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
 }, 60_000)
 
 afterAll(async () => {
@@ -154,6 +160,7 @@ afterAll(async () => {
 
 const text = (id: string, value: string) => ({ type: "text", id, text: value })
 const stat = (id: string) => ({ type: "instance", id, design: "stat" })
+
 const dashboard = {
   id: "dash",
   name: "Dashboard",
@@ -178,6 +185,7 @@ const dashboard = {
     { id: "loading", name: "Loading" }
   ]
 }
+
 const statCard = {
   id: "stat",
   name: "Stat card",
@@ -191,6 +199,7 @@ const statCard = {
   },
   states: [{ id: "default", name: "Default" }]
 }
+
 const design = "app.par#dash"
 let mode = ""
 
@@ -212,6 +221,7 @@ async function at(node: string, state = "default", corner = false) {
       const host = document.querySelector(`[data-frame][data-state="${state}"]`)!
       const element = host.shadowRoot!.querySelector(`[data-canvas-node="${node}"]`)!
       const rect = element.getBoundingClientRect()
+
       return corner
         ? { x: rect.left + 4, y: rect.top + 4 }
         : { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
@@ -289,12 +299,16 @@ describe("a click inside a board", () => {
 
   it("isn't thrown by a checkbox's hidden input, which would stretch the checkbox over the background", async () => {
     const background = await at("app", "default", true)
+
     const boxes = await page.evaluate((point) => {
       const host = document.querySelector('[data-frame][data-state="default"]')!
+
       const holds = (rect: DOMRect | undefined) =>
         !!rect && point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+
       // @ts-expect-error The bundle's global.
       const elements: HTMLElement[] = app.findNodeElements(host, "remember")
+
       return {
         elements: elements.map((element) => element.localName),
         // Every element's box, as the canvas measured them before: the input's pixel counts as drawn.
@@ -304,6 +318,7 @@ describe("a click inside a board", () => {
         box: holds(app.nodeBox(host, "remember"))
       }
     }, background)
+
     expect(boxes).toEqual({ elements: ["span", "input"], raw: true, box: false })
     await page.mouse.move(background.x, background.y)
     expect(await hovered()).toBeUndefined()
@@ -445,18 +460,22 @@ describe("following the camera", () => {
     )
     // Once the selection has been drawn and measuring has settled.
     await page.waitForTimeout(800)
+
     const cameras = [
       { x: -30, y: 10, z: 1.5 },
       { x: 20, y: -15, z: 0.75 },
       { x: 0, y: 0, z: 1 }
     ]
+
     const frames = await page.evaluate(async (cameras) => {
       const host = document.querySelector('[data-frame][data-state="default"]')!
+
       // How far the outline is from the layer, at its farthest edge. The page has no stylesheet, so the outline is read
       // from where the overlay puts it, in the canvas area's pixels; the area is at the page's top left.
       const off = () => {
         // @ts-expect-error The bundle's global.
         const layer: DOMRect = app.nodeBox(host, "revenue")
+
         const outlines = [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")]
           .filter((element) => element.style.outline !== "")
           .map(({ style }) => ({
@@ -465,6 +484,7 @@ describe("following the camera", () => {
             width: parseFloat(style.width),
             height: parseFloat(style.height)
           }))
+
         const distance = (rect: { left: number; top: number; width: number; height: number }) =>
           Math.max(
             Math.abs(rect.left - layer.left),
@@ -472,9 +492,12 @@ describe("following the camera", () => {
             Math.abs(rect.width - layer.width),
             Math.abs(rect.height - layer.height)
           )
+
         return Math.round(Math.min(Infinity, ...outlines.map(distance)))
       }
+
       const found: number[] = []
+
       for (const camera of cameras) {
         // The camera moves in an animation frame, as tldraw's does, and the frame is checked as it's about to be
         // painted: a ResizeObserver's first callback comes after the animation frame's callbacks and its layout.
@@ -484,18 +507,22 @@ describe("following the camera", () => {
               // @ts-expect-error The page's camera.
               window.camera.set(camera)
               const ticker = document.body.appendChild(document.createElement("div"))
+
               const observer = new ResizeObserver(() => {
                 observer.disconnect()
                 ticker.remove()
                 resolve(off())
               })
+
               observer.observe(ticker)
             })
           })
         )
       }
+
       return found
     }, cameras)
+
     // Pixels between the outline and the layer, in each frame.
     expect(frames).toEqual([0, 0, 0])
     expect(errors).toEqual([])

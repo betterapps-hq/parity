@@ -36,12 +36,16 @@ interface Args {
 /** The real window with the example open and one part broken, as a bug would break it. */
 function Broken({ part }: Args) {
   useEffect(() => {
-    if (part === "settings" || part === "about") openDialog(part)
+    if (part === "settings" || part === "about") {
+      openDialog(part)
+    }
+
     return () => {
       setBoundaryReporter(undefined)
       closeDialog()
     }
   }, [part])
+
   return (
     <div className="h-screen">
       <WindowBoundary>
@@ -82,7 +86,9 @@ const meta = {
     }
   ]
 } satisfies Meta<typeof Broken>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The Design tab failed: the Inspector's other tabs, the canvas and the Layers panel carry on. */

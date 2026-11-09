@@ -15,12 +15,17 @@ export function snapPosition(
 ): { x: number; y: number } {
   const shape = editor.getShape(id)
   const own = editor.getShapePageBounds(id)
-  if (!shape || !own) return position
+
+  if (!shape || !own) {
+    return position
+  }
+
   const others = editor
     .getCurrentPageShapes()
     .filter((candidate) => candidate.id !== id && !moving.has(candidate.id))
     .map((candidate) => editor.getShapePageBounds(candidate.id))
     .filter((bounds): bounds is Box => !!bounds)
+
   const snapped = snapBox({ ...position, w: own.w, h: own.h }, others, editor.getZoomLevel())
   editor.snaps.setIndicators(
     snapped.guides.map((guide) => ({
@@ -29,6 +34,7 @@ export function snapPosition(
       points: [guide.from, guide.to]
     }))
   )
+
   return { x: snapped.x, y: snapped.y }
 }
 

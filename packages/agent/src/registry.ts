@@ -27,7 +27,11 @@ const registrySettings = z.object({
 /** The registry these settings name: `PARITY_AGENT_FILE`, else `PARITY_AGENT_DIR`, else `~/.parity/agents`. */
 export function agentRegistry(env: Record<string, string | undefined>, home: string): Registry {
   const { PARITY_AGENT_FILE: file, PARITY_AGENT_DIR: folder } = registrySettings.parse(env)
-  if (file) return { kind: "file", path: file }
+
+  if (file) {
+    return { kind: "file", path: file }
+  }
+
   return { kind: "folder", path: folder ?? join(home, ".parity", "agents") }
 }
 
@@ -52,7 +56,10 @@ export function writeEntry(registry: Registry, entry: CopyEntry): void {
 export function removeEntry(registry: Registry, app: number): void {
   const path = entryPath(registry, app)
   const entry = readCopyEntry(readText(path))
-  if (entry?.app === app) rmSync(path, { force: true })
+
+  if (entry?.app === app) {
+    rmSync(path, { force: true })
+  }
 }
 
 /**
@@ -61,7 +68,10 @@ export function removeEntry(registry: Registry, app: number): void {
  * on goes ahead either way: a copy that isn't running is left out, and a later call removes what's left.
  */
 export function removeStaleEntry(registry: Registry, entry: CopyEntry): void {
-  if (registry.kind !== "folder") return
+  if (registry.kind !== "folder") {
+    return
+  }
+
   try {
     rmSync(entryPath(registry, entry.app), { force: true })
   } catch {
@@ -76,28 +86,42 @@ export function removeStaleEntry(registry: Registry, entry: CopyEntry): void {
 export function readEntries(registry: Registry, home: string): CopyEntry[] {
   if (registry.kind === "file") {
     const entry = readCopyEntry(readText(registry.path))
+
     return entry ? [entry] : []
   }
+
   let names: string[] = []
+
   try {
     names = readdirSync(registry.path).filter((name) => /^\d+\.json$/.test(name))
   } catch {
     // No copy has started since the registry began.
   }
+
   const entries = names.flatMap((name) => {
     const entry = readCopyEntry(readText(join(registry.path, name)))
+
     return entry ? [entry] : []
   })
+
   const legacy = readCopyEntry(readText(legacyAgentFile(home)))
-  if (legacy && !entries.some((entry) => entry.url === legacy.url)) entries.push(legacy)
+
+  if (legacy && !entries.some((entry) => entry.url === legacy.url)) {
+    entries.push(legacy)
+  }
+
   return entries
 }
 
 /** Whether a process is still running. One the person's account can't signal still is. */
 export function isRunning(pid: number): boolean {
-  if (!Number.isInteger(pid) || pid <= 0) return false
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return false
+  }
+
   try {
     process.kill(pid, 0)
+
     return true
   } catch (error) {
     return error instanceof Error && "code" in error && error.code === "EPERM"

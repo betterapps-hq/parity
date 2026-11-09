@@ -36,39 +36,59 @@ export function CanvasDrop() {
 
   useEffect(() => {
     const area = rootRef.current?.parentElement
-    if (!area) return undefined
+
+    if (!area) {
+      return undefined
+    }
+
     const carrying = (event: DragEvent) => event.dataTransfer?.types.includes(insertMime) ?? false
+
     const relative = (rect: Box): Box => {
       const box = area.getBoundingClientRect()
+
       return { ...rect, x: rect.x - box.left, y: rect.y - box.top }
     }
+
     const pointOf = (event: DragEvent): Point => ({ x: event.clientX, y: event.clientY })
     // A drag goes on sending dragover while it's over the canvas, even with the pointer still; a drag called off can
     // end without a dragleave, so what's shown goes once they stop.
     let idle: ReturnType<typeof setTimeout> | undefined
     // The layout under the pointer, measured once while the drag stays over it.
     const measures = new HereMeasures()
+
     const show = (indicator: Indicator | undefined) => {
       clearTimeout(idle)
       setShown(indicator)
-      if (!indicator) measures.clear()
-      else {
+
+      if (!indicator) {
+        measures.clear()
+      } else {
         idle = setTimeout(() => {
           setShown(undefined)
           measures.clear()
         }, 1000)
       }
     }
+
     // In Interact a design takes what's dropped on it, as a file field in it would.
     const toDesign = (event: DragEvent) =>
       session.selection.getTool() === "interact" &&
       event.composedPath().some((target) => target instanceof HTMLElement && target.hasAttribute("data-frame"))
+
     const fileIndicator = (drop: FileDrop, types: string[], point: Point): Indicator => {
       const count = types.filter(mayBeImage).length
       const hint = { text: dropHint(count, drop.kind), at: relative({ ...point, w: 0, h: 0 }) }
-      if (count === 0 || drop.kind === "none") return { hint }
-      if (drop.kind === "canvas") return { hint, corner: { at: hint.at, color: kindColors.layer } }
+
+      if (count === 0 || drop.kind === "none") {
+        return { hint }
+      }
+
+      if (drop.kind === "canvas") {
+        return { hint, corner: { at: hint.at, color: kindColors.layer } }
+      }
+
       const { box } = drop.here
+
       return {
         hint,
         outline: relative({ x: box.left, y: box.top, w: box.right - box.left, h: box.bottom - box.top }),
@@ -80,33 +100,55 @@ export function CanvasDrop() {
       if (carriesFiles(event)) {
         // tldraw, below, would otherwise add the files as pictures of its own.
         event.stopPropagation()
+
         if (toDesign(event)) {
           show(undefined)
+
           // Unless the design or a file field in it takes it, a file dropped there doesn't open in the window either.
           if (!event.defaultPrevented && !overFileField(event)) {
             event.preventDefault()
-            if (event.dataTransfer) event.dataTransfer.dropEffect = "none"
+
+            if (event.dataTransfer) {
+              event.dataTransfer.dropEffect = "none"
+            }
           }
+
           return
         }
+
         event.preventDefault()
-        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy"
+
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = "copy"
+        }
+
         const point = pointOf(event)
         show(fileIndicator(fileDropAt(session, area, point), draggedTypes(event), point))
+
         return
       }
-      if (!carrying(event)) return
+
+      if (!carrying(event)) {
+        return
+      }
+
       event.preventDefault()
       const point = pointOf(event)
       const target = dropTarget(session, area, point, measures)
       // Over no layout, the empty canvas takes it as a new frame there.
       const canvas = !target && !!emptyCanvasAt(session, area, point)
-      if (event.dataTransfer) event.dataTransfer.dropEffect = target || canvas ? "copy" : "none"
+
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = target || canvas ? "copy" : "none"
+      }
+
       // The layout it goes into, and the slot, or the corner where it goes in an absolutely placed layout or where the
       // new frame starts.
       const at = relative({ ...point, w: 0, h: 0 })
-      if (canvas) show({ corner: { at, color: kindColors.layer } })
-      else {
+
+      if (canvas) {
+        show({ corner: { at, color: kindColors.layer } })
+      } else {
         show(
           target && {
             outline: relative(target.box),
@@ -115,38 +157,61 @@ export function CanvasDrop() {
         )
       }
     }
+
     const onDragLeave = (event: DragEvent) => {
-      if (!area.contains(event.relatedTarget as Node | null)) show(undefined)
+      if (!area.contains(event.relatedTarget as Node | null)) {
+        show(undefined)
+      }
     }
+
     const onDrop = (event: DragEvent) => {
       if (carriesFiles(event)) {
         event.stopPropagation()
         show(undefined)
+
         if (toDesign(event)) {
-          if (!event.defaultPrevented && !overFileField(event)) event.preventDefault()
+          if (!event.defaultPrevented && !overFileField(event)) {
+            event.preventDefault()
+          }
+
           return
         }
+
         event.preventDefault()
         const point = pointOf(event)
         void dropFiles(session, fileDropAt(session, area, point), [...(event.dataTransfer?.files ?? [])])
+
         return
       }
-      if (!carrying(event)) return
+
+      if (!carrying(event)) {
+        return
+      }
+
       event.preventDefault()
       show(undefined)
       const point = pointOf(event)
       const target = dropTarget(session, area, point)
       const canvas = target ? undefined : emptyCanvasAt(session, area, point)
       const item = readInsertItem(event.dataTransfer!.getData(insertMime))
-      if (!item) return
-      if (target) insertDrag.dropped(insertItem(session, target, item) && target.entry.key)
-      else if (canvas) insertDrag.dropped(addFrameOfItem(session, item, canvas))
-      else toast.info("There's no layout here to drop into")
+
+      if (!item) {
+        return
+      }
+
+      if (target) {
+        insertDrag.dropped(insertItem(session, target, item) && target.entry.key)
+      } else if (canvas) {
+        insertDrag.dropped(addFrameOfItem(session, item, canvas))
+      } else {
+        toast.info("There's no layout here to drop into")
+      }
     }
 
     area.addEventListener("dragover", onDragOver)
     area.addEventListener("dragleave", onDragLeave)
     area.addEventListener("drop", onDrop)
+
     return () => {
       clearTimeout(idle)
       area.removeEventListener("dragover", onDragOver)
@@ -156,6 +221,7 @@ export function CanvasDrop() {
   }, [session])
 
   const { line, outline, corner, hint } = shown ?? {}
+
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[350] overflow-hidden">
       {outline && (

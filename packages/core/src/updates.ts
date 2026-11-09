@@ -19,23 +19,41 @@ export type UpdateEvent =
 /** Late progress and duplicate checks cannot replace a ready update or change its release channel. */
 export function updateState(state: UpdateState, event: UpdateEvent): UpdateState {
   const { beta } = state
-  if (state.phase === "disabled") return state
+
+  if (state.phase === "disabled") {
+    return state
+  }
+
   switch (event.type) {
     case "check":
-      if (["checking", "downloading", "ready", "installing"].includes(state.phase)) return state
+      if (["checking", "downloading", "ready", "installing"].includes(state.phase)) {
+        return state
+      }
+
       return { beta, phase: "checking" }
     case "current":
       return state.phase === "checking" ? { beta, phase: "current" } : state
     case "available":
-      if (state.phase !== "checking") return state
-      if (event.manual) return { beta, phase: "manual", version: event.version }
+      if (state.phase !== "checking") {
+        return state
+      }
+
+      if (event.manual) {
+        return { beta, phase: "manual", version: event.version }
+      }
+
       return { beta, phase: "downloading", version: event.version, percent: 0, transferred: 0, total: 0 }
     case "progress": {
-      if (state.phase !== "downloading") return state
+      if (state.phase !== "downloading") {
+        return state
+      }
+
       const total = Number.isFinite(event.total) ? Math.max(0, event.total) : 0
       const transferred = Number.isFinite(event.transferred) ? Math.max(0, event.transferred) : 0
+
       return { ...state, total, transferred, percent: total > 0 ? Math.min(100, (transferred / total) * 100) : 0 }
     }
+
     case "downloaded":
       return state.phase === "downloading" ? { beta, phase: "ready", version: state.version } : state
     case "install":
@@ -43,7 +61,10 @@ export function updateState(state: UpdateState, event: UpdateEvent): UpdateState
     case "error":
       return { beta, phase: "error", message: event.message }
     case "beta":
-      if (["checking", "downloading", "installing"].includes(state.phase) || beta === event.beta) return state
+      if (["checking", "downloading", "installing"].includes(state.phase) || beta === event.beta) {
+        return state
+      }
+
       return { beta: event.beta, phase: "idle" }
   }
 }

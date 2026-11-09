@@ -31,6 +31,7 @@ export interface LabelRoom {
 
 /** The smallest a name gets, as a share of its screen size. */
 const smallestName = 0.6
+
 /** Detail has faded out by this zoom, from `shrinkBelow`. */
 const detailGone = 0.25
 
@@ -55,8 +56,13 @@ export const smallestLabelled = 24
 export function labelLook(kind: LabelKind, zoom: number, room: LabelRoom = {}): LabelLook {
   const shrunk = Math.min(1, zoom / shrinkBelow)
   const roomy = [room.width, room.height].every((side) => side === undefined || side * zoom >= smallestLabelled)
-  if (kind === "name") return { scale: Math.max(smallestName, shrunk), opacity: roomy ? 1 : 0 }
+
+  if (kind === "name") {
+    return { scale: Math.max(smallestName, shrunk), opacity: roomy ? 1 : 0 }
+  }
+
   const faded = Math.min(1, Math.max(0, (zoom - detailGone) / (shrinkBelow - detailGone)))
+
   return { scale: shrunk, opacity: roomy ? faded : 0 }
 }
 
@@ -72,5 +78,6 @@ export function labelLook(kind: LabelKind, zoom: number, room: LabelRoom = {}): 
  */
 export function stateLabelSpace(height: number, captioned: boolean): number {
   const { caption, rowDivider } = boardLayoutAt(shrinkBelow)
+
   return (captioned ? caption : 0) + height + rowDivider.before + rowDivider.line + rowDivider.after
 }

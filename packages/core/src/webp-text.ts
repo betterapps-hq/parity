@@ -12,25 +12,37 @@ const textType = "TEXT"
 export function withWebpText(webp: Uint8Array, keyword: string, text: string): Uint8Array {
   const found = [...chunks(webp)]
   const image = found.find((chunk) => chunk.type === "VP8L" || chunk.type === "VP8 ")
-  if (!isWebp(webp) || !image) return webp
+
+  if (!isWebp(webp) || !image) {
+    return webp
+  }
+
   const extended = found.find((chunk) => chunk.type === "VP8X")
+
   const parts: Uint8Array[] = [
     extended ? webp.subarray(extended.start, extended.end) : extendedHeader(webp, found, image)
   ]
+
   for (const chunk of found) {
-    if (chunk === extended || textOf(webp, chunk, keyword) !== undefined) continue
+    if (chunk === extended || textOf(webp, chunk, keyword) !== undefined) {
+      continue
+    }
+
     parts.push(webp.subarray(chunk.start, chunk.end))
   }
+
   parts.push(chunk(textType, new TextEncoder().encode(`${keyword}\0${text}`)))
   const body = parts.reduce((total, part) => total + part.length, 0)
   const result = new Uint8Array(12 + body)
   result.set(webp.subarray(0, 12))
   new DataView(result.buffer).setUint32(4, 4 + body, true)
   let at = 12
+
   for (const part of parts) {
     result.set(part, at)
     at += part.length
   }
+
   return result
 }
 
@@ -38,8 +50,12 @@ export function withWebpText(webp: Uint8Array, keyword: string, text: string): U
 export function webpText(webp: Uint8Array, keyword: string): string | undefined {
   for (const found of chunks(webp)) {
     const text = textOf(webp, found, keyword)
-    if (text !== undefined) return text
+
+    if (text !== undefined) {
+      return text
+    }
   }
+
   return undefined
 }
 
@@ -48,15 +64,27 @@ export function webpText(webp: Uint8Array, keyword: string): string | undefined 
  * when it isn't a WebP. The first 30 bytes of the file are enough.
  */
 export function webpSize(webp: Uint8Array): { width: number; height: number } | undefined {
-  if (!isWebp(webp) || webp.length < 30) return undefined
+  if (!isWebp(webp) || webp.length < 30) {
+    return undefined
+  }
+
   const view = new DataView(webp.buffer, webp.byteOffset, webp.byteLength)
   const type = ascii(webp, 12, 16)
-  if (type === "VP8X") return { width: readUint24(webp, 24) + 1, height: readUint24(webp, 27) + 1 }
+
+  if (type === "VP8X") {
+    return { width: readUint24(webp, 24) + 1, height: readUint24(webp, 27) + 1 }
+  }
+
   if (type === "VP8L") {
     const bits = view.getUint32(21, true)
+
     return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 }
   }
-  if (type === "VP8 ") return { width: view.getUint16(26, true) & 0x3fff, height: view.getUint16(28, true) & 0x3fff }
+
+  if (type === "VP8 ") {
+    return { width: view.getUint16(26, true) & 0x3fff, height: view.getUint16(28, true) & 0x3fff }
+  }
+
   return undefined
 }
 
@@ -73,24 +101,39 @@ interface Chunk {
 }
 
 function* chunks(webp: Uint8Array): Generator<Chunk> {
-  if (!isWebp(webp)) return
+  if (!isWebp(webp)) {
+    return
+  }
+
   const view = new DataView(webp.buffer, webp.byteOffset, webp.byteLength)
   let at = 12
+
   while (at + 8 <= webp.length) {
     const size = view.getUint32(at + 4, true)
     const end = at + 8 + size + (size % 2)
-    if (at + 8 + size > webp.length) return
+
+    if (at + 8 + size > webp.length) {
+      return
+    }
+
     yield { type: ascii(webp, at, at + 4), start: at, end: Math.min(end, webp.length) }
     at = end
   }
 }
 
 function textOf(webp: Uint8Array, found: Chunk, keyword: string): string | undefined {
-  if (found.type !== textType) return undefined
+  if (found.type !== textType) {
+    return undefined
+  }
+
   const size = new DataView(webp.buffer, webp.byteOffset, webp.byteLength).getUint32(found.start + 4, true)
   const data = webp.subarray(found.start + 8, found.start + 8 + size)
   const separator = data.indexOf(0)
-  if (separator === -1 || new TextDecoder().decode(data.subarray(0, separator)) !== keyword) return undefined
+
+  if (separator === -1 || new TextDecoder().decode(data.subarray(0, separator)) !== keyword) {
+    return undefined
+  }
+
   return new TextDecoder().decode(data.subarray(separator + 1))
 }
 
@@ -104,6 +147,7 @@ function extendedHeader(webp: Uint8Array, found: Chunk[], image: Chunk): Uint8Ar
   let width: number
   let height: number
   let alpha: boolean
+
   if (image.type === "VP8L") {
     // A signature byte, then the width and height less one in 14 bits each and the alpha bit, little-endian.
     const bits = view.getUint32(1, true)
@@ -116,10 +160,12 @@ function extendedHeader(webp: Uint8Array, found: Chunk[], image: Chunk): Uint8Ar
     height = view.getUint16(8, true) & 0x3fff
     alpha = found.some((chunk) => chunk.type === "ALPH")
   }
+
   const header = new Uint8Array(10)
   header[0] = alpha ? 0x10 : 0
   header.set(uint24(width - 1), 4)
   header.set(uint24(height - 1), 7)
+
   return chunk("VP8X", header)
 }
 
@@ -128,6 +174,7 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
   result.set(new TextEncoder().encode(type))
   new DataView(result.buffer).setUint32(4, data.length, true)
   result.set(data, 8)
+
   return result
 }
 

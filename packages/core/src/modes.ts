@@ -57,8 +57,10 @@ export const modeSettings = fileObject({
     for (const [variableId, optionId] of Object.entries(mode.values)) {
       const path = ["modes", index, "values", variableId]
       const variable = settings.variables.find((candidate) => candidate.id === variableId)
-      if (!variable) context.addIssue({ code: "custom", message: "unknown variable", path, input: variableId })
-      else if (!variable.options.some((option) => option.id === optionId)) {
+
+      if (!variable) {
+        context.addIssue({ code: "custom", message: "unknown variable", path, input: variableId })
+      } else if (!variable.options.some((option) => option.id === optionId)) {
         const message = `"${optionId}" is not an option of ${variable.name}`
         context.addIssue({ code: "custom", message, path, input: optionId })
       }
@@ -129,7 +131,9 @@ export function resolveMode(settings: ModeSettings, mode: ModeSpec): ResolvedMod
     variable,
     option: variable.options.find((option) => option.id === mode.values[variable.id]) ?? variable.options[0]!
   }))
+
   const viewport = options.find(({ variable }) => variable.kind === "viewport")?.option
+
   return {
     id: mode.id,
     name: mode.name,
@@ -158,10 +162,15 @@ export function shownModes(
   design: Pick<ContainerSpec, "kind" | "view">
 ): { main: ResolvedMode; beside: ResolvedMode[]; all: ResolvedMode[] } {
   const all = resolveModes(settings)
-  if (design.kind === "frame") return { main: all[0]!, beside: [], all }
+
+  if (design.kind === "frame") {
+    return { main: all[0]!, beside: [], all }
+  }
+
   const { view } = design
   const main = all.find((mode) => mode.id === view?.mode) ?? all[0]!
   const beside = new Set(view?.modes ?? [])
+
   return { main, beside: all.filter((mode) => mode !== main && beside.has(mode.id)), all }
 }
 
@@ -179,10 +188,15 @@ export type Appearance = "light" | "dark"
  */
 export function modeAppearance(mode: Pick<ResolvedMode, "options">): Appearance | undefined {
   const themes = mode.options.filter(({ variable }) => variable.kind === "theme")
-  if (themes.length === 0) return undefined
+
+  if (themes.length === 0) {
+    return undefined
+  }
+
   const dark = themes.some(({ option }) =>
     [option.id, option.name, option.className ?? ""].some((word) => /\bdark\b/i.test(word))
   )
+
   return dark ? "dark" : "light"
 }
 
@@ -194,15 +208,25 @@ export function modeAppearance(mode: Pick<ResolvedMode, "options">): Appearance 
  */
 export function previewMode(modes: readonly ResolvedMode[], appearance: Appearance): ResolvedMode | undefined {
   const primary = modes[0]
-  if (!primary) return undefined
+
+  if (!primary) {
+    return undefined
+  }
+
   const theirs = modeAppearance(primary)
-  if (theirs === undefined || theirs === appearance) return primary
+
+  if (theirs === undefined || theirs === appearance) {
+    return primary
+  }
+
   const matching = modes.filter((mode) => modeAppearance(mode) === appearance)
+
   const others = (mode: ResolvedMode) =>
     mode.options
       .filter(({ variable }) => variable.kind !== "theme")
       .map(({ variable, option }) => `${variable.id}=${option.id}`)
       .join("&")
+
   return (
     matching.find((mode) => others(mode) === others(primary)) ??
     matching.find((mode) => mode.viewport === primary.viewport) ??
@@ -218,9 +242,14 @@ export function uniqueId(name: string, taken: Iterable<string>): string {
       .toLowerCase()
       .replaceAll(/[^a-z0-9]+/g, "-")
       .replaceAll(/^-|-$/g, "") || "mode"
+
   const used = new Set(taken)
   let id = base
-  for (let index = 2; used.has(id); index++) id = `${base}-${index}`
+
+  for (let index = 2; used.has(id); index++) {
+    id = `${base}-${index}`
+  }
+
   return id
 }
 

@@ -14,9 +14,11 @@ import {
 function tab(root: string, active = false): RoutedTab {
   return { id: root, name: root.split(/[\\/]/).at(-1)!, root, active }
 }
+
 function entry(app: number, startedAt: number): CopyEntry {
   return { version: 1, url: `http://127.0.0.1:${4000 + app}`, token: `token-${app}`, app, startedAt }
 }
+
 function copy(app: number, startedAt: number, tabs: RoutedTab[], focusedAt?: number): Copy {
   return { entry: entry(app, startedAt), report: { tabs, ...(focusedAt === undefined ? {} : { focusedAt }) } }
 }
@@ -30,6 +32,7 @@ const anywhere = "/home/person"
 
 function goes(copies: Copy[], request: Parameters<typeof route>[1]) {
   const result = route(copies, request)
+
   return result.kind === "copy" ? { app: result.copy.entry.app, tab: result.tab?.id } : result.code
 }
 

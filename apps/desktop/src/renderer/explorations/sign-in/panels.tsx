@@ -93,6 +93,7 @@ function Heading({ dialog, className, children }: { dialog?: boolean; className:
 
 function Description({ dialog, children }: { dialog?: boolean; children: ReactNode }) {
   const className = "text-sm text-pretty text-muted-foreground"
+
   return dialog ? (
     <DialogDescription className={className}>{children}</DialogDescription>
   ) : (
@@ -121,8 +122,14 @@ export function SignInPanel({ dialog, onContinue }: { dialog?: boolean; onContin
 
 /** Where the browser was sent: a provider, AuthKit for a work email, or the organization's single sign-on. */
 function opened(via: string): string {
-  if (via === "work email") return "We opened your browser to sign you in."
-  if (via === "single sign-on") return "We opened your organization's single sign-on in your browser."
+  if (via === "work email") {
+    return "We opened your browser to sign you in."
+  }
+
+  if (via === "single sign-on") {
+    return "We opened your organization's single sign-on in your browser."
+  }
+
   return `We opened ${via} in your browser to sign you in.`
 }
 
@@ -262,6 +269,7 @@ export function ProblemPanel({
       Choose another way
     </Button>
   )
+
   const content: Record<
     Problem,
     { badge: { icon: ReactNode; color: string }; title: string; text: ReactNode; actions: ReactNode }
@@ -318,8 +326,10 @@ export function ProblemPanel({
       )
     }
   }
+
   const shown = content[problem]
   const said = details[problem]
+
   return (
     <div className="flex flex-col items-center gap-8">
       <MarkRing badge={shown.badge} />

@@ -26,6 +26,7 @@ function caught(run: () => unknown): unknown {
   } catch (error) {
     return error
   }
+
   return undefined
 }
 
@@ -97,8 +98,10 @@ describe("editing another state", () => {
 
 describe("clearing a prop, as the inspector does", () => {
   const disabled: ContainerSpec = editNode(design, "default", "submit", { props: { disabled: true } })
+
   const shown = (container: ContainerSpec) => {
     const node = nodeInState(findNode(container.root, "submit")!, container.states[1])
+
     return node.type === "component" ? { props: node.props } : {}
   }
 
@@ -172,16 +175,19 @@ describe("states", () => {
 
   it("gives a frame no second state and no variants, with a code an agent can act on", () => {
     const frame: ContainerSpec = { ...design, kind: "frame", name: "Sketch", states: [design.states[0]!] }
+
     const refusals = [
       () => addState(frame, "Error"),
       () => duplicateState(frame, "default"),
       () => addVariant(frame, "size", ["Small", "Large"])
     ]
+
     for (const refuse of refusals) {
       expect(refuse).toThrow(CodedError)
       expect(refuse).toThrow(/^Sketch is a frame, which has/)
       expect(errorDetails(caught(refuse))).toEqual({ code: "invalid_input", field: "design", retryable: false })
     }
+
     // Editing its one state still changes its layers.
     expect(findNode(editNode(frame, "default", "title", { text: "Idea" }).root, "title")).toMatchObject({
       text: "Idea"

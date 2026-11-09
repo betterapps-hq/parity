@@ -61,7 +61,10 @@ export function inspecting(rightTab: string, prepare?: () => Selection | void): 
   return async () => {
     await openInspector(rightTab)
     const selection = prepare?.()
-    if (selection) example().selection.set(selection)
+
+    if (selection) {
+      example().selection.set(selection)
+    }
   }
 }
 
@@ -74,28 +77,41 @@ function useSelectedLayer() {
   const components = useComponents(session.components)
   const nodeId = selected.node
   const location = entry && nodeId ? locateNode(entry.container.root, nodeId) : undefined
-  if (!entry || !nodeId || !location) return undefined
+
+  if (!entry || !nodeId || !location) {
+    return undefined
+  }
+
   const { container, key } = entry
   const state = editingState(container, selected.state)
   const target = boardTarget(container, state.id)
   const override = targetPatches(container, target)?.[nodeId]
+
   const change = (label: string, value: NodeChange, gesture?: string) =>
     store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
       gesture
     })
+
   const reset = (field: PatchField) =>
     store.updateContainer(key, "Reset change", (current) =>
       resetOverride(current, boardTarget(current, state.id), nodeId, field)
     )
+
   const node = boardReader(container, { state })(location.node)
+
   return { entry, nodeId, node, components, override, change, reset }
 }
 
 /** The selected component layer's props section, as the layer panel shows it. */
 export function SelectedProps() {
   const layer = useSelectedLayer()
-  if (layer?.node.type !== "component") return null
+
+  if (layer?.node.type !== "component") {
+    return null
+  }
+
   const { node, components, override, change, reset } = layer
+
   return (
     <PropsSection
       node={node}
@@ -110,12 +126,17 @@ export function SelectedProps() {
 /** The selected layer's style sections, as the layer panel shows them, edited in the state and variant shown. */
 export function SelectedStyles() {
   const layer = useSelectedLayer()
-  if (!layer) return null
+
+  if (!layer) {
+    return null
+  }
+
   return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} node={layer.node} />
 }
 
 function LayerStyles({ entry, nodeId, node }: { entry: ContainerEntry; nodeId: string; node: DesignNode }) {
   const editor = useStyleEditor(entry, [nodeId])
+
   return editor ? <StyleSections editor={editor} node={node} /> : null
 }
 

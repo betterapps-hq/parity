@@ -28,7 +28,11 @@ export interface LayersRow {
  */
 export function rowSelection(current: Selection, row: LayersRow): Selection {
   const layers = current.design === row.design ? selectedNodes(current) : []
-  if (row.node) return layers.includes(row.node) ? current : { design: row.design, node: row.node }
+
+  if (row.node) {
+    return layers.includes(row.node) ? current : { design: row.design, node: row.node }
+  }
+
   return layers.length === 0 && selectedDesigns(current).includes(row.design) ? current : { design: row.design }
 }
 
@@ -42,16 +46,22 @@ export function rowSelection(current: Selection, row: LayersRow): Selection {
  */
 export function layersMenu(row: LayersRow, selection: Selection, entries: readonly ContainerEntry[]): MenuEntry[] {
   const entry = entries.find((candidate) => candidate.key === row.design)
-  if (!entry || selection.design !== row.design) return []
+
+  if (!entry || selection.design !== row.design) {
+    return []
+  }
+
   const { container } = entry
   const layers = selectedNodes(selection).length > 0
   const can = layerCommands(selection, container.root)
   const own = ownLayers(selection, container.root).map((node) => node.id)
   const state = editingState(container, selection.state)
   const hidden = own.length > 0 && hiddenOnBoard(container, state.id, own)
+
   const locked = layers
     ? layersLocked(container, own)
     : designsLocked(selectedDesigns(selection).flatMap((key) => entries.find((e) => e.key === key)?.container ?? []))
+
   return sections([
     [item("rename", !row.node || !isInnerPath(row.node)), item("duplicate", layers ? can.duplicate : true)],
     [

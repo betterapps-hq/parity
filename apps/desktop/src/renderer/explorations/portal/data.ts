@@ -27,9 +27,14 @@ export function portalProject(id: string): StartProject {
   const here = workingNow.find((where) => where.project === id && !where.away)
   const shown = { ...project(id), open: false, live: here && { who: here.who, doing: here.doing } }
   const names = renamed[id]
-  if (!names) return shown
+
+  if (!names) {
+    return shown
+  }
+
   const first = shown.designs.filter((design) => design.name === names.first)
   const designs = [...first, ...shown.designs.filter((design) => !first.includes(design))]
+
   return {
     ...shown,
     name: names.name,
@@ -46,6 +51,7 @@ export function designOf(shown: StartProject, name: string): Design {
 
 /** Priya added Noah to the Web team yesterday, and Noah is waiting on an editor seat. */
 export const noah = { name: "Noah Park", hue: 210 }
+
 /** A guest from the agency Kestrel works with, invited to one project. */
 export const ivy = { name: "Ivy Lopez", hue: 20 }
 

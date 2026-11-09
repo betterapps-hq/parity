@@ -121,8 +121,10 @@ export function ModeView({
   // shortcut as well. An Escape the design has no use for steps out of it, so the next one reaches the canvas.
   useEffect(() => {
     const host = hostRef.current!
+
     const stop = (event: Event) => {
       event.stopPropagation()
+
       if (
         event instanceof KeyboardEvent &&
         event.type === "keydown" &&
@@ -130,19 +132,31 @@ export function ModeView({
         !event.defaultPrevented
       ) {
         const focused = host.shadowRoot?.activeElement
-        if (focused instanceof HTMLElement) focused.blur()
+
+        if (focused instanceof HTMLElement) {
+          focused.blur()
+        }
       }
     }
-    for (const type of designEvents) host.addEventListener(type, stop)
+
+    for (const type of designEvents) {
+      host.addEventListener(type, stop)
+    }
+
     return () => {
-      for (const type of designEvents) host.removeEventListener(type, stop)
+      for (const type of designEvents) {
+        host.removeEventListener(type, stop)
+      }
     }
   }, [])
 
   // A frame that stops taking keys lets go of focus at once, rather than whenever the browser gets round to it.
   useEffect(() => {
     const focused = hostRef.current!.shadowRoot?.activeElement
-    if (!interactive && focused instanceof HTMLElement) focused.blur()
+
+    if (!interactive && focused instanceof HTMLElement) {
+      focused.blur()
+    }
   }, [interactive])
 
   // A resized frame keeps its components and their state, as a resized browser window does. This comes before the frame
@@ -157,26 +171,35 @@ export function ModeView({
   // The frame is rebuilt when its environment changes, and after interacting, which leaves components in states the
   // design doesn't have; a changed design updates in place, keeping component state. Asleep, it's taken apart.
   useEffect(() => {
-    if (asleep) return undefined
+    if (asleep) {
+      return undefined
+    }
+
     const [classNames, attributes, globals] = JSON.parse(environmentKey) as [
       string[],
       Record<string, string>,
       Record<string, string>
     ]
+
     const viewport = viewportRef.current
     const host = hostRef.current!
+
     const target = prepareFrame(host, loaded.sheet, {
       classNames,
       attributes: frameAttributes({ classNames, attributes }, loaded.themeAttributes),
       viewport
     })
+
     const handle = loaded.guest.mount(target, [], {
       globals,
       viewport,
       // A component's boundary draws its own error in its place, and the layer is marked, so only an error that stopped
       // the frame drawing is shown over it.
       onError: (reason, layer) => {
-        if (layer) return
+        if (layer) {
+          return
+        }
+
         setError({ key: currentKey.current, message: reason instanceof Error ? reason.message : String(reason) })
       },
       onFailures: (failures) => {
@@ -190,6 +213,7 @@ export function ModeView({
         )
       }
     })
+
     handleRef.current = handle
     let undraw: (() => void) | undefined
     const waiting = onDrawnRef.current ? whenDrawn(target, () => (undraw = onDrawnRef.current?.(target))) : undefined
@@ -199,13 +223,18 @@ export function ModeView({
     // draws as it mounts, just after this, so by the next animation frame it has its own height.
     const outer = frameRef.current!
     const held = requestAnimationFrame(() => outer.style.removeProperty("min-height"))
+
     return () => {
       cancelAnimationFrame(held)
       waiting?.()
       undraw?.()
+
       // In a tab that isn't showing, nothing is laid out: the frame keeps the height it last had when drawn (see the
       // `contain-intrinsic-size` rule on `[data-frame]`), rather than holding none.
-      if (outer.getClientRects().length > 0) outer.style.minHeight = `${outer.offsetHeight}px`
+      if (outer.getClientRects().length > 0) {
+        outer.style.minHeight = `${outer.offsetHeight}px`
+      }
+
       handleRef.current = undefined
       setDrawnNodes(host, undefined)
       host.shadowRoot?.replaceChildren()

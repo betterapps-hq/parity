@@ -57,6 +57,7 @@ function session() {
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }
   )
+
   return { store, selection: new SelectionStore(), unit: 4 }
 }
 
@@ -76,10 +77,12 @@ describe("nudging what's selected", () => {
     const { store, selection } = nudging
     selection.set({ design: "app.par#card", node: "badge" })
     const top = () => topPixels(store)
+
     for (let press = 0; press < 5; press++) {
       nudgeSelection(nudging, "down", false)
       vi.advanceTimersByTime(press % 2 === 0 ? 30 : 4000)
     }
+
     nudgeSelection(nudging, "down", true)
     expect(top()).toBe(23)
     store.undo()

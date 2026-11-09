@@ -29,6 +29,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const here: Here[] = [
@@ -94,9 +95,18 @@ export const PersonCards: Story = {
 }
 
 const selections: Marker = (id, element) => {
-  if (id === "plan-team") return <SelectionOutline people={[people.maya]}>{element}</SelectionOutline>
-  if (id === "toggle") return <SelectionOutline people={[people.jonas, people.priya]}>{element}</SelectionOutline>
-  if (id === "h1") return <SelectionOutline people={[people.claude]}>{element}</SelectionOutline>
+  if (id === "plan-team") {
+    return <SelectionOutline people={[people.maya]}>{element}</SelectionOutline>
+  }
+
+  if (id === "toggle") {
+    return <SelectionOutline people={[people.jonas, people.priya]}>{element}</SelectionOutline>
+  }
+
+  if (id === "h1") {
+    return <SelectionOutline people={[people.claude]}>{element}</SelectionOutline>
+  }
+
   return element
 }
 

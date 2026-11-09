@@ -196,6 +196,7 @@ const firstNames = [
   "Yusuf",
   "Zara"
 ]
+
 const lastNames = [
   "Abbott",
   "Adams",

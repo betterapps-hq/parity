@@ -45,8 +45,14 @@ export type Kind = "frame" | "component" | "screen"
 export const frameColor = kindColors.layer
 
 export function kindColor(kind: Kind): string {
-  if (kind === "component") return kindColors.component
-  if (kind === "screen") return kindColors.screen
+  if (kind === "component") {
+    return kindColors.component
+  }
+
+  if (kind === "screen") {
+    return kindColors.screen
+  }
+
   return frameColor
 }
 
@@ -55,8 +61,14 @@ export function kindColor(kind: Kind): string {
  * here as a stand-in for the icon PAR-538 picks.
  */
 export function KindIcon({ kind, ...props }: LucideProps & { kind: Kind }) {
-  if (kind === "component") return <Component {...props} />
-  if (kind === "screen") return <AppWindow {...props} />
+  if (kind === "component") {
+    return <Component {...props} />
+  }
+
+  if (kind === "screen") {
+    return <AppWindow {...props} />
+  }
+
   return <Frame {...props} />
 }
 
@@ -73,6 +85,7 @@ export interface DesignActions {
 /** The menu on a design's title: Rename and Duplicate, Convert to each other kind, and Delete. */
 function TitleMenu({ kind, actions, children }: { kind: Kind; actions: DesignActions; children: ReactElement }) {
   const others = (["component", "screen", "frame"] as const).filter((each) => each !== kind)
+
   return (
     <ContextMenu>
       <ContextMenuTrigger render={children} />
@@ -107,8 +120,12 @@ function useFitStep(steps: number) {
   const [step, setStep] = useState(0)
   useLayoutEffect(() => {
     const box = ref.current
-    if (box && step < steps - 1 && box.scrollWidth > box.clientWidth + 0.5) setStep(step + 1)
+
+    if (box && step < steps - 1 && box.scrollWidth > box.clientWidth + 0.5) {
+      setStep(step + 1)
+    }
   }, [step, steps])
+
   return { ref, step }
 }
 
@@ -132,6 +149,7 @@ function TitleBar({
   const { ref, step } = useFitStep(controls ? 2 : 1)
   // Zoomed out past 40%, it shrinks with the canvas, as every name does, down to 60%.
   const { scale } = labelLook("name", zoom)
+
   return (
     <div className="absolute bottom-full left-0 pb-2" style={{ zoom: scale, width: width / scale }}>
       <div ref={ref} className="flex h-8 w-full items-center gap-3 whitespace-nowrap">
@@ -189,6 +207,7 @@ function DesignName({
   onRenamed
 }: TitleProps & { kind: Kind; name: string; quiet?: boolean }) {
   const color = kindColor(kind)
+
   const icon = (
     <KindIcon
       kind={kind}
@@ -196,9 +215,11 @@ function DesignName({
       style={{ color: quiet && !selected ? undefined : color }}
     />
   )
+
   const look = `flex shrink-0 items-center gap-1.5 rounded-md px-1 py-0.5 ${
     quiet ? "text-[13px] text-muted-foreground" : "text-sm font-medium text-foreground/90"
   }`
+
   if (renaming) {
     return (
       <span className={look}>
@@ -214,13 +235,20 @@ function DesignName({
           onBlur={(event) => onRenamed?.(event.currentTarget.value.trim() || undefined)}
           onKeyDown={(event) => {
             event.stopPropagation()
-            if (event.key === "Enter") event.currentTarget.blur()
-            if (event.key === "Escape") onRenamed?.(undefined)
+
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
+
+            if (event.key === "Escape") {
+              onRenamed?.(undefined)
+            }
           }}
         />
       </span>
     )
   }
+
   return (
     <TitleMenu kind={kind} actions={actions}>
       <button
@@ -270,6 +298,7 @@ export function Board({
   const [hovered, setHovered] = useState(false)
   const [main, ...beside] = previews
   const gutter = gutterAt(zoom)
+
   // The board's width on screen, which the title bar's menus have to fit in.
   const onScreen = Math.round(
     previews.reduce((sum, preview, index) => sum + preview.width * (index ? companionScale(preview.width) : 1), 0) *
@@ -277,6 +306,7 @@ export function Board({
       gutter.side * 2 +
       beside.length * gutter.between
   )
+
   return (
     <div className="relative w-max" onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}>
       <TitleBar
@@ -336,6 +366,7 @@ export function Board({
  */
 function gutterAt(zoom: number) {
   const s = labelLook("detail", zoom).scale
+
   return { side: 12 * s, caption: 36 * s, between: 24 * s }
 }
 
@@ -360,6 +391,7 @@ function PreviewTile({
   const room = Math.round(preview.width * scale * zoom + (last ? gutter.side : 0))
   // The first preview starts at the gutter, the divider sits halfway to the next, and the rest follow at the gap.
   let spacing: CSSProperties | undefined
+
   if (divider) {
     spacing = {
       marginLeft: gutter.between / 2,
@@ -367,7 +399,10 @@ function PreviewTile({
       borderLeftStyle: "dashed",
       paddingLeft: gutter.between / 2
     }
-  } else if (!first) spacing = { marginLeft: gutter.between }
+  } else if (!first) {
+    spacing = { marginLeft: gutter.between }
+  }
+
   return (
     <figure className="m-0" style={spacing}>
       <figcaption className="relative" style={{ height: gutter.caption }}>
@@ -390,6 +425,7 @@ function PreviewTile({
 function Caption({ preview, scale }: { preview: Preview; scale: number }) {
   const { ref, step } = useFitStep(5)
   const chip = "shrink-0 rounded bg-muted px-1 text-[11px] leading-4 text-muted-foreground tabular-nums"
+
   return (
     <div
       ref={ref}
@@ -414,6 +450,7 @@ function Caption({ preview, scale }: { preview: Preview; scale: number }) {
 /** What a selected frame shows around it: an outline, a handle at each corner, and its size underneath. */
 function Selection({ size, color = frameColor }: { size: string; color?: string }) {
   const handle = "absolute size-2 rounded-[1px] border bg-white"
+
   return (
     <div className="pointer-events-none absolute inset-0" style={{ outline: `1.5px solid ${color}` }}>
       {(["-top-1 -left-1", "-top-1 -right-1", "-bottom-1 -left-1", "-bottom-1 -right-1"] as const).map((place) => (
@@ -447,6 +484,7 @@ export function CanvasFrame({
   children: ReactNode
 }) {
   const [hovered, setHovered] = useState(false)
+
   return (
     <div className="relative w-max" onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}>
       <div className="absolute bottom-full left-0 pb-1" style={{ zoom: labelLook("name", zoom).scale }}>

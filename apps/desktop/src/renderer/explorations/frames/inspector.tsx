@@ -63,10 +63,15 @@ export function KindHeader({
           className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input dark:bg-transparent"
           onBlur={(event) => {
             const next = event.currentTarget.value.trim()
-            if (next && next !== name) onRename?.(next)
+
+            if (next && next !== name) {
+              onRename?.(next)
+            }
           }}
           onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur()
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
           }}
         />
       </div>
@@ -79,7 +84,10 @@ export function KindHeader({
           aria-label="Kind"
           onValueChange={([value]) => {
             const picked = kinds.find((candidate) => candidate === value)
-            if (picked) onKind?.(picked)
+
+            if (picked) {
+              onKind?.(picked)
+            }
           }}
         >
           {kinds.map((each) => (
@@ -115,6 +123,7 @@ function FrameStyles({ root, onSize }: { root: DesignNode; onSize?: (width?: num
   const session = useProject()
   const tokens = useTokenList(session.tokens)
   const unit = spacingUnit(tokens)
+
   // The frame as a design of its own, so its edits go through the same rows as a layer's.
   const [frame, setFrame] = useState<ContainerSpec>(() => ({
     id: "frame",
@@ -123,7 +132,9 @@ function FrameStyles({ root, onSize }: { root: DesignNode; onSize?: (width?: num
     root,
     states: [{ id: "default", name: "Default" }]
   }))
+
   const selection = styleSelection(frame, [root.id], undefined)!
+
   const editor: StyleEditor = {
     selection,
     reset: (row) => setFrame(selection.reset(row)(frame)),
@@ -133,6 +144,7 @@ function FrameStyles({ root, onSize }: { root: DesignNode; onSize?: (width?: num
       // A fixed width or height resizes the frame on the canvas too.
       const was = frame.root.style ?? {}
       const { width, height } = next.root.style ?? {}
+
       if (width !== was.width || height !== was.height) {
         onSize?.(
           typeof width === "number" ? width * unit : undefined,
@@ -144,6 +156,7 @@ function FrameStyles({ root, onSize }: { root: DesignNode; onSize?: (width?: num
     unit,
     measure: () => undefined
   }
+
   return <StyleSections editor={editor} node={frame.root} />
 }
 
@@ -215,11 +228,13 @@ export interface FrameDrops {
 function countInstances(node: DesignNode, id: string): number {
   const own = node.type === "instance" && node.design === id ? 1 : 0
   const children = node.type === "layout" ? node.children : []
+
   return own + children.reduce((total, child) => total + countInstances(child, id), 0)
 }
 
 export function frameDrops(container: ContainerSpec, entries: readonly ContainerEntry[]): FrameDrops {
   const shown = new Set(container.view?.modes ?? [])
+
   return {
     kept: container.states[0]?.name ?? "Default",
     states: container.states.slice(1).map((state) => state.name),
@@ -227,6 +242,7 @@ export function frameDrops(container: ContainerSpec, entries: readonly Container
     params: Object.keys(container.params ?? {}),
     instances: entries.flatMap(({ container: other }) => {
       const count = other.id === container.id ? 0 : countInstances(other.root, container.id)
+
       return count ? [{ design: other.name, count }] : []
     })
   }
@@ -234,7 +250,10 @@ export function frameDrops(container: ContainerSpec, entries: readonly Container
 
 /** "a", "a and b", "a, b and c". */
 function listed(items: string[]): string {
-  if (items.length < 2) return items.join("")
+  if (items.length < 2) {
+    return items.join("")
+  }
+
   return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`
 }
 
@@ -245,18 +264,25 @@ function plural(count: number, one: string, many = `${one}s`): string {
 /** The lines of what a frame drops, each saying what goes and why it can't stay. */
 export function dropLines(drops: FrameDrops): string[] {
   const lines: string[] = []
-  if (drops.states.length) lines.push(`${plural(drops.states.length, "state")}: ${listed(drops.states)}`)
+
+  if (drops.states.length) {
+    lines.push(`${plural(drops.states.length, "state")}: ${listed(drops.states)}`)
+  }
+
   if (drops.previews.length) {
     lines.push(`${plural(drops.previews.length, "preview")} beside it: ${listed(drops.previews)}`)
   }
+
   if (drops.params.length) {
     const shown = drops.params.slice(0, 3)
     const more = drops.params.length - shown.length
     lines.push(`${plural(drops.params.length, "param")}: ${shown.join(", ")}${more ? ` and ${more} more` : ""}`)
   }
+
   for (const { design, count } of drops.instances) {
     lines.push(`${plural(count, "instance")} in ${design}, which ${count === 1 ? "becomes" : "become"} plain layers`)
   }
+
   return lines
 }
 
@@ -280,6 +306,7 @@ export function BackToAFrameDialog({
   onConfirm?: () => void
 }) {
   const lines = dropLines(drops)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">

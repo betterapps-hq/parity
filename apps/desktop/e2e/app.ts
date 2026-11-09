@@ -97,40 +97,54 @@ export class App {
     // Once one file couldn't connect, the rest fail at once with its reason, rather than each waiting it out: a failed
     // hook skips a file's tests rather than failing them, so `bail` doesn't stop the run.
     const failed = `${log}.connect-failed`
-    if (existsSync(failed))
+
+    if (existsSync(failed)) {
       throw new Error(`An earlier file couldn't connect to Parity: ${readFileSync(failed, "utf8")}`)
+    }
+
     const started = Date.now()
     let step = "connecting over the DevTools protocol"
     let shown: Page | undefined
     const errors: string[] = []
+
     const report = (next: string) => {
       step = next
       process.stderr.write(`[connect ${((Date.now() - started) / 1000).toFixed(1)}s] ${step}\n`)
     }
+
     try {
       report(step)
       const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`)
+
       const page = browser
         .contexts()
         .flatMap((context) => context.pages())
         .find(
           (candidate) => candidate.url().startsWith(`http://localhost:${uiPort}`) && !candidate.url().includes("render")
         )
-      if (!page) throw new Error(`No Parity window on port ${uiPort}`)
+
+      if (!page) {
+        throw new Error(`No Parity window on port ${uiPort}`)
+      }
+
       shown = page
       page.on("console", (message) => {
-        if (message.type() === "error") errors.push(message.text().slice(0, 300))
+        if (message.type() === "error") {
+          errors.push(message.text().slice(0, 300))
+        }
       })
       page.on("pageerror", (error) => errors.push(error.message.slice(0, 300)))
       const app = new App(browser, page)
       report("checking the window's size")
       // Every test is written for this page size: a smaller screen shrinks the window, and clicks land under panels.
       const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+
       if (size.width < pageSize.width || size.height < pageSize.height) {
         throw new Error(
           `the page is ${size.width}x${size.height}, smaller than the ${pageSize.width}x${pageSize.height} the tests are written for: the screen is too small`
         )
       }
+
       report("waiting for the canvas")
       await page.waitForSelector(".container-view", { state: "attached", timeout: 120_000 })
       report("waiting for the frames to settle")
@@ -143,14 +157,17 @@ export class App {
       report("putting the app back as it opened")
       await withTimeout(app.reset(), 30_000)
       report("ready")
+
       return app
     } catch (error) {
       let output = ""
+
       try {
         output = readFileSync(log, "utf8").split("\n").slice(-40).join("\n")
       } catch {
         output = "(the app's output couldn't be read)"
       }
+
       // What the window shows: on CI there's no screen to look at.
       const showing = shown
         ? await withTimeout(
@@ -164,9 +181,11 @@ export class App {
             5000
           ).catch((reason: unknown) => `(the page didn't answer: ${String(reason)})`)
         : "(no page)"
+
       const reason = `Couldn't connect to Parity while ${step}, after ${Math.round((Date.now() - started) / 1000)}s: ${
         error instanceof Error ? error.message.split("\n")[0] : String(error)
       }`
+
       writeFileSync(failed, reason)
       throw new Error(
         `Couldn't connect to Parity while ${step}, after ${Math.round((Date.now() - started) / 1000)}s: ${
@@ -194,31 +213,55 @@ export class App {
       window.e2e!.scrolls.count = 0
       // Put back only so the tests after this one start as they should; this one fails below.
       page?.scrollTo(0, 0)
+
       return seen
     })
+
     await this.page.mouse.up()
+
     // A test that failed while holding a modifier would otherwise leave it held for the tests after it.
-    for (const key of ["Shift", "Control", "Alt", "Meta"]) await this.page.keyboard.up(key)
-    for (let press = 0; press < 3; press++) await this.page.keyboard.press("Escape")
+    for (const key of ["Shift", "Control", "Alt", "Meta"]) {
+      await this.page.keyboard.up(key)
+    }
+
+    for (let press = 0; press < 3; press++) {
+      await this.page.keyboard.press("Escape")
+    }
+
     await this.page.evaluate(() => {
       const e2e = window.e2e!
       const { store, selection, editor } = e2e.session()
       editor?.stopCameraAnimation()
-      while (store.getHistory().canUndo) store.undo()
+
+      while (store.getHistory().canUndo) {
+        store.undo()
+      }
+
       selection.setTool("select")
       selection.set({})
       selection.setHover(undefined)
       e2e.clipboard.text = ""
-      if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
     })
     // What a test's clicks made the designs write stays in main's log and badges their boards, which adds a control to
     // each title (PAR-147), so every test starts with the console empty.
     await this.page.evaluate(() => window.canvasHost.console.clear(window.e2e!.session().info.guestUrl))
     const badges = this.page.getByRole("button", { name: / in the console$/ })
-    if (!(await until(async () => (await badges.count()) === 0))) throw new Error("The console's badges stayed")
+
+    if (!(await until(async () => (await badges.count()) === 0))) {
+      throw new Error("The console's badges stayed")
+    }
+
     await this.page.keyboard.press("Alt+1")
     const unsaved = await this.unsaved()
-    if (unsaved.length > 0) throw new Error(`Undoing everything left changes in ${unsaved.join(", ")}`)
+
+    if (unsaved.length > 0) {
+      throw new Error(`Undoing everything left changes in ${unsaved.join(", ")}`)
+    }
+
     if (scrolled.count > 0 || scrolled.top !== 0 || scrolled.left !== 0) {
       const times = scrolled.count === 1 ? "once" : `${scrolled.count} times`
       throw new Error(
@@ -237,6 +280,7 @@ export class App {
     return this.page.evaluate(
       ([design, id]) => {
         const e2e = window.e2e!
+
         return e2e.node(e2e.key(design), id)
       },
       [design, id] as const
@@ -246,6 +290,7 @@ export class App {
   /** A layer's children, by id. */
   async children(design: string, id: string): Promise<string[]> {
     const node = await this.node(design, id)
+
     return node?.type === "layout" ? node.children.map((child) => child.id) : []
   }
 
@@ -266,17 +311,21 @@ export class App {
     const seen = await this.page.evaluate((point) => {
       const name = (element: Element) => {
         const classes = [...element.classList].slice(0, 3).join(".")
+
         const data = [...element.attributes]
           .filter((attribute) => attribute.name.startsWith("data-"))
           .slice(0, 2)
           .map((attribute) => `[${attribute.name}=${attribute.value.slice(0, 24)}]`)
           .join("")
+
         return `${element.tagName.toLowerCase()}${classes ? `.${classes}` : ""}${data}`
       }
+
       const stack = document.elementsFromPoint(point.x, point.y).slice(0, 6).map(name)
       const host = document.elementsFromPoint(point.x, point.y).find((element) => element.shadowRoot)
       const inner = host?.shadowRoot?.elementsFromPoint(point.x, point.y).slice(0, 3).map(name) ?? []
       const { selection, editor } = window.e2e!.session()
+
       return {
         stack,
         inner,
@@ -289,6 +338,7 @@ export class App {
         pressed: window.e2e!.pressed
       }
     }, point)
+
     return JSON.stringify(seen)
   }
 
@@ -325,6 +375,7 @@ export class App {
   camera(): Promise<{ x: number; y: number; z: number }> {
     return this.page.evaluate(() => {
       const { x, y, z } = window.e2e!.session().editor!.getCamera()
+
       return { x, y, z }
     })
   }
@@ -334,6 +385,7 @@ export class App {
     return this.page.evaluate(
       ([design, id]) => {
         const e2e = window.e2e!
+
         return e2e.size(e2e.key(design), id)
       },
       [design, id] as const
@@ -345,11 +397,16 @@ export class App {
     const box = await this.page.evaluate(
       ([design, id, mode]) => {
         const e2e = window.e2e!
+
         return e2e.box(e2e.key(design), id, mode)
       },
       [design, id, mode] as const
     )
-    if (!box) throw new Error(`${id} isn't drawn in ${design}`)
+
+    if (!box) {
+      throw new Error(`${id} isn't drawn in ${design}`)
+    }
+
     return box
   }
 
@@ -357,6 +414,7 @@ export class App {
     return this.page.evaluate(
       ([design, id]) => {
         const e2e = window.e2e!
+
         return e2e.boxes(e2e.key(design), id)
       },
       [design, id] as const
@@ -367,6 +425,7 @@ export class App {
     return this.page.evaluate(
       ([design, id]) => {
         const e2e = window.e2e!
+
         return e2e.drawn(e2e.key(design), id)
       },
       [design, id] as const
@@ -380,6 +439,7 @@ export class App {
         .filter((element) => element.style.outline !== "")
         .map((element) => {
           const { x, y, width, height } = element.getBoundingClientRect()
+
           return { x, y, width, height }
         })
     )
@@ -401,6 +461,7 @@ export class App {
   cursorAt(point: Point): Promise<string> {
     return this.page.evaluate(({ x, y }) => {
       const element = document.elementFromPoint(x, y)
+
       return element ? getComputedStyle(element).cursor : ""
     }, point)
   }
@@ -410,6 +471,7 @@ export class App {
     return this.page.evaluate(() =>
       [...document.querySelectorAll<HTMLElement>(".resize-handle")].map((element) => {
         const { x, y, width, height } = element.getBoundingClientRect()
+
         return { x, y, width, height }
       })
     )
@@ -433,7 +495,10 @@ export class App {
   async show(design: string, zoom: number, layer?: string, mode?: string): Promise<void> {
     // A layer is found where it's drawn, so the design comes into view first at 100%, where its frames wake even if
     // they slept zoomed far out, and only then moves to the zoom asked for.
-    if (layer) await this.show(design, 1)
+    if (layer) {
+      await this.show(design, 1)
+    }
+
     await this.page.evaluate(
       ([design, zoom, layer, mode]) => {
         const e2e = window.e2e!
@@ -444,17 +509,25 @@ export class App {
         // The canvas as it's drawn, which tldraw draws the page into at the camera's offset and zoom.
         const area = editor.getContainer().getBoundingClientRect()
         const camera = editor.getCamera()
+
         const toPage = (x: number, y: number) => ({
           x: (x - area.left) / camera.z - camera.x,
           y: (y - area.top) / camera.z - camera.y
         })
+
         const box = layer ? e2e.box(key, layer, mode) : undefined
-        if (layer && !box) throw new Error(`${layer} isn't drawn in ${design}`)
+
+        if (layer && !box) {
+          throw new Error(`${layer} isn't drawn in ${design}`)
+        }
+
         const frame = e2e.frame(key).getBoundingClientRect()
+
         // A point on the page, and where in the canvas it should be.
         const [page, screen] = box
           ? [toPage(box.x + box.width / 2, box.y + box.height / 2), { x: area.width / 2, y: area.height / 2 }]
           : [toPage(frame.left, frame.top), { x: 64, y: 140 }]
+
         editor.setCamera({ x: screen.x / zoom - page.x, y: screen.y / zoom - page.y, z: zoom }, { immediate: true })
       },
       [design, zoom, layer, mode] as const
@@ -474,23 +547,32 @@ export class App {
       const page = { x: Math.round(bounds?.minX ?? 0), y: Math.round((bounds?.maxY ?? 0) + 2000) }
       const area = editor.getContainer().getBoundingClientRect()
       editor.setCamera({ x: area.width / 2 - page.x, y: area.height / 2 - page.y, z: 1 }, { immediate: true })
+
       return { screen: { x: area.left + area.width / 2, y: area.top + area.height / 2 }, page }
     })
+
     // While the camera moves, tldraw lays a blocker over the canvas, which would take what's dropped.
     const resting = () => this.page.evaluate(() => window.e2e!.session().editor!.getCameraState() === "idle")
-    if (!(await until(resting))) throw new Error("The camera didn't come to rest")
+
+    if (!(await until(resting))) {
+      throw new Error("The camera didn't come to rest")
+    }
+
     // Chromium drag events use integer client coordinates. Measure the actual drop point after the camera rests,
     // rather than expecting a fractional viewport centre to round-trip through a drag event unchanged.
     const screen = { x: Math.round(shown.screen.x), y: Math.round(shown.screen.y) }
+
     const page = await this.page.evaluate((screen) => {
       const editor = window.e2e!.session().editor!
       const area = editor.getContainer().getBoundingClientRect()
       const camera = editor.getCamera()
+
       return {
         x: Math.round((screen.x - area.left) / camera.z - camera.x),
         y: Math.round((screen.y - area.top) / camera.z - camera.y)
       }
     }, screen)
+
     return { screen, page }
   }
 
@@ -507,6 +589,7 @@ export class App {
       const e2e = window.e2e!
       const key = e2e.key(design)
       const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+
       /** Where the frame and camera are and what the frame holds, and whether the board's frames have still to wake. */
       const look = () => {
         const host = e2e.frame(key)
@@ -516,6 +599,7 @@ export class App {
         const elements = host.shadowRoot?.querySelectorAll("*").length
         const board = host.closest(".container-view")
         const wakes = camera.z * devicePixelRatio > 0.25 * 1.15 || !!board?.hasAttribute("data-live")
+
         return {
           now: `${x},${y},${width},${height},${elements},${camera.x},${camera.y},${camera.z}`,
           asleep: wakes && !!board?.querySelector("[data-asleep]"),
@@ -524,16 +608,22 @@ export class App {
           zooming: editor.getZoomLevel() !== editor.getEfficientZoomLevel()
         }
       }
+
       let last = ""
+
       for (let still = 0, tries = 0; still < 4 && tries < 400; tries++) {
         await frame()
         const { now, asleep, zooming } = look()
         still = now === last && !asleep && !zooming ? still + 1 : 0
         last = now
+
         // Still, it waits for what's loading on demand, which draws as it arrives, and counts again if that changed it.
         if (still === 4) {
           await e2e.session().loaded.guest.loaded?.()
-          if (look().now !== last) still = 0
+
+          if (look().now !== last) {
+            still = 0
+          }
         }
       }
     }, design)
@@ -548,7 +638,10 @@ export class App {
 
   private async apart(): Promise<void> {
     const wait = this.lastPress + 500 - Date.now()
-    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+
+    if (wait > 0) {
+      await new Promise((resolve) => setTimeout(resolve, wait))
+    }
   }
 
   private pressed(): void {
@@ -557,9 +650,17 @@ export class App {
 
   async click(point: Point, modifiers: ("Shift" | "Control" | "Alt")[] = []): Promise<void> {
     await this.apart()
-    for (const key of modifiers) await this.page.keyboard.down(key)
+
+    for (const key of modifiers) {
+      await this.page.keyboard.down(key)
+    }
+
     await this.page.mouse.click(point.x, point.y)
-    for (const key of modifiers) await this.page.keyboard.up(key)
+
+    for (const key of modifiers) {
+      await this.page.keyboard.up(key)
+    }
+
     this.pressed()
     await this.frames(2)
   }
@@ -574,20 +675,32 @@ export class App {
   /** Selects a design by clicking its title, which must be in view. */
   async selectDesign(design: string): Promise<void> {
     const key = await this.key(design)
+
     // The design's name is the title bar's first button; the state and modes menus follow it.
     const title = this.page
       .locator(".design-title > div > button")
       .filter({ hasText: new RegExp(`^${escape(design)}$`) })
+
     // Titles follow the zoom a frame after the camera moves.
     let box = await title.boundingBox()
+
     for (let tries = 0; tries < 10; tries++) {
       await this.frames(2)
       const again = await title.boundingBox()
-      if (box && again && Math.abs(again.x - box.x) < 0.5 && Math.abs(again.y - box.y) < 0.5) break
+
+      if (box && again && Math.abs(again.x - box.x) < 0.5 && Math.abs(again.y - box.y) < 0.5) {
+        break
+      }
+
       box = again
     }
-    if (!box) throw new Error(`${design}'s title isn't drawn`)
+
+    if (!box) {
+      throw new Error(`${design}'s title isn't drawn`)
+    }
+
     await this.click(center(box))
+
     if (!(await until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key })))) {
       throw new Error(
         `Clicking ${design}'s title selected ${JSON.stringify(await this.selection())}. ` +
@@ -606,14 +719,25 @@ export class App {
   async selectLayer(design: string, id: string, at?: Point): Promise<void> {
     const key = await this.key(design)
     const path = await this.page.evaluate(([key, id]) => window.e2e!.path(key, id), [key, id] as const)
-    if (path.length < 2) throw new Error(`${id} isn't a layer of ${design}`)
+
+    if (path.length < 2) {
+      throw new Error(`${id} isn't a layer of ${design}`)
+    }
+
     const point = at ?? center(await this.box(design, id))
+
     for (let level = 0; level < path.length; level++) {
       const { design: selected, node } = await this.selection()
-      if (selected !== key || !node) break
+
+      if (selected !== key || !node) {
+        break
+      }
+
       await this.page.keyboard.press("Escape")
     }
+
     await this.page.mouse.click(point.x, point.y)
+
     for (let level = 1; ; level++) {
       if (!(await until(async () => (await this.selection()).node === path[level]))) {
         const { node } = await this.selection()
@@ -622,9 +746,14 @@ export class App {
             `There: ${await this.describe(point)}`
         )
       }
+
       // Store selection changes before the overlay measures and paints its resize handles.
       await this.frames(2)
-      if (path[level] === id) return
+
+      if (path[level] === id) {
+        return
+      }
+
       await this.page.mouse.dblclick(point.x, point.y)
     }
   }
@@ -639,8 +768,13 @@ export class App {
     await this.page.keyboard.press("Alt+1")
     const row = await this.layersRow(key)
     const box = await row.boundingBox()
-    if (!box) throw new Error(`${design}'s row in Layers isn't drawn`)
+
+    if (!box) {
+      throw new Error(`${design}'s row in Layers isn't drawn`)
+    }
+
     await this.click(center(box))
+
     if (!(await until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key })))) {
       throw new Error(`Clicking ${design}'s row in Layers selected ${JSON.stringify(await this.selection())}`)
     }
@@ -657,14 +791,21 @@ export class App {
     // Show Layers, whichever panel the left side had open.
     await this.page.keyboard.press("Alt+1")
     const row = (layer: string) => this.layersRow(layer === key ? key : `${key}/${layer}`)
+
     for (const ancestor of [key, ...path.slice(0, -1)]) {
       const shown = await row(ancestor)
+
       if ((await shown.getAttribute("aria-expanded")) === "false") {
         await shown.getByRole("button", { name: "Expand" }).click()
       }
     }
+
     const box = await (await row(id)).boundingBox()
-    if (!box) throw new Error(`${id}'s row in Layers isn't drawn`)
+
+    if (!box) {
+      throw new Error(`${id}'s row in Layers isn't drawn`)
+    }
+
     await this.click(center(box), ["Control"])
   }
 
@@ -675,24 +816,36 @@ export class App {
    */
   private async layersRow(id: string): Promise<Locator> {
     const row = this.page.locator(`[id="layer-${id}"]`)
+
     const scroller = () =>
       this.page.evaluate(() => {
         const box = document.querySelector("[role=tree][aria-label=Layers]")!.parentElement!
         const rect = box.getBoundingClientRect()
+
         return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, top: box.scrollTop }
       })
+
     for (const direction of [1, -1]) {
       const { x, y } = await scroller()
       await this.page.mouse.move(x, y)
+
       for (let step = 0; step < 200 && (await row.count()) === 0; step++) {
         const before = (await scroller()).top
         await this.page.mouse.wheel(0, direction * 400)
         await this.frames(2)
-        if ((await scroller()).top === before) break
+
+        if ((await scroller()).top === before) {
+          break
+        }
       }
     }
-    if ((await row.count()) === 0) throw new Error(`Layers has no row ${id}, at either end of the panel`)
+
+    if ((await row.count()) === 0) {
+      throw new Error(`Layers has no row ${id}, at either end of the panel`)
+    }
+
     await row.scrollIntoViewIfNeeded()
+
     return row
   }
 
@@ -710,21 +863,32 @@ export class App {
     await this.apart()
     await this.page.mouse.move(from.x, from.y)
     await this.page.mouse.down()
-    for (const key of hold) await this.page.keyboard.down(key)
+
+    for (const key of hold) {
+      await this.page.keyboard.down(key)
+    }
+
     let at = from
+
     for (const point of Array.isArray(to) ? to : [to]) {
       const steps = Math.max(4, Math.round(Math.hypot(point.x - at.x, point.y - at.y) / 8))
       await this.page.mouse.move(point.x, point.y, { steps })
       at = point
     }
+
     // The canvas measures and previews once a frame.
     await this.frames(2)
     const seen = during ? await during() : undefined
     await this.page.mouse.up()
-    for (const key of hold) await this.page.keyboard.up(key)
+
+    for (const key of hold) {
+      await this.page.keyboard.up(key)
+    }
+
     this.pressed()
     // Let the release finish drawing and committing before the next input, particularly Undo.
     await this.frames(2)
+
     return seen
   }
 
@@ -744,25 +908,33 @@ export class App {
     const cdp = await this.page.context().newCDPSession(this.page)
     // Copy, as the system offers files dragged from a folder.
     const data = { items: [], files: paths, dragOperationsMask: 1 }
+
     const send = (type: "dragEnter" | "dragOver" | "drop" | "dragCancel", point: Point) =>
       cdp.send("Input.dispatchDragEvent", { type, x: point.x, y: point.y, data })
+
     const last = points.at(-1)!
+
     try {
       await send("dragEnter", points[0]!)
+
       for (const point of points) {
         await send("dragOver", point)
         await this.frames(1)
       }
+
       // A drag held still goes on sending dragover, as the system does, until it's dropped: the canvas stops showing
       // what a drop does once they stop.
       let holding = true
+
       const held = (async () => {
         while (holding) {
           await send("dragOver", last)
           await new Promise((resolve) => setTimeout(resolve, 100))
         }
       })()
+
       let seen: T | undefined
+
       try {
         // The canvas measures once a frame, and shows what a drop does the frame after.
         await this.frames(2)
@@ -771,7 +943,9 @@ export class App {
         holding = false
         await held
       }
+
       await send(cancel ? "dragCancel" : "drop", last)
+
       return seen
     } finally {
       await cdp.detach()
@@ -781,7 +955,9 @@ export class App {
   /** Waits for the page to draw a few frames. */
   async frames(count = 1): Promise<void> {
     await this.page.evaluate(async (count) => {
-      for (let index = 0; index < count; index++) await new Promise((resolve) => requestAnimationFrame(resolve))
+      for (let index = 0; index < count; index++) {
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+      }
     }, count)
   }
 }
@@ -796,31 +972,40 @@ export async function settled(): Promise<void> {
       (total, host) => total + (host.shadowRoot?.querySelectorAll("*").length ?? 0),
       0
     )
+
   let last = -1
+
   for (let still = 0; still < 6;) {
     await new Promise((resolve) => setTimeout(resolve, 500))
     const now = count()
     still = now === last ? still + 1 : 0
     last = now
   }
+
   await document.fonts.ready
 }
 
 /** Rejects when `promise` takes longer than `ms`, so a step that never finishes is named rather than timing out a hook. */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
+
   const late = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`no answer within ${ms / 1000}s`)), ms)
   })
+
   return Promise.race([promise, late]).finally(() => clearTimeout(timer))
 }
 
 /** Whether `check` comes true within a few seconds, trying every 50ms. */
 async function until(check: () => Promise<boolean>, timeout = 5000): Promise<boolean> {
   for (const deadline = Date.now() + timeout; Date.now() < deadline;) {
-    if (await check()) return true
+    if (await check()) {
+      return true
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 50))
   }
+
   return check()
 }
 
@@ -834,30 +1019,56 @@ function escape(text: string): string {
  * nothing the browser would do by itself reaches it.
  */
 function install(): void {
-  if (window.e2e) return
+  if (window.e2e) {
+    return
+  }
+
   const { workspace, frames } = window.e2eModules!
+
   const session = () => {
     const current = workspace.getActive()?.session
-    if (!current) throw new Error("No project is open")
+
+    if (!current) {
+      throw new Error("No project is open")
+    }
+
     return current
   }
+
   const entry = (key: string) => {
     const found = session().store.getEntry(key)
-    if (!found) throw new Error(`No design ${key}`)
+
+    if (!found) {
+      throw new Error(`No design ${key}`)
+    }
+
     return found
   }
+
   const inside = (node: DesignNode): DesignNode[] => {
-    if (node.type === "layout") return node.children
+    if (node.type === "layout") {
+      return node.children
+    }
+
     return node.type === "component" ? Object.values(node.slots ?? {}).flat() : []
   }
+
   const path = (node: DesignNode, id: string): DesignNode[] | undefined => {
-    if (node.id === id) return [node]
+    if (node.id === id) {
+      return [node]
+    }
+
     for (const child of inside(node)) {
       const found = path(child, id)
-      if (found) return [node, ...found]
+
+      if (found) {
+        return [node, ...found]
+      }
     }
+
     return undefined
   }
+
   const clipboard = { text: "" }
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
@@ -870,7 +1081,11 @@ function install(): void {
       write: async () => undefined
     }
   })
-  for (const type of ["copy", "cut", "paste"]) document.addEventListener(type, (event) => event.preventDefault(), true)
+
+  for (const type of ["copy", "cut", "paste"]) {
+    document.addEventListener(type, (event) => event.preventDefault(), true)
+  }
+
   // The window's page never scrolls; only panels do. Each time it scrolls away from the top is counted, and fails the
   // test (see `reset`). Putting it back isn't counted, so a test after one that failed this way starts clean.
   const scrolls = { count: 0 }
@@ -878,21 +1093,27 @@ function install(): void {
     "scroll",
     (event) => {
       const page = document.scrollingElement
-      if (event.target === document && page && (page.scrollTop !== 0 || page.scrollLeft !== 0)) scrolls.count++
+
+      if (event.target === document && page && (page.scrollTop !== 0 || page.scrollLeft !== 0)) {
+        scrolls.count++
+      }
     },
     true
   )
   // An open tooltip takes a press meant for what it covers, and may have moved on by the time a failure is described
   // (PAR-657), so each press notes what it went to and the tooltips open then.
   const round = (rect: DOMRect) => [rect.x, rect.y, rect.width, rect.height].map((value) => Math.round(value)).join(",")
+
   const tag = (element: Element) =>
     `${element.tagName.toLowerCase()}${[...element.classList]
       .slice(0, 2)
       .map((name) => `.${name}`)
       .join("")} "${(element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 40)}"`
+
   const tooltips = () => [
     ...[...document.querySelectorAll<HTMLElement>("[data-slot=tooltip-content]")].map((popup) => {
       const shown = getComputedStyle(popup.parentElement ?? popup).opacity
+
       return `tooltip "${popup.innerText.replace(/\s+/g, " ").trim().slice(0, 60)}" at ${round(popup.getBoundingClientRect())}, ${
         popup.getAttribute("data-side") ?? "unplaced"
       }, opacity ${shown}`
@@ -901,6 +1122,7 @@ function install(): void {
       (trigger) => `for ${tag(trigger)} at ${round(trigger.getBoundingClientRect())}`
     )
   ]
+
   const pressed: PageHelpers["pressed"] = {}
   window.addEventListener(
     "pointerdown",
@@ -918,7 +1140,11 @@ function install(): void {
       const found = session()
         .store.getEntries()
         .find((candidate) => candidate.container.name === design)
-      if (!found) throw new Error(`No design named ${design}`)
+
+      if (!found) {
+        throw new Error(`No design named ${design}`)
+      }
+
       return found.key
     },
     node: (key, id) => path(entry(key).container.root, id)?.at(-1),
@@ -927,28 +1153,40 @@ function install(): void {
       const host = frames
         .findFrames(document, key)
         .find((candidate) => (mode ? candidate.dataset.mode === mode : candidate.dataset.primary === "true"))
-      if (!host) throw new Error(`${key} has no ${mode ?? "main"} frame drawn`)
+
+      if (!host) {
+        throw new Error(`${key} has no ${mode ?? "main"} frame drawn`)
+      }
+
       return host
     },
     box: (key, id, mode) => {
       const rect = frames.nodeBox(window.e2e!.frame(key, mode), id)
+
       return rect && { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
     },
     boxes: (key, id) =>
       frames.findNodeElements(window.e2e!.frame(key), id).map((element) => {
         const { x, y, width, height } = element.getBoundingClientRect()
+
         return { x, y, width, height }
       }),
     size: (key, id) => {
       const element = frames.findNodeElement(window.e2e!.frame(key), id)
+
       return element && { width: element.offsetWidth, height: element.offsetHeight }
     },
     drawn: (key, id) => {
       const host = window.e2e!.frame(key)
       const parent = frames.findNodeElement(host, id)
+
       return [...(parent?.children ?? [])].map((child) => {
-        if (child instanceof HTMLElement && child.dataset.dropPreview !== undefined) return "copy"
+        if (child instanceof HTMLElement && child.dataset.dropPreview !== undefined) {
+          return "copy"
+        }
+
         const layer = frames.nodeOfElement(host, child) ?? "?"
+
         return getComputedStyle(child).display === "none" ? `hidden:${layer}` : layer
       })
     },

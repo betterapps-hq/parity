@@ -27,6 +27,7 @@ const badgeIn = (card: string) => ({
     ]
   }
 })
+
 const container = {
   id: "day",
   name: "Day",
@@ -50,6 +51,7 @@ const container = {
 
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "ts", sourcefile: "entry.ts" },
     bundle: true,
@@ -59,6 +61,7 @@ beforeAll(async () => {
     platform: "browser",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
   await page.setContent(
@@ -69,6 +72,7 @@ beforeAll(async () => {
   // A frame like the canvas's, drawn at half size: the layers in a shadow root, each marked with its id.
   await page.evaluate(() => {
     const host = document.querySelector<HTMLElement>("#host")!
+
     const card = (id: string, look: string) => `<div data-canvas-node="${id}" style="margin: 40px 0 0 100px;
         width: 400px; height: 200px; border: 4px solid; ${look}">
         <div style="padding: 20px">
@@ -77,6 +81,7 @@ beforeAll(async () => {
           <span data-canvas-node="${id}-title" style="display: block; width: 100px; height: 20px"></span>
         </div>
       </div>`
+
     host.attachShadow({ mode: "open" }).innerHTML = `<div data-canvas-node="root" style="position: relative;
       padding-top: 520px">
       <div data-canvas-node="events" style="position: absolute; top: 200px; left: 16px; width: 400px; height: 300px;
@@ -103,6 +108,7 @@ function moved(layer: string, by: number) {
       const from = measured.box
       // @ts-expect-error The bundle's global.
       const snapped = snapping.snapLayer({ ...from, x: from.x + by }, measured.scene, 0.5)
+
       return { from: from.x, x: snapped.box.x, locked: snapped.locked.x }
     },
     { container, layer, by }

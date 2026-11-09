@@ -36,6 +36,7 @@ export function currentTrace(): TraceContext | undefined {
 /** The headers that continue the span this process is working in, for a request it sends, or none outside one. */
 export function currentTraceHeaders(): TraceHeaders | undefined {
   const span = current.getStore()
+
   return span ? traceHeaders(span) : undefined
 }
 
@@ -51,8 +52,12 @@ export function inSpan<Name extends EventName<Events>, T>(
   parent: TraceContext | undefined = current.getStore(),
   settled?: SettledAs<Awaited<T>>
 ): Promise<T> {
-  if (!telemetry) return Promise.resolve().then(() => work())
+  if (!telemetry) {
+    return Promise.resolve().then(() => work())
+  }
+
   const span = telemetry.startSpan(name, attributes, parent ? { parent } : {})
+
   return current.run(span, () => endWhenSettled(span, () => work(span), settled))
 }
 
@@ -66,7 +71,10 @@ export function track<Name extends EventName<Events>>(
   attributes: EventAttributes<Events, Name>,
   span: TraceContext | undefined = current.getStore()
 ): void {
-  if (!telemetry) return
+  if (!telemetry) {
+    return
+  }
+
   try {
     telemetry.track(name, attributes, span ? { span } : {})
   } catch (error) {
@@ -80,6 +88,9 @@ export function track<Name extends EventName<Events>>(
  * since each would record another.
  */
 export function handleInSpan({ method, trace }: { method: string; trace: unknown }, answer: () => unknown): unknown {
-  if (method === "record") return answer()
+  if (method === "record") {
+    return answer()
+  }
+
   return inSpan("request.handled", { method }, answer, readTraceHeaders(trace))
 }

@@ -237,7 +237,11 @@ export function HereAvatar({ person, size = 28, away }: { person: Person; size?:
 /** Where someone is, in a few words: the board and project, or when they left. */
 function whereabouts(where: Whereabouts): string {
   const name = portalProject(where.project).name
-  if (where.away) return `Left ${where.design} in ${name}, ${where.away}`
+
+  if (where.away) {
+    return `Left ${where.design} in ${name}, ${where.away}`
+  }
+
   return `${where.design} in ${name}`
 }
 
@@ -288,6 +292,7 @@ export function WhereaboutsRow({ where }: { where: Whereabouts }) {
 export function TeammateCard({ where }: { where: Whereabouts }) {
   const shown = portalProject(where.project)
   const live = where.away ? undefined : { who: where.who, doing: where.doing }
+
   return (
     <article className="group/card flex flex-col gap-3">
       <div className="relative overflow-hidden rounded-xl ring-1 ring-white/[0.08] transition-shadow group-hover/card:ring-2 group-hover/card:ring-[oklch(0.7_0.16_275)]">
@@ -328,6 +333,7 @@ export const handoffColors: Record<Handoff, string> = {
 /** Where a board stands between design and code, as a small colored label. */
 export function HandoffPill({ status }: { status: Handoff }) {
   const color = handoffColors[status]
+
   return (
     <span
       className="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
@@ -374,6 +380,7 @@ export function DesignTile({
   const shown = portalProject(id)
   const picked = designOf(shown, design)
   const status = plain ? undefined : handoff[`${id}/${picked.name}`]
+
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
       <div

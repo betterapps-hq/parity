@@ -16,6 +16,7 @@ type Trails = { key: string; stops: Stop[] }[]
 
 /** At most this many stops are drawn per frame; a frame with more is still numbered up to here. */
 const maxStops = 200
+
 /** The trail's orange, which is light, so its numbers are near-black on it, 6.5:1, as a canvas chip's text must be. */
 const color = "#f97316"
 
@@ -33,30 +34,44 @@ export function TabOrderOverlay() {
 
   // Stops follow the camera, layout changes and animations, so they're measured every frame.
   useEffect(() => {
-    if (!shown || !design) return undefined
+    if (!shown || !design) {
+      return undefined
+    }
+
     let frame = 0
     let last = ""
+
     const tick = () => {
       frame = requestAnimationFrame(tick)
       const area = rootRef.current?.parentElement
-      if (!area || area.closest("[hidden]")) return
+
+      if (!area || area.closest("[hidden]")) {
+        return
+      }
+
       const origin = area.getBoundingClientRect()
+
       const next = findFrames(area, design).map((host) => ({
         key: `${host.dataset.mode}:${host.dataset.state}`,
         stops: tabOrder(host)
           .slice(0, maxStops)
           .map((element) => {
             const rect = element.getBoundingClientRect()
+
             return { x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height }
           })
       }))
+
       const serialized = JSON.stringify(next)
+
       if (serialized !== last) {
         last = serialized
         setMeasured(next)
       }
     }
+
     frame = requestAnimationFrame(tick)
+
     return () => cancelAnimationFrame(frame)
   }, [design, shown])
 

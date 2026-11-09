@@ -18,24 +18,45 @@ export function layerKind(
   designName: (id: string) => string | undefined,
   libraries: readonly Pick<LibraryInfo, "id" | "name" | "kind">[]
 ): LayerKind {
-  if (node.type === "text") return plain("Text")
-  if (node.type === "image") return plain("Image")
+  if (node.type === "text") {
+    return plain("Text")
+  }
+
+  if (node.type === "image") {
+    return plain("Image")
+  }
+
   if (node.type === "instance") {
     return { label: "Instance", description: `Instance of ${designName(node.design) ?? node.design}` }
   }
+
   if (node.type === "component") {
     const library = libraries.find((candidate) => node.component.startsWith(`${candidate.id}/`))
-    if (!library) return { label: "Component", description: `${node.component} component` }
+
+    if (!library) {
+      return { label: "Component", description: `${node.component} component` }
+    }
+
     const name = node.component.slice(node.component.lastIndexOf("/") + 1)
+
     if (library.kind === "icons") {
       return { label: "Icon", description: `${name.replace(/(?<=.)Icon$/, "")} icon from ${library.name}` }
     }
+
     return { label: "Component", description: `${name} component from ${library.name}` }
   }
+
   let layout = node.style?.direction === "row" ? "Horizontal layout" : "Vertical layout"
-  if (node.style?.display === "grid") layout = "Grid layout"
+
+  if (node.style?.display === "grid") {
+    layout = "Grid layout"
+  }
+
   // A slot is drawn as one (see `NodeIcon`), so it's called one.
-  if (node.slot !== undefined) return { label: "Slot", description: `The ${node.slot} slot, a ${layout.toLowerCase()}` }
+  if (node.slot !== undefined) {
+    return { label: "Slot", description: `The ${node.slot} slot, a ${layout.toLowerCase()}` }
+  }
+
   return plain(layout)
 }
 

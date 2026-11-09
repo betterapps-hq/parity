@@ -24,6 +24,7 @@ const workspace: WorkspacePackage[] = [
   { name: "@parity-app/core", dir: "packages/core", private: true, dependencies: [] },
   { name: "@parity-app/fixtures", dir: "packages/fixtures", private: true, dependencies: ["@parity-app/core"] }
 ]
+
 const ignored = ["**/*.test.ts", "**/*.md"]
 
 describe("versionedRelease", () => {
@@ -46,8 +47,9 @@ describe("versionedRelease", () => {
       "{}",
       "null",
       '{"name":"@parity-app/desktop","entries":[]}'
-    ])
+    ]) {
       expect(versionedRelease(manifest("0.3.0"), manifest("0.4.0"), changelog)).toBeUndefined()
+    }
   })
 })
 
@@ -104,11 +106,13 @@ describe("onlyVersionChanged", () => {
 
 describe("listChangeFiles", () => {
   let repo: string
+
   const git = (...args: string[]) =>
     execFileSync("git", ["-c", "user.name=Test", "-c", "user.email=test@example.com", ...args], {
       cwd: repo,
       encoding: "utf8"
     }).trim()
+
   // Change files for one package differ only in their comment, so git finds them similar enough to pair as a rename.
   const changeFile = (name: string, comment: string) => {
     const body = {
@@ -118,6 +122,7 @@ describe("listChangeFiles", () => {
       email: "test@example.com",
       dependentChangeType: "patch"
     }
+
     mkdirSync(join(repo, "change"), { recursive: true })
     writeFileSync(
       join(repo, "change", name),

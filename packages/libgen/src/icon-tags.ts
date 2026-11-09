@@ -58,28 +58,38 @@ export async function readIconTags(
 ): Promise<IconTags> {
   let data: unknown[]
   let from: string
+
   if ("files" in source) {
     const { repository, commit } = await fetchers.publishedSource(iconPackage.name, iconPackage.version)
+
     if (!repository || !commit) {
       throw new Error(
         `npm doesn't say which repository and commit ${iconPackage.name}@${iconPackage.version} came from`
       )
     }
+
     const files = await fetchers.repositoryFiles(repository, commit, glob(source.files))
     data = [files.flatMap(({ text }) => parsed(text))]
     from = `${repository.replace(/^https:\/\//, "")}@${commit.slice(0, 12)}/${source.files}`
   } else {
     const name = source.package ?? iconPackage.name
+
     const version =
       name === iconPackage.name
         ? iconPackage.version
         : closestVersion(await fetchers.publishedVersions(name), iconPackage.version)
-    if (!version) throw new Error(`${name} has no version at or before ${iconPackage.version}`)
+
+    if (!version) {
+      throw new Error(`${name} has no version at or before ${iconPackage.version}`)
+    }
+
     const text = await fetchers.packageFile(name, version, source.file)
     data = source.file.endsWith(".json") ? parsed(text) : [...moduleData(text).values()]
     from = `${name}@${version}/${source.file}`
   }
+
   const tags = iconWords(data, icons)
+
   return { tags, source: from, matched: Object.keys(tags).length }
 }
 
@@ -102,22 +112,39 @@ function parsed(text: string): unknown[] {
 export function iconWords(data: readonly unknown[], icons: readonly ExportedIcon[]): Record<string, string[]> {
   const least = Math.max(1, Math.min(20, Math.floor(icons.length / 2)))
   let best: Map<string, unknown> | undefined
+
   const consider = (entries: [unknown, unknown][]) => {
     const byKey = new Map<string, unknown>()
+
     for (const [key, value] of entries) {
-      if (typeof key === "string" && !byKey.has(normalize(key))) byKey.set(normalize(key), value)
+      if (typeof key === "string" && !byKey.has(normalize(key))) {
+        byKey.set(normalize(key), value)
+      }
     }
+
     const matched = new Map<string, unknown>()
+
     for (const icon of icons) {
       const key = keysFor(icon).find((candidate) => byKey.has(candidate))
-      if (key) matched.set(icon.label, byKey.get(key))
+
+      if (key) {
+        matched.set(icon.label, byKey.get(key))
+      }
     }
-    if (matched.size > (best?.size ?? 0)) best = matched
+
+    if (matched.size > (best?.size ?? 0)) {
+      best = matched
+    }
   }
+
   const visit = (value: unknown, depth: number) => {
     if (Array.isArray(value)) {
       const records = value.filter(isRecord)
-      if (records.length < least) return
+
+      if (records.length < least) {
+        return
+      }
+
       for (const field of new Set(records.flatMap((record) => Object.keys(record)))) {
         if (records.some((record) => typeof record[field] === "string")) {
           consider(records.map((record) => [record[field], record]))
@@ -125,64 +152,120 @@ export function iconWords(data: readonly unknown[], icons: readonly ExportedIcon
       }
     } else if (isRecord(value)) {
       const entries = Object.entries(value)
-      if (entries.length >= least) consider(entries)
-      else if (depth < 3) for (const [, inner] of entries) visit(inner, depth + 1)
+
+      if (entries.length >= least) {
+        consider(entries)
+      } else if (depth < 3) {
+        for (const [, inner] of entries) {
+          visit(inner, depth + 1)
+        }
+      }
     }
   }
-  for (const value of data) visit(value, 0)
-  if (!best) return {}
+
+  for (const value of data) {
+    visit(value, 0)
+  }
+
+  if (!best) {
+    return {}
+  }
 
   // Each field's words by icon: a list's strings, or a string field's value when it names a group.
   const fields = new Map<string, { group: boolean; byLabel: Map<string, string[]> }>()
+
   const add = (field: string, group: boolean, label: string, words: string[]) => {
-    if (words.length === 0) return
+    if (words.length === 0) {
+      return
+    }
+
     let found = fields.get(field)
-    if (!found) fields.set(field, (found = { group, byLabel: new Map() }))
+
+    if (!found) {
+      fields.set(field, (found = { group, byLabel: new Map() }))
+    }
+
     found.byLabel.set(label, words)
   }
+
   for (const [label, value] of best) {
-    if (Array.isArray(value)) add("", false, label, wordsOf(value))
-    else if (isRecord(value)) {
+    if (Array.isArray(value)) {
+      add("", false, label, wordsOf(value))
+    } else if (isRecord(value)) {
       for (const [field, inner] of Object.entries(value)) {
-        if (Array.isArray(inner)) add(field, false, label, wordsOf(inner))
-        else if (typeof inner === "string")
+        if (Array.isArray(inner)) {
+          add(field, false, label, wordsOf(inner))
+        } else if (typeof inner === "string") {
           add(
             field,
             true,
             label,
             wordsOf([inner]).filter((word) => /\p{L}/u.test(word))
           )
+        }
       }
     }
   }
+
   const matched = best.size
+
   const kept = [...fields.values()].flatMap(({ group, byLabel }) => {
     const counts = new Map<string, number>()
-    for (const word of [...byLabel.values()].flat()) counts.set(word, (counts.get(word) ?? 0) + 1)
+
+    for (const word of [...byLabel.values()].flat()) {
+      counts.set(word, (counts.get(word) ?? 0) + 1)
+    }
+
     const distinct = counts.size
+
     // A field with a handful of values for thousands of icons says little about any of them. A string that differs
     // for nearly every icon is a name or a sentence, and one most icons share (Fluent's `fluent-icon`) is a constant:
     // neither is a group.
-    if (distinct < Math.min(5, Math.ceil(matched / 10))) return []
-    if (group && (distinct > matched / 20 || Math.max(...counts.values()) > matched / 2)) return []
+    if (distinct < Math.min(5, Math.ceil(matched / 10))) {
+      return []
+    }
+
+    if (group && (distinct > matched / 20 || Math.max(...counts.values()) > matched / 2)) {
+      return []
+    }
+
     return [{ byLabel, distinct }]
   })
+
   kept.sort((a, b) => b.distinct - a.distinct)
   const tags: Record<string, string[]> = {}
   const common = new Map<string, number>()
+
   for (const icon of icons) {
     const words = [...new Set(kept.flatMap(({ byLabel }) => byLabel.get(icon.label) ?? []))]
-    if (words.length === 0) continue
+
+    if (words.length === 0) {
+      continue
+    }
+
     tags[icon.label] = words
-    for (const word of words) common.set(word, (common.get(word) ?? 0) + 1)
+
+    for (const word of words) {
+      common.set(word, (common.get(word) ?? 0) + 1)
+    }
   }
+
   const tagged = Object.keys(tags).length
-  if (tagged < 8) return tags
+
+  if (tagged < 8) {
+    return tags
+  }
+
   for (const [label, words] of Object.entries(tags)) {
     const specific = words.filter((word) => common.get(word)! <= tagged / 4)
-    if (specific.length > 0) tags[label] = specific
-    else delete tags[label]
+
+    if (specific.length > 0) {
+      tags[label] = specific
+    } else {
+      delete tags[label]
+    }
   }
+
   return tags
 }
 
@@ -195,7 +278,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * it has any strings at all. One that starts with a symbol is a marker (`*new*`) or a symbol (`->`), not a word.
  */
 function wordsOf(list: readonly unknown[]): string[] {
-  if (!list.some((item) => typeof item === "string")) return []
+  if (!list.some((item) => typeof item === "string")) {
+    return []
+  }
+
   return list
     .filter((item) => typeof item === "string" || typeof item === "number")
     .map((item) =>
@@ -211,6 +297,7 @@ function wordsOf(list: readonly unknown[]): string[] {
 /** A path where `*` is any one folder or file name, as a regular expression. */
 function glob(pattern: string): RegExp {
   const parts = pattern.split("*").map((part) => part.replaceAll(/[.+?^${}()|[\]\\]/g, "\\$&"))
+
   return new RegExp(`^${parts.join("[^/]+")}$`)
 }
 
@@ -225,14 +312,18 @@ function normalize(key: string): string {
  */
 function keysFor(icon: ExportedIcon): string[] {
   const keys = new Set<string>()
+
   for (const name of [icon.label, ...icon.names]) {
     const key = normalize(name)
+
     for (const bare of [key, key.replace(/^icon/, ""), key.replace(/icon$/, "")]) {
       keys.add(bare)
       keys.add(bare.replace(/(?:ltr|rtl)$/, ""))
     }
   }
+
   keys.delete("")
+
   return [...keys]
 }
 
@@ -242,32 +333,57 @@ function keysFor(icon: ExportedIcon): string[] {
  */
 export function manifestText(manifest: Record<string, unknown>): string {
   const icons = manifest.icons as { tags?: Record<string, string[]> } | undefined
-  if (!icons?.tags) return `${JSON.stringify(manifest, null, 2)}\n`
+
+  if (!icons?.tags) {
+    return `${JSON.stringify(manifest, null, 2)}\n`
+  }
+
   const marker = JSON.stringify("\u0000tags\u0000")
   const text = JSON.stringify({ ...manifest, icons: { ...icons, tags: JSON.parse(marker) as string } }, null, 2)
+
   const lines = Object.entries(icons.tags).map(
     ([name, tags]) => `      ${JSON.stringify(name)}: ${JSON.stringify(tags)}`
   )
+
   return `${text.replace(marker, `{\n${lines.join(",\n")}\n    }`)}\n`
 }
 
 /** The version itself when published, or else the newest release before it; prereleases aren't counted. */
 export function closestVersion(published: readonly string[], wanted: string): string | undefined {
-  if (published.includes(wanted)) return wanted
+  if (published.includes(wanted)) {
+    return wanted
+  }
+
   const parts = (version: string) => version.split(".").map(Number)
   const target = parts(wanted.replace(/-.*$/, ""))
+
   const before = (a: number[], b: number[]) => {
     for (let index = 0; index < 3; index++) {
-      if ((a[index] ?? 0) !== (b[index] ?? 0)) return (a[index] ?? 0) < (b[index] ?? 0)
+      if ((a[index] ?? 0) !== (b[index] ?? 0)) {
+        return (a[index] ?? 0) < (b[index] ?? 0)
+      }
     }
+
     return false
   }
+
   let best: string | undefined
+
   for (const version of published) {
-    if (!/^\d+\.\d+\.\d+$/.test(version)) continue
+    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+      continue
+    }
+
     const candidate = parts(version)
-    if (!before(candidate, target)) continue
-    if (!best || before(parts(best), candidate)) best = version
+
+    if (!before(candidate, target)) {
+      continue
+    }
+
+    if (!best || before(parts(best), candidate)) {
+      best = version
+    }
   }
+
   return best
 }

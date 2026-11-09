@@ -82,6 +82,7 @@ function AlignButtons({ distribute }: { distribute?: boolean }) {
 export function ArrangePanel({ keys }: { keys: string[] }) {
   const { store } = useProject()
   const entries = keys.flatMap((key) => store.getEntry(key) ?? [])
+
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
@@ -125,11 +126,16 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   const { store } = useProject()
   const entries = useContainerEntries(store)
   const editor = useStyleEditor(entry, ids)
-  if (!editor) return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
+
+  if (!editor) {
+    return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
+  }
+
   const { selection } = editor
   const { mixed } = selection
   const base = isBaseState(entry.container, selection.state.id)
   const primary = selection.layers.at(-1)!.node
+
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>

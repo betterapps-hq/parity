@@ -70,6 +70,7 @@ const seconds = (time: string) => Date.parse(time) / 1000
 /** The envelope's own fields besides its name, time and level, for a breadcrumb's data or an error's context. */
 function details(envelope: Envelope): Record<string, unknown> {
   const { name: _name, time: _time, level: _level, attributes, ...rest } = envelope
+
   return { ...rest, ...attributes }
 }
 
@@ -90,6 +91,7 @@ export function breadcrumbOf(envelope: Envelope): Breadcrumb {
  */
 export function errorOf(envelope: Envelope): Event {
   const { message } = envelope.attributes
+
   return {
     level: severities[envelope.level],
     message: typeof message === "string" && message ? `${envelope.name}: ${message}` : envelope.name,
@@ -120,8 +122,15 @@ export function logOf(envelope: Envelope): SentryLog {
     duration_ms: envelope.durationMs,
     outcome: envelope.outcome
   }
+
   const attributes: Record<string, unknown> = { ...envelope.attributes }
-  for (const [key, value] of Object.entries(fields)) if (value !== undefined) attributes[`parity.${key}`] = value
+
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) {
+      attributes[`parity.${key}`] = value
+    }
+  }
+
   return {
     level: envelope.level,
     message: envelope.name,
@@ -138,6 +147,7 @@ const statuses = { ok: "ok", error: "internal_error", cancelled: "cancelled" } a
  */
 export function transactionOf(span: SpanEnvelope): Event {
   const start = seconds(span.time)
+
   return {
     type: "transaction",
     transaction: span.name,
@@ -171,13 +181,24 @@ export function createSentrySink(target: SentryTarget, { upload = false, scope =
     event(envelope) {
       if (scope) {
         target.addBreadcrumb(breadcrumbOf(envelope))
-        if (isErrorEvent(envelope)) target.captureEvent(errorOf(envelope))
+
+        if (isErrorEvent(envelope)) {
+          target.captureEvent(errorOf(envelope))
+        }
       }
-      if (upload) target.log?.(logOf(envelope))
+
+      if (upload) {
+        target.log?.(logOf(envelope))
+      }
     },
     span(envelope) {
-      if (scope) target.addBreadcrumb(breadcrumbOf(envelope))
-      if (upload) target.captureEvent(transactionOf(envelope))
+      if (scope) {
+        target.addBreadcrumb(breadcrumbOf(envelope))
+      }
+
+      if (upload) {
+        target.captureEvent(transactionOf(envelope))
+      }
     }
   }
 }

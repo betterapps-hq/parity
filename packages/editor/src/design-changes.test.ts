@@ -55,6 +55,7 @@ describe("changing designs", () => {
       { ...first!, name: "About" },
       { ...second!, name: "Home" }
     ])
+
     expect(names(next)).toEqual(["Home", "About"])
     expect(changeDesigns(start, [home, { path: "other.par", id: "home" }], (containers) => containers)).toBe(start)
   })
@@ -102,9 +103,11 @@ describe("replacing documents", () => {
   it("takes the modes out of the documents, and keeps what wasn't given", () => {
     const start = snapshot({ version: 3, containers: [design("home")] })
     const modes = { ...defaultModeSettings, modes: [] }
+
     const next = replaceDocuments(start, [
       { path: "app.par", document: { version: 3, containers: [design("about")], modes } }
     ])
+
     expect(next.documents.get("app.par")).toEqual({ version: 3, containers: [design("about")] })
     expect(next.modes).toBe(start.modes)
     expect(next.tokens).toBe(start.tokens)
@@ -116,15 +119,18 @@ describe("merging an agent's call", () => {
   // What the call read: home and about in app.par.
   const read = snapshot({ version: 3, containers: [design("home"), design("about")] })
   const renamed = (id: string, name: string): ContainerSpec => ({ ...design(id), name })
+
   const change = (id: string, after: ContainerSpec | null, base: ContainerSpec | null = design(id)): DesignChange => ({
     path: "app.par",
     id,
     base,
     after
   })
+
   const merge = (current: DesignSnapshot, designs: DesignChange[], modes?: ModesChange) => {
     const merged = mergeAgentChanges(current, designs, modes)
     expect(merged.conflicts).toEqual([])
+
     return merged.snapshot
   }
 
@@ -141,12 +147,14 @@ describe("merging an agent's call", () => {
 
   it("refuses a design changed by both, naming it, and applies none of the call", () => {
     const edited = changeDesign(read, home, (container) => ({ ...container, name: "Start" }))
+
     const merged = mergeAgentChanges(
       edited,
       [change("about", renamed("about", "About")), change("home", renamed("home", "Home"))],
       undefined,
       [{ name: "primary", theme: "default", value: "red" }]
     )
+
     expect(merged.conflicts).toEqual([{ path: "app.par", id: "home", name: "Start", reason: "changed" }])
     expect(merged.snapshot).toBe(edited)
     expect(describeConflicts(merged.conflicts)).toBe(
@@ -176,6 +184,7 @@ describe("merging an agent's call", () => {
       change("home", null),
       { path: "new.par", id: "pricing", base: null, after: design("pricing") }
     ])
+
     expect(names(next)).toEqual(["about"])
     expect(next.documents.get("new.par")).toEqual({ version: 3, containers: [design("pricing")] })
   })

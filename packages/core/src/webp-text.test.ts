@@ -11,11 +11,13 @@ function layout(webp: Uint8Array) {
   const view = new DataView(webp.buffer, webp.byteOffset, webp.byteLength)
   const types: string[] = []
   let at = 12
+
   while (at + 8 <= webp.length) {
     const size = view.getUint32(at + 4, true)
     types.push(String.fromCharCode(...webp.subarray(at, at + 4)))
     at += 8 + size + (size % 2)
   }
+
   return { types, whole: view.getUint32(4, true) + 8 === webp.length && at === webp.length }
 }
 
@@ -24,6 +26,7 @@ function extended(webp: Uint8Array) {
   const view = new DataView(webp.buffer, webp.byteOffset, webp.byteLength)
   const width = (view.getUint32(24, true) & 0xffffff) + 1
   const height = (view.getUint32(27, true) & 0xffffff) + 1
+
   return { width, height, alpha: (webp[20]! & 0x10) !== 0 }
 }
 

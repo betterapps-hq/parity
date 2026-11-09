@@ -24,10 +24,19 @@ const knownProviders: { pattern: RegExp; provider: string }[] = [
  */
 export function neededWrapper(error: string): { provider: string } | { parent: string } | undefined {
   const known = knownProviders.find(({ pattern }) => pattern.test(error))
-  if (known) return { provider: known.provider }
+
+  if (known) {
+    return { provider: known.provider }
+  }
+
   const provider = /\b([A-Z]\w*Provider)\b/.exec(error)?.[1]
-  if (provider) return { provider }
+
+  if (provider) {
+    return { provider }
+  }
+
   const parent = [...error.matchAll(/[<`]([A-Z][\w.]*)\s*\/?[>`]/g)].at(-1)?.[1]
+
   return parent ? { parent } : undefined
 }
 
@@ -39,14 +48,17 @@ export function failureAdvice(error: string): FailureAdvice {
   switch (renderProblem(error)) {
     case "provider": {
       const wrapper = neededWrapper(error)
+
       if (wrapper && "parent" in wrapper) {
         return { reason: "It needs a parent.", fix: `Place it inside a ${wrapper.parent} layer.` }
       }
+
       return {
         reason: "It needs a provider.",
         fix: `Add a decorator to ${previewFiles} that wraps designs in ${wrapper?.provider ?? "the provider it needs"}.`
       }
     }
+
     case "server":
       return {
         reason: "It imports code that only runs on a server.",
@@ -68,9 +80,15 @@ export function failureAdvice(error: string): FailureAdvice {
  */
 export function designFailures(frames: Iterable<readonly LayerFailure[]>): LayerFailure[] {
   const byNode = new Map<string, LayerFailure>()
+
   for (const failures of frames) {
-    for (const failure of failures) if (!byNode.has(failure.nodeId)) byNode.set(failure.nodeId, failure)
+    for (const failure of failures) {
+      if (!byNode.has(failure.nodeId)) {
+        byNode.set(failure.nodeId, failure)
+      }
+    }
   }
+
   return [...byNode.values()]
 }
 

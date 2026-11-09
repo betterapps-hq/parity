@@ -24,14 +24,20 @@ export function previewStatus(preview: PreviewState | undefined, missing: readon
       return { kind: "made", image: preview.image }
     case "waiting":
     case "making":
-      if (preview.last) return { kind: "updating", image: preview.last, making: preview.state === "making" }
+      if (preview.last) {
+        return { kind: "updating", image: preview.last, making: preview.state === "making" }
+      }
+
       return { kind: preview.state }
     case "failed": {
       const kind = previewProblem({ error: preview.error }, missing)
+
       return kind === "needs-props" ? { kind, error: preview.error, needs: missing } : { kind, error: preview.error }
     }
+
     case "empty": {
       const kind = previewProblem({ empty: true }, missing)
+
       return kind === "needs-props" ? { kind, needs: missing } : { kind }
     }
   }

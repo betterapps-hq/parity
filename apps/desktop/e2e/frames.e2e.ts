@@ -9,18 +9,22 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 /** The design added since `before`, by its key. */
 async function added(before: { key: string }[]) {
   await expect.poll(async () => (await app.designs()).length).toBe(before.length + 1)
+
   return (await app.designs()).find((design) => !before.some((old) => old.key === design.key))!
 }
 
 function frameOf(key: string) {
   return app.page.evaluate((key) => {
     const { container } = window.e2e!.session().store.getEntry(key)!
+
     return { kind: container.kind, size: container.size, name: container.name }
   }, key)
 }
@@ -29,11 +33,16 @@ function frameOf(key: string) {
 async function convertFromTitle(name: string, item: string) {
   // Selecting it first waits for the title to settle where the zoom puts it.
   await app.selectDesign(name)
+
   const box = await app.page
     .locator(".design-title > div > button")
     .filter({ hasText: new RegExp(`^${name}$`) })
     .boundingBox()
-  if (!box) throw new Error(`${name}'s title isn't drawn`)
+
+  if (!box) {
+    throw new Error(`${name}'s title isn't drawn`)
+  }
+
   await app.rightClick({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
   await app.page.getByRole("menuitem", { name: item }).click()
 }
@@ -89,15 +98,18 @@ describe("text on the empty canvas", () => {
     await app.page.keyboard.type("Plans for every team")
     await app.page.keyboard.press("Enter")
     await expect.poll(async () => (await frameOf(frame.key)).name).toBe("Plans for every team")
+
     // It hugs its text on one line: as wide as the text and its padding, no wider.
     const lines = () =>
       app.page.evaluate((key) => {
         const host = document.querySelector(`.frame-view[data-design="${CSS.escape(key)}"] [data-frame]`)
         const text = host?.shadowRoot?.querySelector("[data-canvas-node]")?.firstElementChild
+
         return text instanceof HTMLElement
           ? Math.round(text.offsetHeight / parseFloat(getComputedStyle(text).lineHeight))
           : 0
       }, frame.key)
+
     await expect.poll(lines).toBe(1)
     const width = (await frameOf(frame.key)).size?.width ?? 0
     expect(width).toBeGreaterThan(100)

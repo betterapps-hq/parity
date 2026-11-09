@@ -14,17 +14,24 @@ const names = ["AcademicCapIcon", "BellIcon", "CogIcon", "HeartIcon"]
 describe("styleModules", () => {
   it("finds styles kept in modules of their own, named by their paths, in the package's order", async () => {
     const outline = iconsIn("outline", names)
+
     const modules: Record<string, Record<string, unknown>> = {
       "@heroicons/react/16/solid": iconsIn("solid16", names.slice(0, 3)),
       "@heroicons/react/20/solid": iconsIn("solid20", names),
       "@heroicons/react/24/outline": outline,
       "@heroicons/react/24/solid": iconsIn("solid24", names)
     }
+
     const load = async (specifier: string) => {
       const module = modules[specifier]
-      if (!module) throw new Error(`Can't find ${specifier}`)
+
+      if (!module) {
+        throw new Error(`Can't find ${specifier}`)
+      }
+
       return module
     }
+
     const entries = [".", "./package.json", "./outline", "./16/solid", "./16/solid/*", "./20/solid", "./24/outline"]
     expect(
       await styleModules("@heroicons/react", [...entries, "./24/solid"], "@heroicons/react/24/outline", load, draw)
@@ -38,12 +45,14 @@ describe("styleModules", () => {
 
   it("passes over other ways in to the same icons, and modules of other things", async () => {
     const main = iconsIn("regular", names)
+
     const modules: Record<string, Record<string, unknown>> = {
       icons: main,
       "icons/ssr": iconsIn("regular", names),
       "icons/lib": { ...main },
       "icons/dynamic": { DynamicIcon: icon("<svg />") }
     }
+
     const load = async (specifier: string) => modules[specifier] ?? Promise.reject(new Error("no"))
     const entries = ["./ssr", "./lib", "./dynamic", "./fonts"]
     expect(await styleModules("icons", entries, "icons", load, draw)).toBeUndefined()
@@ -54,6 +63,7 @@ describe("styleModules", () => {
       icons: iconsIn("outline", names),
       "icons/solid": iconsIn("solid", names)
     }
+
     const load = async (specifier: string) => modules[specifier]!
     expect(await styleModules("icons", ["./solid"], "icons", load, draw)).toEqual({
       Default: "icons",

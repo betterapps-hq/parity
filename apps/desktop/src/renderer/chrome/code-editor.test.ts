@@ -25,6 +25,7 @@ describe("a component's code", () => {
       },
       "kit/Card": { path: "@kit/ui", export: "Card", library: "kit" }
     })
+
     expect(componentFile(session, "radix/Dialog.Root")).toBe(
       "/shop/node_modules/@radix-ui/react-dialog/dist/index.d.ts"
     )

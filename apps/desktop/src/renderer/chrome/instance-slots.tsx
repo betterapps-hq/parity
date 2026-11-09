@@ -37,6 +37,7 @@ const slotState = (slot: InstanceSlot) => (slot.fill.length > 0 ? layers(slot.fi
  */
 function useClear(entry: ContainerEntry, instance: InstanceNode) {
   const { store } = useProject()
+
   return (slot: InstanceSlot) =>
     updateAndRecord(
       store,
@@ -48,6 +49,7 @@ function useClear(entry: ContainerEntry, instance: InstanceNode) {
         layers: [instance.id],
         read: (container) => {
           const node = findNode(container.root, instance.id)
+
           return node?.type === "instance" ? node.slots?.[slot.name]?.map((layer) => layer.id) : undefined
         }
       }
@@ -64,6 +66,7 @@ const clearLabel = (slot: InstanceSlot) => `Clear ${slot.name}, deleting its ${l
 function SlotState({ slot }: { slot: InstanceSlot }) {
   const filled = slot.fill.length > 0
   const Tile = filled ? Square : SquareDashed
+
   return (
     <>
       <Tile
@@ -89,12 +92,15 @@ function SlotPicture({ slot }: { slot: InstanceSlot }) {
   const session = useProject()
   const filled = slot.fill.length > 0
   const library = session.store.getComponentLibrary()
+
   const job = treePreviewJob(session, `slot:${slot.node.id}:${JSON.stringify(slot.fill).length}`, (viewport) =>
     slotPreviewTree(slot, library, viewport)
   )
+
   const preview = useOneOffPreview(job)
   const edge = filled ? "ring-1 ring-border ring-inset" : "border border-dashed border-muted-foreground/40"
   let shown: ReactNode
+
   if (preview?.image) {
     shown = (
       <img
@@ -125,6 +131,7 @@ function SlotPicture({ slot }: { slot: InstanceSlot }) {
       </>
     )
   }
+
   return (
     <div className={`grid min-h-24 place-items-center overflow-hidden rounded-md bg-muted/40 p-2 ${edge}`}>{shown}</div>
   )
@@ -141,6 +148,7 @@ function SlotCard({
   children: ReactElement
 }) {
   const filled = slot.fill.length > 0
+
   return (
     <Popover open={card.open} onOpenChange={card.setOpen}>
       {/* The row opens its card by resting on it or by a key; a click selects the slot instead. */}
@@ -175,6 +183,7 @@ function SlotField({ entry, instance, slot }: { entry: ContainerEntry; instance:
   const card = useHoverCard()
   const clear = useClear(entry, instance)
   const filled = slot.fill.length > 0
+
   return (
     <Field label={slot.name} hint="A slot: layers from this design, shown in place of its placeholder">
       <div className="group relative min-w-0">
@@ -221,6 +230,7 @@ function SlotField({ entry, instance, slot }: { entry: ContainerEntry; instance:
 /** One of the design's own instances' slots, after its params. Nothing for a component without slots. */
 export function InstanceSlotFields({ entry, instance }: { entry: ContainerEntry; instance: InstanceNode }) {
   const { store } = useProject()
+
   return instanceSlots(instance, projectLibrary(store)).map((slot) => (
     <SlotField key={slot.node.id} entry={entry} instance={instance} slot={slot} />
   ))
@@ -245,6 +255,7 @@ export function SlotPanel({
   const clear = useClear(entry, instance)
   const filled = slot.fill.length > 0
   const name = layerLabel(instance, entries, store.getComponentLibrary())
+
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>

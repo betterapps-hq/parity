@@ -4,10 +4,13 @@ import { listenOnLoopback } from "./loopback.ts"
 describe("listenOnLoopback", () => {
   it("hands the link back with its port, and answers with whether signing in worked", async () => {
     const taken: string[] = []
+
     const redirect = await listenOnLoopback(async (link) => {
       taken.push(link)
+
       return link.includes("state=mine") ? "signed-in" : "not-mine"
     })
+
     try {
       expect(redirect.uri).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/auth\/callback$/)
       const mine = await fetch(`${redirect.uri}?code=1&state=mine`)

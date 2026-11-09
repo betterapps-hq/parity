@@ -35,6 +35,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const minutes = (count: number) => Date.now() - count * 60_000
@@ -125,6 +126,7 @@ function Sample({
   const source = useMemo(() => staticPictures(pictures), [pictures])
   const theme = useResolvedTheme()
   const ignore = () => undefined
+
   return (
     <PictureSourceProvider value={source}>
       <StartActionsProvider
@@ -180,10 +182,12 @@ export const CardFlipsThroughScreens: Story = {
   play: async ({ canvasElement }) => {
     const card = within(canvasElement).getByRole("button", { name: "cloud-console" }).closest("article")!
     const art = card.firstElementChild!
+
     const across = async (share: number) => {
       const box = art.getBoundingClientRect()
       await fireEvent.pointerMove(card, { clientX: box.left + box.width * share, clientY: box.top + box.height / 2 })
     }
+
     await userEvent.hover(card)
     await across(0.9)
     await expect(within(card).getByText("Pricing")).toBeInTheDocument()

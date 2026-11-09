@@ -6,6 +6,10 @@ export const ProjectContext = createContext<ProjectSession | undefined>(undefine
 /** The project of the tab this component belongs to. */
 export function useProject(): ProjectSession {
   const value = useContext(ProjectContext)
-  if (!value) throw new Error("useProject must be used inside a project tab")
+
+  if (!value) {
+    throw new Error("useProject must be used inside a project tab")
+  }
+
   return value
 }

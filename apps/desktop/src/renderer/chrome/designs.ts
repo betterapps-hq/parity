@@ -11,7 +11,11 @@ import { renameAndRecord } from "./inspector-events.ts"
 
 export function renameDesign(session: ProjectSession, entry: ContainerEntry, name: string): void {
   const trimmed = name.trim()
-  if (!trimmed || trimmed === entry.container.name) return
+
+  if (!trimmed || trimmed === entry.container.name) {
+    return
+  }
+
   renameAndRecord(session.store, entry.key, trimmed)
 }
 
@@ -25,16 +29,20 @@ export function duplicateDesign(session: ProjectSession, entry: ContainerEntry):
   const name = `${entry.container.name} copy`
   const id = uniqueId(name, taken)
   const bounds = editor?.getShapePageBounds(shapeIdFor(entry.key))
+
   const x =
     editor && bounds
       ? freeSpotBeside(bounds, takenBounds(editor)).x + entry.container.position.x - bounds.minX
       : entry.container.position.x + 1400 + designGap
+
   const key = store.addContainer(
     entry.path,
     { ...structuredClone(entry.container), id, name, position: { x: Math.round(x), y: entry.container.position.y } },
     `Duplicate ${kindName(entry.container.kind)}`
   )
+
   session.selection.set({ design: key })
+
   // A copy that lands off screen is brought into view (PAR-204).
   if (editor && bounds) {
     const shift = Math.round(x) - entry.container.position.x
@@ -45,6 +53,7 @@ export function duplicateDesign(session: ProjectSession, entry: ContainerEntry):
       maxY: bounds.maxY
     })
   }
+
   return key
 }
 
@@ -63,24 +72,35 @@ const convertedHints: Record<Exclude<ContainerKind, "frame">, string> = {
 export function setDesignKind(session: ProjectSession, entry: ContainerEntry, kind: ContainerKind): void {
   const { store } = session
   const from = entry.container.kind ?? "screen"
-  if (kind === from) return
+
+  if (kind === from) {
+    return
+  }
+
   if (kind === "frame") {
     const drops = frameDrops(
       entry.container,
       store.getEntries().map((other) => other.container),
       store.getModes()
     )
+
     const convert = () => convertToFrame(session, entry.key)
+
     if (from !== "frame" && dropLines(drops).length > 0) {
       askToConvertToFrame({ name: entry.container.name, kind: from, drops, convert })
-    } else convert()
+    } else {
+      convert()
+    }
+
     return
   }
+
   store.updateContainer(
     entry.key,
     `Convert to ${kindName(kind)}`,
     (container) => turnInto(container, kind, store.getModes()).design
   )
+
   if (from === "frame") {
     toast.success(`${entry.container.name} is a ${kindName(kind)}`, {
       description: convertedHints[kind],
@@ -97,12 +117,18 @@ export function setDesignKind(session: ProjectSession, entry: ContainerEntry, ki
 function convertToFrame(session: ProjectSession, key: string): void {
   const { store, selection } = session
   const entry = store.getEntry(key)
-  if (!entry) return
+
+  if (!entry) {
+    return
+  }
+
   const { id } = entry.container
+
   const placing =
     entry.container.kind === "component"
       ? store.getEntries().filter((other) => other.key !== key && instanceCount(other.container, id) > 0)
       : []
+
   store.updateContainers([key, ...placing.map((other) => other.key)], "Convert to frame", ([design, ...others]) => [
     turnInto(design!, "frame", store.getModes()).design,
     ...others.map((other, index) => detachInstancesOf(other, id, store.getLibrary(placing[index]!.key)))

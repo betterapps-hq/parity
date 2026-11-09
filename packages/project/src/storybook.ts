@@ -28,20 +28,38 @@ export async function findStorybook(
   resolveAlias: (specifier: string) => Promise<string | undefined>
 ): Promise<StorybookInfo | undefined> {
   const config = await storybookConfig(root, pkg)
-  if (!config) return undefined
+
+  if (!config) {
+    return undefined
+  }
+
   const { configDir, main, script } = config
   const port = script ? Number(commandOption(script[1], ["-p", "--port"])) || undefined : undefined
   const stories: Record<string, StoryFile[]> = {}
+
   for (const path of await findStoryFiles(root)) {
     const source = await readFile(join(root, path), "utf8").catch(() => "")
     const parsed = parseStoryFile(source)
-    if (!parsed.component) continue
+
+    if (!parsed.component) {
+      continue
+    }
+
     const imported = importsOf(source).get(parsed.component)
-    if (!imported) continue
+
+    if (!imported) {
+      continue
+    }
+
     const key = await componentFor(path, imported, components, resolveAlias)
-    if (!key) continue
+
+    if (!key) {
+      continue
+    }
+
     ;(stories[key] ??= []).push({ path, ...(parsed.title ? { title: parsed.title } : {}), exports: parsed.exports })
   }
+
   return {
     configDir: posix.normalize(configDir.replaceAll("\\", "/")),
     main,
@@ -62,22 +80,29 @@ export async function storybookConfig(
   const script = scriptRunning(pkg.scripts, /\bstorybook\s+dev\b/)
   const configDir = (script && commandOption(script[1], ["-c", "--config-dir"])) ?? ".storybook"
   const main = await findConfig(root, join(root, configDir), mainConfig)
+
   return main ? { configDir, main, ...(script ? { script } : {}) } : undefined
 }
 
 async function findStoryFiles(root: string): Promise<string[]> {
   const found: string[] = []
+
   const walk = async (folder: string) => {
     const entries = await readdir(folder, { withFileTypes: true }).catch(() => [])
+
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (!skipped.has(entry.name) && !entry.name.startsWith(".")) await walk(join(folder, entry.name))
+        if (!skipped.has(entry.name) && !entry.name.startsWith(".")) {
+          await walk(join(folder, entry.name))
+        }
       } else if (storyFile.test(entry.name)) {
         found.push(relative(root, join(folder, entry.name)).replaceAll("\\", "/"))
       }
     }
   }
+
   await walk(root)
+
   return found.sort()
 }
 
@@ -86,26 +111,37 @@ export function parseStoryFile(source: string): { component?: string; title?: st
   const component = /\bcomponent\s*:\s*([A-Za-z_$][\w$]*)/.exec(source)?.[1]
   const title = /\btitle\s*:\s*["'`]([^"'`]+)["'`]/.exec(source)?.[1]
   const exports = [...source.matchAll(/export\s+const\s+([A-Za-z_$][\w$]*)/g)].map((match) => match[1]!)
+
   return { ...(component ? { component } : {}), ...(title ? { title } : {}), exports }
 }
 
 /** What each imported name refers to: the module it comes from and the name it has there. */
 function importsOf(source: string): Map<string, { specifier: string; name: string }> {
   const found = new Map<string, { specifier: string; name: string }>()
+
   for (const match of source.matchAll(/import\s+(?!type\b)([^;]*?)\s+from\s+["']([^"']+)["']/g)) {
     const [clause, specifier] = [match[1]!, match[2]!]
     const named = /\{([^}]*)\}/.exec(clause)?.[1]
+
     for (const part of named?.split(",") ?? []) {
       const [name, local] = part
         .trim()
         .replace(/^type\s+/, "")
         .split(/\s+as\s+/)
         .map((text) => text.trim())
-      if (name) found.set(local ?? name, { specifier, name })
+
+      if (name) {
+        found.set(local ?? name, { specifier, name })
+      }
     }
+
     const fallback = /^([A-Za-z_$][\w$]*)/.exec(clause.trim())?.[1]
-    if (fallback) found.set(fallback, { specifier, name: "default" })
+
+    if (fallback) {
+      found.set(fallback, { specifier, name: "default" })
+    }
   }
+
   return found
 }
 
@@ -116,19 +152,30 @@ async function componentFor(
   resolveAlias: (specifier: string) => Promise<string | undefined>
 ): Promise<string | undefined> {
   const { specifier, name } = imported
+
   // A library component is imported by its package name.
   const fromPackage = Object.entries(components).find(
     ([, source]) => source.library && source.path === specifier && source.export === name
   )
-  if (fromPackage) return fromPackage[0]
+
+  if (fromPackage) {
+    return fromPackage[0]
+  }
+
   const base = specifier.startsWith(".")
     ? posix.normalize(posix.join(posix.dirname(storyPath), specifier))
     : await resolveAlias(specifier)
-  if (!base) return undefined
+
+  if (!base) {
+    return undefined
+  }
+
   const stem = base.replace(/\.[cm]?[jt]sx?$/, "")
   const candidates = new Set([base, ...moduleExtensions.map((extension) => stem + extension)])
+
   const match = Object.entries(components).find(
     ([, source]) => !source.library && candidates.has(source.path) && source.export === name
   )
+
   return match?.[0]
 }

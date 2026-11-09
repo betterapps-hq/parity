@@ -25,6 +25,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const page = () => within(document.body)
@@ -40,6 +41,7 @@ function entries(guestUrl: string): LoggedEntry[] {
   const pricing = design("Pricing")
   const dashboard = design("Dashboard")
   const react = `${guest}/node_modules/.vite/deps/react-dom_client.js?v=4f2a`
+
   const keyWarning = (id: number, mode: string, first: number) =>
     ({
       id,
@@ -57,6 +59,7 @@ function entries(guestUrl: string): LoggedEntry[] {
       first: minutes(first),
       last: minutes(first > 1 ? first - 1 : 1)
     }) satisfies LoggedEntry
+
   return [
     {
       id: 1,

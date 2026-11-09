@@ -120,6 +120,7 @@ describe("names", () => {
     expect(compareNames("text-sm", "text-lg")).toBeLessThan(0)
     expect(compareNames("text-lg", "text-normal")).toBeLessThan(0)
     expect(compareNames("text-sm", "text-normal")).toBeLessThan(0)
+
     for (const start of names.keys()) {
       const turned = [...names.slice(start), ...names.slice(0, start)]
       expect(sorted(turned)).toEqual(["text-sm", "text-lg", "text-normal"])
@@ -168,10 +169,12 @@ describe("shadows", () => {
     expect(shadowReach("0 calc(2px * 4) rgb(0 0 0 / 0.1)", length)).toBe(8)
     // A variable isn't handed to the measurer, which in the app would lay it out as nothing.
     expect(shadowReach("0 var(--y) rgb(0 0 0 / 0.1)", (value) => (value.startsWith("var(") ? 99 : 0))).toBe(0)
+
     const shadows: [string, string][] = [
       ["shadow-a", "0 calc(2px * 4) rgb(0 0 0 / 0.1)"],
       ["shadow-b", "0 4px rgb(0 0 0 / 0.1)"]
     ]
+
     expect(
       orderTokens(shadows, ([name, value]) => ({ name, kind: "shadow", value }), length).map(([name]) => name)
     ).toEqual(["shadow-b", "shadow-a"])

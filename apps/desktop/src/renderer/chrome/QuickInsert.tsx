@@ -62,7 +62,10 @@ const listeners = new Set<() => void>()
 
 function setOpen(next: boolean): void {
   open = next
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 /** Closes the insert picker, as when it failed and was closed (PAR-667). */
@@ -72,7 +75,9 @@ export function closeQuickInsert(): void {
 
 /** Opens the insert picker for the active tab: `/` or Shift+I on the canvas. */
 export function openQuickInsert(): void {
-  if (activeSession()) setOpen(true)
+  if (activeSession()) {
+    setOpen(true)
+  }
 }
 
 /** The most icons the picker lists for a search; the Icons panel has them all. */
@@ -116,15 +121,22 @@ export function offerOf(session: ProjectSession, entries: readonly ContainerEntr
   const designs = entries
     .map(({ key, container }) => `${key} ${container.id} ${container.kind ?? ""} ${container.name}`)
     .join("\n")
+
   const kept = offers.get(session.info)
-  if (kept?.designs === designs) return kept.offer
+
+  if (kept?.designs === designs) {
+    return kept.offer
+  }
+
   const options: InsertOption[] = []
   const actions = new Map<string, Action>()
+
   for (const basic of basics) {
     const key = `basic:${basic.id}`
     options.push({ key, name: basic.label, origin: "basic", source: "basics", sourceName: "Basics" })
     actions.set(key, { kind: "basic", basic })
   }
+
   for (const source of componentSources(session.info, entries)) {
     for (const family of source.families) {
       for (const entry of family.items) {
@@ -144,8 +156,10 @@ export function offerOf(session: ProjectSession, entries: readonly ContainerEntr
       }
     }
   }
+
   const offer = { options, actions }
   offers.set(session.info, { designs, offer })
+
   return offer
 }
 
@@ -157,12 +171,18 @@ const iconSetCache = new WeakMap<
 
 function iconSetsOf(session: ProjectSession): { library: LibraryInfo; catalog: IconCatalog }[] {
   const kept = iconSetCache.get(session.loaded)
-  if (kept?.libraries === session.info.libraries) return kept.sets
+
+  if (kept?.libraries === session.info.libraries) {
+    return kept.sets
+  }
+
   const sets = iconLibraries(session.info.libraries).map((library) => ({
     library,
     catalog: iconCatalog(session.loaded, library, iconStyles(library).initial)
   }))
+
   iconSetCache.set(session.loaded, { libraries: session.info.libraries, sets })
+
   return sets
 }
 
@@ -175,30 +195,44 @@ export function QuickInsert() {
   const isOpen = useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => open
   )
+
   const session = isOpen ? activeSession() : undefined
   const info = useSyncExternalStore(workspace.subscribe, () => activeSession()?.info)
   // The list is built while the window is idle after a project opens or its components change, so even the first `/`
   // finds it ready.
   useEffect(() => {
-    if (!info) return undefined
+    if (!info) {
+      return undefined
+    }
+
     const ready = requestIdleCallback(() => {
       const idle = activeSession()
-      if (!idle) return
+
+      if (!idle) {
+        return
+      }
+
       offerOf(idle, idle.store.getEntries())
       // Listing a set's icons asks the project's own copy of it, 40 to 50ms for Lucide's 1,900.
       iconSetsOf(idle)
     })
+
     return () => cancelIdleCallback(ready)
   }, [info])
+
   // The picker is in the page only while it's open. Base UI keeps a closed dialog and its backdrop until it has seen
   // the closing animation end, a frame or two after its 100ms, and the backdrop took the clicks meant for the canvas
   // until then: in a window in the background, where frames come about once a second, for over a second (PAR-554).
   // The list left the moment the picker closed, so the animation only faded out the backdrop and an empty box.
-  if (!session) return null
+  if (!session) {
+    return null
+  }
+
   return (
     // Not modal: a modal dialog locks the page's scrolling, hides everything else from screen readers and stops the
     // pointer on the body, which restyled all of the window's 6,000 elements to open it, 100 to 150ms of the 400ms the
@@ -229,6 +263,7 @@ type Line =
 
 /** How tall each kind of line is drawn, so only the lines in view are. */
 const lineHeights: Record<Line["type"], number> = { heading: 28, row: 36, icon: 32, hint: 32 }
+
 /** The list's height: 24rem, as before. */
 const listHeight = 384
 
@@ -244,6 +279,7 @@ function InsertList({ session }: { session: ProjectSession }) {
   const [query, setQuery] = useState("")
   const search = query.trim()
   const rows = useMemo(() => insertRows(offer.options, search), [offer, search])
+
   const icons = useMemo(
     () =>
       search.length >= 2
@@ -253,42 +289,57 @@ function InsertList({ session }: { session: ProjectSession }) {
         : [],
     [iconSets, search]
   )
+
   const lines = useMemo(() => {
     const list: Line[] = []
     let heading = ""
+
     for (const row of rows) {
       // Browsing, rows sit under their source; a search ranks them across sources, each row naming its own.
       const source = row.options[0]!.sourceName
+
       // A source can come round again, as a library's designs and its components, so its key has its place too.
       if (!search && source !== heading) {
         list.push({ type: "heading", key: `heading:${list.length}:${source}`, label: source })
       }
+
       heading = source
       list.push({ type: "row", key: row.key, row })
     }
+
     for (const { library, entries: found } of icons) {
       list.push({ type: "heading", key: `heading:icons:${library.id}`, label: iconsOf(library) })
-      for (const entry of found) list.push({ type: "icon", key: `icon:${entry.item.component}`, library, entry })
+
+      for (const entry of found) {
+        list.push({ type: "icon", key: `icon:${entry.item.component}`, library, entry })
+      }
     }
+
     if (iconCount > 0 && search.length < 2) {
       list.push({ type: "hint", key: "hint", text: `Type to search ${iconCount} icons too`, count: iconCount })
     }
+
     return list
   }, [rows, icons, iconCount, search])
+
   const choices = useMemo(
     () => lines.flatMap((line, index) => (line.type === "row" || line.type === "icon" ? [index] : [])),
     [lines]
   )
+
   const [active, setActive] = useState(0)
   // A new search starts at its best match.
   const [searched, setSearched] = useState(search)
+
   if (searched !== search) {
     setSearched(search)
     setActive(0)
   }
+
   const current = choices.length > 0 ? choices[Math.min(active, choices.length - 1)] : undefined
 
   const scroller = useRef<HTMLDivElement>(null)
+
   // The app doesn't use the React Compiler, whose memoizing this rule guards against.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -300,8 +351,11 @@ function InsertList({ session }: { session: ProjectSession }) {
     initialRect: { width: 560, height: listHeight },
     overscan: 6
   })
+
   useLayoutEffect(() => {
-    if (current !== undefined) virtualizer.scrollToIndex(current, { align: "auto" })
+    if (current !== undefined) {
+      virtualizer.scrollToIndex(current, { align: "auto" })
+    }
   }, [current, virtualizer])
 
   // The highlighted row's component, whose card shows beside the list.
@@ -311,12 +365,18 @@ function InsertList({ session }: { session: ProjectSession }) {
   const uses = useMemo(() => componentUses(entries.map((entry) => entry.container.root)), [entries])
 
   const run = (key: string) => insertOption(session, offer, key)
+
   const pick = (line: Line | undefined) => {
-    if (line?.type === "row") run(line.row.key)
-    else if (line?.type === "icon") insert(session, line.entry.item)
+    if (line?.type === "row") {
+      run(line.row.key)
+    } else if (line?.type === "icon") {
+      insert(session, line.entry.item)
+    }
   }
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     const move = { ArrowDown: 1, ArrowUp: -1, PageDown: 8, PageUp: -8 }[event.key]
+
     if (move !== undefined && choices.length > 0) {
       event.preventDefault()
       const at = Math.min(active, choices.length - 1)
@@ -334,6 +394,7 @@ function InsertList({ session }: { session: ProjectSession }) {
 
   const listId = useId()
   const optionId = (index: number) => `${listId}-${index}`
+
   return (
     <div className="flex text-popover-foreground">
       <div className="flex min-w-0 flex-1 flex-col p-1">
@@ -380,6 +441,7 @@ function InsertList({ session }: { session: ProjectSession }) {
                 const line = lines[virtual.index]!
                 const style = { transform: `translateY(${virtual.start}px)`, height: virtual.size }
                 const place = "absolute top-0 left-0 w-full"
+
                 if (line.type === "heading") {
                   return (
                     <div
@@ -392,6 +454,7 @@ function InsertList({ session }: { session: ProjectSession }) {
                     </div>
                   )
                 }
+
                 if (line.type === "hint") {
                   return (
                     <p
@@ -404,8 +467,10 @@ function InsertList({ session }: { session: ProjectSession }) {
                     </p>
                   )
                 }
+
                 const selected = virtual.index === current
                 const choose = () => setActive(choices.indexOf(virtual.index))
+
                 return (
                   <div
                     key={line.key}
@@ -455,6 +520,7 @@ function InsertList({ session }: { session: ProjectSession }) {
 /** The component a row inserts first, when it's one of the project's or a library's components. */
 function componentOf(offer: Offer, row: InsertRow): string | undefined {
   const action = offer.actions.get(row.options[0]!.key)
+
   return action?.kind === "item" && action.item.kind === "component" ? action.item.component : undefined
 }
 
@@ -464,12 +530,14 @@ function componentOf(offer: Offer, row: InsertRow): string | undefined {
  */
 function PickerCard({ session, component, uses }: { session: ProjectSession; component: string; uses: number }) {
   const { about } = useComponentCard(session, component, true)
+
   const close = (open: (() => void) | undefined) =>
     open &&
     (() => {
       setOpen(false)
       open()
     })
+
   return (
     <aside
       aria-label="Highlighted component"
@@ -493,6 +561,7 @@ function PickerCard({ session, component, uses }: { session: ProjectSession; com
 function RowPicture({ session, component }: { session: ProjectSession; component: string }) {
   const { pictured } = useComponentCard(session, component, false)
   const onScreen = usePreviewOnScreen(session.id, component)
+
   return (
     // A picture rather than text, so it's a box beside the row's words, not one of them.
     <div ref={onScreen} className="flex shrink-0">
@@ -504,11 +573,14 @@ function RowPicture({ session, component }: { session: ProjectSession; component
 function originIcon(origin: InsertOrigin, key: string): ReactNode {
   if (origin === "basic") {
     const Icon = basics.find((basic) => `basic:${basic.id}` === key)?.icon ?? Type
+
     return <Icon className="size-4 shrink-0" />
   }
+
   if (origin === "design" || origin === "library-design") {
     return <Diamond className="size-4 shrink-0" style={{ color: kindColors.component }} />
   }
+
   return <Component className="size-4 shrink-0" style={{ color: kindColors.component }} />
 }
 
@@ -533,6 +605,7 @@ function RowContent({
   const [first, ...others] = row.options
   const described = first!.description && first!.description.toLowerCase() !== row.name.toLowerCase()
   let detail: ReactNode = null
+
   if (searching && first!.origin !== "basic") {
     detail = (
       <span className="ml-auto flex shrink-0 items-center gap-1">
@@ -565,6 +638,7 @@ function RowContent({
   } else if (described) {
     detail = <span className="ml-auto shrink-0 truncate text-xs text-muted-foreground">{first!.description}</span>
   }
+
   return (
     <>
       {component ? (
@@ -583,19 +657,27 @@ function RowContent({
 /** Inserts one of the offer's options at the selection, as picking it here does: Search actions picks them too. */
 export function insertOption(session: ProjectSession, offer: Offer, key: string): void {
   const action = offer.actions.get(key)
-  if (action?.kind === "basic") insertBasic(session, action.basic)
-  else if (action) insert(session, action.item)
+
+  if (action?.kind === "basic") {
+    insertBasic(session, action.basic)
+  } else if (action) {
+    insert(session, action.item)
+  }
 }
 
 function insert(session: ProjectSession, item: InsertItem): void {
   setOpen(false)
-  if (!insertAtSelection(session, item, "quickInsert")) toast.info("Select a layout, or a layer to add it after")
+
+  if (!insertAtSelection(session, item, "quickInsert")) {
+    toast.info("Select a layout, or a layer to add it after")
+  }
 }
 
 function insertBasic(session: ProjectSession, { node: make, label }: (typeof basics)[number]): void {
   setOpen(false)
   const node = make()
   const placed = placeLayers(session, [node], `Add ${label.toLowerCase()}`)
+
   // A new text layer is ready to type into, as with the text tool.
   if (placed && node.type === "text") {
     const editing = { design: placed.design, node: placed.ids[0]!, ...placed.frame }

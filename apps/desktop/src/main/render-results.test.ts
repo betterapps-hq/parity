@@ -41,11 +41,13 @@ describe("calls into the render page", () => {
 
   it("throw what the page threw, with its message and stack", async () => {
     const broken = new TypeError("Cannot read properties of undefined (reading 'height')")
+
     const thrown = await callPage("window.canvasHeight()", {
       canvasHeight: () => {
         throw broken
       }
     }).catch((error: unknown) => error)
+
     expect(thrown).toBeInstanceOf(PageError)
     expect(thrown).toMatchObject({
       message: broken.message,

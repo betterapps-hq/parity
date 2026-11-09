@@ -24,15 +24,24 @@ export function sizeWhileShown(canvas: Sized, showing: () => boolean): { release
         set(own, showing() ? value : 0)
       }
     })
+
     return { name, own }
   })
+
   return {
     release() {
-      if (showing()) return
-      for (const { own } of dimensions) set(own, 0)
+      if (showing()) {
+        return
+      }
+
+      for (const { own } of dimensions) {
+        set(own, 0)
+      }
     },
     restore() {
-      for (const { name } of dimensions) delete (canvas as Partial<Sized>)[name]
+      for (const { name } of dimensions) {
+        delete (canvas as Partial<Sized>)[name]
+      }
     }
   }
 }
@@ -44,7 +53,9 @@ interface Accessor {
 
 /** Setting a dimension clears the bitmap even when it's unchanged, so only a change is set. */
 function set(own: Accessor, value: number): void {
-  if (own.get() !== value) own.set(value)
+  if (own.get() !== value) {
+    own.set(value)
+  }
 }
 
 /** The canvas's own accessor for a dimension, from the class it's made by, called on the canvas. */
@@ -55,8 +66,13 @@ function accessor(canvas: Sized, name: keyof Sized): Accessor {
     prototype = Object.getPrototypeOf(prototype)
   ) {
     const descriptor = Object.getOwnPropertyDescriptor(prototype, name)
-    if (!descriptor || !("get" in descriptor) || !("set" in descriptor)) continue
+
+    if (!descriptor || !("get" in descriptor) || !("set" in descriptor)) {
+      continue
+    }
+
     const from = prototype
+
     return {
       get: () => Reflect.get(from, name, canvas) as number,
       set: (value) => {
@@ -64,5 +80,6 @@ function accessor(canvas: Sized, name: keyof Sized): Accessor {
       }
     }
   }
+
   throw new Error(`The canvas has no ${name} to size.`)
 }

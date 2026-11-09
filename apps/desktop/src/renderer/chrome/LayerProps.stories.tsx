@@ -16,6 +16,7 @@ const meta = {
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Plan card's price, which uses the `price` prop: its text field is the prop's name, with × to stop using it. */

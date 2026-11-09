@@ -120,6 +120,7 @@ function hooks(events: AgentEvent[] = []): AgentHooks {
 describe("execute", () => {
   it("applies every change as one result and shows the work", async () => {
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Add a hint",
@@ -131,6 +132,7 @@ Print(Get("page", {depth: 1}).children.length)`
       snapshot(),
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
     expect(result.output).toEqual(["3"])
     expect(result.created.Hint).toMatch(/^[a-zA-Z0-9]{5}$/)
@@ -149,6 +151,7 @@ Print(Get("page", {depth: 1}).children.length)`
   it("gives GetModes a copy, so editing it in place and setting it leaves the call's starting point as read", async () => {
     const read = snapshot()
     const before = structuredClone(read.modes)
+
     const option = await execute(
       {
         label: "Rename an option",
@@ -157,6 +160,7 @@ Print(Get("page", {depth: 1}).children.length)`
       read,
       hooks()
     )
+
     expect(option.error).toBeUndefined()
     expect(read.modes).toEqual(before)
     expect(option.changes.modes?.base).toEqual(before)
@@ -167,6 +171,7 @@ Print(Get("page", {depth: 1}).children.length)`
       read,
       hooks()
     )
+
     expect(renamed.error).toBeUndefined()
     expect(read.modes).toEqual(before)
     expect(renamed.changes.modes?.after.modes[0]!.name).toBe("X")
@@ -177,6 +182,7 @@ Print(Get("page", {depth: 1}).children.length)`
     read.documents[0]!.document.containers[0]!.view = { modes: ["mobile-light"] }
     const before = structuredClone(read)
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Read modes",
@@ -187,6 +193,7 @@ Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.mod
       read,
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
     expect(JSON.parse(result.output[0]!)).toEqual({
       viewports: ["desktop", "tablet", "mobile"],
@@ -233,11 +240,13 @@ Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.mod
 
   it("changes nothing when the snippet fails, and retries with edits", async () => {
     const shared = snapshot()
+
     const failed = await execute(
       { label: "Broken", code: `Update("submit", {props: {variant: "ghost"}})\nUpdate("missing", {text: "x"})` },
       shared,
       hooks()
     )
+
     expect(failed.ok).toBe(false)
     expect(failed.error).toContain(`No node "missing"`)
     expect(failed.error).toContain("line 2")
@@ -248,6 +257,7 @@ Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.mod
       shared,
       hooks()
     )
+
     expect(retried.ok).toBe(true)
     expect(findNode(retried.changes.designs[0]!.after!.root, "title")).toMatchObject({ text: "x" })
   })
@@ -269,6 +279,7 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
       snapshot(),
       hooks()
     )
+
     expect(result.ok).toBe(true)
     expect(result.output).toEqual(["pricing true"])
     expect(result.changes.designs).toHaveLength(1)
@@ -284,10 +295,12 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
     const other = { ...signup, id: "about", name: "About", position: { x: 2000, y: 0 } }
+
     const read = {
       ...base,
       documents: [{ path: "app.par", document: { version: 3 as const, containers: [signup, other] } }]
     }
+
     const result = await execute(
       {
         label: "Rework",
@@ -296,6 +309,7 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
       read,
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.changes.designs.map(({ id, base, after }) => [id, base?.name ?? null, after?.name ?? null])).toEqual([
       ["signup", "Sign up", "Register"],
@@ -308,15 +322,18 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
   it("applies through the editor, and fails naming the designs the editor refused, keeping the snippet to retry", async () => {
     const shared = snapshot()
     const applied: AgentChangeSet[] = []
+
     const refuse: AgentHooks = {
       ...hooks(),
       apply: async () => [{ path: "app.par", id: "signup", name: "Sign up", reason: "changed" }]
     }
+
     const failed = await execute(
       { label: "Rename", code: `UpdateDesign("Sign up", {name: "Register"})` },
       shared,
       refuse
     )
+
     expect(failed.ok).toBe(false)
     expect(failed.error).toBe(
       'Not applied: since this call read the tab, "Sign up" (app.par) was changed in the editor, and this call ' +
@@ -335,6 +352,7 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
 
   it("shows a move as a drag, and warns when a moved board lands on another", async () => {
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Tidy up",
@@ -345,6 +363,7 @@ Print(JSON.stringify(Overlaps("signup")))`
       snapshot(),
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
     expect(events.filter((event) => event.design === "app.par#pricing").map((event) => event.kind)).toEqual([
       "write",
@@ -377,6 +396,7 @@ Print(JSON.stringify(Overlaps("below")))`
       snapshot(),
       hooks()
     )
+
     expect(JSON.parse(result.output[0]!)).toMatchObject([{ designs: ["signup", "below"], titleOnly: true }])
     expect(result.warningGroups).toContainEqual(
       expect.objectContaining({
@@ -429,11 +449,13 @@ Print(JSON.stringify(Overlaps("below")))`
     const base = snapshot()
     const document = base.documents[0]!.document
     document.containers.push({ ...document.containers[0]!, id: "copy", name: "Copy", position: { x: 100, y: 100 } })
+
     const result = await execute(
       { label: "Add", code: `CreateDesign({ name: "Pricing", x: 0, y: 1000 })` },
       base,
       hooks()
     )
+
     // Pricing's title crowds Sign up, and its estimated board reaches Copy. Copy on Sign up was there already.
     const boards = result.warningGroups.filter((group) => group.category !== "not_a_token")
     expect(boards.map((group) => group.category)).toEqual(["title_clearance", "overlap", "canvas_overlaps"])
@@ -445,6 +467,7 @@ Print(JSON.stringify(Overlaps("below")))`
     base.bounds = {}
     const signup = base.documents[0]!.document.containers[0]!
     signup.frames = { desktop: { width: 3000 } }
+
     const result = await execute(
       {
         label: "Wide",
@@ -454,6 +477,7 @@ Print(JSON.stringify(Overlaps()))`
       base,
       hooks()
     )
+
     // The 3000 frame and the board's gutter, 30 each side as it's drawn at 40%, reach to 3060, past the new design's left
     // edge at 1800.
     expect(JSON.parse(result.output[0]!)).toMatchObject([
@@ -467,6 +491,7 @@ Print(JSON.stringify(Overlaps()))`
     const signup = base.documents[0]!.document.containers[0]!
     signup.frames = { desktop: { width: 1280, height: 3000 } }
     signup.view = { modes: ["desktop-dark"] }
+
     const result = await execute(
       {
         label: "Tall",
@@ -477,6 +502,7 @@ Print(JSON.stringify(Overlaps()))`
       base,
       hooks()
     )
+
     // 3000 tall, under a 90 caption band and above 30 of gutter, as it's drawn at 40%: 3120 reaches past 3200 less a 160
     // title band. The dark companion is drawn at half size after a divider of 30, 2.5 and 30, so the board is
     // 1280 + 640 + 62.5 + 60, rounded up to 2043 wide, past 2000.
@@ -490,6 +516,7 @@ Print(JSON.stringify(Overlaps()))`
   it("prefers the size a board was drawn at to an estimate", async () => {
     const base = snapshot()
     base.documents[0]!.document.containers[0]!.frames = { desktop: { width: 3000 } }
+
     const result = await execute(
       {
         label: "Drawn",
@@ -499,6 +526,7 @@ Print(JSON.stringify(Overlaps()))`
       base,
       hooks()
     )
+
     // Drawn 1400 wide, the board ends before 1800, whatever its frames would suggest.
     expect(JSON.parse(result.output[0]!)).toEqual([])
   })
@@ -512,6 +540,7 @@ Print(JSON.stringify(Overlaps()))`
       snapshot(),
       hooks()
     )
+
     expect(result.warnings.join("\n")).toContain(`"Carousel" isn't one of the project's components`)
     expect(result.warnings.join("\n")).toContain(`background "hotpink" isn't a token`)
   })
@@ -529,6 +558,7 @@ Print(JSON.stringify(Overlaps()))`
       snapshot(),
       hooks()
     )
+
     expect(JSON.parse(result.output[0]!)).toEqual([
       { name: "radius-full", category: "radius", source: "keyword", values: { default: "calc(infinity * 1px)" } }
     ])
@@ -553,6 +583,7 @@ Print(JSON.stringify(Overlaps()))`
       snapshot(),
       hooks()
     )
+
     expect(result.ok).toBe(false)
     expect(result.error).toContain("node/fontSize: unknown property")
     expect(result.details).toEqual({ code: "invalid_input", retryable: false, field: "node/fontSize" })
@@ -560,6 +591,7 @@ Print(JSON.stringify(Overlaps()))`
 
   it("measures, finds problems and screenshots any state in any mode", async () => {
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Check",
@@ -571,6 +603,7 @@ Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
       snapshot(),
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
     expect(result.output[0]).toBe("390 Title")
     // Every mode's title is wider than its viewport; that accounts for the mobile frame's overflow.
@@ -616,6 +649,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         })
       }
     )
+
     expect(result.ok).toBe(true)
     expect(result.output[0]).toBe("default mobile-light page")
     const problems = JSON.parse(result.output[1]!) as { kind: string; mode: string }[]
@@ -647,6 +681,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
 
   it("says where the project's code writes each node's element (PAR-167)", async () => {
     const source = "src/components/ui/button.tsx:44:5"
+
     const result = await execute(
       { label: "Check", code: `Print(JSON.stringify((await Measure("signup")).nodes.map((node) => node.source)))` },
       snapshot(),
@@ -665,6 +700,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         })
       }
     )
+
     expect(result.output[0]).toBe(JSON.stringify([null, source]))
   })
 
@@ -684,6 +720,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     }
     const requests: FrameRequest[] = []
     const base = hooks()
+
     const result = await execute(
       { label: "Check", code: `await Measure("signup")\nawait Screenshot("signup")\nawait Accessibility("signup")` },
       shared,
@@ -691,16 +728,19 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         presence: () => undefined,
         render: (request) => {
           requests.push(request)
+
           return base.render(request)
         }
       }
     )
+
     expect(result.ok).toBe(true)
     // The frame grows with its content, and its window is the mode's 1234px screen, as on the canvas.
     const [mode] = resolveModes(shared.modes)
     const live = frameGeometry(shared.documents[0]!.document.containers[0]!, mode!)
     expect(live).toEqual({ width: 1280, viewport: { width: 1280, height: 1234 } })
     expect(requests).toHaveLength(3)
+
     for (const request of requests) {
       expect(request.height).toBeUndefined()
       expect(request.viewport).toEqual(live.viewport)
@@ -709,6 +749,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
 
   it("checks accessibility in each mode, naming the layers", async () => {
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Check",
@@ -717,6 +758,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
       snapshot(),
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
     expect(events.filter((event) => event.design).map((event) => event.kind)).toEqual([
       "accessibility",
@@ -748,11 +790,13 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     )
     const requested: (string[] | undefined)[] = []
     const base = hooks()
+
     // The title fails on white in light, and passes on black in mobile, where primary would fail.
     const render: AgentHooks["render"] = async (request) => {
       requested.push(request.colorTokens)
       const frame = await base.render(request)
       const mobile = request.mode.id === "mobile-light"
+
       return {
         ...frame,
         contrast: {
@@ -770,6 +814,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         }
       }
     }
+
     const result = await execute(
       {
         label: "Check",
@@ -778,6 +823,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
       project,
       { presence: () => undefined, render }
     )
+
     expect(result.ok).toBe(true)
     // Only color tokens are read, in every frame.
     expect(requested).toEqual([
@@ -793,6 +839,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
 
   it("gives no contrast fix when coloring the layer wouldn't reach its text", async () => {
     const base = hooks()
+
     const render: AgentHooks["render"] = async (request) => ({
       ...(await base.render(request)),
       contrast: {
@@ -802,11 +849,13 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         ]
       }
     })
+
     const result = await execute(
       { label: "Check", code: `Print(JSON.stringify(await Accessibility("signup")))` },
       snapshot(),
       { presence: () => undefined, render }
     )
+
     const findings = JSON.parse(result.output[0]!) as AccessibilityFinding[]
     expect(findings[0]?.contrast).not.toHaveProperty("fix")
   })
@@ -831,11 +880,13 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         states: [{ id: "default", name: "Default" }]
       }
     ]
+
     const result = await execute(
       { label: "Check", code: `Print(JSON.stringify(await Accessibility("signup")))` },
       project,
       hooks()
     )
+
     expect(result.ok).toBe(true)
     const findings = JSON.parse(result.output[0]!) as Record<string, unknown>[]
     expect(findings.find((finding) => finding.node === "submit")).toMatchObject({ name: "Member row" })
@@ -846,10 +897,12 @@ describe("render inputs", () => {
   /** Hooks that keep each frame asked for. */
   function recording(requests: FrameRequest[]): AgentHooks {
     const base = hooks()
+
     return {
       ...base,
       render: (request) => {
         requests.push(request)
+
         return base.render(request)
       }
     }
@@ -886,13 +939,16 @@ describe("render inputs", () => {
       }
     ]
     const requests: FrameRequest[] = []
+
     const result = await execute(
       { label: "Look", code: `await Measure("signup"); await Problems("signup"); await Screenshot("signup")` },
       project,
       recording(requests)
     )
+
     expect(result.ok).toBe(true)
     expect(requests.length).toBeGreaterThan(2)
+
     for (const request of requests) {
       expect(JSON.stringify(request.tree)).toContain("From the kit")
       expect(JSON.stringify(request.tree)).not.toContain("No component design")
@@ -911,6 +967,7 @@ describe("render inputs", () => {
         states: [{ id: "default", name: "Default" }]
       }
     ]
+
     const result = await execute(
       {
         label: "Place",
@@ -920,6 +977,7 @@ Insert("page", {type: "instance", design: "kit/missing"})`
       project,
       hooks()
     )
+
     expect(result.ok).toBe(true)
     const missing = result.warnings.filter((warning) => warning.includes("no component design"))
     expect(missing).toEqual([expect.stringContaining('"kit/missing"')])
@@ -961,7 +1019,9 @@ Insert("page", {type: "instance", design: "kit/missing"})`
         { name: "background", theme: "dark", value: "navy" }
       ]
     }
+
     const requests: FrameRequest[] = []
+
     const result = await execute(
       {
         label: "Tokens",
@@ -972,6 +1032,7 @@ await Measure("signup")`
       project,
       recording(requests)
     )
+
     expect(result.ok).toBe(true)
     expect(requests[0]!.tokens).toEqual(project.tokenOverrides)
     expect(requests[1]!.tokens).toEqual([
@@ -995,6 +1056,7 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
       ...hooks(),
       supports: async (queries) => {
         asked.push(...queries)
+
         return queries.map(({ property, value }) =>
           property === "color" ? /^(white|black|blue|green|#[\da-f]{3,8}|oklch\(.+\))$/i.test(value) : true
         )
@@ -1004,15 +1066,19 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
 
   async function refusal(code: string, ask = checking()) {
     let applied = false
+
     const result = await execute({ label: "Tokens", code }, snapshot(), {
       ...ask,
       apply: async () => {
         applied = true
+
         return []
       }
     })
+
     expect(result.ok).toBe(false)
     expect(applied).toBe(false)
+
     return { error: result.error, details: result.details }
   }
 
@@ -1044,6 +1110,7 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
   it("accepts good values, references filled in, and applies them", async () => {
     const asked: { property: string; value: string }[] = []
     let applied: unknown
+
     const result = await execute(
       { label: "Tokens", code: `SetTokens({ primary: "oklch(0.6 0.2 250)", background: { dark: "var(--primary)" } })` },
       snapshot(),
@@ -1051,10 +1118,12 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
         ...checking(asked),
         apply: async (changes) => {
           applied = changes.tokens
+
           return []
         }
       }
     )
+
     expect(result.ok).toBe(true)
     // Dark has no primary of its own, so the reference comes to the root's new value.
     expect(asked).toEqual([
@@ -1079,12 +1148,14 @@ Insert("page", {type: "component", component: "Heart"})`
       { ...snapshot(), iconSets: [lucide] },
       hooks()
     )
+
     expect(result.ok).toBe(true)
     const unknown = result.warnings.filter((warning) => warning.includes("isn't one of the project's components"))
     expect(unknown).toEqual([expect.stringContaining('"Heart"')])
   })
 
   const lucide: IconSet = { id: "lucide", name: "Lucide", package: "lucide-react", version: "0.500.0" }
+
   const heroicons: IconSet = {
     id: "heroicons",
     name: "Heroicons",
@@ -1100,6 +1171,7 @@ Insert("page", {type: "component", component: "Heart"})`
       }
     }
   }
+
   const names: Record<string, IconNames> = {
     lucide: {
       names: ["Heart", "HeartCrack", "Settings", "Bell", "Star"],
@@ -1109,6 +1181,7 @@ Insert("page", {type: "component", component: "Heart"})`
     "heroicons/": { names: ["BellIcon", "CogIcon"] },
     "heroicons/24/solid": { names: ["CogIcon"] }
   }
+
   const withIcons = (): AgentHooks => ({
     ...hooks(),
     iconNames: async (set, module) => names[set === "lucide" ? set : `${set}/${module ?? ""}`]!
@@ -1120,6 +1193,7 @@ Insert("page", {type: "component", component: "Heart"})`
       { ...snapshot(), iconSets: [lucide, heroicons] },
       withIcons()
     )
+
     expect(JSON.parse(result.output[0]!)).toEqual([
       {
         id: "lucide",
@@ -1153,6 +1227,7 @@ Print(await Icons("heroicons", { style: "solid" }))`
       { ...snapshot(), iconSets: [lucide, heroicons] },
       withIcons()
     )
+
     expect(result.ok).toBe(true)
     expect(result.warnings).toEqual([])
     expect(result.output).toEqual([
@@ -1169,12 +1244,14 @@ Print(await Icons("heroicons", { style: "solid" }))`
   it("runs the skill's example", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
+
     const dashboard = {
       ...signup,
       id: "dashboard",
       name: "Dashboard",
       root: { type: "layout" as const, id: "toolbar", name: "Toolbar", children: [] }
     }
+
     const result = await execute(
       {
         label: "Settings button",
@@ -1193,6 +1270,7 @@ Insert("dashboard/Toolbar", {
       },
       withIcons()
     )
+
     expect(result.error).toBeUndefined()
     const toolbar = result.changes.designs[0]!.after!.root
     expect(toolbar.type === "layout" && toolbar.children[0]).toMatchObject({
@@ -1207,12 +1285,15 @@ Insert("dashboard/Toolbar", {
       { ...snapshot(), iconSets: [lucide] },
       withIcons()
     )
+
     expect(missing.error).toContain(`"phosphor" isn't one of the project's icon sets: lucide`)
+
     const style = await execute(
       { label: "Icons", code: `await Icons("heroicons", { style: "mini" })` },
       { ...snapshot(), iconSets: [heroicons] },
       withIcons()
     )
+
     expect(style.error).toContain(`Heroicons comes in outline, solid, not "mini"`)
   })
 })
@@ -1221,7 +1302,11 @@ describe("warning groups", () => {
   it("reports each finding once with its places, render failures first and naming tips last", async () => {
     const base = snapshot()
     const page = base.documents[0]!.document.containers[0]!.root
-    if (page.type !== "layout") throw new Error("Expected a layout")
+
+    if (page.type !== "layout") {
+      throw new Error("Expected a layout")
+    }
+
     // An unnamed layout that was there before the call isn't this call's to name.
     page.children.push({
       type: "layout",
@@ -1231,10 +1316,12 @@ describe("warning groups", () => {
         { type: "text", id: "old-b", text: "B" }
       ]
     })
+
     const failing: AgentHooks = {
       ...hooks(),
       render: async (request) => ({ ...(await hooks().render(request)), error: "boom" })
     }
+
     const result = await execute(
       {
         label: "Rows",
@@ -1249,6 +1336,7 @@ await Screenshot("signup")`
       base,
       failing
     )
+
     expect(result.error).toBeUndefined()
     expect(result.warningGroups.map(({ severity, category, count }) => [severity, category, count])).toEqual([
       ["error", "render_failed", 1],
@@ -1278,6 +1366,7 @@ Update("submit", {props: {variant: "primary", tone: "loud"}})`
       snapshot(),
       hooks()
     )
+
     expect(result.output).toEqual(["variant children"])
     expect(result.warnings).toEqual(
       expect.arrayContaining([
@@ -1289,6 +1378,7 @@ Update("submit", {props: {variant: "primary", tone: "loud"}})`
 
   it("tells an agent the provider a sidebar needs, with an example it inserts as it is", async () => {
     const nova = { path: "@buildkit/nova", library: "nova" }
+
     const result = await execute(
       {
         label: "Sidebar",
@@ -1307,6 +1397,7 @@ Insert("page", composition.example.node)`
       },
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.output).toEqual(["nova/SidebarProvider"])
     const page = result.changes.designs[0]?.after?.root
@@ -1330,6 +1421,7 @@ Print(GetModes(id).designs[0].frames)`
       snapshot(),
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.changes.designs[0]!.after).toMatchObject({
       kind: "frame",
@@ -1351,6 +1443,7 @@ Print(GetModes(id).designs[0].frames)`
       snapshot(),
       hooks()
     )
+
     // Right of Sign up's 1400 board, with the gap boards keep.
     expect(result.changes.designs[0]!.after).toMatchObject({ kind: "frame", position: { y: 0 } })
     expect(result.changes.designs[0]!.after!.position.x).toBeGreaterThan(1400)
@@ -1361,6 +1454,7 @@ Print(GetModes(id).designs[0].frames)`
     const signup = base.documents[0]!.document.containers[0]!
     signup.states.push({ id: "error", name: "Error", overrides: { title: { text: "Try again" } } })
     signup.view = { modes: ["mobile-light"], state: "error" }
+
     const result = await execute(
       {
         label: "Sketch it",
@@ -1372,6 +1466,7 @@ Print(GetDesign("signup").frames)`
       base,
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.warnings).toContain("Sign up is a frame now. States dropped: Error. Modes dropped: mobile-light.")
     expect(result.output).toEqual(['{"width":600}', '{"desktop":{"width":600}}'])
@@ -1382,12 +1477,14 @@ Print(GetDesign("signup").frames)`
     const base = snapshot()
     const frame = { ...base.documents[0]!.document.containers[0]!, kind: "frame" as const, size: { width: 400 } }
     base.documents[0]!.document.containers = [frame]
+
     const calls: [string, string, string][] = [
       [`AddState("signup", { name: "Error" })`, "design", "Sign up is a frame, which has one state"],
       [`UpdateDesign("signup", { showModes: ["mobile-light"] })`, "showModes", "takes no showModes"],
       [`await Screenshot("signup", { mode: "mobile-light" })`, "mode", "drawn only in the primary mode, desktop-light"],
       [`UpdateDesign(CreateDesign({ name: "Home" }), { width: 400 })`, "width", "only a frame takes a width"]
     ]
+
     for (const [code, field, message] of calls) {
       const result = await execute({ label: "Try", code }, base, hooks())
       expect(result.ok).toBe(false)
@@ -1408,6 +1505,7 @@ UpdateDesign(sketch, { kind: "screen" }) // keeps its layers, and its size in th
       snapshot(),
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.screenshots).toMatchObject([{ design: "sketch", mode: "desktop-light", width: 480 }])
     expect(result.changes.designs[0]!.after).toMatchObject({
@@ -1474,6 +1572,7 @@ describe("coded failures", () => {
       { id: "error", name: "Failed" },
       { id: "error-2", name: "Failed" }
     ]
+
     const calls = [
       `UpdateState("signup", "Busy", { name: "Waiting" })`,
       `DeleteState("signup", "Busy")`,
@@ -1485,6 +1584,7 @@ describe("coded failures", () => {
       `await Problems("signup", { state: ["default", "Busy"] })`,
       `await Accessibility("signup", { state: "Busy" })`
     ]
+
     for (const code of calls) {
       const result = await execute({ label: "Try", code }, base, hooks())
       // The call rides along, so a failure names which one went wrong.
@@ -1501,14 +1601,17 @@ describe("coded failures", () => {
         }
       })
     }
+
     const duplicate = await execute({ label: "Try", code: `DeleteState("signup", "Failed")` }, base, hooks())
     expect(duplicate.error).toContain('"Failed" names 2 states, "error" and "error-2"; use the id of the one you mean.')
     expect(duplicate.details?.alternatives?.slice(0, 2)).toEqual(["error", "error-2"])
+
     const byId = await execute(
       { label: "Try", code: `UpdateState("signup", "loading", { name: "Waiting" })` },
       base,
       hooks()
     )
+
     expect(byId.error).toBeUndefined()
     expect(byId.changes.designs[0]!.after!.states[1]).toEqual({ id: "loading", name: "Waiting" })
   })
@@ -1520,6 +1623,7 @@ describe("coded failures", () => {
       { id: "loading", name: "Busy" }
     ]
     const modes = resolveModes(base.modes).map((mode) => mode.id)
+
     const calls = [
       { option: `{ state: "all" }`, field: "state", given: '"all"', ids: ["default", "loading"] },
       { option: `{ state: ["default", "loading"] }`, field: "state", given: "a list", ids: ["default", "loading"] },
@@ -1527,13 +1631,16 @@ describe("coded failures", () => {
       { option: `{ mode: "shown" }`, field: "mode", given: '"shown"', ids: modes },
       { option: `{ mode: [${JSON.stringify(modes[0])}] }`, field: "mode", given: "a list", ids: modes }
     ]
+
     for (const { option, field, given, ids } of calls) {
       const rendered: unknown[] = []
       const code = `await Measure("signup", ${option})`
+
       const result = await execute({ label: "Try", code }, base, {
         ...hooks(),
         render: async (job) => (rendered.push(job), hooks().render(job))
       })
+
       expect({ code, error: result.error, details: result.details, rendered }).toEqual({
         code,
         error:
@@ -1547,6 +1654,7 @@ describe("coded failures", () => {
         rendered: []
       })
     }
+
     // One state and one mode still measure, as do the checks that take a matrix.
     const single = await execute(
       {
@@ -1558,6 +1666,7 @@ await Problems("signup", { state: "all", mode: "all" })`
       base,
       hooks()
     )
+
     expect(single.error).toBeUndefined()
     // A frame takes only the primary mode, so that's all it lists.
     base.documents[0]!.document.containers[0]!.kind = "frame"
@@ -1636,6 +1745,7 @@ await Problems("signup", { state: "all", mode: "all" })`
       ...signup.root,
       responsive: { mobile: { style: { gap: 2 } } }
     } as DesignNode
+
     const result = await execute(
       {
         label: "Clear",
@@ -1648,6 +1758,7 @@ UpdateState("signup", "error", { changes: { title: null } })`
       base,
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     const after = result.changes.designs[0]!.after!
     expect(findNode(after.root, "title")).toEqual({ type: "text", id: "title", text: "Create an account" })
@@ -1674,6 +1785,7 @@ describe("Replace", () => {
         ]
       }
     }
+
     return read
   }
 
@@ -1686,6 +1798,7 @@ describe("Replace", () => {
       patched(),
       hooks()
     )
+
     expect(result.ok).toBe(true)
     expect(result.discarded).toEqual([
       {
@@ -1706,6 +1819,7 @@ describe("Replace", () => {
       patched(),
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.discarded?.[0]).toMatchObject({ design: "signup", replaced: "page" })
     expect(result.discarded?.[0]!.nodes).toEqual([
@@ -1723,6 +1837,7 @@ describe("Replace", () => {
       patched(),
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     const change = result.changes.designs[0]!
     expect(change.base!.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
@@ -1735,6 +1850,7 @@ describe("Replace", () => {
       patched(),
       hooks()
     )
+
     expect(result.ok).toBe(false)
     expect(result.discarded).toBeUndefined()
     expect(result.changes.designs).toEqual([])
@@ -1750,6 +1866,7 @@ Replace(id, {type: "component", component: "Button", props: {children: "Go"}})`
       snapshot(),
       hooks()
     )
+
     expect(result.ok).toBe(true)
     expect(result).not.toHaveProperty("discarded")
   })
@@ -1765,6 +1882,7 @@ UpdateState("signup", "loading", { changes: { [title]: { text: "Signing you upâ€
       patched(),
       hooks()
     )
+
     expect(result.ok).toBe(true)
     const after = result.changes.designs[0]!.after!
     const title = result.discarded![0]!.replacement

@@ -50,12 +50,16 @@ function load(): PanelLayout {
 export function setLayout(change: Partial<PanelLayout>): void {
   recordShownPanels(layout, { ...layout, ...change })
   layout = { ...layout, ...change }
+
   try {
     localStorage.setItem(storageKey, JSON.stringify(layout))
   } catch {
     // Storage can be unavailable; the layout then just isn't remembered.
   }
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 /** Records each side panel, or the console, that opens or shows another tab (PAR-634). */
@@ -64,9 +68,15 @@ function recordShownPanels(before: PanelLayout, after: PanelLayout): void {
     const tab = after[side === "left" ? "leftTab" : "rightTab"]
     const opened = after[side] && !before[side]
     const switched = after[side] && tab !== before[side === "left" ? "leftTab" : "rightTab"]
-    if (opened || switched) recordInterface("panel.shown", { panel: side, ...(tab ? { tab } : {}) })
+
+    if (opened || switched) {
+      recordInterface("panel.shown", { panel: side, ...(tab ? { tab } : {}) })
+    }
   }
-  if (after.console && !before.console) recordInterface("panel.shown", { panel: "console" })
+
+  if (after.console && !before.console) {
+    recordInterface("panel.shown", { panel: "console" })
+  }
 }
 
 /** Opens the console under the canvas, or closes it. */
@@ -84,6 +94,7 @@ export function useLayout(): PanelLayout {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => layout

@@ -4,6 +4,7 @@ import { DesignStore } from "../design-store.ts"
 import { adjacentDesign, designOrder, inverseSelection, matchingLayers, matchingSelection } from "./select.ts"
 
 const title: NodeStyle = { size: "lg", weight: 600 }
+
 const text = (id: string, style?: DesignNode["style"], tag?: "p" | "h3"): DesignNode => ({
   type: "text",
   id,
@@ -20,6 +21,7 @@ function list(): ContainerSpec {
     style: { padding: 4, background: "card" },
     children: [text(`title-${n}`, titleStyle, "h3"), text(`about-${n}`, { size: "sm" })]
   })
+
   return {
     id: "list",
     name: "List",

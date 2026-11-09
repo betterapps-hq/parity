@@ -35,6 +35,7 @@ const meta = {
 } satisfies Meta<typeof AppMenu>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)
@@ -266,12 +267,14 @@ const valueInUsersCard = async () => {
 /** Whether each of the open menu's items, by its label, is unavailable; undefined for one it doesn't list. */
 function unavailable(labels: readonly string[]): Record<string, boolean | undefined> {
   const items = [...body().getByRole("menu").querySelectorAll("[role=menuitem]")]
+
   const label = (item: Element) =>
     [...item.childNodes]
       .filter((child) => !(child instanceof Element && child.matches("[data-slot=menubar-shortcut], svg")))
       .map((child) => child.textContent)
       .join("")
       .trim()
+
   return Object.fromEntries(
     labels.map((name) => [name, items.find((item) => label(item) === name)?.hasAttribute("data-disabled")])
   )
@@ -301,6 +304,7 @@ export const ObjectLayerInInstance: Story = {
   play: async () => {
     await frameDesigns("Dashboard")
     await openMenu("Object")
+
     const items = [
       "Wrap in layout",
       "Bring forward",
@@ -310,6 +314,7 @@ export const ObjectLayerInInstance: Story = {
       "Hide or show",
       "Lock or unlock"
     ]
+
     await expect(unavailable(items)).toEqual(Object.fromEntries(items.map((name) => [name, true])))
   }
 }
@@ -492,19 +497,23 @@ export const SearchRecent: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
+
     for (const [search, pick] of [
       ["fit", "Zoom to fit"],
       ["plan", "Plan card"]
     ] as const) {
       openDialog("actions")
       await enter(await body().findByRole("combobox"), search)
+
       // The first row of that name: the design rather than the component that inserts it.
       const [row] = await within(await body().findByRole("dialog")).findAllByRole("option", {
         name: new RegExp(`^${pick}`)
       })
+
       await userEvent.click(row!)
       await waitFor(() => expect(body().queryByRole("dialog")).not.toBeInTheDocument())
     }
+
     await expect(example().selection.get().design).toBe(design("Plan card"))
     openDialog("actions")
     const dialog = await body().findByRole("dialog", { name: "Search" })

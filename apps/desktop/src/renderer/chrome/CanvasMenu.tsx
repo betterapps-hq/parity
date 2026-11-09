@@ -69,14 +69,19 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
   const press = useRef<Press>(undefined)
 
   useEffect(() => {
-    if (!area) return undefined
+    if (!area) {
+      return undefined
+    }
+
     const onPointerDown = (event: PointerEvent) => {
       press.current =
         event.button === 2
           ? { target: event.target, selection: session.selection.get(), deep: event.ctrlKey || event.metaKey }
           : undefined
     }
+
     area.addEventListener("pointerdown", onPointerDown, { capture: true })
+
     return () => area.removeEventListener("pointerdown", onPointerDown, { capture: true })
   }, [area, session])
 
@@ -85,27 +90,34 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
     // The menu would open for either, so the first is kept from it.
     if (event.defaultPrevented) {
       event.preventBaseUIHandler()
+
       return
     }
+
     // From the pointer, the press this right-click began with, which a release from elsewhere doesn't have; from the
     // keyboard, there's none.
     const pressed = event.button === 2 ? press.current : undefined
     press.current = undefined
     const from = event.button === 2 ? pressed?.target : event.target
+
     if (session.selection.getTool() === "interact" || !from || !onCanvas(from)) {
       // Nothing opens: not from a control drawn on the canvas, nor while interacting.
       event.preventDefault()
       event.preventBaseUIHandler()
+
       return
     }
+
     const point = { x: event.clientX, y: event.clientY }
     const before = pressed?.selection ?? session.selection.get()
     const under = designUnder(session, event.currentTarget, point, before, { deep: pressed?.deep ?? false })
     // A selected layer's resize handle is part of the selection, though it reaches a little past the layer's box.
     const handle = from instanceof Element && !!from.closest(".resize-handle")
+
     if (under) {
       session.selection.set(handle ? before : rightClickSelection(before, under.target, under.clicked, under.root))
     }
+
     const source = under && elementSourceAt(event.currentTarget, point)
     setOpened({ point, target: under && (source ? { ...under.target, source } : under.target) })
   }
@@ -115,13 +127,23 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
   // under the backdrop gets the `contextmenu` tldraw would have sent, which moves the menu to the press. Anywhere else,
   // the press closes the menu.
   const reopensOnCanvas = (event: Event): boolean => {
-    if (!(event instanceof MouseEvent) || event.button !== 2 || !area) return false
+    if (!(event instanceof MouseEvent) || event.button !== 2 || !area) {
+      return false
+    }
+
     const from = underBackdrop(event)
-    if (!from || !area.contains(from) || !onCanvas(from)) return false
+
+    if (!from || !area.contains(from) || !onCanvas(from)) {
+      return false
+    }
+
     const selection = session.selection.get()
     const deep = event.ctrlKey || event.metaKey
     onGestureEnd(window, (how) => {
-      if (how !== "release") return
+      if (how !== "release") {
+        return
+      }
+
       // What Select layer outlined goes with the menu it was in.
       session.selection.setHover(undefined)
       press.current = { target: from, selection, deep }
@@ -137,6 +159,7 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
         })
       )
     })
+
     return true
   }
 
@@ -146,10 +169,14 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
       onOpenChange={(open, details) => {
         if (!open && details.reason === "outside-press" && reopensOnCanvas(details.event)) {
           details.cancel()
+
           return
         }
+
         // Select layer outlines the layer an entry names; nothing stays outlined once the menu closes.
-        if (!open) session.selection.setHover(undefined)
+        if (!open) {
+          session.selection.setHover(undefined)
+        }
       }}
     >
       <ContextMenuTrigger ref={setArea} onContextMenu={onContextMenu} render={children} />
@@ -164,6 +191,7 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
 /** Where the element a project file wrote under a point is written, inside whichever frame is there (PAR-167). */
 function elementSourceAt(area: Element, point: Point): ElementSource | undefined {
   const host = frameAt(allFrames(area), point.x, point.y)
+
   return host && sourcedElementAt(host, point.x, point.y)?.source
 }
 
@@ -174,6 +202,7 @@ function elementSourceAt(area: Element, point: Point): ElementSource | undefined
 function underBackdrop(event: MouseEvent): Element | undefined {
   const stack = document.elementsFromPoint(event.clientX, event.clientY)
   const at = event.target instanceof Element ? stack.indexOf(event.target) : -1
+
   return at === -1 ? undefined : stack[at + 1]
 }
 
@@ -183,8 +212,12 @@ function MenuItems({ opened }: { opened: Opened }) {
   const selection = useSelection(session.selection)
   const entries = useContainerEntries(session.store)
   const notes = useNotes(session.store)
+
   return canvasMenu(opened.target, selection, entries, notes.length).map((entry, index) => {
-    if (entry.kind === "separator") return <ContextMenuSeparator key={`line-${index}`} />
+    if (entry.kind === "separator") {
+      return <ContextMenuSeparator key={`line-${index}`} />
+    }
+
     if (entry.kind === "open-source") {
       return (
         <ContextMenuItem key="open-source" onClick={() => void openSource(session, entry.source)}>
@@ -193,11 +226,13 @@ function MenuItems({ opened }: { opened: Opened }) {
         </ContextMenuItem>
       )
     }
+
     if (entry.kind === "select-layer") {
       return opened.target ? (
         <SelectLayer key="select-layer" label={entry.label} choices={entry.choices} target={opened.target} />
       ) : null
     }
+
     return (
       <ContextMenuItem
         key={entry.action}
@@ -218,8 +253,10 @@ function MenuItems({ opened }: { opened: Opened }) {
 function SelectLayer({ label, choices, target }: { label: string; choices: LayerChoice[]; target: MenuTarget }) {
   const { selection } = useProject()
   const frame = { mode: target.mode, state: target.state }
+
   const outline = (choice: LayerChoice | undefined) =>
     selection.setHover(choice && { design: target.design, node: choice.id, ...frame })
+
   return (
     <ContextMenuSub>
       <ContextMenuSubTrigger>{label}</ContextMenuSubTrigger>
@@ -255,12 +292,15 @@ function SelectLayer({ label, choices, target }: { label: string; choices: Layer
 
 /** Runs an item: Paste here, New screen and New component where the menu opened, and the rest as the menubar does. */
 function run(session: ProjectSession, action: MenuAction, point: Point): void {
-  if (action === "pasteHere") void pasteAtPointer(session, point)
-  else if ((action === "newScreen" || action === "newComponent") && session.editor) {
+  if (action === "pasteHere") {
+    void pasteAtPointer(session, point)
+  } else if ((action === "newScreen" || action === "newComponent") && session.editor) {
     const { editor } = session
     const kind = action === "newScreen" ? "screen" : "component"
     void actions[action].run("canvasMenu", { instead: () => createDesign(session, kind, editor.screenToPage(point)) })
-  } else void actions[action].run("canvasMenu")
+  } else {
+    void actions[action].run("canvasMenu")
+  }
 }
 
 /**
@@ -289,12 +329,24 @@ function designUnder(
   keys: { deep: boolean }
 ): { target: MenuTarget; clicked?: string; root?: string } | undefined {
   const { store, editor } = session
-  if (!editor) return undefined
+
+  if (!editor) {
+    return undefined
+  }
+
   const page = editor.screenToPage(point)
-  if (editor.getShapeAtPoint(page, { hitInside: true })?.type === "canvas-note") return undefined
+
+  if (editor.getShapeAtPoint(page, { hitInside: true })?.type === "canvas-note") {
+    return undefined
+  }
+
   const hit = hitTest(area, store, point, editor)
+
   // A locked design gets the empty canvas's menu, unless it's selected, from Layers (PAR-192).
-  if (hit && hit.entry.container.locked && !selected(before, hit.entry.key)) return undefined
+  if (hit && hit.entry.container.locked && !selected(before, hit.entry.key)) {
+    return undefined
+  }
+
   if (hit) {
     return {
       target: { design: hit.entry.key, path: hit.path, mode: hit.mode, state: hit.state },
@@ -302,11 +354,13 @@ function designUnder(
       root: hit.entry.container.root.id
     }
   }
+
   const board = editor.getShapeAtPoint(page, {
     hitInside: true,
     hitLocked: true,
     filter: (shape) => shape.type === "canvas-container" && (!shape.isLocked || selected(before, shape.props.key))
   })
+
   return board?.type === "canvas-container" ? { target: { design: board.props.key, path: [] } } : undefined
 }
 

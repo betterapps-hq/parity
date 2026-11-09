@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
+
 type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {
   /** What it says. Nothing shows without it. */
   label: ReactNode
@@ -28,6 +29,7 @@ type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {
  */
 export function Hint({ label, detail, side, wait, hidden, open, onOpenChange, children, ...trigger }: HintProps) {
   const says = label !== undefined && label !== null && label !== false && label !== ""
+
   return (
     <Tooltip open={open} onOpenChange={onOpenChange}>
       <TooltipTrigger delay={wait ? 500 : undefined} {...trigger} render={children} />

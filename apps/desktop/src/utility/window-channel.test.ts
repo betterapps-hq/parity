@@ -15,6 +15,7 @@ function connected(handlers: Partial<Handlers<ServiceMethods>>) {
   windowChannel(handlers as Handlers<ServiceMethods>, servicePort)
   const preload = createChannel<WindowMethods, ServiceMethods>()
   preload.connect(windowPort)
+
   return async <M extends ServiceMethod>(method: M, params: unknown): Promise<ServiceMethods[M]["result"]> =>
     settled(
       await preload.request(method, params as ServiceMethods[M]["params"]).then(
@@ -66,6 +67,7 @@ describe("the window's requests to the project service", () => {
         throw unknownReference("unknown_design", "No design named Pricng", "Pricng", ["Pricing", "Home"], "design")
       }
     })
+
     const failed = request("accessibility.check", { projectId: "D:/shop", design: "Pricng" })
     await expect(failed).rejects.toBeInstanceOf(CodedError)
     await expect(failed).rejects.toMatchObject({
@@ -78,6 +80,7 @@ describe("the window's requests to the project service", () => {
     const request = connected({
       "storybook.open": () => Promise.reject(new Error("Storybook didn't start"))
     })
+
     const failed = request("storybook.open", { projectId: "D:/shop" })
     await expect(failed).rejects.toThrow("Storybook didn't start")
     await expect(failed).rejects.not.toBeInstanceOf(CodedError)

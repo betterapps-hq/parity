@@ -22,6 +22,7 @@ const meta = {
 } satisfies Meta<typeof ImagesPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Stock photos are coming; until then, paste an image onto the canvas. */

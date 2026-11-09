@@ -64,12 +64,14 @@ function mapped<M extends Exclude<Requested, "exec">, Result extends object>(
   const input: z.ZodObject = requests[method]
   const fields = Object.keys(input.shape)
   const routing = options.routing ?? routingFor(fields)
+
   return {
     inputSchema: requestJsonSchema(input),
     fields,
     routing,
     async run(given, send) {
       const request = readRequest(input, given, 1) as AgentMethods[M]["params"]
+
       return result(await send(method, request, routing), request)
     },
     failed: options.failed ?? (() => false),
@@ -79,8 +81,14 @@ function mapped<M extends Exclude<Requested, "exec">, Result extends object>(
 
 /** Which copy a call goes to, from its fields: see `Operation.routing`. */
 function routingFor(fields: readonly string[]): Routing {
-  if (fields.includes("tab")) return "tab"
-  if (fields.includes("root")) return "open"
+  if (fields.includes("tab")) {
+    return "tab"
+  }
+
+  if (fields.includes("root")) {
+    return "open"
+  }
+
   return "copies"
 }
 
@@ -95,6 +103,7 @@ function operation<M extends Exclude<Requested, "exec" | "tabs" | "tokens">>(
 /** The first `count` items, with how many there were, so a reply says when it left some out. */
 export function bounded<T>(items: T[], count: number, keep: "first" | "last" = "first") {
   const kept = keep === "first" ? items.slice(0, count) : items.slice(Math.max(0, items.length - count))
+
   return { items: kept, total: items.length, truncated: kept.length < items.length }
 }
 
@@ -103,14 +112,20 @@ const truncation = {
   total: z.int().describe("How many there were before the limit."),
   truncated: z.boolean().describe("Some were left out; narrow the read or raise limit.")
 }
+
 const tabsResult = z.looseObject({ tabs: replies.tabs })
+
 const consoleResult = replies.console.extend({
   entries: replies.console.shape.entries.describe("The newest entries, up to the limit, oldest first."),
   ...truncation
 })
+
 const tokensResult = z.looseObject({ tokens: replies.tokens, ...truncation })
+
 export type TabsResponse = z.output<typeof tabsResult>
+
 export type ConsoleResponse = z.output<typeof consoleResult>
+
 export type TokensResponse = z.output<typeof tokensResult>
 
 export const operations = {
@@ -132,10 +147,12 @@ export const operations = {
   }),
   console: mapped("console", ({ tab, entries }, request): ConsoleResponse => {
     const { items, total, truncated } = bounded(entries, request.limit, "last")
+
     return { tab, entries: items, total, truncated }
   }),
   tokens: mapped("tokens", (tokens, request): TokensResponse => {
     const { items, total, truncated } = bounded(tokens, request.limit)
+
     return { tokens: items, total, truncated }
   }),
   components: operation("components"),
@@ -154,7 +171,11 @@ function withTestRun<Result>(operation: Operation<Result>, env: NodeJS.ProcessEn
     run(input, send) {
       const testRun = env.PARITY_TEST_RUN?.trim()
       const fields = plainObject.safeParse(input).data
-      if (!testRun || !fields || fields.testRun !== undefined) return operation.run(input, send)
+
+      if (!testRun || !fields || fields.testRun !== undefined) {
+        return operation.run(input, send)
+      }
+
       return operation.run({ ...fields, testRun }, send)
     }
   }

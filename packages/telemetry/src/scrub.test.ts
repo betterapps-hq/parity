@@ -78,6 +78,7 @@ describe("text", () => {
       "QyNTUxOQAAACBkZXZlbG9wbWVudC1vbmx5LW5vdC1hLXJlYWwta2V5LWF0LWFsbAAAAJg=",
       "-----END OPENSSH PRIVATE KEY-----"
     ].join("\n")
+
     expect(scrubber.text(`read ${block} from disk`)).toBe(`read ${redacted} from disk`)
   })
 
@@ -142,6 +143,7 @@ describe("value", () => {
       },
       request: { headers: { Authorization: "Basic YWRhOmh1bnRlcjI=", Accept: "application/json" } }
     }
+
     const before = structuredClone(event)
 
     const scrubbed = scrubber.value(event)
@@ -175,6 +177,7 @@ describe("value", () => {
       override readonly name = "SaveError"
       path = "/Users/ada/acme/.env"
     }
+
     const error = new SaveError(`couldn't write token ${keys.slack}`, { cause: new Error(`Bearer ${keys.jwt}`) })
 
     const scrubbed = scrubber.value(error)

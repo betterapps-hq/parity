@@ -29,14 +29,24 @@ export function CanvasSketch() {
   const selected = useSelection(selection)
   // Keeps showing the last design selected once nothing is, so the board doesn't vanish on Esc.
   const [shown, setShown] = useState(selected.design)
-  if (selected.design && selected.design !== shown) setShown(selected.design)
+
+  if (selected.design && selected.design !== shown) {
+    setShown(selected.design)
+  }
+
   const entry = useContainerEntry(store, shown)
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Enter" && event.shiftKey) selectParent(session)
-    else if (event.key === "Enter") selectChildren(session)
-    else if (event.key === "Escape") stepBack(session)
-    else return
+    if (event.key === "Enter" && event.shiftKey) {
+      selectParent(session)
+    } else if (event.key === "Enter") {
+      selectChildren(session)
+    } else if (event.key === "Escape") {
+      stepBack(session)
+    } else {
+      return
+    }
+
     event.preventDefault()
   }
 
@@ -152,8 +162,13 @@ function LayerSketch({
   const style: NodeStyle = node.style ?? {}
   const color = nodeColor(node)
   let width: CSSProperties["width"]
-  if (style.width === "fill") width = "100%"
-  else if (typeof style.width === "number") width = px(style.width)
+
+  if (style.width === "fill") {
+    width = "100%"
+  } else if (typeof style.width === "number") {
+    width = px(style.width)
+  }
+
   const sized: CSSProperties = {
     width,
     maxWidth: typeof style.maxWidth === "number" ? px(style.maxWidth) : undefined,
@@ -161,10 +176,12 @@ function LayerSketch({
     outline: outlineFor(color, selected, hovered) || undefined,
     outlineOffset: 1
   }
+
   const select = (event: MouseEvent) => {
     event.stopPropagation()
     onSelect()
   }
+
   if (node.type === "text") {
     return (
       <p
@@ -182,6 +199,7 @@ function LayerSketch({
       </p>
     )
   }
+
   return (
     <div
       onClick={select}
@@ -208,6 +226,7 @@ const hatchTile = `url("data:image/svg+xml,${encodeURIComponent(
  */
 function PaddingHatch({ padding, color, name }: { padding: number[]; color: string; name: string }) {
   const [top, right, bottom, left] = padding
+
   const hatch: CSSProperties = {
     padding: `${top}px ${right}px ${bottom}px ${left}px`,
     background: `color-mix(in oklch, ${color} 60%, transparent)`,
@@ -217,6 +236,7 @@ function PaddingHatch({ padding, color, name }: { padding: number[]; color: stri
     maskClip: "border-box, content-box, border-box",
     maskComposite: "intersect, exclude"
   }
+
   return (
     <>
       <span aria-hidden className="pointer-events-none absolute inset-0" style={hatch} />
@@ -245,6 +265,7 @@ function SelectingNote({ entry, selected }: { entry: ContainerEntry; selected: S
   const onAllInside = picked.length === top.length && top.every((node) => picked.includes(node.id))
   const onOneInside = picked.length > 0 && !onAllInside && picked.every((id) => top.some((node) => node.id === id))
   const noun = container.kind === "component" ? "component" : "screen"
+
   return (
     <aside
       aria-label="How selecting works here"
@@ -292,13 +313,22 @@ function Step({ at, keys, children }: { at: boolean; keys: ReactNode; children: 
 
 /** A selection's outline: solid when selected, thin while hovered in Layers, none otherwise. */
 function outlineFor(color: string, selected: boolean, hovered: boolean): string {
-  if (selected) return `2px solid ${color}`
-  if (hovered) return `1px solid ${color}`
+  if (selected) {
+    return `2px solid ${color}`
+  }
+
+  if (hovered) {
+    return `1px solid ${color}`
+  }
+
   return ""
 }
 
 function list(names: string[]): string {
-  if (names.length < 2) return names.join("")
+  if (names.length < 2) {
+    return names.join("")
+  }
+
   return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
 }
 
@@ -308,7 +338,10 @@ function descendants(node: DesignNode): number {
 
 /** A color token as the chrome's own variable of that name, so the sketch follows the app's theme; else as written. */
 function token(value: unknown, fallback: string): string {
-  if (typeof value !== "string") return fallback
+  if (typeof value !== "string") {
+    return fallback
+  }
+
   return /^[a-z][a-z0-9-]*$/.test(value) ? `var(--${value})` : value
 }
 
@@ -328,14 +361,29 @@ function textSize(size: unknown): number {
 }
 
 function flexAlign(align: NodeStyle["align"]): CSSProperties["alignItems"] {
-  if (align === "start") return "flex-start"
-  if (align === "end") return "flex-end"
+  if (align === "start") {
+    return "flex-start"
+  }
+
+  if (align === "end") {
+    return "flex-end"
+  }
+
   return align ?? "stretch"
 }
 
 function flexJustify(justify: NodeStyle["justify"]): CSSProperties["justifyContent"] {
-  if (justify === "start") return "flex-start"
-  if (justify === "end") return "flex-end"
-  if (justify === "between" || justify === "around" || justify === "evenly") return `space-${justify}`
+  if (justify === "start") {
+    return "flex-start"
+  }
+
+  if (justify === "end") {
+    return "flex-end"
+  }
+
+  if (justify === "between" || justify === "around" || justify === "evenly") {
+    return `space-${justify}`
+  }
+
   return justify ?? "flex-start"
 }

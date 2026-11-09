@@ -25,9 +25,11 @@ import { isProblem, type PreviewStatus, previewStatus, statusWords } from "./pre
 /** The picture's box on the card, in CSS pixels: the card's width less its padding, and at most this tall. */
 const stageWidth = 304
 const stageHeight = 176
+
 /** The least a made picture's box is, and the margin round the picture in it. */
 const lowest = 96
 const margin = 24
+
 /** How many of a variant's options the card shows as small pictures; the rest are counted. */
 const shownOptions = 5
 
@@ -100,11 +102,14 @@ export function ComponentCard({
   const variant = shown && previewStatus(shown.preview)
   const stage = variant && (variant.kind === "made" || variant.kind === "updating") ? variant : main
   const drawn = main.kind === "made" || main.kind === "updating"
+
   const facts = [
     uses !== undefined && (uses === 0 ? "Not used yet" : `Used ${uses} ${uses === 1 ? "time" : "times"}`),
     stories !== undefined && stories > 0 && `${stories} ${stories === 1 ? "story" : "stories"}`
   ].filter(Boolean)
+
   const bar = onInsert || onOpenFile || onOpenStorybook
+
   return (
     <div className="flex flex-col">
       <div className="p-2 pb-0">
@@ -116,6 +121,7 @@ export function ComponentCard({
           <div className="flex gap-1">
             {variants.options.slice(0, shownOptions).map((option) => {
               const label = String(option.value)
+
               return (
                 <Hint key={label} label={label}>
                   <button
@@ -219,6 +225,7 @@ export const statusTones: Partial<Record<PreviewStatus["kind"], string>> = {
  */
 function PreviewStage({ status }: { status: PreviewStatus }) {
   const box = "flex items-center justify-center overflow-hidden rounded-md"
+
   if (status.kind === "made" || status.kind === "updating") {
     const { image } = status
     const updating = status.kind === "updating"
@@ -226,6 +233,7 @@ function PreviewStage({ status }: { status: PreviewStatus }) {
     const scale = Math.min(1, stageWidth / (image.width / 2), (stageHeight - margin) / (image.height / 2))
     // The box fits the picture with a margin round it, so a small part isn't lost in a large white page.
     const height = Math.max(lowest, Math.min(stageHeight, (image.height / 2) * scale + margin))
+
     return (
       <div
         className={`${box} relative ring-1 ring-border ring-inset`}
@@ -248,8 +256,10 @@ function PreviewStage({ status }: { status: PreviewStatus }) {
       </div>
     )
   }
+
   if (status.kind === "waiting" || status.kind === "making") {
     const making = status.kind === "making"
+
     return (
       <div className={`${box} gap-1.5 bg-muted text-xs text-muted-foreground`} style={{ height: lowest }}>
         {making && <LoaderCircle className="size-3.5 animate-spin" />}
@@ -257,8 +267,10 @@ function PreviewStage({ status }: { status: PreviewStatus }) {
       </div>
     )
   }
+
   const Icon = statusIcons[status.kind] ?? CircleAlert
   const tone = statusTones[status.kind] ?? "text-muted-foreground"
+
   return (
     <div
       className={`${box} flex-col gap-1.5 px-4 py-3 text-center ${status.kind === "failed" ? "bg-destructive/10" : "bg-muted"}`}
@@ -295,10 +307,12 @@ export function PreviewThumb({
 }) {
   const box = "relative grid shrink-0 place-items-center overflow-hidden rounded-[5px]"
   const size: CSSProperties = fill ? { width: "100%", aspectRatio: `${width} / ${height}` } : { width, height }
+
   if (status.kind === "made" || status.kind === "updating") {
     const { image } = status
     const room = 4
     const scale = Math.min(1, (width - room) / (image.width / 2), (height - room) / (image.height / 2))
+
     return (
       <span
         aria-hidden
@@ -322,6 +336,7 @@ export function PreviewThumb({
       </span>
     )
   }
+
   if (status.kind === "making") {
     return (
       <span
@@ -337,8 +352,10 @@ export function PreviewThumb({
       />
     )
   }
+
   const Icon = statusIcons[status.kind]
   const dashed = status.kind === "needs-props" ? "border border-dashed border-muted-foreground/40" : ""
+
   return (
     <span aria-hidden className={`${box} bg-muted ${dashed}`} style={size}>
       {Icon && <Icon className={`size-3.5 ${statusTones[status.kind] ?? "text-muted-foreground"}`} />}
@@ -351,7 +368,10 @@ export function PreviewThumb({
  * below the name: a Label under a row's 13px name, a Caption under a tile's 12px one.
  */
 export function StatusLine({ status, size = "text-xs" }: { status: PreviewStatus; size?: "text-xs" | "text-2xs" }) {
-  if (!isProblem(status) || status.kind === "made") return null
+  if (!isProblem(status) || status.kind === "made") {
+    return null
+  }
+
   return (
     <span className={`truncate ${size} ${statusTones[status.kind] ?? "text-muted-foreground"}`}>
       {statusWords[status.kind].short}

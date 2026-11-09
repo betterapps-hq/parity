@@ -93,6 +93,7 @@ const box = (left: number, top: number, right: number, bottom: number): HandleBo
  */
 export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
   const { rect, border, padding } = layout
+
   // Inside the border.
   const outer = {
     left: rect.left + border.left,
@@ -100,6 +101,7 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
     right: rect.right - border.right,
     bottom: rect.bottom - border.bottom
   }
+
   // Inside the padding.
   const inner = {
     left: outer.left + padding.left,
@@ -107,12 +109,14 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
     right: outer.right - padding.right,
     bottom: outer.bottom - padding.bottom
   }
+
   const handles: SpacingHandle[] = []
   const { length, thickness, hitAcross, hitAlong } = spacingBar
   const covered = layout.covered ?? layout.children
 
   for (const side of paddingSides) {
     const vertical = side === "left" || side === "right"
+
     // The padding's own area, and its middle across and along the side.
     const area = {
       top: () => box(inner.left, outer.top, inner.right, inner.top),
@@ -120,8 +124,13 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
       left: () => box(outer.left, inner.top, inner.left, inner.bottom),
       right: () => box(inner.right, inner.top, outer.right, inner.bottom)
     }[side]()
+
     const along = vertical ? area.h : area.w
-    if (along < tooShort) continue
+
+    if (along < tooShort) {
+      continue
+    }
+
     // Across the side, from the layout's edge inwards: past the resize strip, at least `hitAcross` deep.
     const edge = { top: outer.top, bottom: outer.bottom, left: outer.left, right: outer.right }[side]
     const inward = side === "top" || side === "left" ? 1 : -1
@@ -131,18 +140,32 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
     const hitHalf = Math.min(hitAlong, along) / 2
     // Inwards no further than the first child in its way.
     let reach = Math.max(depth, resizeStrip + hitAcross)
+
     for (const child of covered) {
       const [start, end] = vertical ? [child.top, child.bottom] : [child.left, child.right]
-      if (end <= centre - hitHalf || start >= centre + hitHalf) continue
+
+      if (end <= centre - hitHalf || start >= centre + hitHalf) {
+        continue
+      }
+
       const sides = { top: child.top, bottom: child.bottom, left: child.left, right: child.right }
+
       // A child wholly in the resize strip, or outside the layout, is in no way; one reaching the edge leaves nothing.
-      if ((sides[opposite[side]] - edge) * inward <= resizeStrip) continue
+      if ((sides[opposite[side]] - edge) * inward <= resizeStrip) {
+        continue
+      }
+
       reach = Math.min(reach, Math.max(0, (sides[side] - edge) * inward))
     }
-    if (reach - resizeStrip < tooThin) continue
+
+    if (reach - resizeStrip < tooThin) {
+      continue
+    }
+
     const to = edge + inward * reach
     const middle = depth >= hitAcross && reach >= depth ? edge + (inward * depth) / 2 : (from + to) / 2
     const [near, far] = [Math.min(from, to), Math.max(from, to)]
+
     if (vertical) {
       handles.push({
         kind: "padding",
@@ -162,35 +185,58 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
     }
   }
 
-  if (!layout.oneLine) return handles
+  if (!layout.oneLine) {
+    return handles
+  }
+
   const row = layout.direction === "row"
+
   for (let index = 0; index + 1 < layout.children.length; index++) {
     const before = layout.children[index]!
     const after = layout.children[index + 1]!
+
     // The children as drawn, which in a reversed layout run the other way.
     const [first, second] = (row ? before.left <= after.left : before.top <= after.top)
       ? [before, after]
       : [after, before]
+
     const area = row
       ? box(first.right, inner.top, second.left, inner.bottom)
       : box(inner.left, first.bottom, inner.right, second.top)
-    if ((row ? area.h : area.w) < tooShort || (row ? second.left - first.right : second.top - first.bottom) < 0)
+
+    if ((row ? area.h : area.w) < tooShort || (row ? second.left - first.right : second.top - first.bottom) < 0) {
       continue
+    }
+
     const middle = row ? (first.right + second.left) / 2 : (first.bottom + second.top) / 2
     const centre = row ? area.y + area.h / 2 : area.x + area.w / 2
     const hitHalf = hitAlong / 2
     // At least `hitAcross` wide, but no wider than the space between the children it's beside, or any other child.
     const wide = Math.max(hitAcross, row ? area.w : area.h) / 2
     let [low, high] = [middle - wide, middle + wide]
+
     for (const child of covered) {
       const [start, end] = row ? [child.top, child.bottom] : [child.left, child.right]
-      if (end <= centre - hitHalf || start >= centre + hitHalf) continue
+
+      if (end <= centre - hitHalf || start >= centre + hitHalf) {
+        continue
+      }
+
       const [from, to] = row ? [child.left, child.right] : [child.top, child.bottom]
-      if (to <= middle) low = Math.max(low, to)
-      else if (from >= middle) high = Math.min(high, from)
-      else low = high
+
+      if (to <= middle) {
+        low = Math.max(low, to)
+      } else if (from >= middle) {
+        high = Math.min(high, from)
+      } else {
+        low = high
+      }
     }
-    if (high - low < tooThin) continue
+
+    if (high - low < tooThin) {
+      continue
+    }
+
     handles.push({
       kind: "gap",
       index,
@@ -202,6 +248,7 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
       hit: row ? box(low, centre - hitHalf, high, centre + hitHalf) : box(centre - hitHalf, low, centre + hitHalf, high)
     })
   }
+
   return handles
 }
 
@@ -213,8 +260,14 @@ export interface SidesHeld {
 
 /** The sides a padding handle changes: its own, its opposite too, or all four. */
 export function changedSides(side: PaddingSide, held: SidesHeld): PaddingSide[] {
-  if (held.every) return [...paddingSides]
-  if (held.opposite) return [side, opposite[side]]
+  if (held.every) {
+    return [...paddingSides]
+  }
+
+  if (held.opposite) {
+    return [side, opposite[side]]
+  }
+
   return [side]
 }
 
@@ -260,24 +313,41 @@ export interface SpacingEdit {
 
 /** What one side, or the gap, is now: a number of steps, or a token's name. */
 function lengthAt(style: NodeStyle, handle: SpacingEditStart["handle"]): Length | undefined {
-  if (handle.kind === "gap") return style.gap
+  if (handle.kind === "gap") {
+    return style.gap
+  }
+
   return sidesOf(style.padding)?.[paddingSides.indexOf(handle.side)]
 }
 
 /** The token a value keeps, when it started bound to one and lands on a token's value: its own first. */
 function keptToken(start: Length | undefined, px: number, tokens: readonly LengthToken[]): string | undefined {
-  if (typeof start !== "string") return undefined
+  if (typeof start !== "string") {
+    return undefined
+  }
+
   const near = (token: LengthToken) => Math.abs(token.px - px) < 0.01
   const own = tokens.find((token) => token.name === start)
-  if (own && near(own)) return own.name
+
+  if (own && near(own)) {
+    return own.name
+  }
+
   return tokens.find(near)?.name
 }
 
 /** The style a padding or gap handle writes for a value, in layout pixels, from the sides it changes. */
 function writeValue(start: SpacingEditStart, value: Length, sides: readonly PaddingSide[]): SpacingEdit["change"] {
-  if (start.handle.kind === "gap") return { gap: value }
+  if (start.handle.kind === "gap") {
+    return { gap: value }
+  }
+
   const next = [...(sidesOf(start.style.padding) ?? [0, 0, 0, 0])] as [Length, Length, Length, Length]
-  for (const side of sides) next[paddingSides.indexOf(side)] = value
+
+  for (const side of sides) {
+    next[paddingSides.indexOf(side)] = value
+  }
+
   return { padding: tidySides(next) as Padding }
 }
 
@@ -290,7 +360,10 @@ function startPx(start: SpacingEditStart): number {
  * content, as an edge dragged out grows a layer; a gap grows as its handle goes right or down.
  */
 function growth(handle: SpacingEditStart["handle"], dx: number, dy: number): number {
-  if (handle.kind === "gap") return handle.direction === "row" ? dx : dy
+  if (handle.kind === "gap") {
+    return handle.direction === "row" ? dx : dy
+  }
+
   return { top: -dy, bottom: dy, left: -dx, right: dx }[handle.side]
 }
 
@@ -305,14 +378,20 @@ export function spacingDrag(start: SpacingEditStart): (move: SpacingMove) => Spa
   const from = startPx(start)
   const bound = lengthAt(start.style, handle)
   let started = false
+
   return ({ dx, dy, opposite: other, every }) => {
     const moved = growth(handle, dx, dy)
-    if (!started && Math.abs(moved) < dragThreshold) return undefined
+
+    if (!started && Math.abs(moved) < dragThreshold) {
+      return undefined
+    }
+
     started = true
     const steps = Math.max(0, Math.round((from + moved / scale) / unit))
     const px = steps * unit
     const token = keptToken(bound, px, tokens)
     const sides = handle.kind === "padding" ? changedSides(handle.side, { opposite: other, every }) : undefined
+
     return {
       change: writeValue(start, token ?? steps, sides ?? []),
       px,
@@ -329,6 +408,7 @@ export function spacingStep(start: SpacingEditStart, count: number, held: SidesH
   const px = next * start.unit
   const token = keptToken(lengthAt(start.style, start.handle), px, start.tokens)
   const sides = start.handle.kind === "padding" ? changedSides(start.handle.side, held) : undefined
+
   return {
     change: writeValue(start, token ?? next, sides ?? []),
     px,
@@ -344,13 +424,19 @@ export function spacingStep(start: SpacingEditStart, count: number, held: SidesH
 export function typedSpacing(start: SpacingEditStart, text: string, held: SidesHeld): SpacingEdit | { reason: string } {
   const label = start.handle.kind === "gap" ? "Gap" : "Padding"
   const rules: FieldRules = { kind: "length", unit: start.unit, min: 0, label }
+
   const input = readFieldInput(
     text,
     rules,
     start.tokens.map((token) => token.name)
   )
+
   const outcome = applyFieldInput(input, startPx(start) / start.unit, rules)
-  if (!outcome.ok) return { reason: outcome.reason }
+
+  if (!outcome.ok) {
+    return { reason: outcome.reason }
+  }
+
   return pickedSpacing(start, outcome.value ?? 0, held)
 }
 
@@ -361,7 +447,9 @@ export function typedSpacing(start: SpacingEditStart, text: string, held: SidesH
 export function pickedSpacing(start: SpacingEditStart, value: Length, held: SidesHeld): SpacingEdit {
   const px =
     typeof value === "number" ? value * start.unit : (start.tokens.find((token) => token.name === value)?.px ?? 0)
+
   const sides = start.handle.kind === "padding" ? changedSides(start.handle.side, held) : undefined
+
   return {
     change: writeValue(start, value, sides ?? []),
     px,
@@ -375,9 +463,16 @@ export function pickedSpacing(start: SpacingEditStart, value: Length, held: Side
  * scale (`spacing-4` for 16px with a 4px unit), which every value a drag lands on is. Nothing for a value off the scale.
  */
 export function spacingScaleName(value: { px: number; token?: string }, unit: number): string | undefined {
-  if (value.token) return value.token
+  if (value.token) {
+    return value.token
+  }
+
   const steps = Math.round((value.px / unit) * 1e6) / 1e6
-  if (Math.abs(steps * 2 - Math.round(steps * 2)) > 1e-6) return undefined
+
+  if (Math.abs(steps * 2 - Math.round(steps * 2)) > 1e-6) {
+    return undefined
+  }
+
   return `spacing-${Number.isInteger(steps) ? steps : steps.toFixed(1)}`
 }
 
@@ -389,6 +484,9 @@ export function spacingName(
   handle: { kind: "padding"; side: PaddingSide } | { kind: "gap"; index: number },
   gaps = 1
 ): string {
-  if (handle.kind === "gap") return gaps > 1 ? `Gap ${handle.index + 1}` : "Gap"
+  if (handle.kind === "gap") {
+    return gaps > 1 ? `Gap ${handle.index + 1}` : "Gap"
+  }
+
   return `${handle.side[0]!.toUpperCase()}${handle.side.slice(1)} padding`
 }

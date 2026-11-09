@@ -33,7 +33,11 @@ export function readFields<T extends z.ZodType>(schema: T, value: unknown, name:
 
 function read<T extends z.ZodType>(schema: T, value: unknown, at: string, name: string): z.output<T> {
   const checked = checkData(schema, value, at)
-  if (checked.success) return checked.data
+
+  if (checked.success) {
+    return checked.data
+  }
+
   const { pointer, message } = checked.problem
   const field = pointer.slice(1) || name
   throw new CodedError(`${field}: ${message}`, { code: "invalid_input", field })

@@ -38,17 +38,22 @@ export function separateSourceMaps({
     stdio: ["ignore", "ignore", "inherit"]
   })
   const maps = globSync(mapGlobs, { cwd: out })
-  if (maps.length === 0 || maps.length < bundles.length)
+
+  if (maps.length === 0 || maps.length < bundles.length) {
     throw new Error(`Only ${maps.length} source maps were written: ${maps.join(", ")}`)
+  }
+
   for (const map of maps) {
     const bundle = map.slice(0, -".map".length)
     mkdirSync(dirname(join(sourceMaps, map)), { recursive: true })
     cpSync(join(out, bundle), join(sourceMaps, bundle))
     renameSync(join(out, map), join(sourceMaps, map))
   }
+
   const { version } = JSON.parse(readFileSync(join(packageFolder, "package.json"), "utf8")) as { version: string }
   const build: SourceMapsBuild = { version, commit: currentCommit(packageFolder) }
   writeFileSync(join(sourceMaps, "build.json"), JSON.stringify(build, null, 2))
   console.log(`${maps.length} source maps moved to ${relative(process.cwd(), sourceMaps)}`)
+
   return build
 }

@@ -10,6 +10,7 @@ import {
 } from "./console-log.ts"
 
 const guest = "http://127.0.0.1:5173"
+
 const written = (message: Partial<WrittenMessage> = {}): WrittenMessage => ({
   level: "error",
   text: "Cannot read properties of undefined (reading 'price')",
@@ -44,7 +45,11 @@ describe("the console log", () => {
   it("drops chatter every dev build writes, and the oldest past its limit", () => {
     const log = createConsoleLog({ limit: 2 })
     expect(log.write(written({ text: "[vite] hot updated: /src/App.tsx" }))).toBeUndefined()
-    for (const line of [1, 2, 3]) log.write(written({ line }))
+
+    for (const line of [1, 2, 3]) {
+      log.write(written({ line }))
+    }
+
     expect(log.read(guest).map((entry) => entry.line)).toEqual([2, 3])
   })
 
@@ -98,11 +103,13 @@ describe("the log's changes, sent on", () => {
   it("go in one batch a while after the first, each message once as it is then", () => {
     const sent: ConsoleChange[] = []
     const later: (() => void)[] = []
+
     const send = batchedChanges(
       (change) => sent.push(change),
       100,
       (run) => later.push(run)
     )
+
     const entry = { ...written(), id: 1, count: 1, first: 0, last: 0 }
     send({ entries: [entry] })
     entry.count = 2

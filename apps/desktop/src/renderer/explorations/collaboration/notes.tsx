@@ -31,6 +31,7 @@ export function StickyNote({
   children: ReactNode
 }) {
   const { bg, ink } = stickies[color]
+
   return (
     <div
       className="flex flex-col justify-between gap-3 rounded-[3px] p-4 shadow-[0_10px_24px_rgb(0_0_0/0.35)]"
@@ -92,6 +93,7 @@ export function Callout({
   children: ReactNode
 }) {
   const hue = categoryHue[category]
+
   return (
     <div className="flex w-64 flex-col gap-2 rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl">
       <div className="flex items-center gap-2">
@@ -154,6 +156,7 @@ export const reviewStatusOrder = Object.keys(reviewStatuses) as ReviewStatus[]
 /** Where a section's designs are in review. */
 export function StatusPill({ status }: { status: ReviewStatus }) {
   const { label, color } = reviewStatuses[status]
+
   return (
     <span
       className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"

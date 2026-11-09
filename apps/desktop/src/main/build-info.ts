@@ -21,6 +21,7 @@ const appManifest = z.looseObject({
 export function builtRelease(metadata: () => unknown): { published: boolean; commit?: string } {
   try {
     const manifest = appManifest.safeParse(metadata()).data
+
     return { published: manifest?.releaseChannel === "beta", commit: manifest?.commit }
   } catch {
     // A missing or unreadable package.json leaves the release named by the dev runner's commit, if any.
@@ -53,18 +54,31 @@ export class InstalledBuild {
     }
   ) {
     this.info = { version: options.version, channel: options.packaged ? "unknown" : "development" }
-    if (!options.packaged) return
+
+    if (!options.packaged) {
+      return
+    }
+
     try {
-      if (appManifest.safeParse(options.metadata?.()).data?.releaseChannel === "beta")
+      if (appManifest.safeParse(options.metadata?.()).data?.releaseChannel === "beta") {
         this.info = { version: options.version, channel: "beta" }
+      }
     } catch {
       // Optional build metadata must never prevent the app from starting or reading a confirmed cache.
     }
+
     try {
       const saved = savedBuild.safeParse(options.read()).data
-      if (!saved || saved.version !== options.version) return
+
+      if (!saved || saved.version !== options.version) {
+        return
+      }
+
       this.info = { version: options.version, channel: saved.channel }
-      if (saved.checkedAt !== undefined && saved.checkedAt <= this.now()) this.checkedAt = saved.checkedAt
+
+      if (saved.checkedAt !== undefined && saved.checkedAt <= this.now()) {
+        this.checkedAt = saved.checkedAt
+      }
     } catch {
       // Keep the embedded identity, never inferring a channel from the update preference or numeric version.
     }
@@ -75,11 +89,18 @@ export class InstalledBuild {
   }
 
   get(): Promise<BuildInfo> {
-    if (!this.options.packaged || this.now() - this.checkedAt < refreshMs) return Promise.resolve(this.info)
-    if (this.pending) return this.pending
+    if (!this.options.packaged || this.now() - this.checkedAt < refreshMs) {
+      return Promise.resolve(this.info)
+    }
+
+    if (this.pending) {
+      return this.pending
+    }
+
     this.pending = this.refresh().finally(() => {
       this.pending = undefined
     })
+
     return this.pending
   }
 
@@ -88,8 +109,10 @@ export class InstalledBuild {
       const tag = `v${this.options.version}`
       const { status, data } = await githubRelease(`/tags/${encodeURIComponent(tag)}`, this.options.request)
       const release = status === 200 ? releaseSummary.safeParse(data).data : undefined
+
       if (release?.tag_name === tag && !release.draft) {
         this.info = { version: this.options.version, channel: release.prerelease ? "beta" : "stable" }
+
         try {
           this.options.save({ ...this.info, checkedAt: this.now() })
         } catch {
@@ -99,7 +122,9 @@ export class InstalledBuild {
     } catch {
       // Keep the last confirmed identity offline, or unknown when this version has never been resolved.
     }
+
     this.checkedAt = this.now()
+
     return this.info
   }
 }

@@ -19,6 +19,7 @@ export function extractIntoComponent(
   paramNames?: Record<string, string>
 ): string {
   const { store, editor } = session
+
   const position = aboveEverything(
     entry.container.position,
     store.getEntries().map((candidate) => ({
@@ -26,6 +27,7 @@ export function extractIntoComponent(
       bounds: editor?.getShapePageBounds(shapeIdFor(candidate.key))
     }))
   )
+
   const viewports = [...new Set(resolveModes(store.getModes()).map((mode) => mode.viewport))]
   const path = store.mainPath
   let id = ""
@@ -37,9 +39,12 @@ export function extractIntoComponent(
       viewports,
       paramNames
     })
+
     id = made.id
+
     return { ...snapshot, documents: made.documents }
   })
   recordComponentChange("extract", entry.key, occurrences, id)
+
   return containerKey(path, id)
 }

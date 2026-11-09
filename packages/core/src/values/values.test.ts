@@ -6,6 +6,7 @@ import { decoratorValue, sampleValue } from "./grammar.ts"
 
 /** A module whose `make` returns a list that `add` pushes to, so a test sees what was called on it. */
 const theme = { dark: true }
+
 const modules: Record<string, Record<string, unknown>> = {
   pkg: {
     default: "the default export",
@@ -27,7 +28,11 @@ function host(globals: Record<string, string> = {}): ValueHost {
   return {
     exported(specifier, path) {
       const module = modules[specifier]
-      if (!module) throw new Error(`${specifier} isn't loaded`)
+
+      if (!module) {
+        throw new Error(`${specifier} isn't loaded`)
+      }
+
       return path.split(".").reduce<unknown>((found, part) => (found as Record<string, unknown>)?.[part], module)
     },
     global: (name) => globals[name],
@@ -133,6 +138,7 @@ describe("decorator and sample values", () => {
       d: { $function: { $import: "six" } },
       e: { import: "not a module" }
     }
+
     expect(valueImports(value)).toEqual(["one", "two", "three", "four", "five", "six"])
   })
 })

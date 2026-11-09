@@ -62,8 +62,14 @@ import { useSelection } from "../../selection.ts"
 
 /** Whether a selection is one screen or component on its own, or its root, which is now the same thing. */
 export function selectsContainer(selected: Selection, entry: ContainerEntry | undefined): entry is ContainerEntry {
-  if (!entry || selected.note || (selected.designs?.length ?? 0) > 1) return false
-  if ((selected.nodes?.length ?? 0) > 1) return false
+  if (!entry || selected.note || (selected.designs?.length ?? 0) > 1) {
+    return false
+  }
+
+  if ((selected.nodes?.length ?? 0) > 1) {
+    return false
+  }
+
   return !selected.node || selected.node === entry.container.root.id
 }
 
@@ -72,8 +78,15 @@ export function ContainerTab() {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
-  if (!selected.design && !selected.note) return <NothingSelected />
-  if (!selectsContainer(selected, entry)) return <DesignTab />
+
+  if (!selected.design && !selected.note) {
+    return <NothingSelected />
+  }
+
+  if (!selectsContainer(selected, entry)) {
+    return <DesignTab />
+  }
+
   return (
     <FieldTarget value={selectionKey(selected)}>
       <ContainerPanel key={entry.key} entry={entry} />
@@ -98,6 +111,7 @@ function NothingSelected() {
 /** A screen or component: its name and kind, its root's sections, then its own. */
 export function ContainerPanel({ entry }: { entry: ContainerEntry }) {
   const component = entry.container.kind === "component"
+
   return (
     <>
       <ContainerHeader entry={entry} />
@@ -117,6 +131,7 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
   const kind = container.kind ?? "screen"
   const noun = kind === "component" ? "Component" : "Screen"
   const variants = Object.values(container.params ?? {}).some((param) => param.type === "variant")
+
   return (
     <div className="border-b px-4 py-3">
       <div className="flex items-center gap-2">
@@ -128,12 +143,15 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
           className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input dark:bg-transparent"
           onBlur={(event) => {
             const name = event.currentTarget.value.trim()
+
             if (name && name !== container.name) {
               store.updateContainer(key, `Rename ${noun.toLowerCase()}`, (current) => ({ ...current, name }))
             }
           }}
           onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur()
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
           }}
         />
       </div>
@@ -145,7 +163,10 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
           value={[kind]}
           aria-label="Screen or component"
           onValueChange={([value]) => {
-            if (value !== "screen" && value !== "component") return
+            if (value !== "screen" && value !== "component") {
+              return
+            }
+
             store.updateContainer(
               key,
               value === "component" ? "Make it a component" : "Make it a screen",
@@ -184,12 +205,19 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
   const target = boardTarget(entry.container, state.id)
   const base = editsDesign(entry.container, target)
   const chosen = target.variant
+
   const variant = chosen
     ? entry.container.params?.[chosen.param]?.options?.find((option) => option.id === chosen.option)
     : undefined
+
   let changes = "changes only this state"
-  if (base) changes = "changes every state"
-  else if (variant && state.id === entry.container.states[0]!.id) changes = `changes only the ${variant.name} variant`
+
+  if (base) {
+    changes = "changes every state"
+  } else if (variant && state.id === entry.container.states[0]!.id) {
+    changes = `changes only the ${variant.name} variant`
+  }
+
   return (
     <div
       className="mt-3 flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
@@ -204,7 +232,10 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
         items={entry.container.states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
-          if (!id) return
+          if (!id) {
+            return
+          }
+
           const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
           store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
@@ -251,10 +282,12 @@ function RootSections({ entry }: { entry: ContainerEntry }) {
     store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), rootId, value), {
       gesture
     })
+
   const reset = (field?: PatchField) =>
     store.updateContainer(key, "Reset change", (current) =>
       resetOverride(current, boardTarget(current, state.id), rootId, field)
     )
+
   return (
     <>
       {node.type === "component" && (
@@ -280,6 +313,7 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
   const { primary, all } = containerModes(settings, container)
   const shown = new Set(container.view?.modes ?? [])
   const noun = container.kind === "component" ? "component" : "screen"
+
   const setModes = (modes: string[]) =>
     store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
 
@@ -298,6 +332,7 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
       >
         {all.map((mode, index) => {
           const isMain = mode.id === primary.id
+
           return (
             <div
               key={mode.id}
@@ -370,6 +405,7 @@ function OptionChip({ children }: { children: ReactNode }) {
 function RepeatedPartsSection({ entry }: { entry: ContainerEntry }) {
   const [candidates, setCandidates] = useState<RepeatCandidate[]>()
   let content: ReactNode
+
   if (candidates === undefined) {
     content = (
       <Button variant="outline" size="sm" onClick={() => setCandidates(findRepeats(entry.container.root))}>
@@ -396,6 +432,7 @@ function RepeatedPartsSection({ entry }: { entry: ContainerEntry }) {
       </ul>
     )
   }
+
   return (
     <PanelSection
       title="Repeated parts"
@@ -418,6 +455,7 @@ function CandidateCard({
   const session = useProject()
   const [name, setName] = useState(candidate.name)
   const [error, setError] = useState<string>()
+
   return (
     <li className="rounded-md border p-2.5">
       <div className="mb-2 flex items-center gap-2">

@@ -71,6 +71,7 @@ function BrowserStandIn({ onEnd }: { onEnd: (problem?: Problem) => void }) {
     { label: "Use a refused account", problem: "refused" },
     { label: "Use a company account", problem: "single-sign-on" }
   ]
+
   return (
     <div
       data-prototype
@@ -160,40 +161,70 @@ export function SignInPrototype({
   const waiting = flow.at === "waiting" ? flow : undefined
   // Parity never stops waiting on its own; after a while it says what to try.
   useEffect(() => {
-    if (!waiting || waiting.slow) return
+    if (!waiting || waiting.slow) {
+      return
+    }
+
     const timer = setTimeout(() => setFlow({ ...waiting, slow: true }), slowAfter)
+
     return () => clearTimeout(timer)
   }, [waiting])
 
   useEffect(() => {
     // A toast the story opens on, as Parity would have just shown it.
-    if (notice === "until-quit") untilQuitToast(() => setWhy(true))
-    if (notice === "signed-out") signedOutToast()
+    if (notice === "until-quit") {
+      untilQuitToast(() => setWhy(true))
+    }
+
+    if (notice === "signed-out") {
+      signedOutToast()
+    }
   }, [notice])
 
   const begin = (via: string) => setFlow({ at: "waiting", via })
+
   const close = () => {
     setPlace(undefined)
     setFlow({ at: "form" })
   }
+
   /** Cancel goes back a step: to the ways in on the sign-in screen, or out of the dialog. */
   const cancel = () => (place === "window" ? setFlow({ at: "form" }) : close())
+
   const end = (problem?: Problem) => {
-    if (!waiting) return
-    if (problem) {
-      setFlow({ at: "problem", via: waiting.via, problem })
+    if (!waiting) {
       return
     }
+
+    if (problem) {
+      setFlow({ at: "problem", via: waiting.via, problem })
+
+      return
+    }
+
     const signedIn = accounts[profile]
     setAccount(signedIn)
-    if (place === "window") setHome(profile === "no-organization" ? "first-run" : "home")
+
+    if (place === "window") {
+      setHome(profile === "no-organization" ? "first-run" : "home")
+    }
+
     close()
-    if (signedIn.untilQuit) untilQuitToast(() => setWhy(true))
+
+    if (signedIn.untilQuit) {
+      untilQuitToast(() => setWhy(true))
+    }
   }
 
   const panel = (dialog: boolean): ReactNode => {
-    if (flow.at === "form") return <SignInPanel dialog={dialog} onContinue={begin} />
-    if (flow.at === "waiting") return <WaitingPanel dialog={dialog} via={flow.via} slow={flow.slow} onCancel={cancel} />
+    if (flow.at === "form") {
+      return <SignInPanel dialog={dialog} onContinue={begin} />
+    }
+
+    if (flow.at === "waiting") {
+      return <WaitingPanel dialog={dialog} via={flow.via} slow={flow.slow} onCancel={cancel} />
+    }
+
     return (
       <ProblemPanel
         dialog={dialog}
@@ -242,26 +273,44 @@ export function SignInPrototype({
   }
 
   const everything = [...projects, ...made]
+
   const openProject = (id: string, known = everything) => {
     const project = known.find((candidate) => candidate.id === id)
-    if (!project) return
+
+    if (!project) {
+      return
+    }
+
     setStart(undefined)
-    if (!tabs.some((tab) => tab.id === id)) setTabs([...tabs, { id, title: project.name }])
+
+    if (!tabs.some((tab) => tab.id === id)) {
+      setTabs([...tabs, { id, title: project.name }])
+    }
+
     setActive(id)
   }
+
   const closeTab = (id: string) => {
     const at = tabs.findIndex((tab) => tab.id === id)
     const rest = tabs.filter((tab) => tab.id !== id)
     setTabs(rest)
-    if (id === active) setActive(rest[Math.max(0, at - 1)]!.id)
+
+    if (id === active) {
+      setActive(rest[Math.max(0, at - 1)]!.id)
+    }
   }
+
   const shown = active === "home" || active.startsWith("new-") ? undefined : everything.find((p) => p.id === active)
+
   return (
     <StartActionsProvider
       value={{
         openProject,
         create: (project) => {
-          if (!made.some((candidate) => candidate.id === project.id)) setMade([...made, project])
+          if (!made.some((candidate) => candidate.id === project.id)) {
+            setMade([...made, project])
+          }
+
           setHome("home")
           openProject(project.id, [project])
         },

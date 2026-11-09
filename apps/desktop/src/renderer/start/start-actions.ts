@@ -74,7 +74,10 @@ export function notReady(title: string, description?: string, action?: { label: 
 
 /** New project waits on the Buildkit scaffolder (PAR-284); until then, a project starts from a folder. */
 export function newProjectNotReady(actions: StartActions): void {
-  if (actions === workspaceActions) recordStart("new-project")
+  if (actions === workspaceActions) {
+    recordStart("new-project")
+  }
+
   notReady("New project isn't ready yet", "For now, open a React app's folder.", {
     label: "Open a folder",
     onClick: actions.openFolder

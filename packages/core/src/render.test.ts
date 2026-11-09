@@ -42,7 +42,11 @@ describe("resolveDesign", () => {
       tag: "div",
       style: { display: "flex", flexDirection: "row", gap: "calc(var(--spacing) * 4)", background: "var(--background)" }
     })
-    if (page?.kind !== "element") throw new Error("expected an element")
+
+    if (page?.kind !== "element") {
+      throw new Error("expected an element")
+    }
+
     expect(page.children[0]).toMatchObject({
       tag: "h1",
       style: { fontSize: "var(--text-2xl)", lineHeight: "var(--text-2xl--line-height, 1.5)", fontWeight: "600" }
@@ -58,6 +62,7 @@ describe("resolveDesign", () => {
 
   it("marks an empty layout with the axes its content would size, for the canvas to size it by", () => {
     const empty = (id: string, style: DesignNode["style"]): DesignNode => ({ type: "layout", id, style, children: [] })
+
     const [row] = resolveDesign(
       {
         type: "layout",
@@ -76,7 +81,11 @@ describe("resolveDesign", () => {
       undefined,
       "desktop"
     )
-    if (row?.kind !== "element") throw new Error("expected an element")
+
+    if (row?.kind !== "element") {
+      throw new Error("expected an element")
+    }
+
     // The row has layers in it, so it isn't marked.
     expect(row.attributes).toBeUndefined()
     expect(row.children.map((child) => (child.kind === "element" ? child.attributes : undefined))).toEqual([
@@ -98,6 +107,7 @@ describe("resolveDesign", () => {
       root: { type: "layout", id: "root", style: { width: 6, height: 4 }, children: [] },
       states: [{ id: "default", name: "Default" }]
     }
+
     const [row] = resolveDesign(
       {
         type: "layout",
@@ -113,7 +123,11 @@ describe("resolveDesign", () => {
       "desktop",
       componentLibrary([gap])
     )
-    if (row?.kind !== "element") throw new Error("expected an element")
+
+    if (row?.kind !== "element") {
+      throw new Error("expected an element")
+    }
+
     expect(row.children.map((child) => (child.kind === "element" ? child.attributes : undefined))).toEqual([
       { "data-canvas-empty-layout": "" },
       { "data-canvas-empty-layout": "" },
@@ -127,6 +141,7 @@ describe("resolveDesign", () => {
       id: "column",
       children: [{ type: "text", id: "note", text: "Saved" }]
     }
+
     const hidden = { id: "quiet", name: "Quiet", overrides: { note: { hidden: true } } }
     expect(resolveDesign(column, undefined, "desktop")[0]).not.toHaveProperty("attributes")
     expect(resolveDesign(column, hidden, "desktop")[0]).toMatchObject({
@@ -141,12 +156,21 @@ describe("resolveDesign", () => {
       name: "Error",
       overrides: { error: { hidden: false }, save: { props: { disabled: true } }, page: { style: { gap: 2 } } }
     }
+
     const [page] = resolveDesign(root, state, "mobile")
-    if (page?.kind !== "element") throw new Error("expected an element")
+
+    if (page?.kind !== "element") {
+      throw new Error("expected an element")
+    }
+
     expect(page.style).toMatchObject({ flexDirection: "column", gap: "calc(var(--spacing) * 2)" })
     expect(page.children).toHaveLength(3)
     const card = page.children[1]
-    if (card?.kind !== "component") throw new Error("expected a component")
+
+    if (card?.kind !== "component") {
+      throw new Error("expected a component")
+    }
+
     expect(card.slots.children?.[0]).toMatchObject({ props: { children: "Save", disabled: true } })
   })
 
@@ -159,22 +183,32 @@ describe("resolveDesign", () => {
         save: { unset: { props: ["children"] } }
       }
     }
+
     const rounded: DesignNode = { ...root, responsive: { mobile: { style: { radius: "radius" } } } }
     const [page] = resolveDesign(rounded, state, "mobile")
-    if (page?.kind !== "element") throw new Error("expected an element")
+
+    if (page?.kind !== "element") {
+      throw new Error("expected an element")
+    }
+
     // The design's row is taken away, so the layout is a column, as it is by default.
     expect(page.style).toMatchObject({ flexDirection: "column", gap: "calc(var(--spacing) * 4)" })
     expect(page.style).not.toHaveProperty("background")
     expect(page.style).not.toHaveProperty("borderRadius")
     expect(resolveDesign(rounded, undefined, "mobile")[0]).toMatchObject({ style: { borderRadius: "var(--radius)" } })
     const card = page.children[1]
-    if (card?.kind !== "component") throw new Error("expected a component")
+
+    if (card?.kind !== "component") {
+      throw new Error("expected a component")
+    }
+
     expect(card.slots.children?.[0]).toMatchObject({ component: "Button" })
     expect(card.slots.children?.[0]).not.toHaveProperty("props.children")
   })
 
   it("rounds radius-full as fully as the box allows, unless the project declares --radius-full (PAR-458)", () => {
     const full = "var(--radius-full, calc(infinity * 1px))"
+
     const avatars: DesignNode = {
       type: "layout",
       id: "people",
@@ -186,9 +220,14 @@ describe("resolveDesign", () => {
         { type: "component", id: "pill", component: "Badge", style: { radius: "radius-full" } }
       ]
     }
+
     const [desktop] = resolveDesign(avatars, undefined, "desktop")
     const [mobile] = resolveDesign(avatars, undefined, "mobile")
-    if (desktop?.kind !== "element" || mobile?.kind !== "element") throw new Error("expected elements")
+
+    if (desktop?.kind !== "element" || mobile?.kind !== "element") {
+      throw new Error("expected elements")
+    }
+
     expect(desktop.style.borderRadius).toBe("var(--radius-md)")
     expect(mobile.style.borderRadius).toBe(full)
     const [small, large, pill] = desktop.children
@@ -222,6 +261,7 @@ describe("layering patches that take values away", () => {
       root: { type: "text", id: "label", text: "New", bind: { text: "label" } },
       states: [{ id: "default", name: "Default" }]
     }
+
     const instance: DesignNode = { type: "instance", id: "tag", design: "badge", args: { label: "Sale" } }
     const plain = { id: "plain", name: "Plain", overrides: { tag: { unset: { props: ["label"] } } } }
     const [shown] = resolveDesign(instance, plain, "desktop", componentLibrary([badge]))
@@ -288,7 +328,11 @@ describe("sizing", () => {
       undefined,
       "desktop"
     )
-    if (page?.kind !== "element" || page.children[0]?.kind !== "element") throw new Error("expected elements")
+
+    if (page?.kind !== "element" || page.children[0]?.kind !== "element") {
+      throw new Error("expected elements")
+    }
+
     return page.children[0].style
   }
 
@@ -311,9 +355,14 @@ describe("sizing", () => {
         undefined,
         "desktop"
       )
-      if (page?.kind !== "element" || page.children[0]?.kind !== "element") throw new Error("expected elements")
+
+      if (page?.kind !== "element" || page.children[0]?.kind !== "element") {
+        throw new Error("expected elements")
+      }
+
       return page.children[0].style
     }
+
     expect(text({ width: "hug" }).width).toBe("max-content")
     // A maximum still wraps it, as it does in Figma.
     expect(text({ width: "hug", maxWidth: 80 })).toMatchObject({
@@ -363,12 +412,14 @@ describe("sizing", () => {
         }
       ]
     }).containers[0]!
+
     expect(frameSize(design, { viewport: "mobile", width: 390 })).toEqual({ width: 390, height: 844 })
     expect(frameSize(design, { viewport: "desktop", width: 1280 })).toEqual({ width: 1280 })
   })
 
   it("gives a frame the window of its fixed height, its screen or the nearest device", () => {
     const [desktop] = resolveModes(defaultModeSettings)
+
     const phone = {
       options: [
         {
@@ -377,6 +428,7 @@ describe("sizing", () => {
         }
       ]
     }
+
     expect(frameViewport({ width: 1280, height: 900 }, desktop!)).toEqual({ width: 1280, height: 900 })
     expect(frameViewport({ width: 375 }, phone)).toEqual({ width: 375, height: 667 })
     expect(frameViewport({ width: 1280 }, desktop!)).toEqual({ width: 1280, height: 800 })
@@ -398,6 +450,7 @@ describe("sizing", () => {
       ],
       modes: [{ id: "desktop", name: "Desktop", values: { viewport: "desktop" } }]
     })
+
     const [grows, fixed] = parseCanvasDocument({
       version: 3,
       containers: [
@@ -418,6 +471,7 @@ describe("sizing", () => {
         }
       ]
     }).containers
+
     // Growing with its content, the frame has no height of its own, and its window is the screen's, not the 800 of the
     // device nearest 1280.
     expect(frameGeometry(grows!, mode!)).toEqual({ width: 1280, viewport: { width: 1280, height: 1234 } })
@@ -438,7 +492,11 @@ describe("grid, margin and length tokens", () => {
       undefined,
       "desktop"
     )
-    if (page?.kind !== "element") throw new Error("expected an element")
+
+    if (page?.kind !== "element") {
+      throw new Error("expected an element")
+    }
+
     expect(page.style).toMatchObject({
       display: "grid",
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
@@ -463,6 +521,7 @@ describe("grid, margin and length tokens", () => {
       undefined,
       "desktop"
     )
+
     expect(card).toMatchObject({
       props: { style: { background: "var(--muted)", padding: "calc(var(--spacing) * 6)", color: "var(--primary)" } }
     })
@@ -477,17 +536,21 @@ describe("reachableLibrary", () => {
     root,
     states: [{ id: "base", name: "Base" }]
   })
+
   const button = design("button", { type: "text", id: "label", text: "Save" })
+
   const card = design("card", {
     type: "layout",
     id: "card",
     children: [{ type: "instance", id: "save", design: "button" }]
   })
+
   const screen = design("screen", {
     type: "layout",
     id: "page",
     children: [{ type: "instance", id: "first", design: "card" }]
   })
+
   const other = design("other", { type: "text", id: "hello", text: "Hello" })
   const all = (...designs: ContainerSpec[]) => componentLibrary(designs)
 
@@ -520,6 +583,7 @@ describe("reachableLibrary", () => {
         { id: "busy", name: "Busy", added: [{ type: "instance", id: "spinner", design: "button" }] }
       ]
     } as unknown as ContainerSpec
+
     expect(placedDesigns(stated)).toEqual(["button"])
   })
 

@@ -6,6 +6,7 @@ import { defineEvent } from "./events.ts"
 const code = z.string().optional().describe("The `CodedError` code, when the failure has one")
 const outcome = z.enum(["ok", "error"]).describe("Whether it worked")
 const files = z.array(z.string()).describe("The files it changed, by path")
+
 const library = {
   package: z.string().describe("The library, by its catalog ID or package name"),
   version: z.string().optional().describe("The version installed, when known")

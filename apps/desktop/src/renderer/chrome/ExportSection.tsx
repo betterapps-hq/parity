@@ -16,14 +16,18 @@ import { setPreferences, usePreferences } from "./preferences.ts"
 export function ExportSection({ targets, label }: { targets: ExportTarget[]; label: string }) {
   const session = useProject()
   const { exportSizes: sizes } = usePreferences()
+
   const files = exportFiles(
     targets.map((target) => target.name),
     sizes
   )
+
   const next = nextExportSize(sizes)
   const setSizes = (exportSizes: ExportSize[]) => setPreferences({ exportSizes })
+
   const change = (index: number, size: Partial<ExportSize>) =>
     setSizes(sizes.map((current, at) => (at === index ? { ...current, ...size } : current)))
+
   return (
     <PanelSection
       title="Export"

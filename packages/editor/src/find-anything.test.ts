@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { type FindItem, findAnything, matchWords, rememberPick } from "./find-anything.ts"
 
 type Group = "Designs" | "Layers" | "Edit" | "Tokens"
+
 const groups: Group[] = ["Designs", "Layers", "Edit", "Tokens"]
 
 const items: FindItem<Group>[] = [

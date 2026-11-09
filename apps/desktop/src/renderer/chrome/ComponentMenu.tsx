@@ -1,6 +1,7 @@
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@buildkitgg/shadcn-baseui-kit"
 import { BookOpen, FileCode } from "lucide-react"
 import type { ReactNode } from "react"
+
 export interface ComponentMenuProps {
   /** Its stories, when the project has a Storybook: whether it has any, whether Storybook is running, and opening them. */
   storybook?: { stories: boolean; running: boolean; open: () => void }
@@ -26,7 +27,11 @@ function Aside({ children }: { children: string }) {
  */
 export function ComponentMenu({ storybook, code, children }: ComponentMenuProps) {
   const opens = storybook || code
-  if (!opens && !children) return null
+
+  if (!opens && !children) {
+    return null
+  }
+
   return (
     <>
       {storybook && (

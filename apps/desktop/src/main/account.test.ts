@@ -34,16 +34,25 @@ function memoryStore(persistent = true): SessionStore & { kept?: StoredAccounts 
     persistent: async () => persistent,
     read: async () => store.kept,
     async update(change) {
-      if (!persistent) return false
+      if (!persistent) {
+        return false
+      }
+
       const next = change(store.kept ?? { accounts: [] })
-      if (next.accounts.length === 0) delete store.kept
-      else store.kept = next
+
+      if (next.accounts.length === 0) {
+        delete store.kept
+      } else {
+        store.kept = next
+      }
+
       return true
     },
     clear() {
       delete store.kept
     }
   }
+
   return store
 }
 
@@ -63,12 +72,16 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
   const states: AccountState[] = []
   const timers: { run: () => void; at: number }[] = []
   let closed = 0
+
   const fetch: Fetch = async (_url, init) => {
     requests.push(JSON.parse(typeof init.body === "string" ? init.body : "{}") as Record<string, unknown>)
     const answer = answers.shift() ?? { status: 503, body: {} }
+
     return new Response(JSON.stringify(answer.body), { status: answer.status })
   }
+
   const store = options.store ?? memoryStore()
+
   const account = createAccount({
     clientId: "client_test",
     fetch,
@@ -83,9 +96,11 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
     later: (run, ms) => {
       const timer = { run, at: now + ms }
       timers.push(timer)
+
       return () => timers.splice(timers.indexOf(timer), 1)
     }
   } satisfies AccountOptions)
+
   return {
     account,
     store,
@@ -97,17 +112,25 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
     /** Moves the clock to the next timer and runs it. */
     async tick() {
       const timer = timers.sort((a, b) => a.at - b.at).shift()
-      if (!timer) throw new Error("Nothing is scheduled")
+
+      if (!timer) {
+        throw new Error("Nothing is scheduled")
+      }
+
       now = Math.max(now, timer.at)
       timer.run()
+
       // The refresh reads the store, asks WorkOS and keeps what it says, each a step of its own.
-      for (let step = 0; step < 5; step++) await new Promise((resolve) => setImmediate(resolve))
+      for (let step = 0; step < 5; step++) {
+        await new Promise((resolve) => setImmediate(resolve))
+      }
     },
     pending: () => timers.map((timer) => timer.at - now),
     now: () => now,
     /** The link the browser hands back for the sign-in that's waiting, with `query` added. */
     callback(query: Record<string, string>) {
       const state = new URL(opened.at(-1)!).searchParams.get("state")!
+
       return `http://127.0.0.1:4100/auth/callback?${new URLSearchParams({ state, ...query })}`
     }
   }
@@ -196,10 +219,12 @@ describe("signing in", () => {
   it("offers the organizations WorkOS names, and signs in to the one chosen through AuthKit", async () => {
     const test = setUp()
     await test.account.signIn({ provider: "GoogleOAuth" })
+
     const organizations = [
       { id: "org_01KESTREL", name: "Kestrel" },
       { id: "org_01ENGINES", name: "Engines" }
     ]
+
     test.answer(403, {
       code: "organization_selection_required",
       message: "Choose an organization.",
@@ -245,6 +270,7 @@ describe("switching organizations", () => {
     { id: "org_1", name: "Kestrel" },
     { id: "org_2", name: "Engines" }
   ]
+
   /** WorkOS's session in `organization`. */
   const sessionIn = (organization: string, refresh: string, now: number) => ({
     ...session(refresh, now, { org_id: organization }),
@@ -260,6 +286,7 @@ describe("switching organizations", () => {
     await test.account.signIn({ provider: "authkit", organizationId: "org_1" })
     test.answer(200, sessionIn("org_1", "refresh_1", test.now()))
     await test.account.takeLink(test.callback({ code: "2" }))
+
     return test
   }
 
@@ -310,6 +337,7 @@ describe("refreshing", () => {
     await test.account.signIn({ provider: "GitHubOAuth" })
     test.answer(200, session("refresh_1", test.now()))
     await test.account.takeLink(test.callback({ code: "1" }))
+
     return test
   }
 

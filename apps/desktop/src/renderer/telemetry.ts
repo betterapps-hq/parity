@@ -31,7 +31,11 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
     beforeSend: (event, hint) => {
       // An error says which frames were on the canvas (PAR-624).
       const frames = framesOnScreen()
-      if (frames.length > 0) hint.attachments = [...(hint.attachments ?? []), framesAttachment(frames)]
+
+      if (frames.length > 0) {
+        hint.attachments = [...(hint.attachments ?? []), framesAttachment(frames)]
+      }
+
       return scrubber.value({ ...event, tags: { ...event.tags, process: kind } })
     }
   })
@@ -39,9 +43,11 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
   // Events are this window's breadcrumbs and errors, and go to main for the local copy, Sentry's logs and spans.
   const host = window.parityTelemetry
   const run = host?.run ?? readTelemetryRun(undefined)
+
   const toMain: Sink[] = host
     ? [{ event: (envelope) => host.record(envelope), span: (envelope) => host.record(envelope) }]
     : []
+
   const telemetry = recordInvalidData(
     createTelemetry({
       events: registeredEvents,
@@ -57,7 +63,9 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
       onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
     })
   )
+
   scrubber.follow(telemetry)
+
   return telemetry
 }
 
@@ -85,6 +93,7 @@ type CaughtInfo = ErrorInfo & { errorBoundary?: Component<unknown> }
 /** The name of the error boundary that caught an error (`chrome/ErrorBoundary.tsx`, PAR-667), for its Sentry tag. */
 function boundaryName(info: CaughtInfo): string | undefined {
   const props = info.errorBoundary?.props as { name?: unknown } | undefined
+
   return typeof props?.name === "string" ? props.name : undefined
 }
 
@@ -99,6 +108,7 @@ export function caughtEventId(error: unknown): string | undefined {
 function report(error: unknown, info: CaughtInfo, caught: boolean): void {
   console.error(error)
   const boundary = boundaryName(info)
+
   const eventId = Sentry.captureException(error, {
     mechanism: { type: "react", handled: caught },
     captureContext: {
@@ -106,7 +116,10 @@ function report(error: unknown, info: CaughtInfo, caught: boolean): void {
       ...(boundary ? { tags: { boundary } } : {})
     }
   })
-  if (caught && eventId && typeof error === "object" && error !== null) caughtEvents.set(error, eventId)
+
+  if (caught && eventId && typeof error === "object" && error !== null) {
+    caughtEvents.set(error, eventId)
+  }
 }
 
 /**
@@ -115,12 +128,15 @@ function report(error: unknown, info: CaughtInfo, caught: boolean): void {
  */
 export async function reportIds(): Promise<{ replayId?: string; traceId?: string }> {
   const replay = Sentry.getReplay()
+
   try {
     await replay?.flush()
   } catch {
     // The report goes without its replay.
   }
+
   const replayId = replay?.getReplayId()
   const traceId = Sentry.getCurrentScope().getPropagationContext().traceId
+
   return { ...(replayId ? { replayId } : {}), ...(traceId ? { traceId } : {}) }
 }

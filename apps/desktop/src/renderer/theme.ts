@@ -9,14 +9,21 @@ let resolved = resolve()
 
 function resolve(): ResolvedTheme {
   const { theme } = getPreferences()
-  if (theme !== "system") return theme
+
+  if (theme !== "system") {
+    return theme
+  }
+
   return systemDark.matches ? "dark" : "light"
 }
 
 function apply(): void {
   resolved = resolve()
   document.documentElement.classList.toggle("dark", resolved === "dark")
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 /**
@@ -29,7 +36,11 @@ export function startTheme(): void {
   let last = getPreferences().theme
   subscribePreferences(() => {
     const { theme } = getPreferences()
-    if (theme === last) return
+
+    if (theme === last) {
+      return
+    }
+
     last = theme
     apply()
     void window.canvasHost.setTheme(theme)
@@ -44,6 +55,7 @@ export function getResolvedTheme(): ResolvedTheme {
 /** Calls `listener` whenever the app's light or dark theme changes, until the function it gives is called. */
 export function subscribeResolvedTheme(listener: () => void): () => void {
   listeners.add(listener)
+
   return () => listeners.delete(listener)
 }
 

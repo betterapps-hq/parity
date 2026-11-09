@@ -27,6 +27,7 @@ function dataFolder(env: NodeJS.ProcessEnv = process.env): string {
 function appVersion(folder: string): string {
   try {
     const build = JSON.parse(readFileSync(join(folder, "installed-build.json"), "utf8")) as { version?: unknown }
+
     return typeof build.version === "string" ? build.version : "unknown"
   } catch {
     return "unknown"
@@ -39,6 +40,7 @@ export function cliVersion(): string {
     const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
       version?: unknown
     }
+
     return typeof manifest.version === "string" ? manifest.version : "unknown"
   } catch {
     return "unknown"
@@ -54,6 +56,7 @@ export function writeDiagnostics({
   const events = readEvents(join(folder, "logs"))
   // The latest run that didn't quit: the one open now, if Parity is running, which is said in the README.
   const crash = lastRunCrash(events, "")
+
   const files = diagnosticFiles({
     events,
     now: now.getTime(),
@@ -65,15 +68,21 @@ export function writeDiagnostics({
     },
     ...(crash ? { crash } : {})
   })
+
   const path = resolve(out ?? `parity-diagnostics-${now.toISOString().replace(/[:.]/g, "-")}.zip`)
   writeFileSync(path, zipFiles(files, now))
+
   return { path, files: files.map((file) => file.name), ...(crash ? { crashed: crash.sessionId } : {}) }
 }
 
 export function describeDiagnostics({ path, files, crashed }: DiagnosticsResult): string {
   const lines = [`Wrote ${path}, with ${files.join(", ")}.`]
-  if (crashed)
+
+  if (crashed) {
     lines.push(`crash.json is the latest run that didn't quit, ${crashed}; if Parity is open, that's this run.`)
+  }
+
   lines.push("Attach it to the bug, and check it first: logs can name your files and projects.")
+
   return lines.join("\n")
 }

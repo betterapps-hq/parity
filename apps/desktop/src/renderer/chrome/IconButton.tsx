@@ -1,6 +1,7 @@
 import { Button, Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import type { ReactNode } from "react"
 import { formatKeys } from "./keys.ts"
+
 interface IconButtonProps {
   label: string
   shortcut?: string

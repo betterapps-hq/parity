@@ -19,6 +19,7 @@ const listeners = new Set<() => void>()
  */
 export function askAboutUnsaved(names: string[], action: Question["action"]): Promise<UnsavedChoice> {
   question?.answer("cancel")
+
   return new Promise((resolve) => {
     question = {
       names,
@@ -42,6 +43,7 @@ export function useUnsavedQuestion(): Question | undefined {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => question
@@ -49,5 +51,7 @@ export function useUnsavedQuestion(): Question | undefined {
 }
 
 function notify(): void {
-  for (const listener of listeners) listener()
+  for (const listener of listeners) {
+    listener()
+  }
 }

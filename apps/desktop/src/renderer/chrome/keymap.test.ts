@@ -105,6 +105,7 @@ describe("shortcutFor", () => {
 
   it("never gives two commands the same keys", () => {
     const seen = new Map<string, string>()
+
     for (const [command, binding] of Object.entries(keymap)) {
       for (const keys of binding.keys) {
         expect(seen.get(keys), `${keys} is ${seen.get(keys)} and ${command}`).toBeUndefined()

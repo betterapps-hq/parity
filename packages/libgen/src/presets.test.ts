@@ -28,6 +28,7 @@ describe("theme objects", () => {
       breakpoints: { values: { xs: 0, sm: 600 } },
       typography: { fontSize: 14, h1: { fontSize: "6rem", lineHeight: 1.167 } }
     })
+
     const read = await presets["@mui/material"]!.theme!(modules({ "@mui/material/styles": { createTheme } }))
     expect(read.breakpoints).toEqual([{ id: "sm", name: expect.any(String), width: 600 }])
     expect(read.tokens.map((token) => token.var)).toEqual(
