@@ -1,8 +1,18 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 01:32:26 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 01:50:16 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.39.2
+
+Mon, 09 Nov 2026 01:50:16 GMT
+
+### Patches
+
+- Session Replay recordings scrub secrets from the window's text, and mask fields named as secrets
+  (ajcraswell@gmail.com)
+- Side panel tabs sit on a transparent strip, so they blend into the panel (ajcraswell@gmail.com)
 
 ## 0.39.1
 

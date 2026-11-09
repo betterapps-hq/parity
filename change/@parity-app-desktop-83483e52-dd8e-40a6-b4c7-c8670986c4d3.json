@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Side panel tabs sit on a transparent strip, so they blend into the panel",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

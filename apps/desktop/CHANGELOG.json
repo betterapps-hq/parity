@@ -2,6 +2,27 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 01:50:16 GMT",
+      "version": "0.39.2",
+      "tag": "@parity-app/desktop_v0.39.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5a04f62e10d82a2b9e84fcd38f870c4476de4fd0",
+            "comment": "Session Replay recordings scrub secrets from the window's text, and mask fields named as secrets"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f69127b5e2771a2c792ea93a9f25b9a7960a1ffe",
+            "comment": "Side panel tabs sit on a transparent strip, so they blend into the panel"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 01:32:26 GMT",
       "version": "0.39.1",
       "tag": "@parity-app/desktop_v0.39.1",
