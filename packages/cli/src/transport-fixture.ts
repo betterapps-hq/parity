@@ -85,23 +85,32 @@ export function emptyState<Tab>(tab: Tab) {
   }
 }
 
+/** What a CLI or MCP process the tests started exited with and wrote. */
+export interface ProcessResult {
+  code: number | null
+  stdout: string
+  stderr: string
+}
+
+/** The fake app's answers, what it was asked, and the CLI and MCP processes that ask it. */
+export interface TransportFixture {
+  response: AppAnswer
+  tabs: JsonValue[]
+  directory: string
+  requests: AppRequest[]
+  /** The CLI's own events from every process the tests started, oldest first (PAR-641). */
+  events(): JsonObject[]
+  /** Runs `parity` with these arguments, input and variables. */
+  run: (args: string[], input?: string, env?: Record<string, string | undefined>) => Promise<ProcessResult>
+  /** Calls one MCP tool, `execute` unless named, after initializing. */
+  mcp: (input: OperationInput, name?: string) => Promise<ProcessResult>
+}
+
 /**
  * Each test file owns its endpoint and subprocesses; no Electron or running app is needed. The endpoint answers the
  * CLI's routing question (`copy`) itself, with `fixture.tabs`, and records every other request.
  */
-export function transportFixture(defaultResult: AppAnswer["result"]) {
-  /** The fake app's answers, what it was asked, and the CLI and MCP processes that ask it. */
-  interface TransportFixture {
-    response: AppAnswer
-    tabs: JsonValue[]
-    directory: string
-    requests: AppRequest[]
-    /** The CLI's own events from every process the tests started, oldest first (PAR-641). */
-    events(): JsonObject[]
-    run: typeof run
-    mcp: typeof mcp
-  }
-
+export function transportFixture(defaultResult: AppAnswer["result"]): TransportFixture {
   const fixture: TransportFixture = {
     response: { result: defaultResult },
     tabs: [fixtureTab],
@@ -161,7 +170,7 @@ export function transportFixture(defaultResult: AppAnswer["result"]) {
   })
 
   function run(args: string[], input = "", env: Record<string, string | undefined> = {}) {
-    return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+    return new Promise<ProcessResult>((resolve, reject) => {
       const child = spawn(process.execPath, [bin, ...args], {
         env: {
           ...process.env,
