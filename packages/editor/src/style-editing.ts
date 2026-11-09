@@ -60,7 +60,7 @@ export type StyleEdit<K extends keyof NodeStyle = keyof NodeStyle> =
 
 /** An edit's values for one layer, from its style as shown in the state being edited. */
 export function styleValues(edit: StyleEdit, style: NodeStyle, layer: EditedLayer): StyleValues {
-  return typeof edit === "function" ? edit(style, layer) : edit
+  return edit instanceof Function ? edit(style, layer) : edit
 }
 
 /**
@@ -249,6 +249,7 @@ export function styleSelection(
     differs: (row) => keysOf(row).some((key) => mixed.includes(key)),
     edit: (_row, edit, measure) => {
       const values = layers.map((layer) =>
+        // SAFETY: an edit of a row's keys is an edit of style keys; `StyleEdit` takes the keys only to check callers.
         styleValues(edit as StyleEdit, layer.node.style ?? {}, {
           base: layer.base,
           measure: (axis, round = Math.round) => measure?.(layer.id, axis, round),
@@ -292,24 +293,36 @@ function layoutOf(node: DesignNode | undefined): ParentLayout | undefined {
   return { direction: style.direction ?? "column", grid: style.display === "grid" }
 }
 
+/** The style values several nodes share, and the properties set differently on some of them. */
+export interface SharedStyle {
+  common: NodeStyle
+  mixed: (keyof NodeStyle)[]
+}
+
 /** The style values every node shares, and the properties set differently on some of them. */
-export function sharedStyle(nodes: readonly DesignNode[]): { common: NodeStyle; mixed: (keyof NodeStyle)[] } {
-  const common: Record<string, unknown> = {}
+export function sharedStyle(nodes: readonly DesignNode[]): SharedStyle {
+  const common: NodeStyle = {}
   const mixed: (keyof NodeStyle)[] = []
+  const first = nodes[0]?.style ?? {}
 
   for (const name of styleKeys) {
     const values = nodes.map((node) => JSON.stringify(node.style?.[name]))
 
     if (values.every((value) => value === values[0])) {
-      if (nodes[0]?.style?.[name] !== undefined) {
-        common[name] = nodes[0].style[name]
-      }
+      copyStyleKey(first, common, name)
     } else {
       mixed.push(name)
     }
   }
 
-  return { common: common as NodeStyle, mixed }
+  return { common, mixed }
+}
+
+/** Copies one style property, when it's set. */
+function copyStyleKey<K extends keyof NodeStyle>(from: NodeStyle, to: NodeStyle, key: K): void {
+  if (from[key] !== undefined) {
+    to[key] = from[key]
+  }
 }
 
 /**
@@ -361,23 +374,25 @@ export function tidySides([top, right, bottom, left]: SideValues): Padding {
   return [top, right, bottom, left]
 }
 
-/** Some sides of padding or margin (0 is top, then clockwise), read from the first of them, in each layer's own. */
-export function sidesField<N extends "padding" | "margin">(
-  name: N,
-  indices: readonly number[]
-): {
+/** A length field's view of a layer's style: the length it shows, and the style a typed length writes. */
+export interface LengthField<K extends keyof NodeStyle> {
   read: (style: NodeStyle) => Length | undefined
-  write: (value: Length | undefined, style: NodeStyle) => Pick<StyleValues, N>
-} {
+  write: (value: Length | undefined, style: NodeStyle) => Pick<StyleValues, K>
+}
+
+/** Some sides of padding or margin (0 is top, then clockwise), read from the first of them, in each layer's own. */
+export function sidesField<N extends "padding" | "margin">(name: N, indices: readonly number[]): LengthField<N> {
   return {
     read: (style) => sidesOf(style[name])?.[indices[0]!],
     write: (value, style) => {
-      const next = [...(sidesOf(style[name]) ?? [0, 0, 0, 0])] as SideValues
+      const [top, right, bottom, left] = sidesOf(style[name]) ?? [0, 0, 0, 0]
+      const next: SideValues = [top, right, bottom, left]
 
       for (const index of indices) {
         next[index] = value ?? 0
       }
 
+      // SAFETY: the one key set is `name`, which is N, and padding and margin both take the sides' Padding.
       return { [name]: tidySides(next) } as Pick<StyleValues, N>
     }
   }
@@ -407,8 +422,19 @@ export function sizeEdit<A extends "width" | "height">(
   value: Size | undefined,
   parent: ParentLayout | undefined
 ): StyleEdit<RowKey<A>> {
-  return (style) =>
-    ({ [axis]: value, ...(grows(style, axis, parent) ? { grow: undefined } : {}) }) as Pick<StyleValues, RowKey<A>>
+  return (style) => sizeValues(axis, value, grows(style, axis, parent))
+}
+
+/** A size along `axis`, and `grow` taken away when it filled along it: the keys of the axis' row. */
+function sizeValues<A extends "width" | "height">(
+  axis: A,
+  value: Size | undefined,
+  clearsGrow: boolean
+): Pick<StyleValues, RowKey<A>> {
+  const values = clearsGrow ? { [axis]: value, grow: undefined } : { [axis]: value }
+
+  // SAFETY: the keys set are `axis`, which is A, and `grow`, which the width and the height rows both hold.
+  return values as Pick<StyleValues, RowKey<A>>
 }
 
 /**
@@ -418,19 +444,13 @@ export function sizeEdit<A extends "width" | "height">(
 export function sizeField<A extends "width" | "height">(
   axis: A,
   parent: ParentLayout | undefined
-): {
-  read: (style: NodeStyle) => Length | undefined
-  write: (value: Length | undefined, style: NodeStyle) => Pick<StyleValues, RowKey<A>>
-} {
+): LengthField<RowKey<A>> {
   return {
     read: (style) => fixedSize(shownSize(style, axis, parent)),
     write: (value, style) => {
       const size = shownSize(style, axis, parent)
 
-      return {
-        [axis]: value ?? (fixedSize(size) === undefined ? size : undefined),
-        ...(grows(style, axis, parent) ? { grow: undefined } : {})
-      } as Pick<StyleValues, RowKey<A>>
+      return sizeValues(axis, value ?? (fixedSize(size) === undefined ? size : undefined), grows(style, axis, parent))
     }
   }
 }

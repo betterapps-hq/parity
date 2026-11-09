@@ -670,8 +670,11 @@ function card(): ContainerSpec {
 
 const nothingDrawn: Drawn = { flow: () => undefined, insets: () => undefined }
 
-const order = (container: ContainerSpec, parent = "root") =>
-  (findNode(container.root, parent) as Extract<DesignNode, { type: "layout" }>).children.map((child) => child.id)
+const order = (container: ContainerSpec, parent = "root") => {
+  const layout = findNode(container.root, parent)
+
+  return layout?.type === "layout" ? layout.children.map((child) => child.id) : []
+}
 
 describe("nudging a design's layers", () => {
   const base = card().states[0]!

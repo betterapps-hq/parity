@@ -1,3 +1,5 @@
+import type { Point } from "./drop-slot.ts"
+
 /**
  * Where new designs go on the canvas: a new design to the right of everything, a component made from layers above
  * everything, and copies beside their originals in the first free space, panning to them when they land off screen.
@@ -31,7 +33,7 @@ const componentRise = 640
  * Where copies of designs go: to the right of the originals, top-aligned with them, at the first place along that row
  * where they keep `gap` clear of everything else on the canvas. Returns the copies' new top-left corner.
  */
-export function freeSpotBeside(original: Bounds, taken: readonly Bounds[], gap = designGap): { x: number; y: number } {
+export function freeSpotBeside(original: Bounds, taken: readonly Bounds[], gap = designGap): Point {
   const width = original.maxX - original.minX
   const height = original.maxY - original.minY
   const y = original.minY
@@ -55,7 +57,7 @@ export function freeSpotBeside(original: Bounds, taken: readonly Bounds[], gap =
  * Where a new design goes: `gap` to the right of everything on the canvas, top-aligned with the topmost design's
  * position, in whole pixels. On an empty canvas, `gap` from the origin.
  */
-export function rightOfEverything(designs: readonly PlacedDesign[], gap = 240): { x: number; y: number } {
+export function rightOfEverything(designs: readonly PlacedDesign[], gap = 240): Point {
   let right = 0
   let top = Infinity
 
@@ -71,10 +73,7 @@ export function rightOfEverything(designs: readonly PlacedDesign[], gap = 240): 
  * Where a component made from a design's layers goes: above everything on the canvas, lined up with the design it
  * came from, so components sit on top and screens below.
  */
-export function aboveEverything(
-  from: { x: number; y: number },
-  designs: readonly PlacedDesign[]
-): { x: number; y: number } {
+export function aboveEverything(from: Point, designs: readonly PlacedDesign[]): Point {
   let top = from.y
 
   for (const design of designs) {

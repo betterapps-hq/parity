@@ -9,6 +9,7 @@ import {
   withFreshIds
 } from "@parity-app/core"
 import { fitBindings } from "./clipboard.ts"
+import type { NewFrame } from "./frames.ts"
 import { componentLabel, type InsertContext, insertIntoDesign, type InsertItem } from "./insert.ts"
 
 /**
@@ -99,7 +100,7 @@ export function designOfItem(
   taken: Iterable<string>,
   at: { x: number; y: number },
   designName?: DesignName
-): { design: ContainerSpec; node: string } {
+): NewFrame {
   const empty = designOfLayers([], [], at)
   const { container, node } = insertIntoDesign(empty, { parent: empty.root.id }, item, context)
   const placed = findNode(container.root, node)

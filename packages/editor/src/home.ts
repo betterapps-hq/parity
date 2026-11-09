@@ -56,7 +56,7 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
 
   const beside = besideMode(modes)
 
-  return {
+  const home: ContainerSpec = {
     id: "home",
     name: "Home",
     kind: "screen",
@@ -70,9 +70,14 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
         : { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
       children: [content]
     },
-    states: [{ id: "default", name: "Default" }],
-    ...(beside ? { view: { modes: [beside] } } : {})
+    states: [{ id: "default", name: "Default" }]
   }
+
+  if (beside) {
+    home.view = { modes: [beside] }
+  }
+
+  return home
 }
 
 /**

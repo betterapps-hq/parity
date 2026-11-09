@@ -3,6 +3,7 @@ import {
   componentLibrary,
   defaultModeSettings,
   findNode,
+  type NodeStyle,
   parseCanvasDocument,
   resolveModes
 } from "@parity-app/core"
@@ -115,7 +116,7 @@ describe("a frame's size in the inspector", () => {
   })
 
   it("puts a fixed width or height back as the frame's size, and anything else as its default", () => {
-    const edit = (style: Record<string, unknown>) => {
+    const edit = (style: NodeStyle) => {
       const shown = frameRootShown(frame, 4)
 
       return frameRootStored({ ...shown, root: { ...shown.root, style: { ...shown.root.style, ...style } } }, 4)

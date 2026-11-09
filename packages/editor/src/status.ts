@@ -3,13 +3,20 @@ import { sameDesign, sameValue } from "./document-equality.ts"
 import { type DesignHistory, type SaveState, unsavedPaths } from "./history.ts"
 import { tokenWrites } from "./token-edits.ts"
 
+/** Designs a file's changes add, change and remove, by id. */
+export interface DesignIds {
+  added: string[]
+  changed: string[]
+  removed: string[]
+}
+
 /** A file whose changes are applied here but not on disk yet. */
 export interface UnsavedFile {
   path: string
   /** A project file, or the stylesheet that takes token values. */
   kind: "document" | "stylesheet"
   /** With a summary: the designs added, changed and removed since the file was loaded or saved, by id. */
-  designs?: { added: string[]; changed: string[]; removed: string[] }
+  designs?: DesignIds
   /** With a summary: whether the modes it carries changed. */
   modes?: boolean
   /** With a summary: the token values waiting for the stylesheet, as `name theme`. */
@@ -65,14 +72,14 @@ export function editStatus(history: DesignHistory, options: StatusOptions = {}):
     if (kind === "stylesheet") {
       const names = tokens.map((change) => `${change.name} ${change.theme}`)
 
-      return { path, kind, tokens: names.slice(0, limit), ...more(names.length - limit) }
+      return withMore({ path, kind, tokens: names.slice(0, limit) }, names.length - limit)
     }
 
     const designs = designChanges(history.current.documents.get(path), history.saved.documents.get(path))
     const modes = path === history.mainPath && !sameValue(history.current.modes, history.saved.modes)
     const all = designs.added.length + designs.changed.length + designs.removed.length
 
-    const kept = {
+    const kept: DesignIds = {
       added: designs.added.slice(0, limit),
       changed: designs.changed.slice(0, limit),
       removed: designs.removed.slice(0, limit)
@@ -80,20 +87,27 @@ export function editStatus(history: DesignHistory, options: StatusOptions = {}):
 
     const shown = kept.added.length + kept.changed.length + kept.removed.length
 
-    return { path, kind, designs: kept, ...(modes ? { modes } : {}), ...more(all - shown) }
+    const file: UnsavedFile = { path, kind, designs: kept }
+
+    if (modes) {
+      file.modes = modes
+    }
+
+    return withMore(file, all - shown)
   })
 
-  const side = (steps: readonly { label: string }[]): HistorySide => ({
-    count: steps.length,
-    ...(summary
-      ? {
-          labels: steps
-            .slice(-limit)
-            .map((step) => step.label)
-            .reverse()
-        }
-      : {})
-  })
+  const side = (steps: readonly { label: string }[]): HistorySide => {
+    const listed: HistorySide = { count: steps.length }
+
+    if (summary) {
+      listed.labels = steps
+        .slice(-limit)
+        .map((step) => step.label)
+        .reverse()
+    }
+
+    return listed
+  }
 
   return {
     revision: history.revision,
@@ -107,15 +121,13 @@ export function editStatus(history: DesignHistory, options: StatusOptions = {}):
   }
 }
 
-function more(count: number): { more?: number } {
-  return count > 0 ? { more: count } : {}
+/** The file, with how many ids the limit left out when it left any out. */
+function withMore(file: UnsavedFile, count: number): UnsavedFile {
+  return count > 0 ? { ...file, more: count } : file
 }
 
 /** The designs a file's current content adds, changes and removes against what the file holds, by id. */
-function designChanges(
-  current: CanvasDocument | undefined,
-  saved: CanvasDocument | undefined
-): { added: string[]; changed: string[]; removed: string[] } {
+function designChanges(current: CanvasDocument | undefined, saved: CanvasDocument | undefined): DesignIds {
   const before = new Map((saved?.containers ?? []).map((container) => [container.id, container]))
   const after = new Map((current?.containers ?? []).map((container) => [container.id, container]))
   const added = [...after.keys()].filter((id) => !before.has(id))

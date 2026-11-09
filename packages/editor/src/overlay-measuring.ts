@@ -59,11 +59,11 @@ export function measuresNext(at: { now: number; until: number; showing: boolean;
 }
 
 /** What in tldraw's store only moves the view: the camera, the pointer, and whether the camera is moving. */
-const viewChanges: Record<string, ReadonlySet<string> | "any"> = {
-  camera: "any",
-  pointer: "any",
-  instance: new Set(["cameraState"])
-}
+const viewChanges: ReadonlyMap<string, ReadonlySet<string> | "any"> = new Map<string, ReadonlySet<string> | "any">([
+  ["camera", "any"],
+  ["pointer", "any"],
+  ["instance", new Set(["cameraState"])]
+])
 
 /**
  * Whether a change to tldraw's store only moves the view, which needn't wake measuring every frame (PAR-653): the camera,
@@ -80,7 +80,7 @@ export function movesOnlyTheView(change: {
   }
 
   return change.updated.every(({ type, fields }) => {
-    const view = viewChanges[type]
+    const view = viewChanges.get(type)
 
     return view === "any" || (view !== undefined && fields.every((field) => view.has(field)))
   })

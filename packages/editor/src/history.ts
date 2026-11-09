@@ -410,8 +410,8 @@ export function writeSucceeded(history: DesignHistory, write: FileWrite): Design
  * A write failed: the file keeps its changes, unsaved, and the save state says why. A failed write to the stylesheet
  * names the tokens and the file.
  */
-export function writeFailed(history: DesignHistory, write: FileWrite, error: unknown): DesignHistory {
-  const reason = error instanceof Error ? error.message : String(error)
+export function writeFailed(history: DesignHistory, write: FileWrite, cause: unknown): DesignHistory {
+  const reason = cause instanceof Error ? cause.message : String(cause)
   const failures = new Map(history.failures)
   let { tokenFailure } = history
 
@@ -457,16 +457,33 @@ export function mergedDocument(history: DesignHistory): CanvasDocument {
   const detection = main?.detection
   const sources = main?.sources
 
-  return {
-    version: 3,
-    containers: all.flatMap((document) => document.containers),
-    ...(notes.length > 0 ? { notes } : {}),
-    ...(custom ? { modes } : {}),
-    ...(detection ? { detection } : {}),
-    ...(objects.length > 0 ? { objects } : {}),
-    ...(links.length > 0 ? { links } : {}),
-    ...(sources ? { sources } : {})
+  const merged: CanvasDocument = { version: 3, containers: all.flatMap((document) => document.containers) }
+
+  if (notes.length > 0) {
+    merged.notes = notes
   }
+
+  if (custom) {
+    merged.modes = modes
+  }
+
+  if (detection) {
+    merged.detection = detection
+  }
+
+  if (objects.length > 0) {
+    merged.objects = objects
+  }
+
+  if (links.length > 0) {
+    merged.links = links
+  }
+
+  if (sources) {
+    merged.sources = sources
+  }
+
+  return merged
 }
 
 function firstOfEach<T>(items: T[], key: (item: T) => string): T[] {

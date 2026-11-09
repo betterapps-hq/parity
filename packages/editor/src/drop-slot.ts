@@ -65,7 +65,13 @@ export function flowOf(style: FlowStyle, children: readonly Rect[] = []): Flow {
 
     const stride = trackCount(style.gridTemplateColumns, children)
 
-    return { direction: "row", wraps: true, reversed: rtl, linesReversed: false, ...(stride ? { stride } : {}) }
+    const flow: Flow = { direction: "row", wraps: true, reversed: rtl, linesReversed: false }
+
+    if (stride) {
+      flow.stride = stride
+    }
+
+    return flow
   }
 
   if (style.display.includes("flex")) {
