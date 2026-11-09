@@ -15,7 +15,8 @@ import { mergeWrites } from "./writes.ts"
  * token is a chip, and a typed % becomes its multiple. Unset beside a size token, the size's paired line height shows
  * faintly, labeled From size, and a set one is written beside the size (`text-sm/6`). A multiple above 4 asks whether
  * pixels were meant, and pixels below 4 a multiple. Letter spacing is a % of the font size, as Figma's is, written as
- * em, or px when typed in px; tracking tokens are chips. The unit after each opens its menu; the icons scrub.
+ * em, or px when typed in px; tracking tokens are chips. The unit after each opens its menu; the icons scrub. Each
+ * story's text has the size its name gives (`text-sm` unless it says otherwise), set in Text's own Size field.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Line height and letter spacing",
@@ -73,14 +74,6 @@ function TextSpacing({
         />
       }
     >
-      <Field
-        label="Size"
-        hint="The text's size, which line height is written beside and converts with. It's its own field in Text."
-      >
-        <span className="text-xs text-muted-foreground">
-          {size ? `text-${size.name}, ${size.px}px` : "16px, no token"}
-        </span>
-      </Field>
       <Field label="Line height" mixed={mixed && lineHeight === undefined}>
         <LineHeightField value={lineHeight} size={size} fontSize={fontSize} mixed={mixed} onChange={setLineHeight} />
       </Field>
