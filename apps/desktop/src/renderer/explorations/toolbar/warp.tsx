@@ -191,12 +191,15 @@ function warp({
   }
 }
 
-/** The warping toolbar on its own, a little above the middle of the story. */
+/**
+ * The warping toolbar on its own, a little above the middle of the story. The stage is isolated like the app's canvas
+ * area, so the toolbar's z-index stays inside it and its menus open over the review bar.
+ */
 export function WarpStage() {
   return (
     <TooltipProvider>
       <ProjectContext value={example()}>
-        <div className="relative h-screen bg-background text-foreground">
+        <div className="relative isolate h-screen bg-background text-foreground">
           <div className="absolute inset-x-0 top-1/2">
             <WarpToolbar />
           </div>
